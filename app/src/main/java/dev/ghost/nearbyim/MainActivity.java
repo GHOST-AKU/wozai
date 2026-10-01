@@ -6,6 +6,7 @@ import android.app.*;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothManager;
 import android.content.*;
+import android.content.ClipboardManager;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Color;
