@@ -30,6 +30,9 @@ for path, tree in trees:
             for kind, name in re.findall(r'@([a-z_]+)/([A-Za-z0-9_.]+)', value):
                 if (kind, name) not in known:
                     errors.append(f'{path.relative_to(root)}: unknown @{kind}/{name}')
+            for name in re.findall(r'\?attr/([A-Za-z0-9_.]+)', value):
+                if ('attr', name) not in known:
+                    errors.append(f'{path.relative_to(root)}: unknown ?attr/{name}')
 for path in sorted((root / 'app/src/main/java').rglob('*.java')):
     for kind, name in re.findall(r'(?<![\w.])R\.([a-z_]+)\.([A-Za-z0-9_]+)', path.read_text()):
         if kind != 'id' and (kind, name) not in known:

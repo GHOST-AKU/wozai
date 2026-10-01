@@ -10,11 +10,11 @@ No third-party Android UI or networking library is bundled with application sour
 
 ## Google Material Icons
 
-The ten `app/src/main/res/drawable/outline_*_24.xml` vector icons are unmodified Material Icons Outlined assets from Google's official repository, retrieved on 2026-10-01:
+The ten `app/src/main/res/drawable/outline_*_24.xml` vector icons are Material Icons Outlined assets from Google's official repository, retrieved on 2026-10-01:
 
 https://github.com/google/material-design-icons
 
-Licensed under Apache License, Version 2.0. The upstream license is retained at `docs/licenses/material-icons-LICENSE.txt`. Runtime tint and drawable bounds are set by the application.
+Licensed under Apache License, Version 2.0. The upstream license is retained at `docs/licenses/material-icons-LICENSE.txt`. Each vector is adapted to reference the framework `?android:attr/colorControlNormal` instead of the library-specific `?attr/colorControlNormal`; paths and dimensions are unchanged. Runtime tint and drawable bounds are set by the application.
 
 | Asset | Upstream directory beneath `android/` |
 | --- | --- |
