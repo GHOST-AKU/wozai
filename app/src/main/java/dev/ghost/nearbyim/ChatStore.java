@@ -4,15 +4,29 @@ import android.content.*;
 import android.database.Cursor;
 import android.database.sqlite.*;
 import dev.ghost.nearbyim.core.Frame;
+import dev.ghost.nearbyim.storage.StoreSchema;
 import java.util.*;
 
 /** Access exclusively on ChatController's storage executor. */
 public final class ChatStore extends SQLiteOpenHelper {
     public static final String PENDING = "待确认", DELIVERED = "已送达", UNKNOWN = "未确认";
     public static final class Conversation {
-        public final String id, name;
+        public final String id, name, preview, state;
+        public final boolean outgoing;
         public final long time;
-        Conversation(String id, String name, long time) { this.id = id; this.name = name; this.time = time; }
+        public Conversation(String id, String name, long time) { this(id, name, time, "", false, ""); }
+        public Conversation(String id, String name, long time, String preview, boolean outgoing, String state) {
+            this.id = id; this.name = name; this.time = time; this.preview = preview; this.outgoing = outgoing; this.state = state;
+        }
+    }
+    public static final class TrustedDevice {
+        public final String id, name, publicKey, bluetoothAddress;
+        public final long time;
+        public final int mode;
+        TrustedDevice(String id, String name, String publicKey, long time, int mode, String bluetoothAddress) {
+            this.id = id; this.name = name; this.publicKey = publicKey; this.time = time;
+            this.mode = mode; this.bluetoothAddress = bluetoothAddress;
+        }
     }
     public static final class Message {
         public final String id, text, state;
@@ -22,17 +36,24 @@ public final class ChatStore extends SQLiteOpenHelper {
             this.id = id; this.text = text; this.state = state; this.outgoing = outgoing; this.time = time;
         }
     }
-    public ChatStore(Context context) { super(context, "nearby-im.db", null, 1); }
+    public ChatStore(Context context) { super(context, "nearby-im.db", null, StoreSchema.VERSION); }
     public void onCreate(SQLiteDatabase db) {
-        db.execSQL("CREATE TABLE conversations (peer_id TEXT PRIMARY KEY, name TEXT NOT NULL, updated INTEGER NOT NULL)");
-        db.execSQL("CREATE TABLE messages (peer_id TEXT NOT NULL, id TEXT NOT NULL, body TEXT NOT NULL, outgoing INTEGER NOT NULL, state TEXT NOT NULL, time INTEGER NOT NULL, received INTEGER NOT NULL, PRIMARY KEY(peer_id,id,outgoing))");
-        db.execSQL("CREATE INDEX messages_timeline ON messages(peer_id,received)");
+        db.execSQL(StoreSchema.CREATE_CONVERSATIONS);
+        db.execSQL(StoreSchema.CREATE_MESSAGES);
+        db.execSQL(StoreSchema.CREATE_MESSAGE_INDEX);
+        db.execSQL(StoreSchema.CREATE_TRUST);
     }
-    public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) { throw new IllegalStateException("Unknown schema upgrade"); }
+    public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+        if (oldVersion == 1 && newVersion == StoreSchema.VERSION) {
+            // Only add authorization storage: UUID-only history has no key proof.
+            db.execSQL(StoreSchema.CREATE_TRUST); return;
+        }
+        throw new IllegalStateException("Unknown schema upgrade");
+    }
     public void touch(String peerId, String name) {
-        ContentValues values = new ContentValues(); values.put("peer_id", peerId); values.put("name", name); values.put("updated", System.currentTimeMillis());
-        if (getWritableDatabase().insertWithOnConflict("conversations", null, values, SQLiteDatabase.CONFLICT_REPLACE) < 0)
-            throw new SQLiteException("Conversation metadata could not be saved");
+        SQLiteDatabase db = getWritableDatabase();
+        db.execSQL(StoreSchema.TOUCH_INSERT, new Object[]{peerId, name});
+        db.execSQL(StoreSchema.TOUCH_UPDATE, new Object[]{name, peerId});
     }
     public void save(String peerId, String name, Frame frame, boolean outgoing) {
         SQLiteDatabase db = getWritableDatabase(); db.beginTransaction();
@@ -74,12 +95,46 @@ public final class ChatStore extends SQLiteOpenHelper {
     }
     public List<Conversation> conversations() {
         List<Conversation> list = new ArrayList<>();
-        try (Cursor cursor = getReadableDatabase().query("conversations", new String[]{"peer_id", "name", "updated"}, null, null, null, null, "updated DESC", "100")) {
-            while (cursor.moveToNext()) list.add(new Conversation(cursor.getString(0), cursor.getString(1), cursor.getLong(2)));
+        try (Cursor cursor = getReadableDatabase().rawQuery(StoreSchema.CONVERSATIONS, null)) {
+            while (cursor.moveToNext()) list.add(new Conversation(cursor.getString(0), cursor.getString(1), cursor.getLong(2),
+                    cursor.getString(3), cursor.getInt(4) == 1, cursor.getString(5)));
         }
         return list;
     }
     public void clear(String peerId) {
-        getWritableDatabase().delete("messages", "peer_id=?", new String[]{peerId});
+        getWritableDatabase().execSQL(StoreSchema.CLEAR_MESSAGES, new Object[]{peerId});
     }
+    public TrustedDevice trusted(String peerId) {
+        try (Cursor cursor = getReadableDatabase().query("trusted_devices",
+                new String[]{"peer_id", "name", "public_key", "last_connected", "mode", "bluetooth_address"},
+                "peer_id=?", new String[]{peerId}, null, null, null)) {
+            return cursor.moveToFirst() ? trustedRow(cursor) : null;
+        }
+    }
+    public List<TrustedDevice> trustedDevices() {
+        List<TrustedDevice> list = new ArrayList<>();
+        try (Cursor cursor = getReadableDatabase().query("trusted_devices",
+                new String[]{"peer_id", "name", "public_key", "last_connected", "mode", "bluetooth_address"},
+                null, null, null, null, "last_connected DESC, peer_id")) {
+            while (cursor.moveToNext()) list.add(trustedRow(cursor));
+        }
+        return list;
+    }
+    private static TrustedDevice trustedRow(Cursor cursor) {
+        return new TrustedDevice(cursor.getString(0), cursor.getString(1), cursor.getString(2),
+                cursor.getLong(3), cursor.getInt(4), cursor.isNull(5) ? null : cursor.getString(5));
+    }
+    public void remember(String peerId, String name, String key, int mode, String bluetoothAddress) {
+        SQLiteDatabase db = getWritableDatabase(); db.beginTransaction();
+        try {
+            db.execSQL(StoreSchema.REMEMBER_TRUST, new Object[]{peerId, key, name, System.currentTimeMillis(), mode, bluetoothAddress});
+            TrustedDevice saved = trusted(peerId);
+            if (saved == null || !key.equals(saved.publicKey)) throw new SQLiteException("Device identity changed");
+            touch(peerId, name); db.setTransactionSuccessful();
+        } finally { db.endTransaction(); }
+    }
+    public void revokeTrust(String peerId) {
+        getWritableDatabase().execSQL(StoreSchema.REVOKE_TRUST, new Object[]{peerId});
+    }
+
 }

@@ -20,7 +20,7 @@ public final class BluetoothTransport {
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService worker = Executors.newCachedThreadPool();
     private final ScheduledExecutorService timer = Executors.newSingleThreadScheduledExecutor();
-    private final AtomicInteger epoch = new AtomicInteger();
+    private final AtomicInteger epoch = new AtomicInteger(), connectEpoch = new AtomicInteger();
     private final Object lock = new Object();
     private BluetoothServerSocket server;
     private BluetoothSocket pending;
@@ -32,12 +32,13 @@ public final class BluetoothTransport {
         adapter = manager == null ? null : manager.getAdapter();
     }
     public boolean available() { return adapter != null; }
-    public boolean enabled() { return adapter != null && adapter.isEnabled(); }
+    public boolean enabled() { try { return adapter != null && adapter.isEnabled(); } catch (RuntimeException denied) { return false; } }
     public void start() {
         stop(); final int run = epoch.get();
         try {
             if (!enabled()) { listener.onError(Peer.BLUETOOTH, "请先打开蓝牙", true); return; }
             IntentFilter filter = new IntentFilter(); filter.addAction(BluetoothDevice.ACTION_FOUND); filter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
+            filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED); filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
             if (Build.VERSION.SDK_INT >= 33) context.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED);
             else context.registerReceiver(receiver, filter);
             registered = true;
@@ -49,7 +50,7 @@ public final class BluetoothTransport {
                 main.post(() -> { if (run == epoch.get()) listener.onListening(Peer.BLUETOOTH, "蓝牙接收已开启 · 对方搜索前请允许被发现"); });
                 while (run == epoch.get()) {
                     BluetoothSocket socket = opened.accept();
-                    main.post(() -> { if (run == epoch.get()) listener.onConnection(Peer.BLUETOOTH, wrap(socket), true); else close(socket); });
+                    main.post(() -> { if (run == epoch.get()) deliver(socket, true); else close(socket); });
                 }
             } catch (IOException | RuntimeException e) { main.post(() -> { if (run == epoch.get()) { stop(); listener.onError(Peer.BLUETOOTH, "蓝牙接收已停止，请检查蓝牙开关和权限", true); } }); }
         });
@@ -60,6 +61,10 @@ public final class BluetoothTransport {
             if (BluetoothDevice.ACTION_FOUND.equals(intent.getAction())) {
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
                 if (device != null) report(device);
+            } else if (BluetoothAdapter.ACTION_DISCOVERY_STARTED.equals(intent.getAction())) {
+                listener.onSearching(Peer.BLUETOOTH, true);
+            } else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(intent.getAction())) {
+                listener.onSearching(Peer.BLUETOOTH, false);
             } else if (BluetoothAdapter.ACTION_STATE_CHANGED.equals(intent.getAction())
                     && intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR) == BluetoothAdapter.STATE_OFF) {
                 stop(); listener.onError(Peer.BLUETOOTH, "蓝牙已关闭", true);
@@ -80,26 +85,39 @@ public final class BluetoothTransport {
             if (!adapter.startDiscovery()) listener.onError(Peer.BLUETOOTH, "搜索没有启动，可尝试已配对设备；Android 11 及以前需打开系统定位", false);
         } catch (RuntimeException e) { listener.onError(Peer.BLUETOOTH, "蓝牙搜索失败，请检查附近设备或定位权限", false); }
     }
+    public void stopSearch() {
+        try { if (adapter != null) { adapter.cancelDiscovery(); if (!adapter.isDiscovering()) listener.onSearching(Peer.BLUETOOTH, false); } }
+        catch (RuntimeException denied) { listener.onSearching(Peer.BLUETOOTH, false); listener.onError(Peer.BLUETOOTH, "无法停止搜索，请检查蓝牙权限", false); }
+    }
+    public void cancelConnect() {
+        connectEpoch.incrementAndGet(); synchronized (lock) { close(pending); pending = null; }
+    }
     public void connect(String address) {
-        final int run = epoch.get();
+        final int run = epoch.get(), attempt = connectEpoch.incrementAndGet();
         worker.execute(() -> {
             BluetoothSocket socket = null; ScheduledFuture<?> timeout = null;
             try {
-                adapter.cancelDiscovery();
+                // A remembered address needs CONNECT only on Android 12+.
+                // Cancel discovery when SCAN permission exists, otherwise still try the link.
+                try { adapter.cancelDiscovery(); } catch (SecurityException scanNotGranted) {}
                 socket = adapter.getRemoteDevice(address).createRfcommSocketToServiceRecord(SERVICE);
-                synchronized (lock) { if (run != epoch.get()) { socket.close(); return; } pending = socket; }
+                synchronized (lock) { if (run != epoch.get() || attempt != connectEpoch.get()) { socket.close(); return; } pending = socket; }
                 final BluetoothSocket connecting = socket;
                 timeout = timer.schedule(() -> close(connecting), 30, TimeUnit.SECONDS);
                 socket.connect(); timeout.cancel(false);
                 synchronized (lock) { if (pending == socket) pending = null; }
                 final BluetoothSocket connected = socket;
-                main.post(() -> { if (run == epoch.get()) listener.onConnection(Peer.BLUETOOTH, wrap(connected), false); else close(connected); });
+                main.post(() -> { if (run == epoch.get() && connectEpoch.get() == attempt) deliver(connected, false); else close(connected); });
             } catch (IOException | RuntimeException e) {
                 if (timeout != null) timeout.cancel(false); close(socket);
                 synchronized (lock) { if (pending == socket) pending = null; }
-                main.post(() -> { if (run == epoch.get()) listener.onConnectFailed(Peer.BLUETOOTH, "蓝牙连接失败：确认对方安装我在并开启接收；配对提示需要双方确认"); });
+                main.post(() -> { if (run == epoch.get() && connectEpoch.get() == attempt) listener.onConnectFailed(Peer.BLUETOOTH, "蓝牙连接失败：确认对方安装我在并开启接收；配对提示需要双方确认"); });
             }
         });
+    }
+    private void deliver(BluetoothSocket socket, boolean incoming) {
+        try { listener.onConnection(Peer.BLUETOOTH, wrap(socket), incoming, socket.getRemoteDevice().getAddress()); }
+        catch (SecurityException denied) { close(socket); listener.onError(Peer.BLUETOOTH, "蓝牙权限已撤销，请重新授权", false); }
     }
     private StreamConnection wrap(BluetoothSocket socket) {
         return new StreamConnection() {
@@ -110,7 +128,7 @@ public final class BluetoothTransport {
         };
     }
     public void stop() {
-        epoch.incrementAndGet();
+        epoch.incrementAndGet(); cancelConnect(); listener.onSearching(Peer.BLUETOOTH, false);
         if (adapter != null) try { adapter.cancelDiscovery(); } catch (SecurityException ignored) {}
         if (registered) { try { context.unregisterReceiver(receiver); } catch (IllegalArgumentException ignored) {} registered = false; }
         synchronized (lock) { close(server); server = null; close(pending); pending = null; }

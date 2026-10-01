@@ -6,5 +6,7 @@ try {
     & java -m jdk.compiler/com.sun.tools.javac.Main -encoding UTF-8 -d build/core-tests @sourceFiles
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     & java -cp build/core-tests dev.ghost.nearbyim.core.CoreTests
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    & java -cp build/core-tests dev.ghost.nearbyim.core.AuthenticationTests
     exit $LASTEXITCODE
 } finally { Pop-Location }

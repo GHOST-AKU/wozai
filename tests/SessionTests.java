@@ -3,7 +3,6 @@ package dev.ghost.nearbyim.core;
 import java.io.*;
 import java.net.*;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
 
 public final class SessionTests {
     static final class Events implements FramedSession.Listener {
@@ -24,14 +23,28 @@ public final class SessionTests {
             public void close() throws IOException { socket.close(); }
         };
     }
+    static final class RawPeer {
+        final Socket socket;
+        final AuthenticatedChannel channel;
+        RawPeer(Socket socket) throws Exception {
+            this.socket = socket;
+            channel = new AuthenticatedChannel(DeviceIdentity.generate(), new Frame(Frame.HELLO, CoreTests.B, "对方", 1));
+        }
+        void handshake() throws IOException {
+            channel.readOffer(socket.getInputStream()); channel.writeOffer(socket.getOutputStream());
+            channel.writeProof(socket.getOutputStream()); channel.readProof(socket.getInputStream());
+        }
+        void write(Frame frame) throws IOException { channel.write(socket.getOutputStream(), frame); }
+        Frame read() throws IOException { return channel.read(socket.getInputStream()); }
+    }
     static final class Pair implements AutoCloseable {
         final Events ea = new Events(), eb = new Events();
         final FramedSession a, b;
-        Pair() throws IOException {
+        Pair() throws Exception {
             try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getLoopbackAddress())) {
                 Socket client = new Socket(InetAddress.getLoopbackAddress(), server.getLocalPort());
-                a = new FramedSession(connection(client), CoreTests.A, "志豪", ea);
-                b = new FramedSession(connection(server.accept()), CoreTests.B, "朋友", eb);
+                a = new FramedSession(connection(client), CoreTests.A, "志豪", DeviceIdentity.generate(), ea);
+                b = new FramedSession(connection(server.accept()), CoreTests.B, "朋友", DeviceIdentity.generate(), eb);
             }
             a.start(); b.start();
         }
@@ -80,11 +93,10 @@ public final class SessionTests {
                  Socket raw = new Socket(InetAddress.getLoopbackAddress(), server.getLocalPort())) {
                 raw.setSoTimeout(2000);
                 Events events = new Events();
-                FramedSession session = new FramedSession(connection(server.accept()), CoreTests.A, "测试", events);
+                FramedSession session = new FramedSession(connection(server.accept()), CoreTests.A, "测试", DeviceIdentity.generate(), events);
                 try {
-                    session.start(); Protocol.read(raw.getInputStream());
-                    Protocol.write(raw.getOutputStream(), new Frame(Frame.HELLO, CoreTests.B, "对方", 1));
-                    Protocol.write(raw.getOutputStream(), new Frame(Frame.TEXT, CoreTests.B, "injection", 1));
+                    session.start(); RawPeer peer = new RawPeer(raw); peer.handshake();
+                    peer.write(new Frame(Frame.TEXT, CoreTests.B, "injection", 1));
                     CoreTests.check(events.closed.poll(2, TimeUnit.SECONDS) != null && events.text.isEmpty(), "Premature text accepted");
                 } finally { session.close("cleanup"); }
             }
@@ -99,7 +111,7 @@ public final class SessionTests {
                         int flushes;
                         public void flush() throws IOException {
                             super.flush();
-                            if (++flushes == 2) try {
+                            if (++flushes == 3) try {
                                 if (!releaseFlush.await(2, TimeUnit.SECONDS)) throw new IOException("Test gate timed out");
                             } catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new IOException(e); }
                         }
@@ -109,14 +121,13 @@ public final class SessionTests {
                     public String label() { return "gated TCP"; }
                     public void close() throws IOException { releaseFlush.countDown(); local.close(); }
                 };
-                FramedSession session = new FramedSession(gated, CoreTests.A, "本机", events);
+                FramedSession session = new FramedSession(gated, CoreTests.A, "本机", DeviceIdentity.generate(), events);
                 try {
-                    session.start(); Protocol.read(raw.getInputStream());
-                    Protocol.write(raw.getOutputStream(), new Frame(Frame.HELLO, CoreTests.B, "对方", 1));
-                    Protocol.write(raw.getOutputStream(), new Frame(Frame.READY, "", "", 1));
+                    session.start(); RawPeer peer = new RawPeer(raw); peer.handshake();
+                    peer.write(new Frame(Frame.READY, "", "", 1));
                     CoreTests.check(events.hello.poll(2, TimeUnit.SECONDS) != null, "No greeting"); session.approve();
-                    CoreTests.check(Protocol.read(raw.getInputStream()).type == Frame.READY, "No local approval");
-                    Protocol.write(raw.getOutputStream(), new Frame(Frame.TEXT, CoreTests.B, "immediate", 1));
+                    CoreTests.check(peer.read().type == Frame.READY, "No local approval");
+                    peer.write(new Frame(Frame.TEXT, CoreTests.B, "immediate", 1));
                     Frame received = events.text.poll(1, TimeUnit.SECONDS);
                     CoreTests.check(received != null && received.body.equals("immediate"), "Valid immediate message rejected");
                 } finally { releaseFlush.countDown(); session.close("cleanup"); }
@@ -126,14 +137,13 @@ public final class SessionTests {
             try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getLoopbackAddress());
                  Socket raw = new Socket(InetAddress.getLoopbackAddress(), server.getLocalPort())) {
                 raw.setSoTimeout(2000); Events events = new Events();
-                FramedSession session = new FramedSession(connection(server.accept()), CoreTests.A, "本机", events);
+                FramedSession session = new FramedSession(connection(server.accept()), CoreTests.A, "本机", DeviceIdentity.generate(), events);
                 try {
-                    session.start(); Protocol.read(raw.getInputStream());
-                    Protocol.write(raw.getOutputStream(), new Frame(Frame.HELLO, CoreTests.B, "对方", 1));
-                    Protocol.write(raw.getOutputStream(), new Frame(Frame.READY, "", "", 1));
+                    session.start(); RawPeer peer = new RawPeer(raw); peer.handshake();
+                    peer.write(new Frame(Frame.READY, "", "", 1));
                     CoreTests.check(events.hello.poll(2, TimeUnit.SECONDS) != null, "No greeting"); session.approve();
-                    Protocol.read(raw.getInputStream()); CoreTests.check(events.ready.await(2, TimeUnit.SECONDS), "Not connected");
-                    for (int i = 0; i < 33; i++) Protocol.write(raw.getOutputStream(), new Frame(Frame.TEXT, java.util.UUID.randomUUID().toString(), "burst", 1));
+                    peer.read(); CoreTests.check(events.ready.await(2, TimeUnit.SECONDS), "Not connected");
+                    for (int i = 0; i < 33; i++) peer.write(new Frame(Frame.TEXT, java.util.UUID.randomUUID().toString(), "burst", 1));
                     CoreTests.check(events.closed.poll(2, TimeUnit.SECONDS) != null && events.text.size() == 32, "Incoming queue is unbounded");
                 } finally { session.close("cleanup"); }
             }
@@ -142,16 +152,49 @@ public final class SessionTests {
             try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getLoopbackAddress());
                  Socket raw = new Socket(InetAddress.getLoopbackAddress(), server.getLocalPort())) {
                 raw.setSoTimeout(2000); Events events = new Events();
-                FramedSession session = new FramedSession(connection(server.accept()), CoreTests.A, "本机", events);
+                FramedSession session = new FramedSession(connection(server.accept()), CoreTests.A, "本机", DeviceIdentity.generate(), events);
                 try {
-                    session.start(); Protocol.read(raw.getInputStream());
-                    Protocol.write(raw.getOutputStream(), new Frame(Frame.HELLO, CoreTests.B, "对方", 1));
-                    Protocol.write(raw.getOutputStream(), new Frame(Frame.READY, "", "", 1));
+                    session.start(); RawPeer peer = new RawPeer(raw); peer.handshake();
+                    peer.write(new Frame(Frame.READY, "", "", 1));
                     CoreTests.check(events.hello.poll(2, TimeUnit.SECONDS) != null, "No greeting"); session.approve();
-                    Protocol.read(raw.getInputStream()); CoreTests.check(events.ready.await(2, TimeUnit.SECONDS), "Not connected");
-                    Protocol.write(raw.getOutputStream(), new Frame(Frame.ACK, CoreTests.B, "", 1));
+                    peer.read(); CoreTests.check(events.ready.await(2, TimeUnit.SECONDS), "Not connected");
+                    peer.write(new Frame(Frame.ACK, CoreTests.B, "", 1));
                     CoreTests.check(events.ack.poll(200, TimeUnit.MILLISECONDS) == null, "Unknown receipt accepted");
                 } finally { session.close("cleanup"); }
+            }
+        });
+        CoreTests.test("Slow authenticated writer has a bounded 64-operation queue", () -> {
+            CountDownLatch releaseFlush = new CountDownLatch(1);
+            try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getLoopbackAddress());
+                 Socket raw = new Socket(InetAddress.getLoopbackAddress(), server.getLocalPort())) {
+                raw.setSoTimeout(2000); Socket local = server.accept(); Events events = new Events();
+                StreamConnection gated = new StreamConnection() {
+                    final OutputStream output = new FilterOutputStream(local.getOutputStream()) {
+                        int flushes;
+                        public void flush() throws IOException {
+                            super.flush();
+                            if (++flushes == 4) try {
+                                if (!releaseFlush.await(3, TimeUnit.SECONDS)) throw new IOException("Test gate timed out");
+                            } catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new IOException(e); }
+                        }
+                    };
+                    public InputStream input() throws IOException { return local.getInputStream(); }
+                    public OutputStream output() { return output; }
+                    public String label() { return "slow TCP"; }
+                    public void close() throws IOException { releaseFlush.countDown(); local.close(); }
+                };
+                FramedSession session = new FramedSession(gated, CoreTests.A, "本机", DeviceIdentity.generate(), events);
+                try {
+                    session.start(); RawPeer peer = new RawPeer(raw); peer.handshake();
+                    peer.write(new Frame(Frame.READY, "", "", 1));
+                    CoreTests.check(events.hello.poll(2, TimeUnit.SECONDS) != null, "No greeting"); session.approve();
+                    CoreTests.check(peer.read().type == Frame.READY && events.ready.await(2, TimeUnit.SECONDS), "Not connected");
+                    peer.write(new Frame(Frame.PING, "", "", 1));
+                    CoreTests.check(peer.read().type == Frame.PONG, "Writer did not reach gate");
+                    for (int i = 0; i < 65; i++) peer.write(new Frame(Frame.PING, "", "", 1));
+                    String reason = events.closed.poll(2, TimeUnit.SECONDS);
+                    CoreTests.check(reason != null && reason.contains("队列已满"), "Writer queue accepted an unbounded burst: " + reason);
+                } finally { releaseFlush.countDown(); session.close("cleanup"); }
             }
         });
         CoreTests.test("Outgoing receipt window is bounded and receipt releases a slot", () -> {
