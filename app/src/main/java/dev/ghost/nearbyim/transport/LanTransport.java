@@ -21,13 +21,14 @@ public final class LanTransport {
     private final TransportListener listener;
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService worker = Executors.newCachedThreadPool();
-    private final AtomicInteger epoch = new AtomicInteger();
+    private final AtomicInteger epoch = new AtomicInteger(), connectEpoch = new AtomicInteger();
     private final Object lock = new Object();
     private final Set<Socket> pending = new HashSet<>();
     private ServerSocket server;
     private WifiManager.MulticastLock multicast;
     private NsdManager.RegistrationListener registration;
     private NsdManager.DiscoveryListener discovery;
+    private final Set<NsdManager.DiscoveryListener> discoveryListeners = new HashSet<>(), startedDiscovery = new HashSet<>();
     private final ArrayDeque<NsdServiceInfo> resolveQueue = new ArrayDeque<>();
     private final Set<String> visible = new HashSet<>();
     private boolean resolving;
@@ -76,10 +77,21 @@ public final class LanTransport {
     public void discover() {
         stopDiscovery(); resolveQueue.clear(); visible.clear(); final int run = epoch.get(), scan = ++searchEpoch;
         discovery = new NsdManager.DiscoveryListener() {
-            public void onDiscoveryStarted(String type) {}
-            public void onDiscoveryStopped(String type) {}
-            public void onStartDiscoveryFailed(String type, int code) { main.post(() -> { if (epoch.get() == run && searchEpoch == scan) listener.onError(Peer.LAN, "设备搜索失败，可使用地址直连", false); }); }
-            public void onStopDiscoveryFailed(String type, int code) {}
+            public void onDiscoveryStarted(String type) { NsdManager.DiscoveryListener self = this; main.post(() -> {
+                if (discoveryListeners.contains(self)) { startedDiscovery.add(self); listener.onSearching(Peer.LAN, true); }
+            }); }
+            public void onDiscoveryStopped(String type) { NsdManager.DiscoveryListener self = this; main.post(() -> {
+                discoveryListeners.remove(self); startedDiscovery.remove(self); listener.onSearching(Peer.LAN, !startedDiscovery.isEmpty());
+            }); }
+            public void onStartDiscoveryFailed(String type, int code) { NsdManager.DiscoveryListener self = this; main.post(() -> {
+                discoveryListeners.remove(self); startedDiscovery.remove(self); listener.onSearching(Peer.LAN, !startedDiscovery.isEmpty());
+                if (epoch.get() == run && searchEpoch == scan) { discovery = null; listener.onError(Peer.LAN, "设备搜索失败，可使用地址直连", false); }
+            }); }
+            public void onStopDiscoveryFailed(String type, int code) { main.post(() -> {
+                if (epoch.get() != run || searchEpoch != scan) return;
+                listener.onSearching(Peer.LAN, !startedDiscovery.isEmpty());
+                listener.onSearchStopFailed(Peer.LAN, "停止设备搜索失败，请重试");
+            }); }
             public void onServiceFound(NsdServiceInfo info) { main.post(() -> {
                 if (epoch.get() != run || searchEpoch != scan || !info.getServiceType().startsWith("_nearbyim._tcp") || info.getServiceName().equals(ownService)) return;
                 if (visible.add(info.getServiceName())) { resolveQueue.add(info); resolveNext(run, scan); }
@@ -89,8 +101,11 @@ public final class LanTransport {
                 visible.remove(info.getServiceName()); listener.onLost("lan:" + info.getServiceName());
             }); }
         };
-        try { nsd.discoverServices(TYPE, NsdManager.PROTOCOL_DNS_SD, discovery); }
-        catch (RuntimeException e) { discovery = null; listener.onError(Peer.LAN, "设备搜索不可用，可使用地址直连", false); }
+        try { discoveryListeners.add(discovery); nsd.discoverServices(TYPE, NsdManager.PROTOCOL_DNS_SD, discovery); }
+        catch (RuntimeException e) {
+            discoveryListeners.remove(discovery); discovery = null; listener.onSearching(Peer.LAN, !startedDiscovery.isEmpty());
+            listener.onError(Peer.LAN, "设备搜索不可用，可使用地址直连", false);
+        }
     }
     @SuppressWarnings("deprecation")
     private void resolveNext(int run, int scan) {
@@ -103,8 +118,10 @@ public final class LanTransport {
                 if (epoch.get() == run && searchEpoch == scan && visible.contains(service.getServiceName()) && service.getHost() != null && LocalEndpoint.isLocal(service.getHost())) {
                     byte[] rawName = service.getAttributes().get("name");
                     String name = rawName == null ? service.getServiceName() : new String(rawName, StandardCharsets.UTF_8);
+                    byte[] rawId = service.getAttributes().get("id"); String peerId = null;
+                    if (rawId != null) try { peerId = UUID.fromString(new String(rawId, StandardCharsets.UTF_8)).toString(); } catch (IllegalArgumentException ignored) {}
                     listener.onPeer(new Peer(Peer.LAN, "lan:" + service.getServiceName(), name,
-                            endpoint(service.getHost(), service.getPort()), service.getHost(), service.getPort(), null));
+                            endpoint(service.getHost(), service.getPort()), service.getHost(), service.getPort(), null, peerId));
                 }
                 resolveNext(epoch.get(), searchEpoch);
             }); }
@@ -112,16 +129,16 @@ public final class LanTransport {
     }
     public void connect(InetAddress host, int port) {
         if (host == null || !LocalEndpoint.isLocal(host) || port < 1 || port > 65535) { listener.onConnectFailed(Peer.LAN, "仅支持有效的局域网地址和端口"); return; }
-        final int run = epoch.get();
+        final int run = epoch.get(), attempt = connectEpoch.incrementAndGet();
         worker.execute(() -> {
-            Socket socket = new Socket(); synchronized (lock) { if (run != epoch.get()) { close(socket); return; } pending.add(socket); }
+            Socket socket = new Socket(); synchronized (lock) { if (run != epoch.get() || attempt != connectEpoch.get()) { close(socket); return; } pending.add(socket); }
             try {
                 socket.connect(new InetSocketAddress(host, port), 8000); socket.setTcpNoDelay(true); socket.setKeepAlive(true);
                 synchronized (lock) { pending.remove(socket); }
-                main.post(() -> { if (epoch.get() == run) listener.onConnection(Peer.LAN, wrap(socket), false); else close(socket); });
+                main.post(() -> { if (epoch.get() == run && connectEpoch.get() == attempt) listener.onConnection(Peer.LAN, wrap(socket), false); else close(socket); });
             } catch (IOException | RuntimeException e) {
                 synchronized (lock) { pending.remove(socket); } close(socket);
-                main.post(() -> { if (epoch.get() == run) listener.onConnectFailed(Peer.LAN, "连接失败：确认对方已开启接收，并检查路由器客户端隔离或 VPN"); });
+                main.post(() -> { if (epoch.get() == run && connectEpoch.get() == attempt) listener.onConnectFailed(Peer.LAN, "连接失败：确认对方已开启接收，并检查路由器客户端隔离或 VPN"); });
             }
         });
     }
@@ -152,9 +169,20 @@ public final class LanTransport {
             public void close() throws IOException { socket.close(); }
         };
     }
-    private void stopDiscovery() { if (discovery != null) { try { nsd.stopServiceDiscovery(discovery); } catch (RuntimeException ignored) {} discovery = null; } }
+    private void stopDiscovery() {
+        discovery = null;
+        for (NsdManager.DiscoveryListener previous : new ArrayList<>(discoveryListeners)) {
+            try { nsd.stopServiceDiscovery(previous); } catch (RuntimeException ignored) {}
+        }
+        listener.onSearching(Peer.LAN, !startedDiscovery.isEmpty());
+    }
+    public void stopSearch() { searchEpoch++; stopDiscovery(); resolveQueue.clear(); visible.clear(); }
+    public void cancelConnect() {
+        connectEpoch.incrementAndGet();
+        synchronized (lock) { for (Socket socket : pending) close(socket); pending.clear(); }
+    }
     public void stop() {
-        epoch.incrementAndGet(); searchEpoch++; stopDiscovery(); visible.clear(); resolveQueue.clear();
+        epoch.incrementAndGet(); cancelConnect(); searchEpoch++; stopDiscovery(); visible.clear(); resolveQueue.clear();
         if (registration != null) { try { nsd.unregisterService(registration); } catch (RuntimeException ignored) {} registration = null; }
         if (multicast != null) { if (multicast.isHeld()) multicast.release(); multicast = null; }
         synchronized (lock) { close(server); server = null; for (Socket socket : pending) close(socket); pending.clear(); }

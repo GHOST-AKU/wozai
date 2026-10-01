@@ -14,8 +14,11 @@ jobs:
           java-version: '17'
       - uses: android-actions/setup-android@v3
       - run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
-      - name: Core protocol tests
-        run: sh tools/test-core.sh
+      - name: Source and protocol checks
+        run: |
+          sh tools/test-core.sh
+          sh tools/test-trust.sh
+          sh tools/check-source.sh
       - name: Build and lint
         run: |
           chmod +x gradlew
