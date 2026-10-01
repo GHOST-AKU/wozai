@@ -19,3 +19,10 @@
 - 上述检查没有覆盖 Android API 编译或运行。原生截图 QA 记录为 blocked；Keystore、NSD、蓝牙和布局需要后续 Android SDK/双机验收。未生成 APK。
 - GitHub 工作流仍仅 workflow_dispatch，增加源码和信任检查，不自动编译。
 - 本轮交付采用功能分支与草稿 PR，主分支不合并。
+
+## 用户恢复 APK 编译
+
+- 用户明确提出「编译apk」，授权恢复构建。独立 `build/apk-0.2.0-20261001` 分支只增加该分支的 push 触发，功能分支及主分支仍保留手动工作流。
+- 使用已有 GitHub API 能力触发隔离分支构建、读取日志和下载 artifact，未使用浏览器，未合并主分支。
+- 修复旧 SDK 包选择、原生 Material 图标属性及剪贴板导入；真实 Android 编译和 Lint 已通过。详细构建提交、产物 SHA-256、签名、6 个警告及未完成真机验收范围见 `verification.md`。
+- APK 已取回并核对构建校验值和 ZIP CRC，保留 debug 包及构建校验记录。之前的「未生成 APK」为源码实施阶段记录。

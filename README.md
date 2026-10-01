@@ -2,7 +2,7 @@
 
 一个无需账号、无需远程服务器的原生安卓聊天项目。两部手机通过 **同一局域网** 或 **经典蓝牙** 聊天。
 
-**当前开发版本：我在 0.2.0。原生界面按新方案调整，加入设备信任与重连免确认。本轮只交付源码，没有生成 APK；本轮 Android 编译、Lint 与真机 UI / 蓝牙双机验收尚未完成。旧版的构建记录不能证明本版可安装或运行。**
+**当前开发版本：我在 0.2.0。原生界面按新方案调整，加入设备信任与重连免确认。0.2.0 调试 APK 已通过 Android 编译、Lint、v2 签名及对齐校验；Lint 为 0 错误、6 警告。真机 UI / 蓝牙双机验收尚未完成。**
 
 ## 已实现的功能
 
@@ -39,11 +39,11 @@ Windows PowerShell：
 .\gradlew.bat :app:assembleDebug :app:lintDebug
 ```
 
-生成路径：`app/build/outputs/apk/debug/app-debug.apk`。后续安装包拟命名为 `WoZai-0.2.0-debug.apk`，使用 Android 调试签名，供安装测试。把同一个 APK 安装到两部安卓手机。此版本的最低系统配置为 Android 8.0 / API 26，目标 SDK 为 36。
+生成路径：`app/build/outputs/apk/debug/app-debug.apk`。当前调试安装包命名为 `WoZai-0.2.0-debug.apk`，使用 Android 调试签名，供安装测试。把同一个 APK 安装到两部安卓手机。此版本的最低系统配置为 Android 8.0 / API 26，目标 SDK 为 36。
 
 第一次同步需要访问 Google Maven、Maven Central 与 Gradle 分发服务器。SDK 路径由 Android Studio 写入本机 `local.properties`，不要把它提交到仓库。
 
-已附 `.github/workflows/android.yml`，仅支持手动运行。在 GitHub 的 Actions 页面选择 **Build 我在 debug APK → Run workflow**，构建成功后可下载 `wozai-debug` artifact。上传源码和提交修改不会自动编译 APK。此工作流尚未在远程执行。
+已附 `.github/workflows/android.yml`，仅支持手动运行。在 GitHub 的 Actions 页面选择 **Build 我在 debug APK → Run workflow**，构建成功后可下载 `wozai-debug` artifact。上传源码和提交修改不会自动编译 APK。本轮使用独立构建分支执行了构建与校验，见 [构建记录](https://github.com/GHOST-AKU/wozai/actions/runs/36876158883)。主分支与常规开发分支仍仅手动触发。
 
 ## 两部手机怎么聊
 

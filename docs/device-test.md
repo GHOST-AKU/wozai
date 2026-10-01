@@ -2,7 +2,7 @@
 
 本清单是后续真实设备验收要求，不表示已完成硬件测试。
 
-当前 0.2.0 尚未编译 APK。用户恢复编译后，在有 JDK 17、Python 3、Android SDK 36 的电脑先运行 `sh tools/test-core.sh`、`sh tools/test-trust.sh`、`sh tools/check-source.sh`，再执行 `./gradlew :app:assembleDebug :app:lintDebug`。确认成功后将同一 APK 安装到两部手机。建议覆盖 Android 8～11、Android 12+ 和 Android 16；两端必须使用 0.2.0，旧版裸帧不兼容。
+当前 0.2.0 调试 APK 已编译并完成 Lint、签名和对齐校验，真机验收未执行。复现构建时，在有 JDK 17、Python 3、Android SDK 36 的电脑先运行 `sh tools/test-core.sh`、`sh tools/test-trust.sh`、`sh tools/check-source.sh`，再执行 `./gradlew :app:assembleDebug :app:lintDebug`。确认成功后将同一 APK 安装到两部手机。建议覆盖 Android 8～11、Android 12+ 和 Android 16；两端必须使用 0.2.0，旧版裸帧不兼容。
 
 | 场景 | 操作 | 应观察到 |
 | --- | --- | --- |
