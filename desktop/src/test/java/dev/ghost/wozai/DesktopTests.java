@@ -280,7 +280,9 @@ public final class DesktopTests {
             }
             client.stopListening().get(3, TimeUnit.SECONDS);
             try (var probe = new Socket(address, port)) { throw new AssertionError("Listener still accepted connections"); }
-            catch (ConnectException expected) { passed++; }
+            // A closed local listener can refuse or reset the connect, depending
+            // on the OS and whether its former accept thread has just exited.
+            catch (SocketException expected) { passed++; }
         }
     }
 }
