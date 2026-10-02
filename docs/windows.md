@@ -4,7 +4,7 @@
 
 ## 使用与下载
 
-目标平台 Windows 10/11 x64。从[Windows 构建页面](https://github.com/GHOST-AKU/wozai/actions/runs/36993197795)底部 Artifacts 下载 [NearbyIM-0.2.2-windows-x64](https://github.com/GHOST-AKU/wozai/actions/runs/36993197795/artifacts/11220792087)，解压后运行 `NearbyIM/NearbyIM.exe`。保持整个软件目录完整；包内包含 Java 17 运行时和 Windows 蓝牙桥接库，无需另外安装 Java。原版安卓图标同时用于窗口和 EXE 启动器。
+目标平台 Windows 10/11 x64。从[Windows 构建页面](https://github.com/GHOST-AKU/wozai/actions/runs/36995050370)底部 Artifacts 下载 [NearbyIM-0.2.2-windows-x64](https://github.com/GHOST-AKU/wozai/actions/runs/36995050370/artifacts/11221730155)，解压后运行 `NearbyIM/NearbyIM.exe`。保持整个软件目录完整；包内包含 Java 17 运行时、思源黑体和 Windows 蓝牙桥接库，无需另外安装 Java 或字体。原版安卓图标同时用于窗口和 EXE 启动器。
 
 这是未签名的便携预览版，没有安装器、开机启动或托盘常驻。请将软件放在当前用户可读写的位置，例如 `D:\Apps\NearbyIM`，避免受保护的 `Program Files` 目录。
 
@@ -94,4 +94,4 @@ Linux 仅验证 Java、局域网与界面，蓝牙明确显示平台不可用。
 
 0.2.2 本地检查通过：54 项桌面检查、110 项目录与迁移检查、35 项无适配器蓝牙检查、蓝牙路由模拟及真实界面操作。NearbyIM 改名后的迁移检查同时放置旧便携版与较早用户目录，验证优先恢复最新便携身份和草稿，并逐文件比较副本与两个保留的源目录。
 
-0.2.2 Windows 最终构建 [36993197795](https://github.com/GHOST-AKU/wozai/actions/runs/36993197795) 全部通过，应用源代码为 `51abb19`，后续仅更新下载和验证文档。55 项桌面、104 项目录迁移、54 项蓝牙接口/JNI 检查，以及原生生命周期、模拟蓝牙路由和原有协议/信任检查通过。真正的 `NearbyIM.exe` 验证了中文窗口、DPAPI、默认便携目录及正常退出；自带运行时和完整 JDK 的双向收发、主题、草稿检查通过，真实 mDNS、设置滚轮与布局、帮助和关于窗口检查通过。构建页面同时提供中文聊天、设置、帮助、关于及浅色／深色截图。
+0.2.2 Windows 最终构建 [36995050370](https://github.com/GHOST-AKU/wozai/actions/runs/36995050370) 全部通过，应用源代码为 `09e7399`，后续仅更新下载和验证文档。55 项桌面、104 项目录迁移、54 项蓝牙接口/JNI 检查，以及原生生命周期、模拟蓝牙路由和原有协议/信任检查通过。真正的 `NearbyIM.exe` 验证了中文窗口、DPAPI、默认便携目录及正常退出；自带运行时和完整 JDK 的双向收发、主题、草稿检查通过，真实 mDNS、设置滚轮与布局、帮助和关于窗口检查通过。字体检查确认界面使用随软件打包的 Noto Sans CJK SC，并验证原始字体包含中文字符。构建页面同时提供中文聊天、设置、帮助、关于及浅色／深色截图。
