@@ -26,6 +26,7 @@ public final class DesktopClient implements AutoCloseable {
     private volatile boolean closed;
     private volatile ServerSocket server;
     private volatile Socket connecting;
+    private String connectingPeer;
     private long generation;
     private Session current;
     private Listening listening;
@@ -96,19 +97,19 @@ public final class DesktopClient implements AutoCloseable {
         return submit(() -> {
             LocalEndpoint target = LocalEndpoint.parse(text);
             if (current != null || phase.equals("connecting")) throw new IOException("Already connecting or connected");
-            long attempt = ++generation; phase = "connecting"; publish();
-            Socket socket = new Socket(); connecting = socket;
+            long attempt = ++generation, trustVersion = policy.version(); phase = "connecting"; publish();
+            Socket socket = new Socket(); connecting = socket; connectingPeer = expectedId;
             daemon(() -> {
                 try {
                     socket.connect(new InetSocketAddress(target.address, target.port), 8000);
                     socket.setTcpNoDelay(true); socket.setKeepAlive(true);
                     event(() -> {
                         if (attempt != generation || closed) { closeSocket(socket); return; }
-                        connecting = null; attach(socket, false, expectedId, text);
+                        connecting = null; connectingPeer = null; attach(socket, false, expectedId, text, trustVersion);
                     });
                 } catch (IOException e) {
                     closeSocket(socket);
-                    event(() -> { if (attempt == generation) { connecting = null; phase = "idle"; publish(); listener.notice("connectFailed"); } });
+                    event(() -> { if (attempt == generation) { connecting = null; connectingPeer = null; phase = "idle"; publish(); listener.notice("connectFailed"); } });
                 }
             }, "wozai-connect").start();
             return null;
@@ -118,16 +119,18 @@ public final class DesktopClient implements AutoCloseable {
         final long token = ++generation;
         final boolean incoming;
         final String expectedId, target;
+        final long trustVersion;
         final FramedSession wire;
         DesktopStore.Peer peer;
         TrustPolicy.Authorization authorization;
-        Session(Socket socket, boolean incoming, String expectedId, String target) throws IOException {
-            this.incoming = incoming; this.expectedId = expectedId; this.target = target;
+        Session(Socket socket, boolean incoming, String expectedId, String target, long trustVersion) throws IOException {
+            this.incoming = incoming; this.expectedId = expectedId; this.target = target; this.trustVersion = trustVersion;
             String nickname = store.setting("nickname", "我在 Windows");
             wire = new FramedSession(wrap(socket), identity.id(), nickname, identity.signer(), this);
         }
         public void onHello(Frame hello) { event(() -> {
             if (current != this) return;
+            if (policy.version() != trustVersion) { reject("canceled"); return; }
             if (hello.id.equals(identity.id()) || expectedId != null && !expectedId.equals(hello.id)) { reject("identityChanged"); return; }
             try {
                 DesktopStore.Peer saved = store.peer(hello.id);
@@ -169,7 +172,10 @@ public final class DesktopClient implements AutoCloseable {
         void reject(String key) { disconnectNow(); publish(); listener.notice(key); }
     }
     private void attach(Socket socket, boolean incoming, String expectedId, String target) {
-        try { current = new Session(socket, incoming, expectedId, target); phase = "handshake"; current.wire.start(); publish(); }
+        attach(socket, incoming, expectedId, target, policy.version());
+    }
+    private void attach(Socket socket, boolean incoming, String expectedId, String target, long trustVersion) {
+        try { current = new Session(socket, incoming, expectedId, target, trustVersion); phase = "handshake"; current.wire.start(); publish(); }
         catch (IOException | RuntimeException e) { closeSocket(socket); phase = "idle"; listener.notice("connectFailed"); }
     }
     public CompletableFuture<Void> approve(Request request, boolean remember) { return submit(() -> {
@@ -198,13 +204,13 @@ public final class DesktopClient implements AutoCloseable {
     public CompletableFuture<Void> setting(String key, String value) { return submit(() -> { store.setSetting(key, value); return null; }); }
     public CompletableFuture<Void> revoke(String id) { return submit(() -> {
         policy.revoke(id); store.revoke(id);
-        if (current != null && current.peer != null && current.peer.id().equals(id)) disconnectNow();
+        if (id.equals(connectingPeer) || current != null && (id.equals(current.expectedId) || current.peer != null && current.peer.id().equals(id))) disconnectNow();
         publish(); return null;
     }); }
     public CompletableFuture<Void> clear(String id) { return submit(() -> { store.clear(id); publish(); return null; }); }
     public CompletableFuture<Void> disconnect() { return submit(() -> { disconnectNow(); publish(); return null; }); }
     private void disconnectNow() {
-        ++generation; closeSocket(connecting); connecting = null;
+        ++generation; closeSocket(connecting); connecting = null; connectingPeer = null;
         Session previous = current; current = null; phase = "idle";
         if (previous != null) {
             policy.cancel(previous.authorization); previous.wire.close("Closed");

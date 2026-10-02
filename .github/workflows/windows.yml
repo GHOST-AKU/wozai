@@ -24,6 +24,12 @@ jobs:
       - name: Run packaged Windows executable
         shell: pwsh
         run: ./desktop/tools/test-package.ps1
+      - name: Exercise bundled runtime GUI
+        if: always()
+        shell: pwsh
+        run: |
+          & 'desktop/build/package/WoZai/runtime/bin/java.exe' -cp 'desktop/build/package/WoZai/app/*;desktop/build/tests' dev.ghost.wozai.GuiTests desktop/build/gui-bundled-runtime.png
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Exercise native GUI and mDNS
         shell: pwsh
         run: |
@@ -43,4 +49,5 @@ jobs:
           path: |
             desktop/build/gui-windows.png
             desktop/build/package-window.png
+            desktop/build/gui-bundled-runtime.png
           if-no-files-found: ignore

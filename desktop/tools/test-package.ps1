@@ -31,7 +31,13 @@ try {
     } while ($process.MainWindowHandle -eq 0 -and [DateTime]::UtcNow -lt $deadline)
     $class = New-Object Text.StringBuilder 256
     [WoZaiWindow]::GetClassName($process.MainWindowHandle, $class, $class.Capacity) | Out-Null
-    if ($class.ToString() -ne 'SunAwtFrame' -or $process.MainWindowTitle -ne '我在') { throw 'Packaged launcher did not display the chat window' }
+    if ($class.ToString() -ne 'SunAwtFrame' -or $process.MainWindowTitle -ne '我在') {
+        Write-Output "Launcher observation: PID=$($process.Id), handle=$($process.MainWindowHandle), class=$($class.ToString()), title=$($process.MainWindowTitle)"
+        Get-Process -Name WoZai, java, javaw -ErrorAction SilentlyContinue | Select-Object Id, ProcessName, MainWindowHandle, MainWindowTitle | Format-Table | Out-String | Write-Output
+        Get-CimInstance Win32_Process -Filter "Name='WoZai.exe'" | Select-Object ProcessId, ParentProcessId | Format-Table | Out-String | Write-Output
+        Get-Content (Join-Path $package 'app/WoZai.cfg') | Write-Output
+        throw 'Packaged launcher did not display the chat window'
+    }
     if (!(Test-Path (Join-Path $dataPath 'identity.properties'))) { throw 'Packaged runtime did not create its DPAPI identity' }
     $rectangle = New-Object WoZaiWindow+Rect
     if (![WoZaiWindow]::GetWindowRect($process.MainWindowHandle, [ref]$rectangle)) { throw 'Could not inspect packaged window' }

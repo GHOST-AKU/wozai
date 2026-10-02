@@ -21,11 +21,47 @@ public final class DesktopTests {
             persistence(root.resolve("store"));
             interoperability(root.resolve("client"));
             failedSaveAndTemporaryConsent(root.resolve("failure"));
+            revokeDuringHandshake(root.resolve("revoke"));
             translations();
             System.out.println("DesktopTests: " + passed + " checks passed");
         } finally {
             try (var files = Files.walk(root)) {
                 for (Path file : files.sorted(Comparator.reverseOrder()).toList()) Files.deleteIfExists(file);
+            }
+        }
+    }
+    private static void revokeDuringHandshake(Path path) throws Exception {
+        InetAddress address = Collections.list(NetworkInterface.getNetworkInterfaces()).stream()
+                .flatMap(i -> Collections.list(i.getInetAddresses()).stream())
+                .filter(a -> a instanceof Inet4Address && LocalEndpoint.isLocal(a)).findFirst().orElseThrow();
+        var states = new LinkedBlockingQueue<DesktopClient.State>();
+        DeviceIdentity remoteIdentity = DeviceIdentity.generate();
+        try (var store = new DesktopStore(path); var server = new ServerSocket(0); var client = new DesktopClient(store, DesktopIdentity.load(path.resolve("identity.properties")), new DesktopClient.Listener() {
+            public void changed(DesktopClient.State state) { states.add(state); }
+            public void request(DesktopClient.Request request) { }
+            public void notice(String key) { }
+        })) {
+            String target = DesktopClient.endpoint(address, server.getLocalPort());
+            store.peer(new DesktopStore.Peer(PEER, "Phone", remoteIdentity.publicKey(), target));
+            client.connect(target, PEER).get(2, TimeUnit.SECONDS);
+            try (Socket accepted = server.accept()) {
+                DesktopClient.State state;
+                do { state = states.poll(2, TimeUnit.SECONDS); } while (state != null && !state.phase().equals("handshake"));
+                check(state != null, "Outgoing socket did not begin authentication");
+                client.revoke(PEER).get(2, TimeUnit.SECONDS);
+                CountDownLatch closed = new CountDownLatch(1);
+                FramedSession remote = new FramedSession(socket(accepted), PEER, "Phone", remoteIdentity, new FramedSession.Listener() {
+                    public void onHello(Frame frame) { }
+                    public void onReady() { }
+                    public void onText(Frame frame) { }
+                    public void onAck(String id) { }
+                    public void onClosed(String reason) { closed.countDown(); }
+                });
+                try {
+                    remote.start();
+                    check(closed.await(2, TimeUnit.SECONDS), "Revoking during authentication did not cancel the outgoing connection");
+                    check(store.peer(PEER).publicKey().isEmpty(), "In-flight reconnect restored revoked trust");
+                } finally { remote.close("test"); }
             }
         }
     }
