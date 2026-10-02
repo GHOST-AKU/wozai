@@ -13,12 +13,19 @@ jobs:
           distribution: temurin
           java-version: '17'
           architecture: x64
+      - name: Read shared release version
+        id: metadata
+        shell: pwsh
+        run: |
+          $version = (Get-Content i18n/config.json -Raw -Encoding UTF8 | ConvertFrom-Json).appVersion
+          "version=$version" >> $env:GITHUB_OUTPUT
       - name: Test desktop and create portable Windows package
         shell: pwsh
         run: ./desktop/tools/build.ps1 -Package
       - name: Test shared Android protocol and trust
         shell: pwsh
         run: |
+          ./tools/test-i18n.ps1
           ./tools/test-core.ps1
           ./tools/test-trust.ps1
       - name: Run packaged Windows executable
@@ -41,7 +48,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
         with:
-          name: NearbyIM-0.2.2-windows-x64
+          name: NearbyIM-${{ steps.metadata.outputs.version }}-windows-x64
           path: desktop/build/package
           if-no-files-found: error
       - uses: actions/upload-artifact@v4

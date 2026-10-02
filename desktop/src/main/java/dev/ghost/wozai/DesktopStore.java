@@ -1,5 +1,8 @@
 package dev.ghost.wozai;
 
+import dev.ghost.nearbyim.i18n.LanguageRegistry;
+import dev.ghost.nearbyim.i18n.LocalizedIOException;
+import dev.ghost.nearbyim.i18n.UiText;
 import java.io.*;
 import java.nio.channels.*;
 import java.nio.file.*;
@@ -12,15 +15,17 @@ public final class DesktopStore implements AutoCloseable {
     }
     public record Message(String id, String body, long time, boolean outgoing, String status) { }
     private final Path root;
+    private final boolean existingIdentity;
     private final FileChannel lockChannel;
     private final FileLock lock;
     public DesktopStore(Path root) throws IOException {
         this.root = root; Files.createDirectories(root); AtomicFiles.privatePermissions(root, true);
+        existingIdentity = Files.exists(root.resolve("identity.properties"), LinkOption.NOFOLLOW_LINKS);
         lockChannel = FileChannel.open(root.resolve("instance.lock"), StandardOpenOption.CREATE, StandardOpenOption.WRITE);
         FileLock acquired;
         try { acquired = lockChannel.tryLock(); }
-        catch (OverlappingFileLockException e) { lockChannel.close(); throw new IOException("NearbyIM is already running", e); }
-        if (acquired == null) { lockChannel.close(); throw new IOException("NearbyIM is already running"); }
+        catch (OverlappingFileLockException e) { lockChannel.close(); throw new LocalizedIOException(UiText.of("dataInUse", root.toString()), e); }
+        if (acquired == null) { lockChannel.close(); throw new LocalizedIOException(UiText.of("dataInUse", root.toString())); }
         lock = acquired;
         try {
             for (Peer peer : peers()) unknown(peer.id());
@@ -108,7 +113,23 @@ public final class DesktopStore implements AutoCloseable {
         AtomicFiles.write(root.resolve("drafts").resolve(uuid(peer) + ".properties"), v);
     }
     public synchronized String setting(String key, String fallback) throws IOException { return AtomicFiles.read(root.resolve("settings.properties")).getProperty(key, fallback); }
+    public synchronized String language() throws IOException {
+        String saved = setting("language", LanguageRegistry.SYSTEM);
+        String normalized = LanguageRegistry.normalizeSelection(saved);
+        if (!normalized.equals(saved)) setSetting("language", normalized);
+        return normalized;
+    }
+    public synchronized String nickname() throws IOException {
+        String saved = setting("nickname", null);
+        if (saved != null) return saved;
+        // Earlier profiles advertised this Chinese default without saving it. Keep that
+        // identity name on upgrade; only a fresh profile adopts the initial UI language.
+        String initial = new Strings(existingIdentity ? "zh-Hans" : language()).text("defaultNicknameWindows");
+        setSetting("nickname", initial);
+        return initial;
+    }
     public synchronized void setSetting(String key, String value) throws IOException {
+        if (key.equals("language")) value = LanguageRegistry.normalizeSelection(value);
         Properties v = AtomicFiles.read(root.resolve("settings.properties")); v.setProperty(key, value); AtomicFiles.write(root.resolve("settings.properties"), v);
     }
     public synchronized void close() throws IOException { if (lock.isValid()) lock.release(); lockChannel.close(); }

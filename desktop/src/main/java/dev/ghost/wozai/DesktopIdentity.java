@@ -1,6 +1,8 @@
 package dev.ghost.wozai;
 
 import dev.ghost.nearbyim.core.DeviceIdentity;
+import dev.ghost.nearbyim.i18n.LocalizedIOException;
+import dev.ghost.nearbyim.i18n.UiText;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
@@ -44,7 +46,10 @@ public final class DesktopIdentity {
             Signature verifier = Signature.getInstance("SHA256withECDSA"); verifier.initVerify(publicKey); verifier.update(probe);
             if (!verifier.verify(signer.sign(probe))) throw new IOException("Identity keys do not match");
             return new Identity(id, signer);
-        } catch (GeneralSecurityException | IllegalArgumentException e) { throw new IOException("Unable to load device identity; existing identity was preserved", e); }
+        } catch (LocalizedIOException e) { throw e; }
+        catch (IOException | GeneralSecurityException | IllegalArgumentException e) {
+            throw new LocalizedIOException(UiText.of("identityLoadFailed", file.toString()), e);
+        }
     }
     private static byte[] dpapi(byte[] bytes, boolean protect) throws IOException {
         String command = "$ErrorActionPreference='Stop'; Add-Type -AssemblyName System.Security; "
@@ -57,10 +62,10 @@ public final class DesktopIdentity {
         Process process = new ProcessBuilder(powershell.toString(), "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", command).start();
         try {
             try (OutputStream input = process.getOutputStream()) { input.write(Base64.getEncoder().encode(bytes)); }
-            if (!process.waitFor(15, TimeUnit.SECONDS)) { process.destroyForcibly(); throw new IOException("Windows key protection timed out"); }
-            if (process.exitValue() != 0) throw new IOException("Windows could not protect or unlock the identity");
+            if (!process.waitFor(15, TimeUnit.SECONDS)) { process.destroyForcibly(); throw new LocalizedIOException(UiText.of("identityProtectionTimeout")); }
+            if (process.exitValue() != 0) throw new LocalizedIOException(UiText.of("identityProtectionFailed"));
             return Base64.getDecoder().decode(new String(process.getInputStream().readNBytes(16384), StandardCharsets.US_ASCII).trim());
-        } catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new IOException(e); }
+        } catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new LocalizedIOException(UiText.of("identityProtectionFailed"), e); }
         finally { process.destroy(); }
     }
 }

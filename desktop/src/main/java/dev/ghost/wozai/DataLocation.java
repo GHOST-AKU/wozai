@@ -1,6 +1,8 @@
 package dev.ghost.wozai;
 
 import java.io.IOException;
+import dev.ghost.nearbyim.i18n.LocalizedIOException;
+import dev.ghost.nearbyim.i18n.UiText;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
@@ -19,12 +21,18 @@ public final class DataLocation {
 
     private DataLocation() { }
 
-    public static Selection select() {
+    public static Selection select() throws IOException {
         return select(System::getProperty, System::getenv, DesktopIdentity.windows());
     }
 
     // Inject both lookups so Windows launcher paths can be tested on other platforms.
-    static Selection select(Function<String, String> properties, Function<String, String> environment, boolean windows) {
+    static Selection select(Function<String, String> properties, Function<String, String> environment, boolean windows) throws IOException {
+        try { return selectLocation(properties, environment, windows); }
+        catch (LocalizedIOException e) { throw e; }
+        catch (IOException | RuntimeException e) { throw new LocalizedIOException(UiText.of("dataPreparationFailed", UiText.of("unknownDataPath")), e); }
+    }
+
+    private static Selection selectLocation(Function<String, String> properties, Function<String, String> environment, boolean windows) throws IOException {
         String override = properties.apply("wozai.dataDir");
         if (present(override)) return new Selection(absolute(Path.of(override)), null, false);
         Path legacy = developerPath(properties, environment, windows);
@@ -37,7 +45,7 @@ public final class DataLocation {
                 Path previous=root.getParent().resolve("WoZai/data");
                 if(exists(previous)) {
                     try { if(!Files.isDirectory(previous,NOFOLLOW)||!noUserData(previous))legacy=previous; }
-                    catch(IOException e) { throw new IllegalStateException("无法检查旧版便携数据目录："+previous,e); }
+                    catch(IOException e) { throw new LocalizedIOException(UiText.of("dataInspectionFailed", previous.toString()), e); }
                 }
             }
             return new Selection(root.resolve("data"),legacy,true);
@@ -48,14 +56,14 @@ public final class DataLocation {
     private static boolean present(String value) { return value != null && !value.isBlank(); }
     private static Path absolute(Path path) { return path.toAbsolutePath().normalize(); }
 
-    private static Path developerPath(Function<String, String> properties, Function<String, String> environment, boolean windows) {
+    private static Path developerPath(Function<String, String> properties, Function<String, String> environment, boolean windows) throws IOException {
         if (windows) {
             String local = environment.apply("LOCALAPPDATA");
-            if (!present(local)) throw new IllegalStateException("未设置 LOCALAPPDATA，无法确定原有数据目录。");
+            if (!present(local)) throw new LocalizedIOException(UiText.of("dataEnvironmentMissing", "LOCALAPPDATA"));
             return absolute(Path.of(local).resolve("WoZai"));
         }
         String home = properties.apply("user.home");
-        if (!present(home)) throw new IllegalStateException("未设置用户主目录，无法确定数据目录。");
+        if (!present(home)) throw new LocalizedIOException(UiText.of("dataEnvironmentMissing", "user.home"));
         return absolute(Path.of(home).resolve(".local").resolve("share").resolve("wozai"));
     }
 
@@ -67,19 +75,25 @@ public final class DataLocation {
 
         /** Keep this resource open until DesktopStore has acquired its instance lock. */
         public Prepared prepare() throws IOException {
+            try { return prepareDirectory(); }
+            catch (LocalizedIOException e) { throw e; }
+            catch (IOException | RuntimeException e) { throw new LocalizedIOException(UiText.of("dataPreparationFailed", path.toString()), e); }
+        }
+
+        private Prepared prepareDirectory() throws IOException {
             Path parent = path.getParent();
-            if (parent == null) throw problem("数据目录不能是文件系统根目录", path);
+            if (parent == null) throw problem("dataRootInvalid", path);
             checkAncestors(path);
             Files.createDirectories(parent);
             checkAncestors(parent);
             writableDirectory(parent);
             Path guardPath = parent.resolve("." + path.getFileName() + "-startup.lock");
-            HeldLock guard = HeldLock.acquire(guardPath, "另一个“我在”进程正在准备此数据目录");
+            HeldLock guard = HeldLock.acquire(guardPath, "dataPreparingAlready");
             try {
                 boolean empty = inspectTarget(path);
                 if (empty && portable && legacyPath != null && !path.equals(legacyPath) && exists(legacyPath)) {
                     if (path.startsWith(legacyPath) || legacyPath.startsWith(path))
-                        throw problem("便携数据目录与旧数据目录重叠，无法安全迁移", path);
+                        throw problem("dataOverlap", path);
                     migrate(legacyPath, path);
                 }
                 if (!exists(path)) Files.createDirectory(path);
@@ -88,7 +102,8 @@ public final class DataLocation {
                 return new Prepared(path, guard);
             } catch (IOException | RuntimeException e) {
                 try { guard.close(); } catch (IOException close) { e.addSuppressed(close); }
-                throw new IOException("无法安全准备数据目录：" + path + "\n" + e.getMessage(), e);
+                if (e instanceof LocalizedIOException localized) throw localized;
+                throw new LocalizedIOException(UiText.of("dataPreparationFailed", path.toString()), e);
             }
         }
     }
@@ -106,7 +121,7 @@ public final class DataLocation {
         if (!exists(target)) return true;
         directory(target);
         writableFile(target);
-        try (HeldLock ignored = HeldLock.acquire(target.resolve(INSTANCE_LOCK), "此数据目录正在被另一个“我在”进程使用")) {
+        try (HeldLock ignored = HeldLock.acquire(target.resolve(INSTANCE_LOCK), "dataInUse")) {
             validateTree(target, true);
             boolean empty = noUserData(target);
             if (!empty) requireIdentity(target);
@@ -117,7 +132,7 @@ public final class DataLocation {
     private static void migrate(Path source, Path target) throws IOException {
         checkAncestors(source);
         directory(source);
-        try (HeldLock ignored = HeldLock.acquire(source.resolve(INSTANCE_LOCK), "旧版“我在”仍在运行，请先关闭后再迁移数据")) {
+        try (HeldLock ignored = HeldLock.acquire(source.resolve(INSTANCE_LOCK), "legacyDataInUse")) {
             validateTree(source, false);
             if (noUserData(source)) return;
             requireIdentity(source);
@@ -127,14 +142,14 @@ public final class DataLocation {
                 copyTree(source, stage);
                 validateTree(stage, true);
                 // Both old and new launchers using this target are excluded by the startup lock.
-                if (!inspectTarget(target)) throw problem("便携数据目录已经有数据，迁移已取消", target);
+                if (!inspectTarget(target)) throw problem("dataTargetOccupied", target);
                 if (exists(target)) {
                     Files.deleteIfExists(target.resolve(INSTANCE_LOCK));
                     Files.delete(target);
                 }
                 try { Files.move(stage, target, StandardCopyOption.ATOMIC_MOVE); }
                 catch (AtomicMoveNotSupportedException e) {
-                    throw new IOException("此磁盘不支持安全的原子目录迁移；旧数据已保留，未创建新设备身份。", e);
+                    throw new LocalizedIOException(UiText.of("dataMigrationUnsupported", target.toString()), e);
                 }
             } finally {
                 if (exists(stage)) removeStage(stage);
@@ -178,7 +193,7 @@ public final class DataLocation {
 
     private static void requireIdentity(Path root) throws IOException {
         if (!exists(root.resolve("identity.properties")))
-            throw problem("数据目录已有文件但缺少设备身份；为保护原有记录，未创建新身份", root);
+            throw problem("dataIdentityMissing", root);
     }
 
     private static void validateTree(Path root, boolean writable) throws IOException {
@@ -187,7 +202,7 @@ public final class DataLocation {
         for (String name : Set.of("identity.properties", "settings.properties", INSTANCE_LOCK)) {
             Path file = root.resolve(name);
             if (exists(file) && !Files.readAttributes(file, BasicFileAttributes.class, NOFOLLOW).isRegularFile())
-                throw problem("数据文件不是普通文件", file);
+                throw problem("dataNotRegular", file);
         }
         for (String name : Set.of("peers", "messages", "drafts")) {
             Path dir = root.resolve(name);
@@ -222,20 +237,20 @@ public final class DataLocation {
             for (Path file : entries.toList()) {
                 BasicFileAttributes attrs = Files.readAttributes(file, BasicFileAttributes.class, NOFOLLOW);
                 ordinary(file, attrs);
-                if (!attrs.isRegularFile()) throw problem("记录文件被目录占用", file);
+                if (!attrs.isRegularFile()) throw problem("dataRecordIsDirectory", file);
             }
         }
     }
 
     private static void ordinary(Path path, BasicFileAttributes attrs) throws IOException {
         if (attrs.isSymbolicLink() || attrs.isOther() || (!attrs.isDirectory() && !attrs.isRegularFile()))
-            throw problem("数据目录包含符号链接或特殊文件，无法安全使用", path);
+            throw problem("dataUnsafeEntry", path);
     }
 
     private static void directory(Path path) throws IOException {
         BasicFileAttributes attrs = Files.readAttributes(path, BasicFileAttributes.class, NOFOLLOW);
         ordinary(path, attrs);
-        if (!attrs.isDirectory()) throw problem("数据目录被普通文件占用", path);
+        if (!attrs.isDirectory()) throw problem("dataPathNotDirectory", path);
     }
 
     private static void checkAncestors(Path path) throws IOException {
@@ -245,7 +260,7 @@ public final class DataLocation {
             if (!exists(current)) continue;
             BasicFileAttributes attrs = Files.readAttributes(current, BasicFileAttributes.class, NOFOLLOW);
             ordinary(current, attrs);
-            if (!attrs.isDirectory()) throw problem("目录路径被普通文件占用", current);
+            if (!attrs.isDirectory()) throw problem("dataPathNotDirectory", current);
         }
     }
 
@@ -261,17 +276,17 @@ public final class DataLocation {
     }
 
     private static void writableFile(Path path) throws IOException {
-        if (!Files.isWritable(path)) throw problem("数据目录或文件不可写，请将软件放到可读写的位置", path);
+        if (!Files.isWritable(path)) throw problem("dataReadOnly", path);
         // Also respect an explicitly read-only POSIX directory when tests run as an administrator.
         if (Files.getFileStore(path).supportsFileAttributeView("posix")) {
             Set<PosixFilePermission> permissions = Files.getPosixFilePermissions(path, NOFOLLOW);
             if (permissions.stream().noneMatch(p -> p == PosixFilePermission.OWNER_WRITE || p == PosixFilePermission.GROUP_WRITE || p == PosixFilePermission.OTHERS_WRITE))
-                throw problem("数据目录或文件设置为只读，请将软件放到可读写的位置", path);
+                throw problem("dataReadOnly", path);
         }
     }
 
     private static boolean exists(Path path) { return Files.exists(path, NOFOLLOW); }
-    private static IOException problem(String message, Path path) { return new IOException(message + "：" + path); }
+    private static LocalizedIOException problem(String key, Path path) { return new LocalizedIOException(UiText.of(key, path.toString())); }
 
     private static void removeStage(Path stage) throws IOException {
         Files.walkFileTree(stage, new SimpleFileVisitor<>() {
@@ -291,13 +306,13 @@ public final class DataLocation {
         private HeldLock(FileChannel channel, FileLock lock) { this.channel = channel; this.lock = lock; }
         static HeldLock acquire(Path path, String busy) throws IOException {
             if (exists(path) && !Files.readAttributes(path, BasicFileAttributes.class, NOFOLLOW).isRegularFile())
-                throw problem("数据锁不是普通文件", path);
+                throw problem("dataNotRegular", path);
             FileChannel channel = FileChannel.open(path, StandardOpenOption.CREATE, StandardOpenOption.WRITE, NOFOLLOW);
             try {
                 FileLock lock;
                 try { lock = channel.tryLock(); }
-                catch (OverlappingFileLockException e) { throw new IOException(busy + "。", e); }
-                if (lock == null) throw new IOException(busy + "。");
+                catch (OverlappingFileLockException e) { throw new LocalizedIOException(UiText.of(busy, path.getParent().toString()), e); }
+                if (lock == null) throw new LocalizedIOException(UiText.of(busy, path.getParent().toString()));
                 AtomicFiles.privatePermissions(path, false);
                 return new HeldLock(channel, lock);
             } catch (IOException | RuntimeException e) {

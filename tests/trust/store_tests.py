@@ -4,11 +4,16 @@ import subprocess
 import sys
 import unittest
 
-sql = [base64.b64decode(line).decode() for line in subprocess.check_output(
-    ['java', '-cp', sys.argv.pop(1), 'dev.ghost.nearbyim.storage.SchemaExport'], text=True).splitlines()]
-CREATE_CONVERSATIONS, CREATE_MESSAGES, CREATE_INDEX, CREATE_TRUST, CONVERSATIONS, REMEMBER, REVOKE, CLEAR, TOUCH_INSERT, TOUCH_UPDATE = sql
+classpath = sys.argv.pop(1)
+export = subprocess.check_output(['java', '-cp', classpath, 'dev.ghost.nearbyim.storage.SchemaExport'], text=True).splitlines()
+version = int(export[0])
+sql = [base64.b64decode(line).decode() for line in export[1:]]
+CREATE_CONVERSATIONS, CREATE_MESSAGES, CREATE_INDEX, CREATE_TRUST, CONVERSATIONS, REMEMBER, REVOKE, CLEAR, TOUCH_INSERT, TOUCH_UPDATE, RECOVER_PENDING = sql
 
 class StoreTests(unittest.TestCase):
+    def test_schema_supports_language_independent_status_upgrade(self):
+        self.assertEqual(3, version, "legacy translated states need an explicit migration")
+
     def setUp(self):
         self.db = sqlite3.connect(':memory:')
         # Exact v1 schema, including histories with no key binding.
@@ -60,5 +65,54 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(0, self.db.execute('SELECT COUNT(*) FROM trusted_devices').fetchone()[0])
         self.db.execute(REMEMBER, ('old','key-b','重新认识',60,1,None))
         self.assertEqual('key-b', self.db.execute('SELECT public_key FROM trusted_devices').fetchone()[0])
+
+class StatusMigrationTests(unittest.TestCase):
+    def setUp(self):
+        self.db = sqlite3.connect(':memory:')
+        for statement in (CREATE_CONVERSATIONS, CREATE_MESSAGES, CREATE_INDEX):
+            self.db.execute(statement)
+        self.db.execute('INSERT INTO conversations VALUES (?,?,?)', ('peer', 'Nickname 我的朋友', 123))
+        for i, state in enumerate(('待确认', '已送达', '未确认', 'pending', 'delivered', 'unknown')):
+            self.db.execute('INSERT INTO messages VALUES (?,?,?,?,?,?,?)',
+                            ('peer', str(i), 'Unchanged body 待确认 ' + str(i), 1, state, 100 + i, 200 + i))
+        self.db.execute('INSERT INTO messages VALUES (?,?,?,?,?,?,?)', ('peer', 'incoming', '待确认', 0, '', 10, 11))
+        self.bodies = self.db.execute('SELECT peer_id,id,body,outgoing,time,received FROM messages ORDER BY rowid').fetchall()
+
+    def upgrade(self, old, new=3):
+        output = subprocess.check_output(['java', '-cp', classpath, 'dev.ghost.nearbyim.storage.SchemaExport', str(old), str(new)], text=True)
+        for line in output.splitlines():
+            self.db.execute(base64.b64decode(line).decode())
+
+    def assert_preserved(self):
+        self.assertEqual(self.bodies, self.db.execute('SELECT peer_id,id,body,outgoing,time,received FROM messages ORDER BY rowid').fetchall())
+        self.assertEqual(('peer', 'Nickname 我的朋友', 123), self.db.execute('SELECT * FROM conversations').fetchone())
+        self.assertEqual(['pending', 'delivered', 'unknown', 'pending', 'delivered', 'unknown', ''],
+                         [row[0] for row in self.db.execute('SELECT state FROM messages ORDER BY rowid')])
+
+    def test_v1_to_v3_chains_trust_creation_and_status_migration(self):
+        self.upgrade(1)
+        self.assert_preserved()
+        self.assertEqual(0, self.db.execute('SELECT COUNT(*) FROM trusted_devices').fetchone()[0])
+
+    def test_v2_to_v3_preserves_device_trust_and_bluetooth_address(self):
+        self.db.execute(CREATE_TRUST)
+        self.db.execute(REMEMBER, ('peer', 'pinned-key', 'Nickname', 42, 2, 'AA:BB:CC:DD:EE:FF'))
+        trusted = self.db.execute('SELECT * FROM trusted_devices').fetchall()
+        self.upgrade(2)
+        self.assert_preserved()
+        self.assertEqual(trusted, self.db.execute('SELECT * FROM trusted_devices').fetchall())
+
+    def test_pending_recovery_after_upgrade_preserves_delivery_and_incoming_text(self):
+        self.db.execute(CREATE_TRUST)
+        self.upgrade(2)
+        self.db.execute(RECOVER_PENDING)
+        self.assertEqual(['unknown', 'delivered', 'unknown', 'unknown', 'delivered', 'unknown', ''],
+                         [row[0] for row in self.db.execute('SELECT state FROM messages ORDER BY rowid')])
+        self.assertEqual(self.bodies, self.db.execute('SELECT peer_id,id,body,outgoing,time,received FROM messages ORDER BY rowid').fetchall())
+
+    def test_v1_to_v2_keeps_legacy_states_for_intermediate_upgrade(self):
+        self.upgrade(1, 2)
+        self.assertEqual('待确认', self.db.execute("SELECT state FROM messages WHERE id='0'").fetchone()[0])
+        self.assertEqual(0, self.db.execute('SELECT COUNT(*) FROM trusted_devices').fetchone()[0])
 
 unittest.main()

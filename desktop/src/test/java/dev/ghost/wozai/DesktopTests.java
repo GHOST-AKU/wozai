@@ -1,5 +1,7 @@
 package dev.ghost.wozai;
 
+import dev.ghost.nearbyim.i18n.UiText;
+
 import dev.ghost.nearbyim.core.*;
 import java.io.*;
 import java.net.*;
@@ -18,6 +20,7 @@ public final class DesktopTests {
         Path root = Files.createTempDirectory("wozai-desktop-test");
         try {
             identity(root.resolve("identity.properties"));
+            defaultNicknames(root.resolve("nickname-defaults"));
             persistence(root.resolve("store"));
             interoperability(root.resolve("client"));
             failedSaveAndTemporaryConsent(root.resolve("failure"));
@@ -39,7 +42,7 @@ public final class DesktopTests {
         try (var store = new DesktopStore(path); var server = new ServerSocket(0); var client = new DesktopClient(store, DesktopIdentity.load(path.resolve("identity.properties")), new DesktopClient.Listener() {
             public void changed(DesktopClient.State state) { states.add(state); }
             public void request(DesktopClient.Request request) { }
-            public void notice(String key) { }
+            public void notice(UiText text) { }
         })) {
             String target = DesktopClient.endpoint(address, server.getLocalPort());
             store.peer(new DesktopStore.Peer(PEER, "Phone", remoteIdentity.publicKey(), target));
@@ -55,24 +58,59 @@ public final class DesktopTests {
                     public void onReady() { }
                     public void onText(Frame frame) { }
                     public void onAck(String id) { }
-                    public void onClosed(String reason) { closed.countDown(); }
+                    public void onClosed(UiText reason) { closed.countDown(); }
                 });
                 try {
                     remote.start();
                     check(closed.await(2, TimeUnit.SECONDS), "Revoking during authentication did not cancel the outgoing connection");
                     check(store.peer(PEER).publicKey().isEmpty(), "In-flight reconnect restored revoked trust");
-                } finally { remote.close("test"); }
+                } finally { remote.close(UiText.EMPTY); }
             }
         }
     }
     private static void translations() throws IOException {
         Properties zh = new Properties(), en = new Properties();
-        try (var input = DesktopTests.class.getResourceAsStream("Strings.properties")) { zh.load(new InputStreamReader(input, java.nio.charset.StandardCharsets.UTF_8)); }
+        try (var input = DesktopTests.class.getResourceAsStream("Strings_zh_Hans.properties")) { zh.load(new InputStreamReader(input, java.nio.charset.StandardCharsets.UTF_8)); }
         try (var input = DesktopTests.class.getResourceAsStream("Strings_en.properties")) { en.load(new InputStreamReader(input, java.nio.charset.StandardCharsets.UTF_8)); }
         check(zh.keySet().equals(en.keySet()), "Missing translation keys");
         check(new Strings("zh").text("app").equals("我在"), "Chinese fell back to host English locale");
         check(new Strings("en").text("requestBody", "Peer").contains("Peer"), "English placeholder lost");
         check(new Strings("zh").text("requestBody", "朋友").contains("朋友"), "Chinese placeholder lost");
+    }
+    private static DesktopClient.Listener silentListener() { return new DesktopClient.Listener() {
+        public void changed(DesktopClient.State state) { }
+        public void request(DesktopClient.Request request) { }
+        public void notice(UiText text) { }
+    }; }
+    private static void defaultNicknames(Path root) throws Exception {
+        Locale previous = Locale.getDefault(Locale.Category.DISPLAY);
+        try {
+            Locale.setDefault(Locale.Category.DISPLAY, Locale.UK);
+            Path legacy = root.resolve("legacy"); DesktopIdentity.Identity identity = DesktopIdentity.load(legacy.resolve("identity.properties"));
+            try (DesktopStore store = new DesktopStore(legacy)) {
+                store.setSetting("language", "en");
+                try (DesktopClient client = new DesktopClient(store, identity, silentListener())) {
+                    check(store.setting("nickname", "").equals("我在 Windows"), "Upgrade renamed an existing identity without a saved nickname");
+                    check(store.setting("language", "").equals("en"), "Nickname migration changed the chosen language");
+                }
+            }
+            Path fresh = root.resolve("fresh");
+            try (DesktopStore store = new DesktopStore(fresh);
+                 DesktopClient client = new DesktopClient(store, DesktopIdentity.load(fresh.resolve("identity.properties")), silentListener())) {
+                check(store.setting("nickname", "").equals("NearbyIM Windows"), "Fresh profile did not persist the system-localized nickname before connecting");
+                store.setSetting("language", "zh-Hans"); client.refresh().get(2, TimeUnit.SECONDS);
+                check(store.setting("nickname", "").equals("NearbyIM Windows"), "Language change renamed a device");
+            }
+            try (DesktopStore store = new DesktopStore(fresh);
+                 DesktopClient client = new DesktopClient(store, DesktopIdentity.load(fresh.resolve("identity.properties")), silentListener())) {
+                check(store.setting("nickname", "").equals("NearbyIM Windows"), "Restart reinterpreted a persisted nickname as an old default");
+                store.setSetting("nickname", "O'Brien 朋友");
+            }
+            try (DesktopStore store = new DesktopStore(fresh);
+                 DesktopClient client = new DesktopClient(store, DesktopIdentity.load(fresh.resolve("identity.properties")), silentListener())) {
+                check(store.setting("nickname", "").equals("O'Brien 朋友"), "Startup changed the owner's nickname");
+            }
+        } finally { Locale.setDefault(Locale.Category.DISPLAY, previous); }
     }
     private static void failedSaveAndTemporaryConsent(Path path) throws Exception {
         InetAddress address = Collections.list(NetworkInterface.getNetworkInterfaces()).stream()
@@ -84,7 +122,7 @@ public final class DesktopTests {
         try (var store = new DesktopStore(path); var client = new DesktopClient(store, DesktopIdentity.load(path.resolve("identity.properties")), new DesktopClient.Listener() {
             public void changed(DesktopClient.State state) { }
             public void request(DesktopClient.Request request) { requests.add(request); }
-            public void notice(String key) { }
+            public void notice(UiText text) { }
         })) {
             int port = client.listen().get(3, TimeUnit.SECONDS).port();
             for (int round = 0; round < 3; round++) {
@@ -94,7 +132,7 @@ public final class DesktopTests {
                     public void onReady() { ready.countDown(); }
                     public void onText(Frame frame) { }
                     public void onAck(String id) { acknowledgments.add(id); }
-                    public void onClosed(String reason) { closed.countDown(); }
+                    public void onClosed(UiText reason) { closed.countDown(); }
                 });
                 try {
                     remote.start(); var request = requests.poll(3, TimeUnit.SECONDS);
@@ -118,7 +156,7 @@ public final class DesktopTests {
                         Files.delete(path.resolve("messages").resolve(PEER));
                     }
                     client.disconnect().get(2, TimeUnit.SECONDS);
-                } finally { remote.close("test"); }
+                } finally { remote.close(UiText.EMPTY); }
             }
         }
     }
@@ -188,7 +226,7 @@ public final class DesktopTests {
         try (var store = new DesktopStore(path); var client = new DesktopClient(store, DesktopIdentity.load(path.resolve("identity.properties")), new DesktopClient.Listener() {
             public void changed(DesktopClient.State state) { }
             public void request(DesktopClient.Request request) { requests.add(request); }
-            public void notice(String key) { notices.add(key); }
+            public void notice(UiText text) { notices.add(text.key); }
         })) {
             int port = client.listen().get(3, TimeUnit.SECONDS).port();
             // Uses exactly the same FramedSession as the Android transport.
@@ -200,7 +238,7 @@ public final class DesktopTests {
                     public void onReady() { ready.countDown(); }
                     public void onText(Frame frame) { remoteText.add(frame); }
                     public void onAck(String id) { remoteAck.add(id); }
-                    public void onClosed(String reason) { closed.countDown(); }
+                    public void onClosed(UiText reason) { closed.countDown(); }
                 });
                 try {
                     android.start();
@@ -238,7 +276,7 @@ public final class DesktopTests {
                     while (System.nanoTime() < deadline && store.messages(PEER).stream().noneMatch(m -> m.id().equals(received.id) && m.status().equals("delivered"))) Thread.sleep(10);
                     check(store.messages(PEER).stream().anyMatch(m -> m.id().equals(received.id) && m.status().equals("delivered")), "Desktop receipt not persisted");
                     client.disconnect().get(3, TimeUnit.SECONDS);
-                } finally { android.close("test"); }
+                } finally { android.close(UiText.EMPTY); }
             }
             client.stopListening().get(3, TimeUnit.SECONDS);
             try (var probe = new Socket(address, port)) { throw new AssertionError("Listener still accepted connections"); }

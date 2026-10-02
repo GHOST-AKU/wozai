@@ -1,6 +1,8 @@
 package dev.ghost.wozai;
 
 import dev.ghost.nearbyim.core.StreamConnection;
+import dev.ghost.nearbyim.i18n.LocalizedIOException;
+import dev.ghost.nearbyim.i18n.UiText;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -91,7 +93,7 @@ public final class WindowsBluetooth {
 
     private static void requireAvailable() throws IOException {
         Status status = status();
-        if (!status.available()) throw new IOException(status.detail());
+        if (!status.available()) throw new LocalizedIOException(UiText.of("bluetoothUnavailable"));
     }
     private static void validateTimeout(int timeoutMillis) {
         if (timeoutMillis < 1 || timeoutMillis > 120_000)

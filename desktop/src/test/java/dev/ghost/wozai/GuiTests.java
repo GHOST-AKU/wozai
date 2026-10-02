@@ -1,5 +1,8 @@
 package dev.ghost.wozai;
 
+import dev.ghost.nearbyim.i18n.UiText;
+import dev.ghost.nearbyim.i18n.LanguageRegistry;
+
 import dev.ghost.nearbyim.core.*;
 import dev.ghost.nearbyim.core.Frame;
 import java.awt.*;
@@ -27,6 +30,15 @@ public final class GuiTests {
     private static JButton button(Component root, String text) {
         return components(root).stream().filter(c -> c instanceof JButton b && b.getText().equals(text)).map(c -> (JButton) c).findFirst().orElseThrow();
     }
+    private static void language(JComboBox<?> choices, String tag) {
+        for (int i = 0; i < choices.getItemCount(); i++) if (choices.getItemAt(i) instanceof DesktopWindow.LanguageOption option && option.tag().equals(tag)) {
+            choices.setSelectedIndex(i); return;
+        }
+        throw new AssertionError("Missing language option " + tag);
+    }
+    private static JDialog dialog(DesktopWindow window, String title) {
+        return Arrays.stream(window.getOwnedWindows()).filter(w -> w instanceof JDialog d && d.isVisible() && d.getTitle().equals(title)).map(w -> (JDialog) w).findFirst().orElseThrow();
+    }
     private static JTextArea area(Component root, String label) {
         return components(root).stream().filter(c -> c instanceof JTextArea a && label.equals(a.getAccessibleContext().getAccessibleName())).map(c -> (JTextArea) c).findFirst().orElseThrow();
     }
@@ -45,8 +57,10 @@ public final class GuiTests {
         Path root = Files.createTempDirectory("wozai-gui-test");
         DesktopWindow window = null; FramedSession remote = null;
         String id = UUID.randomUUID().toString();
+        Locale originalDisplayLocale = Locale.getDefault(Locale.Category.DISPLAY);
         try (DesktopStore store = new DesktopStore(root)) {
             store.setSetting("language", "en"); store.peer(new DesktopStore.Peer(id, "Phone", "", "")); store.draft(id, "saved draft");
+            for (int i = 0; i < 35; i++) store.save(id, new DesktopStore.Message(UUID.randomUUID().toString(), "Earlier chat message " + i, 1_700_000_000_000L + i * 60_000L, false, "received"));
             DesktopIdentity.Identity identity = DesktopIdentity.load(root.resolve("identity.properties"));
             window = edt(() -> { AppTheme.install(false); DesktopWindow w = new DesktopWindow(store, identity, root); w.setVisible(true); return w; });
             DesktopWindow w = window;
@@ -59,10 +73,10 @@ public final class GuiTests {
             edt(() -> { search.setText("pho"); return null; });
             await(() -> components(w).stream().anyMatch(c -> c instanceof JList<?> l && "Chats".equals(l.getAccessibleContext().getAccessibleName()) && l.getModel().getSize()==1), "Search failed partial nickname");
             edt(() -> { search.setText(""); return null; });
-            JComboBox<?> languages = edt(() -> components(w).stream().filter(c -> c instanceof JComboBox<?> b && "English".equals(b.getItemAt(1))).map(c -> (JComboBox<?>) c).findFirst().orElseThrow());
-            edt(() -> { languages.setSelectedIndex(0); return null; });
+            JComboBox<?> languages = edt(() -> components(w).stream().filter(c -> c instanceof JComboBox<?> b && "Interface language".equals(b.getAccessibleContext().getAccessibleName())).map(c -> (JComboBox<?>) c).findFirst().orElseThrow());
+            edt(() -> { language(languages, "zh-Hans"); return null; });
             await(() -> w.getTitle().equals("我在") && area(w, "输入消息").getText().equals("saved draft"), "Language change lost draft");
-            edt(() -> { languages.setSelectedIndex(1); return null; });
+            edt(() -> { language(languages, "en"); return null; });
             float original = edt(() -> area(w, "Type a message").getFont().getSize2D());
             edt(() -> { components(w).stream().filter(c -> c instanceof JComboBox<?> b && "Standard".equals(b.getItemAt(0))).forEach(c -> ((JComboBox<?>) c).setSelectedIndex(2)); return null; });
             if (edt(() -> area(w, "Type a message").getFont().getSize2D()) <= original) throw new AssertionError("Text scaling did not affect composer");
@@ -79,11 +93,14 @@ public final class GuiTests {
                 public void onReady() { ready.countDown(); }
                 public void onText(Frame frame) { text.add(frame); }
                 public void onAck(String id) { }
-                public void onClosed(String reason) { }
+                public void onClosed(UiText reason) { }
             });
             remote.start();
             await(() -> Arrays.stream(Window.getWindows()).anyMatch(dialog -> dialog.isVisible() && components(dialog).stream().anyMatch(c -> c instanceof JButton b && b.getText().equals("Approve and remember"))), "Consent controls missing");
-            edt(() -> { for (Window dialog : Window.getWindows()) if (dialog instanceof JDialog && dialog.isVisible()) button(dialog, "Approve and remember").doClick(); return null; });
+            JDialog consent = edt(() -> dialog(w, "Chat request"));
+            edt(() -> { language(languages, "zh-Hans"); return null; });
+            await(() -> consent.isVisible() && consent.getTitle().equals("聊天请求") && button(consent, "同意并记住").isEnabled(), "Language change lost pending consent");
+            edt(() -> { language(languages, "en"); button(consent, "Approve and remember").doClick(); return null; });
             if (!hello.await(3, TimeUnit.SECONDS)) throw new AssertionError("No phone HELLO"); remote.approve();
             if (!ready.await(3, TimeUnit.SECONDS)) throw new AssertionError("GUI consent did not connect");
             await(() -> button(w, "Send").isEnabled(), "Ready chat composer disabled");
@@ -104,16 +121,51 @@ public final class GuiTests {
             edt(() -> { themes.setSelectedIndex(1); return null; });
             await(() -> AppTheme.dark && AppTheme.background.equals(new Color(0x101619)) && area(w,"Type a message").getForeground().equals(AppTheme.ink) && area(w,"Type a message").getBackground().equals(AppTheme.surface), "Dark theme composer contrast did not match Android palette");
             if(args.length>0) { Rectangle bounds=edt(w::getBounds); ImageIO.write(new Robot().createScreenCapture(bounds),"png",Path.of(args[0].replace(".png","-dark.png")).toFile()); }
-            edt(() -> { area(w, "Type a message").setText("unsent draft"); languages.setSelectedIndex(0); return null; });
-            await(() -> area(w, "输入消息").getText().equals("unsent draft") && button(w, "发送").isEnabled(), "Live language change interrupted session or draft");
+            edt(() -> { area(w, "Type a message").setText("unsent draft"); search.setText("pho"); button(w, "How to use").doClick(); button(w, "About NearbyIM").doClick(); button(w, "Trusted devices").doClick(); return null; });
+            JDialog help = edt(() -> dialog(w, "How to use")), about = edt(() -> dialog(w, "About NearbyIM")), trust = edt(() -> dialog(w, "Trusted devices"));
+            MessagePane messages = edt(() -> components(w).stream().filter(c -> c instanceof MessagePane).map(c -> (MessagePane)c).findFirst().orElseThrow());
+            JScrollPane chatScroll = edt(() -> (JScrollPane)SwingUtilities.getAncestorOfClass(JScrollPane.class, messages));
+            edt(() -> { chatScroll.getVerticalScrollBar().setValue(180); return null; });
+            int previousScroll = edt(() -> chatScroll.getVerticalScrollBar().getValue());
+            edt(() -> { language(languages, "zh-Hans"); return null; });
+            await(() -> area(w, "输入消息").getText().equals("unsent draft") && button(w, "发送").isEnabled() && messages.text().contains("已送达"), "Live language change interrupted session or draft");
+            await(() -> help.getTitle().equals("使用说明") && about.getTitle().equals("关于我在") && trust.getTitle().equals("已信任设备"), "Open dialogs kept the old language");
+            if (!edt(() -> components(help).stream().anyMatch(c -> c instanceof JTextArea a && a.getText().contains("局域网")) && components(about).stream().anyMatch(c -> c instanceof JTextArea a && a.getText().contains(LanguageRegistry.VERSION)))) throw new AssertionError("Open information bodies/version did not refresh");
+            if (!edt(() -> search.getText().equals("pho") && components(w).stream().anyMatch(c -> c instanceof JList<?> list && "聊天".equals(list.getAccessibleContext().getAccessibleName()) && list.getSelectedValue() instanceof DesktopStore.Peer peer && peer.id().equals(id)))) throw new AssertionError("Language change lost search or selected history");
+            if (previousScroll == 0 || Math.abs(edt(() -> chatScroll.getVerticalScrollBar().getValue()) - previousScroll) > 32) throw new AssertionError("Language change lost the conversation scroll position");
+            edt(() -> { Locale.setDefault(Locale.Category.DISPLAY, Locale.US); language(languages, LanguageRegistry.SYSTEM); return null; });
+            await(() -> area(w, "Type a message").getText().equals("unsent draft") && help.getTitle().equals("How to use"), "System choice did not resolve English");
+            edt(() -> { Locale.setDefault(Locale.Category.DISPLAY, Locale.SIMPLIFIED_CHINESE); return null; });
+            await(() -> help.getTitle().equals("使用说明") && trust.getTitle().equals("已信任设备") && area(w, "输入消息").getText().equals("unsent draft"), "Running system language change did not refresh open UI");
+            if (!store.language().equals(LanguageRegistry.SYSTEM)) throw new AssertionError("System refresh replaced the saved system preference");
+            if (!remote.isReady() || !remote.send(new Frame(Frame.TEXT, UUID.randomUUID().toString(), "Still connected after language changes", System.currentTimeMillis()))) throw new AssertionError("Language changes closed the live wire session");
+            await(() -> messages.text().contains("Still connected after language changes"), "Live connection did not receive after language changes");
             if (!edt(() -> AppTheme.dark)) throw new AssertionError("Translation reset theme");
             edt(() -> { w.dispatchEvent(new WindowEvent(w, WindowEvent.WINDOW_CLOSING)); return null; });
             await(() -> !w.isDisplayable(), "GUI exit did not close");
             try (DesktopStore reopened = new DesktopStore(root)) { if (!reopened.draft(id).equals("unsent draft")) throw new AssertionError("Exit lost draft"); if (!reopened.setting("theme","").equals("dark")) throw new AssertionError("Theme not persisted"); }
-            System.out.println("GuiTests: consent, messaging, receipts, live translation, nickname search, Android light/dark theme, text scaling, draft and exit passed");
+            startupUsesSavedLanguage(root);
+            System.out.println("GuiTests: consent, messaging, receipts, live and system translation, open dialogs, search/selection/scroll preservation, nickname search, light/dark theme, text scaling, startup preference, draft and exit passed");
         } finally {
-            if (remote != null) remote.close("test");
+            Locale.setDefault(Locale.Category.DISPLAY, originalDisplayLocale);
+            if (remote != null) remote.close(UiText.EMPTY);
             DesktopWindow w = window; if (w != null) edt(() -> { if (w.isDisplayable()) w.dispatchEvent(new WindowEvent(w, WindowEvent.WINDOW_CLOSING)); return null; });
+        }
+    }
+    private static void startupUsesSavedLanguage(Path root) throws Exception {
+        String previousData = System.getProperty("wozai.dataDir"); JDialog startup = null;
+        try (DesktopStore locked = new DesktopStore(root)) {
+            locked.setSetting("language", "en");
+            System.setProperty("wozai.dataDir", root.toString()); Locale.setDefault(Locale.Category.DISPLAY, Locale.SIMPLIFIED_CHINESE);
+            Main.main(new String[0]);
+            await(() -> Arrays.stream(Window.getWindows()).anyMatch(window -> window instanceof JDialog && window.isVisible()), "Duplicate startup did not show an error");
+            startup = edt(() -> Arrays.stream(Window.getWindows()).filter(window -> window instanceof JDialog && window.isVisible()).map(window -> (JDialog)window).findFirst().orElseThrow());
+            JDialog dialog = startup;
+            if (!edt(() -> dialog.getTitle().equals("NearbyIM") && components(dialog).stream().anyMatch(c -> c instanceof JTextArea a && a.getText().contains("Another NearbyIM") && a.getText().contains("Local data folder")))) throw new AssertionError("Startup error ignored the saved English language");
+            edt(() -> { button(dialog, "Got it").doClick(); return null; });
+        } finally {
+            if (previousData == null) System.clearProperty("wozai.dataDir"); else System.setProperty("wozai.dataDir", previousData);
+            JDialog dialog = startup; if (dialog != null) edt(() -> { dialog.dispose(); return null; });
         }
     }
 }

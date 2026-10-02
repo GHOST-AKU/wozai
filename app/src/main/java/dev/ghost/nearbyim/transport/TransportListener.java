@@ -1,5 +1,6 @@
 package dev.ghost.nearbyim.transport;
 import dev.ghost.nearbyim.core.StreamConnection;
+import dev.ghost.nearbyim.i18n.UiText;
 
 /** Implementations deliver all callbacks on the Android main thread. */
 public interface TransportListener {
@@ -7,13 +8,13 @@ public interface TransportListener {
     void onLost(String key);
     default void onSearching(int mode, boolean searching) {}
     /** Stopping discovery failed; this does not imply a new connection attempt failed. */
-    default void onSearchStopFailed(int mode, String message) {}
-    void onListening(int mode, String detail);
+    default void onSearchStopFailed(int mode, UiText message) {}
+    void onListening(int mode, UiText detail);
     void onConnection(int mode, StreamConnection connection, boolean incoming);
     /** Actual RFCOMM remote address, independent of discovery labels or names. */
     default void onConnection(int mode, StreamConnection connection, boolean incoming, String bluetoothAddress) {
         onConnection(mode, connection, incoming);
     }
-    void onError(int mode, String message, boolean fatal);
-    void onConnectFailed(int mode, String message);
+    void onError(int mode, UiText message, boolean fatal);
+    void onConnectFailed(int mode, UiText message);
 }

@@ -66,8 +66,8 @@ public final class LayoutTests {
             check(edt(() -> scroll.getVerticalScrollBar().getValue())>=80,"Six wheel ticks barely move settings");
             check(edt(() -> all(w).stream().anyMatch(c -> c instanceof JButton b && "How to use".equals(b.getText()))),"Settings has no Android-style usage instructions");
             check(edt(() -> all(w).stream().anyMatch(c -> c instanceof JButton b && "About NearbyIM".equals(b.getText()))),"Settings has no About NearbyIM entry");
-            JComboBox<?> languages=edt(() -> all(w).stream().filter(c -> c instanceof JComboBox<?> b && "English".equals(b.getItemAt(1))).map(c -> (JComboBox<?>)c).findFirst().orElseThrow());
-            edt(() -> { languages.setSelectedIndex(0); return null; }); Thread.sleep(250);
+            JComboBox<?> languages=edt(() -> all(w).stream().filter(c -> c instanceof JComboBox<?> b && "Interface language".equals(b.getAccessibleContext().getAccessibleName())).map(c -> (JComboBox<?>)c).findFirst().orElseThrow());
+            edt(() -> { for (int i=0;i<languages.getItemCount();i++) if(languages.getItemAt(i) instanceof DesktopWindow.LanguageOption option && option.tag().equals("zh-Hans")) languages.setSelectedIndex(i); return null; }); Thread.sleep(250);
             edt(() -> { scroll.getVerticalScrollBar().setValue(0); return null; });
             if(args.length>0)capture(robot,w,args[0]);
             for(String title:new String[]{"使用说明","关于我在"}) {

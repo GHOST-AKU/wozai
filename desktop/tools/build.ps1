@@ -1,6 +1,11 @@
 param([switch]$Run, [switch]$Package)
 $ErrorActionPreference = 'Stop'
 Set-Location (Join-Path $PSScriptRoot '..')
+& python ../tools/generate-i18n.py --check
+if ($LASTEXITCODE -ne 0) { throw 'Translation catalogs or generated resources are invalid' }
+$i18nConfig = Get-Content ../i18n/config.json -Raw -Encoding UTF8 | ConvertFrom-Json
+$appVersion = $i18nConfig.appVersion
+$runtimeLocales = ($i18nConfig.languages | ForEach-Object { $_.tag }) -join ','
 function Invoke-JavaTool([string]$Tool, [string[]]$Arguments) {
     & (Join-Path $env:JAVA_HOME "bin/$Tool.exe") @Arguments
     if ($LASTEXITCODE -ne 0) { throw "$Tool failed with exit code $LASTEXITCODE" }
@@ -35,6 +40,7 @@ Copy-Item build/native/Release/wozai_bluetooth.dll build/lib/ -Force
 $bluetoothLibrary = '-Dwozai.bluetooth.library=' + (Resolve-Path build/lib/wozai_bluetooth.dll).Path
 $sources = @((Get-ChildItem src/main/java -Recurse -Filter '*.java').FullName)
 $sources += (Get-ChildItem ../app/src/main/java/dev/ghost/nearbyim/core -Filter '*.java').FullName
+$sources += (Get-ChildItem ../app/src/main/java/dev/ghost/nearbyim/i18n -Filter '*.java' | Where-Object Name -ne 'I18nResources.java').FullName
 $sources += (Resolve-Path ../app/src/main/java/dev/ghost/nearbyim/storage/TrustPolicy.java).Path
 # Java argument files must not start with a UTF-8 BOM (Windows PowerShell 5 adds one).
 [IO.File]::WriteAllLines((Join-Path (Get-Location) 'build/sources.txt'), @($sources | ForEach-Object { '"' + $_.Replace('\', '/') + '"' }), (New-Object Text.UTF8Encoding($false)))
@@ -46,16 +52,16 @@ Copy-Item ../app/src/main/res/drawable-nodpi/ic_launcher_artwork.png build/class
 Invoke-JavaTool jar @('--create', '--file', 'build/lib/nearbyim-desktop.jar', '--main-class', 'dev.ghost.wozai.Main', '-C', 'build/classes', '.')
 $tests = (Get-ChildItem src/test/java -Recurse -Filter '*.java').FullName
 Invoke-JavaTool javac (@('--release', '17', '-encoding', 'UTF-8', '-cp', 'build/classes;build/lib/*', '-d', 'build/tests') + $tests)
-foreach ($test in @('DesktopTests', 'DataLocationTests', 'BluetoothTests', 'TransportTests')) {
+foreach ($test in @('DesktopTests', 'DataLocationTests', 'BluetoothTests', 'TransportTests', 'StringsTests')) {
     Invoke-JavaTool java @($bluetoothLibrary, '-cp', 'build/classes;build/tests;build/lib/*', "dev.ghost.wozai.$test")
 }
 if ($Package) {
     if (Test-Path build/package/NearbyIM) { Remove-Item build/package/NearbyIM -Recurse -Force }
-    Invoke-JavaTool jpackage @('--type', 'app-image', '--name', 'NearbyIM', '--app-version', '0.2.2', '--vendor', 'GHOST-AKU', '--input', 'build/lib', '--main-jar', 'nearbyim-desktop.jar', '--main-class', 'dev.ghost.wozai.Main', '--dest', 'build/package', '--icon', 'assets/wozai.ico', '--java-options', '-Dwozai.installDir=$APPDIR/..', '--add-modules', 'java.base,java.desktop,java.logging,jdk.crypto.ec,jdk.accessibility,jdk.localedata', '--jlink-options', '--strip-debug --no-man-pages --no-header-files --include-locales=en,zh')
+    Invoke-JavaTool jpackage @('--type', 'app-image', '--name', 'NearbyIM', '--app-version', $appVersion, '--vendor', 'GHOST-AKU', '--input', 'build/lib', '--main-jar', 'nearbyim-desktop.jar', '--main-class', 'dev.ghost.wozai.Main', '--dest', 'build/package', '--icon', 'assets/wozai.ico', '--java-options', '-Dwozai.installDir=$APPDIR/..', '--add-modules', 'java.base,java.desktop,java.logging,jdk.crypto.ec,jdk.accessibility,jdk.localedata', '--jlink-options', "--strip-debug --no-man-pages --no-header-files --include-locales=$runtimeLocales")
     Copy-Item ../THIRD_PARTY_NOTICES.md build/package/NearbyIM/
     Copy-Item ../docs/windows.md build/package/NearbyIM/README.md
     Copy-Item ../licenses build/package/NearbyIM/ -Recurse -Force
     Copy-Item ../docs/licenses/material-icons-LICENSE.txt build/package/NearbyIM/licenses/ -Force
-    Compress-Archive -Path build/package/NearbyIM -DestinationPath build/NearbyIM-0.2.2-windows-x64.zip -Force
+    Compress-Archive -Path build/package/NearbyIM -DestinationPath "build/NearbyIM-$appVersion-windows-x64.zip" -Force
 }
 if ($Run) { Invoke-JavaTool java @($bluetoothLibrary, '-cp', 'build/lib/*', 'dev.ghost.wozai.Main') }

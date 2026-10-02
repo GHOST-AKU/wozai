@@ -1,10 +1,10 @@
 # 我在 · NearbyIM
 
-一个无需账号、无需远程服务器的聊天项目。原生安卓端通过 **同一局域网** 或 **经典蓝牙** 聊天；Windows 预览版复用 Android 0.2.0 的聊天协议。
+一个无需账号、无需远程服务器的聊天项目。原生安卓端和 Windows 预览版通过 **同一局域网** 或 **经典蓝牙** 聊天，共用 NIM2 协议。
 
-**当前开发版本：我在 0.2.0。原生界面按新方案调整，加入设备信任与重连免确认。0.2.0 调试 APK 已通过 Android 编译、Lint、v2 签名及对齐校验；Lint 为 0 错误、6 警告。根据 2026-10-02 双机测试反馈，蓝牙与局域网互聊、已信任设备免重复确认及直接重连均已通过。后续方向见[产品路线图](docs/roadmap.md)。**
+**当前开发版本：我在 · NearbyIM 0.3.0。安卓与 Windows 共用完整的简体中文／英文翻译目录，默认跟随系统，涵盖界面、错误、通知、权限说明、日期、帮助与关于。多语言架构和新增语言流程见[架构说明](docs/i18n.md)。原有 NIM2 身份、信任与消息协议保持兼容。0.2.0 双机通信及可信重连已由用户报告通过；后续方向见[产品路线图](docs/roadmap.md)。**
 
-Windows 0.2.2 预览版包含局域网发现、IP 直连、经典蓝牙、文字聊天、可信重连、回执、本地记录和草稿，以及与安卓一致的配色、头像、搜索、消息气泡和原图标。英文品牌统一为 NearbyIM，内置思源黑体，无需安装字体；设置支持窄窗口自动换行、顺畅滚动，并提供「使用说明」「关于我在」。支持中英文、文字大小和浅色／深色主题。数据默认放在软件旁的 `data`，旧版便携和用户目录会复制迁移并保留原件。解压便携包后运行 `NearbyIM/NearbyIM.exe`，无需另装 Java。构建、使用范围和验证记录见 [Windows 说明](docs/windows.md)。Windows 蓝牙需真实适配器和手机验收；暂不支持附件和群聊，局域网内容仍为明文。
+Windows 0.3.0 预览版包含局域网发现、IP 直连、经典蓝牙、文字聊天、可信重连、回执、本地记录和草稿，以及与安卓一致的配色、头像、搜索、消息气泡和原图标。英文品牌统一为 NearbyIM，内置思源黑体，无需安装字体；设置支持窄窗口自动换行、顺畅滚动，并提供「使用说明」「关于我在」。支持中英文、文字大小和浅色／深色主题。数据默认放在软件旁的 `data`，旧版便携和用户目录会复制迁移并保留原件。解压便携包后运行 `NearbyIM/NearbyIM.exe`，无需另装 Java。构建、使用范围和验证记录见 [Windows 说明](docs/windows.md)。Windows 蓝牙需真实适配器和手机验收；暂不支持附件和群聊，局域网内容仍为明文。
 
 ## 已实现的功能
 
@@ -19,13 +19,13 @@ Windows 0.2.2 预览版包含局域网发现、IP 直连、经典蓝牙、文字
 
 另外包含本地 SQLite 记录、会话摘要与昵称搜索、按会话区分的草稿、跟随系统的深浅主题，以及维持连接的前台服务。主页面为「聊天 / 附近 / 设置」，首页左上「我在」，右上显示真实聊天连接状态，启动图标保持纸杯电话白色底板。服务持续通知可停止所有连接。移出最近任务会停止服务；系统强杀后需要重新连接。
 
-新连接采用 **NIM2 认证封装协议**，不向旧版无认证连接降级。两部设备都需要更新至 0.2.0；旧版本机消息仍保留，但旧 UUID 历史不能直接转换成可信设备，升级后首次需要重新绑定身份。
+新连接采用 **NIM2 认证封装协议**，不向旧版无认证连接降级。两部设备都需要支持 NIM2（0.2.0 及以后版本）；旧版本机消息仍保留，但旧 UUID 历史不能直接转换成可信设备，升级后首次需要重新绑定身份。
 
 第一版是一对一文字聊天，不包含群聊、文件、语音、互联网转发或自动重发。
 
 ## 生成 APK
 
-安装支持 AGP 8.13 的 Android Studio，使用 JDK 17，安装 Android SDK Platform 36 和 Build Tools 35.0.0。
+安装支持 AGP 8.13 的 Android Studio，使用 JDK 17，安装 Android SDK Platform 36 和 Build Tools 35.0.0，以及 Python 3（用于生成资源一致性检查）。
 
 1. 用 Android Studio 打开包含 `settings.gradle.kts` 的项目根目录。
 2. 等待 Gradle 同步完成。已附官方 Gradle 8.13 Wrapper，下载会校验 SHA-256。
@@ -41,7 +41,7 @@ Windows PowerShell：
 .\gradlew.bat :app:assembleDebug :app:lintDebug
 ```
 
-生成路径：`app/build/outputs/apk/debug/app-debug.apk`。当前调试安装包命名为 `WoZai-0.2.0-debug.apk`，使用 Android 调试签名，供安装测试。把同一个 APK 安装到两部安卓手机。此版本的最低系统配置为 Android 8.0 / API 26，目标 SDK 为 36。
+生成路径：`app/build/outputs/apk/debug/app-debug.apk`。当前调试安装包命名为 `NearbyIM-0.3.0-debug.apk`，使用 Android 调试签名，供安装测试。把同一个 APK 安装到两部安卓手机。此版本的最低系统配置为 Android 8.0 / API 26，目标 SDK 为 36。
 
 第一次同步需要访问 Google Maven、Maven Central 与 Gradle 分发服务器。SDK 路径由 Android Studio 写入本机 `local.properties`，不要把它提交到仓库。
 
@@ -104,6 +104,7 @@ targetSdk 36 的局域网访问遵循当前官方规则，使用 INTERNET 权限
 需要 JDK 17 和 Python 3，不需要安卓 SDK，也没有 JUnit 等测试依赖：
 
 ```sh
+sh tools/test-i18n.sh
 sh tools/test-core.sh
 sh tools/test-trust.sh
 sh tools/check-source.sh
@@ -125,6 +126,8 @@ powershell -ExecutionPolicy Bypass -File tools/test-core.ps1
 
 | 文件 / 目录 | 职责 |
 | --- | --- |
+| `i18n/` / `tools/generate-i18n.py` | 多端唯一文案目录、ICU 契约及资源生成 |
+| `i18n` Java 包 / `AppLanguage` / `Strings` | 共享语言解析、语义提示及各端显示适配 |
 | `MainActivity.java` | 原生 UI、权限与系统弹窗返回、会话草稿 |
 | `ChatService.java` | 前台服务与持续通知 |
 | `ChatController.java` | 主线程状态与串行数据库任务 |

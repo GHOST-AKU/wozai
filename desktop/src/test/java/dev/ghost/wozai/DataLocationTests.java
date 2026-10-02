@@ -1,6 +1,7 @@
 package dev.ghost.wozai;
 
 import java.io.IOException;
+import dev.ghost.nearbyim.i18n.LocalizedIOException;
 import java.nio.file.*;
 import java.nio.file.attribute.FileTime;
 import java.nio.file.attribute.PosixFilePermissions;
@@ -36,13 +37,13 @@ public final class DataLocationTests {
         } finally { deleteTree(root); }
     }
 
-    private static DataLocation.Selection packaged(Path install, Path local) {
+    private static DataLocation.Selection packaged(Path install, Path local) throws IOException {
         Map<String, String> properties = Map.of("wozai.installDir", install.toString());
         Map<String, String> environment = Map.of("LOCALAPPDATA", local.toString());
         return DataLocation.select(properties::get, environment::get, true);
     }
 
-    private static void selection(Path root) {
+    private static void selection(Path root) throws IOException {
         Path install = root.resolve("portable");
         Path launch = install.resolve("app").resolve("..");
         Path local = root.resolve("system-drive").resolve("Local");
@@ -62,7 +63,7 @@ public final class DataLocationTests {
         var posix = DataLocation.select(Map.of("user.home", root.resolve("home").toString())::get, key -> null, false);
         check(posix.path().equals(root.resolve("home/.local/share/wozai")), "Unpackaged POSIX default changed");
         try { DataLocation.select(Map.of("wozai.installDir", launch.toString())::get, key -> null, true); throw new AssertionError("Missing legacy location was ignored"); }
-        catch (IllegalStateException expected) { check(expected.getMessage().contains("LOCALAPPDATA"), "Missing legacy environment had no useful error"); }
+        catch (LocalizedIOException expected) { check(expected.text.key.equals("dataEnvironmentMissing") && expected.text.arguments[0].equals("LOCALAPPDATA"), "Missing legacy environment had no structured error"); }
     }
 
     private static DesktopIdentity.Identity createProfile(Path root) throws Exception {
@@ -158,7 +159,7 @@ public final class DataLocationTests {
         createProfile(legacy);
         Map<String, byte[]> before = snapshot(legacy);
         try (DesktopStore active = new DesktopStore(legacy)) {
-            fails(packaged(install, local), "旧版", "Active legacy instance was migrated");
+            fails(packaged(install, local), "legacyDataInUse", "Active legacy instance was migrated");
             check(!Files.exists(install.resolve("data/identity.properties")), "Failed migration generated an identity");
             sameBytes(before, snapshot(legacy), "Locked legacy source");
         }
@@ -173,7 +174,7 @@ public final class DataLocationTests {
         createProfile(local.resolve("WoZai"));
         Files.createDirectories(target);
         try (DesktopStore active = new DesktopStore(target)) {
-            fails(packaged(install, local), "另一个", "Active lock-only target was replaced");
+            fails(packaged(install, local), "dataInUse", "Active lock-only target was replaced");
             check(!Files.exists(target.resolve("identity.properties")), "Active lock-only target generated identity");
         }
         try (var prepared = packaged(install, local).prepare()) { check(Files.exists(prepared.path().resolve("identity.properties")), "Lock-only target could not retry"); }
@@ -215,26 +216,26 @@ public final class DataLocationTests {
         createProfile(legacy);
         Files.createDirectories(target);
         Files.writeString(target.resolve("settings.properties"), "language=en\n");
-        fails(packaged(install, local), "缺少设备身份", "Populated target without identity was overwritten");
+        fails(packaged(install, local), "dataIdentityMissing", "Populated target without identity was overwritten");
         check(Files.readString(target.resolve("settings.properties")).equals("language=en\n"), "Corrupt portable target was modified");
         check(!Files.exists(target.resolve("identity.properties")), "Corrupt portable target generated identity");
 
         Path blockedInstall = root.resolve("blocked-software");
         Files.writeString(blockedInstall, "file barrier");
-        fails(packaged(blockedInstall, local), "普通文件", "Non-directory installation root was accepted");
+        fails(packaged(blockedInstall, local), "dataPathNotDirectory", "Non-directory installation root was accepted");
         check(Files.readString(blockedInstall).equals("file barrier"), "Blocked install root was replaced");
 
         Path malformedInstall = root.resolve("malformed-software"), malformedTarget = malformedInstall.resolve("data");
         createProfile(malformedTarget);
         deleteTree(malformedTarget.resolve("drafts"));
         Files.writeString(malformedTarget.resolve("drafts"), "bad directory shape");
-        fails(packaged(malformedInstall, local), "普通文件", "File in place of drafts directory was accepted");
+        fails(packaged(malformedInstall, local), "dataPathNotDirectory", "File in place of drafts directory was accepted");
 
         Path badLocal = root.resolve("bad-Local"), badLegacy = badLocal.resolve("WoZai"), badInstall = root.resolve("bad-source-software");
         createProfile(badLegacy);
         byte[] oversized = new byte[65537]; Arrays.fill(oversized, (byte) 'a');
         Files.write(badLegacy.resolve("settings.properties"), oversized);
-        fails(packaged(badInstall, badLocal), "无法安全准备", "Corrupt legacy file was migrated");
+        fails(packaged(badInstall, badLocal), "dataPreparationFailed", "Corrupt legacy file was migrated");
         check(!Files.exists(badInstall.resolve("data/identity.properties")), "Failed migration left a partial identity");
         check(Arrays.equals(Files.readAllBytes(badLegacy.resolve("settings.properties")), oversized), "Failed migration changed legacy bytes");
         assertNoStage(badInstall);
@@ -247,25 +248,25 @@ public final class DataLocationTests {
         Files.writeString(outside.resolve("keep.txt"), "must stay outside");
         try { Files.createSymbolicLink(legacy.resolve("linked"), outside); }
         catch (UnsupportedOperationException | FileSystemException unavailable) { return; }
-        fails(packaged(install, local), "符号链接", "Symlink in legacy data was followed");
+        fails(packaged(install, local), "dataUnsafeEntry", "Symlink in legacy data was followed");
         check(!Files.exists(install.resolve("data/identity.properties")), "Unsafe legacy tree left a partial migration");
         check(Files.readString(outside.resolve("keep.txt")).equals("must stay outside"), "Migration modified a symlink destination");
         Files.delete(legacy.resolve("linked"));
 
         Path linkedInstall = root.resolve("linked-software");
         Files.createSymbolicLink(linkedInstall, outside);
-        fails(packaged(linkedInstall, local), "符号链接", "Symlink installation ancestor was followed");
+        fails(packaged(linkedInstall, local), "dataUnsafeEntry", "Symlink installation ancestor was followed");
         check(!Files.exists(outside.resolve("data")), "Symlink installation created outside data");
 
         Path targetInstall = root.resolve("target-software"); Files.createDirectories(targetInstall);
         Files.createSymbolicLink(targetInstall.resolve("data"), outside);
-        fails(packaged(targetInstall, local), "符号链接", "Symlink target was followed");
+        fails(packaged(targetInstall, local), "dataUnsafeEntry", "Symlink target was followed");
         check(!Files.exists(outside.resolve("identity.properties")), "Symlink target generated outside identity");
 
         Path lockInstall = root.resolve("lock-software"), lockTarget = lockInstall.resolve("data");
         Files.createDirectories(lockTarget);
         Files.createSymbolicLink(lockTarget.resolve("instance.lock"), outside.resolve("keep.txt"));
-        fails(packaged(lockInstall, local), "数据锁", "Symlink instance lock was followed");
+        fails(packaged(lockInstall, local), "dataNotRegular", "Symlink instance lock was followed");
         check(Files.readString(outside.resolve("keep.txt")).equals("must stay outside"), "Lock handling modified symlink destination");
     }
 
@@ -277,21 +278,21 @@ public final class DataLocationTests {
         Files.createDirectories(install);
         Files.setPosixFilePermissions(install, PosixFilePermissions.fromString("r-x------"));
         try {
-            fails(packaged(install, local), "可读写", "Read-only install root was accepted");
+            fails(packaged(install, local), "dataReadOnly", "Read-only install root was accepted");
             check(!Files.exists(install.resolve("data")), "Read-only install root created data");
         } finally { Files.setPosixFilePermissions(install, PosixFilePermissions.fromString("rwx------")); }
 
         Path target = install.resolve("data"); Files.createDirectories(target);
         Files.setPosixFilePermissions(target, PosixFilePermissions.fromString("r-x------"));
         try {
-            fails(packaged(install, local), "可读写", "Read-only portable target was accepted");
+            fails(packaged(install, local), "dataReadOnly", "Read-only portable target was accepted");
             check(!Files.exists(target.resolve("identity.properties")), "Read-only target generated identity");
         } finally { Files.setPosixFilePermissions(target, PosixFilePermissions.fromString("rwx------")); }
 
         Path override = root.resolve("override"); Files.createDirectories(override);
         Files.setPosixFilePermissions(override, PosixFilePermissions.fromString("r-x------"));
         try {
-            fails(new DataLocation.Selection(override, null, false), "可读写", "Read-only explicit override was accepted");
+            fails(new DataLocation.Selection(override, null, false), "dataReadOnly", "Read-only explicit override was accepted");
             check(!Files.exists(override.resolve("identity.properties")), "Read-only override generated identity");
         } finally { Files.setPosixFilePermissions(override, PosixFilePermissions.fromString("rwx------")); }
     }
@@ -300,7 +301,7 @@ public final class DataLocationTests {
         Path local = root.resolve("Local"), install = root.resolve("software");
         var selection = packaged(install, local);
         try (var prepared = selection.prepare()) {
-            fails(selection, "另一个", "Concurrent startup acquired migration guard");
+            fails(selection, "dataPreparingAlready", "Concurrent startup acquired migration guard");
             try (DesktopStore store = new DesktopStore(prepared.path())) {
                 DesktopIdentity.load(prepared.path().resolve("identity.properties"));
             }
@@ -310,7 +311,7 @@ public final class DataLocationTests {
 
     private static void fails(DataLocation.Selection location, String expected, String failure) throws Exception {
         try (var ignored = location.prepare()) { throw new AssertionError(failure); }
-        catch (IOException e) { check(e.getMessage().contains(expected), failure + ": unclear error " + e.getMessage()); }
+        catch (LocalizedIOException e) { check(e.text.key.equals(expected), failure + ": incorrect error key " + e.text.key); }
     }
 
     private static void assertNoStage(Path parent) throws IOException {

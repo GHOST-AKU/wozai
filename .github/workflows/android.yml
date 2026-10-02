@@ -6,8 +6,13 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.metadata.outputs.version }}
     steps:
       - uses: actions/checkout@v4
+      - name: Read shared release version
+        id: metadata
+        run: python3 -c 'import json; print("version=" + json.load(open("i18n/config.json"))["appVersion"])' >> "$GITHUB_OUTPUT"
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -18,15 +23,60 @@ jobs:
       - run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
       - name: Source and protocol checks
         run: |
+          sh tools/test-i18n.sh
           sh tools/test-core.sh
           sh tools/test-trust.sh
           sh tools/check-source.sh
       - name: Build and lint
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon :app:assembleDebug :app:lintDebug
+          ./gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug
+      - name: Verify APK signatures and alignment
+        run: |
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs app/build/outputs/apk/debug/app-debug.apk > app/build/outputs/apk/signature.txt
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c 4 app/build/outputs/apk/debug/app-debug.apk
+          sha256sum app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk > app/build/outputs/apk/checksums.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: wozai-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: NearbyIM-${{ steps.metadata.outputs.version }}-android-debug
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            app/build/outputs/apk/checksums.txt
+            app/build/outputs/apk/signature.txt
           if-no-files-found: error
+  android-localization:
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        api-level: [26, 34]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: NearbyIM-${{ needs.build.outputs.version }}-android-debug
+          path: app/build/outputs/apk
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Native ICU and live locale recreation
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api-level }}
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          script: sh tools/test-android-i18n.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-localization-api-${{ matrix.api-level }}
+          path: |
+            build/android-i18n-device.txt
+            build/android-i18n-screenshots/
+          if-no-files-found: ignore

@@ -3,17 +3,19 @@ package dev.ghost.nearbyim.core;
 import java.io.*;
 import java.net.*;
 import java.util.concurrent.*;
+import dev.ghost.nearbyim.i18n.UiText;
 
 public final class SessionTests {
     static final class Events implements FramedSession.Listener {
         final BlockingQueue<Frame> hello = new LinkedBlockingQueue<>(), text = new LinkedBlockingQueue<>();
-        final BlockingQueue<String> ack = new LinkedBlockingQueue<>(), closed = new LinkedBlockingQueue<>();
+        final BlockingQueue<String> ack = new LinkedBlockingQueue<>();
+        final BlockingQueue<UiText> closed = new LinkedBlockingQueue<>();
         final CountDownLatch ready = new CountDownLatch(1);
         public void onHello(Frame frame) { hello.add(frame); }
         public void onReady() { ready.countDown(); }
         public void onText(Frame frame) { text.add(frame); }
         public void onAck(String id) { ack.add(id); }
-        public void onClosed(String reason) { closed.add(reason); }
+        public void onClosed(dev.ghost.nearbyim.i18n.UiText reason) { closed.add(reason); }
     }
     static StreamConnection connection(Socket socket) {
         return new StreamConnection() {
@@ -53,7 +55,7 @@ public final class SessionTests {
             a.approve(); b.approve();
             CoreTests.check(ea.ready.await(2, TimeUnit.SECONDS) && eb.ready.await(2, TimeUnit.SECONDS), "Approval did not connect");
         }
-        public void close() { a.close("test complete"); b.close("test complete"); }
+        public void close() { a.close(dev.ghost.nearbyim.i18n.UiText.of("test complete")); b.close(dev.ghost.nearbyim.i18n.UiText.of("test complete")); }
     }
     static void run() {
         CoreTests.test("Private numeric endpoints accepted, internet/hostname rejected", () -> {
@@ -83,8 +85,8 @@ public final class SessionTests {
                 CoreTests.check(pair.ea.hello.poll(2, TimeUnit.SECONDS) != null, "No greeting");
                 pair.a.approve();
                 CoreTests.check(!pair.a.send(new Frame(Frame.TEXT, CoreTests.A, "not allowed", 1)), "Premature send allowed");
-                pair.a.close("rejected"); pair.a.close("again");
-                CoreTests.check("rejected".equals(pair.ea.closed.poll(2, TimeUnit.SECONDS)) && pair.ea.closed.isEmpty(), "Multiple close events");
+                pair.a.close(dev.ghost.nearbyim.i18n.UiText.of("rejected")); pair.a.close(dev.ghost.nearbyim.i18n.UiText.of("again"));
+                CoreTests.check(UiText.of("rejected").equals(pair.ea.closed.poll(2, TimeUnit.SECONDS)) && pair.ea.closed.isEmpty(), "Multiple close events");
                 CoreTests.check(pair.eb.closed.poll(2, TimeUnit.SECONDS) != null, "Disconnect not observed");
             }
         });
@@ -98,7 +100,7 @@ public final class SessionTests {
                     session.start(); RawPeer peer = new RawPeer(raw); peer.handshake();
                     peer.write(new Frame(Frame.TEXT, CoreTests.B, "injection", 1));
                     CoreTests.check(events.closed.poll(2, TimeUnit.SECONDS) != null && events.text.isEmpty(), "Premature text accepted");
-                } finally { session.close("cleanup"); }
+                } finally { session.close(dev.ghost.nearbyim.i18n.UiText.of("cleanup")); }
             }
         });
         CoreTests.test("Peer may send immediately after observing approval bytes", () -> {
@@ -130,7 +132,7 @@ public final class SessionTests {
                     peer.write(new Frame(Frame.TEXT, CoreTests.B, "immediate", 1));
                     Frame received = events.text.poll(1, TimeUnit.SECONDS);
                     CoreTests.check(received != null && received.body.equals("immediate"), "Valid immediate message rejected");
-                } finally { releaseFlush.countDown(); session.close("cleanup"); }
+                } finally { releaseFlush.countDown(); session.close(dev.ghost.nearbyim.i18n.UiText.of("cleanup")); }
             }
         });
         CoreTests.test("Unpersisted incoming burst is bounded", () -> {
@@ -145,7 +147,7 @@ public final class SessionTests {
                     peer.read(); CoreTests.check(events.ready.await(2, TimeUnit.SECONDS), "Not connected");
                     for (int i = 0; i < 33; i++) peer.write(new Frame(Frame.TEXT, java.util.UUID.randomUUID().toString(), "burst", 1));
                     CoreTests.check(events.closed.poll(2, TimeUnit.SECONDS) != null && events.text.size() == 32, "Incoming queue is unbounded");
-                } finally { session.close("cleanup"); }
+                } finally { session.close(dev.ghost.nearbyim.i18n.UiText.of("cleanup")); }
             }
         });
         CoreTests.test("Unknown receipts do not reach message storage", () -> {
@@ -160,7 +162,7 @@ public final class SessionTests {
                     peer.read(); CoreTests.check(events.ready.await(2, TimeUnit.SECONDS), "Not connected");
                     peer.write(new Frame(Frame.ACK, CoreTests.B, "", 1));
                     CoreTests.check(events.ack.poll(200, TimeUnit.MILLISECONDS) == null, "Unknown receipt accepted");
-                } finally { session.close("cleanup"); }
+                } finally { session.close(dev.ghost.nearbyim.i18n.UiText.of("cleanup")); }
             }
         });
         CoreTests.test("Slow authenticated writer has a bounded 64-operation queue", () -> {
@@ -192,9 +194,9 @@ public final class SessionTests {
                     peer.write(new Frame(Frame.PING, "", "", 1));
                     CoreTests.check(peer.read().type == Frame.PONG, "Writer did not reach gate");
                     for (int i = 0; i < 65; i++) peer.write(new Frame(Frame.PING, "", "", 1));
-                    String reason = events.closed.poll(2, TimeUnit.SECONDS);
-                    CoreTests.check(reason != null && reason.contains("队列已满"), "Writer queue accepted an unbounded burst: " + reason);
-                } finally { releaseFlush.countDown(); session.close("cleanup"); }
+                    UiText reason = events.closed.poll(2, TimeUnit.SECONDS);
+                    CoreTests.check(reason != null && reason.key.equals("messageQueueFull"), "Writer queue accepted an unbounded burst: " + reason);
+                } finally { releaseFlush.countDown(); session.close(dev.ghost.nearbyim.i18n.UiText.of("cleanup")); }
             }
         });
         CoreTests.test("Outgoing receipt window is bounded and receipt releases a slot", () -> {

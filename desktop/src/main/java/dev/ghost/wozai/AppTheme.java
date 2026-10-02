@@ -42,7 +42,7 @@ final class AppTheme {
             try(var source=AppTheme.class.getResourceAsStream("fonts/NotoSansCJKsc-Regular.otf")) {
                 if(source==null)throw new IOException("Bundled Chinese font is missing");
                 Font font=Font.createFont(Font.TRUETYPE_FONT,source); GraphicsEnvironment.getLocalGraphicsEnvironment().registerFont(font); fontFamily=font.getFamily(java.util.Locale.ENGLISH);
-            } catch(IOException|FontFormatException e) { throw new IllegalStateException("无法加载程序内的思源黑体字体。",e); }
+            } catch(IOException|FontFormatException e) { throw new IllegalStateException("Unable to load the bundled font", new dev.ghost.nearbyim.i18n.LocalizedIOException(dev.ghost.nearbyim.i18n.UiText.of("fontLoadFailed"), e)); }
         }
         return fontFamily;
     }

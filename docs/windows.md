@@ -1,4 +1,4 @@
-# 我在 · NearbyIM · Windows 预览版 0.2.2
+# 我在 · NearbyIM · Windows 预览版 0.3.0
 
 与 Android 0.2.0 共用 NIM2 协议、设备身份验证、信任、文字聊天和送达回执。Windows 支持局域网及经典蓝牙 RFCOMM，界面沿用安卓的薄荷绿设计、Material 图标、会话头像、搜索、左右消息气泡，以及浅色／深色主题。安卓应用源码和协议保持兼容。
 
@@ -48,7 +48,7 @@ Windows 私钥仍使用 DPAPI CurrentUser 保护。同一用户在本机移动�
 
 安卓配色映射在 `AppTheme` 中；FlatLaf 提供现代 Swing 控件样式，自绘气泡复用安卓视觉规则。Material 图标直接来自安卓已有的 Google 路径；Windows ICO 来自安卓原始启动图，没有重画图案。
 
-提供简体中文／英语、浅色／深色主题、三个文字大小。切换语言或主题保留连接、聊天和输入。会话按实际最后消息时间排序，搜索本机昵称；已连接状态来自真实会话，不根据 Wi-Fi 或配对记录推断。消息可选择复制，布局按窗口宽度重排。
+提供跟随系统／简体中文／英语、浅色／深色主题、三个文字大小。两端共用 `i18n/messages` 文案目录和 ICU 格式，错误、状态、日期、权限说明、帮助与关于均通过显示层翻译，新增语言流程见 [多语言架构](i18n.md)。切换语言或主题保留连接、聊天和输入。会话按实际最后消息时间排序，搜索本机昵称；已连接状态来自真实会话，不根据 Wi-Fi 或配对记录推断。消息可选择复制，布局按窗口宽度重排。
 
 0.2.2 统一使用 NearbyIM 英文品牌及启动器名称。软件内置 Noto Sans CJK SC（思源黑体），在进程内加载，不依赖系统中文字体或安装语言包。移除重复品牌页头，聊天只保留对方昵称、连接状态与必要操作；选中会话使用圆角高亮，输入框与发送键等高。设置采用宽度自适应分组，长路径和说明自动换行，不出现横向滚动条；滚轮步长至少 24 像素，启用平滑滚动。设置内提供与安卓一致的「使用说明」「关于我在」，补充 Windows 配对与便携数据说明。
 
@@ -56,7 +56,7 @@ Windows 私钥仍使用 DPAPI CurrentUser 保护。同一用户在本机移动�
 
 ## 从源码构建
 
-Windows 需要 x64 JDK 17（`JAVA_HOME`）、CMake 3.20+、Visual Studio C++ Build Tools 和 Windows SDK。桌面构建不需要 Android SDK、Gradle 或 WiX：
+Windows 需要 Python 3、x64 JDK 17（`JAVA_HOME`）、CMake 3.20+、Visual Studio C++ Build Tools 和 Windows SDK。桌面构建不需要 Android SDK、Gradle 或 WiX：
 
 ```powershell
 ./desktop/tools/build.ps1 -Run
@@ -76,7 +76,7 @@ java -cp 'desktop/build/classes:desktop/build/tests:desktop/build/lib/*' dev.gho
 java -cp 'desktop/build/classes:desktop/build/tests:desktop/build/lib/*' dev.ghost.wozai.LayoutTests desktop/build/gui-settings.png
 ```
 
-Linux 仅验证 Java、局域网与界面，蓝牙明确显示平台不可用。依赖为 FlatLaf 3.6.2、JmDNS 3.6.2、SLF4J API / NOP 2.0.17；SHA-256 固定在 `desktop/dependencies.txt`。中文字体来自官方 Noto CJK 仓库，SHA-256 固定在 `desktop/font-dependencies.txt`。字体、许可与运行时 legal 文件随软件打包。重新导出图标时运行 `desktop/tools/export-icons.py`（开发工具需要 Pillow / CairoSVG，正常构建使用已保存的资源）。
+Linux 仅验证 Java、局域网与界面，蓝牙明确显示平台不可用。依赖为 FlatLaf 3.6.2、JmDNS 3.6.2、SLF4J API / NOP 2.0.17、ICU4J 77.1；SHA-256 固定在 `desktop/dependencies.txt`。中文字体来自官方 Noto CJK 仓库，SHA-256 固定在 `desktop/font-dependencies.txt`。字体、许可与运行时 legal 文件随软件打包。重新导出图标时运行 `desktop/tools/export-icons.py`（开发工具需要 Pillow / CairoSVG，正常构建使用已保存的资源）。
 
 ## 验证记录 · 2026-10-02
 

@@ -3,7 +3,7 @@ package dev.ghost.wozai;
 import javax.swing.*;
 import java.awt.*;
 import java.time.*;
-import java.time.format.*;
+import java.util.Date;
 import java.util.List;
 
 /** Selectable, accessible message bubbles that reflow with the viewport and text size. */
@@ -14,23 +14,23 @@ final class MessagePane extends JPanel implements Scrollable {
     String text() { return text; }
     void scale(float value) { scale = value; }
     void render(List<DesktopStore.Message> messages, Strings strings) {
-        removeAll(); setBackground(AppTheme.background); StringBuilder content = new StringBuilder(); LocalDate previous = null;
+        removeAll(); applyComponentOrientation(strings.rtl() ? ComponentOrientation.RIGHT_TO_LEFT : ComponentOrientation.LEFT_TO_RIGHT); setBackground(AppTheme.background); StringBuilder content = new StringBuilder(); LocalDate previous = null;
         for (var message : messages) {
             ZonedDateTime when = Instant.ofEpochMilli(message.time()).atZone(ZoneId.systemDefault());
             if (!when.toLocalDate().equals(previous)) {
-                JLabel date = new JLabel(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(strings.locale()).format(when));
+                JLabel date = new JLabel(strings.text("messageDate", new Date(message.time())));
                 date.setForeground(AppTheme.muted); date.setFont(date.getFont().deriveFont(12f*scale)); date.setAlignmentX(.5f);
                 add(Box.createVerticalStrut(12)); add(date); add(Box.createVerticalStrut(16)); previous = when.toLocalDate();
             }
-            String receipt = DateTimeFormatter.ofPattern("HH:mm").format(when) + (message.outgoing() ? " · " + strings.text(message.status()) : "");
+            String receipt = message.outgoing() ? strings.text("messageReceipt", new Date(message.time()), strings.text(message.status())) : strings.text("messageTime", new Date(message.time()));
             content.append(message.body()).append('\n').append(receipt).append('\n');
             Bubble bubble = new Bubble(message.body(), receipt, message.outgoing());
             JPanel row = new JPanel(null) {
                 public Dimension getPreferredSize() { return new Dimension(Math.max(200,MessagePane.this.getWidth()-40),bubble.getPreferredSize().height); }
                 public Dimension getMaximumSize() { return new Dimension(Integer.MAX_VALUE,bubble.getPreferredSize().height); }
-                public void doLayout() { Dimension size=bubble.getPreferredSize(); bubble.setBounds(message.outgoing()?Math.max(0,getWidth()-size.width):0,0,Math.min(getWidth(),size.width),size.height); }
+                public void doLayout() { Dimension size=bubble.getPreferredSize(); bubble.setBounds((message.outgoing() != strings.rtl()) ? Math.max(0, getWidth()-size.width) : 0,0,Math.min(getWidth(),size.width),size.height); }
             };
-            row.setOpaque(false); row.setAlignmentX(.5f); row.add(bubble);
+            row.setOpaque(false); row.setAlignmentX(.5f); row.add(bubble); row.applyComponentOrientation(getComponentOrientation());
             add(row); add(Box.createVerticalStrut(10));
         }
         if (messages.isEmpty()) { JLabel empty = new JLabel(strings.text("noMessages")); empty.setForeground(AppTheme.muted); empty.setAlignmentX(.5f); add(Box.createVerticalStrut(40)); add(empty); }
@@ -42,7 +42,7 @@ final class MessagePane extends JPanel implements Scrollable {
             this.outgoing=outgoing; setOpaque(false); setLayout(new BorderLayout(0,6)); setBorder(BorderFactory.createEmptyBorder(12,16,10,16));
             body=new JTextArea(text); body.setMargin(new Insets(0,0,0,0)); body.setBorder(BorderFactory.createEmptyBorder()); body.setEditable(false); body.setOpaque(false); body.setLineWrap(true); body.setWrapStyleWord(true); body.setForeground(AppTheme.ink); body.setFont(body.getFont().deriveFont(15f*scale));
             body.getAccessibleContext().setAccessibleName(text);
-            receipt=new JLabel(status, SwingConstants.RIGHT); receipt.setForeground(AppTheme.muted); receipt.setFont(receipt.getFont().deriveFont(12f*scale));
+            receipt=new JLabel(status, SwingConstants.TRAILING); receipt.setForeground(AppTheme.muted); receipt.setFont(receipt.getFont().deriveFont(12f*scale));
             add(body,BorderLayout.CENTER); add(receipt,BorderLayout.SOUTH);
         }
         public Dimension getPreferredSize() {
