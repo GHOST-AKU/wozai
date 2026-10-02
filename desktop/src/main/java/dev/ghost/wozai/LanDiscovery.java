@@ -33,7 +33,7 @@ public final class LanDiscovery implements AutoCloseable {
                     if (epoch.get() != run) return;
                     JmDNS dns = null;
                     try {
-                        dns = JmDNS.create(address, "WoZai-" + ownId.substring(0, 8));
+                        dns = JmDNS.create(address, "NearbyIM-" + ownId.substring(0, 8));
                         if (epoch.get() != run) { dns.close(); return; }
                         synchronized (instances) { instances.add(dns); }
                         final JmDNS instance = dns;

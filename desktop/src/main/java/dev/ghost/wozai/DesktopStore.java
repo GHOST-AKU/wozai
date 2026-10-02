@@ -19,8 +19,8 @@ public final class DesktopStore implements AutoCloseable {
         lockChannel = FileChannel.open(root.resolve("instance.lock"), StandardOpenOption.CREATE, StandardOpenOption.WRITE);
         FileLock acquired;
         try { acquired = lockChannel.tryLock(); }
-        catch (OverlappingFileLockException e) { lockChannel.close(); throw new IOException("WoZai is already running", e); }
-        if (acquired == null) { lockChannel.close(); throw new IOException("WoZai is already running"); }
+        catch (OverlappingFileLockException e) { lockChannel.close(); throw new IOException("NearbyIM is already running", e); }
+        if (acquired == null) { lockChannel.close(); throw new IOException("NearbyIM is already running"); }
         lock = acquired;
         try {
             for (Peer peer : peers()) unknown(peer.id());

@@ -44,6 +44,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     private long conversationGeneration;
     private String renderedMessages = "";
     private JDialog requestDialog;
+    private final Map<String,JDialog> informationDialogs = new HashMap<>();
     private DesktopClient.Request pendingRequest;
     private JTextArea requestDescription;
     private final List<JButton> requestChoices = new ArrayList<>();
@@ -72,23 +73,18 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         draftTimer = new javax.swing.Timer(450, e -> saveDraft()); draftTimer.setRepeats(false);
         tabs.setTabPlacement(JTabbedPane.BOTTOM);
         buildChat(); buildNearby(); buildSettings(dataPath, language);
-        JPanel header = new JPanel(new BorderLayout(12, 0)); header.setBorder(BorderFactory.createEmptyBorder(12, 16, 12, 16));
-        JLabel app = label("app"); app.setFont(app.getFont().deriveFont(Font.BOLD, app.getFont().getSize2D() * 1.5f));
-        status.setForeground(AppTheme.muted); status.setFont(status.getFont().deriveFont(13f)); header.add(app, BorderLayout.WEST); header.add(status, BorderLayout.EAST);
-        add(header, BorderLayout.NORTH); add(tabs, BorderLayout.CENTER);
+        add(tabs, BorderLayout.CENTER);
         feedback.setBackground(AppTheme.tonal); feedback.setForeground(AppTheme.accent); feedback.setFont(feedback.getFont().deriveFont(13f)); feedback.setEditable(false); feedback.setLineWrap(true); feedback.setWrapStyleWord(true); feedback.setMargin(new Insets(8, 16, 8, 16)); feedback.setVisible(false);
         translations.add(() -> feedback.getAccessibleContext().setAccessibleName(strings.text("feedback"))); add(feedback, BorderLayout.SOUTH);
         addWindowListener(new WindowAdapter() { public void windowClosing(WindowEvent e) { shutdown(); } });
-        JMenuBar menu = new JMenuBar(); JMenu file = new JMenu(); translations.add(() -> file.setText(strings.text("app")));
-        JMenuItem quit = new JMenuItem(); translations.add(() -> quit.setText(strings.text("quit")));
-        quit.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Q, InputEvent.CTRL_DOWN_MASK)); quit.addActionListener(e -> shutdown()); file.add(quit); menu.add(file); setJMenuBar(menu);
+        getRootPane().registerKeyboardAction(e -> shutdown(),KeyStroke.getKeyStroke(KeyEvent.VK_Q,InputEvent.CTRL_DOWN_MASK),JComponent.WHEN_IN_FOCUSED_WINDOW);
         getRootPane().registerKeyboardAction(e -> tabs.setSelectedIndex(0), KeyStroke.getKeyStroke(KeyEvent.VK_1, InputEvent.CTRL_DOWN_MASK), JComponent.WHEN_IN_FOCUSED_WINDOW);
         getRootPane().registerKeyboardAction(e -> tabs.setSelectedIndex(1), KeyStroke.getKeyStroke(KeyEvent.VK_2, InputEvent.CTRL_DOWN_MASK), JComponent.WHEN_IN_FOCUSED_WINDOW);
         getRootPane().registerKeyboardAction(e -> tabs.setSelectedIndex(2), KeyStroke.getKeyStroke(KeyEvent.VK_3, InputEvent.CTRL_DOWN_MASK), JComponent.WHEN_IN_FOCUSED_WINDOW);
         nearby.setCellRenderer(plainRenderer()); history.setCellRenderer(new HistoryRenderer());
         SwingUtilities.updateComponentTreeUI(this); styleNavigation();
         translations.add(() -> { history.getAccessibleContext().setAccessibleName(strings.text("chats")); nearby.getAccessibleContext().setAccessibleName(strings.text("nearby")); });
-        translate(); client.refresh();
+        translate(); scaleFonts(getContentPane(),fontScale); transcript.scale(fontScale); client.refresh();
     }
     private static JLabel plainLabel(String text) { JLabel label = new JLabel(text); label.putClientProperty("html.disable", true); return label; }
     private static DefaultListCellRenderer plainRenderer() { return new DefaultListCellRenderer() {
@@ -109,36 +105,36 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     private void tab(JPanel panel, String key) { int index = tabs.getTabCount(); tabs.addTab("", AppTheme.icon(key.equals("chats") ? "chat_bubble" : key.equals("nearby") ? "wifi_tethering" : "settings"), panel); translations.add(() -> tabs.setTitleAt(index, strings.text(key))); }
     private void buildChat() {
         JPanel chat = padded(new BorderLayout(8, 12));
-        JPanel top = new JPanel(new BorderLayout(8, 8)); top.add(chatTitle, BorderLayout.NORTH);
+        JPanel top = new JPanel(new BorderLayout(12,0)); JPanel title=new JPanel(new GridLayout(2,1,0,4)); title.add(chatTitle); status.setForeground(AppTheme.muted); status.setFont(status.getFont().deriveFont(12f)); title.add(status); top.add(title,BorderLayout.CENTER);
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
-        actions.add(button("reconnect", this::reconnect)); actions.add(button("disconnect", () -> handle(client.disconnect(), "error")));
+        actions.add(button("reconnect", this::reconnect));
         JPopupMenu menu = new JPopupMenu();
         JMenuItem clear = new JMenuItem(), revoke = new JMenuItem();
         translations.add(() -> { clear.setText(strings.text("clear")); revoke.setText(strings.text("revoke")); });
         clear.addActionListener(e -> { if (selected != null && confirm("clearConfirm")) handle(client.clear(selected), "storageFailure"); });
         revoke.addActionListener(e -> { if (selected != null && confirm("revokeConfirm")) handle(client.revoke(selected), "storageFailure"); });
-        menu.add(clear); menu.add(revoke);
-        JButton more = new JButton(); translations.add(() -> more.setText(strings.text("more")));
+        JMenuItem disconnect=new JMenuItem(); translations.add(() -> disconnect.setText(strings.text("disconnect"))); disconnect.addActionListener(e -> handle(client.disconnect(),"error")); menu.add(disconnect); menu.addSeparator(); menu.add(clear); menu.add(revoke);
+        JButton more = new JButton(AppTheme.icon("more_vert")); more.setPreferredSize(new Dimension(44,44)); translations.add(() -> { more.setToolTipText(strings.text("more")); more.getAccessibleContext().setAccessibleName(strings.text("more")); });
         more.addActionListener(e -> menu.show(more, 0, more.getHeight())); actions.add(more);
         top.add(actions, BorderLayout.EAST); chatTitle.setFont(chatTitle.getFont().deriveFont(Font.BOLD,20f)); chat.add(top, BorderLayout.NORTH);
 
         translations.add(() -> transcript.getAccessibleContext().setAccessibleName(strings.text("messages")));
-        JScrollPane messageScroll = new JScrollPane(transcript); messageScroll.setBorder(BorderFactory.createEmptyBorder()); chat.add(messageScroll, BorderLayout.CENTER);
+        JScrollPane messageScroll = AppTheme.scroll(transcript); chat.add(messageScroll, BorderLayout.CENTER);
         JPanel input = new JPanel(new BorderLayout(8, 6));
         AppTheme.primary(send); send.setPreferredSize(new Dimension(88,48));
         composer.setLineWrap(true); composer.setWrapStyleWord(true); composer.setMargin(new Insets(8, 8, 8, 8));
         translations.add(() -> { composer.getAccessibleContext().setAccessibleName(strings.text("composer")); composer.getAccessibleContext().setAccessibleDescription(strings.text("sendHint")); send.setText(strings.text("send")); });
-        send.addActionListener(e -> sendMessage()); composer.setRows(2); composer.setBackground(AppTheme.surface); composer.setBorder(BorderFactory.createEmptyBorder(8,8,8,8));
+        send.addActionListener(e -> sendMessage()); composer.setRows(1); composer.setBackground(AppTheme.surface); composer.setBorder(BorderFactory.createEmptyBorder(8,8,8,8));
         JScrollPane editor=new JScrollPane(composer); editor.setBorder(BorderFactory.createEmptyBorder()); editor.setOpaque(false); editor.getViewport().setOpaque(false); composer.setOpaque(false);
         JPanel capsule=new AppTheme.SurfacePanel(new BorderLayout()); capsule.setBorder(BorderFactory.createEmptyBorder(4,8,4,8)); capsule.add(editor); input.add(capsule,BorderLayout.CENTER);
-        JPanel sendSlot=new JPanel(new BorderLayout()); sendSlot.add(send,BorderLayout.SOUTH); input.add(sendSlot,BorderLayout.EAST);
+        input.add(send,BorderLayout.EAST);
         JLabel inputHint=label("sendHint"); inputHint.putClientProperty("wozai.muted",true); inputHint.setForeground(AppTheme.muted); inputHint.setFont(inputHint.getFont().deriveFont(12f)); input.add(inputHint,BorderLayout.SOUTH);
         composer.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "send");
         composer.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, InputEvent.SHIFT_DOWN_MASK), "insert-break");
         composer.getActionMap().put("send", new AbstractAction() { public void actionPerformed(ActionEvent e) { sendMessage(); } });
         composer.getDocument().addDocumentListener(new DocumentListener() {
             public void insertUpdate(DocumentEvent e) { change(); } public void removeUpdate(DocumentEvent e) { change(); } public void changedUpdate(DocumentEvent e) { change(); }
-            private void change() { if (!loadingDraft) draftTimer.restart(); if (state != null) renderState(); }
+            private void change() { composer.setRows(Math.max(1,Math.min(4,composer.getLineCount()))); composer.getParent().getParent().getParent().revalidate(); if (!loadingDraft) draftTimer.restart(); if (state != null) renderState(); }
         });
         chat.add(input, BorderLayout.SOUTH);
         history.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
@@ -147,7 +143,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         search.putClientProperty("JTextField.placeholderText", strings.text("searchChats")); search.putClientProperty("JTextField.leadingIcon", AppTheme.icon("search"));
         search.setPreferredSize(new Dimension(220,48)); translations.add(() -> { search.putClientProperty("JTextField.placeholderText",strings.text("searchChats")); search.getAccessibleContext().setAccessibleName(strings.text("searchChats")); });
         search.getDocument().addDocumentListener(new DocumentListener() { public void insertUpdate(DocumentEvent e) { refreshHistory(); } public void removeUpdate(DocumentEvent e) { refreshHistory(); } public void changedUpdate(DocumentEvent e) { refreshHistory(); } });
-        conversations.add(search,BorderLayout.NORTH); JScrollPane historyScroll=new JScrollPane(history); historyScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER); historyScroll.setBorder(BorderFactory.createEmptyBorder()); conversations.add(historyScroll,BorderLayout.CENTER);
+        conversations.add(search,BorderLayout.NORTH); JScrollPane historyScroll=AppTheme.scroll(history); conversations.add(historyScroll,BorderLayout.CENTER);
         JButton newChat=button("newChat", () -> tabs.setSelectedIndex(1)); newChat.setIcon(AppTheme.icon("add")); AppTheme.primary(newChat); newChat.setPreferredSize(new Dimension(150,48)); conversations.add(newChat,BorderLayout.SOUTH);
         JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, conversations, chat); split.setDividerLocation(310); split.setResizeWeight(0.28); split.setBorder(BorderFactory.createEmptyBorder());
         JPanel page = new JPanel(new BorderLayout()); page.add(split); tab(page, "chats");
@@ -160,7 +156,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         listenButton.addActionListener(e -> toggleListening()); AppTheme.primary(listenButton); buttons.add(listenButton); buttons.add(button("direct",this::direct)); controls.add(buttons,BorderLayout.CENTER);
         addresses.setEditable(false); addresses.setLineWrap(true); addresses.setWrapStyleWord(true); addresses.setMargin(new Insets(12,12,12,12));
         translations.add(() -> addresses.getAccessibleContext().setAccessibleName(strings.text("myAddress"))); controls.add(new JScrollPane(addresses),BorderLayout.SOUTH); lan.add(controls,BorderLayout.NORTH);
-        nearby.setSelectionMode(ListSelectionModel.SINGLE_SELECTION); lan.add(new JScrollPane(nearby));
+        nearby.setSelectionMode(ListSelectionModel.SINGLE_SELECTION); lan.add(AppTheme.scroll(nearby));
         JButton connect=button("connect", () -> { var peer=nearby.getSelectedValue(); if(peer!=null) connect(peer.endpoint(),peer.id()); }); AppTheme.primary(connect); lan.add(connect,BorderLayout.SOUTH);
         JPanel bt=padded(new BorderLayout(12,12)); JPanel btTop=new JPanel(new BorderLayout(8,12)); btTop.add(note("bluetoothHint"),BorderLayout.NORTH);
         JPanel btButtons=new JPanel(new FlowLayout(FlowLayout.LEFT,8,0)); bluetoothListen.addActionListener(e -> toggleBluetooth()); bluetoothScan.addActionListener(e -> scanBluetooth());
@@ -171,36 +167,53 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
                 super.getListCellRendererComponent(list,value,index,selected,focused); putClientProperty("html.disable",true); var d=(WindowsBluetooth.Device)value;
                 setText(d.name()+"   ·   "+d.address()+"   ·   "+strings.text(d.paired()?"paired":"discovered")); setBorder(BorderFactory.createEmptyBorder(16,12,16,12)); return this;
             }
-        }); bt.add(new JScrollPane(bluetoothDevices));
+        }); bt.add(AppTheme.scroll(bluetoothDevices));
         JButton btConnect=button("connect", () -> { var device=bluetoothDevices.getSelectedValue(); if(device!=null) connect("bluetooth:"+device.address(),null); }); AppTheme.primary(btConnect); bt.add(btConnect,BorderLayout.SOUTH);
         transports.addTab("",AppTheme.icon("wifi_tethering"),lan); transports.addTab("",AppTheme.icon("bluetooth"),bt);
         translations.add(() -> { transports.setTitleAt(0,strings.text("lan")); transports.setTitleAt(1,strings.text("bluetooth")); refreshBluetoothText(); });
         page.add(transports); tab(page,"nearby"); refreshBluetoothStatus();
     }
-    private void buildSettings(Path path, String language) throws IOException {
-        JPanel page = padded(new BorderLayout(12, 12)); JPanel fields = new JPanel(new GridBagLayout());
-        GridBagConstraints c = new GridBagConstraints(); c.gridx = 0; c.gridy = 0; c.anchor = GridBagConstraints.WEST; c.insets = new Insets(8, 4, 8, 8);
-        JLabel nicknameLabel = label("nickname"); nicknameLabel.setLabelFor(nickname); fields.add(nicknameLabel, c);
-        c.gridx = 1; c.weightx = 1; c.fill = GridBagConstraints.HORIZONTAL; nickname.setText(nicknameValue); fields.add(nickname, c);
-        c.gridx = 2; c.weightx = 0; c.fill = GridBagConstraints.NONE; fields.add(button("save", this::saveNickname), c);
-        JComboBox<String> languages = new JComboBox<>(new String[]{"简体中文", "English"}); languages.setSelectedIndex(language.equals("zh") ? 0 : 1);
-        c.gridx = 0; c.gridy++; JLabel languageLabel = label("language"); languageLabel.setLabelFor(languages); fields.add(languageLabel, c); c.gridx = 1; fields.add(languages, c);
-        languages.addActionListener(e -> { String code = languages.getSelectedIndex() == 0 ? "zh" : "en"; strings.language(code); translate(); handle(client.setting("language", code), "storageFailure"); });
-        JComboBox<String> sizes = new JComboBox<>(new String[]{"", "", ""}); sizes.setSelectedIndex(0);
-        translations.add(() -> { int index = sizes.getSelectedIndex(); for (int i = 0; i < 3; i++) sizes.removeItemAt(0); sizes.addItem(strings.text("normal")); sizes.addItem(strings.text("large")); sizes.addItem(strings.text("largest")); sizes.setSelectedIndex(Math.max(index, 0)); });
-        c.gridx = 0; c.gridy++; JLabel sizeLabel = label("fontSize"); sizeLabel.setLabelFor(sizes); fields.add(sizeLabel, c); c.gridx = 1; fields.add(sizes, c);
-        sizes.addActionListener(e -> { if (sizes.getSelectedIndex() >= 0) { fontScale=new float[]{1,1.25f,1.5f}[sizes.getSelectedIndex()]; scaleFonts(getContentPane(),fontScale); transcript.scale(fontScale); renderedMessages=""; renderMessages(); handle(client.setting("textSize",Integer.toString(sizes.getSelectedIndex())),"storageFailure"); } });
-        sizes.setSelectedIndex(Math.max(0,Math.min(2,Integer.parseInt(store.setting("textSize","0")))));
-        c.gridx = 0; c.gridy++; c.gridwidth = 3; c.weightx = 1; c.fill = GridBagConstraints.HORIZONTAL; fields.add(note("privacy"), c);
-        c.gridy++; fields.add(label("dataLocation"), c); c.gridy++; JTextArea data = new JTextArea(path.toString()); data.setEditable(false); data.setLineWrap(true); data.setOpaque(false); fields.add(data, c);
-        c.gridy++; fields.add(note("portableHint"),c);
-        c.gridy++; JPanel dataActions=new JPanel(new FlowLayout(FlowLayout.LEFT)); dataActions.add(button("openData", () -> { try { Desktop.getDesktop().open(path.toFile()); } catch(Exception e) { notice("error"); } })); fields.add(dataActions,c);
-        c.gridy++; c.gridwidth=1; c.gridx=0; JLabel themeLabel=label("theme"); fields.add(themeLabel,c); c.gridx=1;
-        JComboBox<String> themes=new JComboBox<>(new String[]{"",""}); themes.setSelectedIndex(AppTheme.dark?1:0); themeLabel.setLabelFor(themes);
-        translations.add(() -> { themes.setModel(new DefaultComboBoxModel<>(new String[]{strings.text("lightTheme"),strings.text("darkTheme")})); themes.setSelectedIndex(AppTheme.dark?1:0); }); fields.add(themes,c);
+    private void buildSettings(Path path,String language) throws IOException {
+        JPanel page=new JPanel(new BorderLayout()); ResponsiveColumn content=new ResponsiveColumn();
+        content.add(section("deviceSection")); nickname.setText(nicknameValue);
+        content.add(settingRow("nickname",nickname,button("save",this::saveNickname)));
+        content.add(section("appearanceSection"));
+        JComboBox<String> languages=new JComboBox<>(new String[]{"简体中文","English"}); languages.setSelectedIndex(language.equals("zh")?0:1);
+        content.add(settingRow("language",languages,null)); languages.addActionListener(e -> { if(translating)return; String code=languages.getSelectedIndex()==0?"zh":"en"; strings.language(code); translate(); handle(client.setting("language",code),"storageFailure"); });
+        JComboBox<String> sizes=new JComboBox<>();
+        translations.add(() -> { sizes.setModel(new DefaultComboBoxModel<>(new String[]{strings.text("normal"),strings.text("large"),strings.text("largest")})); sizes.setSelectedIndex(fontScale==1?0:fontScale==1.25f?1:2); });
+        content.add(settingRow("fontSize",sizes,null));
+        sizes.addActionListener(e -> { if(translating||sizes.getSelectedIndex()<0)return; fontScale=new float[]{1,1.25f,1.5f}[sizes.getSelectedIndex()]; scaleFonts(getContentPane(),fontScale); transcript.scale(fontScale); renderedMessages=""; renderMessages(); handle(client.setting("textSize",Integer.toString(sizes.getSelectedIndex())),"storageFailure"); });
+        fontScale=new float[]{1,1.25f,1.5f}[Math.max(0,Math.min(2,Integer.parseInt(store.setting("textSize","0"))))];
+        JComboBox<String> themes=new JComboBox<>(); translations.add(() -> { themes.setModel(new DefaultComboBoxModel<>(new String[]{strings.text("lightTheme"),strings.text("darkTheme")})); themes.setSelectedIndex(AppTheme.dark?1:0); });
+        content.add(settingRow("theme",themes,null));
         themes.addActionListener(e -> { if(translating)return; boolean dark=themes.getSelectedIndex()==1; if(dark==AppTheme.dark)return; AppTheme.install(dark); SwingUtilities.updateComponentTreeUI(this); styleNavigation(); AppTheme.refreshPrimary(getContentPane()); refreshThemeColors(); renderedMessages=""; renderMessages(); handle(client.setting("theme",dark?"dark":"light"),"storageFailure"); repaint(); });
-        c.gridy++; c.gridx=0; c.gridwidth=3; JPanel management=new JPanel(new FlowLayout(FlowLayout.LEFT,8,8)); management.add(button("trustedDevices",this::manageTrust)); management.add(button("stopAll", () -> { discovery.stop(); discovered.clear(); refreshNearby(); ++scanGeneration; scanning=false; refreshBluetoothText(); handle(client.stopListening(),"error"); handle(client.stopBluetoothListening(),"error"); handle(client.disconnect(),"error"); })); fields.add(management,c);
-        c.gridy++; fields.add(label("version"), c); JScrollPane settingsScroll=new JScrollPane(fields); settingsScroll.setBorder(BorderFactory.createEmptyBorder()); page.add(settingsScroll,BorderLayout.CENTER); tab(page, "settings");
+        content.add(section("connectionsSection")); content.add(settingAction("trustedDevices",this::manageTrust));
+        content.add(settingAction("stopAll", () -> { discovery.stop(); discovered.clear(); refreshNearby(); ++scanGeneration; scanning=false; refreshBluetoothText(); handle(client.stopListening(),"error"); handle(client.stopBluetoothListening(),"error"); handle(client.disconnect(),"error"); }));
+        content.add(section("dataLocation")); JTextArea data=new JTextArea(path.toString()); data.setEditable(false); data.setLineWrap(true); data.setWrapStyleWord(false); data.setOpaque(false); data.setBorder(BorderFactory.createEmptyBorder(0,4,0,4)); data.getAccessibleContext().setAccessibleName(strings.text("dataLocation")); content.add(data);
+        content.add(note("dataSummary")); content.add(settingAction("openData", () -> { try { Desktop.getDesktop().open(path.toFile()); } catch(Exception e) { notice("error"); } }));
+        content.add(section("appSection")); content.add(settingAction("help", () -> information("help","helpBody"))); content.add(settingAction("about", () -> information("about","aboutBody")));
+        content.add(note("version")); page.add(AppTheme.scroll(content)); tab(page,"settings");
+    }
+    private JLabel section(String key) { JLabel heading=label(key); heading.setFont(heading.getFont().deriveFont(Font.BOLD,14f)); heading.putClientProperty("wozai.muted",true); heading.setForeground(AppTheme.muted); heading.setBorder(BorderFactory.createEmptyBorder(16,4,2,0)); return heading; }
+    private JPanel settingRow(String key,JComponent control,JButton action) {
+        JLabel name=label(key); name.setLabelFor(control); JPanel row=new JPanel(new BorderLayout(16,0)) {
+            public Dimension getPreferredSize() { int height=Math.max(44,Math.max(name.getFontMetrics(name.getFont()).getHeight(),control.getPreferredSize().height)+8); return new Dimension(500,height); }
+            public void doLayout() { FontMetrics metrics=name.getFontMetrics(name.getFont()); name.setPreferredSize(new Dimension(Math.max(150,metrics.stringWidth(name.getText())+8),metrics.getHeight())); super.doLayout(); }
+        };
+        row.add(name,BorderLayout.WEST); JPanel value=new JPanel(new BorderLayout(8,0)); value.add(control); if(action!=null) { action.setPreferredSize(new Dimension(Math.max(80,action.getPreferredSize().width),44)); value.add(action,BorderLayout.EAST); } row.add(value);
+        control.getAccessibleContext().setAccessibleName(strings.text(key)); translations.add(() -> control.getAccessibleContext().setAccessibleName(strings.text(key))); return row;
+    }
+    private JButton settingAction(String key,Runnable action) { JButton control=button(key,action); control.setHorizontalAlignment(SwingConstants.LEFT); control.setMargin(new Insets(12,16,12,16)); return control; }
+    private void information(String titleKey,String bodyKey) {
+        JDialog dialog=informationDialogs.get(titleKey);
+        if(dialog==null) {
+            dialog=new JDialog(this,strings.text(titleKey),false); dialog.setDefaultCloseOperation(HIDE_ON_CLOSE); informationDialogs.put(titleKey,dialog);
+            JDialog info=dialog; translations.add(() -> info.setTitle(strings.text(titleKey))); ResponsiveColumn content=new ResponsiveColumn(); JTextArea body=note(bodyKey); body.setText(strings.text(bodyKey)); content.add(body);
+            JPanel root=padded(new BorderLayout(0,16)); root.add(AppTheme.scroll(content)); JPanel footer=new JPanel(new FlowLayout(FlowLayout.RIGHT)); JButton close=button("gotIt",() -> info.setVisible(false)); close.setText(strings.text("gotIt")); footer.add(close); root.add(footer,BorderLayout.SOUTH);
+            dialog.add(root); dialog.setSize(600,500); dialog.setMinimumSize(new Dimension(400,320));
+        }
+        SwingUtilities.updateComponentTreeUI(dialog); scaleFonts(dialog.getContentPane(),fontScale); dialog.setLocationRelativeTo(this); dialog.setVisible(true);
     }
     private void scaleFonts(Component component, float scale) {
         if (component.getFont() != null) { Font original = baseFonts.computeIfAbsent(component, Component::getFont); component.setFont(original.deriveFont(original.getSize2D() * scale)); }
@@ -211,7 +224,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         setTitle(strings.text("app")); translating=true; try { translations.forEach(Runnable::run); } finally { translating=false; } renderedMessages = "";
         if (feedbackKey != null) feedback.setText(strings.text(feedbackKey));
         updateRequestText();
-        if (state != null) renderState(); else { status.setText(strings.text("idle")); listenButton.setText(strings.text("listen")); addresses.setText(strings.text("notListening")); chatTitle.setText(strings.text("emptyChat")); }
+        if (state != null) renderState(); else { status.setText(strings.text("idle")); listenButton.setText(strings.text("listen")); addresses.setText(strings.text("notListening")); chatTitle.setText(strings.text("selectChat")); }
         if (selected != null) renderMessages();
     }
     public void changed(DesktopClient.State state) { SwingUtilities.invokeLater(() -> {
@@ -226,7 +239,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         status.setText((state.transport().isEmpty() ? "" : strings.text(state.transport())+" · ")+strings.text(state.phase()));
         listenButton.setText(strings.text(state.listening() == null ? "listen" : "stopListen"));
         addresses.setText(state.listening() == null ? strings.text("notListening") : state.listening().endpoints().isEmpty() ? strings.text("noAddress") : String.join("\n", state.listening().endpoints()));
-        DesktopStore.Peer peer = selectedPeer(); chatTitle.setText(peer == null ? strings.text("emptyChat") : peer.name());
+        DesktopStore.Peer peer = selectedPeer(); chatTitle.setText(peer == null ? strings.text("selectChat") : peer.name());
         send.setEnabled(selected != null && state.peer() != null && selected.equals(state.peer().id()) && state.phase().equals("ready") && !composer.getText().isBlank());
         composer.setEnabled(selected != null); refreshBluetoothText();
     }
@@ -374,7 +387,9 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     }
     private final class HistoryRenderer implements ListCellRenderer<DesktopStore.Peer> {
         public Component getListCellRendererComponent(JList<? extends DesktopStore.Peer> list,DesktopStore.Peer peer,int index,boolean selectedRow,boolean focused) {
-            JPanel row=new JPanel(new BorderLayout(12,6)); row.setBackground(selectedRow?AppTheme.tonal:AppTheme.background); row.setBorder(BorderFactory.createEmptyBorder(16,8,16,8)); row.add(new AppTheme.Avatar(peer.name()),BorderLayout.WEST);
+            JPanel row=new JPanel(new BorderLayout(12,6)) {
+                protected void paintComponent(Graphics g) { g.setColor(AppTheme.background); g.fillRect(0,0,getWidth(),getHeight()); if(selectedRow) { Graphics2D p=(Graphics2D)g.create(); p.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON); p.setColor(AppTheme.tonal); p.fillRoundRect(0,0,getWidth(),getHeight(),24,24); p.dispose(); } }
+            }; row.setOpaque(false); row.setBorder(BorderFactory.createEmptyBorder(14,12,14,12)); row.add(new AppTheme.Avatar(peer.name()),BorderLayout.WEST);
             JPanel text=new JPanel(new BorderLayout(8,8)); text.setOpaque(false); JLabel name=plainLabel(peer.name()); name.setFont(name.getFont().deriveFont(Font.BOLD,16f*fontScale)); text.add(name,BorderLayout.NORTH);
             var message=summaries.get(peer.id()); boolean active=state!=null && state.peer()!=null && peer.id().equals(state.peer().id()) && state.phase().equals("ready");
             String summary=message==null?strings.text("noMessages"):message.body().replace('\n',' '); JLabel detail=plainLabel(active?strings.text(state.transport())+" · "+strings.text("ready")+"  "+summary:summary); detail.setForeground(AppTheme.muted); detail.setFont(detail.getFont().deriveFont(13f*fontScale)); text.add(detail,BorderLayout.CENTER); row.add(text);

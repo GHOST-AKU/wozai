@@ -20,12 +20,13 @@ final class AppTheme {
         accent = color(dark ? "82D8BA" : "246B4E"); accentInk = color(dark ? "103B2E" : "FFFFFF");
         tonal = color(dark ? "25453A" : "DDF4E7"); line = color(dark ? "33413D" : "E3EAE5");
         if (dark) FlatDarkLaf.setup(); else FlatLightLaf.setup();
-        ui("defaultFont", new Font(Font.DIALOG, Font.PLAIN, 15));
+        ui("defaultFont", new javax.swing.plaf.FontUIResource(com.formdev.flatlaf.util.FontUtils.getCompositeFont(fontFamily(),Font.PLAIN,15)));
         for (String type : new String[]{"Panel", "Viewport", "TabbedPane", "List", "TextArea", "ScrollPane"}) ui(type + ".background", background);
         for (String type : new String[]{"Label", "Button", "TextField", "TextArea", "List", "ComboBox", "TabbedPane"}) ui(type + ".foreground", ink);
         ui("Component.accentColor", accent); ui("Component.focusColor", accent);
         ui("Component.borderColor", line); ui("Component.arc", 20);
         ui("Button.arc", 24); ui("TextComponent.arc", 28);
+        ui("Button.minimumHeight",44); ui("TextField.minimumHeight",44); ui("ComboBox.minimumHeight",44);
         ui("Button.background", surface); ui("Button.focusedBackground", tonal);
         ui("Button.default.background", accent); ui("Button.default.foreground", accentInk);
         ui("TextField.background", surface); ui("ComboBox.background", surface);
@@ -34,6 +35,12 @@ final class AppTheme {
         ui("TabbedPane.tabHeight", 56); ui("TabbedPane.tabInsets", new Insets(8, 24, 8, 24));
         ui("ScrollBar.width", 10); ui("ScrollPane.smoothScrolling", true);
     }
+    private static String fontFamily() {
+        var available=java.util.Set.of(GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames(java.util.Locale.ENGLISH));
+        for(String family:new String[]{"Microsoft YaHei UI","Microsoft YaHei","Noto Sans CJK SC","Noto Sans SC","Noto Sans","Segoe UI"})if(available.contains(family))return family;
+        return Font.SANS_SERIF;
+    }
+    static JScrollPane scroll(Component view) { JScrollPane scroll=new JScrollPane(view); scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER); scroll.setBorder(BorderFactory.createEmptyBorder()); scroll.getVerticalScrollBar().setUnitIncrement(24); return scroll; }
     private static void ui(String key,Object value) { UIManager.put(key,value instanceof Color color ? new javax.swing.plaf.ColorUIResource(color) : value); }
     private static Color color(String hex) { return new Color(Integer.parseInt(hex, 16)); }
     static void primary(JButton button) { button.putClientProperty("wozai.primary",true); button.putClientProperty("FlatLaf.style", "background: " + hex(accent) + "; foreground: " + hex(accentInk) + "; borderWidth: 0; arc: 24"); }

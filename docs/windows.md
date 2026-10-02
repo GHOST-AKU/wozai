@@ -1,12 +1,12 @@
-# 我在 · Windows 预览版 0.2.1
+# 我在 · NearbyIM · Windows 预览版 0.2.2
 
 与 Android 0.2.0 共用 NIM2 协议、设备身份验证、信任、文字聊天和送达回执。Windows 支持局域网及经典蓝牙 RFCOMM，界面沿用安卓的薄荷绿设计、Material 图标、会话头像、搜索、左右消息气泡，以及浅色／深色主题。安卓应用源码和协议保持兼容。
 
 ## 使用与下载
 
-目标平台 Windows 10/11 x64。从[Windows 构建页面](https://github.com/GHOST-AKU/wozai/actions/runs/36987324600)底部 Artifacts 下载 `wozai-windows-x64` artifact，解压后运行 `WoZai/WoZai.exe`。保持整个软件目录完整；包内包含 Java 17 运行时和 Windows 蓝牙桥接库，无需另外安装 Java。原版安卓图标同时用于窗口和 EXE 启动器。
+目标平台 Windows 10/11 x64。从[Windows 构建页面](https://github.com/GHOST-AKU/wozai/actions?query=branch%3Abuild%2Fwindows-preview-20261002)底部 Artifacts 下载 `NearbyIM-0.2.2-windows-x64` artifact，解压后运行 `NearbyIM/NearbyIM.exe`。保持整个软件目录完整；包内包含 Java 17 运行时和 Windows 蓝牙桥接库，无需另外安装 Java。原版安卓图标同时用于窗口和 EXE 启动器。
 
-这是未签名的便携预览版，没有安装器、开机启动或托盘常驻。请将软件放在当前用户可读写的位置，例如 `D:\Apps\WoZai`，避免受保护的 `Program Files` 目录。
+这是未签名的便携预览版，没有安装器、开机启动或托盘常驻。请将软件放在当前用户可读写的位置，例如 `D:\Apps\NearbyIM`，避免受保护的 `Program Files` 目录。
 
 ### 局域网
 
@@ -30,11 +30,11 @@ Windows 原生库使用 AF_BTH / RFCOMM、SDP 服务 UUID `90c649e1-c095-4b22-8b
 
 ## 数据位置与旧版迁移
 
-便携包默认将数据放在 **`WoZai.exe` 旁的 `data` 文件夹**，不依赖启动时的工作目录。因此软件放在 D 盘，数据也在 D 盘。软件根目录还有一个很小的 `.data-startup.lock` 用于启动／迁移互斥。
+便携包默认将数据放在 **`NearbyIM.exe` 旁的 `data` 文件夹**，不依赖启动时的工作目录。因此软件放在 D 盘，数据也在 D 盘。软件根目录还有一个很小的 `.data-startup.lock` 用于启动／迁移互斥。
 
-旧预览版使用 `%LOCALAPPDATA%\WoZai`。首次运行新版且便携目录尚无数据时，会锁定旧目录，将身份、信任、消息、草稿和设置完整复制到同盘临时目录，再原子迁移到 `data`；**旧目录原件保留**。旧版仍运行、目标不可写、文件损坏或迁移失败时会显示所选路径并停止启动，不悄悄切换目录或生成新身份。已有便携数据优先使用，不与旧目录合并。
+首次运行新版且便携目录尚无数据时，优先检查同级旧版 `WoZai/data`；没有旧便携资料时，再检查 `%LOCALAPPDATA%\WoZai`。程序锁定旧目录，将身份、信任、消息、草稿和设置完整复制到同盘临时目录，再原子迁移到 `data`；**旧目录原件保留**。旧版仍运行、目标不可写、文件损坏或迁移失败时会显示所选路径并停止启动，不悄悄切换目录或生成新身份。已有便携数据优先使用，不与旧目录合并。
 
-不要同时使用两份复制后的身份目录聊天；旧目录仅作为迁移备份。升级时可将新程序文件复制进原软件目录并保留 `data`，或者移动完整的软件目录。设置页可查看、打开实际数据位置。
+不要同时使用两份复制后的身份目录聊天；旧目录仅作为迁移备份。升级时可将新程序文件复制进原软件目录并保留 `data`，或者将新版 `NearbyIM` 与旧版 `WoZai` 放在同一个父目录。若旧软件在其他位置，首次启动前先将其完整 `data` 复制到新版目录内。设置页可查看、打开实际数据位置。
 
 Windows 私钥仍使用 DPAPI CurrentUser 保护。同一用户在本机移动文件夹可以继续使用身份；把软件和 `data` 复制到另一个 Windows 用户或另一台电脑，通常无法解密身份。这与数据可以存放在哪个盘是不同的事情。损坏或解密失败的身份不会自动替换。
 
@@ -50,7 +50,9 @@ Windows 私钥仍使用 DPAPI CurrentUser 保护。同一用户在本机移动�
 
 提供简体中文／英语、浅色／深色主题、三个文字大小。切换语言或主题保留连接、聊天和输入。会话按实际最后消息时间排序，搜索本机昵称；已连接状态来自真实会话，不根据 Wi-Fi 或配对记录推断。消息可选择复制，布局按窗口宽度重排。
 
-键盘：Tab、方向键和 Space/Enter 操作控件，Ctrl+1/2/3 切换聊天／附近／设置，Enter 发送、Shift+Enter 换行，Ctrl+Q 退出。包内 Java Access Bridge 可通过 `WoZai\runtime\bin\jabswitch.exe -enable` 启用，随后重启应用。读屏、Windows 高对比度及不同 DPI 仍需人工验收。
+0.2.2 统一使用 NearbyIM 英文品牌及启动器名称。默认字体优先使用微软雅黑 UI／微软雅黑；其他开发平台选择 Noto Sans CJK。移除重复品牌页头，聊天只保留对方昵称、连接状态与必要操作；选中会话使用圆角高亮，输入框与发送键等高。设置采用宽度自适应分组，长路径和说明自动换行，不出现横向滚动条；滚轮步长至少 24 像素，启用平滑滚动。设置内提供与安卓一致的「使用说明」「关于我在」，补充 Windows 配对与便携数据说明。
+
+键盘：Tab、方向键和 Space/Enter 操作控件，Ctrl+1/2/3 切换聊天／附近／设置，Enter 发送、Shift+Enter 换行，Ctrl+Q 退出。包内 Java Access Bridge 可通过 `NearbyIM\runtime\bin\jabswitch.exe -enable` 启用，随后重启应用。读屏、Windows 高对比度及不同 DPI 仍需人工验收。
 
 ## 从源码构建
 
@@ -71,6 +73,7 @@ sh desktop/tools/build.sh --run
 java -cp 'desktop/build/classes:desktop/build/tests:desktop/build/lib/*' dev.ghost.wozai.DiscoveryTests
 # 有桌面显示或 Xvfb：
 java -cp 'desktop/build/classes:desktop/build/tests:desktop/build/lib/*' dev.ghost.wozai.GuiTests desktop/build/gui.png
+java -cp 'desktop/build/classes:desktop/build/tests:desktop/build/lib/*' dev.ghost.wozai.LayoutTests desktop/build/gui-settings.png
 ```
 
 Linux 仅验证 Java、局域网与界面，蓝牙明确显示平台不可用。依赖为 FlatLaf 3.6.2、JmDNS 3.6.2、SLF4J API / NOP 2.0.17；SHA-256 固定在 `desktop/dependencies.txt`。许可与运行时 legal 文件随软件打包。重新导出图标时运行 `desktop/tools/export-icons.py`（开发工具需要 Pillow / CairoSVG，正常构建使用已保存的资源）。
@@ -81,10 +84,12 @@ Linux 仅验证 Java、局域网与界面，蓝牙明确显示平台不可用。
 
 自动检查覆盖旧桌面身份、信任、真实 TCP 互通与回执；便携路径、迁移、文件字节保真、旧文件保留、活跃进程锁、权限和异常目录；蓝牙地址、JNI 边界与不可用适配器状态；原生流关闭、发送、接收和句柄生命周期。蓝牙路由的签名、许可、保存后回执和撤销共用流程还通过模拟字节流验证。
 
-界面检查通过真实窗口操作验证昵称搜索、安卓主题、语言与文字大小、草稿、双向消息和回执。Windows 工作流另行验证真正的 `WoZai.exe`、自带运行时、中文标题、DPAPI 身份、默认便携目录与正常退出。
+界面检查通过真实窗口操作验证昵称搜索、安卓主题、语言与文字大小、草稿、双向消息和回执。新增布局检查覆盖 760×540 窗口、最大字号、反复重排后的稳定高度、真实滚轮移动、圆角像素、输入栏等高，以及使用说明／关于对话框。Windows 工作流另行验证真正的 `NearbyIM.exe`、自带运行时、中文标题、DPAPI 身份、默认便携目录与正常退出。
 
 构建机没有蓝牙无线硬件。原生编译、JNI 与字节流测试不能证明实体 Windows ↔ Android 蓝牙互通，需要在真实适配器、配对和手机接收环境中验收。
 
-Windows 最终构建记录：[36987324600](https://github.com/GHOST-AKU/wozai/actions/runs/36987324600)。应用源代码为 `2e4a8f9`；后续提交仅补充下载与验证说明。功能分支保留独立 Windows 手动工作流，专用构建分支借用已有的手动入口执行 Windows 检查，不改变 Android 工作流。
+0.2.1 构建记录：[36987324600](https://github.com/GHOST-AKU/wozai/actions/runs/36987324600)，应用源代码为 `2e4a8f9`。功能分支保留独立 Windows 手动工作流，专用构建分支借用已有的手动入口执行 Windows 检查，不改变 Android 工作流。
 
-最终 Windows 构建全部通过：55 项桌面检查、81 项便携目录与迁移检查、54 项蓝牙接口/JNI 检查，以及原生生命周期、蓝牙路由模拟、原有协议/信任、真实 mDNS 和界面操作。直接启动 `WoZai.exe` 验证了默认软件旁目录、DPAPI、中文标题和正常退出；包内运行时的界面收发与浅色/深色检查也通过。截图包含浅色、深色及打包后中文窗口。
+0.2.1 Windows 构建通过：55 项桌面检查、81 项便携目录与迁移检查、54 项蓝牙接口/JNI 检查，以及原生生命周期、蓝牙路由模拟、原有协议/信任、真实 mDNS 和界面操作。直接启动旧版 `WoZai.exe` 验证了默认软件旁目录、DPAPI、中文标题和正常退出；包内运行时的界面收发与浅色/深色检查也通过。
+
+0.2.2 本地检查通过：54 项桌面检查、110 项目录与迁移检查、35 项无适配器蓝牙检查、蓝牙路由模拟及真实界面操作。NearbyIM 改名后的迁移检查同时放置旧便携版与较早用户目录，验证优先恢复最新便携身份和草稿，并逐文件比较副本与两个保留的源目录。

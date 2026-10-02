@@ -7,6 +7,7 @@ function Invoke-JavaTool([string]$Tool, [string[]]$Arguments) {
 }
 if (-not $env:JAVA_HOME) { throw 'Set JAVA_HOME to a JDK 17 installation.' }
 New-Item -ItemType Directory -Force build/lib, build/classes, build/tests | Out-Null
+if(Test-Path build/lib/wozai-desktop.jar) { Remove-Item build/lib/wozai-desktop.jar -Force }
 foreach ($line in Get-Content dependencies.txt) {
     $expected, $artifact = $line.Split(' ')
     $file = Join-Path 'build/lib' ($artifact.Split('/')[-1])
@@ -31,19 +32,19 @@ $sources += (Resolve-Path ../app/src/main/java/dev/ghost/nearbyim/storage/TrustP
 Invoke-JavaTool javac @('--release', '17', '-encoding', 'UTF-8', '-cp', 'build/lib/*', '-d', 'build/classes', '@build/sources.txt')
 Copy-Item src/main/resources/* build/classes -Recurse -Force
 Copy-Item ../app/src/main/res/drawable-nodpi/ic_launcher_artwork.png build/classes/dev/ghost/wozai/app-icon.png -Force
-Invoke-JavaTool jar @('--create', '--file', 'build/lib/wozai-desktop.jar', '--main-class', 'dev.ghost.wozai.Main', '-C', 'build/classes', '.')
+Invoke-JavaTool jar @('--create', '--file', 'build/lib/nearbyim-desktop.jar', '--main-class', 'dev.ghost.wozai.Main', '-C', 'build/classes', '.')
 $tests = (Get-ChildItem src/test/java -Recurse -Filter '*.java').FullName
 Invoke-JavaTool javac (@('--release', '17', '-encoding', 'UTF-8', '-cp', 'build/classes;build/lib/*', '-d', 'build/tests') + $tests)
 foreach ($test in @('DesktopTests', 'DataLocationTests', 'BluetoothTests', 'TransportTests')) {
     Invoke-JavaTool java @($bluetoothLibrary, '-cp', 'build/classes;build/tests;build/lib/*', "dev.ghost.wozai.$test")
 }
 if ($Package) {
-    if (Test-Path build/package/WoZai) { Remove-Item build/package/WoZai -Recurse -Force }
-    Invoke-JavaTool jpackage @('--type', 'app-image', '--name', 'WoZai', '--app-version', '0.2.1', '--vendor', 'GHOST-AKU', '--input', 'build/lib', '--main-jar', 'wozai-desktop.jar', '--main-class', 'dev.ghost.wozai.Main', '--dest', 'build/package', '--icon', 'assets/wozai.ico', '--java-options', '-Dwozai.installDir=$APPDIR/..', '--add-modules', 'java.base,java.desktop,java.logging,jdk.crypto.ec,jdk.accessibility,jdk.localedata', '--jlink-options', '--strip-debug --no-man-pages --no-header-files --include-locales=en,zh')
-    Copy-Item ../THIRD_PARTY_NOTICES.md build/package/WoZai/
-    Copy-Item ../docs/windows.md build/package/WoZai/README.md
-    Copy-Item ../licenses build/package/WoZai/ -Recurse -Force
-    Copy-Item ../docs/licenses/material-icons-LICENSE.txt build/package/WoZai/licenses/ -Force
-    Compress-Archive -Path build/package/WoZai -DestinationPath build/WoZai-0.2.1-windows-x64.zip -Force
+    if (Test-Path build/package/NearbyIM) { Remove-Item build/package/NearbyIM -Recurse -Force }
+    Invoke-JavaTool jpackage @('--type', 'app-image', '--name', 'NearbyIM', '--app-version', '0.2.2', '--vendor', 'GHOST-AKU', '--input', 'build/lib', '--main-jar', 'nearbyim-desktop.jar', '--main-class', 'dev.ghost.wozai.Main', '--dest', 'build/package', '--icon', 'assets/wozai.ico', '--java-options', '-Dwozai.installDir=$APPDIR/..', '--add-modules', 'java.base,java.desktop,java.logging,jdk.crypto.ec,jdk.accessibility,jdk.localedata', '--jlink-options', '--strip-debug --no-man-pages --no-header-files --include-locales=en,zh')
+    Copy-Item ../THIRD_PARTY_NOTICES.md build/package/NearbyIM/
+    Copy-Item ../docs/windows.md build/package/NearbyIM/README.md
+    Copy-Item ../licenses build/package/NearbyIM/ -Recurse -Force
+    Copy-Item ../docs/licenses/material-icons-LICENSE.txt build/package/NearbyIM/licenses/ -Force
+    Compress-Archive -Path build/package/NearbyIM -DestinationPath build/NearbyIM-0.2.2-windows-x64.zip -Force
 }
 if ($Run) { Invoke-JavaTool java @($bluetoothLibrary, '-cp', 'build/lib/*', 'dev.ghost.wozai.Main') }

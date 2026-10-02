@@ -29,7 +29,19 @@ public final class DataLocation {
         if (present(override)) return new Selection(absolute(Path.of(override)), null, false);
         Path legacy = developerPath(properties, environment, windows);
         String install = properties.apply("wozai.installDir");
-        if (present(install)) return new Selection(absolute(Path.of(install)).resolve("data"), legacy, true);
+        if (present(install)) {
+            Path root=absolute(Path.of(install));
+            // NearbyIM replaces the old WoZai package name. Prefer its current portable
+            // profile over the older copy in LOCALAPPDATA, while retaining both sources.
+            if(root.getParent()!=null) {
+                Path previous=root.getParent().resolve("WoZai/data");
+                if(exists(previous)) {
+                    try { if(!Files.isDirectory(previous,NOFOLLOW)||!noUserData(previous))legacy=previous; }
+                    catch(IOException e) { throw new IllegalStateException("无法检查旧版便携数据目录："+previous,e); }
+                }
+            }
+            return new Selection(root.resolve("data"),legacy,true);
+        }
         return new Selection(legacy, null, false);
     }
 

@@ -22,6 +22,7 @@ public final class DataLocationTests {
         try {
             selection(root.resolve("selection"));
             migration(root.resolve("migration"));
+            brandedUpgrade(root.resolve("branded-upgrade"));
             lockOnlyRetry(root.resolve("retry"));
             activeLegacy(root.resolve("active-legacy"));
             activeTarget(root.resolve("active-target"));
@@ -130,6 +131,25 @@ public final class DataLocationTests {
         try (var prepared = packaged(install, local).prepare()) {
             check(DesktopIdentity.load(prepared.path().resolve("identity.properties")).id().equals(identity.id()), "Leftover lock suppressed legacy migration");
         }
+        assertNoStage(install);
+    }
+
+    private static void brandedUpgrade(Path root) throws Exception {
+        Path local=root.resolve("Local"), oldPortable=root.resolve("WoZai/data"), install=root.resolve("NearbyIM");
+        var oldIdentity=createProfile(oldPortable);
+        createProfile(local.resolve("WoZai"));
+        try(DesktopStore old=new DesktopStore(oldPortable)) { old.draft(PEER,"便携版最新草稿"); }
+        Map<String,byte[]> portableBefore=snapshot(oldPortable), localBefore=snapshot(local.resolve("WoZai"));
+        var location=packaged(install,local);
+        check(location.legacyPath().equals(oldPortable),"Brand rename selected stale system-drive data instead of the old portable profile");
+        try(var prepared=location.prepare()) {
+            sameBytes(portableBefore,snapshot(prepared.path()),"Branded portable upgrade");
+            sameBytes(portableBefore,snapshot(oldPortable),"Old portable source");
+            sameBytes(localBefore,snapshot(local.resolve("WoZai")),"Older system-drive source");
+            check(DesktopIdentity.load(prepared.path().resolve("identity.properties")).id().equals(oldIdentity.id()),"Brand rename created a new device identity");
+            try(DesktopStore restored=new DesktopStore(prepared.path())) { check(restored.draft(PEER).equals("便携版最新草稿"),"Brand rename restored a stale draft"); }
+        }
+        check(packaged(root.resolve("WoZai"),local).path().equals(oldPortable),"Updating inside the old package directory changed its data path");
         assertNoStage(install);
     }
 

@@ -1,4 +1,4 @@
-name: Build 我在 Windows client
+name: Build NearbyIM Windows client
 on:
   workflow_dispatch:
 permissions:
@@ -28,7 +28,7 @@ jobs:
         if: always()
         shell: pwsh
         run: |
-          & 'desktop/build/package/WoZai/runtime/bin/java.exe' -cp 'desktop/build/package/WoZai/app/*;desktop/build/tests' dev.ghost.wozai.GuiTests desktop/build/gui-bundled-runtime.png
+          & 'desktop/build/package/NearbyIM/runtime/bin/java.exe' -cp 'desktop/build/package/NearbyIM/app/*;desktop/build/tests' dev.ghost.wozai.GuiTests desktop/build/gui-bundled-runtime.png
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Exercise native GUI and mDNS
         shell: pwsh
@@ -37,9 +37,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & "$env:JAVA_HOME/bin/java.exe" "-Dwozai.bluetooth.library=$((Resolve-Path desktop/build/lib/wozai_bluetooth.dll).Path)" -cp 'desktop/build/classes;desktop/build/tests;desktop/build/lib/*' dev.ghost.wozai.GuiTests desktop/build/gui-windows.png
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "$env:JAVA_HOME/bin/java.exe" "-Dwozai.bluetooth.library=$((Resolve-Path desktop/build/lib/wozai_bluetooth.dll).Path)" -cp 'desktop/build/classes;desktop/build/tests;desktop/build/lib/*' dev.ghost.wozai.LayoutTests desktop/build/gui-settings-windows.png
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
         with:
-          name: wozai-windows-x64
+          name: NearbyIM-0.2.2-windows-x64
           path: desktop/build/package
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
@@ -48,6 +50,7 @@ jobs:
           name: windows-preview-verification
           path: |
             desktop/build/gui-windows*.png
+            desktop/build/gui-settings*.png
             desktop/build/package-window.png
             desktop/build/gui-bundled-runtime*.png
           if-no-files-found: ignore

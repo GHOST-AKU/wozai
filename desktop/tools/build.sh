@@ -19,7 +19,8 @@ printf '%s\n' '../app/src/main/java/dev/ghost/nearbyim/storage/TrustPolicy.java'
 javac --release 17 -encoding UTF-8 -cp 'build/lib/*' -d build/classes @build/sources.txt
 cp -R src/main/resources/. build/classes/
 cp ../app/src/main/res/drawable-nodpi/ic_launcher_artwork.png build/classes/dev/ghost/wozai/app-icon.png
-jar --create --file build/lib/wozai-desktop.jar --main-class dev.ghost.wozai.Main -C build/classes .
+rm -f build/lib/wozai-desktop.jar
+jar --create --file build/lib/nearbyim-desktop.jar --main-class dev.ghost.wozai.Main -C build/classes .
 find src/test/java -name '*.java' > build/test-sources.txt
 javac --release 17 -encoding UTF-8 -cp 'build/classes:build/lib/*' -d build/tests @build/test-sources.txt
 for test in DesktopTests DataLocationTests BluetoothTests TransportTests; do

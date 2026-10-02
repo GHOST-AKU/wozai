@@ -23,7 +23,7 @@ final class AtomicFiles {
         Path temporary = Files.createTempFile(file.getParent(), ".write-", ".tmp");
         try {
             privatePermissions(temporary, false);
-            ByteArrayOutputStream output = new ByteArrayOutputStream(); values.store(output, "WoZai");
+            ByteArrayOutputStream output = new ByteArrayOutputStream(); values.store(output, "NearbyIM");
             try (FileChannel channel = FileChannel.open(temporary, StandardOpenOption.WRITE)) {
                 ByteBuffer bytes = ByteBuffer.wrap(output.toByteArray());
                 while (bytes.hasRemaining()) channel.write(bytes);
