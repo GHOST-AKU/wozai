@@ -95,7 +95,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     }; }
     private JLabel label(String key) { JLabel label = plainLabel(""); translations.add(() -> label.setText(strings.text(key))); return label; }
     private JButton button(String key, Runnable action) {
-        JButton button = new JButton(); translations.add(() -> button.setText(strings.text(key))); button.addActionListener(e -> action.run()); return button;
+        JButton button = new JButton() { public Dimension getPreferredSize() { Dimension size=super.getPreferredSize(); size.height=Math.max(44,size.height); return size; } }; translations.add(() -> button.setText(strings.text(key))); button.addActionListener(e -> action.run()); return button;
     }
     private static JPanel padded(LayoutManager layout) { JPanel panel = new JPanel(layout); panel.setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16)); return panel; }
     private JTextArea note(String key) {

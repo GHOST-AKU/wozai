@@ -4,7 +4,7 @@
 
 ## 使用与下载
 
-目标平台 Windows 10/11 x64。从[Windows 构建页面](https://github.com/GHOST-AKU/wozai/actions?query=branch%3Abuild%2Fwindows-preview-20261002)底部 Artifacts 下载 `NearbyIM-0.2.2-windows-x64` artifact，解压后运行 `NearbyIM/NearbyIM.exe`。保持整个软件目录完整；包内包含 Java 17 运行时和 Windows 蓝牙桥接库，无需另外安装 Java。原版安卓图标同时用于窗口和 EXE 启动器。
+目标平台 Windows 10/11 x64。从[Windows 构建页面](https://github.com/GHOST-AKU/wozai/actions/runs/36993197795)底部 Artifacts 下载 [NearbyIM-0.2.2-windows-x64](https://github.com/GHOST-AKU/wozai/actions/runs/36993197795/artifacts/11220792087)，解压后运行 `NearbyIM/NearbyIM.exe`。保持整个软件目录完整；包内包含 Java 17 运行时和 Windows 蓝牙桥接库，无需另外安装 Java。原版安卓图标同时用于窗口和 EXE 启动器。
 
 这是未签名的便携预览版，没有安装器、开机启动或托盘常驻。请将软件放在当前用户可读写的位置，例如 `D:\Apps\NearbyIM`，避免受保护的 `Program Files` 目录。
 
@@ -50,7 +50,7 @@ Windows 私钥仍使用 DPAPI CurrentUser 保护。同一用户在本机移动�
 
 提供简体中文／英语、浅色／深色主题、三个文字大小。切换语言或主题保留连接、聊天和输入。会话按实际最后消息时间排序，搜索本机昵称；已连接状态来自真实会话，不根据 Wi-Fi 或配对记录推断。消息可选择复制，布局按窗口宽度重排。
 
-0.2.2 统一使用 NearbyIM 英文品牌及启动器名称。默认字体优先使用微软雅黑 UI／微软雅黑；其他开发平台选择 Noto Sans CJK。移除重复品牌页头，聊天只保留对方昵称、连接状态与必要操作；选中会话使用圆角高亮，输入框与发送键等高。设置采用宽度自适应分组，长路径和说明自动换行，不出现横向滚动条；滚轮步长至少 24 像素，启用平滑滚动。设置内提供与安卓一致的「使用说明」「关于我在」，补充 Windows 配对与便携数据说明。
+0.2.2 统一使用 NearbyIM 英文品牌及启动器名称。软件内置 Noto Sans CJK SC（思源黑体），在进程内加载，不依赖系统中文字体或安装语言包。移除重复品牌页头，聊天只保留对方昵称、连接状态与必要操作；选中会话使用圆角高亮，输入框与发送键等高。设置采用宽度自适应分组，长路径和说明自动换行，不出现横向滚动条；滚轮步长至少 24 像素，启用平滑滚动。设置内提供与安卓一致的「使用说明」「关于我在」，补充 Windows 配对与便携数据说明。
 
 键盘：Tab、方向键和 Space/Enter 操作控件，Ctrl+1/2/3 切换聊天／附近／设置，Enter 发送、Shift+Enter 换行，Ctrl+Q 退出。包内 Java Access Bridge 可通过 `NearbyIM\runtime\bin\jabswitch.exe -enable` 启用，随后重启应用。读屏、Windows 高对比度及不同 DPI 仍需人工验收。
 
@@ -76,7 +76,7 @@ java -cp 'desktop/build/classes:desktop/build/tests:desktop/build/lib/*' dev.gho
 java -cp 'desktop/build/classes:desktop/build/tests:desktop/build/lib/*' dev.ghost.wozai.LayoutTests desktop/build/gui-settings.png
 ```
 
-Linux 仅验证 Java、局域网与界面，蓝牙明确显示平台不可用。依赖为 FlatLaf 3.6.2、JmDNS 3.6.2、SLF4J API / NOP 2.0.17；SHA-256 固定在 `desktop/dependencies.txt`。许可与运行时 legal 文件随软件打包。重新导出图标时运行 `desktop/tools/export-icons.py`（开发工具需要 Pillow / CairoSVG，正常构建使用已保存的资源）。
+Linux 仅验证 Java、局域网与界面，蓝牙明确显示平台不可用。依赖为 FlatLaf 3.6.2、JmDNS 3.6.2、SLF4J API / NOP 2.0.17；SHA-256 固定在 `desktop/dependencies.txt`。中文字体来自官方 Noto CJK 仓库，SHA-256 固定在 `desktop/font-dependencies.txt`。字体、许可与运行时 legal 文件随软件打包。重新导出图标时运行 `desktop/tools/export-icons.py`（开发工具需要 Pillow / CairoSVG，正常构建使用已保存的资源）。
 
 ## 验证记录 · 2026-10-02
 
@@ -93,3 +93,5 @@ Linux 仅验证 Java、局域网与界面，蓝牙明确显示平台不可用。
 0.2.1 Windows 构建通过：55 项桌面检查、81 项便携目录与迁移检查、54 项蓝牙接口/JNI 检查，以及原生生命周期、蓝牙路由模拟、原有协议/信任、真实 mDNS 和界面操作。直接启动旧版 `WoZai.exe` 验证了默认软件旁目录、DPAPI、中文标题和正常退出；包内运行时的界面收发与浅色/深色检查也通过。
 
 0.2.2 本地检查通过：54 项桌面检查、110 项目录与迁移检查、35 项无适配器蓝牙检查、蓝牙路由模拟及真实界面操作。NearbyIM 改名后的迁移检查同时放置旧便携版与较早用户目录，验证优先恢复最新便携身份和草稿，并逐文件比较副本与两个保留的源目录。
+
+0.2.2 Windows 最终构建 [36993197795](https://github.com/GHOST-AKU/wozai/actions/runs/36993197795) 全部通过，应用源代码为 `51abb19`，后续仅更新下载和验证文档。55 项桌面、104 项目录迁移、54 项蓝牙接口/JNI 检查，以及原生生命周期、模拟蓝牙路由和原有协议/信任检查通过。真正的 `NearbyIM.exe` 验证了中文窗口、DPAPI、默认便携目录及正常退出；自带运行时和完整 JDK 的双向收发、主题、草稿检查通过，真实 mDNS、设置滚轮与布局、帮助和关于窗口检查通过。构建页面同时提供中文聊天、设置、帮助、关于及浅色／深色截图。

@@ -35,6 +35,9 @@ public final class LayoutTests {
                 check(Math.abs(capsule.getHeight()-send.getHeight())<=1,"Composer and send button have different heights: "+capsule.getHeight()+" / "+send.getHeight());
                 check(w.getJMenuBar()==null,"Header repeats the brand in a menu bar");
                 check(!Set.of("Dialog","Serif","SansSerif").contains(composer.getFont().getFamily(Locale.ROOT)),"Chinese UI still relies on a logical font fallback: "+composer.getFont());
+                check(composer.getFont().getFamily(Locale.ENGLISH).equals("Noto Sans CJK SC"),"The bundled Chinese font was not applied: "+composer.getFont());
+                try(var source=AppTheme.class.getResourceAsStream("fonts/NotoSansCJKsc-Regular.otf")) { check(source!=null && Font.createFont(Font.TRUETYPE_FONT,source).canDisplayUpTo("我在 林的平板 使用说明 聊天 附近 设置")==-1,"Bundled font is absent or lacks Chinese glyphs"); }
+                System.out.println("UI font: "+composer.getFont().getFamily(Locale.ENGLISH));
                 var history=all(w).stream().filter(c -> c instanceof JList<?> list && "Chats".equals(list.getAccessibleContext().getAccessibleName())).map(c -> (JList<DesktopStore.Peer>)c).findFirst().orElseThrow();
                 Component row=history.getCellRenderer().getListCellRendererComponent(history,history.getModel().getElementAt(0),0,true,false); row.setSize(300,90); if(row instanceof Container c)c.doLayout();
                 BufferedImage pixels=new BufferedImage(300,90,BufferedImage.TYPE_INT_RGB); row.paint(pixels.getGraphics());

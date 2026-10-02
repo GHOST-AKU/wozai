@@ -16,6 +16,15 @@ foreach ($line in Get-Content dependencies.txt) {
         if ((Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw "Dependency checksum mismatch: $artifact" }
     }
 }
+New-Item -ItemType Directory -Force build/fonts | Out-Null
+foreach ($line in Get-Content font-dependencies.txt) {
+    $expected, $url=$line.Split(' ')
+    $file=Join-Path 'build/fonts' ($url.Split('/')[-1])
+    if (!(Test-Path $file) -or (Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) {
+        Invoke-WebRequest -Uri $url -OutFile $file
+        if ((Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw "Font checksum mismatch: $url" }
+    }
+}
 & cmake -S native -B build/native -A x64
 if ($LASTEXITCODE -ne 0) { throw 'Bluetooth CMake configuration failed' }
 & cmake --build build/native --config Release
@@ -31,6 +40,8 @@ $sources += (Resolve-Path ../app/src/main/java/dev/ghost/nearbyim/storage/TrustP
 [IO.File]::WriteAllLines((Join-Path (Get-Location) 'build/sources.txt'), @($sources | ForEach-Object { '"' + $_.Replace('\', '/') + '"' }), (New-Object Text.UTF8Encoding($false)))
 Invoke-JavaTool javac @('--release', '17', '-encoding', 'UTF-8', '-cp', 'build/lib/*', '-d', 'build/classes', '@build/sources.txt')
 Copy-Item src/main/resources/* build/classes -Recurse -Force
+New-Item -ItemType Directory -Force build/classes/dev/ghost/wozai/fonts | Out-Null
+Copy-Item build/fonts/*.otf build/classes/dev/ghost/wozai/fonts/ -Force
 Copy-Item ../app/src/main/res/drawable-nodpi/ic_launcher_artwork.png build/classes/dev/ghost/wozai/app-icon.png -Force
 Invoke-JavaTool jar @('--create', '--file', 'build/lib/nearbyim-desktop.jar', '--main-class', 'dev.ghost.wozai.Main', '-C', 'build/classes', '.')
 $tests = (Get-ChildItem src/test/java -Recurse -Filter '*.java').FullName

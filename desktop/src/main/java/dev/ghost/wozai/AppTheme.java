@@ -13,12 +13,14 @@ import java.util.Map;
 final class AppTheme {
     static Color background, surface, ink, muted, accent, accentInk, tonal, line;
     static boolean dark;
+    private static String fontFamily;
     static void install(boolean useDark) {
         dark = useDark;
         background = color(dark ? "101619" : "FAFCFA"); surface = color(dark ? "222B2F" : "EEF3EF");
         ink = color(dark ? "F1F5F3" : "17211C"); muted = color(dark ? "9AA8AD" : "58675F");
         accent = color(dark ? "82D8BA" : "246B4E"); accentInk = color(dark ? "103B2E" : "FFFFFF");
         tonal = color(dark ? "25453A" : "DDF4E7"); line = color(dark ? "33413D" : "E3EAE5");
+        FlatLaf.setPreferredFontFamily(fontFamily());
         if (dark) FlatDarkLaf.setup(); else FlatLightLaf.setup();
         ui("defaultFont", new javax.swing.plaf.FontUIResource(com.formdev.flatlaf.util.FontUtils.getCompositeFont(fontFamily(),Font.PLAIN,15)));
         for (String type : new String[]{"Panel", "Viewport", "TabbedPane", "List", "TextArea", "ScrollPane"}) ui(type + ".background", background);
@@ -36,9 +38,13 @@ final class AppTheme {
         ui("ScrollBar.width", 10); ui("ScrollPane.smoothScrolling", true);
     }
     private static String fontFamily() {
-        var available=java.util.Set.of(GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames(java.util.Locale.ENGLISH));
-        for(String family:new String[]{"Microsoft YaHei UI","Microsoft YaHei","Noto Sans CJK SC","Noto Sans SC","Noto Sans","Segoe UI"})if(available.contains(family))return family;
-        return Font.SANS_SERIF;
+        if(fontFamily==null) {
+            try(var source=AppTheme.class.getResourceAsStream("fonts/NotoSansCJKsc-Regular.otf")) {
+                if(source==null)throw new IOException("Bundled Chinese font is missing");
+                Font font=Font.createFont(Font.TRUETYPE_FONT,source); GraphicsEnvironment.getLocalGraphicsEnvironment().registerFont(font); fontFamily=font.getFamily(java.util.Locale.ENGLISH);
+            } catch(IOException|FontFormatException e) { throw new IllegalStateException("无法加载程序内的思源黑体字体。",e); }
+        }
+        return fontFamily;
     }
     static JScrollPane scroll(Component view) { JScrollPane scroll=new JScrollPane(view); scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER); scroll.setBorder(BorderFactory.createEmptyBorder()); scroll.getVerticalScrollBar().setUnitIncrement(24); return scroll; }
     private static void ui(String key,Object value) { UIManager.put(key,value instanceof Color color ? new javax.swing.plaf.ColorUIResource(color) : value); }
