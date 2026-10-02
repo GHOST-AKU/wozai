@@ -1,10 +1,10 @@
 # 我在 · NearbyIM · Windows 预览版 0.3.0
 
-与 Android 0.2.0 共用 NIM2 协议、设备身份验证、信任、文字聊天和送达回执。Windows 支持局域网及经典蓝牙 RFCOMM，界面沿用安卓的薄荷绿设计、Material 图标、会话头像、搜索、左右消息气泡，以及浅色／深色主题。安卓应用源码和协议保持兼容。
+与 Android 0.2.0 及以后版本共用 NIM2 协议、设备身份验证、信任、文字聊天和送达回执。Windows 支持局域网及经典蓝牙 RFCOMM，界面沿用安卓的薄荷绿设计、Material 图标、会话头像、搜索、左右消息气泡，以及浅色／深色主题。0.3.0 将两端文案、语言注册表和格式契约统一，协议保持兼容。
 
 ## 使用与下载
 
-目标平台 Windows 10/11 x64。从[Windows 构建页面](https://github.com/GHOST-AKU/wozai/actions/runs/36995050370)底部 Artifacts 下载 [NearbyIM-0.2.2-windows-x64](https://github.com/GHOST-AKU/wozai/actions/runs/36995050370/artifacts/11221730155)，解压后运行 `NearbyIM/NearbyIM.exe`。保持整个软件目录完整；包内包含 Java 17 运行时、思源黑体和 Windows 蓝牙桥接库，无需另外安装 Java 或字体。原版安卓图标同时用于窗口和 EXE 启动器。
+目标平台 Windows 10/11 x64。从[最终构建页面](https://github.com/GHOST-AKU/wozai/actions/runs/37003827341)底部 Artifacts 下载 [NearbyIM-0.3.0-windows-x64](https://github.com/GHOST-AKU/wozai/actions/runs/37003827341/artifacts/11224653026)，解压后运行 `NearbyIM/NearbyIM.exe`。保持整个软件目录完整；包内包含 Java 17 运行时、思源黑体和 Windows 蓝牙桥接库，无需另外安装 Java 或字体。原版安卓图标同时用于窗口和 EXE 启动器。
 
 这是未签名的便携预览版，没有安装器、开机启动或托盘常驻。请将软件放在当前用户可读写的位置，例如 `D:\Apps\NearbyIM`，避免受保护的 `Program Files` 目录。
 
@@ -79,6 +79,12 @@ java -cp 'desktop/build/classes:desktop/build/tests:desktop/build/lib/*' dev.gho
 Linux 仅验证 Java、局域网与界面，蓝牙明确显示平台不可用。依赖为 FlatLaf 3.6.2、JmDNS 3.6.2、SLF4J API / NOP 2.0.17、ICU4J 77.1；SHA-256 固定在 `desktop/dependencies.txt`。中文字体来自官方 Noto CJK 仓库，SHA-256 固定在 `desktop/font-dependencies.txt`。字体、许可与运行时 legal 文件随软件打包。重新导出图标时运行 `desktop/tools/export-icons.py`（开发工具需要 Pillow / CairoSVG，正常构建使用已保存的资源）。
 
 ## 验证记录 · 2026-10-02
+
+0.3.0 最终构建 [37003827341](https://github.com/GHOST-AKU/wozai/actions/runs/37003827341) 的四项任务全部通过，应用与测试源码为 `afaf682`，构建提交为 `00ebdbd`；后续仅更新交付文档和恢复手动工作流。Windows 通过 61 项桌面、104 项目录与迁移、54 项蓝牙接口/JNI、631 项翻译检查，及原生生命周期、真实 mDNS 和共享协议/信任检查。真正的 `NearbyIM.exe` 验证了自带运行时、DPAPI、便携目录和正常退出。
+
+完整 JDK 和软件自带运行时都通过真实 GUI 检查：在连接及已打开对话框存在时切换语言，确认收发、回执、草稿、搜索、选择对象及滚动位置保留；布局检查继续验证字体、圆角高亮、输入栏等高、设置滚轮和大字号。原生安卓 API 26、34 各通过 120 项语言切换检查，包括真实 TCP、前台服务和已发布通知。截图见 [Windows 验证附件](https://github.com/GHOST-AKU/wozai/actions/runs/37003827341/artifacts/11224638245)，完整两端记录见 [verification.md](verification.md)。
+
+下载 ZIP 为 53,839,532 字节，构建上传 SHA-256 为 `e4880e5864cd1af698c59538cb015c672079ea1f6c8c3e948c7b8f288fbf0524`。
 
 用户已报告旧版 Windows 与实体安卓设备能运行并通过局域网通信。本轮新功能需以新的构建记录和真机测试为准。
 

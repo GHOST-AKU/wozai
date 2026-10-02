@@ -45,7 +45,9 @@ Windows PowerShell：
 
 第一次同步需要访问 Google Maven、Maven Central 与 Gradle 分发服务器。SDK 路径由 Android Studio 写入本机 `local.properties`，不要把它提交到仓库。
 
-已附 `.github/workflows/android.yml`，仅支持手动运行。在 GitHub 的 Actions 页面选择 **Build 我在 debug APK → Run workflow**，构建成功后可下载 `wozai-debug` artifact。上传源码和提交修改不会自动编译 APK。本轮使用独立构建分支执行了构建与校验，见 [构建记录](https://github.com/GHOST-AKU/wozai/actions/runs/36876158883)。主分支与常规开发分支仍仅手动触发。
+已附 `.github/workflows/android.yml`，仅支持手动运行。在 GitHub 的 Actions 页面选择 **Build 我在 debug APK → Run workflow**，构建成功后可下载 `NearbyIM-<版本>-android-debug` artifact。上传源码和提交修改不会自动编译 APK。本轮 0.3.0 的[最终构建](https://github.com/GHOST-AKU/wozai/actions/runs/37003827341)已通过安卓编译、Lint、API 26/34 原生多语言检查和 Windows 打包验证。可下载[安卓调试包](https://github.com/GHOST-AKU/wozai/actions/runs/37003827341/artifacts/11225396246)，解压后安装 `debug/app-debug.apk`；`androidTest` 中的 APK 仅用于测试。独立构建分支在验收后也恢复手动触发。
+
+安卓保留数据升级需要与已安装版本使用同一签名密钥。本次 CI 使用临时调试证书，与之前交付的 0.2.0 证书不同，不能覆盖安装该旧包。已有聊天记录的手机请保留原应用，使用原签名密钥构建升级包；卸载会删除记录和设备身份。详情见[验证记录](docs/verification.md)。
 
 ## 两部手机怎么聊
 
@@ -113,6 +115,7 @@ sh tools/check-source.sh
 Windows：
 
 ```powershell
+powershell -ExecutionPolicy Bypass -File tools/test-i18n.ps1
 powershell -ExecutionPolicy Bypass -File tools/test-core.ps1
 ```
 
@@ -137,6 +140,6 @@ powershell -ExecutionPolicy Bypass -File tools/test-core.ps1
 | `core/` | 设备密钥、认证通道、有界协议、许可握手、收发和心跳 |
 | `tests/` | 不依赖 Android 的真实通信测试 |
 
-应用源码没有额外指定开源许可证。附带的 Gradle Wrapper 与 Google Material 图标保留其 Apache-2.0 许可，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+应用源码没有额外指定开源许可证。附带的 Gradle Wrapper、Google Material 图标、桌面依赖、ICU4J 与 Noto 字体保留各自许可，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 官方参考：[蓝牙权限](https://developer.android.com/develop/connectivity/bluetooth/bt-permissions)、[RFCOMM 连接](https://developer.android.com/develop/connectivity/bluetooth/connect-bluetooth-devices)、[局域网权限](https://developer.android.com/privacy-and-security/local-network-permission)、[AGP 8.13](https://developer.android.com/build/releases/agp-8-13-0-release-notes)、[Gradle 校验值](https://gradle.org/release-checksums/)。

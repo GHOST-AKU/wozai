@@ -1,6 +1,44 @@
-# 验证记录 · 2026-10-01
+# 验证记录 · 2026-10-02
 
-## 当前源码 0.2.0
+## 当前源码 0.3.0 · 安卓与 Windows 多语言
+
+两端使用同一份 299 键简体中文／英文目录、语言注册表和 ICU 格式契约；应用与测试源码提交为 `afaf6826bba8645f6e840f870013fecab79a5f63`。独立构建分支提交 `00ebdbde3e12cfc1a860d68935fd4499309e9410` 的[最终运行 37003827341](https://github.com/GHOST-AKU/wozai/actions/runs/37003827341)包含 Android 编译、Windows 打包、Android API 26 和 API 34 原生验证，四项任务全部通过。后续交付提交仅更新文档和恢复手动触发，不改变已经验证的应用源码。
+
+| 检查 | 实际结果 | 证明范围 |
+| --- | --- | --- |
+| 共享目录与生成器 | 两种语言各 299 键；8 项生成器测试、23 项语言解析检查通过；339 处字面消息键引用、0 错误；生成产物无漂移 | 重复/漏译/额外键、ICU 参数、标签与脚本、别名、英文回退、Windows CRLF |
+| 协议与认证 | 16 项核心/会话 + 12 项认证测试通过 | 真实 TCP、消息边界、有界窗口、许可、签名、篡改与重放拒绝 |
+| 信任与数据库 | 21 项信任策略 + 11 项 SQLite 测试通过 | 旧版中文状态迁为稳定状态码，历史正文保留，信任与消息独立 |
+| Android 编译与 Lint | 主 APK 与 test APK 编译成功；Lint 0 错误、4 警告 | JDK 17、AGP 8.13、SDK 36 / Build Tools 35.0.0；保留的警告为插件更新、API 26 资源限定及两处单色图标 |
+| Android API 26 原生运行 | 120 项通过；原始结果 `INSTRUMENTATION_CODE: -1` | 系统 ICU、真实认证 TCP、许可等待时重建、草稿/光标/阅读位置、前台服务、收发及回执 |
+| Android API 34 原生运行 | 120 项通过；原始结果 `INSTRUMENTATION_CODE: -1` | Android 13+ 系统应用语言选择与重建；后台已发布通知、通道名称随语言刷新；服务和身份保持 |
+| Windows 桌面与数据 | 61 项桌面、104 项目录/迁移检查通过 | 稳定身份、TCP/回执、便携目录、旧文件保留、互斥与失败处理 |
+| Windows 翻译 | 631 项通过 | 全部目录模式、ICU 复数/撇号/字面参数、逐键英文回退及语言偏好；启动错误按保存的语言显示 |
+| Windows 蓝牙实现 | 原生生命周期测试、54 项接口/JNI、蓝牙路由字节流测试通过 | 编译与桥接、资源释放、共用身份/许可/保存后回执；没有验证无线硬件 |
+| Windows 真实程序与 GUI | `NearbyIM.exe`、完整 JDK 和自带运行时均通过 | DPAPI、默认便携路径、退出；语言实时切换、已打开对话框、连接、草稿、搜索/选择/滚动位置保留；真实 mDNS |
+| Windows 布局 | 真实窗口检查通过 | Noto 字体、简洁页头、圆角高亮、输入与发送等高、窄窗口设置、大字号和滚轮 |
+| 安装包核验 | 最终安卓 artifact / APK SHA-256、ZIP CRC、v2 签名与 zipalign 校验通过 | 版本 0.3.0 / code 4，minSdk 26、targetSdk 36；原生资源含 en、zh-Hans，英文品牌 NearbyIM |
+| 独立代码审查 | 重要问题已修复，复审未发现剩余严重或重要问题 | 修复旧默认昵称变更、Unicode/脚本区域解析与单键英文 ICU 回退；临时法语、阿拉伯语 RTL、塞尔维亚语拉丁脚本目录可扩展 |
+
+原生语言检查使用安卓模拟器和真实 localhost TCP，不是实体蓝牙通信。用户此前已报告旧版 Windows 可与实体安卓通过局域网通信。0.3.0 的 Windows ↔ Android 蓝牙、实际系统权限/蓝牙启用弹窗在跨语言重建后的返回、不同 DPI 与读屏仍需按 [device-test.md](device-test.md)验收。
+
+### 0.3.0 下载与完整性
+
+| 产物 | 下载 | 字节数与 SHA-256 |
+| --- | --- | --- |
+| Windows 便携 ZIP | [NearbyIM-0.3.0-windows-x64](https://github.com/GHOST-AKU/wozai/actions/runs/37003827341/artifacts/11224653026) | 53,839,532；构建上传摘要 `e4880e5864cd1af698c59538cb015c672079ea1f6c8c3e948c7b8f288fbf0524` |
+| Android artifact ZIP | [NearbyIM-0.3.0-android-debug](https://github.com/GHOST-AKU/wozai/actions/runs/37003827341/artifacts/11225396246) | 737,310；下载核验 `e896e58a43f4170f6ccdf5ef3b7143498811c5a17b9e17746999dd3da5952988` |
+| ZIP 内主 APK `debug/app-debug.apk` | 从 Android ZIP 解压；测试 APK 不用于日常使用 | 775,900；`b52b3fcb11213403cb4283961fdd0965791d1bfdcad73a4c0e6c760353d60990` |
+
+运行记录与截图：[Windows](https://github.com/GHOST-AKU/wozai/actions/runs/37003827341/artifacts/11224638245)、[Android API 26](https://github.com/GHOST-AKU/wozai/actions/runs/37003827341/artifacts/11224603631)、[Android API 34](https://github.com/GHOST-AKU/wozai/actions/runs/37003827341/artifacts/11225366094)。
+
+### 安卓保留数据升级与签名
+
+本次 CI 调试证书 SHA-256 为 `35a79cd68a10132d5cd94d0bb5d423beec22093e9f9b3eaaea3198f9333628c1`，与此前交付的 0.2.0 调试 APK 不同。因此该下载包不能覆盖安装那个旧 APK；代码中的数据库迁移需要同包名、同签名密钥的正常更新。CI 当前每次生成临时调试密钥，还未配置长期发布签名。
+
+有历史记录的手机保留原应用，使用原签名密钥构建 0.3.0 升级包；**不要为安装本次调试包卸载旧应用**。卸载会删除消息、信任、草稿及 Keystore 身份。本次模拟器验证适用于新安装和同一密钥的会话测试，不能替代实体用户设备的保留数据更新。
+
+## 历史版本 0.2.0 · 2026-10-01 交付记录
 
 本轮实现浅色原生界面、独立设备信任与 NIM2 身份验证。用户恢复编译后，已在独立 GitHub Actions 构建分支生成 `WoZai-0.2.0-debug.apk`。本地仍缺少可运行的安卓设备，原生截图与双机测试待执行。
 
