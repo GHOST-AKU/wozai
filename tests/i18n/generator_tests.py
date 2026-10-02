@@ -101,6 +101,19 @@ class CatalogTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "orphan"):
                 generator.run(root, check=True)
 
+    def test_windows_git_checkout_line_endings_are_not_translation_drift(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "i18n/messages").mkdir(parents=True)
+            (root / "i18n/config.json").write_text(json.dumps(self.config))
+            for language, catalog in self.messages.items():
+                (root / f"i18n/messages/{language}.json").write_text(json.dumps(catalog))
+            generator.run(root, check=False)
+            for relative in generator.outputs(self.config, self.messages):
+                path = root / relative
+                path.write_bytes(path.read_bytes().replace(b"\n", b"\r\n"))
+            generator.run(root, check=True)
+
 
 if __name__ == "__main__":
     unittest.main()

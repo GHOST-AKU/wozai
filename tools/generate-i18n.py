@@ -346,7 +346,9 @@ def run(root, check=False):
     changed = []
     for relative, content in generated.items():
         path = root / relative
-        if not path.exists() or path.read_bytes() != content.encode("utf-8"):
+        # Windows Git checkouts may use CRLF. Compare decoded text with universal
+        # newlines while still emitting deterministic UTF-8/LF when generating.
+        if not path.exists() or path.read_text(encoding="utf-8") != content:
             changed.append(relative)
             if not check:
                 path.parent.mkdir(parents=True, exist_ok=True)
