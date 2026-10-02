@@ -1,6 +1,7 @@
 $ErrorActionPreference = 'Stop'
 $package = (Resolve-Path desktop/build/package/WoZai).Path
-$dataPath = Join-Path $env:RUNNER_TEMP ('wozai-package-' + [Guid]::NewGuid().ToString('N'))
+$dataPath = Join-Path $package 'data'
+if (Test-Path $dataPath) { throw 'Package smoke requires an unused portable profile' }
 $previousOptions = $env:JAVA_TOOL_OPTIONS
 $process = $null
 $windowProcess = $null
@@ -21,9 +22,9 @@ Add-Type -AssemblyName System.Drawing
 try {
     if (!(Test-Path (Join-Path $package 'runtime/bin/jabswitch.exe'))) { throw 'Packaged Java Access Bridge tool is missing' }
     if (!(Test-Path (Join-Path $package 'runtime/legal/java.base/LICENSE'))) { throw 'Packaged runtime license is missing' }
-    # Appended options apply only to this generated test profile and are restored below.
-    $env:JAVA_TOOL_OPTIONS = "$previousOptions -Dwozai.dataDir=$dataPath -Duser.language=zh -Duser.country=CN"
-    $process = Start-Process (Join-Path $package 'WoZai.exe') -WorkingDirectory $package -PassThru
+    # Use the actual portable default; launching from another directory must not change it.
+    $env:JAVA_TOOL_OPTIONS = "$previousOptions -Duser.language=zh -Duser.country=CN"
+    $process = Start-Process (Join-Path $package 'WoZai.exe') -WorkingDirectory $env:RUNNER_TEMP -PassThru
     $windowProcess = $process
     $deadline = [DateTime]::UtcNow.AddSeconds(15)
     do {
@@ -58,7 +59,7 @@ try {
     } finally { $graphics.Dispose(); $bitmap.Dispose() }
     $windowProcess.CloseMainWindow() | Out-Null
     if (!$process.WaitForExit(15000) -or $process.ExitCode -ne 0) { throw 'Packaged launcher did not exit cleanly' }
-    Write-Output 'Package smoke: WoZai.exe, bundled runtime, DPAPI identity, Chinese UI, accessibility tool, runtime license and clean exit passed'
+    Write-Output 'Package smoke: WoZai.exe, bundled runtime, DPAPI identity, Chinese UI, portable data independent of working directory, accessibility tool, runtime license and clean exit passed'
 } finally {
     if ($windowProcess -and !$windowProcess.HasExited) { Stop-Process -Id $windowProcess.Id -Force }
     if ($process -and !$process.HasExited) { Stop-Process -Id $process.Id -Force }

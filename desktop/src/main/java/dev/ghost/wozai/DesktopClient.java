@@ -10,7 +10,7 @@ import java.util.concurrent.*;
 /** All session, consent and disk mutations run on one bounded model executor. */
 public final class DesktopClient implements AutoCloseable {
     public record Listening(int port, List<String> endpoints) { }
-    public record State(String phase, DesktopStore.Peer peer, Listening listening, List<DesktopStore.Peer> history) { }
+    public record State(String phase, DesktopStore.Peer peer, Listening listening, List<DesktopStore.Peer> history, boolean bluetoothListening, String transport) { }
     public record Request(long token, DesktopStore.Peer peer, String publicKey) { }
     public interface Listener {
         void changed(State state);
@@ -26,6 +26,8 @@ public final class DesktopClient implements AutoCloseable {
     private volatile boolean closed;
     private volatile ServerSocket server;
     private volatile Socket connecting;
+    private volatile WindowsBluetooth.Connection connectingBluetooth;
+    private volatile WindowsBluetooth.Server bluetoothServer;
     private String connectingPeer;
     private long generation;
     private Session current;
@@ -55,7 +57,7 @@ public final class DesktopClient implements AutoCloseable {
     }
     public CompletableFuture<Void> refresh() { return submit(() -> { publish(); return null; }); }
     private void publish() {
-        try { listener.changed(new State(phase, current == null ? null : current.peer, listening, store.peers())); }
+        try { listener.changed(new State(phase, current == null ? null : current.peer, listening, store.peers(), bluetoothServer != null, current == null ? "" : current.transport)); }
         catch (IOException e) { failure(); }
     }
     private void failure() { disconnectNow(); listener.notice("storageFailure"); }
@@ -94,6 +96,7 @@ public final class DesktopClient implements AutoCloseable {
         if (previous != null) try { previous.close(); } catch (IOException ignored) { }
     }
     public CompletableFuture<Void> connect(String text, String expectedId) {
+        if(text.startsWith("bluetooth:")) return connectBluetooth(text.substring(10),expectedId);
         return submit(() -> {
             LocalEndpoint target = LocalEndpoint.parse(text);
             if (current != null || phase.equals("connecting")) throw new IOException("Already connecting or connected");
@@ -118,15 +121,15 @@ public final class DesktopClient implements AutoCloseable {
     private final class Session implements FramedSession.Listener {
         final long token = ++generation;
         final boolean incoming;
-        final String expectedId, target;
+        final String expectedId, target, transport;
         final long trustVersion;
         final FramedSession wire;
         DesktopStore.Peer peer;
         TrustPolicy.Authorization authorization;
-        Session(Socket socket, boolean incoming, String expectedId, String target, long trustVersion) throws IOException {
-            this.incoming = incoming; this.expectedId = expectedId; this.target = target; this.trustVersion = trustVersion;
+        Session(StreamConnection connection, boolean incoming, String expectedId, String target, long trustVersion) throws IOException {
+            this.incoming = incoming; this.expectedId = expectedId; this.target = target; this.trustVersion = trustVersion; this.transport = connection.label().equals("Bluetooth") ? "bluetooth" : "lan";
             String nickname = store.setting("nickname", "我在 Windows");
-            wire = new FramedSession(wrap(socket), identity.id(), nickname, identity.signer(), this);
+            wire = new FramedSession(connection, identity.id(), nickname, identity.signer(), this);
         }
         public void onHello(Frame hello) { event(() -> {
             if (current != this) return;
@@ -175,8 +178,11 @@ public final class DesktopClient implements AutoCloseable {
         attach(socket, incoming, expectedId, target, policy.version());
     }
     private void attach(Socket socket, boolean incoming, String expectedId, String target, long trustVersion) {
-        try { current = new Session(socket, incoming, expectedId, target, trustVersion); phase = "handshake"; current.wire.start(); publish(); }
-        catch (IOException | RuntimeException e) { closeSocket(socket); phase = "idle"; listener.notice("connectFailed"); }
+        attach(wrap(socket),incoming,expectedId,target,trustVersion);
+    }
+    private void attach(StreamConnection connection,boolean incoming,String expectedId,String target,long trustVersion) {
+        try { current = new Session(connection, incoming, expectedId, target, trustVersion); phase = "handshake"; current.wire.start(); publish(); }
+        catch (IOException | RuntimeException e) { closeConnection(connection); phase = "idle"; publish(); listener.notice("connectFailed"); }
     }
     public CompletableFuture<Void> approve(Request request, boolean remember) { return submit(() -> {
         if (current != null && current.token == request.token() && policy.approve(current.authorization, remember)) current.wire.approve();
@@ -210,7 +216,7 @@ public final class DesktopClient implements AutoCloseable {
     public CompletableFuture<Void> clear(String id) { return submit(() -> { store.clear(id); publish(); return null; }); }
     public CompletableFuture<Void> disconnect() { return submit(() -> { disconnectNow(); publish(); return null; }); }
     private void disconnectNow() {
-        ++generation; closeSocket(connecting); connecting = null; connectingPeer = null;
+        ++generation; closeSocket(connecting); connecting = null; closeConnection(connectingBluetooth); connectingBluetooth=null; connectingPeer = null;
         Session previous = current; current = null; phase = "idle";
         if (previous != null) {
             policy.cancel(previous.authorization); previous.wire.close("Closed");
@@ -220,10 +226,40 @@ public final class DesktopClient implements AutoCloseable {
     }
     public void close() {
         if (closed) return;
-        try { submit(() -> { stopServer(); disconnectNow(); closed = true; return null; }).get(5, TimeUnit.SECONDS); }
-        catch (Exception e) { closed = true; stopServer(); closeSocket(connecting); Session s = current; if (s != null) s.wire.close("Shutdown"); }
+        try { submit(() -> { stopServer(); stopBluetoothServer(); disconnectNow(); closed = true; return null; }).get(5, TimeUnit.SECONDS); }
+        catch (Exception e) { closed = true; stopServer(); stopBluetoothServer(); closeSocket(connecting); closeConnection(connectingBluetooth); Session s = current; if (s != null) s.wire.close("Shutdown"); }
         finally { model.shutdownNow(); }
     }
+    public CompletableFuture<Map<String,DesktopStore.Message>> summaries() { return submit(() -> {
+        Map<String,DesktopStore.Message> values=new HashMap<>(); for(var peer:store.peers()) { var messages=store.messages(peer.id()); if(!messages.isEmpty())values.put(peer.id(),messages.get(messages.size()-1)); } return values;
+    }); }
+    public CompletableFuture<Void> listenBluetooth() { return submit(() -> {
+        stopBluetoothServer(); WindowsBluetooth.Server opened=WindowsBluetooth.listen(); bluetoothServer=opened;
+        daemon(() -> {
+            try { while(bluetoothServer==opened && !closed) {
+                WindowsBluetooth.Connection connection=opened.accept();
+                try { model.execute(() -> { if(closed||bluetoothServer!=opened||current!=null||phase.equals("connecting"))closeConnection(connection); else attach(connection,true,null,connection.routeKey(),policy.version()); }); }
+                catch(RejectedExecutionException e) { closeConnection(connection); }
+            } } catch(IOException e) { event(() -> { if(bluetoothServer==opened) { stopBluetoothServer(); publish(); listener.notice("bluetoothFailed"); } }); }
+        },"wozai-bluetooth-accept").start(); publish(); return null;
+    }); }
+    public CompletableFuture<Void> stopBluetoothListening() { return submit(() -> { stopBluetoothServer(); publish(); return null; }); }
+    private void stopBluetoothServer() { var previous=bluetoothServer; bluetoothServer=null; if(previous!=null)try { previous.close(); } catch(IOException ignored) { } }
+    private CompletableFuture<Void> connectBluetooth(String address,String expectedId) { return submit(() -> {
+        String normalized=WindowsBluetooth.normalizeAddress(address);
+        if(current!=null||phase.equals("connecting"))throw new IOException("Already connecting or connected");
+        WindowsBluetooth.Connection connection=WindowsBluetooth.openConnection(normalized);
+        long attempt=++generation, trustVersion=policy.version(); connectingBluetooth=connection; connectingPeer=expectedId; phase="connecting"; publish();
+        daemon(() -> {
+            try { connection.connect(8000); event(() -> { if(attempt!=generation||closed) { closeConnection(connection); return; } connectingBluetooth=null; connectingPeer=null; attach(connection,false,expectedId,connection.routeKey(),trustVersion); }); }
+            catch(IOException e) { closeConnection(connection); event(() -> { if(attempt==generation) { connectingBluetooth=null; connectingPeer=null; phase="idle"; publish(); listener.notice("bluetoothFailed"); } }); }
+        },"wozai-bluetooth-connect").start(); return null;
+    }); }
+    // All byte transports enter the same signed identity, consent and receipt pipeline.
+    CompletableFuture<Void> acceptConnection(StreamConnection connection,String route) { return submit(() -> {
+        if(current!=null||phase.equals("connecting"))closeConnection(connection); else attach(connection,true,null,route,policy.version()); return null;
+    }); }
+    private static void closeConnection(StreamConnection connection) { if(connection!=null)try { connection.close(); } catch(IOException ignored) { } }
     public static String endpoint(InetAddress address, int port) {
         String ip = address.getHostAddress(); return (ip.contains(":") ? "[" + ip + "]" : ip) + ":" + port;
     }

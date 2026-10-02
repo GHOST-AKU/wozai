@@ -1,86 +1,86 @@
-# 我在 · Windows 局域网预览版
+# 我在 · Windows 预览版 0.2.1
 
-目标是在 Windows 上与现有 Android 0.2.0 完成无需账号、无需远程服务器的一对一文字互聊。桌面端直接编译现有 `core/` 和 `TrustPolicy`，使用同一 NIM2 线格式，不修改 Android 协议或源码。
+与 Android 0.2.0 共用 NIM2 协议、设备身份验证、信任、文字聊天和送达回执。Windows 支持局域网及经典蓝牙 RFCOMM，界面沿用安卓的薄荷绿设计、Material 图标、会话头像、搜索、左右消息气泡，以及浅色／深色主题。安卓应用源码和协议保持兼容。
 
-## 使用
+## 使用与下载
 
-Windows 10/11 x64 是本轮目标。解压 `WoZai-0.2.0-windows-x64.zip` 后，双击 `WoZai/WoZai.exe`。保持整个目录完整：其中包含精简 Java 17 运行时，无需另外安装 Java。预览版没有代码签名，也没有安装器、开机启动或托盘常驻。
+目标平台 Windows 10/11 x64。下载 GitHub Actions 的 `wozai-windows-x64` artifact，解压后运行 `WoZai/WoZai.exe`。保持整个软件目录完整；包内包含 Java 17 运行时和 Windows 蓝牙桥接库，无需另外安装 Java。原版安卓图标同时用于窗口和 EXE 启动器。
 
-GitHub Actions 的 `wozai-windows-x64` artifact 也是 ZIP，下载后直接解压即可得到 `WoZai` 目录。
+这是未签名的便携预览版，没有安装器、开机启动或托盘常驻。请将软件放在当前用户可读写的位置，例如 `D:\Apps\WoZai`，避免受保护的 `Program Files` 目录。
 
-本轮便携包可从[已通过的 Windows 构建](https://github.com/GHOST-AKU/wozai/actions/runs/36981099581)底部 Artifacts 下载 `wozai-windows-x64`。
+### 局域网
 
-1. 电脑与手机加入同一 Wi-Fi 或手机热点。双方在「附近」开启局域网接收。
-2. 若 Windows 防火墙提示网络访问，请允许应用在你使用的私人网络上接收连接。
-3. 选择附近设备并「连接并记住」，或输入对方「我的连接」中的完整 IP 与端口。
-4. 首次收到请求时可「同意并记住」「仅本次」或「拒绝」。昵称并不证明真实身份，首次连接请当面确认。
-5. 以后选择历史聊天并「连接」。优先使用附近发现的新地址，否则尝试原地址；原地址失效时可输入新地址，但仍校验历史设备 UUID 和已信任公钥。
+1. 电脑与安卓设备加入同一 Wi-Fi 或热点，在「附近 → 局域网」开启接收。
+2. Windows 防火墙提示时，允许应用在所用的私人网络接收连接。
+3. 选择发现的设备并连接，或输入对方提供的完整 IP 与端口。
+4. 首次来访可「同意并记住」「仅本次」或「拒绝」；以后从历史会话直接重连，并验证同一设备公钥。
 
-目前支持 Windows ↔ Android 和 Windows ↔ Windows 局域网文字聊天。Windows 蓝牙、附件、群聊、互联网转发和端到端内容加密尚未实现。局域网文字与 Android 0.2.0 一样为明文；签名用于身份连续性和完整性。
+停止局域网接收会停止 TCP 监听与 mDNS，当前聊天可以继续。发现使用安卓相同的 `_nearbyim._tcp.local.` 服务与 `id` / `name` 属性。优先通过发现更新地址；失效的旧地址需重新查找或输入。
 
-连接与接收分别控制：停止接收会关闭 TCP 监听和 mDNS，但保留已连接聊天；「断开连接」停止当前聊天。关闭窗口会保存草稿并停止连接、监听和发现。调整网络后请停止再开启接收。仅支持一条活动连接，新的来访不会替换当前聊天。
+### 蓝牙
 
-## 数据与信任
+1. 两端开启系统蓝牙。电脑需要支持经典蓝牙的适配器及 Microsoft Windows 蓝牙栈。
+2. 在安卓「附近 → 蓝牙」开启接收，需要搜索时允许被发现。
+3. Windows「附近 → 蓝牙」搜索设备，选择手机后连接。需要系统配对时，使用页面上的「Windows 蓝牙设置」完成，并确认两端配对提示。
+4. Windows 也可开启蓝牙接收，由安卓发起。若安卓未发现电脑，在 Windows 蓝牙设置的“更多蓝牙设置”允许设备发现此电脑；配对过的已知地址可直接重连。
 
-数据在 `%LOCALAPPDATA%\WoZai`，没有云端同步或遥测。私钥用 Windows DPAPI 的当前用户保护，UUID 和公钥跨启动保持稳定。不能直接把身份文件复制给另一个 Windows 用户使用。身份文件损坏或解密失败时停止启动，保留原文件，不静默换身份。
+Windows 原生库使用 AF_BTH / RFCOMM、SDP 服务 UUID `90c649e1-c095-4b22-8bc3-35e4c9c7b372`，与安卓一致。系统配对不等于应用内信任；所有蓝牙字节进入同一签名握手、许可、保存及回执流程。扫描可能包含没有安装“我在”的设备，它们不能聊天。停止搜索会丢弃扫描结果；系统查询仍可能在有界的查询周期结束后返回。不会自动无限扫描或重连。
 
-聊天、设备信任和草稿分别保存。每条消息用同目录原子替换保存，完成保存才发回执；断线或重新启动后仍未收到回执的发送消息显示「未确认」，不会自动重发。消息 UUID 在会话内去重，回执不能修改别的会话。「清空聊天记录」保留信任和草稿，「取消设备信任」撤销认可并断开该设备的活动连接。已有 UUID 更换密钥时会被拒绝，需要先核实身份。
+两种接收可分别开启。「设置 → 停止所有接收与连接」同时停止监听、发现和聊天。仅支持一位活动聊天对象，新的来访不会替换当前连接。退出会保存草稿并关闭资源。
 
-目录锁避免同一数据目录被两个进程同时打开。界面只显示最近 200 条消息，其他历史保留在磁盘。当前预览版使用文件存储，读取历史需要扫描该会话文件；长历史的索引和分页仍有优化空间。
+## 数据位置与旧版迁移
 
-## 多语言与无障碍
+便携包默认将数据放在 **`WoZai.exe` 旁的 `data` 文件夹**，不依赖启动时的工作目录。因此软件放在 D 盘，数据也在 D 盘。软件根目录还有一个很小的 `.data-startup.lock` 用于启动／迁移互斥。
 
-本轮提供简体中文和英语。界面文案在资源文件中，时间按应用语言与系统时区格式化；切换语言不重建连接，并保留当前会话和输入。昵称不会因界面语言切换而改变。
+旧预览版使用 `%LOCALAPPDATA%\WoZai`。首次运行新版且便携目录尚无数据时，会锁定旧目录，将身份、信任、消息、草稿和设置完整复制到同盘临时目录，再原子迁移到 `data`；**旧目录原件保留**。旧版仍运行、目标不可写、文件损坏或迁移失败时会显示所选路径并停止启动，不悄悄切换目录或生成新身份。已有便携数据优先使用，不与旧目录合并。
 
-使用系统外观和原生 Swing 控件，不用颜色单独表达连接或送达状态。提供输入、消息、地址和列表的无障碍名称，三个文字大小选项，以及可选择复制的消息文本。主要操作可用 Tab、方向键及 Space/Enter；Ctrl+1/2/3 切换聊天/附近/设置，Enter 发送，Shift+Enter 换行，Ctrl+Q 退出。
+不要同时使用两份复制后的身份目录聊天；旧目录仅作为迁移备份。升级时可将新程序文件复制进原软件目录并保留 `data`，或者移动完整的软件目录。设置页可查看、打开实际数据位置。
 
-包内包含 `jdk.accessibility` 和 Java Access Bridge 工具。Windows 读屏需要启用 Java Access Bridge，可运行 `WoZai\runtime\bin\jabswitch.exe -enable` 后重启应用。控件标签和大字体已经有自动化检查；NVDA/Narrator、Windows 高对比度、125%/150%/200% DPI 及实际键盘焦点顺序仍需人工验收，不能把控件支持等同于读屏验收通过。
+Windows 私钥仍使用 DPAPI CurrentUser 保护。同一用户在本机移动文件夹可以继续使用身份；把软件和 `data` 复制到另一个 Windows 用户或另一台电脑，通常无法解密身份。这与数据可以存放在哪个盘是不同的事情。损坏或解密失败的身份不会自动替换。
+
+高级启动参数 `-Dwozai.dataDir=<路径>` 仍优先于默认选择，适用于开发和明确指定存储位置。未打包的 Windows Java 启动继续使用用户数据目录；Linux 开发启动使用 `~/.local/share/wozai`。
+
+每条消息原子保存，保存完成才发送回执。断线或重启后未收到回执的发送消息为「未确认」，不会自动重发。回执只表明对方保存，不能表明已读。「清空聊天记录」保留信任和草稿；「取消设备信任」撤销认可并断开该设备，保留聊天记录。局域网与蓝牙共用信任记录，昵称、IP 和系统配对均不代替公钥。
+
+无需账号、云同步或遥测。局域网消息内容仍是明文，签名提供身份连续性和完整性；蓝牙使用系统安全 RFCOMM 配对与链路加密，没有额外的端到端内容加密。附件、群聊和互联网转发尚未实现。
+
+## 界面、语言与无障碍
+
+安卓配色映射在 `AppTheme` 中；FlatLaf 提供现代 Swing 控件样式，自绘气泡复用安卓视觉规则。Material 图标直接来自安卓已有的 Google 路径；Windows ICO 来自安卓原始启动图，没有重画图案。
+
+提供简体中文／英语、浅色／深色主题、三个文字大小。切换语言或主题保留连接、聊天和输入。会话按实际最后消息时间排序，搜索本机昵称；已连接状态来自真实会话，不根据 Wi-Fi 或配对记录推断。消息可选择复制，布局按窗口宽度重排。
+
+键盘：Tab、方向键和 Space/Enter 操作控件，Ctrl+1/2/3 切换聊天／附近／设置，Enter 发送、Shift+Enter 换行，Ctrl+Q 退出。包内 Java Access Bridge 可通过 `WoZai\runtime\bin\jabswitch.exe -enable` 启用，随后重启应用。读屏、Windows 高对比度及不同 DPI 仍需人工验收。
 
 ## 从源码构建
 
-需要 JDK 17，设置 `JAVA_HOME`。桌面构建不需要 Android SDK 或 Gradle，也不会生成 APK。
+Windows 需要 x64 JDK 17（`JAVA_HOME`）、CMake 3.20+、Visual Studio C++ Build Tools 和 Windows SDK。桌面构建不需要 Android SDK、Gradle 或 WiX：
 
 ```powershell
 ./desktop/tools/build.ps1 -Run
 ./desktop/tools/build.ps1 -Package
 ```
 
-第二个命令先测试，然后用 `jpackage` 生成便携应用目录和 ZIP。它不需要 WiX。Windows 应用必须在 Windows 上打包；Linux 的 `jpackage` 不能跨平台生成 Windows 启动器。
+CMake 构建 x64 JNI 蓝牙 DLL，并静态链接 MSVC 运行时。脚本执行 Java 与原生生命周期检查，再用 `jpackage` 打包。Windows 启动器及 DLL 必须在 Windows 上构建。
 
-Linux 开发环境需要 JDK 17、Python 3：
+Linux 开发需要 JDK 17、Python 3：
 
 ```sh
 sh desktop/tools/build.sh
 sh desktop/tools/build.sh --run
 java -cp 'desktop/build/classes:desktop/build/tests:desktop/build/lib/*' dev.ghost.wozai.DiscoveryTests
-# 在有桌面显示的环境中运行，或用 Xvfb 提供 DISPLAY：
+# 有桌面显示或 Xvfb：
 java -cp 'desktop/build/classes:desktop/build/tests:desktop/build/lib/*' dev.ghost.wozai.GuiTests desktop/build/gui.png
 ```
 
-依赖仅为 JmDNS 3.6.2、SLF4J API / NOP 2.0.17。`desktop/dependencies.txt` 固定制品及 SHA-256；下载或缓存校验失败会终止构建。运行时没有云端通信依赖。第三方许可见根目录 `THIRD_PARTY_NOTICES.md`。
-
-`.github/workflows/windows.yml` 仅手动触发，执行 Windows 身份与存储测试、共同协议和信任测试、真实 mDNS、桌面交互测试，再上传便携 ZIP 和界面截图。提交不会自动编译。
-
-## 实现边界
-
-| 部分 | 实现 |
-| --- | --- |
-| 协议与信任规则 | 直接复用 Android 无关的 Java 核心 |
-| Windows 私钥 | DPAPI CurrentUser；Linux 开发验证使用 0600 文件 |
-| 连接 | 私有局域网 IP TCP，带超时、取消、退出清理 |
-| 发现 | 与 Android NSD 一致的 `_nearbyim._tcp.local.`、`id` / `name` TXT 属性 |
-| 模型 | 有界串行任务队列；套接字和发现工作在后台 |
-| 保存 | 每条消息原子文件，信任独立保存，草稿按会话区分 |
-| UI | Java Swing 系统外观；翻译和连接生命周期分离 |
+Linux 仅验证 Java、局域网与界面，蓝牙明确显示平台不可用。依赖为 FlatLaf 3.6.2、JmDNS 3.6.2、SLF4J API / NOP 2.0.17；SHA-256 固定在 `desktop/dependencies.txt`。许可与运行时 legal 文件随软件打包。重新导出图标时运行 `desktop/tools/export-icons.py`（开发工具需要 Pillow / CairoSVG，正常构建使用已保存的资源）。
 
 ## 验证记录 · 2026-10-02
 
-本地 Linux 环境已执行桌面编译、54 项桌面检查、真实 TCP 的 Android 核心互通、真实 mDNS 注册/解析，以及 Xvfb 下的原生界面操作。桌面检查覆盖身份重启、数据锁、去重、回执隔离、未确认状态、草稿、清空与撤销、首次许可、可信重连、换密钥拒绝、仅本次、拒绝、握手期间撤销信任及保存失败不发回执。
+用户已报告旧版 Windows 与实体安卓设备能运行并通过局域网通信。本轮新功能需以新的构建记录和真机测试为准。
 
-桌面 UI 检查涵盖选择历史会话、草稿恢复、中英文切换、文字缩放、接收/许可按钮、双向通信、回执显示、连接中语言切换，以及关闭窗口保存草稿并释放数据锁。
+自动检查覆盖旧桌面身份、信任、真实 TCP 互通与回执；便携路径、迁移、文件字节保真、旧文件保留、活跃进程锁、权限和异常目录；蓝牙地址、JNI 边界与不可用适配器状态；原生流关闭、发送、接收和句柄生命周期。蓝牙路由的签名、许可、保存后回执和撤销共用流程还通过模拟字节流验证。
 
-Windows runner 已通过 55 项桌面检查（比 Linux 多一项 DPAPI 保存格式检查）、原有 55 项协议/信任检查、真实 mDNS 及原生 GUI 测试，并生成带运行时的便携 ZIP，见[最终 Windows 构建记录](https://github.com/GHOST-AKU/wozai/actions/runs/36981099581)。该构建还直接启动打包后的 `WoZai.exe`，确认中文聊天窗口、DPAPI 身份、Access Bridge 工具、运行时许可和正常退出；使用包内精简运行时执行的完整 GUI 通信测试也通过。界面截图位于 `windows-preview-verification` artifact。
+界面检查通过真实窗口操作验证昵称搜索、安卓主题、语言与文字大小、草稿、双向消息和回执。Windows 工作流另行验证真正的 `WoZai.exe`、自带运行时、中文标题、DPAPI 身份、默认便携目录与正常退出。
 
-包内应用代码来自功能提交 `dba23ab`。专用构建分支只将已有手动构建入口用于执行 Windows 检查；功能分支新增独立的 Windows 工作流，原 Android 工作流仍保留。此记录补充后的源代码差异只有本文档。
-
-以上 TCP 测试使用 Android 的同一协议核心，不代替实体 Windows 电脑与 Android 手机在真实 Wi-Fi、防火墙和热点环境里的双机验收。
+构建机没有蓝牙无线硬件。原生编译、JNI 与字节流测试不能证明实体 Windows ↔ Android 蓝牙互通，需要在真实适配器、配对和手机接收环境中验收。

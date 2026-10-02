@@ -8,10 +8,11 @@ Copyright 2015 the original author or authors. Licensed under Apache License, Ve
 
 No third-party Android UI or networking library is bundled with application source.
 
-## Desktop networking
+## Desktop interface and networking
 
 The Windows desktop build downloads these pinned artifacts, with SHA-256 verification in `desktop/dependencies.txt`:
 
+- FlatLaf 3.6.2 (`com.formdev:flatlaf`), https://github.com/JFormDesigner/FlatLaf. Copyright FormDev Software GmbH. Apache License 2.0 at `licenses/FlatLaf-Apache-2.0.txt`, retained from the upstream JAR. Desktop visual tokens and bubble layout match the Android application.
 - JmDNS 3.6.2 (`org.jmdns:jmdns`), https://github.com/jmdns/jmdns. Originally developed by Arthur van Hoff, moved to SourceForge by Rick Blair and to GitHub by Kai Kreuzer; maintained by the JmDNS contributors. Upstream v3.6.2 license and notice are retained at `licenses/JmDNS-Apache-2.0.txt` and `licenses/JmDNS-NOTICE.txt`.
 - SLF4J API and NOP 2.0.17 (`org.slf4j:slf4j-api`, `org.slf4j:slf4j-nop`), https://www.slf4j.org/. Copyright 2004–2022 QOS.ch Sarl (Switzerland). MIT license at `licenses/SLF4J-MIT.txt` (retained from the upstream API JAR).
 
@@ -37,3 +38,5 @@ Licensed under Apache License, Version 2.0. The upstream license is retained at 
 | `outline_more_vert_24.xml` | `navigation/more_vert/materialiconsoutlined/black/res/drawable` |
 | `outline_bluetooth_24.xml` | `device/bluetooth/materialiconsoutlined/black/res/drawable` |
 | `outline_wifi_24.xml` | `notification/wifi/materialiconsoutlined/black/res/drawable` |
+
+The Windows resources under `desktop/src/main/resources/dev/ghost/wozai/icons/` rasterize seven of these same Android vector paths for runtime tinting. The original Material Icons license is also included in the Windows package. `desktop/assets/wozai.ico` converts the original Android launcher artwork into Windows ICO sizes without changing the design.

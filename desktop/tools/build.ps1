@@ -15,6 +15,14 @@ foreach ($line in Get-Content dependencies.txt) {
         if ((Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw "Dependency checksum mismatch: $artifact" }
     }
 }
+& cmake -S native -B build/native -A x64
+if ($LASTEXITCODE -ne 0) { throw 'Bluetooth CMake configuration failed' }
+& cmake --build build/native --config Release
+if ($LASTEXITCODE -ne 0) { throw 'Bluetooth native build failed' }
+& ctest --test-dir build/native -C Release --output-on-failure
+if ($LASTEXITCODE -ne 0) { throw 'Bluetooth native lifecycle tests failed' }
+Copy-Item build/native/Release/wozai_bluetooth.dll build/lib/ -Force
+$bluetoothLibrary = '-Dwozai.bluetooth.library=' + (Resolve-Path build/lib/wozai_bluetooth.dll).Path
 $sources = @((Get-ChildItem src/main/java -Recurse -Filter '*.java').FullName)
 $sources += (Get-ChildItem ../app/src/main/java/dev/ghost/nearbyim/core -Filter '*.java').FullName
 $sources += (Resolve-Path ../app/src/main/java/dev/ghost/nearbyim/storage/TrustPolicy.java).Path
@@ -26,13 +34,16 @@ Copy-Item ../app/src/main/res/drawable-nodpi/ic_launcher_artwork.png build/class
 Invoke-JavaTool jar @('--create', '--file', 'build/lib/wozai-desktop.jar', '--main-class', 'dev.ghost.wozai.Main', '-C', 'build/classes', '.')
 $tests = (Get-ChildItem src/test/java -Recurse -Filter '*.java').FullName
 Invoke-JavaTool javac (@('--release', '17', '-encoding', 'UTF-8', '-cp', 'build/classes;build/lib/*', '-d', 'build/tests') + $tests)
-Invoke-JavaTool java @('-cp', 'build/classes;build/tests;build/lib/*', 'dev.ghost.wozai.DesktopTests')
+foreach ($test in @('DesktopTests', 'DataLocationTests', 'BluetoothTests', 'TransportTests')) {
+    Invoke-JavaTool java @($bluetoothLibrary, '-cp', 'build/classes;build/tests;build/lib/*', "dev.ghost.wozai.$test")
+}
 if ($Package) {
     if (Test-Path build/package/WoZai) { Remove-Item build/package/WoZai -Recurse -Force }
-    Invoke-JavaTool jpackage @('--type', 'app-image', '--name', 'WoZai', '--app-version', '0.2.0', '--vendor', 'GHOST-AKU', '--input', 'build/lib', '--main-jar', 'wozai-desktop.jar', '--main-class', 'dev.ghost.wozai.Main', '--dest', 'build/package', '--add-modules', 'java.base,java.desktop,java.logging,jdk.crypto.ec,jdk.accessibility,jdk.localedata', '--jlink-options', '--strip-debug --no-man-pages --no-header-files --include-locales=en,zh')
+    Invoke-JavaTool jpackage @('--type', 'app-image', '--name', 'WoZai', '--app-version', '0.2.1', '--vendor', 'GHOST-AKU', '--input', 'build/lib', '--main-jar', 'wozai-desktop.jar', '--main-class', 'dev.ghost.wozai.Main', '--dest', 'build/package', '--icon', 'assets/wozai.ico', '--java-options', '-Dwozai.installDir=$APPDIR/..', '--add-modules', 'java.base,java.desktop,java.logging,jdk.crypto.ec,jdk.accessibility,jdk.localedata', '--jlink-options', '--strip-debug --no-man-pages --no-header-files --include-locales=en,zh')
     Copy-Item ../THIRD_PARTY_NOTICES.md build/package/WoZai/
     Copy-Item ../docs/windows.md build/package/WoZai/README.md
     Copy-Item ../licenses build/package/WoZai/ -Recurse -Force
-    Compress-Archive -Path build/package/WoZai -DestinationPath build/WoZai-0.2.0-windows-x64.zip -Force
+    Copy-Item ../docs/licenses/material-icons-LICENSE.txt build/package/WoZai/licenses/ -Force
+    Compress-Archive -Path build/package/WoZai -DestinationPath build/WoZai-0.2.1-windows-x64.zip -Force
 }
-if ($Run) { Invoke-JavaTool java @('-cp', 'build/lib/*', 'dev.ghost.wozai.Main') }
+if ($Run) { Invoke-JavaTool java @($bluetoothLibrary, '-cp', 'build/lib/*', 'dev.ghost.wozai.Main') }

@@ -48,11 +48,17 @@ public final class GuiTests {
         try (DesktopStore store = new DesktopStore(root)) {
             store.setSetting("language", "en"); store.peer(new DesktopStore.Peer(id, "Phone", "", "")); store.draft(id, "saved draft");
             DesktopIdentity.Identity identity = DesktopIdentity.load(root.resolve("identity.properties"));
-            window = edt(() -> { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); DesktopWindow w = new DesktopWindow(store, identity, root); w.setVisible(true); return w; });
+            window = edt(() -> { AppTheme.install(false); DesktopWindow w = new DesktopWindow(store, identity, root); w.setVisible(true); return w; });
             DesktopWindow w = window;
             await(() -> components(w).stream().anyMatch(c -> c instanceof JList<?> l && "Chats".equals(l.getAccessibleContext().getAccessibleName()) && l.getModel().getSize() == 1), "History did not load");
             edt(() -> { components(w).stream().filter(c -> c instanceof JList<?> l && "Chats".equals(l.getAccessibleContext().getAccessibleName())).forEach(c -> ((JList<?>) c).setSelectedIndex(0)); return null; });
             await(() -> area(w, "Type a message").getText().equals("saved draft"), "UI draft did not load");
+            JTextField search = edt(() -> components(w).stream().filter(c -> c instanceof JTextField f && "Search chats".equals(f.getAccessibleContext().getAccessibleName())).map(c -> (JTextField)c).findFirst().orElseThrow());
+            edt(() -> { search.setText("Absent person"); return null; });
+            await(() -> components(w).stream().anyMatch(c -> c instanceof JList<?> l && "Chats".equals(l.getAccessibleContext().getAccessibleName()) && l.getModel().getSize()==0), "Search failed to filter nickname");
+            edt(() -> { search.setText("pho"); return null; });
+            await(() -> components(w).stream().anyMatch(c -> c instanceof JList<?> l && "Chats".equals(l.getAccessibleContext().getAccessibleName()) && l.getModel().getSize()==1), "Search failed partial nickname");
+            edt(() -> { search.setText(""); return null; });
             JComboBox<?> languages = edt(() -> components(w).stream().filter(c -> c instanceof JComboBox<?> b && "English".equals(b.getItemAt(1))).map(c -> (JComboBox<?>) c).findFirst().orElseThrow());
             edt(() -> { languages.setSelectedIndex(0); return null; });
             await(() -> w.getTitle().equals("我在") && area(w, "输入消息").getText().equals("saved draft"), "Language change lost draft");
@@ -81,22 +87,29 @@ public final class GuiTests {
             if (!hello.await(3, TimeUnit.SECONDS)) throw new AssertionError("No phone HELLO"); remote.approve();
             if (!ready.await(3, TimeUnit.SECONDS)) throw new AssertionError("GUI consent did not connect");
             await(() -> button(w, "Send").isEnabled(), "Ready chat composer disabled");
+            if (!edt(() -> UIManager.getLookAndFeel() instanceof com.formdev.flatlaf.FlatLaf)) throw new AssertionError("Android visual theme not installed");
             edt(() -> { ((JTabbedPane) components(w).stream().filter(c -> c instanceof JTabbedPane).findFirst().orElseThrow()).setSelectedIndex(0); area(w, "Type a message").setText("Windows → Phone 🙂"); button(w, "Send").doClick(); return null; });
             Frame outgoing = text.poll(3, TimeUnit.SECONDS);
             if (outgoing == null || !outgoing.body.equals("Windows → Phone 🙂")) throw new AssertionError("Send control did not reach phone");
             remote.acknowledge(outgoing.id);
             remote.send(new Frame(Frame.TEXT, UUID.randomUUID().toString(), "Phone → Windows\nHello!", System.currentTimeMillis()));
-            await(() -> area(w, "Chat messages").getText().contains("Delivered") && area(w, "Chat messages").getText().contains("Hello!"), "Messages or receipt not rendered");
+            await(() -> components(w).stream().filter(c -> c instanceof MessagePane).map(c -> ((MessagePane)c).text()).findFirst().orElseThrow().contains("Delivered") && components(w).stream().filter(c -> c instanceof MessagePane).map(c -> ((MessagePane)c).text()).findFirst().orElseThrow().contains("Hello!"), "Messages or receipt not rendered");
+            edt(() -> { components(w).stream().filter(c -> c instanceof JComboBox<?> b && "Standard".equals(b.getItemAt(0))).forEach(c -> ((JComboBox<?>)c).setSelectedIndex(0)); return null; });
+            await(() -> components(w).stream().filter(c -> c instanceof MessagePane).map(c -> ((MessagePane)c).text()).findFirst().orElseThrow().contains("Delivered"), "Receipt lost after restoring text size");
             if (args.length > 0) {
                 Path screenshot = Path.of(args[0]); Files.createDirectories(screenshot.toAbsolutePath().getParent());
                 Rectangle bounds = edt(w::getBounds); ImageIO.write(new Robot().createScreenCapture(bounds), "png", screenshot.toFile());
             }
+            JComboBox<?> themes = edt(() -> components(w).stream().filter(c -> c instanceof JComboBox<?> b && "Dark".equals(b.getItemAt(1))).map(c -> (JComboBox<?>)c).findFirst().orElseThrow());
+            edt(() -> { themes.setSelectedIndex(1); return null; });
+            await(() -> AppTheme.dark && AppTheme.background.equals(new Color(0x101619)), "Dark theme did not match Android palette");
             edt(() -> { area(w, "Type a message").setText("unsent draft"); languages.setSelectedIndex(0); return null; });
             await(() -> area(w, "输入消息").getText().equals("unsent draft") && button(w, "发送").isEnabled(), "Live language change interrupted session or draft");
+            if (!edt(() -> AppTheme.dark)) throw new AssertionError("Translation reset theme");
             edt(() -> { w.dispatchEvent(new WindowEvent(w, WindowEvent.WINDOW_CLOSING)); return null; });
             await(() -> !w.isDisplayable(), "GUI exit did not close");
-            try (DesktopStore reopened = new DesktopStore(root)) { if (!reopened.draft(id).equals("unsent draft")) throw new AssertionError("Exit lost draft"); }
-            System.out.println("GuiTests: consent, messaging, receipts, live translation, text scaling, draft and exit passed");
+            try (DesktopStore reopened = new DesktopStore(root)) { if (!reopened.draft(id).equals("unsent draft")) throw new AssertionError("Exit lost draft"); if (!reopened.setting("theme","").equals("dark")) throw new AssertionError("Theme not persisted"); }
+            System.out.println("GuiTests: consent, messaging, receipts, live translation, nickname search, Android light/dark theme, text scaling, draft and exit passed");
         } finally {
             if (remote != null) remote.close("test");
             DesktopWindow w = window; if (w != null) edt(() -> { if (w.isDisplayable()) w.dispatchEvent(new WindowEvent(w, WindowEvent.WINDOW_CLOSING)); return null; });
