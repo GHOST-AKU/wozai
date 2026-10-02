@@ -45,7 +45,7 @@ Windows PowerShell：
 
 第一次同步需要访问 Google Maven、Maven Central 与 Gradle 分发服务器。SDK 路径由 Android Studio 写入本机 `local.properties`，不要把它提交到仓库。
 
-已附 `.github/workflows/android.yml`，仅支持手动运行。在 GitHub 的 Actions 页面选择 **Build 我在 debug APK → Run workflow**，构建成功后可下载 `NearbyIM-<版本>-android-debug` artifact。上传源码和提交修改不会自动编译 APK。本轮 0.3.0 的[最终构建](https://github.com/GHOST-AKU/wozai/actions/runs/37003827341)已通过安卓编译、Lint、API 26/34 原生多语言检查和 Windows 打包验证。可下载[安卓调试包](https://github.com/GHOST-AKU/wozai/actions/runs/37003827341/artifacts/11225396246)，解压后安装 `debug/app-debug.apk`；`androidTest` 中的 APK 仅用于测试。独立构建分支在验收后也恢复手动触发。
+已附 `.github/workflows/android.yml`，仅支持手动运行。在 GitHub 的 Actions 页面选择 **Build 我在 debug APK → Run workflow**，构建成功后可下载 `NearbyIM-<版本>-android-debug` artifact。上传源码和提交修改不会自动编译 APK。本轮 0.3.1 的[最终构建](https://github.com/GHOST-AKU/wozai/actions/runs/37014761654)已通过安卓编译、Lint、API 26/34 原生多语言检查和 Windows 打包验证。可下载[安卓调试包](https://github.com/GHOST-AKU/wozai/actions/runs/37014761654/artifacts/11229167650)，解压后安装 `debug/app-debug.apk`；`androidTest` 中的 APK 仅用于测试。独立构建分支在验收后也恢复手动触发。
 
 安卓保留数据升级需要与已安装版本使用同一签名密钥。本次 CI 使用临时调试证书，与之前交付的 0.2.0 证书不同，不能覆盖安装该旧包。已有聊天记录的手机请保留原应用，使用原签名密钥构建升级包；卸载会删除记录和设备身份。详情见[验证记录](docs/verification.md)。
 

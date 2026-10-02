@@ -4,7 +4,7 @@
 
 ## 使用与下载
 
-目标平台 Windows 10/11 x64。从[最终构建页面](https://github.com/GHOST-AKU/wozai/actions/runs/37003827341)底部 Artifacts 下载 [NearbyIM-0.3.0-windows-x64](https://github.com/GHOST-AKU/wozai/actions/runs/37003827341/artifacts/11224653026)，解压后运行 `NearbyIM/NearbyIM.exe`。保持整个软件目录完整；包内包含 Java 17 运行时、思源黑体和 Windows 蓝牙桥接库，无需另外安装 Java 或字体。原版安卓图标同时用于窗口和 EXE 启动器。
+目标平台 Windows 10/11 x64。从[最新构建页面](https://github.com/GHOST-AKU/wozai/actions/runs/37014761654)底部 Artifacts 下载 [NearbyIM-0.3.1-windows-x64](https://github.com/GHOST-AKU/wozai/actions/runs/37014761654/artifacts/11229477243)，解压后运行 `NearbyIM/NearbyIM.exe`。保持整个软件目录完整；包内包含 Java 17 运行时、思源黑体和 Windows 蓝牙桥接库，无需另外安装 Java 或字体。原版安卓图标同时用于窗口和 EXE 启动器。
 
 这是未签名的便携预览版，没有安装器、开机启动或托盘常驻。请将软件放在当前用户可读写的位置，例如 `D:\Apps\NearbyIM`，避免受保护的 `Program Files` 目录。
 
@@ -79,6 +79,8 @@ java -cp 'desktop/build/classes:desktop/build/tests:desktop/build/lib/*' dev.gho
 Linux 仅验证 Java、局域网与界面，蓝牙明确显示平台不可用。依赖为 FlatLaf 3.6.2、JmDNS 3.6.2、SLF4J API / NOP 2.0.17、ICU4J 77.1；SHA-256 固定在 `desktop/dependencies.txt`。中文字体来自官方 Noto CJK 仓库，SHA-256 固定在 `desktop/font-dependencies.txt`。字体、许可与运行时 legal 文件随软件打包。重新导出图标时运行 `desktop/tools/export-icons.py`（开发工具需要 Pillow / CairoSVG，正常构建使用已保存的资源）。
 
 ## 验证记录 · 2026-10-02
+
+0.3.1 新增完整繁体中文、日语、韩语文案，五种语言各 299 键。Windows 构建 [37014761654](https://github.com/GHOST-AKU/wozai/actions/runs/37014761654) 通过 61 项桌面、104 项目录/迁移、54 项蓝牙接口/JNI、3038 项文案格式与逐条字形检查，及真实 EXE、自带运行时/完整 JDK 的五语实时切换、打开对话框刷新、真实 mDNS 与布局检查。没有新增字体或依赖。便携 ZIP 为 54,223,619 字节（约 51.71 MiB），比 0.3.0 增加 384,087 字节（约 0.37 MiB）；上传 SHA-256 为 `7d05884598abd48e205a83cfa2149e785593c3bbf9b1ba59dc81280f4715ed9f`。
 
 0.3.0 最终构建 [37003827341](https://github.com/GHOST-AKU/wozai/actions/runs/37003827341) 的四项任务全部通过，应用与测试源码为 `afaf682`，构建提交为 `00ebdbd`；后续仅更新交付文档和恢复手动工作流。Windows 通过 61 项桌面、104 项目录与迁移、54 项蓝牙接口/JNI、631 项翻译检查，及原生生命周期、真实 mDNS 和共享协议/信任检查。真正的 `NearbyIM.exe` 验证了自带运行时、DPAPI、便携目录和正常退出。
 

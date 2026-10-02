@@ -1,6 +1,27 @@
 # 验证记录 · 2026-10-02
 
-## 当前源码 0.3.0 · 安卓与 Windows 多语言
+## 当前源码 0.3.1 · 新增繁体中文、日语与韩语
+
+在现有共享架构中新增 `zh-Hant`、`ja`、`ko`，连同简体中文与英文，每种语言完整覆盖 299 个文案键。应用与测试源码为 `c8f1bdbdc6c4915119c332140ce8dc148ee456c9`，构建提交为 `3a4ebac20dc5f9bfcaf113544eb210d8c7b31bcd`。[最终运行 37014761654](https://github.com/GHOST-AKU/wozai/actions/runs/37014761654)的 Android 编译、Windows 打包、API 26 和 API 34 原生验证四项任务全部成功；后续提交仅更新交付文档和恢复手动触发。
+
+| 检查 | 实际结果 | 证明范围 |
+| --- | --- | --- |
+| 文案及语言元数据 | 五种语言各 299 键；8 项生成器测试、43 项语言解析检查通过；339 处字面消息键引用，0 错误 | 参数契约、生成一致性、台港澳繁体别名、日/韩地区和原生脚本、旧偏好与系统回退 |
+| Windows 格式与字体 | 3038 项通过 | 全目录 ICU 模式、日期/复数、字面昵称、缺键回退、逐条现有字体字形覆盖；未增加字体或 ICU 依赖 |
+| Android 编译与资源 | 主 APK/test APK 和 Lint 成功，0 错误、4 项保留警告 | 0.3.1 / code 5，minSdk 26、targetSdk 36；原生资源完整包含 en、zh-Hans、zh-Hant、ja、ko |
+| Android API 26 与 34 | 各 135 项通过，原始结果码 -1 | 三种新语言的原生文案、ICU 计数、日期、用户参数及帮助段落；原有中英文真实 TCP、许可等待/重建、草稿/光标/阅读位置、前台服务/通知及保存回执继续通过 |
+| Windows 实际运行 | 61 项桌面、104 项数据/迁移、54 项蓝牙 JNI，原生生命周期通过 | 实际 EXE、自带运行时、DPAPI 和便携路径；真实 mDNS、协议与信任回归 |
+| Windows 五语界面切换 | 完整 JDK 和自带运行时的真实 GUI 检查通过 | 活跃连接、草稿及回执保留；繁体、日语、韩语的操作与已打开帮助/关于/信任窗口更新；原有布局/滚轮检查通过 |
+
+Windows ZIP：[NearbyIM-0.3.1-windows-x64](https://github.com/GHOST-AKU/wozai/actions/runs/37014761654/artifacts/11229477243)，54,223,619 字节，上传 SHA-256 `7d05884598abd48e205a83cfa2149e785593c3bbf9b1ba59dc81280f4715ed9f`。约 51.71 MiB，比 0.3.0 增加 384,087 字节（约 0.37 MiB）。
+
+Android ZIP：[NearbyIM-0.3.1-android-debug](https://github.com/GHOST-AKU/wozai/actions/runs/37014761654/artifacts/11229167650)，760,215 字节，下载 SHA-256 `04e91c9034a0d7e557ebb47c4071aca6bd4ad1fe08607fac2cf5ea013a7f0e8c`。主 APK 为 853,580 字节，SHA-256 `238b97e8d1a1e49085abbcb41a12789ceee6cae6d5db8c1dab0a06db969dfc66`；ZIP CRC、构建校验值、v2 签名、zipalign 和版本/语言声明均已核验。
+
+本次临时调试证书 SHA-256 为 `304747e1145ceffc1a5c78f5dbb657486b4c53f46c994e94f8a08120154fe605`，与此前调试包不同。保留记录升级需要原签名密钥；不要卸载原应用。实体蓝牙、实际系统权限回调、母语用词人工审阅与读屏仍按设备清单验收。
+
+截图及原始记录：[Windows](https://github.com/GHOST-AKU/wozai/actions/runs/37014761654/artifacts/11230185005)、[Android API 26](https://github.com/GHOST-AKU/wozai/actions/runs/37014761654/artifacts/11229767335)、[Android API 34](https://github.com/GHOST-AKU/wozai/actions/runs/37014761654/artifacts/11229127615)。
+
+## 历史版本 0.3.0 · 安卓与 Windows 多语言
 
 两端使用同一份 299 键简体中文／英文目录、语言注册表和 ICU 格式契约；应用与测试源码提交为 `afaf6826bba8645f6e840f870013fecab79a5f63`。独立构建分支提交 `00ebdbde3e12cfc1a860d68935fd4499309e9410` 的[最终运行 37003827341](https://github.com/GHOST-AKU/wozai/actions/runs/37003827341)包含 Android 编译、Windows 打包、Android API 26 和 API 34 原生验证，四项任务全部通过。后续交付提交仅更新文档和恢复手动触发，不改变已经验证的应用源码。
 

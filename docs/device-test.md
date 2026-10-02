@@ -1,8 +1,8 @@
 # 构建与双机验收
 
-本清单是后续真实设备验收要求。0.3.0 已通过 API 26/34 原生模拟器多语言验证和 Windows 实际程序验证；用户报告过旧版双机/Windows 局域网互通。下列新增硬件场景仍需逐项验收，不能以模拟器证明真实蓝牙。
+本清单是后续真实设备验收要求。0.3.1 已通过 API 26/34 原生模拟器多语言验证和 Windows 实际程序验证；用户报告过旧版双机/Windows 局域网互通。下列新增硬件场景仍需逐项验收，不能以模拟器证明真实蓝牙。
 
-当前 0.3.0 调试 APK 已编译并完成 Lint、签名和对齐校验。复现构建时，在有 JDK 17、Python 3、Android SDK 36 的电脑先运行 `sh tools/test-i18n.sh`、`sh tools/test-core.sh`、`sh tools/test-trust.sh`、`sh tools/check-source.sh`，再执行 `./gradlew :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug`。确认成功后将同一主 APK 安装到两部测试手机。建议覆盖 Android 8～11、Android 12+ 和 Android 16；两端需要支持 NIM2（0.2.0 及以后），旧版裸帧不兼容。
+当前 0.3.1 调试 APK 已编译并完成 Lint、签名和对齐校验。复现构建时，在有 JDK 17、Python 3、Android SDK 36 的电脑先运行 `sh tools/test-i18n.sh`、`sh tools/test-core.sh`、`sh tools/test-trust.sh`、`sh tools/check-source.sh`，再执行 `./gradlew :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug`。确认成功后将同一主 APK 安装到两部测试手机。建议覆盖 Android 8～11、Android 12+ 和 Android 16；两端需要支持 NIM2（0.2.0 及以后），旧版裸帧不兼容。
 
 保留数据更新要求与旧版使用同一签名密钥。本次 CI 临时调试包不能覆盖先前另一证书签名的 APK，不要卸载有用户记录的旧应用。原生测试脚本会创建测试会话、改变语言和设置，使用模拟器或专用测试手机：
 
@@ -10,14 +10,14 @@
 sh tools/test-android-i18n.sh
 ```
 
-脚本以 `adb install -r` 安装主 APK 和 test APK，用原生 Instrumentation 执行 120 项检查，保存 `build/android-i18n-device.txt` 与截图。API 26/34 的本轮结果及签名兼容条件见 [verification.md](verification.md)。
+脚本以 `adb install -r` 安装主 APK 和 test APK，用原生 Instrumentation 执行 135 项检查，保存 `build/android-i18n-device.txt` 与截图。API 26/34 的本轮结果及签名兼容条件见 [verification.md](verification.md)。
 
-## 多端多语言 0.3.0
+## 多端多语言 0.3.1
 
 | 场景 | 操作 | 应观察到 |
 | --- | --- | --- |
-| 系统与显式选择 | 在中文/英文系统上选择跟随系统、简体中文、English；安卓 13+ 从系统应用语言页改变选择 | 所有界面、标题、帮助、错误及状态一致；显式选择持久化，系统选项跟随系统 |
-| 区域与回退 | 英国英语、zh-CN；不受支持语言、zh-Hant-TW；升级旧 zh/en 偏好 | 英国日期格式保留；旧 zh 变为 zh-Hans；未支持语言回退英文 |
+| 系统与显式选择 | 在中文/英文/日文/韩文系统上选择跟随系统及五种显式语言；安卓 13+ 从系统应用语言页改变选择 | 所有界面、标题、帮助、错误及状态一致；显式选择持久化，系统选项跟随系统 |
+| 区域与回退 | 英国英语、zh-CN、zh-TW/HK/MO、ja-JP、ko-KR；不受支持语言；升级旧 zh/en 偏好 | 地区日期格式保留；台港澳显示繁体，日/韩地区正确识别；旧 zh 变为 zh-Hans；未支持语言回退英文 |
 | 实时聊天 | 建立连接，输入多行草稿并选择光标位置，阅读旧消息后切换语言 | 会话、服务、身份、草稿/光标及阅读位置保留；新消息仍保存并回执 |
 | 聊天许可等待 | 首次来访弹窗未处理时切换语言或从系统设置返回 | 同一请求用新语言呈现；同意/仅本次/拒绝可用，不重复授权或替换身份 |
 | 系统权限返回 | 专用手机先撤销蓝牙权限，授权窗口显示期间从系统应用语言设置切换，再返回允许/拒绝 | 原动作可恢复且仅执行一次；拒绝有当前语言提示；不自动取得设备信任 |
