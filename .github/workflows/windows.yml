@@ -21,6 +21,9 @@ jobs:
         run: |
           ./tools/test-core.ps1
           ./tools/test-trust.ps1
+      - name: Run packaged Windows executable
+        shell: pwsh
+        run: ./desktop/tools/test-package.ps1
       - name: Exercise native GUI and mDNS
         shell: pwsh
         run: |
@@ -31,11 +34,13 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: wozai-windows-x64
-          path: desktop/build/WoZai-0.2.0-windows-x64.zip
+          path: desktop/build/package
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: windows-preview-verification
-          path: desktop/build/gui-windows.png
+          path: |
+            desktop/build/gui-windows.png
+            desktop/build/package-window.png
           if-no-files-found: ignore

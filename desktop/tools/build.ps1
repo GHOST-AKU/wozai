@@ -31,6 +31,7 @@ if ($Package) {
     if (Test-Path build/package/WoZai) { Remove-Item build/package/WoZai -Recurse -Force }
     Invoke-JavaTool jpackage @('--type', 'app-image', '--name', 'WoZai', '--app-version', '0.2.0', '--vendor', 'GHOST-AKU', '--input', 'build/lib', '--main-jar', 'wozai-desktop.jar', '--main-class', 'dev.ghost.wozai.Main', '--dest', 'build/package', '--add-modules', 'java.base,java.desktop,java.logging,jdk.crypto.ec,jdk.accessibility', '--jlink-options', '--strip-debug --no-man-pages --no-header-files')
     Copy-Item ../THIRD_PARTY_NOTICES.md build/package/WoZai/
+    Copy-Item ../docs/windows.md build/package/WoZai/README.md
     Copy-Item ../licenses build/package/WoZai/ -Recurse -Force
     Compress-Archive -Path build/package/WoZai -DestinationPath build/WoZai-0.2.0-windows-x64.zip -Force
 }

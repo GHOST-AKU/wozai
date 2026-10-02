@@ -6,6 +6,8 @@
 
 Windows 10/11 x64 是本轮目标。解压 `WoZai-0.2.0-windows-x64.zip` 后，双击 `WoZai/WoZai.exe`。保持整个目录完整：其中包含精简 Java 17 运行时，无需另外安装 Java。预览版没有代码签名，也没有安装器、开机启动或托盘常驻。
 
+GitHub Actions 的 `wozai-windows-x64` artifact 也是 ZIP，下载后直接解压即可得到 `WoZai` 目录。
+
 1. 电脑与手机加入同一 Wi-Fi 或手机热点。双方在「附近」开启局域网接收。
 2. 若 Windows 防火墙提示网络访问，请允许应用在你使用的私人网络上接收连接。
 3. 选择附近设备并「连接并记住」，或输入对方「我的连接」中的完整 IP 与端口。
@@ -75,4 +77,6 @@ java -cp 'desktop/build/classes:desktop/build/tests:desktop/build/lib/*' dev.gho
 
 桌面 UI 检查涵盖选择历史会话、草稿恢复、中英文切换、文字缩放、接收/许可按钮、双向通信、回执显示、连接中语言切换，以及关闭窗口保存草稿并释放数据锁。
 
-Windows 构建和系统 DPAPI 结果将在本轮专用构建记录中补充。以上 TCP 测试使用 Android 的同一协议核心，不代替实体 Windows 电脑与 Android 手机在真实 Wi-Fi、防火墙和热点环境里的双机验收。
+Windows runner 已通过 52 项桌面检查（额外检查 DPAPI 保存格式）、原有 55 项协议/信任检查、真实 mDNS 及原生 GUI 测试，并生成带运行时的便携 ZIP，见 [首次 Windows 构建记录](https://github.com/GHOST-AKU/wozai/actions/runs/36979391767)。另有打包后 `.exe` 启动、窗口与正常退出的检查脚本 `desktop/tools/test-package.ps1`；最终构建链接会记录其执行结果。
+
+以上 TCP 测试使用 Android 的同一协议核心，不代替实体 Windows 电脑与 Android 手机在真实 Wi-Fi、防火墙和热点环境里的双机验收。
