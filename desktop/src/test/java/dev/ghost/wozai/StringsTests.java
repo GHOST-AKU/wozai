@@ -30,6 +30,14 @@ public final class StringsTests {
         check(new Strings("en").text("deviceCount", 1).equals("1 device"), "Singular device plural failed");
         check(new Strings("en").text("deviceCount", 2).equals("2 devices"), "Multiple device plural failed");
         check(new Strings("zh-Hans").text("deviceCount", 2).equals("2 台设备"), "Chinese plural failed");
+        for (String[] expected : new String[][]{{"zh-Hant", "傳送", "2 台裝置"},
+                {"ja", "送信", "2 台のデバイス"}, {"ko", "보내기", "기기 2대"}}) {
+            Strings translated = new Strings(expected[0]);
+            check(translated.text("send").equals(expected[1]), "New language send action failed: " + expected[0]);
+            check(translated.text("deviceCount", 2).equals(expected[2]), "New language ICU count failed: " + expected[0]);
+            check(translated.text("requestDetails", nickname, "fingerprint").contains(nickname), "New language changed a literal nickname: " + expected[0]);
+            check(translated.text("helpBodyWindows").contains("\n\n"), "New language help lost paragraphs: " + expected[0]);
+        }
         check(new Strings("en").text(UiText.of("connectionStatus", UiText.of("lan"), UiText.of("ready"))).equals("LAN · Connected"), "Nested structured status was not localized");
         ResourceBundle english = ResourceBundle.getBundle("dev.ghost.wozai.Strings", Locale.ENGLISH);
         ResourceBundle missing = new ListResourceBundle() { protected Object[][] getContents() { return new Object[0][0]; } };
@@ -59,6 +67,11 @@ public final class StringsTests {
     }
     private static void validateCatalogPatterns() throws Exception {
         Set<Object> keys = null;
+        java.awt.Font font;
+        try (InputStream input = StringsTests.class.getResourceAsStream("fonts/NotoSansCJKsc-Regular.otf")) {
+            if (input == null) throw new AssertionError("Bundled CJK font is missing");
+            font = java.awt.Font.createFont(java.awt.Font.TRUETYPE_FONT, input);
+        }
         for (var language : LanguageRegistry.languages()) {
             String suffix = language.tag.replace('-', '_'); Properties catalog = new Properties();
             try (InputStream input = StringsTests.class.getResourceAsStream("Strings_" + suffix + ".properties")) {
@@ -72,6 +85,9 @@ public final class StringsTests {
                 Format[] formats = formatter.getFormatsByArgumentIndex(); Object[] values = new Object[formats.length]; Arrays.fill(values, 2);
                 for (int i = 0; i < formats.length; i++) if (formats[i] instanceof DateFormat) values[i] = new Date(0);
                 check(formatter.format(values) != null, language.tag + ": invalid ICU pattern for " + key);
+                StringBuilder printable = new StringBuilder();
+                catalog.getProperty(key).codePoints().filter(c -> !Character.isISOControl(c)).forEach(printable::appendCodePoint);
+                check(font.canDisplayUpTo(printable.toString()) == -1, language.tag + ": bundled font lacks glyphs for " + key);
             }
         }
     }

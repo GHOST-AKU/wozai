@@ -104,6 +104,20 @@ public final class LocalizationInstrumentation extends Instrumentation {
         check(AndroidText.get(context, "unknownRuntimeMessage").equals(AndroidText.get(context, "error")), "Unknown runtime keys fall back to a translated generic error");
         check(AndroidText.messageState(context, ChatStore.PENDING).equals("Pending"), "Stored status code resolves to English");
         check(!AndroidText.date(context, 1700000000000L, "MMMdjm").isEmpty(), "Native locale date formatter");
+        for (String[] expected : new String[][]{{"zh-Hant", "傳送", "2 台裝置"},
+                {"ja", "送信", "2 台のデバイス"}, {"ko", "보내기", "기기 2대"}}) {
+            onMain(() -> { AppLanguage.select(application, expected[0]); return null; });
+            android.content.res.Configuration config = new android.content.res.Configuration(context.getResources().getConfiguration());
+            java.util.Locale locale = java.util.Locale.forLanguageTag(expected[0]);
+            config.setLocale(locale);
+            Context translated = context.createConfigurationContext(config);
+            check(AndroidText.get(translated, "send").equals(expected[1]), "New locale loads its native resources: " + expected[0]);
+            check(AndroidText.get(translated, "deviceCount", 2).equals(expected[2]), "New locale formats native ICU counts: " + expected[0]);
+            check(AndroidText.get(translated, "requestDetails", name, "fingerprint").contains(name), "New locale preserves literal names: " + expected[0]);
+            check(AndroidText.get(translated, "androidHelpBody").contains("\n\n"), "New locale keeps help paragraphs: " + expected[0]);
+            check(!AndroidText.date(translated, 1700000000000L, "MMMdjm").isEmpty(), "New locale formats native dates: " + expected[0]);
+        }
+        onMain(() -> { AppLanguage.select(application, "en"); return null; });
     }
     private void testRecreationWithLiveSession() throws Exception {
         activity = (MainActivity) startActivitySync(new Intent(getTargetContext(), MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));

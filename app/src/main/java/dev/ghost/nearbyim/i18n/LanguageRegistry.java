@@ -6,7 +6,7 @@ import java.util.*;
 /** Supported display languages, independent of either platform's widgets. */
 public final class LanguageRegistry {
     public static final String SYSTEM = "system";
-    public static final String VERSION = "0.3.0";
+    public static final String VERSION = "0.3.1";
     public static final String FALLBACK = "en";
     public static final class Language {
         public final String tag, nativeName;
@@ -18,7 +18,10 @@ public final class LanguageRegistry {
     }
     private static final List<Language> LANGUAGES = Collections.unmodifiableList(Arrays.asList(
             new Language("zh-Hans", "简体中文", false),
-            new Language("en", "English", false)));
+            new Language("en", "English", false),
+            new Language("zh-Hant", "繁體中文", false),
+            new Language("ja", "日本語", false),
+            new Language("ko", "한국어", false)));
     private static final Map<String, String> ALIASES;
     static {
         Map<String, String> aliases = new HashMap<>();
@@ -28,6 +31,14 @@ public final class LanguageRegistry {
         aliases.put("zh-sg", "zh-Hans");
         aliases.put("en", "en");
         aliases.put("en-latn", "en");
+        aliases.put("zh-hant", "zh-Hant");
+        aliases.put("zh-tw", "zh-Hant");
+        aliases.put("zh-hk", "zh-Hant");
+        aliases.put("zh-mo", "zh-Hant");
+        aliases.put("ja", "ja");
+        aliases.put("ja-jpan", "ja");
+        aliases.put("ko", "ko");
+        aliases.put("ko-kore", "ko");
         ALIASES = Collections.unmodifiableMap(aliases);
     }
     private LanguageRegistry() {}

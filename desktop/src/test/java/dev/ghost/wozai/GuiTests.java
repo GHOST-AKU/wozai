@@ -133,6 +133,21 @@ public final class GuiTests {
             if (!edt(() -> components(help).stream().anyMatch(c -> c instanceof JTextArea a && a.getText().contains("局域网")) && components(about).stream().anyMatch(c -> c instanceof JTextArea a && a.getText().contains(LanguageRegistry.VERSION)))) throw new AssertionError("Open information bodies/version did not refresh");
             if (!edt(() -> search.getText().equals("pho") && components(w).stream().anyMatch(c -> c instanceof JList<?> list && "聊天".equals(list.getAccessibleContext().getAccessibleName()) && list.getSelectedValue() instanceof DesktopStore.Peer peer && peer.id().equals(id)))) throw new AssertionError("Language change lost search or selected history");
             if (previousScroll == 0 || Math.abs(edt(() -> chatScroll.getVerticalScrollBar().getValue()) - previousScroll) > 32) throw new AssertionError("Language change lost the conversation scroll position");
+            for (String tag : new String[]{"zh-Hant", "ja", "ko"}) {
+                Strings translated = new Strings(tag);
+                edt(() -> { language(languages, tag); return null; });
+                await(() -> area(w, translated.text("composer")).getText().equals("unsent draft")
+                        && button(w, translated.text("send")).isEnabled()
+                        && messages.text().contains(translated.text("delivered"))
+                        && help.getTitle().equals(translated.text("help"))
+                        && about.getTitle().equals(translated.text("about"))
+                        && trust.getTitle().equals(translated.text("trustedDevices")), "New locale lost live chat or open dialogs: " + tag);
+                if (!remote.isReady()) throw new AssertionError("New locale closed the live session: " + tag);
+                if (args.length > 0) {
+                    Rectangle bounds = edt(w::getBounds);
+                    ImageIO.write(new Robot().createScreenCapture(bounds), "png", Path.of(args[0].replace(".png", "-" + tag + ".png")).toFile());
+                }
+            }
             edt(() -> { Locale.setDefault(Locale.Category.DISPLAY, Locale.US); language(languages, LanguageRegistry.SYSTEM); return null; });
             await(() -> area(w, "Type a message").getText().equals("unsent draft") && help.getTitle().equals("How to use"), "System choice did not resolve English");
             edt(() -> { Locale.setDefault(Locale.Category.DISPLAY, Locale.SIMPLIFIED_CHINESE); return null; });

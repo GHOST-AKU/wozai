@@ -19,7 +19,20 @@ public final class LanguageRegistryTests {
         equal(LanguageRegistry.locale("system", Locale.UK), Locale.UK);
         equal(LanguageRegistry.locale("en", Locale.UK), Locale.ENGLISH);
         equal(LanguageRegistry.locale("system", Locale.forLanguageTag("zh-CN")), Locale.forLanguageTag("zh-CN"));
-        equal(LanguageRegistry.resolve("system", Locale.forLanguageTag("zh-Hant-TW")).tag, "en");
+        equal(LanguageRegistry.resolve("system", Locale.forLanguageTag("zh-Hant-TW")).tag, "zh-Hant");
+        for (String region : new String[]{"zh-TW", "zh-HK", "zh-MO", "zh-Hant-HK"}) {
+            equal(LanguageRegistry.resolve("system", Locale.forLanguageTag(region)).tag, "zh-Hant");
+            equal(LanguageRegistry.normalizeSelection(region), "zh-Hant");
+            equal(LanguageRegistry.locale("system", Locale.forLanguageTag(region)), Locale.forLanguageTag(region));
+        }
+        equal(LanguageRegistry.resolve("system", Locale.forLanguageTag("zh-Hans-HK")).tag, "zh-Hans");
+        equal(LanguageRegistry.normalizeSelection("ja_JP"), "ja");
+        equal(LanguageRegistry.normalizeSelection("ko_KR"), "ko");
+        equal(LanguageRegistry.resolve("system", Locale.forLanguageTag("ja-Jpan-JP")).tag, "ja");
+        equal(LanguageRegistry.resolve("system", Locale.forLanguageTag("ko-Kore-KR")).tag, "ko");
+        equal(LanguageRegistry.locale("system", Locale.JAPAN), Locale.JAPAN);
+        equal(LanguageRegistry.locale("system", Locale.KOREA), Locale.KOREA);
+        equal(LanguageRegistry.resolve("system", Locale.forLanguageTag("zh-HK-u-nu-hanidec")).tag, "zh-Hant");
         equal(LanguageRegistry.resolve("system", Locale.forLanguageTag("zh-CN-u-nu-hanidec")).tag, "zh-Hans");
         equal(LanguageRegistry.locale("system", Locale.forLanguageTag("zh-CN-u-nu-hanidec")), Locale.forLanguageTag("zh-CN-u-nu-hanidec"));
         equal(LanguageRegistry.locale("system", Locale.forLanguageTag("en-Latn-GB")), Locale.forLanguageTag("en-Latn-GB"));

@@ -15,6 +15,9 @@ spec.loader.exec_module(generator)
 class CatalogTests(unittest.TestCase):
     def setUp(self):
         self.config = json.loads((ROOT / "i18n/config.json").read_text())
+        # These encoding/validation fixtures deliberately use two small catalogs.
+        self.config["languages"] = [language for language in self.config["languages"]
+                                    if language["tag"] in ("zh-Hans", "en")]
         self.messages = {
             "zh-Hans": {"greeting": "我是 {0}", "deviceCount": "{0, plural, other {# 台设备}}"},
             "en": {"greeting": "I'm {0}", "deviceCount": "{0, plural, one {# device} other {# devices}}"},
