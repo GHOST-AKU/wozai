@@ -102,7 +102,8 @@ public final class GuiTests {
             }
             JComboBox<?> themes = edt(() -> components(w).stream().filter(c -> c instanceof JComboBox<?> b && "Dark".equals(b.getItemAt(1))).map(c -> (JComboBox<?>)c).findFirst().orElseThrow());
             edt(() -> { themes.setSelectedIndex(1); return null; });
-            await(() -> AppTheme.dark && AppTheme.background.equals(new Color(0x101619)), "Dark theme did not match Android palette");
+            await(() -> AppTheme.dark && AppTheme.background.equals(new Color(0x101619)) && area(w,"Type a message").getForeground().equals(AppTheme.ink) && area(w,"Type a message").getBackground().equals(AppTheme.surface), "Dark theme composer contrast did not match Android palette");
+            if(args.length>0) { Rectangle bounds=edt(w::getBounds); ImageIO.write(new Robot().createScreenCapture(bounds),"png",Path.of(args[0].replace(".png","-dark.png")).toFile()); }
             edt(() -> { area(w, "Type a message").setText("unsent draft"); languages.setSelectedIndex(0); return null; });
             await(() -> area(w, "输入消息").getText().equals("unsent draft") && button(w, "发送").isEnabled(), "Live language change interrupted session or draft");
             if (!edt(() -> AppTheme.dark)) throw new AssertionError("Translation reset theme");

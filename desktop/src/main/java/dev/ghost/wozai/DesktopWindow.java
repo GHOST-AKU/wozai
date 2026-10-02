@@ -132,7 +132,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         JScrollPane editor=new JScrollPane(composer); editor.setBorder(BorderFactory.createEmptyBorder()); editor.setOpaque(false); editor.getViewport().setOpaque(false); composer.setOpaque(false);
         JPanel capsule=new AppTheme.SurfacePanel(new BorderLayout()); capsule.setBorder(BorderFactory.createEmptyBorder(4,8,4,8)); capsule.add(editor); input.add(capsule,BorderLayout.CENTER);
         JPanel sendSlot=new JPanel(new BorderLayout()); sendSlot.add(send,BorderLayout.SOUTH); input.add(sendSlot,BorderLayout.EAST);
-        JLabel inputHint=label("sendHint"); inputHint.setForeground(AppTheme.muted); inputHint.setFont(inputHint.getFont().deriveFont(12f)); input.add(inputHint,BorderLayout.SOUTH);
+        JLabel inputHint=label("sendHint"); inputHint.putClientProperty("wozai.muted",true); inputHint.setForeground(AppTheme.muted); inputHint.setFont(inputHint.getFont().deriveFont(12f)); input.add(inputHint,BorderLayout.SOUTH);
         composer.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "send");
         composer.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, InputEvent.SHIFT_DOWN_MASK), "insert-break");
         composer.getActionMap().put("send", new AbstractAction() { public void actionPerformed(ActionEvent e) { sendMessage(); } });
@@ -198,7 +198,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         c.gridy++; c.gridwidth=1; c.gridx=0; JLabel themeLabel=label("theme"); fields.add(themeLabel,c); c.gridx=1;
         JComboBox<String> themes=new JComboBox<>(new String[]{"",""}); themes.setSelectedIndex(AppTheme.dark?1:0); themeLabel.setLabelFor(themes);
         translations.add(() -> { themes.setModel(new DefaultComboBoxModel<>(new String[]{strings.text("lightTheme"),strings.text("darkTheme")})); themes.setSelectedIndex(AppTheme.dark?1:0); }); fields.add(themes,c);
-        themes.addActionListener(e -> { if(translating)return; boolean dark=themes.getSelectedIndex()==1; if(dark==AppTheme.dark)return; AppTheme.install(dark); SwingUtilities.updateComponentTreeUI(this); styleNavigation(); AppTheme.refreshPrimary(getContentPane()); renderedMessages=""; renderMessages(); handle(client.setting("theme",dark?"dark":"light"),"storageFailure"); repaint(); });
+        themes.addActionListener(e -> { if(translating)return; boolean dark=themes.getSelectedIndex()==1; if(dark==AppTheme.dark)return; AppTheme.install(dark); SwingUtilities.updateComponentTreeUI(this); styleNavigation(); AppTheme.refreshPrimary(getContentPane()); refreshThemeColors(); renderedMessages=""; renderMessages(); handle(client.setting("theme",dark?"dark":"light"),"storageFailure"); repaint(); });
         c.gridy++; c.gridx=0; c.gridwidth=3; JPanel management=new JPanel(new FlowLayout(FlowLayout.LEFT,8,8)); management.add(button("trustedDevices",this::manageTrust)); management.add(button("stopAll", () -> { discovery.stop(); discovered.clear(); refreshNearby(); ++scanGeneration; scanning=false; refreshBluetoothText(); handle(client.stopListening(),"error"); handle(client.stopBluetoothListening(),"error"); handle(client.disconnect(),"error"); })); fields.add(management,c);
         c.gridy++; fields.add(label("version"), c); JScrollPane settingsScroll=new JScrollPane(fields); settingsScroll.setBorder(BorderFactory.createEmptyBorder()); page.add(settingsScroll,BorderLayout.CENTER); tab(page, "settings");
     }
@@ -420,6 +420,11 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
             }
             protected void paintTabSelection(Graphics g,int placement,int index,int x,int y,int width,int height) { }
         });
+    }
+
+    private void refreshThemeColors() {
+        composer.setBackground(AppTheme.surface); composer.setForeground(AppTheme.ink); status.setForeground(AppTheme.muted);
+        feedback.setBackground(AppTheme.tonal); feedback.setForeground(AppTheme.accent);
     }
 
 }

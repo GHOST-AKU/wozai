@@ -20,23 +20,24 @@ final class AppTheme {
         accent = color(dark ? "82D8BA" : "246B4E"); accentInk = color(dark ? "103B2E" : "FFFFFF");
         tonal = color(dark ? "25453A" : "DDF4E7"); line = color(dark ? "33413D" : "E3EAE5");
         if (dark) FlatDarkLaf.setup(); else FlatLightLaf.setup();
-        UIManager.put("defaultFont", new Font(Font.DIALOG, Font.PLAIN, 15));
-        for (String type : new String[]{"Panel", "Viewport", "TabbedPane", "List", "TextArea", "ScrollPane"}) UIManager.put(type + ".background", background);
-        for (String type : new String[]{"Label", "Button", "TextField", "TextArea", "List", "ComboBox", "TabbedPane"}) UIManager.put(type + ".foreground", ink);
-        UIManager.put("Component.accentColor", accent); UIManager.put("Component.focusColor", accent);
-        UIManager.put("Component.borderColor", line); UIManager.put("Component.arc", 20);
-        UIManager.put("Button.arc", 24); UIManager.put("TextComponent.arc", 28);
-        UIManager.put("Button.background", surface); UIManager.put("Button.focusedBackground", tonal);
-        UIManager.put("Button.default.background", accent); UIManager.put("Button.default.foreground", accentInk);
-        UIManager.put("TextField.background", surface); UIManager.put("ComboBox.background", surface);
-        UIManager.put("List.selectionBackground", tonal); UIManager.put("List.selectionForeground", ink);
-        UIManager.put("TabbedPane.selectedBackground", tonal); UIManager.put("TabbedPane.underlineColor", accent);
-        UIManager.put("TabbedPane.tabHeight", 56); UIManager.put("TabbedPane.tabInsets", new Insets(8, 24, 8, 24));
-        UIManager.put("ScrollBar.width", 10); UIManager.put("ScrollPane.smoothScrolling", true);
+        ui("defaultFont", new Font(Font.DIALOG, Font.PLAIN, 15));
+        for (String type : new String[]{"Panel", "Viewport", "TabbedPane", "List", "TextArea", "ScrollPane"}) ui(type + ".background", background);
+        for (String type : new String[]{"Label", "Button", "TextField", "TextArea", "List", "ComboBox", "TabbedPane"}) ui(type + ".foreground", ink);
+        ui("Component.accentColor", accent); ui("Component.focusColor", accent);
+        ui("Component.borderColor", line); ui("Component.arc", 20);
+        ui("Button.arc", 24); ui("TextComponent.arc", 28);
+        ui("Button.background", surface); ui("Button.focusedBackground", tonal);
+        ui("Button.default.background", accent); ui("Button.default.foreground", accentInk);
+        ui("TextField.background", surface); ui("ComboBox.background", surface);
+        ui("List.selectionBackground", tonal); ui("List.selectionForeground", ink);
+        ui("TabbedPane.selectedBackground", tonal); ui("TabbedPane.underlineColor", accent);
+        ui("TabbedPane.tabHeight", 56); ui("TabbedPane.tabInsets", new Insets(8, 24, 8, 24));
+        ui("ScrollBar.width", 10); ui("ScrollPane.smoothScrolling", true);
     }
+    private static void ui(String key,Object value) { UIManager.put(key,value instanceof Color color ? new javax.swing.plaf.ColorUIResource(color) : value); }
     private static Color color(String hex) { return new Color(Integer.parseInt(hex, 16)); }
     static void primary(JButton button) { button.putClientProperty("wozai.primary",true); button.putClientProperty("FlatLaf.style", "background: " + hex(accent) + "; foreground: " + hex(accentInk) + "; borderWidth: 0; arc: 24"); }
-    static void refreshPrimary(Component component) { if(component instanceof JButton button && Boolean.TRUE.equals(button.getClientProperty("wozai.primary")))primary(button); if(component instanceof Container container)for(Component child:container.getComponents())refreshPrimary(child); }
+    static void refreshPrimary(Component component) { if(component instanceof JComponent view && Boolean.TRUE.equals(view.getClientProperty("wozai.muted")))view.setForeground(muted); if(component instanceof JButton button && Boolean.TRUE.equals(button.getClientProperty("wozai.primary")))primary(button); if(component instanceof Container container)for(Component child:container.getComponents())refreshPrimary(child); }
     static String hex(Color c) { return String.format("#%06x", c.getRGB() & 0xffffff); }
     static final class SurfacePanel extends JPanel {
         SurfacePanel(LayoutManager layout) { super(layout); setOpaque(false); }

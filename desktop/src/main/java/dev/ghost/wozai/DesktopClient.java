@@ -251,7 +251,7 @@ public final class DesktopClient implements AutoCloseable {
         WindowsBluetooth.Connection connection=WindowsBluetooth.openConnection(normalized);
         long attempt=++generation, trustVersion=policy.version(); connectingBluetooth=connection; connectingPeer=expectedId; phase="connecting"; publish();
         daemon(() -> {
-            try { connection.connect(8000); event(() -> { if(attempt!=generation||closed) { closeConnection(connection); return; } connectingBluetooth=null; connectingPeer=null; attach(connection,false,expectedId,connection.routeKey(),trustVersion); }); }
+            try { connection.connect(30000); event(() -> { if(attempt!=generation||closed) { closeConnection(connection); return; } connectingBluetooth=null; connectingPeer=null; attach(connection,false,expectedId,connection.routeKey(),trustVersion); }); }
             catch(IOException e) { closeConnection(connection); event(() -> { if(attempt==generation) { connectingBluetooth=null; connectingPeer=null; phase="idle"; publish(); listener.notice("bluetoothFailed"); } }); }
         },"wozai-bluetooth-connect").start(); return null;
     }); }
