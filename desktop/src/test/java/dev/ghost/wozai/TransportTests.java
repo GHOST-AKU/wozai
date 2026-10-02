@@ -21,15 +21,15 @@ public final class TransportTests {
         try(var store=new DesktopStore(root); var client=new DesktopClient(store,DesktopIdentity.load(root.resolve("identity.properties")),new DesktopClient.Listener() {
             public void changed(DesktopClient.State s) { states.add(s); } public void request(DesktopClient.Request r) { requests.add(r); } public void notice(String key) { }
         }); var listener=new ServerSocket(0,1,InetAddress.getLoopbackAddress()); var outgoing=new Socket(InetAddress.getLoopbackAddress(),listener.getLocalPort()); var incoming=listener.accept()) {
-            CountDownLatch ready=new CountDownLatch(1); var remoteIdentity=DeviceIdentity.generate();
+            CountDownLatch ready=new CountDownLatch(1), hello=new CountDownLatch(1); var remoteIdentity=DeviceIdentity.generate();
             FramedSession remote=new FramedSession(wrap(outgoing,"Phone"),peerId,"Android Bluetooth",remoteIdentity,new FramedSession.Listener() {
-                public void onHello(Frame f) { } public void onReady() { ready.countDown(); } public void onText(Frame f) { } public void onAck(String id) { acks.add(id); } public void onClosed(String why) { }
+                public void onHello(Frame f) { hello.countDown(); } public void onReady() { ready.countDown(); } public void onText(Frame f) { } public void onAck(String id) { acks.add(id); } public void onClosed(String why) { }
             });
             try {
                 client.acceptConnection(wrap(incoming,"Bluetooth"),"bluetooth:AA:BB:CC:DD:EE:01").get(2,TimeUnit.SECONDS); remote.start();
                 var request=requests.poll(3,TimeUnit.SECONDS); if(request==null||!request.publicKey().equals(remoteIdentity.publicKey()))throw new AssertionError("Bluetooth route skipped identity/consent");
                 if(store.peer(peerId)!=null)throw new AssertionError("Premature trust persistence");
-                client.approve(request,true).get(2,TimeUnit.SECONDS); remote.approve(); if(!ready.await(3,TimeUnit.SECONDS))throw new AssertionError("Bluetooth route never ready");
+                client.approve(request,true).get(2,TimeUnit.SECONDS); if(!hello.await(3,TimeUnit.SECONDS))throw new AssertionError("Missing verified remote greeting"); remote.approve(); if(!ready.await(3,TimeUnit.SECONDS))throw new AssertionError("Bluetooth route never ready");
                 DesktopClient.State state; do { state=states.poll(3,TimeUnit.SECONDS); } while(state!=null&&!state.phase().equals("ready"));
                 if(state==null||!state.transport().equals("bluetooth")||!state.peer().endpoint().equals("bluetooth:AA:BB:CC:DD:EE:01"))throw new AssertionError("Actual transport or reconnect route lost");
                 String id=UUID.randomUUID().toString(); remote.send(new Frame(Frame.TEXT,id,"蓝牙消息 🙂",System.currentTimeMillis()));

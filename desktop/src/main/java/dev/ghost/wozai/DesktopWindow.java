@@ -86,7 +86,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         getRootPane().registerKeyboardAction(e -> tabs.setSelectedIndex(1), KeyStroke.getKeyStroke(KeyEvent.VK_2, InputEvent.CTRL_DOWN_MASK), JComponent.WHEN_IN_FOCUSED_WINDOW);
         getRootPane().registerKeyboardAction(e -> tabs.setSelectedIndex(2), KeyStroke.getKeyStroke(KeyEvent.VK_3, InputEvent.CTRL_DOWN_MASK), JComponent.WHEN_IN_FOCUSED_WINDOW);
         nearby.setCellRenderer(plainRenderer()); history.setCellRenderer(new HistoryRenderer());
-        SwingUtilities.updateComponentTreeUI(this);
+        SwingUtilities.updateComponentTreeUI(this); styleNavigation();
         translations.add(() -> { history.getAccessibleContext().setAccessibleName(strings.text("chats")); nearby.getAccessibleContext().setAccessibleName(strings.text("nearby")); });
         translate(); client.refresh();
     }
@@ -129,7 +129,8 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         composer.setLineWrap(true); composer.setWrapStyleWord(true); composer.setMargin(new Insets(8, 8, 8, 8));
         translations.add(() -> { composer.getAccessibleContext().setAccessibleName(strings.text("composer")); composer.getAccessibleContext().setAccessibleDescription(strings.text("sendHint")); send.setText(strings.text("send")); });
         send.addActionListener(e -> sendMessage()); composer.setRows(2); composer.setBackground(AppTheme.surface); composer.setBorder(BorderFactory.createEmptyBorder(8,8,8,8));
-        JScrollPane editor=new JScrollPane(composer); editor.setBorder(new com.formdev.flatlaf.ui.FlatRoundBorder()); input.add(editor,BorderLayout.CENTER);
+        JScrollPane editor=new JScrollPane(composer); editor.setBorder(BorderFactory.createEmptyBorder()); editor.setOpaque(false); editor.getViewport().setOpaque(false); composer.setOpaque(false);
+        JPanel capsule=new AppTheme.SurfacePanel(new BorderLayout()); capsule.setBorder(BorderFactory.createEmptyBorder(4,8,4,8)); capsule.add(editor); input.add(capsule,BorderLayout.CENTER);
         JPanel sendSlot=new JPanel(new BorderLayout()); sendSlot.add(send,BorderLayout.SOUTH); input.add(sendSlot,BorderLayout.EAST);
         JLabel inputHint=label("sendHint"); inputHint.setForeground(AppTheme.muted); inputHint.setFont(inputHint.getFont().deriveFont(12f)); input.add(inputHint,BorderLayout.SOUTH);
         composer.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "send");
@@ -197,7 +198,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         c.gridy++; c.gridwidth=1; c.gridx=0; JLabel themeLabel=label("theme"); fields.add(themeLabel,c); c.gridx=1;
         JComboBox<String> themes=new JComboBox<>(new String[]{"",""}); themes.setSelectedIndex(AppTheme.dark?1:0); themeLabel.setLabelFor(themes);
         translations.add(() -> { themes.setModel(new DefaultComboBoxModel<>(new String[]{strings.text("lightTheme"),strings.text("darkTheme")})); themes.setSelectedIndex(AppTheme.dark?1:0); }); fields.add(themes,c);
-        themes.addActionListener(e -> { if(translating)return; boolean dark=themes.getSelectedIndex()==1; if(dark==AppTheme.dark)return; AppTheme.install(dark); SwingUtilities.updateComponentTreeUI(this); AppTheme.refreshPrimary(getContentPane()); renderedMessages=""; renderMessages(); handle(client.setting("theme",dark?"dark":"light"),"storageFailure"); repaint(); });
+        themes.addActionListener(e -> { if(translating)return; boolean dark=themes.getSelectedIndex()==1; if(dark==AppTheme.dark)return; AppTheme.install(dark); SwingUtilities.updateComponentTreeUI(this); styleNavigation(); AppTheme.refreshPrimary(getContentPane()); renderedMessages=""; renderMessages(); handle(client.setting("theme",dark?"dark":"light"),"storageFailure"); repaint(); });
         c.gridy++; c.gridx=0; c.gridwidth=3; JPanel management=new JPanel(new FlowLayout(FlowLayout.LEFT,8,8)); management.add(button("trustedDevices",this::manageTrust)); management.add(button("stopAll", () -> { discovery.stop(); discovered.clear(); refreshNearby(); ++scanGeneration; scanning=false; refreshBluetoothText(); handle(client.stopListening(),"error"); handle(client.stopBluetoothListening(),"error"); handle(client.disconnect(),"error"); })); fields.add(management,c);
         c.gridy++; fields.add(label("version"), c); JScrollPane settingsScroll=new JScrollPane(fields); settingsScroll.setBorder(BorderFactory.createEmptyBorder()); page.add(settingsScroll,BorderLayout.CENTER); tab(page, "settings");
     }
@@ -409,6 +410,16 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         JList<DesktopStore.Peer> devices=new JList<>(model); devices.setCellRenderer(plainRenderer()); devices.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         JPanel body=padded(new BorderLayout(8,12)); body.add(note("trustHint"),BorderLayout.NORTH); JScrollPane scroll=new JScrollPane(devices); scroll.setPreferredSize(new Dimension(450,220)); body.add(scroll);
         JDialog dialog=new JDialog(this,strings.text("trustedDevices"),false); JButton revoke=button("revoke", () -> { var peer=devices.getSelectedValue(); if(peer==null)return; select(peer); if(confirm("revokeConfirm")) { handle(client.revoke(peer.id()),"storageFailure"); model.removeElement(peer); } }); body.add(revoke,BorderLayout.SOUTH); dialog.add(body); dialog.pack(); dialog.setLocationRelativeTo(this); dialog.setVisible(true);
+    }
+
+    private void styleNavigation() {
+        tabs.setUI(new com.formdev.flatlaf.ui.FlatTabbedPaneUI() {
+            protected void paintTabBackground(Graphics g,int placement,int index,int x,int y,int width,int height,boolean selected) {
+                if(!selected && index!=getRolloverTab())return;
+                Graphics2D p=(Graphics2D)g.create(); p.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON); p.setColor(selected?AppTheme.tonal:AppTheme.surface); p.fillRoundRect(x+6,y+6,width-12,height-12,32,32); p.dispose();
+            }
+            protected void paintTabSelection(Graphics g,int placement,int index,int x,int y,int width,int height) { }
+        });
     }
 
 }

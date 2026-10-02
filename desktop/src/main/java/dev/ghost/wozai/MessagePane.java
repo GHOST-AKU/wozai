@@ -10,7 +10,7 @@ import java.util.List;
 final class MessagePane extends JPanel implements Scrollable {
     private String text = "";
     private float scale = 1;
-    MessagePane() { setLayout(new BoxLayout(this, BoxLayout.Y_AXIS)); setBorder(BorderFactory.createEmptyBorder(16,20,16,20)); }
+    MessagePane() { addComponentListener(new java.awt.event.ComponentAdapter() { public void componentResized(java.awt.event.ComponentEvent e) { for(Component child:getComponents())child.invalidate(); revalidate(); } }); setLayout(new BoxLayout(this, BoxLayout.Y_AXIS)); setBorder(BorderFactory.createEmptyBorder(16,20,16,20)); }
     String text() { return text; }
     void scale(float value) { scale = value; }
     void render(List<DesktopStore.Message> messages, Strings strings) {
@@ -25,8 +25,12 @@ final class MessagePane extends JPanel implements Scrollable {
             String receipt = DateTimeFormatter.ofPattern("HH:mm").format(when) + (message.outgoing() ? " · " + strings.text(message.status()) : "");
             content.append(message.body()).append('\n').append(receipt).append('\n');
             Bubble bubble = new Bubble(message.body(), receipt, message.outgoing());
-            JPanel row = new JPanel() { public Dimension getMaximumSize() { return new Dimension(Integer.MAX_VALUE,bubble.getPreferredSize().height); } }; row.setOpaque(false); row.setLayout(new BoxLayout(row, BoxLayout.X_AXIS)); row.setAlignmentX(.5f);
-            if (message.outgoing()) row.add(Box.createHorizontalGlue()); row.add(bubble); if (!message.outgoing()) row.add(Box.createHorizontalGlue());
+            JPanel row = new JPanel(null) {
+                public Dimension getPreferredSize() { return new Dimension(Math.max(200,MessagePane.this.getWidth()-40),bubble.getPreferredSize().height); }
+                public Dimension getMaximumSize() { return new Dimension(Integer.MAX_VALUE,bubble.getPreferredSize().height); }
+                public void doLayout() { Dimension size=bubble.getPreferredSize(); bubble.setBounds(message.outgoing()?Math.max(0,getWidth()-size.width):0,0,Math.min(getWidth(),size.width),size.height); }
+            };
+            row.setOpaque(false); row.setAlignmentX(.5f); row.add(bubble);
             add(row); add(Box.createVerticalStrut(10));
         }
         if (messages.isEmpty()) { JLabel empty = new JLabel(strings.text("noMessages")); empty.setForeground(AppTheme.muted); empty.setAlignmentX(.5f); add(Box.createVerticalStrut(40)); add(empty); }
@@ -36,13 +40,13 @@ final class MessagePane extends JPanel implements Scrollable {
         private final JTextArea body; private final JLabel receipt; private final boolean outgoing;
         Bubble(String text, String status, boolean outgoing) {
             this.outgoing=outgoing; setOpaque(false); setLayout(new BorderLayout(0,6)); setBorder(BorderFactory.createEmptyBorder(12,16,10,16));
-            body=new JTextArea(text); body.setEditable(false); body.setOpaque(false); body.setLineWrap(true); body.setWrapStyleWord(true); body.setForeground(AppTheme.ink); body.setFont(body.getFont().deriveFont(15f*scale));
+            body=new JTextArea(text); body.setMargin(new Insets(0,0,0,0)); body.setBorder(BorderFactory.createEmptyBorder()); body.setEditable(false); body.setOpaque(false); body.setLineWrap(true); body.setWrapStyleWord(true); body.setForeground(AppTheme.ink); body.setFont(body.getFont().deriveFont(15f*scale));
             body.getAccessibleContext().setAccessibleName(text);
             receipt=new JLabel(status, SwingConstants.RIGHT); receipt.setForeground(AppTheme.muted); receipt.setFont(receipt.getFont().deriveFont(12f*scale));
             add(body,BorderLayout.CENTER); add(receipt,BorderLayout.SOUTH);
         }
         public Dimension getPreferredSize() {
-            int available = Math.max(200, MessagePane.this.getParent()==null ? 500 : MessagePane.this.getParent().getWidth()-40);
+            int available = Math.max(200, MessagePane.this.getWidth()==0 ? 600 : MessagePane.this.getWidth()-40);
             FontMetrics m=body.getFontMetrics(body.getFont()); int natural=0; for(String s:body.getText().split("\n",-1)) natural=Math.max(natural,m.stringWidth(s));
             int width=Math.min((int)(available*.78),Math.max(Math.max(natural,receipt.getPreferredSize().width)+32,90));
             body.setSize(Math.max(40,width-32),Integer.MAX_VALUE/100); return new Dimension(width,body.getPreferredSize().height+receipt.getPreferredSize().height+28);

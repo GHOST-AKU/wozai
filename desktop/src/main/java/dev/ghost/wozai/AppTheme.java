@@ -38,6 +38,10 @@ final class AppTheme {
     static void primary(JButton button) { button.putClientProperty("wozai.primary",true); button.putClientProperty("FlatLaf.style", "background: " + hex(accent) + "; foreground: " + hex(accentInk) + "; borderWidth: 0; arc: 24"); }
     static void refreshPrimary(Component component) { if(component instanceof JButton button && Boolean.TRUE.equals(button.getClientProperty("wozai.primary")))primary(button); if(component instanceof Container container)for(Component child:container.getComponents())refreshPrimary(child); }
     static String hex(Color c) { return String.format("#%06x", c.getRGB() & 0xffffff); }
+    static final class SurfacePanel extends JPanel {
+        SurfacePanel(LayoutManager layout) { super(layout); setOpaque(false); }
+        protected void paintComponent(Graphics g) { Graphics2D p=(Graphics2D)g.create(); p.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON); p.setColor(surface); p.fillRoundRect(0,0,getWidth(),getHeight(),28,28); p.dispose(); super.paintComponent(g); }
+    }
     static final class Avatar extends JComponent {
         private final String name;
         Avatar(String name) { this.name = name; setPreferredSize(new Dimension(48,48)); }
