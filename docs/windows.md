@@ -8,6 +8,8 @@ Windows 10/11 x64 是本轮目标。解压 `WoZai-0.2.0-windows-x64.zip` 后，�
 
 GitHub Actions 的 `wozai-windows-x64` artifact 也是 ZIP，下载后直接解压即可得到 `WoZai` 目录。
 
+本轮便携包可从[已通过的 Windows 构建](https://github.com/GHOST-AKU/wozai/actions/runs/36981099581)底部 Artifacts 下载 `wozai-windows-x64`。
+
 1. 电脑与手机加入同一 Wi-Fi 或手机热点。双方在「附近」开启局域网接收。
 2. 若 Windows 防火墙提示网络访问，请允许应用在你使用的私人网络上接收连接。
 3. 选择附近设备并「连接并记住」，或输入对方「我的连接」中的完整 IP 与端口。
@@ -77,6 +79,8 @@ java -cp 'desktop/build/classes:desktop/build/tests:desktop/build/lib/*' dev.gho
 
 桌面 UI 检查涵盖选择历史会话、草稿恢复、中英文切换、文字缩放、接收/许可按钮、双向通信、回执显示、连接中语言切换，以及关闭窗口保存草稿并释放数据锁。
 
-Windows runner 已通过 52 项桌面检查（额外检查 DPAPI 保存格式）、原有 55 项协议/信任检查、真实 mDNS 及原生 GUI 测试，并生成带运行时的便携 ZIP，见 [首次 Windows 构建记录](https://github.com/GHOST-AKU/wozai/actions/runs/36979391767)。另有打包后 `.exe` 启动、窗口与正常退出的检查脚本 `desktop/tools/test-package.ps1`；最终构建链接会记录其执行结果。
+Windows runner 已通过 55 项桌面检查（比 Linux 多一项 DPAPI 保存格式检查）、原有 55 项协议/信任检查、真实 mDNS 及原生 GUI 测试，并生成带运行时的便携 ZIP，见[最终 Windows 构建记录](https://github.com/GHOST-AKU/wozai/actions/runs/36981099581)。该构建还直接启动打包后的 `WoZai.exe`，确认中文聊天窗口、DPAPI 身份、Access Bridge 工具、运行时许可和正常退出；使用包内精简运行时执行的完整 GUI 通信测试也通过。界面截图位于 `windows-preview-verification` artifact。
+
+包内应用代码来自功能提交 `dba23ab`。专用构建分支只将已有手动构建入口用于执行 Windows 检查；功能分支新增独立的 Windows 工作流，原 Android 工作流仍保留。此记录补充后的源代码差异只有本文档。
 
 以上 TCP 测试使用 Android 的同一协议核心，不代替实体 Windows 电脑与 Android 手机在真实 Wi-Fi、防火墙和热点环境里的双机验收。
