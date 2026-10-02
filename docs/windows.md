@@ -4,7 +4,7 @@
 
 ## 使用与下载
 
-目标平台 Windows 10/11 x64。下载 GitHub Actions 的 `wozai-windows-x64` artifact，解压后运行 `WoZai/WoZai.exe`。保持整个软件目录完整；包内包含 Java 17 运行时和 Windows 蓝牙桥接库，无需另外安装 Java。原版安卓图标同时用于窗口和 EXE 启动器。
+目标平台 Windows 10/11 x64。从[Windows 构建页面](https://github.com/GHOST-AKU/wozai/actions/runs/36987324600)底部 Artifacts 下载 `wozai-windows-x64` artifact，解压后运行 `WoZai/WoZai.exe`。保持整个软件目录完整；包内包含 Java 17 运行时和 Windows 蓝牙桥接库，无需另外安装 Java。原版安卓图标同时用于窗口和 EXE 启动器。
 
 这是未签名的便携预览版，没有安装器、开机启动或托盘常驻。请将软件放在当前用户可读写的位置，例如 `D:\Apps\WoZai`，避免受保护的 `Program Files` 目录。
 
@@ -84,3 +84,7 @@ Linux 仅验证 Java、局域网与界面，蓝牙明确显示平台不可用。
 界面检查通过真实窗口操作验证昵称搜索、安卓主题、语言与文字大小、草稿、双向消息和回执。Windows 工作流另行验证真正的 `WoZai.exe`、自带运行时、中文标题、DPAPI 身份、默认便携目录与正常退出。
 
 构建机没有蓝牙无线硬件。原生编译、JNI 与字节流测试不能证明实体 Windows ↔ Android 蓝牙互通，需要在真实适配器、配对和手机接收环境中验收。
+
+Windows 最终构建记录：[36987324600](https://github.com/GHOST-AKU/wozai/actions/runs/36987324600)。应用源代码为 `2e4a8f9`；后续提交仅补充下载与验证说明。功能分支保留独立 Windows 手动工作流，专用构建分支借用已有的手动入口执行 Windows 检查，不改变 Android 工作流。
+
+最终 Windows 构建全部通过：55 项桌面检查、81 项便携目录与迁移检查、54 项蓝牙接口/JNI 检查，以及原生生命周期、蓝牙路由模拟、原有协议/信任、真实 mDNS 和界面操作。直接启动 `WoZai.exe` 验证了默认软件旁目录、DPAPI、中文标题和正常退出；包内运行时的界面收发与浅色/深色检查也通过。截图包含浅色、深色及打包后中文窗口。
