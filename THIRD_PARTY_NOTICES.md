@@ -41,4 +41,4 @@ Licensed under Apache License, Version 2.0. The upstream license is retained at 
 | `outline_bluetooth_24.xml` | `device/bluetooth/materialiconsoutlined/black/res/drawable` |
 | `outline_wifi_24.xml` | `notification/wifi/materialiconsoutlined/black/res/drawable` |
 
-The Windows resources under `desktop/src/main/resources/dev/ghost/wozai/icons/` rasterize seven of these same Android vector paths for runtime tinting. The original Material Icons license is also included in the Windows package. `desktop/assets/wozai.ico` converts the original Android launcher artwork into Windows ICO sizes without changing the design.
+The Windows resources under `desktop/src/main/resources/dev/ghost/wozai/icons/` rasterize seven of these same Android vector paths for runtime tinting. The original Material Icons license is also included in the Windows package. The shared app artwork is maintained at `desktop/assets/icons/master/icon-master-1024.png`; `desktop/assets/icons/windows/nearbyim.ico` contains the Windows launcher sizes.

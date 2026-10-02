@@ -4,7 +4,7 @@
 
 ## 使用与下载
 
-目标平台 Windows 10/11 x64。从[最新构建页面](https://github.com/GHOST-AKU/wozai/actions/runs/37014761654)底部 Artifacts 下载 [NearbyIM-0.3.1-windows-x64](https://github.com/GHOST-AKU/wozai/actions/runs/37014761654/artifacts/11229477243)，解压后运行 `NearbyIM/NearbyIM.exe`。保持整个软件目录完整；包内包含 Java 17 运行时、思源黑体和 Windows 蓝牙桥接库，无需另外安装 Java 或字体。原版安卓图标同时用于窗口和 EXE 启动器。
+目标平台 Windows 10/11 x64。从[最新构建页面](https://github.com/GHOST-AKU/wozai/actions/runs/37014761654)底部 Artifacts 下载 [NearbyIM-0.3.1-windows-x64](https://github.com/GHOST-AKU/wozai/actions/runs/37014761654/artifacts/11229477243)，解压后运行 `NearbyIM/NearbyIM.exe`。保持整个软件目录完整；包内包含 Java 17 运行时、思源黑体和 Windows 蓝牙桥接库，无需另外安装 Java 或字体。Windows 窗口与 EXE 使用同一纸杯电话主图；平台资源目录见[图标说明](app-icon.md)。
 
 这是未签名的便携预览版，没有安装器、开机启动或托盘常驻。请将软件放在当前用户可读写的位置，例如 `D:\Apps\NearbyIM`，避免受保护的 `Program Files` 目录。
 
@@ -46,7 +46,7 @@ Windows 私钥仍使用 DPAPI CurrentUser 保护。同一用户在本机移动�
 
 ## 界面、语言与无障碍
 
-安卓配色映射在 `AppTheme` 中；FlatLaf 提供现代 Swing 控件样式，自绘气泡复用安卓视觉规则。Material 图标直接来自安卓已有的 Google 路径；Windows ICO 来自安卓原始启动图，没有重画图案。
+安卓配色映射在 `AppTheme` 中；FlatLaf 提供现代 Swing 控件样式，自绘气泡复用安卓视觉规则。Material 图标直接来自安卓已有的 Google 路径；Windows 启动器使用 `desktop/assets/icons/windows/nearbyim.ico`，基于共享主图导出，没有重画图案。安卓、Windows 与 Linux 图标文件的来源和目录约定见[多平台图标说明](app-icon.md)。
 
 提供跟随系统／简体中文／英语／繁体中文／日语／韩语、浅色／深色主题、三个文字大小。两端共用 `i18n/messages` 文案目录和 ICU 格式，错误、状态、日期、权限说明、帮助与关于均通过显示层翻译，新增语言流程见 [多语言架构](i18n.md)。切换语言或主题保留连接、聊天和输入。会话按实际最后消息时间排序，搜索本机昵称；已连接状态来自真实会话，不根据 Wi-Fi 或配对记录推断。消息可选择复制，布局按窗口宽度重排。
 
