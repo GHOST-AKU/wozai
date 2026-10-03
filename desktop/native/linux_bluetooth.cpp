@@ -379,14 +379,19 @@ public:
             g_variant_builder_add(&options, "{sv}", "RequireAuthorization", g_variant_new_boolean(FALSE));
             g_variant_builder_add(&options, "{sv}", "AutoConnect", g_variant_new_boolean(FALSE));
             g_variant_builder_add(&options, "{sv}", "Channel", g_variant_new_uint16(0));
+            // Keep an idle exported profile while the registration result is
+            // uncertain. BlueZ may accept the UUID even if its reply is lost;
+            // the next attempt must confirm removal before registering again.
+            profiles.emplace(path, Profile{nullptr, object, {}});
             try {
                 Variant result(call("/org/bluez", "org.bluez.ProfileManager1", "RegisterProfile",
                         g_variant_new("(os@a{sv})", path.c_str(), serviceUuid, g_variant_builder_end(&options))));
                 { std::lock_guard<std::mutex> lock(state->mutex); state->profile = path; }
                 Profile profile{server ? state : nullptr, object, {}};
                 if (!server) profile.sockets.push_back(state);
-                profiles.emplace(path, std::move(profile)); watch(state);
-            } catch (...) { g_dbus_connection_unregister_object(bus, object); throw; }
+                profiles.at(path) = std::move(profile); watch(state);
+            } catch (const NativeError&) { throw; }
+            catch (...) { g_dbus_connection_unregister_object(bus, object); profiles.erase(path); throw; }
         });
     }
     std::string beginDeviceDisconnect(const std::shared_ptr<State>& state, const std::string& device, const std::string& path) {

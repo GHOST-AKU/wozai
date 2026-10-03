@@ -28,6 +28,8 @@ public:
     std::atomic<GDBusMethodInvocation*> pendingCancel{nullptr};
     std::atomic<int> unregisterFault{0}; // 1=error, 2=timeout/retained, 3=timeout/removed, 4=absent.
     std::atomic<GDBusMethodInvocation*> pendingUnregister{nullptr};
+    std::atomic<int> registerFault{0}; // 1=timeout/accepted, 2=timeout/absent, 3=denied.
+    std::atomic<GDBusMethodInvocation*> pendingRegister{nullptr};
     std::deque<int> peers;
     GVariant* managedObjects() {
         GVariantBuilder tree, interfaces, properties;
@@ -66,7 +68,16 @@ public:
                 if (!self.profiles.empty()) {
                     g_dbus_method_invocation_return_dbus_error(invocation, "org.bluez.Error.NotPermitted", "UUID already registered"); return;
                 }
+                if (self.registerFault == 3) {
+                    g_dbus_method_invocation_return_dbus_error(invocation, "org.bluez.Error.NotPermitted", "Registration denied"); return;
+                }
+                if (self.registerFault == 2) {
+                    self.pendingRegister = static_cast<GDBusMethodInvocation*>(g_object_ref(invocation)); return;
+                }
                 self.profiles.push_back({sender, path, role});
+                if (self.registerFault == 1) {
+                    self.pendingRegister = static_cast<GDBusMethodInvocation*>(g_object_ref(invocation)); return;
+                }
             } else if (!std::strcmp(name, "UnregisterProfile")) {
                 const char* path; g_variant_get(args, "(&o)", &path);
                 std::lock_guard<std::mutex> lock(self.mutex);
@@ -249,6 +260,26 @@ void receptionLifecycle(BluezDouble& mock) {
     check(waiting.wait_for(80ms) == std::future_status::timeout, "Second accept did not block"); closeState(server);
     check(waiting.wait_for(2s) == std::future_status::ready && waiting.get(), "Stop reception did not cancel accept");
 }
+void registerFailureRecovery(BluezDouble& mock) {
+    for (int fault : {1, 2, 3}) {
+        mock.registerFault = fault;
+        check(fails([&] { listen(); }), "Failed profile registration reported a listener");
+        mock.registerFault = 0;
+        if (auto delayed = mock.pendingRegister.exchange(nullptr)) {
+            g_dbus_method_invocation_return_value(delayed, nullptr); g_object_unref(delayed);
+        }
+        auto restored = listen();
+        auto profile = mock.profile("both");
+        { std::lock_guard<std::mutex> lock(mock.mutex); check(mock.profiles.size() == 1, "Retry left duplicate profile registrations"); }
+        int descriptors[2]; check(socketpair(AF_UNIX, SOCK_STREAM, 0, descriptors) == 0, "Test socketpair failed");
+        Remote peer(descriptors[1]); mock.deliver(profile, descriptors[0]); ::close(descriptors[0]);
+        auto connection = acceptSocket(restored);
+        char sent = 't', received = 0; check(::write(peer.fd, &sent, 1) == 1, "Recovered registration peer could not write");
+        check(readSocket(connection, &received, 1) == 1 && received == sent, "Recovered registration did not deliver bytes");
+        closeState(connection); closeState(restored);
+        { std::lock_guard<std::mutex> lock(mock.mutex); check(mock.profiles.empty(), "Recovered registration did not unregister"); }
+    }
+}
 void unregisterFailureRecovery(BluezDouble& mock) {
     for (int fault : {1, 2, 3, 4}) {
         auto original = listen(); mock.unregisterFault = fault;
@@ -378,7 +409,7 @@ int main(int argc, char** argv) {
         const char* address = std::getenv("DBUS_SESSION_BUS_ADDRESS"); if (!address) throw NativeError("Run tests inside dbus-run-session");
         g_setenv("DBUS_SYSTEM_BUS_ADDRESS", address, TRUE);
         auto& mock = *new BluezDouble();
-        scanLifecycle(mock); connectionAndStream(mock); receptionLifecycle(mock); unregisterFailureRecovery(mock); duplicateConnectionPreservesChat(mock); disconnectedQueuePreservesReception(mock); cancelPairingAndConnect(mock); adapterLoss(mock);
+        scanLifecycle(mock); connectionAndStream(mock); receptionLifecycle(mock); registerFailureRecovery(mock); unregisterFailureRecovery(mock); duplicateConnectionPreservesChat(mock); disconnectedQueuePreservesReception(mock); cancelPairingAndConnect(mock); adapterLoss(mock);
         if (argc > 1) {
             mock.routeToServer = true;
             gint status; GError* error = nullptr;
