@@ -8,7 +8,7 @@ Windows 0.3.1 预览版包含局域网发现、IP 直连、经典蓝牙、文字
 
 Linux 0.3.1 预览版复用桌面界面、字体和五语资源，支持局域网和 BlueZ 经典蓝牙 RFCOMM、可信重连、回执、历史与草稿。提供自带 Java 的 tar.gz 与 deb 包，以及桌面菜单入口；数据位于 XDG 用户目录，移动程序或安装到只读目录不会改变设备身份。使用、构建与下载见 [Linux 说明](docs/linux.md)，自动验证及真实设备验收范围见 [Linux 验证记录](docs/linux-verification.md)。
 
-当前已知限制、用户反馈和待验收事项见 [未解决问题清单](docs/open-issues.md)。
+当前问题通过 [GitHub Issues](https://github.com/GHOST-AKU/wozai/issues) 跟进：[Windows 有线网络发现 #5](https://github.com/GHOST-AKU/wozai/issues/5)、[同时多人私聊 #6](https://github.com/GHOST-AKU/wozai/issues/6)、[桌面蓝牙真机验收 #7](https://github.com/GHOST-AKU/wozai/issues/7)、[Android 签名与升级 #8](https://github.com/GHOST-AKU/wozai/issues/8)。
 
 ## 已实现的功能
 
