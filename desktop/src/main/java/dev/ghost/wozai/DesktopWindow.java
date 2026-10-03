@@ -76,8 +76,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         String language = store.language();
         AppTheme.install(store.setting("theme", "light").equals("dark"));
         strings = new Strings(language); nicknameValue = store.nickname();
-        var artwork = DesktopWindow.class.getResource("app-icon.png");
-        if (artwork != null) setIconImage(Toolkit.getDefaultToolkit().getImage(artwork));
+        setIconImages(AppIcons.load());
         client = new DesktopClient(store, identity, this);
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
         setMinimumSize(new Dimension(760, 540)); setSize(1060, 730); setLocationByPlatform(true);

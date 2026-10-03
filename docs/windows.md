@@ -4,7 +4,7 @@
 
 ## 使用与下载
 
-目标平台 Windows 10/11 x64。从[最新构建页面](https://github.com/GHOST-AKU/wozai/actions/runs/37100265708)底部 Artifacts 下载 [NearbyIM-0.3.1-windows-x64](https://github.com/GHOST-AKU/wozai/actions/runs/37100265708/artifacts/11265841287)，解压后运行 `NearbyIM/NearbyIM.exe`。保持整个软件目录完整；包内包含 Java 17 运行时、思源黑体和 Windows 蓝牙桥接库，无需另外安装 Java 或字体。Windows 窗口与 EXE 使用同一纸杯电话主图；平台资源目录见[图标说明](app-icon.md)。
+目标平台 Windows 10/11 x64。从[最新构建页面](https://github.com/GHOST-AKU/wozai/actions/runs/37100265708)底部 Artifacts 下载 [NearbyIM-0.3.1-windows-x64](https://github.com/GHOST-AKU/wozai/actions/runs/37100265708/artifacts/11265841287)，解压后运行 `NearbyIM/NearbyIM.exe`。保持整个软件目录完整；包内包含 Java 17 运行时、思源黑体和 Windows 蓝牙桥接库，无需另外安装 Java 或字体。Windows 窗口与 EXE 使用正式 ICO 的 16–256px 多尺寸图像；平台资源与原包校验见[图标说明](app-icon.md)。
 
 这是未签名的便携预览版，没有安装器、开机启动或托盘常驻。请将软件放在当前用户可读写的位置，例如 `D:\Apps\NearbyIM`，避免受保护的 `Program Files` 目录。
 

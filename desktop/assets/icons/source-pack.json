@@ -1,0 +1,211 @@
+{
+  "archive_name": "app_icon_pack_android_windows_linux.zip",
+  "archive_sha256": "9d5a248af4cbd028c39682457e3aabd80ad5963e19f628ff41dbcb27d50f7e27",
+  "assets": [
+    {
+      "entry": "windows/app-512.png",
+      "path": "desktop/assets/icons/windows/nearbyim-512.png",
+      "sha256": "f4abe306b579be0ae0f111c73d735c4b1b5fda6aa32e1132eb3f9d7168e350c6"
+    },
+    {
+      "entry": "windows/app-256.png",
+      "path": "desktop/assets/icons/windows/nearbyim-256.png",
+      "sha256": "faefe3a912705834f98bf02b709f392f73881bc0bc3fcec6ee4388f92d3ca36d"
+    },
+    {
+      "entry": "windows/app.ico",
+      "path": "desktop/assets/icons/windows/nearbyim.ico",
+      "sha256": "83328e9b3a0d183db4c13b8a66fb41f53441300feda68ee39d6e2a0b9da9fff8"
+    },
+    {
+      "entry": "android/app/src/main/res/mipmap-xxhdpi/ic_launcher_foreground.png",
+      "path": "app/src/main/res/mipmap-xxhdpi/ic_launcher_foreground.png",
+      "sha256": "fbac222532b106c562e3428a5f9186e2c2bd0c83895fed5ce5710aabe058efab"
+    },
+    {
+      "entry": "android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png",
+      "path": "app/src/main/res/mipmap-xxhdpi/ic_launcher.png",
+      "sha256": "a691d87e3670a06d191a94a4f57f22adf217ad12c25c54693fe994084f44d708"
+    },
+    {
+      "entry": "android/app/src/main/res/mipmap-xxhdpi/ic_launcher_monochrome.png",
+      "path": "app/src/main/res/mipmap-xxhdpi/ic_launcher_monochrome.png",
+      "sha256": "ffb1e20cb87c776ee65c78e2f4289bdb2239a68a69433d3b3ed7ad1276dc5f2a"
+    },
+    {
+      "entry": "android/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png",
+      "path": "app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png",
+      "sha256": "a691d87e3670a06d191a94a4f57f22adf217ad12c25c54693fe994084f44d708"
+    },
+    {
+      "entry": "android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml",
+      "path": "app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml",
+      "sha256": "5056b7226b3f58e65a61739e8ab6f5c52099fccee3ae9aad0e8856f31709e3fa"
+    },
+    {
+      "entry": "android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml",
+      "path": "app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml",
+      "sha256": "5056b7226b3f58e65a61739e8ab6f5c52099fccee3ae9aad0e8856f31709e3fa"
+    },
+    {
+      "entry": "android/app/src/main/res/mipmap-hdpi/ic_launcher_foreground.png",
+      "path": "app/src/main/res/mipmap-hdpi/ic_launcher_foreground.png",
+      "sha256": "60e6375c4856daa486d80690159c594e9edec1dea2e22051b4981e0ff2e2be4d"
+    },
+    {
+      "entry": "android/app/src/main/res/mipmap-hdpi/ic_launcher.png",
+      "path": "app/src/main/res/mipmap-hdpi/ic_launcher.png",
+      "sha256": "70b562f7219169b7f3bdf1088dc79c2b31a7fa876a7a852d7ed3345d5939f887"
+    },
+    {
+      "entry": "android/app/src/main/res/mipmap-hdpi/ic_launcher_monochrome.png",
+      "path": "app/src/main/res/mipmap-hdpi/ic_launcher_monochrome.png",
+      "sha256": "688b9a4a411adfb75a6c34c16ef08737a4fdd7cc0b96c62702eb8463e5970a7f"
+    },
+    {
+      "entry": "android/app/src/main/res/mipmap-hdpi/ic_launcher_round.png",
+      "path": "app/src/main/res/mipmap-hdpi/ic_launcher_round.png",
+      "sha256": "70b562f7219169b7f3bdf1088dc79c2b31a7fa876a7a852d7ed3345d5939f887"
+    },
+    {
+      "entry": "android/app/src/main/res/values/colors.xml",
+      "path": "app/src/main/res/values/icon_colors.xml",
+      "sha256": "7329e8882cce1b0c898bffb626264a7e90c943558508fcf00f912d7f53cdaf2a"
+    },
+    {
+      "entry": "android/app/src/main/res/mipmap-anydpi-v33/ic_launcher.xml",
+      "path": "app/src/main/res/mipmap-anydpi-v33/ic_launcher.xml",
+      "sha256": "5bef67e3eba5c56f6ca0f96173c76e654977bce5ea91f0161fce94c5f52bbef7"
+    },
+    {
+      "entry": "android/app/src/main/res/mipmap-anydpi-v33/ic_launcher_round.xml",
+      "path": "app/src/main/res/mipmap-anydpi-v33/ic_launcher_round.xml",
+      "sha256": "5bef67e3eba5c56f6ca0f96173c76e654977bce5ea91f0161fce94c5f52bbef7"
+    },
+    {
+      "entry": "android/app/src/main/res/mipmap-mdpi/ic_launcher_foreground.png",
+      "path": "app/src/main/res/mipmap-mdpi/ic_launcher_foreground.png",
+      "sha256": "687507144433419c1bdfaef934bea4e63d1b3a53e7a2e628acc795884ad0764c"
+    },
+    {
+      "entry": "android/app/src/main/res/mipmap-mdpi/ic_launcher.png",
+      "path": "app/src/main/res/mipmap-mdpi/ic_launcher.png",
+      "sha256": "59be811b837187dd39ae5ab28c3c12047e3b91a8894aeb2af73d84d363a8d944"
+    },
+    {
+      "entry": "android/app/src/main/res/mipmap-mdpi/ic_launcher_monochrome.png",
+      "path": "app/src/main/res/mipmap-mdpi/ic_launcher_monochrome.png",
+      "sha256": "f0d851a87fa3cf83c198357da4111e97931944d447a42eb3fb68621b42e8163f"
+    },
+    {
+      "entry": "android/app/src/main/res/mipmap-mdpi/ic_launcher_round.png",
+      "path": "app/src/main/res/mipmap-mdpi/ic_launcher_round.png",
+      "sha256": "59be811b837187dd39ae5ab28c3c12047e3b91a8894aeb2af73d84d363a8d944"
+    },
+    {
+      "entry": "android/app/src/main/res/mipmap-xhdpi/ic_launcher_foreground.png",
+      "path": "app/src/main/res/mipmap-xhdpi/ic_launcher_foreground.png",
+      "sha256": "52f8ff141082e36ed6211b9d943728f3d407f294e0d0ff4cbf9880c3effadc06"
+    },
+    {
+      "entry": "android/app/src/main/res/mipmap-xhdpi/ic_launcher.png",
+      "path": "app/src/main/res/mipmap-xhdpi/ic_launcher.png",
+      "sha256": "d0e38e313f4c17ad036e135b8b30eb0132794c009543924eb9ab44f5c407a9a2"
+    },
+    {
+      "entry": "android/app/src/main/res/mipmap-xhdpi/ic_launcher_monochrome.png",
+      "path": "app/src/main/res/mipmap-xhdpi/ic_launcher_monochrome.png",
+      "sha256": "263279a421efec3a4fa8dc11f26b1bab906d9beb38b99e32336654d3dd17d563"
+    },
+    {
+      "entry": "android/app/src/main/res/mipmap-xhdpi/ic_launcher_round.png",
+      "path": "app/src/main/res/mipmap-xhdpi/ic_launcher_round.png",
+      "sha256": "d0e38e313f4c17ad036e135b8b30eb0132794c009543924eb9ab44f5c407a9a2"
+    },
+    {
+      "entry": "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png",
+      "path": "app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png",
+      "sha256": "6734cc38c640b5d096c7f66e7c4fa11278b4f0ff9637d8b9b01d1f96108df7e3"
+    },
+    {
+      "entry": "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+      "path": "app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+      "sha256": "911f45f0c6dfad4e4a759d06d4acd500b46aace4d66345124cfbfde453a8c27e"
+    },
+    {
+      "entry": "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_monochrome.png",
+      "path": "app/src/main/res/mipmap-xxxhdpi/ic_launcher_monochrome.png",
+      "sha256": "2aa7d4cb44f8b7b2977284bb544c3cce901a3ac4fbc350470cf148d5b9df8724"
+    },
+    {
+      "entry": "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png",
+      "path": "app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png",
+      "sha256": "911f45f0c6dfad4e4a759d06d4acd500b46aace4d66345124cfbfde453a8c27e"
+    },
+    {
+      "entry": "android/play-store/play-store-icon-512.png",
+      "path": "app/store/play-store-icon-512.png",
+      "sha256": "f4abe306b579be0ae0f111c73d735c4b1b5fda6aa32e1132eb3f9d7168e350c6"
+    },
+    {
+      "entry": "linux/hicolor/96x96/apps/papercup-phone.png",
+      "path": "desktop/assets/icons/linux/hicolor/96x96/apps/nearbyim.png",
+      "sha256": "d0e38e313f4c17ad036e135b8b30eb0132794c009543924eb9ab44f5c407a9a2"
+    },
+    {
+      "entry": "linux/hicolor/32x32/apps/papercup-phone.png",
+      "path": "desktop/assets/icons/linux/hicolor/32x32/apps/nearbyim.png",
+      "sha256": "6cf98096b6da7730bd06566aa62753b310cf5c3124739e037fc60d9244ea11ed"
+    },
+    {
+      "entry": "linux/hicolor/24x24/apps/papercup-phone.png",
+      "path": "desktop/assets/icons/linux/hicolor/24x24/apps/nearbyim.png",
+      "sha256": "319166ada9f4da79ecaa4c43ac2ee8f87fe0e7bb3c3fa0b2e2e53f97f47334ee"
+    },
+    {
+      "entry": "linux/hicolor/512x512/apps/papercup-phone.png",
+      "path": "desktop/assets/icons/linux/hicolor/512x512/apps/nearbyim.png",
+      "sha256": "f4abe306b579be0ae0f111c73d735c4b1b5fda6aa32e1132eb3f9d7168e350c6"
+    },
+    {
+      "entry": "linux/hicolor/22x22/apps/papercup-phone.png",
+      "path": "desktop/assets/icons/linux/hicolor/22x22/apps/nearbyim.png",
+      "sha256": "1faa80a6e155f84ffb211557a1caeaee066e124cb1189d62d66f4953fbf2932b"
+    },
+    {
+      "entry": "linux/hicolor/128x128/apps/papercup-phone.png",
+      "path": "desktop/assets/icons/linux/hicolor/128x128/apps/nearbyim.png",
+      "sha256": "7a86f72614e46f351d90d68b829fabdef9c5383c7a228802b16052d9c1c73271"
+    },
+    {
+      "entry": "linux/hicolor/64x64/apps/papercup-phone.png",
+      "path": "desktop/assets/icons/linux/hicolor/64x64/apps/nearbyim.png",
+      "sha256": "3a9ca759b00d243c7cde8f3ce018477fa0df9375b66acfbf379fa204354df946"
+    },
+    {
+      "entry": "linux/hicolor/256x256/apps/papercup-phone.png",
+      "path": "desktop/assets/icons/linux/hicolor/256x256/apps/nearbyim.png",
+      "sha256": "faefe3a912705834f98bf02b709f392f73881bc0bc3fcec6ee4388f92d3ca36d"
+    },
+    {
+      "entry": "linux/hicolor/48x48/apps/papercup-phone.png",
+      "path": "desktop/assets/icons/linux/hicolor/48x48/apps/nearbyim.png",
+      "sha256": "59be811b837187dd39ae5ab28c3c12047e3b91a8894aeb2af73d84d363a8d944"
+    },
+    {
+      "entry": "linux/hicolor/16x16/apps/papercup-phone.png",
+      "path": "desktop/assets/icons/linux/hicolor/16x16/apps/nearbyim.png",
+      "sha256": "30f0ccb5af881e4117b139d94d68fecbc85f65e813b4c11c14c22e4ba932f94d"
+    },
+    {
+      "entry": "master/original-upload.png",
+      "path": "desktop/assets/icons/master/original-upload.png",
+      "sha256": "9ed1a021ad7758e91a2587ff79674291a6bfce9c36f112ea697228dfe47bab43"
+    },
+    {
+      "entry": "master/icon-master-1024.png",
+      "path": "desktop/assets/icons/master/icon-master-1024.png",
+      "sha256": "ed0c5b72e076b90af6bc20c08678d12e3d8a9dba5b2be3be2f199bdb5d0b90db"
+    }
+  ]
+}

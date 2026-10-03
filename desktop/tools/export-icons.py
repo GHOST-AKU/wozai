@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Regenerate desktop icons from the shared app icon master and Android vectors.
+"""Regenerate desktop toolbar icons from the Material Android vectors.
 Developer-only dependencies: Pillow and CairoSVG. Packaged builds use saved assets.
 """
 from pathlib import Path
 import xml.etree.ElementTree as ET
-from PIL import Image
 import cairosvg
 
 root = Path(__file__).resolve().parents[2]
@@ -16,6 +15,3 @@ for name in ('chat_bubble', 'wifi_tethering', 'settings', 'search', 'bluetooth',
     paths = ''.join('<path fill="#ffffff" d="' + path.attrib[android + 'pathData'] + '"/>' for path in vector)
     svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">' + paths + '</svg>'
     cairosvg.svg2png(bytestring=svg.encode(), write_to=str(output / (name + '.png')), output_width=96, output_height=96)
-Image.open(root / 'desktop/assets/icons/master/icon-master-1024.png').save(
-    root / 'desktop/assets/icons/windows/nearbyim.ico',
-    sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)])

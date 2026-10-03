@@ -4,6 +4,7 @@ cd "$(dirname "$0")/.."
 if [ -n "${JAVA_HOME:-}" ]; then PATH="$JAVA_HOME/bin:$PATH"; export PATH; fi
 for tool in java javac jar; do command -v "$tool" >/dev/null || { echo "A full JDK 17 is required ($tool missing)." >&2; exit 1; }; done
 python3 ../tools/generate-i18n.py --check
+python3 ../tools/check-app-icons.py
 python3 tools/test-linux-runtime-dependencies.py
 mkdir -p build/lib build/classes build/tests
 python3 - <<'PY'
@@ -37,14 +38,17 @@ javac --release 17 -encoding UTF-8 -cp 'build/lib/*' -d build/classes @build/sou
 cp -R src/main/resources/. build/classes/
 mkdir -p build/classes/dev/ghost/wozai/fonts
 cp build/fonts/*.otf build/classes/dev/ghost/wozai/fonts/
-cp ../app/src/main/res/drawable-nodpi/ic_launcher_artwork.png build/classes/dev/ghost/wozai/app-icon.png
+mkdir -p build/classes/dev/ghost/wozai/app-icons
+for size in 16 22 24 32 48 64 96 128 256 512; do
+    cp "assets/icons/linux/hicolor/${size}x${size}/apps/nearbyim.png" "build/classes/dev/ghost/wozai/app-icons/linux-$size.png"
+done
 python3 tools/write-build-metadata.py build/classes/dev/ghost/wozai/build-info.json
 rm -f build/lib/wozai-desktop.jar
 jar --create --file build/lib/nearbyim-desktop.jar --main-class dev.ghost.wozai.Main -C build/classes .
 find src/test/java -name '*.java' > build/test-sources.txt
 javac --release 17 -encoding UTF-8 -cp 'build/classes:build/lib/*' -d build/tests @build/test-sources.txt
 library="-Dwozai.bluetooth.library=$(pwd)/build/lib/libwozai_bluetooth.so"
-for test in DesktopTests ReviewRegressionTests DataLocationTests LinuxPlatformTests BluetoothTests TransportTests StringsTests FontTests MessagePaneTests; do
+for test in DesktopTests ReviewRegressionTests DataLocationTests LinuxPlatformTests BluetoothTests TransportTests StringsTests FontTests MessagePaneTests AppIconTests; do
     java "$library" -cp 'build/classes:build/tests:build/lib/*' dev.ghost.wozai.$test
 done
 dbus-run-session -- build/native/linux_bluetooth_tests java "$library" -cp 'build/classes:build/tests:build/lib/*' dev.ghost.wozai.LinuxBluetoothWireTests

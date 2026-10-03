@@ -64,6 +64,9 @@ public final class GuiTests {
             DesktopIdentity.Identity identity = DesktopIdentity.load(root.resolve("identity.properties"));
             window = edt(() -> { AppTheme.install(false); DesktopWindow w = new DesktopWindow(store, identity, root); w.setVisible(true); return w; });
             DesktopWindow w = window;
+            if (!w.getIconImages().stream().map(image -> image.getWidth(null)).toList().equals(DesktopIdentity.windows()
+                    ? List.of(16, 24, 32, 48, 64, 128, 256) : List.of(16, 22, 24, 32, 48, 64, 96, 128, 256, 512)))
+                throw new AssertionError("Window did not install formal platform icon sizes");
             await(() -> components(w).stream().anyMatch(c -> c instanceof JList<?> l && "Chats".equals(l.getAccessibleContext().getAccessibleName()) && l.getModel().getSize() == 1), "History did not load");
             edt(() -> { components(w).stream().filter(c -> c instanceof JList<?> l && "Chats".equals(l.getAccessibleContext().getAccessibleName())).forEach(c -> ((JList<?>) c).setSelectedIndex(0)); return null; });
             await(() -> area(w, "Type a message").getText().equals("saved draft"), "UI draft did not load");

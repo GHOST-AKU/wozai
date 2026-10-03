@@ -40,4 +40,9 @@ val checkI18n by tasks.registering(Exec::class) {
     commandLine(if (System.getProperty("os.name").startsWith("Windows")) "python" else "python3",
         "tools/generate-i18n.py", "--check")
 }
-tasks.named("preBuild").configure { dependsOn(checkI18n) }
+val checkAppIcons by tasks.registering(Exec::class) {
+    workingDir(rootProject.projectDir)
+    commandLine(if (System.getProperty("os.name").startsWith("Windows")) "python" else "python3",
+        "tools/check-app-icons.py")
+}
+tasks.named("preBuild").configure { dependsOn(checkI18n, checkAppIcons) }

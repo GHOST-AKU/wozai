@@ -3,6 +3,8 @@ $ErrorActionPreference = 'Stop'
 Set-Location (Join-Path $PSScriptRoot '..')
 & python ../tools/generate-i18n.py --check
 if ($LASTEXITCODE -ne 0) { throw 'Translation catalogs or generated resources are invalid' }
+& python ../tools/check-app-icons.py
+if ($LASTEXITCODE -ne 0) { throw 'Formal app icon resources are invalid' }
 $i18nConfig = Get-Content ../i18n/config.json -Raw -Encoding UTF8 | ConvertFrom-Json
 $appVersion = $i18nConfig.appVersion
 $runtimeLocales = ($i18nConfig.languages | ForEach-Object { $_.tag }) -join ','
@@ -48,13 +50,16 @@ Invoke-JavaTool javac @('--release', '17', '-encoding', 'UTF-8', '-cp', 'build/l
 Copy-Item src/main/resources/* build/classes -Recurse -Force
 New-Item -ItemType Directory -Force build/classes/dev/ghost/wozai/fonts | Out-Null
 Copy-Item build/fonts/*.otf build/classes/dev/ghost/wozai/fonts/ -Force
-Copy-Item ../app/src/main/res/drawable-nodpi/ic_launcher_artwork.png build/classes/dev/ghost/wozai/app-icon.png -Force
+if (Test-Path build/classes/dev/ghost/wozai/app-icon.png) { Remove-Item build/classes/dev/ghost/wozai/app-icon.png -Force }
+if (Test-Path build/classes/dev/ghost/wozai/app-icons) { Remove-Item build/classes/dev/ghost/wozai/app-icons -Recurse -Force }
+New-Item -ItemType Directory -Force build/classes/dev/ghost/wozai/app-icons | Out-Null
+Copy-Item assets/icons/windows/nearbyim.ico build/classes/dev/ghost/wozai/app-icons/nearbyim.ico -Force
 & python tools/write-build-metadata.py build/classes/dev/ghost/wozai/build-info.json
 if ($LASTEXITCODE -ne 0) { throw 'Build metadata failed' }
 Invoke-JavaTool jar @('--create', '--file', 'build/lib/nearbyim-desktop.jar', '--main-class', 'dev.ghost.wozai.Main', '-C', 'build/classes', '.')
 $tests = (Get-ChildItem src/test/java -Recurse -Filter '*.java').FullName
 Invoke-JavaTool javac (@('--release', '17', '-encoding', 'UTF-8', '-cp', 'build/classes;build/lib/*', '-d', 'build/tests') + $tests)
-foreach ($test in @('DesktopTests', 'ReviewRegressionTests', 'DataLocationTests', 'BluetoothTests', 'TransportTests', 'StringsTests', 'FontTests', 'MessagePaneTests')) {
+foreach ($test in @('DesktopTests', 'ReviewRegressionTests', 'DataLocationTests', 'BluetoothTests', 'TransportTests', 'StringsTests', 'FontTests', 'MessagePaneTests', 'AppIconTests')) {
     Invoke-JavaTool java @($bluetoothLibrary, '-cp', 'build/classes;build/tests;build/lib/*', "dev.ghost.wozai.$test")
 }
 if ($Package) {
