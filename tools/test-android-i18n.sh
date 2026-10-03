@@ -3,8 +3,8 @@
 set -eu
 cd "$(dirname "$0")/.."
 mkdir -p build
-adb install -r -g app/build/outputs/apk/debug/app-debug.apk
-adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+adb install -r -g "${ANDROID_APP_APK:-app/build/outputs/apk/debug/app-debug.apk}"
+adb install -r "${ANDROID_TEST_APK:-app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk}"
 adb shell am instrument -r -w dev.ghost.nearbyim.test/dev.ghost.nearbyim.LocalizationInstrumentation > build/android-i18n-device.txt
 cat build/android-i18n-device.txt
 adb pull /sdcard/Android/data/dev.ghost.nearbyim/files/i18n build/android-i18n-screenshots || true

@@ -45,7 +45,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     private String selected, nicknameValue;
     private boolean updatingSelection, loadingDraft, shuttingDown;
     private long conversationGeneration;
-    private String renderedMessages = "";
+    private List<DesktopStore.Message> renderedMessages;
     private JDialog requestDialog;
     private final Map<String,JDialog> informationDialogs = new HashMap<>();
     private DesktopClient.Request pendingRequest;
@@ -209,11 +209,11 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         JComboBox<String> sizes=new JComboBox<>();
         translations.add(() -> { sizes.setModel(new DefaultComboBoxModel<>(new String[]{strings.text("normal"),strings.text("large"),strings.text("largest")})); sizes.setSelectedIndex(fontScale==1?0:fontScale==1.25f?1:2); });
         content.add(settingRow("fontSize",sizes,null));
-        sizes.addActionListener(e -> { if(translating||sizes.getSelectedIndex()<0)return; fontScale=new float[]{1,1.25f,1.5f}[sizes.getSelectedIndex()]; scaleFonts(getContentPane(),fontScale); transcript.scale(fontScale); renderedMessages=""; renderMessages(); handle(client.setting("textSize",Integer.toString(sizes.getSelectedIndex())),"storageFailure"); });
+        sizes.addActionListener(e -> { if(translating||sizes.getSelectedIndex()<0)return; fontScale=new float[]{1,1.25f,1.5f}[sizes.getSelectedIndex()]; scaleFonts(getContentPane(),fontScale); transcript.scale(fontScale); renderedMessages=null; renderMessages(); handle(client.setting("textSize",Integer.toString(sizes.getSelectedIndex())),"storageFailure"); });
         fontScale=new float[]{1,1.25f,1.5f}[Math.max(0,Math.min(2,Integer.parseInt(store.setting("textSize","0"))))];
         JComboBox<String> themes=new JComboBox<>(); translations.add(() -> { themes.setModel(new DefaultComboBoxModel<>(new String[]{strings.text("lightTheme"),strings.text("darkTheme")})); themes.setSelectedIndex(AppTheme.dark?1:0); });
         content.add(settingRow("theme",themes,null));
-        themes.addActionListener(e -> { if(translating)return; boolean dark=themes.getSelectedIndex()==1; if(dark==AppTheme.dark)return; AppTheme.install(dark); SwingUtilities.updateComponentTreeUI(this); styleNavigation(); AppTheme.refreshPrimary(getContentPane()); refreshThemeColors(); renderedMessages=""; renderMessages(); handle(client.setting("theme",dark?"dark":"light"),"storageFailure"); repaint(); });
+        themes.addActionListener(e -> { if(translating)return; boolean dark=themes.getSelectedIndex()==1; if(dark==AppTheme.dark)return; AppTheme.install(dark); SwingUtilities.updateComponentTreeUI(this); styleNavigation(); AppTheme.refreshPrimary(getContentPane()); refreshThemeColors(); renderedMessages=null; renderMessages(); handle(client.setting("theme",dark?"dark":"light"),"storageFailure"); repaint(); });
         content.add(section("connectionsSection")); content.add(settingAction("trustedDevices",this::manageTrust));
         content.add(settingAction("stopAll", () -> { discovery.stop(); discovered.clear(); refreshNearby(); stopBluetoothScan(); handle(client.stopListening(),"error"); handle(client.stopBluetoothListening(),"error"); handle(client.disconnect(),"error"); }));
         content.add(section("dataLocation")); JTextArea data=new JTextArea(path.toString()); data.setEditable(false); data.setLineWrap(true); data.setWrapStyleWord(false); data.setOpaque(false); data.setBorder(BorderFactory.createEmptyBorder(0,4,0,4)); translations.add(() -> data.getAccessibleContext().setAccessibleName(strings.text("dataLocation"))); content.add(data);
@@ -290,7 +290,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
             translations.forEach(Runnable::run);
             dialogTranslations.forEach((dialog, targets) -> { targets.forEach(Runnable::run); dialog.applyComponentOrientation(orientation()); });
         } finally { translating = false; }
-        applyComponentOrientation(orientation()); renderedMessages = "";
+        applyComponentOrientation(orientation()); renderedMessages = null;
         feedback.setText(strings.text(feedbackText));
         updateRequestText(); refreshHistory(); nearby.repaint(); bluetoothDevices.repaint();
         if (state != null) renderState(); else { status.setText(strings.text("idle")); listenButton.setText(strings.text("listen")); addresses.setText(strings.text("notListening")); chatTitle.setText(strings.text("selectChat")); }
@@ -316,7 +316,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     }
     private DesktopStore.Peer selectedPeer() { if (state != null) for (var peer : state.history()) if (peer.id().equals(selected)) return peer; return null; }
     private void select(DesktopStore.Peer peer) {
-        saveDraft(); draftTimer.stop(); selected = peer == null ? null : peer.id(); conversationGeneration++; renderedMessages = "";
+        saveDraft(); draftTimer.stop(); selected = peer == null ? null : peer.id(); conversationGeneration++; renderedMessages = null;
         loadingDraft = true; composer.setText(""); loadingDraft = false;
         if (selected != null) {
             String id = selected; long generation = conversationGeneration;
@@ -340,9 +340,9 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         String id=selected; long generation=conversationGeneration;
         client.messages(id).whenComplete((messages,error) -> SwingUtilities.invokeLater(() -> {
             if(error!=null) { notice("storageFailure"); return; } if(!id.equals(selected)||generation!=conversationGeneration)return;
-            String key=strings.locale()+messages.toString(); if(key.equals(renderedMessages))return;
+            if(messages.equals(renderedMessages))return;
             JScrollPane scroll=(JScrollPane)SwingUtilities.getAncestorOfClass(JScrollPane.class,transcript); JScrollBar bar=scroll.getVerticalScrollBar();
-            boolean bottom=bar.getValue()+bar.getVisibleAmount()>=bar.getMaximum()-24; int position=bar.getValue(); renderedMessages=key;
+            boolean bottom=bar.getValue()+bar.getVisibleAmount()>=bar.getMaximum()-24; int position=bar.getValue(); renderedMessages=messages;
             transcript.scale(fontScale); transcript.render(messages,strings);
             SwingUtilities.invokeLater(() -> { if(bottom)bar.setValue(bar.getMaximum()); else bar.setValue(position); });
         }));

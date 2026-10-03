@@ -17,7 +17,20 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    buildTypes { release { isMinifyEnabled = false } }
+    buildTypes {
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+        }
+        create("preview") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            // Preserve the private UI hooks used by native instrumentation.
+            proguardFiles("proguard-instrumentation.pro")
+        }
+    }
+    testBuildType = providers.gradleProperty("testBuildType").orElse("debug").get()
     // Every language remains available while switching offline, including Play bundles.
     bundle { language { enableSplit = false } }
 }

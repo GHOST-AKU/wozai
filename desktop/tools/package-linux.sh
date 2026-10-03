@@ -15,7 +15,7 @@ jpackage --type app-image --name NearbyIM --app-version "$version" --vendor GHOS
     --dest build/package --icon assets/icons/linux/hicolor/256x256/apps/nearbyim.png \
     --java-options '-Dwozai.installDir=$APPDIR/../..' \
     --add-modules java.base,java.desktop,java.logging,jdk.crypto.ec,jdk.accessibility,jdk.localedata \
-    --jlink-options "--strip-debug --no-man-pages --no-header-files --include-locales=$locales"
+    --jlink-options "--strip-debug --no-man-pages --no-header-files --compress=2 --include-locales=$locales"
 image=build/package/NearbyIM
 ${CXX:-c++} -std=c++17 -O2 -Wall -Wextra -Wpedantic -Werror native/linux_launcher.cpp -o "$image/bin/NearbyIM"
 cp ../THIRD_PARTY_NOTICES.md "$image/"

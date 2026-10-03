@@ -1,4 +1,4 @@
-name: Build 我在 debug APK
+name: Build 我在 Android previews
 on:
   workflow_dispatch:
 permissions:
@@ -31,11 +31,29 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug
+          ./gradlew --no-daemon -PtestBuildType=preview :app:assembleRelease :app:assemblePreview :app:assemblePreviewAndroidTest :app:lintPreview
       - name: Verify APK signatures and alignment
         run: |
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs app/build/outputs/apk/debug/app-debug.apk > app/build/outputs/apk/signature.txt
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c 4 app/build/outputs/apk/debug/app-debug.apk
           sha256sum app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk > app/build/outputs/apk/checksums.txt
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs app/build/outputs/apk/preview/app-preview.apk > app/build/outputs/apk/preview-signature.txt
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c 4 app/build/outputs/apk/preview/app-preview.apk
+          sha256sum app/build/outputs/apk/preview/app-preview.apk app/build/outputs/apk/androidTest/preview/app-preview-androidTest.apk > app/build/outputs/apk/preview-checksums.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NearbyIM-${{ steps.metadata.outputs.version }}-android-preview
+          path: |
+            app/build/outputs/apk/preview/app-preview.apk
+            app/build/outputs/apk/androidTest/preview/app-preview-androidTest.apk
+            app/build/outputs/apk/preview-checksums.txt
+            app/build/outputs/apk/preview-signature.txt
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-preview-r8-mapping
+          path: app/build/outputs/mapping/preview/
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
           name: NearbyIM-${{ steps.metadata.outputs.version }}-android-debug
@@ -56,7 +74,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: NearbyIM-${{ needs.build.outputs.version }}-android-debug
+          name: NearbyIM-${{ needs.build.outputs.version }}-android-preview
           path: app/build/outputs/apk
       - name: Enable KVM
         run: |
@@ -71,7 +89,7 @@ jobs:
           target: google_apis
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
-          script: sh tools/test-android-i18n.sh
+          script: ANDROID_APP_APK=app/build/outputs/apk/preview/app-preview.apk ANDROID_TEST_APK=app/build/outputs/apk/androidTest/preview/app-preview-androidTest.apk sh tools/test-android-i18n.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:

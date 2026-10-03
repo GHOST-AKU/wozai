@@ -44,7 +44,7 @@ jar --create --file build/lib/nearbyim-desktop.jar --main-class dev.ghost.wozai.
 find src/test/java -name '*.java' > build/test-sources.txt
 javac --release 17 -encoding UTF-8 -cp 'build/classes:build/lib/*' -d build/tests @build/test-sources.txt
 library="-Dwozai.bluetooth.library=$(pwd)/build/lib/libwozai_bluetooth.so"
-for test in DesktopTests ReviewRegressionTests DataLocationTests LinuxPlatformTests BluetoothTests TransportTests StringsTests FontTests; do
+for test in DesktopTests ReviewRegressionTests DataLocationTests LinuxPlatformTests BluetoothTests TransportTests StringsTests FontTests MessagePaneTests; do
     java "$library" -cp 'build/classes:build/tests:build/lib/*' dev.ghost.wozai.$test
 done
 dbus-run-session -- build/native/linux_bluetooth_tests java "$library" -cp 'build/classes:build/tests:build/lib/*' dev.ghost.wozai.LinuxBluetoothWireTests

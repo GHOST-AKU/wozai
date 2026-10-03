@@ -56,8 +56,11 @@ public final class AppLanguage {
         return LanguageRegistry.locale(selection(context), systemLocale(context));
     }
     public static Context wrap(Context context) {
-        Configuration configuration = new Configuration(context.getResources().getConfiguration());
         Locale locale = locale(context);
+        Configuration current = context.getResources().getConfiguration();
+        if (current.getLocales().size() == 1 && current.getLocales().get(0).equals(locale)
+                && current.getLayoutDirection() == android.text.TextUtils.getLayoutDirectionFromLocale(locale)) return context;
+        Configuration configuration = new Configuration(current);
         configuration.setLocales(new LocaleList(locale));
         configuration.setLayoutDirection(locale);
         return context.createConfigurationContext(configuration);

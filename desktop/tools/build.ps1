@@ -54,12 +54,12 @@ if ($LASTEXITCODE -ne 0) { throw 'Build metadata failed' }
 Invoke-JavaTool jar @('--create', '--file', 'build/lib/nearbyim-desktop.jar', '--main-class', 'dev.ghost.wozai.Main', '-C', 'build/classes', '.')
 $tests = (Get-ChildItem src/test/java -Recurse -Filter '*.java').FullName
 Invoke-JavaTool javac (@('--release', '17', '-encoding', 'UTF-8', '-cp', 'build/classes;build/lib/*', '-d', 'build/tests') + $tests)
-foreach ($test in @('DesktopTests', 'ReviewRegressionTests', 'DataLocationTests', 'BluetoothTests', 'TransportTests', 'StringsTests', 'FontTests')) {
+foreach ($test in @('DesktopTests', 'ReviewRegressionTests', 'DataLocationTests', 'BluetoothTests', 'TransportTests', 'StringsTests', 'FontTests', 'MessagePaneTests')) {
     Invoke-JavaTool java @($bluetoothLibrary, '-cp', 'build/classes;build/tests;build/lib/*', "dev.ghost.wozai.$test")
 }
 if ($Package) {
     if (Test-Path build/package/NearbyIM) { Remove-Item build/package/NearbyIM -Recurse -Force }
-    Invoke-JavaTool jpackage @('--type', 'app-image', '--name', 'NearbyIM', '--app-version', $appVersion, '--vendor', 'GHOST-AKU', '--input', 'build/lib', '--main-jar', 'nearbyim-desktop.jar', '--main-class', 'dev.ghost.wozai.Main', '--dest', 'build/package', '--icon', 'assets/icons/windows/nearbyim.ico', '--java-options', '-Dwozai.installDir=$APPDIR/..', '--add-modules', 'java.base,java.desktop,java.logging,jdk.crypto.ec,jdk.accessibility,jdk.localedata', '--jlink-options', "--strip-debug --no-man-pages --no-header-files --include-locales=$runtimeLocales")
+    Invoke-JavaTool jpackage @('--type', 'app-image', '--name', 'NearbyIM', '--app-version', $appVersion, '--vendor', 'GHOST-AKU', '--input', 'build/lib', '--main-jar', 'nearbyim-desktop.jar', '--main-class', 'dev.ghost.wozai.Main', '--dest', 'build/package', '--icon', 'assets/icons/windows/nearbyim.ico', '--java-options', '-Dwozai.installDir=$APPDIR/..', '--add-modules', 'java.base,java.desktop,java.logging,jdk.crypto.ec,jdk.accessibility,jdk.localedata', '--jlink-options', "--strip-debug --no-man-pages --no-header-files --compress=2 --include-locales=$runtimeLocales")
     Copy-Item ../THIRD_PARTY_NOTICES.md build/package/NearbyIM/
     Copy-Item ../docs/windows.md build/package/NearbyIM/README.md
     Copy-Item ../licenses build/package/NearbyIM/ -Recurse -Force
