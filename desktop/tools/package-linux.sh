@@ -20,6 +20,10 @@ image=build/package/NearbyIM
 ${CXX:-c++} -std=c++17 -O2 -Wall -Wextra -Wpedantic -Werror native/linux_launcher.cpp -o "$image/bin/NearbyIM"
 cp ../THIRD_PARTY_NOTICES.md "$image/"
 cp ../docs/linux.md "$image/README.md"
+cp ../docs/linux-verification.md "$image/linux-verification.md"
+# dpkg-shlibdeps inspects the launcher AND JNI library against distribution
+# symbols; a newer local compiler must never silently lower package requirements.
+native_dependencies=$(python3 tools/linux-runtime-dependencies.py "$image")
 cp -R ../licenses "$image/"
 cp ../docs/licenses/material-icons-LICENSE.txt "$image/licenses/"
 mkdir -p "$image/share/icons"
@@ -39,7 +43,7 @@ Architecture: $deb_arch
 Maintainer: GHOST-AKU <noreply@github.com>
 Section: net
 Priority: optional
-Depends: libc6 (>= 2.34), libstdc++6 (>= 12), bluez, libglib2.0-0 (>= 2.56) | libglib2.0-0t64 (>= 2.56), libx11-6, libxext6, libxi6, libxrender1, libxtst6, libfreetype6, libfontconfig1, libasound2 | libasound2t64
+Depends: $native_dependencies, bluez, libx11-6, libxext6, libxi6, libxrender1, libxtst6, libfreetype6, libfontconfig1, libasound2 | libasound2t64
 Recommends: blueman
 Description: NearbyIM local text chat over LAN and Bluetooth
  Native desktop client with a bundled Java runtime and five interface languages.

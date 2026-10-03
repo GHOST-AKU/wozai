@@ -46,8 +46,6 @@ struct State {
     GCancellable* cancel;
     std::string address, device, adapter, profile;
     std::deque<std::shared_ptr<State>> pending;
-    std::vector<std::weak_ptr<State>> children;
-    std::weak_ptr<State> parent;
     void closeLocal() {
         std::lock_guard<std::mutex> lock(mutex);
         closed = true; g_cancellable_cancel(cancel);
@@ -106,7 +104,11 @@ std::string addressFromPath(const std::string& path) {
 }
 
 class Runtime {
-    struct Profile { std::shared_ptr<State> state; guint object; };
+    struct Profile {
+        std::shared_ptr<State> server;
+        guint object;
+        std::vector<std::weak_ptr<State>> sockets;
+    };
     GMainContext* context = nullptr;
     GMainLoop* loop = nullptr;
     GDBusConnection* bus = nullptr;
@@ -124,13 +126,28 @@ class Runtime {
             watched.clear();
         }
         for (auto& item : profiles) {
-            states.push_back(item.second.state);
-            { std::lock_guard<std::mutex> lock(item.second.state->mutex);
-                for (auto& child : item.second.state->children) if (auto state = child.lock()) states.push_back(state); }
+            if (item.second.server) states.push_back(item.second.server);
+            for (auto& weak : item.second.sockets) if (auto state = weak.lock()) states.push_back(state);
             g_dbus_connection_unregister_object(bus, item.second.object);
         }
         profiles.clear();
-        for (auto& state : states) state->closeLocal();
+        for (auto& state : states) {
+            state->closeLocal();
+            std::lock_guard<std::mutex> lock(state->mutex); state->profile.clear();
+        }
+    }
+    void stopMatching(const std::string& path, bool adapter) {
+        std::vector<std::shared_ptr<State>> states;
+        { std::lock_guard<std::mutex> lock(watchedMutex);
+            for (auto& weak : watched) if (auto state = weak.lock()) states.push_back(state); }
+        for (auto& state : states) {
+            bool matches;
+            { std::lock_guard<std::mutex> lock(state->mutex); matches = (adapter ? state->adapter : state->device) == path; }
+            if (matches) {
+                state->closeLocal();
+                std::lock_guard<std::mutex> lock(state->mutex); state->profile.clear();
+            }
+        }
     }
     static void profileCall(GDBusConnection*, const gchar* sender, const gchar* path,
             const gchar*, const gchar* method, GVariant* args, GDBusMethodInvocation* call, gpointer data) {
@@ -141,7 +158,7 @@ class Runtime {
             if (owner.empty() || owner != sender) throw NativeError("Profile caller is not the BlueZ service");
             auto found = profiles.find(path);
             if (found == profiles.end()) throw NativeError("Bluetooth profile was stopped");
-            auto state = found->second.state;
+            auto& profile = found->second;
             if (std::strcmp(method, "NewConnection") == 0) {
                 const char* device; gint index; GVariant* properties;
                 g_variant_get(args, "(&oh@a{sv})", &device, &index, &properties); g_variant_unref(properties);
@@ -152,34 +169,45 @@ class Runtime {
                 try {
                     std::string address = addressFromPath(device);
                     nonblocking(fd);
-                    std::lock_guard<std::mutex> lock(state->mutex);
-                    if (state->closed) throw NativeError("Reception or connection was stopped");
-                    if (state->kind == Kind::Server) {
-                        if (state->pending.size() >= 4) throw NativeError("Bluetooth reception queue is full");
-                        state->children.erase(std::remove_if(state->children.begin(), state->children.end(), [](const auto& weak) { return weak.expired(); }), state->children.end());
-                        auto child = std::make_shared<State>(Kind::Socket);
-                        child->fd = fd; child->connected = true; child->address = address; child->device = device; child->parent = state;
-                        state->children.push_back(child); state->pending.push_back(child);
-                    } else {
-                        if (!state->connecting || state->connected || state->device != device || state->address != address)
-                            throw NativeError("Connection does not match the requested Bluetooth device");
-                        state->fd = fd; state->connected = true;
+                    std::shared_ptr<State> outgoing;
+                    for (auto& weak : profile.sockets) if (auto socket = weak.lock()) {
+                        std::lock_guard<std::mutex> lock(socket->mutex);
+                        if (!socket->closed && socket->connecting && !socket->connected && socket->device == device) {
+                            outgoing = socket; break;
+                        }
                     }
-                    fd = -1; state->changed.notify_all();
+                    if (outgoing) {
+                        std::lock_guard<std::mutex> lock(outgoing->mutex);
+                        if (outgoing->closed || outgoing->address != address) throw NativeError("Bluetooth connection was cancelled");
+                        outgoing->fd = fd; outgoing->connected = true; fd = -1;
+                        outgoing->changed.notify_all();
+                    } else {
+                        auto server = profile.server;
+                        if (!server) throw NativeError("Bluetooth reception is disabled");
+                        std::lock_guard<std::mutex> lock(server->mutex);
+                        if (server->closed) throw NativeError("Bluetooth reception was stopped");
+                        if (server->pending.size() >= 4) throw NativeError("Bluetooth reception queue is full");
+                        auto child = std::make_shared<State>(Kind::Socket);
+                        child->fd = fd; child->connected = true; child->address = address;
+                        child->device = device; child->profile = path;
+                        child->adapter = std::string(device).substr(0, std::string(device).rfind("/dev_"));
+                        profile.sockets.erase(std::remove_if(profile.sockets.begin(), profile.sockets.end(), [](const auto& weak) { return weak.expired(); }), profile.sockets.end());
+                        profile.sockets.push_back(child); watch(child);
+                        server->pending.push_back(child); fd = -1; server->changed.notify_all();
+                    }
                 } catch (...) { if (fd >= 0) ::close(fd); throw; }
             } else if (std::strcmp(method, "RequestDisconnection") == 0) {
                 const char* device; g_variant_get(args, "(&o)", &device);
-                std::vector<std::shared_ptr<State>> closed;
-                if (state->kind == Kind::Server) {
-                    std::lock_guard<std::mutex> lock(state->mutex);
-                    for (auto& child : state->children) if (auto socket = child.lock(); socket && socket->device == device) closed.push_back(socket);
-                } else if (state->device == device) closed.push_back(state);
-                for (auto& socket : closed) socket->closeLocal();
+                for (auto& weak : profile.sockets) if (auto socket = weak.lock()) {
+                    bool matches;
+                    { std::lock_guard<std::mutex> lock(socket->mutex); matches = socket->device == device; }
+                    if (matches) {
+                        socket->closeLocal();
+                        std::lock_guard<std::mutex> lock(socket->mutex); socket->profile.clear();
+                    }
+                }
             } else if (std::strcmp(method, "Release") == 0) {
-                state->closeLocal();
-                std::vector<std::shared_ptr<State>> children;
-                { std::lock_guard<std::mutex> lock(state->mutex); for (auto& weak : state->children) if (auto child = weak.lock()) children.push_back(child); }
-                for (auto& child : children) child->closeLocal();
+                invalidate();
             } else throw NativeError("Unknown BlueZ profile method");
             g_dbus_method_invocation_return_value(call, nullptr);
         } catch (const std::exception& e) { g_dbus_method_invocation_return_dbus_error(call, "org.bluez.Error.Rejected", e.what()); }
@@ -204,6 +232,23 @@ public:
                         auto& runtime = *static_cast<Runtime*>(data);
                         if (*oldOwner) runtime.invalidate();
                         runtime.owner = newOwner;
+                    }, this, nullptr);
+                g_dbus_connection_signal_subscribe(bus, "org.bluez", "org.freedesktop.DBus.Properties", "PropertiesChanged", nullptr, nullptr, G_DBUS_SIGNAL_FLAGS_NONE,
+                    [](GDBusConnection*, const gchar*, const gchar* path, const gchar*, const gchar*, GVariant* args, gpointer data) {
+                        const char* interface; GVariant *changed, *invalidated;
+                        g_variant_get(args, "(&s@a{sv}@as)", &interface, &changed, &invalidated);
+                        Variant values(changed), omitted(invalidated); gboolean powered = TRUE;
+                        if (!std::strcmp(interface, "org.bluez.Adapter1") && g_variant_lookup(values, "Powered", "b", &powered) && !powered)
+                            static_cast<Runtime*>(data)->stopMatching(path, true);
+                    }, this, nullptr);
+                g_dbus_connection_signal_subscribe(bus, "org.bluez", "org.freedesktop.DBus.ObjectManager", "InterfacesRemoved", nullptr, nullptr, G_DBUS_SIGNAL_FLAGS_NONE,
+                    [](GDBusConnection*, const gchar*, const gchar*, const gchar*, const gchar*, GVariant* args, gpointer data) {
+                        const char* path; GVariant* removed; g_variant_get(args, "(&o@as)", &path, &removed);
+                        Variant values(removed); GVariantIter iter; g_variant_iter_init(&iter, values); const char* interface;
+                        while (g_variant_iter_next(&iter, "&s", &interface)) {
+                            if (!std::strcmp(interface, "org.bluez.Adapter1")) static_cast<Runtime*>(data)->stopMatching(path, true);
+                            else if (!std::strcmp(interface, "org.bluez.Device1")) static_cast<Runtime*>(data)->stopMatching(path, false);
+                        }
                     }, this, nullptr);
                 g_signal_connect(bus, "closed", G_CALLBACK(+[](GDBusConnection*, gboolean, GError*, gpointer data) {
                     static_cast<Runtime*>(data)->invalidate();
@@ -265,6 +310,25 @@ public:
     void registerProfile(const std::shared_ptr<State>& state, bool server) {
         onLoop([&] {
             requireActive(state);
+            // BlueZ permits exactly one external profile per UUID, independent
+            // of role or object path. Keep one bidirectional registration while
+            // any listener or stream needs it; stopped reception never owns it.
+            if (!profiles.empty()) {
+                auto& profile = profiles.begin()->second;
+                profile.sockets.erase(std::remove_if(profile.sockets.begin(), profile.sockets.end(), [](const auto& weak) { return weak.expired(); }), profile.sockets.end());
+                if (server && profile.server) {
+                    std::lock_guard<std::mutex> lock(profile.server->mutex);
+                    if (!profile.server->closed) throw NativeError("Bluetooth reception is already enabled");
+                }
+                if (!server) for (auto& weak : profile.sockets) if (auto socket = weak.lock()) {
+                    std::lock_guard<std::mutex> lock(socket->mutex);
+                    if (!socket->closed && socket->connecting && !socket->connected && socket->device == state->device)
+                        throw NativeError("Bluetooth connection to this device is already pending");
+                }
+                if (server) profile.server = state; else profile.sockets.push_back(state);
+                { std::lock_guard<std::mutex> lock(state->mutex); state->profile = profiles.begin()->first; }
+                watch(state); return;
+            }
             GError* error = nullptr;
             Variant name(g_dbus_connection_call_sync(bus, "org.freedesktop.DBus", "/org/freedesktop/DBus",
                 "org.freedesktop.DBus", "GetNameOwner", g_variant_new("(s)", "org.bluez"), nullptr, G_DBUS_CALL_FLAGS_NONE, 3000, nullptr, &error));
@@ -276,34 +340,35 @@ public:
             if (!object) { std::string message = error->message; g_error_free(error); throw NativeError(message); }
             GVariantBuilder options; g_variant_builder_init(&options, G_VARIANT_TYPE("a{sv}"));
             g_variant_builder_add(&options, "{sv}", "Name", g_variant_new_string("NearbyIM"));
-            g_variant_builder_add(&options, "{sv}", "Role", g_variant_new_string(server ? "server" : "client"));
+            // Omit Role: BlueZ defaults custom UUIDs to both client and server.
             g_variant_builder_add(&options, "{sv}", "RequireAuthentication", g_variant_new_boolean(TRUE));
             g_variant_builder_add(&options, "{sv}", "RequireAuthorization", g_variant_new_boolean(FALSE));
             g_variant_builder_add(&options, "{sv}", "AutoConnect", g_variant_new_boolean(FALSE));
-            if (server) g_variant_builder_add(&options, "{sv}", "Channel", g_variant_new_uint16(0));
+            g_variant_builder_add(&options, "{sv}", "Channel", g_variant_new_uint16(0));
             try {
                 Variant result(call("/org/bluez", "org.bluez.ProfileManager1", "RegisterProfile",
                         g_variant_new("(os@a{sv})", path.c_str(), serviceUuid, g_variant_builder_end(&options))));
                 { std::lock_guard<std::mutex> lock(state->mutex); state->profile = path; }
-                profiles.emplace(path, Profile{state, object});
+                Profile profile{server ? state : nullptr, object, {}};
+                if (!server) profile.sockets.push_back(state);
+                profiles.emplace(path, std::move(profile)); watch(state);
             } catch (...) { g_dbus_connection_unregister_object(bus, object); throw; }
         });
     }
-    void unregisterIfIdle(const std::shared_ptr<State>& state) {
+    void unregisterIfIdle(const std::shared_ptr<State>&) {
         onLoop([&] {
-            std::string path;
-            {
-                std::lock_guard<std::mutex> lock(state->mutex);
-                if (!state->closed) return;
-                if (state->kind == Kind::Server) for (auto& weak : state->children) if (auto child = weak.lock()) {
-                    std::lock_guard<std::mutex> childLock(child->mutex); if (!child->closed) return;
-                }
-                path = state->profile;
+            if (profiles.empty()) return;
+            auto found = profiles.begin(); auto& profile = found->second;
+            if (profile.server) {
+                std::lock_guard<std::mutex> lock(profile.server->mutex);
+                if (!profile.server->closed) return;
             }
-            auto found = profiles.find(path); if (found == profiles.end()) return;
-            try { Variant result(call("/org/bluez", "org.bluez.ProfileManager1", "UnregisterProfile", g_variant_new("(o)", path.c_str()), 1000)); }
+            for (auto& weak : profile.sockets) if (auto socket = weak.lock()) {
+                std::lock_guard<std::mutex> lock(socket->mutex); if (!socket->closed) return;
+            }
+            try { Variant result(call("/org/bluez", "org.bluez.ProfileManager1", "UnregisterProfile", g_variant_new("(o)", found->first.c_str()), 1000)); }
             catch (const NativeError&) { }
-            g_dbus_connection_unregister_object(bus, found->second.object); profiles.erase(found);
+            g_dbus_connection_unregister_object(bus, profile.object); profiles.erase(found);
         });
     }
 };
@@ -350,8 +415,9 @@ std::vector<DeviceInfo> scan(const std::shared_ptr<State>& state, int seconds) {
     }
 }
 std::shared_ptr<State> listen() {
-    auto& runtime = Runtime::instance(); runtime.poweredAdapter();
-    auto server = std::make_shared<State>(Kind::Server); runtime.registerProfile(server, true); return server;
+    auto& runtime = Runtime::instance(); auto adapter = runtime.poweredAdapter();
+    auto server = std::make_shared<State>(Kind::Server); server->adapter = adapter;
+    runtime.registerProfile(server, true); return server;
 }
 std::shared_ptr<State> acceptSocket(const std::shared_ptr<State>& server) {
     std::unique_lock<std::mutex> lock(server->mutex);
@@ -360,9 +426,9 @@ std::shared_ptr<State> acceptSocket(const std::shared_ptr<State>& server) {
     auto connection = server->pending.front(); server->pending.pop_front(); return connection;
 }
 void disconnectDevice(const std::shared_ptr<State>& state) {
-    std::string device; bool connecting;
-    { std::lock_guard<std::mutex> lock(state->mutex); device = state->device; connecting = state->connecting; }
-    if (device.empty()) return;
+    std::string device, profile; bool connecting;
+    { std::lock_guard<std::mutex> lock(state->mutex); device = state->device; profile.swap(state->profile); connecting = state->connecting; }
+    if (device.empty() || profile.empty()) return;
     try {
         auto& runtime = Runtime::instance();
         if (connecting) try { Variant result(runtime.call(device, "org.bluez.Device1", "CancelPairing", nullptr, 1000)); } catch (const NativeError&) { }
@@ -376,10 +442,10 @@ void closeState(const std::shared_ptr<State>& state) {
     { std::lock_guard<std::mutex> lock(state->mutex); pending.swap(state->pending); }
     for (auto& child : pending) { child->closeLocal(); disconnectDevice(child); }
     if (state->kind == Kind::Socket) disconnectDevice(state);
-    std::string profile;
-    { std::lock_guard<std::mutex> lock(state->mutex); profile = state->profile; }
-    if (!profile.empty()) Runtime::instance().unregisterIfIdle(state);
-    if (auto parent = state->parent.lock()) Runtime::instance().unregisterIfIdle(parent);
+    bool usedRuntime;
+    { std::lock_guard<std::mutex> lock(state->mutex); usedRuntime = !state->adapter.empty(); }
+    if (usedRuntime && state->kind != Kind::Inquiry) Runtime::instance().unregisterIfIdle(state);
+
 }
 void connectSocket(const std::shared_ptr<State>& state, const std::string& address, int timeout) {
     if (timeout < 1 || timeout > 120000) throw InvalidArgument("Connection timeout must be 1..120000 milliseconds");
@@ -390,7 +456,7 @@ void connectSocket(const std::shared_ptr<State>& state, const std::string& addre
     {
         std::lock_guard<std::mutex> lock(state->mutex);
         if (state->closed || state->connecting || state->connected) throw NativeError("Bluetooth socket cannot start another connection");
-        state->address = canonical; state->device = device->path; state->connecting = true;
+        state->address = canonical; state->device = device->path; state->adapter = adapter; state->connecting = true;
     }
     auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout);
     auto remaining = [&] { auto value = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - std::chrono::steady_clock::now()).count(); if (value <= 0) throw ConnectTimeout("Bluetooth connection timed out"); return int(value); };

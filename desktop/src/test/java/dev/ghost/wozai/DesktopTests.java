@@ -281,10 +281,14 @@ public final class DesktopTests {
                 } finally { android.close(UiText.EMPTY); }
             }
             client.stopListening().get(3, TimeUnit.SECONDS);
-            try (var probe = new Socket(address, port)) { throw new AssertionError("Listener still accepted connections"); }
-            // A closed local listener can refuse or reset the connect, depending
-            // on the OS and whether its former accept thread has just exited.
-            catch (SocketException expected) { passed++; }
+            // Linux can finish a TCP handshake while the kernel releases an
+            // accept() already in progress. Reception must reject that socket
+            // without starting authentication; TCP connect success alone is not
+            // evidence that the application is still accepting peers.
+            try (var probe = new Socket(address, port)) {
+                probe.setSoTimeout(2000);
+                check(probe.getInputStream().read() == -1, "Stopped listener began another protocol session");
+            } catch (SocketException expected) { passed++; }
         }
     }
 }

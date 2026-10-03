@@ -4,7 +4,7 @@ Linux 客户端与 Android、Windows 共用 NIM2 签名协议、设备身份、�
 
 ## 运行与安装
 
-首发构建为 Linux x64。需要图形桌面（X11，或启用 XWayland 的 Wayland 桌面）、系统 X11／字体／音频库和 BlueZ 蓝牙服务。提供 tar.gz 应用目录及 Debian／Ubuntu 的 deb 包；蓝牙需要支持经典蓝牙的适配器。ARM64 可在对应架构的 Linux 上从源码构建，尚未发布或验证其软件包。
+首发构建为 Linux x64。需要满足包内 `runtime-requirements.txt` 所列的系统运行库版本、图形桌面（X11，或启用 XWayland 的 Wayland 桌面）、系统 X11／字体／音频库和 BlueZ 蓝牙服务。提供 tar.gz 应用目录及 Debian／Ubuntu 的 deb 包；蓝牙需要支持经典蓝牙的适配器。ARM64 可在对应架构的 Linux 上从源码构建，尚未发布或验证其软件包。
 
 解压 `NearbyIM-0.3.1-linux-x64.tar.gz` 后，运行 `NearbyIM/bin/NearbyIM`。必须保留完整目录，无需额外安装 Java。软件可放在只读的程序目录，数据存入用户目录。
 
@@ -37,7 +37,7 @@ deb 包安装到 `/opt/nearbyim` 并提供应用菜单图标。tar.gz 可手动�
 3. 搜索并选择设备后发起聊天。首次连接触发 BlueZ 配对；若桌面没有配对代理，先在系统设置中完成配对。
 4. 接收方在应用内同意。系统配对记录不会直接获得应用内信任；记住身份后可以从历史重连。
 
-Linux 使用 BlueZ 的 `Adapter1`、`Device1` 与 `ProfileManager1`，由系统分配 RFCOMM 通道与发布 SDP 服务。服务 UUID 与 Android／Windows 相同：`90c649e1-c095-4b22-8bc3-35e4c9c7b372`。应用不需要 root 或 `bluetoothd --compat`，不修改系统可发现性或自动开启适配器。系统策略必须允许当前用户访问蓝牙服务。
+Linux 使用 BlueZ 的 `Adapter1`、`Device1` 与 `ProfileManager1`，由系统分配 RFCOMM 通道与发布 SDP 服务。整个进程共享一个双向 Profile，允许接收期间发起连接，并在停止接收时保留已有聊天。服务 UUID 与 Android／Windows 相同：`90c649e1-c095-4b22-8bc3-35e4c9c7b372`。应用不需要 root 或 `bluetoothd --compat`，不修改系统可发现性或自动开启适配器。系统策略必须允许当前用户访问蓝牙服务。
 
 搜索最长 10 秒，可取消并立即重新搜索；取消连接会停止待处理的系统配对／连接。停止接收中断等待中的接入，保留已经建立的聊天；退出或「停止所有接收与连接」释放会话与原生资源。BlueZ 服务停止会让正在等待的操作退出；服务恢复后可重新开启接收。
 
@@ -53,7 +53,7 @@ Linux 使用 BlueZ 的 `Adapter1`、`Device1` 与 `ProfileManager1`，由系统�
 
 ## 从源码构建
 
-需要 Linux JDK 17、Python 3、C++17 编译器、pkg-config、GIO 开发包、D-Bus 工具。Debian／Ubuntu 开发依赖通常可通过 `build-essential libglib2.0-dev dbus-x11` 安装；图形自动验证还需要 `xvfb xauth`。
+需要 Linux JDK 17、Python 3、C++17 编译器、pkg-config、GIO 开发包、D-Bus 工具；打包还需要 `dpkg-dev` 和 `binutils`。Debian／Ubuntu 开发依赖通常可通过 `build-essential libglib2.0-dev dbus-x11 dpkg-dev binutils` 安装；图形自动验证还需要 `xvfb xauth`。
 
 ```sh
 export JAVA_HOME=/path/to/jdk-17

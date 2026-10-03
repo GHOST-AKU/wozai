@@ -54,11 +54,16 @@ public:
                 g_variant_get(args, "(&o&s@a{sv})", &path, &uuid, &options); Variant values(options);
                 const char* role = nullptr; gboolean authentication = FALSE, automatic = TRUE; guint16 channel = 1;
                 check(std::string(uuid) == serviceUuid, "Different cross-platform service UUID");
-                check(g_variant_lookup(values, "Role", "&s", &role), "Profile role missing");
+                check(!g_variant_lookup(values, "Role", "&s", &role), "Shared profile must support both roles");
+                role = "both";
                 check(g_variant_lookup(values, "RequireAuthentication", "b", &authentication) && authentication, "Insecure Bluetooth profile");
                 check(g_variant_lookup(values, "AutoConnect", "b", &automatic) && !automatic, "Unrequested automatic Bluetooth connection");
-                if (!std::strcmp(role, "server")) check(g_variant_lookup(values, "Channel", "q", &channel) && channel == 0, "RFCOMM channel is not dynamically allocated");
-                std::lock_guard<std::mutex> lock(self.mutex); self.profiles.push_back({sender, path, role});
+                check(g_variant_lookup(values, "Channel", "q", &channel) && channel == 0, "RFCOMM channel is not dynamically allocated");
+                std::lock_guard<std::mutex> lock(self.mutex);
+                if (!self.profiles.empty()) {
+                    g_dbus_method_invocation_return_dbus_error(invocation, "org.bluez.Error.NotPermitted", "UUID already registered"); return;
+                }
+                self.profiles.push_back({sender, path, role});
             } else if (!std::strcmp(name, "UnregisterProfile")) {
                 const char* path; g_variant_get(args, "(&o)", &path);
                 std::lock_guard<std::mutex> lock(self.mutex);
@@ -116,10 +121,19 @@ public:
     }
     Profile profile(const std::string& role, const std::string& sender = "") {
         std::lock_guard<std::mutex> lock(mutex);
-        for (auto i = profiles.rbegin(); i != profiles.rend(); ++i) if (i->role == role && (sender.empty() || i->sender == sender)) return *i;
+        for (auto i = profiles.rbegin(); i != profiles.rend(); ++i) if ((i->role == role || i->role == "both") && (sender.empty() || i->sender == sender)) return *i;
         throw NativeError("Test profile not registered");
     }
     int takePeer() { std::lock_guard<std::mutex> lock(mutex); if (peers.empty()) throw NativeError("No test peer"); int result = peers.front(); peers.pop_front(); return result; }
+    void powerOff() {
+        powered = false;
+        GVariantBuilder changed, invalidated;
+        g_variant_builder_init(&changed, G_VARIANT_TYPE("a{sv}"));
+        g_variant_builder_add(&changed, "{sv}", "Powered", g_variant_new_boolean(FALSE));
+        g_variant_builder_init(&invalidated, G_VARIANT_TYPE("as"));
+        g_dbus_connection_emit_signal(bus, nullptr, "/org/bluez/hci0", "org.freedesktop.DBus.Properties", "PropertiesChanged",
+            g_variant_new("(s@a{sv}@as)", "org.bluez.Adapter1", g_variant_builder_end(&changed), g_variant_builder_end(&invalidated)), nullptr);
+    }
     void releaseName() {
         GError* error = nullptr;
         Variant result(g_dbus_connection_call_sync(bus, "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "ReleaseName",
@@ -180,6 +194,10 @@ void connectionAndStream(BluezDouble& mock) {
 }
 void receptionLifecycle(BluezDouble& mock) {
     auto server = listen(); auto profile = mock.profile("server");
+    auto outgoing = std::make_shared<State>(Kind::Socket);
+    connectSocket(outgoing, testAddress, 3000); Remote outgoingPeer(mock.takePeer());
+    { std::lock_guard<std::mutex> lock(mock.mutex); check(mock.profiles.size() == 1, "Reception and outgoing connection did not share the profile"); }
+    closeState(outgoing);
     auto accepting = std::async(std::launch::async, [&] { return acceptSocket(server); });
     check(accepting.wait_for(80ms) == std::future_status::timeout, "Accept did not block");
     int descriptors[2]; check(socketpair(AF_UNIX, SOCK_STREAM, 0, descriptors) == 0, "Test socketpair failed");
@@ -190,6 +208,10 @@ void receptionLifecycle(BluezDouble& mock) {
     char message = 33, received = 0; send(peer.fd, &message, 1, MSG_NOSIGNAL);
     check(readSocket(connection, &received, 1) == 1 && received == message, "Stopping reception closed the established chat");
     check(fails([&] { acceptSocket(server); }), "Stopped server continued accepting");
+    auto restarted = listen();
+    { std::lock_guard<std::mutex> lock(mock.mutex); check(mock.profiles.size() == 1 && mock.profiles.front().path == profile.path, "Restarting reception registered a duplicate UUID"); }
+    check(fails([&] { listen(); }), "Two active listeners were permitted");
+    closeState(restarted);
     closeState(connection); check(fails([&] { mock.profile("server"); }), "Stopped profile leaked after final connection closed");
     server = listen(); auto waiting = std::async(std::launch::async, [&] { return fails([&] { acceptSocket(server); }); });
     check(waiting.wait_for(80ms) == std::future_status::timeout, "Second accept did not block"); closeState(server);
@@ -209,6 +231,20 @@ void cancelPairingAndConnect(BluezDouble& mock) {
     check(timed.wait_for(2s) == std::future_status::ready && timed.get(), "Connection timeout was not bounded"); mock.holdConnect = false;
     std::lock_guard<std::mutex> lock(mock.mutex); check(mock.profiles.empty(), "Cancelled client profile leaked");
 }
+void adapterLoss(BluezDouble& mock) {
+    auto server = listen(); auto connection = std::make_shared<State>(Kind::Socket);
+    connectSocket(connection, testAddress, 3000); Remote peer(mock.takePeer());
+    auto accepting = std::async(std::launch::async, [&] { return fails([&] { acceptSocket(server); }); });
+    auto reading = std::async(std::launch::async, [&] { char byte; return fails([&] { readSocket(connection, &byte, 1); }); });
+    mock.powerOff();
+    bool acceptStopped = accepting.wait_for(1s) == std::future_status::ready;
+    bool readStopped = reading.wait_for(1s) == std::future_status::ready;
+    closeState(server); closeState(connection);
+    check(acceptStopped && accepting.get(), "Disabling adapter left reception blocked");
+    check(readStopped && reading.get(), "Disabling adapter left stream read blocked");
+    mock.powered = true; server = listen(); closeState(server);
+    { std::lock_guard<std::mutex> lock(mock.mutex); check(mock.profiles.empty(), "Adapter restart leaked profile"); }
+}
 void daemonLoss(BluezDouble& mock) {
     auto server = listen();
     auto accepting = std::async(std::launch::async, [&] { return fails([&] { acceptSocket(server); }); });
@@ -224,7 +260,7 @@ int main(int argc, char** argv) {
         const char* address = std::getenv("DBUS_SESSION_BUS_ADDRESS"); if (!address) throw NativeError("Run tests inside dbus-run-session");
         g_setenv("DBUS_SYSTEM_BUS_ADDRESS", address, TRUE);
         auto& mock = *new BluezDouble();
-        scanLifecycle(mock); connectionAndStream(mock); receptionLifecycle(mock); cancelPairingAndConnect(mock);
+        scanLifecycle(mock); connectionAndStream(mock); receptionLifecycle(mock); cancelPairingAndConnect(mock); adapterLoss(mock);
         if (argc > 1) {
             mock.routeToServer = true;
             gint status; GError* error = nullptr;
