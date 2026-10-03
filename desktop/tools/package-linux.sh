@@ -10,12 +10,14 @@ case $(uname -m) in x86_64) architecture=x64; deb_arch=amd64;; aarch64) architec
 mkdir -p build/package-input build/package
 rm -rf build/package-input/* build/package/NearbyIM
 cp build/lib/*.jar build/lib/libwozai_bluetooth.so build/package-input/
+# Constant-pool sharing leaves modules compressible by tar/deb. ZIP-style
+# jlink compression reduced installation files but inflated download sizes.
 jpackage --type app-image --name NearbyIM --app-version "$version" --vendor GHOST-AKU \
     --input build/package-input --main-jar nearbyim-desktop.jar --main-class dev.ghost.wozai.Main \
     --dest build/package --icon assets/icons/linux/hicolor/256x256/apps/nearbyim.png \
     --java-options '-Dwozai.installDir=$APPDIR/../..' \
     --add-modules java.base,java.desktop,java.logging,jdk.crypto.ec,jdk.accessibility,jdk.localedata \
-    --jlink-options "--strip-debug --no-man-pages --no-header-files --compress=2 --include-locales=$locales"
+    --jlink-options "--strip-debug --no-man-pages --no-header-files --compress=1 --include-locales=$locales"
 image=build/package/NearbyIM
 ${CXX:-c++} -std=c++17 -O2 -Wall -Wextra -Wpedantic -Werror native/linux_launcher.cpp -o "$image/bin/NearbyIM"
 cp ../THIRD_PARTY_NOTICES.md "$image/"
@@ -29,7 +31,7 @@ cp ../docs/licenses/material-icons-LICENSE.txt "$image/licenses/"
 mkdir -p "$image/share/icons"
 cp -R assets/icons/linux/hicolor "$image/share/icons/"
 chmod -R a+rX "$image"
-tar -czf "build/NearbyIM-$version-linux-$architecture.tar.gz" -C build/package NearbyIM
+tar -I 'gzip -9' -cf "build/NearbyIM-$version-linux-$architecture.tar.gz" -C build/package NearbyIM
 if command -v dpkg-deb >/dev/null; then
     staging=build/deb-root
     rm -rf "$staging"
@@ -62,7 +64,7 @@ StartupNotify=true
 StartupWMClass=dev-ghost-wozai-Main
 EOF
     chmod -R a+rX "$staging"
-    dpkg-deb --root-owner-group --build "$staging" "build/NearbyIM-$version-linux-$architecture.deb"
+    dpkg-deb --root-owner-group -Zxz -z9 --threads-max=1 --build "$staging" "build/NearbyIM-$version-linux-$architecture.deb"
 fi
 python3 - <<'PY'
 import hashlib, json, platform

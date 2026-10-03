@@ -28,8 +28,17 @@ final class Strings {
     private boolean rtl;
     private boolean fallbackBundle;
     private record FormatKey(String pattern, Locale locale) { }
-    private final Map<FormatKey, MessageFormat> formats = new HashMap<>();
-    private String formatTimeZone;
+    private record CachedFormat(MessageFormat value, String zone) { }
+    private final Map<FormatKey, CachedFormat> formats = new HashMap<>();
+    private static boolean temporal(String pattern) {
+        var parsed = new com.ibm.icu.text.MessagePattern(pattern);
+        for (int i = 0; i < parsed.countParts(); ++i) {
+            var part = parsed.getPart(i);
+            if (part.getType() == com.ibm.icu.text.MessagePattern.Part.Type.ARG_TYPE
+                    && Set.of("date", "time").contains(parsed.getSubstring(part))) return true;
+        }
+        return false;
+    }
     Strings(String language) { this(language, () -> Locale.getDefault(Locale.Category.DISPLAY)); }
     Strings(String language, Supplier<Locale> systemLocale) { this.systemLocale = systemLocale; language(language); }
     synchronized void language(String language) {
@@ -60,15 +69,18 @@ final class Strings {
         return fallback.getString("error");
     }
     synchronized String text(String key, Object... args) {
-        String zone = com.ibm.icu.util.TimeZone.getDefault().getID();
-        if (!zone.equals(formatTimeZone)) { formats.clear(); formatTimeZone = zone; }
         Object[] rendered = args.clone();
         for (int i = 0; i < rendered.length; i++) if (rendered[i] instanceof UiText nested) rendered[i] = text(nested);
         Locale formattingLocale = fallbackBundle || !bundle.containsKey(key) ? Locale.ENGLISH : locale;
         FormatKey format = new FormatKey(pattern(key, bundle, english), formattingLocale);
         // ICU parsing is expensive and formatters are mutable. Reuse the small
         // catalog cache under this lock, including recursively formatted UiText.
-        return formats.computeIfAbsent(format, k -> new MessageFormat(k.pattern(), k.locale())).format(rendered);
+        CachedFormat cached = formats.get(format);
+        if (cached == null || cached.zone() != null && !cached.zone().equals(com.ibm.icu.util.TimeZone.getDefault().getID())) {
+            String zone = temporal(format.pattern()) ? com.ibm.icu.util.TimeZone.getDefault().getID() : null;
+            cached = new CachedFormat(new MessageFormat(format.pattern(), format.locale()), zone); formats.put(format, cached);
+        }
+        return cached.value().format(rendered);
     }
     String text(UiText text) { return text == null || text.key.isEmpty() ? "" : text(text.key, text.arguments); }
     Locale locale() { return locale; }
