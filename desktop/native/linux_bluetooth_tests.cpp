@@ -159,6 +159,13 @@ public:
         if (!result) { std::string message = error->message; g_error_free(error); throw NativeError(message); }
         g_variant_unref(result);
     }
+    void requestDisconnection(const Profile& profile) {
+        GError* error = nullptr;
+        Variant result(g_dbus_connection_call_sync(bus, profile.sender.c_str(), profile.path.c_str(),
+            "org.bluez.Profile1", "RequestDisconnection", g_variant_new("(o)", testDevice), nullptr,
+            G_DBUS_CALL_FLAGS_NONE, 3000, nullptr, &error));
+        if (!result.value) { std::string message = error->message; g_error_free(error); throw NativeError(message); }
+    }
 };
 void scanLifecycle(BluezDouble& mock) {
     auto inquiry = std::make_shared<State>(Kind::Inquiry);
@@ -248,6 +255,31 @@ void duplicateConnectionPreservesChat(BluezDouble& mock) {
     closeState(original);
     check(mock.disconnects == before + 1, "Last stream did not release the BlueZ device profile");
 }
+void disconnectedQueuePreservesReception(BluezDouble& mock) {
+    auto server = listen(); auto profile = mock.profile("server");
+    int pair[2];
+    for (int i = 0; i < 5; ++i) {
+        check(socketpair(AF_UNIX, SOCK_STREAM, 0, pair) == 0, "Test stale socketpair failed");
+        Remote stalePeer(pair[1]); mock.deliver(profile, pair[0]); ::close(pair[0]);
+        mock.requestDisconnection(profile);
+    }
+    auto accepting = std::async(std::launch::async, [&] { return acceptSocket(server); });
+    check(accepting.wait_for(80ms) == std::future_status::timeout, "Disconnected pending stream was returned by accept");
+    check(socketpair(AF_UNIX, SOCK_STREAM, 0, pair) == 0, "Test live socketpair failed");
+    Remote livePeer(pair[1]); mock.deliver(profile, pair[0]); ::close(pair[0]);
+    check(accepting.wait_for(2s) == std::future_status::ready, "Listener did not accept after stale stream");
+    auto live = accepting.get(); char sent = 'q', received = 0;
+    check(::write(livePeer.fd, &sent, 1) == 1, "Live peer could not write");
+    check(readSocket(live, &received, 1) == 1 && received == sent, "Live stream was unusable after stale pending entry");
+    mock.requestDisconnection(profile);
+    check(remoteAddress(live) == testAddress, "Disconnect after accept made routing metadata fail the listener");
+    check(fails([&] { readSocket(live, &received, 1); }), "Disconnected accepted stream remained readable");
+    auto stopping = std::async(std::launch::async, [&] { return fails([&] { acceptSocket(server); }); });
+    check(stopping.wait_for(80ms) == std::future_status::timeout, "Listener stopped after discarding stale streams");
+    closeState(server);
+    check(stopping.wait_for(2s) == std::future_status::ready && stopping.get(), "Stopping listener did not cancel accept after stale streams");
+    closeState(live);
+}
 void cancelPairingAndConnect(BluezDouble& mock) {
     mock.paired = false; mock.holdPair = true;
     auto connection = std::make_shared<State>(Kind::Socket);
@@ -313,7 +345,7 @@ int main(int argc, char** argv) {
         const char* address = std::getenv("DBUS_SESSION_BUS_ADDRESS"); if (!address) throw NativeError("Run tests inside dbus-run-session");
         g_setenv("DBUS_SYSTEM_BUS_ADDRESS", address, TRUE);
         auto& mock = *new BluezDouble();
-        scanLifecycle(mock); connectionAndStream(mock); receptionLifecycle(mock); duplicateConnectionPreservesChat(mock); cancelPairingAndConnect(mock); adapterLoss(mock);
+        scanLifecycle(mock); connectionAndStream(mock); receptionLifecycle(mock); duplicateConnectionPreservesChat(mock); disconnectedQueuePreservesReception(mock); cancelPairingAndConnect(mock); adapterLoss(mock);
         if (argc > 1) {
             mock.routeToServer = true;
             gint status; GError* error = nullptr;

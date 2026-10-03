@@ -188,6 +188,9 @@ class Runtime {
                         if (!server) throw NativeError("Bluetooth reception is disabled");
                         std::lock_guard<std::mutex> lock(server->mutex);
                         if (server->closed) throw NativeError("Bluetooth reception was stopped");
+                        server->pending.erase(std::remove_if(server->pending.begin(), server->pending.end(), [](const auto& socket) {
+                            std::lock_guard<std::mutex> lock(socket->mutex); return socket->closed;
+                        }), server->pending.end());
                         if (server->pending.size() >= 4) throw NativeError("Bluetooth reception queue is full");
                         auto child = std::make_shared<State>(Kind::Socket);
                         child->fd = fd; child->connected = true; child->address = address;
@@ -444,9 +447,20 @@ std::shared_ptr<State> listen() {
 }
 std::shared_ptr<State> acceptSocket(const std::shared_ptr<State>& server) {
     std::unique_lock<std::mutex> lock(server->mutex);
-    server->changed.wait(lock, [&] { return server->closed || !server->pending.empty(); });
-    if (server->closed) throw NativeError("Bluetooth reception stopped");
-    auto connection = server->pending.front(); server->pending.pop_front(); return connection;
+    for (;;) {
+        server->changed.wait(lock, [&] { return server->closed || !server->pending.empty(); });
+        if (server->closed) throw NativeError("Bluetooth reception stopped");
+        auto connection = server->pending.front(); server->pending.pop_front();
+        std::lock_guard<std::mutex> childLock(connection->mutex);
+        if (!connection->closed) return connection;
+    }
+}
+std::string remoteAddress(const std::shared_ptr<State>& state) {
+    std::lock_guard<std::mutex> lock(state->mutex);
+    // Routing metadata survives a peer disconnect between accept and the JNI
+    // address query. The stream then fails in the session, not the listener.
+    if (state->address.empty()) throw NativeError("Bluetooth remote address is unknown");
+    return state->address;
 }
 void disconnectDevice(const std::shared_ptr<State>& state) {
     std::string device, profile; bool connecting;
@@ -601,7 +615,7 @@ JNIEXPORT jlong JNICALL Java_dev_ghost_wozai_DesktopBluetooth_nativeAccept(JNIEn
     return guarded<jlong>(env, 0, [&] { return addState(acceptSocket(lookup(handle, Kind::Server))); });
 }
 JNIEXPORT jstring JNICALL Java_dev_ghost_wozai_DesktopBluetooth_nativeRemoteAddress(JNIEnv* env, jclass, jlong handle) {
-    return guarded<jstring>(env, nullptr, [&] { auto state = lookup(handle, Kind::Socket); requireConnected(state); return javaString(env, state->address); });
+    return guarded<jstring>(env, nullptr, [&] { return javaString(env, remoteAddress(lookup(handle, Kind::Socket))); });
 }
 JNIEXPORT void JNICALL Java_dev_ghost_wozai_DesktopBluetooth_nativeRequireConnected(JNIEnv* env, jclass, jlong handle) {
     guarded<int>(env, 0, [&] { requireConnected(lookup(handle, Kind::Socket)); return 0; });
