@@ -63,6 +63,12 @@ public final class LinuxPlatformTests {
             check(entryText.contains("Name[zh_CN]=") && entryText.contains("Name[ja]="), "Desktop entry lost localized names");
             check(!Files.exists(install.resolve("data")), "Desktop installation created data in program folder");
             for (String language : List.of("zh-Hans", "en", "zh-Hant", "ja", "ko")) {
+                Path fresh = root.resolve("nickname-" + language);
+                try (var store = new DesktopStore(fresh)) {
+                    store.setSetting("language", language);
+                    String expected = language.startsWith("zh") ? "我在 Linux" : "NearbyIM Linux";
+                    check(store.nickname().equals(expected), "Fresh Linux profile advertised the wrong platform: " + language);
+                }
                 var strings = new Strings(language);
                 check(strings.text("versionLinux", "0.3.1").contains("Linux"), "Linux version not translated: " + language);
                 check(!strings.text("helpBodyLinux").contains("Windows"), "Windows instructions on Linux: " + language);

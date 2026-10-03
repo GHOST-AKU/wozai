@@ -111,6 +111,7 @@
     <string name="data_target_occupied" formatted="false">"ポータブル版のデータフォルダーにすでにデータがあるため、移行をキャンセルしました：{0}。"</string>
     <string name="data_unsafe_entry" formatted="false">"データフォルダーにシンボリックリンクまたは特殊ファイルがあるため、安全に利用できません：{0}。"</string>
     <string name="default_nickname" formatted="false">"近くの友だち"</string>
+    <string name="default_nickname_linux" formatted="false">"NearbyIM Linux"</string>
     <string name="default_nickname_windows" formatted="false">"NearbyIM Windows"</string>
     <string name="delivered" formatted="false">"配信済み"</string>
     <string name="desktop_entry_failed" formatted="false">"アプリメニューの項目を作成できませんでした。完全な Linux パッケージから実行し、メニューのディレクトリに書き込めるか確認してください。"</string>

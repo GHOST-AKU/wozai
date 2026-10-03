@@ -311,5 +311,6 @@
   "bluetoothSettingsUnavailableWindows": "Bluetooth is unavailable. Check that this computer has an enabled Bluetooth adapter.",
   "bluetoothUnavailableWindows": "Bluetooth is unavailable. Check that this computer has an enabled Bluetooth adapter.",
   "desktopEntryInstalled": "Desktop entry installed: {0}",
-  "desktopEntryFailed": "Could not install the desktop entry. Run this command from the complete Linux package and check that your application menu directory is writable."
+  "desktopEntryFailed": "Could not install the desktop entry. Run this command from the complete Linux package and check that your application menu directory is writable.",
+  "defaultNicknameLinux": "NearbyIM Linux"
 }

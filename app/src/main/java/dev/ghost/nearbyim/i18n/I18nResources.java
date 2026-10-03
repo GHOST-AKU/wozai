@@ -119,6 +119,7 @@ public final class I18nResources {
             case "dataTargetOccupied": return R.string.data_target_occupied;
             case "dataUnsafeEntry": return R.string.data_unsafe_entry;
             case "defaultNickname": return R.string.default_nickname;
+            case "defaultNicknameLinux": return R.string.default_nickname_linux;
             case "defaultNicknameWindows": return R.string.default_nickname_windows;
             case "delivered": return R.string.delivered;
             case "desktopEntryFailed": return R.string.desktop_entry_failed;

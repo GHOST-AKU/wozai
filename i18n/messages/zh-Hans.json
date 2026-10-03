@@ -311,5 +311,6 @@
   "bluetoothSettingsUnavailableWindows": "蓝牙暂不可用。请检查电脑是否有蓝牙适配器并已开启。",
   "bluetoothUnavailableWindows": "蓝牙暂不可用。请检查电脑是否有蓝牙适配器并已开启。",
   "desktopEntryInstalled": "已创建应用菜单入口：{0}",
-  "desktopEntryFailed": "无法创建应用菜单入口。请使用完整 Linux 软件包运行此命令，并确认应用菜单目录可写。"
+  "desktopEntryFailed": "无法创建应用菜单入口。请使用完整 Linux 软件包运行此命令，并确认应用菜单目录可写。",
+  "defaultNicknameLinux": "我在 Linux"
 }

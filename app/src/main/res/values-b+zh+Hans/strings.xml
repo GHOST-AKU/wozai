@@ -111,6 +111,7 @@
     <string name="data_target_occupied" formatted="false">"便携数据目录已经有数据，迁移已取消：{0}。"</string>
     <string name="data_unsafe_entry" formatted="false">"数据目录包含符号链接或特殊文件，无法安全使用：{0}。"</string>
     <string name="default_nickname" formatted="false">"附近的朋友"</string>
+    <string name="default_nickname_linux" formatted="false">"我在 Linux"</string>
     <string name="default_nickname_windows" formatted="false">"我在 Windows"</string>
     <string name="delivered" formatted="false">"已送达"</string>
     <string name="desktop_entry_failed" formatted="false">"无法创建应用菜单入口。请使用完整 Linux 软件包运行此命令，并确认应用菜单目录可写。"</string>

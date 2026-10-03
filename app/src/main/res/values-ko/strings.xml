@@ -111,6 +111,7 @@
     <string name="data_target_occupied" formatted="false">"포터블 데이터 폴더에 이미 데이터가 있어 이전을 취소했습니다: {0}."</string>
     <string name="data_unsafe_entry" formatted="false">"데이터 폴더에 심볼릭 링크 또는 특수 파일이 있어 안전하게 사용할 수 없습니다: {0}."</string>
     <string name="default_nickname" formatted="false">"근처의 친구"</string>
+    <string name="default_nickname_linux" formatted="false">"NearbyIM Linux"</string>
     <string name="default_nickname_windows" formatted="false">"NearbyIM Windows"</string>
     <string name="delivered" formatted="false">"전달됨"</string>
     <string name="desktop_entry_failed" formatted="false">"앱 메뉴 항목을 만들지 못했습니다. 완전한 Linux 패키지에서 실행하고 앱 메뉴 디렉터리에 쓸 수 있는지 확인하세요."</string>

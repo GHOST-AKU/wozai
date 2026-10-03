@@ -311,5 +311,6 @@
   "bluetoothSettingsUnavailableWindows": "Bluetooth を利用できません。このパソコンに Bluetooth アダプターがあり、有効になっているか確認してください。",
   "bluetoothUnavailableWindows": "Bluetooth を利用できません。このパソコンに Bluetooth アダプターがあり、有効になっているか確認してください。",
   "desktopEntryInstalled": "アプリメニューの項目を作成しました：{0}",
-  "desktopEntryFailed": "アプリメニューの項目を作成できませんでした。完全な Linux パッケージから実行し、メニューのディレクトリに書き込めるか確認してください。"
+  "desktopEntryFailed": "アプリメニューの項目を作成できませんでした。完全な Linux パッケージから実行し、メニューのディレクトリに書き込めるか確認してください。",
+  "defaultNicknameLinux": "NearbyIM Linux"
 }

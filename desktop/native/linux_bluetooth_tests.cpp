@@ -22,9 +22,10 @@ public:
     std::mutex mutex;
     std::vector<Profile> profiles;
     std::atomic<int> starts{0}, stops{0}, pairCalls{0}, cancelPairs{0}, disconnects{0};
-    std::atomic<bool> powered{true}, paired{true}, holdPair{false}, holdConnect{false}, routeToServer{false};
+    std::atomic<bool> powered{true}, paired{true}, holdPair{false}, holdConnect{false}, routeToServer{false}, holdCancel{false};
     GDBusMethodInvocation* pendingPair = nullptr;
     GDBusMethodInvocation* pendingConnect = nullptr;
+    std::atomic<GDBusMethodInvocation*> pendingCancel{nullptr};
     std::deque<int> peers;
     GVariant* managedObjects() {
         GVariantBuilder tree, interfaces, properties;
@@ -80,8 +81,17 @@ public:
             } else if (!std::strcmp(name, "CancelPairing")) {
                 ++self.cancelPairs;
                 if (self.pendingPair) { g_dbus_method_invocation_return_dbus_error(self.pendingPair, "org.bluez.Error.Canceled", "Pairing cancelled"); g_object_unref(self.pendingPair); self.pendingPair = nullptr; }
+                if (self.holdCancel) { self.pendingCancel = static_cast<GDBusMethodInvocation*>(g_object_ref(invocation)); return; }
             } else if (!std::strcmp(name, "DisconnectProfile")) {
                 ++self.disconnects;
+                // BlueZ Device1 DisconnectProfile is device-wide: the profile
+                // callback requests closure of every stream for this device.
+                auto profile = self.profile("both", sender);
+                GError* error = nullptr;
+                Variant response(g_dbus_connection_call_sync(self.bus, profile.sender.c_str(), profile.path.c_str(),
+                    "org.bluez.Profile1", "RequestDisconnection", g_variant_new("(o)", testDevice), nullptr,
+                    G_DBUS_CALL_FLAGS_NONE, 3000, nullptr, &error));
+                if (!response.value) { std::string message = error->message; g_error_free(error); throw NativeError(message); }
                 if (self.pendingConnect) { g_dbus_method_invocation_return_dbus_error(self.pendingConnect, "org.bluez.Error.Canceled", "Connection cancelled"); g_object_unref(self.pendingConnect); self.pendingConnect = nullptr; }
             } else if (!std::strcmp(name, "ConnectProfile")) {
                 const char* uuid; g_variant_get(args, "(&s)", &uuid); check(std::string(uuid) == serviceUuid, "Connect requested wrong UUID");
@@ -217,6 +227,27 @@ void receptionLifecycle(BluezDouble& mock) {
     check(waiting.wait_for(80ms) == std::future_status::timeout, "Second accept did not block"); closeState(server);
     check(waiting.wait_for(2s) == std::future_status::ready && waiting.get(), "Stop reception did not cancel accept");
 }
+void duplicateConnectionPreservesChat(BluezDouble& mock) {
+    auto server = listen(); auto profile = mock.profile("server");
+    int pair[2]; check(socketpair(AF_UNIX, SOCK_STREAM, 0, pair) == 0, "Test socketpair failed");
+    Remote originalPeer(pair[1]); mock.deliver(profile, pair[0]); ::close(pair[0]);
+    auto original = acceptSocket(server);
+    int before = mock.disconnects;
+    check(socketpair(AF_UNIX, SOCK_STREAM, 0, pair) == 0, "Test duplicate socketpair failed");
+    Remote rejectedPeer(pair[1]); mock.deliver(profile, pair[0]); ::close(pair[0]);
+    auto rejected = acceptSocket(server); closeState(rejected);
+    check(mock.disconnects == before, "Rejecting a duplicate invoked device-wide DisconnectProfile");
+    char sent = 42, received = 0; send(originalPeer.fd, &sent, 1, MSG_NOSIGNAL);
+    check(readSocket(original, &received, 1) == 1 && received == sent, "Rejecting a duplicate closed the original chat");
+    check(socketpair(AF_UNIX, SOCK_STREAM, 0, pair) == 0, "Test queued socketpair failed");
+    Remote queuedPeer(pair[1]); mock.deliver(profile, pair[0]); ::close(pair[0]);
+    closeState(server);
+    check(mock.disconnects == before, "Draining reception queue disconnected the established chat");
+    send(originalPeer.fd, &sent, 1, MSG_NOSIGNAL);
+    check(readSocket(original, &received, 1) == 1 && received == sent, "Stopping reception closed the original chat");
+    closeState(original);
+    check(mock.disconnects == before + 1, "Last stream did not release the BlueZ device profile");
+}
 void cancelPairingAndConnect(BluezDouble& mock) {
     mock.paired = false; mock.holdPair = true;
     auto connection = std::make_shared<State>(Kind::Socket);
@@ -254,13 +285,35 @@ void daemonLoss(BluezDouble& mock) {
     closeState(server); accepting.wait();
     check(interrupted && accepting.get(), "BlueZ daemon loss left accept blocked");
 }
+void daemonRestartDuringCancellation() {
+    auto& old = *new BluezDouble(); old.paired = false; old.holdPair = true; old.holdCancel = true;
+    auto canceled = std::make_shared<State>(Kind::Socket);
+    auto connecting = std::async(std::launch::async, [&] { return fails([&] { connectSocket(canceled, testAddress, 120000); }); });
+    for (int i = 0; i < 100 && old.pairCalls == 0; ++i) std::this_thread::sleep_for(10ms);
+    check(old.pairCalls > 0, "Restart test did not reach pairing");
+    auto closing = std::async(std::launch::async, [&] { closeState(canceled); });
+    for (int i = 0; i < 100 && !old.pendingCancel.load(); ++i) std::this_thread::sleep_for(10ms);
+    check(old.pendingCancel.load() != nullptr, "Restart test did not reach cancellation cleanup");
+    old.releaseName();
+    auto& replacement = *new BluezDouble();
+    auto server = listen(); auto restored = std::make_shared<State>(Kind::Socket);
+    connectSocket(restored, testAddress, 3000); Remote peer(replacement.takePeer());
+    auto reply = old.pendingCancel.exchange(nullptr);
+    g_dbus_method_invocation_return_value(reply, nullptr); g_object_unref(reply);
+    check(closing.wait_for(2s) == std::future_status::ready, "Old daemon cleanup blocked after restart"); closing.get();
+    check(connecting.wait_for(2s) == std::future_status::ready && connecting.get(), "Old pairing did not terminate");
+    check(replacement.disconnects == 0, "Old cleanup disconnected the replacement daemon's session");
+    char sent = 'r', received = 0; check(::write(peer.fd, &sent, 1) == 1, "Restored peer could not write");
+    check(readSocket(restored, &received, 1) == 1 && received == sent, "Restored stream was closed by old cleanup");
+    closeState(server); closeState(restored); replacement.releaseName();
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
         const char* address = std::getenv("DBUS_SESSION_BUS_ADDRESS"); if (!address) throw NativeError("Run tests inside dbus-run-session");
         g_setenv("DBUS_SYSTEM_BUS_ADDRESS", address, TRUE);
         auto& mock = *new BluezDouble();
-        scanLifecycle(mock); connectionAndStream(mock); receptionLifecycle(mock); cancelPairingAndConnect(mock); adapterLoss(mock);
+        scanLifecycle(mock); connectionAndStream(mock); receptionLifecycle(mock); duplicateConnectionPreservesChat(mock); cancelPairingAndConnect(mock); adapterLoss(mock);
         if (argc > 1) {
             mock.routeToServer = true;
             gint status; GError* error = nullptr;
@@ -268,6 +321,7 @@ int main(int argc, char** argv) {
             check(g_spawn_check_wait_status(status, &error), "Java BlueZ JNI / NIM2 integration failed");
         }
         daemonLoss(mock);
+        daemonRestartDuringCancellation();
         std::cout << "Linux native BlueZ tests: " << passed << " checks passed (private D-Bus and real Unix FD streams; no physical radio)\n";
         return 0;
     } catch (const std::exception& error) { std::cerr << "FAIL Linux native Bluetooth: " << error.what() << '\n'; return 1; }

@@ -158,7 +158,8 @@ public final class DesktopStore implements AutoCloseable {
         if (saved != null) return saved;
         // Earlier profiles advertised this Chinese default without saving it. Keep that
         // identity name on upgrade; only a fresh profile adopts the initial UI language.
-        String initial = new Strings(existingIdentity ? "zh-Hans" : language()).text("defaultNicknameWindows");
+        String initial = new Strings(existingIdentity ? "zh-Hans" : language()).text(
+                existingIdentity ? "defaultNicknameWindows" : DesktopPlatform.key("defaultNickname"));
         setSetting("nickname", initial);
         return initial;
     }

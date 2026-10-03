@@ -116,6 +116,7 @@ class Runtime {
     std::string owner;
     std::map<std::string, Profile> profiles; // Access only on the GLib event thread.
     std::atomic<unsigned long> serial{1};
+    std::map<std::string, std::string> disconnecting; // Device -> owning profile, event thread only.
     std::mutex watchedMutex;
     std::vector<std::weak_ptr<State>> watched;
     void invalidate() {
@@ -130,7 +131,7 @@ class Runtime {
             for (auto& weak : item.second.sockets) if (auto state = weak.lock()) states.push_back(state);
             g_dbus_connection_unregister_object(bus, item.second.object);
         }
-        profiles.clear();
+        profiles.clear(); disconnecting.clear();
         for (auto& state : states) {
             state->closeLocal();
             std::lock_guard<std::mutex> lock(state->mutex); state->profile.clear();
@@ -168,6 +169,7 @@ class Runtime {
                 if (fd < 0) { std::string message = error->message; g_error_free(error); throw NativeError(message); }
                 try {
                     std::string address = addressFromPath(device);
+                    if (disconnecting.count(device)) throw NativeError("Bluetooth device is disconnecting");
                     nonblocking(fd);
                     std::shared_ptr<State> outgoing;
                     for (auto& weak : profile.sockets) if (auto socket = weak.lock()) {
@@ -276,9 +278,9 @@ public:
         return future.get();
     }
     GVariant* call(const std::string& path, const char* interface, const char* method,
-            GVariant* parameters = nullptr, int timeout = 3000, GCancellable* cancel = nullptr) {
+            GVariant* parameters = nullptr, int timeout = 3000, GCancellable* cancel = nullptr, const char* destination = "org.bluez") {
         GError* error = nullptr;
-        auto result = g_dbus_connection_call_sync(bus, "org.bluez", path.c_str(), interface, method,
+        auto result = g_dbus_connection_call_sync(bus, destination, path.c_str(), interface, method,
                 parameters, nullptr, G_DBUS_CALL_FLAGS_NONE, timeout, cancel, &error);
         if (!result) {
             bool timedOut = g_error_matches(error, G_IO_ERROR, G_IO_ERROR_TIMED_OUT) || g_error_matches(error, G_DBUS_ERROR, G_DBUS_ERROR_TIMEOUT);
@@ -310,6 +312,7 @@ public:
     void registerProfile(const std::shared_ptr<State>& state, bool server) {
         onLoop([&] {
             requireActive(state);
+            if (!server && disconnecting.count(state->device)) throw NativeError("Bluetooth device is disconnecting");
             // BlueZ permits exactly one external profile per UUID, independent
             // of role or object path. Keep one bidirectional registration while
             // any listener or stream needs it; stopped reception never owns it.
@@ -353,6 +356,26 @@ public:
                 if (!server) profile.sockets.push_back(state);
                 profiles.emplace(path, std::move(profile)); watch(state);
             } catch (...) { g_dbus_connection_unregister_object(bus, object); throw; }
+        });
+    }
+    std::string beginDeviceDisconnect(const std::shared_ptr<State>& state, const std::string& device, const std::string& path) {
+        return onLoop([&] {
+            auto found = profiles.find(path);
+            if (found == profiles.end() || disconnecting.count(device) || owner.empty()) return std::string();
+            for (auto& weak : found->second.sockets) if (auto other = weak.lock(); other && other != state) {
+                std::lock_guard<std::mutex> lock(other->mutex);
+                if (!other->closed && other->device == device) return std::string();
+            }
+            // Fence new streams until the device-wide call completes. Never
+            // block this event thread on DisconnectProfile: BlueZ can wait for
+            // our RequestDisconnection reply before answering that call.
+            disconnecting.emplace(device, path); return owner;
+        });
+    }
+    void endDeviceDisconnect(const std::string& device, const std::string& path) {
+        onLoop([&] {
+            auto found = disconnecting.find(device);
+            if (found != disconnecting.end() && found->second == path) disconnecting.erase(found);
         });
     }
     void unregisterIfIdle(const std::shared_ptr<State>&) {
@@ -431,8 +454,15 @@ void disconnectDevice(const std::shared_ptr<State>& state) {
     if (device.empty() || profile.empty()) return;
     try {
         auto& runtime = Runtime::instance();
-        if (connecting) try { Variant result(runtime.call(device, "org.bluez.Device1", "CancelPairing", nullptr, 1000)); } catch (const NativeError&) { }
-        Variant result(runtime.call(device, "org.bluez.Device1", "DisconnectProfile", g_variant_new("(s)", serviceUuid), 1000));
+        auto owner = runtime.beginDeviceDisconnect(state, device, profile);
+        if (owner.empty()) return;
+        try {
+            // Bind cleanup to this daemon instance; an old cancellation must
+            // never disconnect a new stream after BlueZ has restarted.
+            if (connecting) try { Variant result(runtime.call(device, "org.bluez.Device1", "CancelPairing", nullptr, 1000, nullptr, owner.c_str())); } catch (const NativeError&) { }
+            Variant result(runtime.call(device, "org.bluez.Device1", "DisconnectProfile", g_variant_new("(s)", serviceUuid), 1000, nullptr, owner.c_str()));
+        } catch (const NativeError&) { }
+        runtime.endDeviceDisconnect(device, profile);
     } catch (const NativeError&) { }
 }
 void closeState(const std::shared_ptr<State>& state) {

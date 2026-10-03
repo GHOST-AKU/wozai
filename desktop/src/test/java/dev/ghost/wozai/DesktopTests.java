@@ -94,16 +94,17 @@ public final class DesktopTests {
                     check(store.setting("language", "").equals("en"), "Nickname migration changed the chosen language");
                 }
             }
+            String freshNickname = DesktopIdentity.windows() ? "NearbyIM Windows" : "NearbyIM Linux";
             Path fresh = root.resolve("fresh");
             try (DesktopStore store = new DesktopStore(fresh);
                  DesktopClient client = new DesktopClient(store, DesktopIdentity.load(fresh.resolve("identity.properties")), silentListener())) {
-                check(store.setting("nickname", "").equals("NearbyIM Windows"), "Fresh profile did not persist the system-localized nickname before connecting");
+                check(store.setting("nickname", "").equals(freshNickname), "Fresh profile did not persist the system-localized nickname before connecting");
                 store.setSetting("language", "zh-Hans"); client.refresh().get(2, TimeUnit.SECONDS);
-                check(store.setting("nickname", "").equals("NearbyIM Windows"), "Language change renamed a device");
+                check(store.setting("nickname", "").equals(freshNickname), "Language change renamed a device");
             }
             try (DesktopStore store = new DesktopStore(fresh);
                  DesktopClient client = new DesktopClient(store, DesktopIdentity.load(fresh.resolve("identity.properties")), silentListener())) {
-                check(store.setting("nickname", "").equals("NearbyIM Windows"), "Restart reinterpreted a persisted nickname as an old default");
+                check(store.setting("nickname", "").equals(freshNickname), "Restart reinterpreted a persisted nickname as an old default");
                 store.setSetting("nickname", "O'Brien 朋友");
             }
             try (DesktopStore store = new DesktopStore(fresh);

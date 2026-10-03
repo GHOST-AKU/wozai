@@ -111,6 +111,7 @@
     <string name="data_target_occupied" formatted="false">"The portable data folder already contains data. Migration was canceled: {0}."</string>
     <string name="data_unsafe_entry" formatted="false">"The data folder contains a symbolic link or special file and cannot be used safely: {0}."</string>
     <string name="default_nickname" formatted="false">"Nearby friend"</string>
+    <string name="default_nickname_linux" formatted="false">"NearbyIM Linux"</string>
     <string name="default_nickname_windows" formatted="false">"NearbyIM Windows"</string>
     <string name="delivered" formatted="false">"Delivered"</string>
     <string name="desktop_entry_failed" formatted="false">"Could not install the desktop entry. Run this command from the complete Linux package and check that your application menu directory is writable."</string>

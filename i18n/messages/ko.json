@@ -311,5 +311,6 @@
   "bluetoothSettingsUnavailableWindows": "블루투스를 사용할 수 없습니다. 컴퓨터에 블루투스 어댑터가 있고 켜져 있는지 확인하세요.",
   "bluetoothUnavailableWindows": "블루투스를 사용할 수 없습니다. 컴퓨터에 블루투스 어댑터가 있고 켜져 있는지 확인하세요.",
   "desktopEntryInstalled": "앱 메뉴 항목을 만들었습니다: {0}",
-  "desktopEntryFailed": "앱 메뉴 항목을 만들지 못했습니다. 완전한 Linux 패키지에서 실행하고 앱 메뉴 디렉터리에 쓸 수 있는지 확인하세요."
+  "desktopEntryFailed": "앱 메뉴 항목을 만들지 못했습니다. 완전한 Linux 패키지에서 실행하고 앱 메뉴 디렉터리에 쓸 수 있는지 확인하세요.",
+  "defaultNicknameLinux": "NearbyIM Linux"
 }
