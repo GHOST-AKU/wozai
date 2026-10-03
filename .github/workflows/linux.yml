@@ -1,0 +1,51 @@
+name: Build NearbyIM Linux client
+on:
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          architecture: x64
+      - name: Install Linux build and GUI verification dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libglib2.0-dev dbus-x11 xvfb xauth x11-utils desktop-file-utils libasound2t64
+          python3 -m pip install Pillow
+      - name: Read shared release version
+        id: metadata
+        run: python3 -c 'import json; print("version=" + json.load(open("i18n/config.json"))["appVersion"])' >> "$GITHUB_OUTPUT"
+      - name: Verify protocol, trust and generated translations
+        run: |
+          sh tools/test-i18n.sh
+          sh tools/test-core.sh
+          sh tools/test-trust.sh
+          sh tools/check-source.sh
+      - name: Test BlueZ JNI and build Linux packages
+        run: sh desktop/tools/build.sh --package
+      - name: Verify native GUI, bundled runtime, scaling, mDNS and actual packaged launcher
+        run: xvfb-run -a -s '-screen 0 2560x1800x24' sh desktop/tools/test-linux-gui.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NearbyIM-${{ steps.metadata.outputs.version }}-linux-x64
+          path: |
+            desktop/build/NearbyIM-*-linux-x64.tar.gz
+            desktop/build/NearbyIM-*-linux-x64.deb
+            desktop/build/linux-checksums.txt
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: linux-preview-verification
+          path: |
+            desktop/build/gui-linux*.png
+            desktop/build/linux-package*.png
+            desktop/build/linux-package*.txt
+          if-no-files-found: ignore

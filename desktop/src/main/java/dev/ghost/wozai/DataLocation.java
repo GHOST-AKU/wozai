@@ -37,7 +37,7 @@ public final class DataLocation {
         if (present(override)) return new Selection(absolute(Path.of(override)), null, false);
         Path legacy = developerPath(properties, environment, windows);
         String install = properties.apply("wozai.installDir");
-        if (present(install)) {
+        if (windows && present(install)) {
             Path root=absolute(Path.of(install));
             // NearbyIM replaces the old WoZai package name. Prefer its current portable
             // profile over the older copy in LOCALAPPDATA, while retaining both sources.
@@ -62,9 +62,15 @@ public final class DataLocation {
             if (!present(local)) throw new LocalizedIOException(UiText.of("dataEnvironmentMissing", "LOCALAPPDATA"));
             return absolute(Path.of(local).resolve("WoZai"));
         }
+        return linuxDataHome(properties, environment).resolve("wozai");
+    }
+
+    static Path linuxDataHome(Function<String, String> properties, Function<String, String> environment) throws IOException {
+        String xdg = environment.apply("XDG_DATA_HOME");
+        if (present(xdg) && Path.of(xdg).isAbsolute()) return absolute(Path.of(xdg));
         String home = properties.apply("user.home");
         if (!present(home)) throw new LocalizedIOException(UiText.of("dataEnvironmentMissing", "user.home"));
-        return absolute(Path.of(home).resolve(".local").resolve("share").resolve("wozai"));
+        return absolute(Path.of(home).resolve(".local").resolve("share"));
     }
 
     public record Selection(Path path, Path legacyPath, boolean portable) {

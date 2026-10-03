@@ -10,6 +10,18 @@ import dev.ghost.nearbyim.i18n.UiText;
 
 public final class Main {
     public static void main(String[] args) {
+        if (java.util.Arrays.asList(args).contains("--install-desktop")) {
+            Strings strings = new Strings(LanguageRegistry.SYSTEM);
+            try {
+                String root = System.getProperty("wozai.installDir", "");
+                if (DesktopIdentity.windows() || root.isBlank()) throw new IOException("Linux packaged launcher required");
+                Path entry = DesktopPlatform.installDesktopEntry(Path.of(root), DataLocation.linuxDataHome(System::getProperty, System::getenv));
+                System.out.println(strings.text("desktopEntryInstalled", entry.toString()));
+            } catch (IOException | RuntimeException e) {
+                System.err.println(strings.text("desktopEntryFailed")); System.exit(1);
+            }
+            return;
+        }
         SwingUtilities.invokeLater(() -> {
             DesktopStore store = null;
             Path path = null;
@@ -56,7 +68,7 @@ public final class Main {
         for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
             if (cause instanceof LocalizedIOException localized) { reason = localized.text; break; }
         }
-        return strings.text("startupDetails", strings.text("startupErrorWindows"),
+        return strings.text("startupDetails", strings.text(DesktopPlatform.key("startupError")),
                 path == null ? strings.text("unknownDataPath") : path.toString(), strings.text(reason));
     }
 }

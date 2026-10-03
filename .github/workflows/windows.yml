@@ -1,9 +1,17 @@
 name: Build NearbyIM Windows client
 on:
   workflow_dispatch:
+    inputs:
+      include-linux:
+        description: 'Also run Linux package and platform compatibility verification'
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
+  linux-compatibility:
+    if: inputs['include-linux'] || github.ref_name == 'feat/linux-client'
+    uses: ./.github/workflows/linux.yml
   windows:
     runs-on: windows-latest
     steps:

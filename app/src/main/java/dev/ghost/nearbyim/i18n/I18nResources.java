@@ -10,6 +10,7 @@ public final class I18nResources {
         if (key == null) return 0;
         switch (key) {
             case "about": return R.string.about;
+            case "aboutBodyLinux": return R.string.about_body_linux;
             case "aboutBodyWindows": return R.string.about_body_windows;
             case "addressCopied": return R.string.address_copied;
             case "allowDiscoverable": return R.string.allow_discoverable;
@@ -44,6 +45,8 @@ public final class I18nResources {
             case "bluetoothEnableFirst": return R.string.bluetooth_enable_first;
             case "bluetoothFailed": return R.string.bluetooth_failed;
             case "bluetoothHint": return R.string.bluetooth_hint;
+            case "bluetoothHintLinux": return R.string.bluetooth_hint_linux;
+            case "bluetoothHintWindows": return R.string.bluetooth_hint_windows;
             case "bluetoothNoDevicesBody": return R.string.bluetooth_no_devices_body;
             case "bluetoothOff": return R.string.bluetooth_off;
             case "bluetoothOffSearch": return R.string.bluetooth_off_search;
@@ -56,8 +59,14 @@ public final class I18nResources {
             case "bluetoothReceptionStopped": return R.string.bluetooth_reception_stopped;
             case "bluetoothSearchDone": return R.string.bluetooth_search_done;
             case "bluetoothSettings": return R.string.bluetooth_settings;
+            case "bluetoothSettingsLinux": return R.string.bluetooth_settings_linux;
+            case "bluetoothSettingsUnavailableLinux": return R.string.bluetooth_settings_unavailable_linux;
+            case "bluetoothSettingsUnavailableWindows": return R.string.bluetooth_settings_unavailable_windows;
+            case "bluetoothSettingsWindows": return R.string.bluetooth_settings_windows;
             case "bluetoothStopSearchFailed": return R.string.bluetooth_stop_search_failed;
             case "bluetoothUnavailable": return R.string.bluetooth_unavailable;
+            case "bluetoothUnavailableLinux": return R.string.bluetooth_unavailable_linux;
+            case "bluetoothUnavailableWindows": return R.string.bluetooth_unavailable_windows;
             case "busy": return R.string.busy;
             case "cancel": return R.string.cancel;
             case "cancelConnection": return R.string.cancel_connection;
@@ -112,6 +121,8 @@ public final class I18nResources {
             case "defaultNickname": return R.string.default_nickname;
             case "defaultNicknameWindows": return R.string.default_nickname_windows;
             case "delivered": return R.string.delivered;
+            case "desktopEntryFailed": return R.string.desktop_entry_failed;
+            case "desktopEntryInstalled": return R.string.desktop_entry_installed;
             case "deviceCount": return R.string.device_count;
             case "deviceInfo": return R.string.device_info;
             case "deviceInfoTrusted": return R.string.device_info_trusted;
@@ -143,6 +154,7 @@ public final class I18nResources {
             case "handshake": return R.string.handshake;
             case "handshakeTimeout": return R.string.handshake_timeout;
             case "help": return R.string.help;
+            case "helpBodyLinux": return R.string.help_body_linux;
             case "helpBodyWindows": return R.string.help_body_windows;
             case "historyTrustRetained": return R.string.history_trust_retained;
             case "identityChanged": return R.string.identity_changed;
@@ -273,6 +285,7 @@ public final class I18nResources {
             case "startingReception": return R.string.starting_reception;
             case "startupDetails": return R.string.startup_details;
             case "startupError": return R.string.startup_error;
+            case "startupErrorLinux": return R.string.startup_error_linux;
             case "startupErrorWindows": return R.string.startup_error_windows;
             case "stop": return R.string.stop;
             case "stopAll": return R.string.stop_all;
@@ -300,6 +313,7 @@ public final class I18nResources {
             case "unpairedAddress": return R.string.unpaired_address;
             case "unsupportedBluetooth": return R.string.unsupported_bluetooth;
             case "versionAndroid": return R.string.version_android;
+            case "versionLinux": return R.string.version_linux;
             case "versionWindows": return R.string.version_windows;
             case "viewCopyAddress": return R.string.view_copy_address;
             case "waitingBothReady": return R.string.waiting_both_ready;

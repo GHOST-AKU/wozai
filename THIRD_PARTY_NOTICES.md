@@ -10,7 +10,7 @@ No third-party Android UI or networking library is bundled with application sour
 
 ## Desktop interface and networking
 
-The Windows desktop build downloads these pinned artifacts, with SHA-256 verification in `desktop/dependencies.txt`:
+The Windows and Linux desktop builds download these pinned artifacts, with SHA-256 verification in `desktop/dependencies.txt`:
 
 - FlatLaf 3.6.2 (`com.formdev:flatlaf`), https://github.com/JFormDesigner/FlatLaf. Copyright FormDev Software GmbH. Apache License 2.0 at `licenses/FlatLaf-Apache-2.0.txt`, retained from the upstream JAR. Desktop visual tokens and bubble layout match the Android application.
 - JmDNS 3.6.2 (`org.jmdns:jmdns`), https://github.com/jmdns/jmdns. Originally developed by Arthur van Hoff, moved to SourceForge by Rick Blair and to GitHub by Kai Kreuzer; maintained by the JmDNS contributors. Upstream v3.6.2 license and notice are retained at `licenses/JmDNS-Apache-2.0.txt` and `licenses/JmDNS-NOTICE.txt`.
@@ -18,7 +18,9 @@ The Windows desktop build downloads these pinned artifacts, with SHA-256 verific
 - Noto Sans CJK SC Regular and Bold (思源黑体), https://github.com/notofonts/noto-cjk. Copyright Adobe and Google, SIL Open Font License 1.1 at `licenses/NotoSansCJK-OFL.txt`. The unmodified upstream fonts are downloaded and SHA-256 verified using `desktop/font-dependencies.txt`, embedded in the desktop JAR, and registered only within the running application. No system font installation is required.
 - ICU4J 77.1 (`com.ibm.icu:icu4j`), https://github.com/unicode-org/icu. Copyright Unicode, Inc. The Unicode License V3 and upstream third-party notices are retained at `licenses/ICU4J-LICENSE.txt`. Windows uses ICU MessageFormat for the same catalog syntax as Android's system ICU; Android adds no ICU library dependency.
 
-Windows packaging includes a linked Eclipse Temurin OpenJDK 17 runtime. Its legal notices remain in the bundled runtime's `legal/` directory; OpenJDK components use GPL-2.0 with the Classpath Exception and their included third-party licenses. The source build does not redistribute a JDK. These desktop dependencies do not change Android runtime dependencies.
+Windows and Linux packaging include a linked Eclipse Temurin OpenJDK 17 runtime. Its legal notices remain in the bundled runtime's `legal/` directory; OpenJDK components use GPL-2.0 with the Classpath Exception and their included third-party licenses. The source build does not redistribute a JDK. These desktop dependencies do not change Android runtime dependencies.
+
+The Linux Bluetooth bridge dynamically links the distribution's GLib/GIO libraries (LGPL-2.1-or-later, https://gitlab.gnome.org/GNOME/glib) and uses the system BlueZ D-Bus service (https://www.bluez.org/). These system libraries and bluetoothd are not included in the application package. The Linux native launcher and BlueZ bridge are application source; no BlueZ implementation source is copied into them.
 
 ## Google Material Icons
 

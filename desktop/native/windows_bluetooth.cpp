@@ -465,9 +465,9 @@ std::vector<FoundDevice> scanDevices(const std::shared_ptr<InquiryState>& inquir
 } // namespace
 
 extern "C" {
-JNIEXPORT jint JNICALL Java_dev_ghost_wozai_WindowsBluetooth_nativeVersion(JNIEnv*, jclass) { return 2; }
+JNIEXPORT jint JNICALL Java_dev_ghost_wozai_DesktopBluetooth_nativeVersion(JNIEnv*, jclass) { return 2; }
 
-JNIEXPORT jstring JNICALL Java_dev_ghost_wozai_WindowsBluetooth_nativeStatus(JNIEnv* env, jclass) {
+JNIEXPORT jstring JNICALL Java_dev_ghost_wozai_DesktopBluetooth_nativeStatus(JNIEnv* env, jclass) {
     return guarded<jstring>(env, nullptr, [&]() -> jstring {
         requireWinsock();
         auto adapters = radios();
@@ -482,22 +482,22 @@ JNIEXPORT jstring JNICALL Java_dev_ghost_wozai_WindowsBluetooth_nativeStatus(JNI
     });
 }
 
-JNIEXPORT jlong JNICALL Java_dev_ghost_wozai_WindowsBluetooth_nativeOpenInquiry(JNIEnv* env, jclass) {
+JNIEXPORT jlong JNICALL Java_dev_ghost_wozai_DesktopBluetooth_nativeOpenInquiry(JNIEnv* env, jclass) {
     return guarded<jlong>(env, 0, [&] { return registerInquiry(std::make_shared<InquiryState>()); });
 }
-JNIEXPORT void JNICALL Java_dev_ghost_wozai_WindowsBluetooth_nativeCloseInquiry(JNIEnv* env, jclass, jlong handle) {
+JNIEXPORT void JNICALL Java_dev_ghost_wozai_DesktopBluetooth_nativeCloseInquiry(JNIEnv* env, jclass, jlong handle) {
     guardedVoid(env, [&] {
         auto inquiry = removeInquiry(handle);
         if (inquiry) { int error = inquiry->close(); if (error) winError("Canceling Bluetooth inquiry", error); }
     });
 }
-JNIEXPORT jobjectArray JNICALL Java_dev_ghost_wozai_WindowsBluetooth_nativeScan(JNIEnv* env, jclass, jlong handle, jint seconds) {
+JNIEXPORT jobjectArray JNICALL Java_dev_ghost_wozai_DesktopBluetooth_nativeScan(JNIEnv* env, jclass, jlong handle, jint seconds) {
     return guarded<jobjectArray>(env, nullptr, [&]() -> jobjectArray {
         if (seconds < 1 || seconds > 30) throw InvalidArgument("Inquiry duration must be 1..30 seconds");
         auto inquiry = lookupInquiry(handle);
         requireWinsock();
         auto found = scanDevices(inquiry, seconds);
-        jclass type = env->FindClass("dev/ghost/wozai/WindowsBluetooth$Device");
+        jclass type = env->FindClass("dev/ghost/wozai/DesktopBluetooth$Device");
         if (!type) return nullptr;
         jmethodID constructor = env->GetMethodID(type, "<init>", "(Ljava/lang/String;Ljava/lang/String;Z)V");
         if (!constructor) { env->DeleteLocalRef(type); return nullptr; }
@@ -526,11 +526,11 @@ JNIEXPORT jobjectArray JNICALL Java_dev_ghost_wozai_WindowsBluetooth_nativeScan(
     });
 }
 
-JNIEXPORT jlong JNICALL Java_dev_ghost_wozai_WindowsBluetooth_nativeOpen(JNIEnv* env, jclass) {
+JNIEXPORT jlong JNICALL Java_dev_ghost_wozai_DesktopBluetooth_nativeOpen(JNIEnv* env, jclass) {
     return guarded<jlong>(env, 0, [&] { requireRadio(); return registerState(newSocket()); });
 }
 
-JNIEXPORT jlong JNICALL Java_dev_ghost_wozai_WindowsBluetooth_nativeListen(JNIEnv* env, jclass) {
+JNIEXPORT jlong JNICALL Java_dev_ghost_wozai_DesktopBluetooth_nativeListen(JNIEnv* env, jclass) {
     return guarded<jlong>(env, 0, [&] {
         requireRadio();
         auto state = newSocket();
@@ -550,7 +550,7 @@ JNIEXPORT jlong JNICALL Java_dev_ghost_wozai_WindowsBluetooth_nativeListen(JNIEn
     });
 }
 
-JNIEXPORT void JNICALL Java_dev_ghost_wozai_WindowsBluetooth_nativeConnect(JNIEnv* env, jclass, jlong handle, jstring remote, jint timeout) {
+JNIEXPORT void JNICALL Java_dev_ghost_wozai_DesktopBluetooth_nativeConnect(JNIEnv* env, jclass, jlong handle, jstring remote, jint timeout) {
     guardedVoid(env, [&] {
         if (timeout < 1 || timeout > 120000) throw InvalidArgument("Connection timeout must be 1..120000 milliseconds");
         BTH_ADDR address = parseAddress(env, remote);
@@ -604,13 +604,13 @@ JNIEXPORT void JNICALL Java_dev_ghost_wozai_WindowsBluetooth_nativeConnect(JNIEn
     });
 }
 
-JNIEXPORT jlong JNICALL Java_dev_ghost_wozai_WindowsBluetooth_nativeAccept(JNIEnv* env, jclass, jlong handle) {
+JNIEXPORT jlong JNICALL Java_dev_ghost_wozai_DesktopBluetooth_nativeAccept(JNIEnv* env, jclass, jlong handle) {
     return guarded<jlong>(env, 0, [&] {
         return registerState(acceptSocket(lookup(handle)));
     });
 }
 
-JNIEXPORT jstring JNICALL Java_dev_ghost_wozai_WindowsBluetooth_nativeRemoteAddress(JNIEnv* env, jclass, jlong handle) {
+JNIEXPORT jstring JNICALL Java_dev_ghost_wozai_DesktopBluetooth_nativeRemoteAddress(JNIEnv* env, jclass, jlong handle) {
     return guarded<jstring>(env, nullptr, [&]() -> jstring {
         auto state = lookup(handle);
         std::lock_guard<std::mutex> lock(state->mutex);
@@ -623,7 +623,7 @@ JNIEXPORT jstring JNICALL Java_dev_ghost_wozai_WindowsBluetooth_nativeRemoteAddr
     });
 }
 
-JNIEXPORT void JNICALL Java_dev_ghost_wozai_WindowsBluetooth_nativeRequireConnected(JNIEnv* env, jclass, jlong handle) {
+JNIEXPORT void JNICALL Java_dev_ghost_wozai_DesktopBluetooth_nativeRequireConnected(JNIEnv* env, jclass, jlong handle) {
     guardedVoid(env, [&] {
         auto state = lookup(handle);
         std::lock_guard<std::mutex> lock(state->mutex);
@@ -631,7 +631,7 @@ JNIEXPORT void JNICALL Java_dev_ghost_wozai_WindowsBluetooth_nativeRequireConnec
     });
 }
 
-JNIEXPORT jint JNICALL Java_dev_ghost_wozai_WindowsBluetooth_nativeRead(JNIEnv* env, jclass, jlong handle, jbyteArray bytes, jint offset, jint length) {
+JNIEXPORT jint JNICALL Java_dev_ghost_wozai_DesktopBluetooth_nativeRead(JNIEnv* env, jclass, jlong handle, jbyteArray bytes, jint offset, jint length) {
     return guarded<jint>(env, -1, [&]() -> jint {
         validateBuffer(env, bytes, offset, length);
         auto state = lookup(handle);
@@ -642,7 +642,7 @@ JNIEXPORT jint JNICALL Java_dev_ghost_wozai_WindowsBluetooth_nativeRead(JNIEnv* 
     });
 }
 
-JNIEXPORT void JNICALL Java_dev_ghost_wozai_WindowsBluetooth_nativeWrite(JNIEnv* env, jclass, jlong handle, jbyteArray bytes, jint offset, jint length) {
+JNIEXPORT void JNICALL Java_dev_ghost_wozai_DesktopBluetooth_nativeWrite(JNIEnv* env, jclass, jlong handle, jbyteArray bytes, jint offset, jint length) {
     guardedVoid(env, [&] {
         validateBuffer(env, bytes, offset, length);
         auto state = lookup(handle);
@@ -653,7 +653,7 @@ JNIEXPORT void JNICALL Java_dev_ghost_wozai_WindowsBluetooth_nativeWrite(JNIEnv*
     });
 }
 
-JNIEXPORT void JNICALL Java_dev_ghost_wozai_WindowsBluetooth_nativeClose(JNIEnv* env, jclass, jlong handle) {
+JNIEXPORT void JNICALL Java_dev_ghost_wozai_DesktopBluetooth_nativeClose(JNIEnv* env, jclass, jlong handle) {
     guardedVoid(env, [&] {
         auto state = remove(handle);
         if (!state) return; // Java and native close are independently idempotent.

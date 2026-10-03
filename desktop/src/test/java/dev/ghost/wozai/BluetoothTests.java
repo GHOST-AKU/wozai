@@ -22,7 +22,7 @@ public final class BluetoothTests {
         throw new AssertionError("Expected " + type.getSimpleName());
     }
     private static Object nativeCall(String name, Class<?>[] types, Object... arguments) throws Exception {
-        Method method = WindowsBluetooth.class.getDeclaredMethod(name, types);
+        Method method = DesktopBluetooth.class.getDeclaredMethod(name, types);
         method.setAccessible(true);
         try { return method.invoke(null, arguments); }
         catch (InvocationTargetException e) {
@@ -34,41 +34,41 @@ public final class BluetoothTests {
     }
 
     public static void main(String[] arguments) throws Exception {
-        check(WindowsBluetooth.normalizeAddress("ab:Cd:01:23:45:67").equals("AB:CD:01:23:45:67"), "Bluetooth MAC was not canonicalized");
-        check(WindowsBluetooth.SERVICE_UUID.equals("90c649e1-c095-4b22-8bc3-35e4c9c7b372"), "Android service UUID changed");
-        var device = new WindowsBluetooth.Device("ab:Cd:01:23:45:67", "手机", true);
+        check(DesktopBluetooth.normalizeAddress("ab:Cd:01:23:45:67").equals("AB:CD:01:23:45:67"), "Bluetooth MAC was not canonicalized");
+        check(DesktopBluetooth.SERVICE_UUID.equals("90c649e1-c095-4b22-8bc3-35e4c9c7b372"), "Android service UUID changed");
+        var device = new DesktopBluetooth.Device("ab:Cd:01:23:45:67", "手机", true);
         check(device.address().equals("AB:CD:01:23:45:67") && device.name().equals("手机") && device.paired(), "Bluetooth device metadata changed");
         check(device.routeKey().equals("bluetooth:AB:CD:01:23:45:67"), "Bluetooth route lost its transport");
-        check(new WindowsBluetooth.Device("AB:CD:01:23:45:67", " ", false).name().equals("AB:CD:01:23:45:67"), "Unnamed device has no usable label");
+        check(new DesktopBluetooth.Device("AB:CD:01:23:45:67", " ", false).name().equals("AB:CD:01:23:45:67"), "Unnamed device has no usable label");
         for (String invalid : new String[] { "", "127.0.0.1:4455", "bluetooth:AB:CD:01:23:45:67", "AB-CD-01-23-45-67", "AB:CD:01:23:45", "AB:CD:01:23:45:GG", " AB:CD:01:23:45:67", "00:00:00:00:00:00", "FF:FF:FF:FF:FF:FF" }) {
-            expect(IllegalArgumentException.class, () -> WindowsBluetooth.normalizeAddress(invalid));
-            expect(IllegalArgumentException.class, () -> WindowsBluetooth.openConnection(invalid));
+            expect(IllegalArgumentException.class, () -> DesktopBluetooth.normalizeAddress(invalid));
+            expect(IllegalArgumentException.class, () -> DesktopBluetooth.openConnection(invalid));
         }
-        expect(NullPointerException.class, () -> WindowsBluetooth.normalizeAddress(null));
-        expect(IllegalArgumentException.class, () -> WindowsBluetooth.scan(0));
-        expect(IllegalArgumentException.class, () -> WindowsBluetooth.scan(31));
-        expect(IllegalArgumentException.class, () -> WindowsBluetooth.connect("AB:CD:01:23:45:67", 0));
-        expect(IllegalArgumentException.class, () -> WindowsBluetooth.connect("AB:CD:01:23:45:67", 120001));
+        expect(NullPointerException.class, () -> DesktopBluetooth.normalizeAddress(null));
+        expect(IllegalArgumentException.class, () -> DesktopBluetooth.scan(0));
+        expect(IllegalArgumentException.class, () -> DesktopBluetooth.scan(31));
+        expect(IllegalArgumentException.class, () -> DesktopBluetooth.connect("AB:CD:01:23:45:67", 0));
+        expect(IllegalArgumentException.class, () -> DesktopBluetooth.connect("AB:CD:01:23:45:67", 120001));
 
-        var status = WindowsBluetooth.status();
+        var status = DesktopBluetooth.status();
         check(status.detail() != null && !status.detail().isBlank(), "Bluetooth status has no explanatory text");
         boolean windows = System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("windows");
-        if (windows) {
+        boolean linux = System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).startsWith("linux");
+        if (windows || linux) {
             // A missing DLL must fail Windows CI even when the runner has no radio.
-            check(status.supported(), "Packaged Windows JNI DLL failed to load: " + status.detail());
+            check(status.supported(), "Platform JNI Bluetooth library failed to load: " + status.detail());
             check(((Integer) nativeCall("nativeVersion", new Class<?>[0])) == 2, "Native JNI API version mismatch");
             nativeValidation();
         } else {
-            check(!status.supported() && !status.available(), "Non-Windows platform attempted RFCOMM");
-            check(status.detail().contains("Windows"), "Non-Windows status did not explain the platform requirement");
+            check(!status.supported() && !status.available(), "Unsupported platform attempted RFCOMM");
         }
         if (!status.available()) {
-            expect(IOException.class, WindowsBluetooth::listen);
-            expect(IOException.class, () -> WindowsBluetooth.scan(1));
-            expect(IOException.class, () -> WindowsBluetooth.openConnection("AB:CD:01:23:45:67"));
-            expect(IOException.class, () -> WindowsBluetooth.connect("AB:CD:01:23:45:67", 100));
+            expect(IOException.class, DesktopBluetooth::listen);
+            expect(IOException.class, () -> DesktopBluetooth.scan(1));
+            expect(IOException.class, () -> DesktopBluetooth.openConnection("AB:CD:01:23:45:67"));
+            expect(IOException.class, () -> DesktopBluetooth.connect("AB:CD:01:23:45:67", 100));
         }
-        System.out.println("BluetoothTests: " + passed + " checks passed; physical RFCOMM pairing/Android transfer require a Windows radio and Android device");
+        System.out.println("BluetoothTests: " + passed + " checks passed; physical pairing/Android transfer require a Bluetooth adapter and Android device");
     }
 
     private static void nativeValidation() throws Exception {
@@ -83,7 +83,7 @@ public final class BluetoothTests {
         Class<?>[] scanTypes = { long.class, int.class };
         expect(IllegalArgumentException.class, () -> nativeCall("nativeScan", scanTypes, 0L, 0));
         expect(IOException.class, () -> nativeCall("nativeScan", scanTypes, Long.MAX_VALUE, 1));
-        try (WindowsBluetooth.Inquiry inquiry = WindowsBluetooth.openInquiry()) {
+        try (DesktopBluetooth.Inquiry inquiry = DesktopBluetooth.openInquiry()) {
             expect(IllegalArgumentException.class, () -> inquiry.scan(0));
             inquiry.close(); inquiry.close();
             expect(IOException.class, () -> inquiry.scan(1));

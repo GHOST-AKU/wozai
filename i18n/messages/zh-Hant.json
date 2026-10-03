@@ -297,5 +297,19 @@
   "notificationReceiving": "接收已開啟 · 點此返回我在",
   "notificationTitle": "「我在」執行中",
   "yesterday": "昨天",
-  "defaultNicknameWindows": "我在 Windows"
+  "defaultNicknameWindows": "我在 Windows",
+  "versionLinux": "Linux 預覽版 · {0}",
+  "aboutBodyLinux": "我在 · NearbyIM\nLinux 預覽版 {0}\n\n無需帳號的附近文字聊天。\n\n透過區域網路或經典藍牙進行一對一文字聊天。訊息儲存在本機，刪除本機資料會刪除記錄與裝置信任。",
+  "helpBodyLinux": "區域網路：雙方連線同一個 Wi-Fi 或熱點，開啟接收後搜尋，也可輸入完整 IP 位址和連接埠。區域網路文字以明文傳輸，請使用可信網路。\n\n藍牙：開啟介面卡與 BlueZ 系統服務。雙方開啟接收，被搜尋的一方允許被發現。首次配對需要執行桌面系統的配對代理，可在系統藍牙設定中配對。清單顯示已配對及搜尋到的裝置，記住的裝置可從歷史重新連線。停止接收不會中斷已建立的聊天。\n\n首次聊天可選擇記住裝置或僅本次。系統配對不等於應用程式內信任。重新連線會驗證同一公鑰；可在設定中取消信任。\n\n待確認表示尚未收到儲存回條，已送達表示對方已儲存，未確認表示結果未知，均不表示已讀。\n\n記錄與草稿儲存在本機，重新啟動後保留。退出後需要重新開啟接收。資料位於 XDG_DATA_HOME/wozai，預設 ~/.local/share/wozai，與軟體安裝位置無關。裝置私鑰沒有額外加密，使用僅目前使用者可存取的檔案權限保護。刪除資料會刪除記錄與裝置信任。",
+  "bluetoothHintLinux": "透過 BlueZ 使用經典藍牙 RFCOMM。開啟雙方藍牙與接收，搜尋時允許對方被發現。可透過 GNOME、KDE 或 Blueman 系統設定配對；系統配對不等於應用程式內信任。",
+  "bluetoothSettingsLinux": "藍牙設定",
+  "bluetoothSettingsUnavailableLinux": "找不到藍牙設定程式。請開啟桌面系統設定，或安裝 Blueman，在其中配對裝置並允許被發現。",
+  "bluetoothUnavailableLinux": "藍牙暫不可用。請確認 BlueZ 已執行、介面卡已開啟，而且目前使用者可以存取系統藍牙服務。",
+  "startupErrorLinux": "無法啟動 NearbyIM。請確認應用程式沒有重複執行，且資料目錄可讀寫。原有資料已保留。",
+  "bluetoothHintWindows": "使用與 Android 相同的經典藍牙。請開啟雙方藍牙和接收；需要配對時在 Windows 藍牙設定中完成。系統配對不等於應用程式內信任。",
+  "bluetoothSettingsWindows": "Windows 藍牙設定",
+  "bluetoothSettingsUnavailableWindows": "藍牙暫不可用。請檢查電腦是否有藍牙介面卡並已開啟。",
+  "bluetoothUnavailableWindows": "藍牙暫不可用。請檢查電腦是否有藍牙介面卡並已開啟。",
+  "desktopEntryInstalled": "已建立應用程式選單入口：{0}",
+  "desktopEntryFailed": "無法建立應用程式選單入口。請使用完整 Linux 軟體套件執行此命令，並確認應用程式選單目錄可寫入。"
 }
