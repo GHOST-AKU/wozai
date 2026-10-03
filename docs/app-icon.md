@@ -23,3 +23,11 @@ The unused `drawable-nodpi/ic_launcher_artwork.png` master copy was removed. Des
 `python3 tools/check-app-icons.py` verifies every original export's recorded hash. To also compare the source archive, pass its path as the first argument. `.gitattributes` preserves the original LF endings of the five icon XML exports on Windows too. Android preBuild and both desktop build scripts run this check. Desktop tests verify frame sizes, transparency, packaged resources, corrupt ICO bounds and the actual window's icon list. Windows/Linux CI checks the packaged GUI and scaling; no claim is made about every desktop environment's shell icon cache.
 
 `python3 desktop/tools/export-icons.py` regenerates only Material toolbar icons from Android vector assets and requires CairoSVG. It does not overwrite the supplied application ICO or any platform launcher export.
+
+## Final validation
+
+[Windows/Linux package and GUI CI](https://github.com/GHOST-AKU/wozai/actions/runs/37162806254), build `cffbb23`, passed the 41-export source check, 16 icon checks on both platforms, actual window icon-list checks in the development and bundled GUI, packaged launcher verification, and 100% / 125% / 150% / 200% scaling. Windows text rendering still passed its native-pixel checks. The earlier Windows checkout failure exposed automatic CRLF conversion and was fixed by the explicit LF attributes; a simulated `core.autocrlf=true` checkout also preserved all 41 hashes.
+
+[Android CI](https://github.com/GHOST-AKU/wozai/actions/runs/37162619608), build `f5da891`, passed compilation, Lint, signature/alignment verification, and 186 native checks on each of API 26 and 34. Later `cffbb23` changed only Git attributes, the toolbar-export docstring and documentation; Android code and resource bytes are identical. The actual debug APK was inspected: 688,872 bytes, all 24 launcher resources present and no unused 1024px master. These native checks do not inspect every launcher's themed-icon setting or shell icon cache.
+
+All changes are in PR #4 and CI artifacts. The existing GitHub Release assets were not replaced.

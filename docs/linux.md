@@ -4,6 +4,8 @@ Linux 客户端与 Android、Windows 共用 NIM2 签名协议、设备身份、�
 
 ## 运行与安装
 
+当前 PR #4 的[正式图标构建验收](https://github.com/GHOST-AKU/wozai/actions/runs/37162806254)已通过，可下载 [NearbyIM-0.3.1-linux-x64](https://github.com/GHOST-AKU/wozai/actions/runs/37162806254/artifacts/11287789267) artifact，包含 tar.gz 和 deb。这是 CI 软件包，已有 GitHub Release 资产尚未更新；图标来源与多尺寸接入见[图标说明](app-icon.md)。
+
 首发构建为 Linux x64。需要满足包内 `runtime-requirements.txt` 所列的系统运行库版本、图形桌面（X11，或启用 XWayland 的 Wayland 桌面）、系统 X11／字体／音频库和 BlueZ 蓝牙服务。提供 tar.gz 应用目录及 Debian／Ubuntu 的 deb 包；蓝牙需要支持经典蓝牙的适配器。ARM64 可在对应架构的 Linux 上从源码构建，尚未发布或验证其软件包。
 
 解压 `NearbyIM-0.3.1-linux-x64.tar.gz` 后，运行 `NearbyIM/bin/NearbyIM`。必须保留完整目录，无需额外安装 Java。软件可放在只读的程序目录，数据存入用户目录。

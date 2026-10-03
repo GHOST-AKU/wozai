@@ -57,7 +57,7 @@ Windows PowerShell：
 
 第一次同步需要访问 Google Maven、Maven Central 与 Gradle 分发服务器。SDK 路径由 Android Studio 写入本机 `local.properties`，不要把它提交到仓库。
 
-已附 `.github/workflows/android.yml`，仅支持手动运行。在 GitHub 的 Actions 页面打开 Android 构建工作流，选择 **Run workflow** 和所需分支；开发预览使用 `feat/linux-client`。构建成功后可下载 `NearbyIM-<版本>-android-preview` 和 `NearbyIM-<版本>-android-debug` artifacts，R8 mapping 单独保存。上传源码和提交修改不会自动编译 APK。本轮 0.3.1 的[优化预览构建](https://github.com/GHOST-AKU/wozai/actions/runs/37141448276)已通过编译、Lint、签名及对齐检查，API 26/34 对 optimized preview 各通过 186 项原生检查。可下载[安卓预览包](https://github.com/GHOST-AKU/wozai/actions/runs/37141448276/artifacts/11280278049)，解压后安装 `preview/app-preview.apk`；这是 CI artifact，已发布的 GitHub Release 资产尚未更新。
+已附 `.github/workflows/android.yml`，仅支持手动运行。在 GitHub 的 Actions 页面打开 Android 构建工作流，选择 **Run workflow** 和所需分支；开发预览使用 `feat/linux-client`。构建成功后可下载 `NearbyIM-<版本>-android-preview` 和 `NearbyIM-<版本>-android-debug` artifacts，R8 mapping 单独保存。上传源码和提交修改不会自动编译 APK。本轮 0.3.1 的[优化预览构建](https://github.com/GHOST-AKU/wozai/actions/runs/37162619608)已通过编译、Lint、签名及对齐检查，API 26/34 对 optimized preview 各通过 186 项原生检查。可下载[安卓预览包](https://github.com/GHOST-AKU/wozai/actions/runs/37162619608/artifacts/11288327377)，解压后安装 `preview/app-preview.apk`；这是 CI artifact，已发布的 GitHub Release 资产尚未更新。
 
 安卓保留数据升级需要与已安装版本使用同一签名密钥。本次 CI 使用临时调试证书，与之前交付的 0.2.0 证书不同，不能覆盖安装该旧包。已有聊天记录的手机请保留原应用，使用原签名密钥构建升级包；卸载会删除记录和设备身份。详情见[验证记录](docs/verification.md)。
 
