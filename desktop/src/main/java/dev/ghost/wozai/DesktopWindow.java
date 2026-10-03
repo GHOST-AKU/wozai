@@ -258,10 +258,13 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         return result[0];
     }
     private void scaleFonts(Component component, float scale) {
+        // These are logical font sizes. Java2D applies monitor DPI; this factor
+        // comes only from the user's independent Standard/Large/Largest choice.
         if (component.getFont() != null) { Font original = baseFonts.computeIfAbsent(component, Component::getFont); component.setFont(original.deriveFont(original.getSize2D() * scale)); }
         if (component instanceof Container container) for (Component child : container.getComponents()) scaleFonts(child, scale);
         revalidate(); repaint();
     }
+    void writeTextDiagnostics(Path file) throws IOException { TextRenderingDiagnostics.write(this, file, fontScale); }
     private Map<JScrollPane, Point> scrollPositions() {
         Map<JScrollPane, Point> positions = new IdentityHashMap<>();
         captureScroll(this, positions);

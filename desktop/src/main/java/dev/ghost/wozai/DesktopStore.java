@@ -11,9 +11,15 @@ import java.util.*;
 /** One atomic file per message. History and trust have separate lifetimes. */
 public final class DesktopStore implements AutoCloseable {
     public record Peer(String id, String name, String publicKey, String endpoint) {
+        public Peer { id = uuid(id); }
         public String toString() { return name + (publicKey.isEmpty() ? "" : " ✓"); }
     }
-    public record Message(String id, String body, long time, boolean outgoing, String status) { }
+    public record Message(String id, String body, long time, boolean outgoing, String status, long senderTime) {
+        public Message { id = uuid(id); }
+        public Message(String id, String body, long time, boolean outgoing, String status) {
+            this(id, body, time, outgoing, status, time);
+        }
+    }
     private final Path root;
     private final boolean existingIdentity;
     private final FileChannel lockChannel;
@@ -31,9 +37,9 @@ public final class DesktopStore implements AutoCloseable {
             for (Peer peer : peers()) unknown(peer.id());
         } catch (IOException | RuntimeException e) { close(); throw e; }
     }
-    private static String uuid(String id) {
-        if (id == null || !id.matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")) throw new IllegalArgumentException("Invalid UUID");
-        return id;
+    static String uuid(String id) {
+        if (id == null || !id.matches("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")) throw new IllegalArgumentException("Invalid UUID");
+        return id.toLowerCase(Locale.ROOT);
     }
     private Path peerFile(String id) { return root.resolve("peers").resolve(uuid(id) + ".properties"); }
     private Path messagesPath(String peer) { return root.resolve("messages").resolve(uuid(peer)); }
@@ -57,10 +63,19 @@ public final class DesktopStore implements AutoCloseable {
     }
     public synchronized void save(String peer, Message message) throws IOException {
         Path file = messagesPath(peer).resolve(uuid(message.id()) + ".properties");
-        if (!Files.exists(file)) writeMessage(file, message);
+        if (Files.exists(file)) {
+            if (!readMessage(file).equals(message)) throw new IOException("Conflicting message ID");
+        } else writeMessage(file, message);
+    }
+    public synchronized void receive(String peer, String id, String body, long senderTime) throws IOException {
+        Path file = messagesPath(peer).resolve(uuid(id) + ".properties");
+        // Retries retain the first local receipt time, but must match the wire content.
+        long receiptTime = Files.exists(file) ? readMessage(file).time() : System.currentTimeMillis();
+        save(peer, new Message(id, body, receiptTime, false, "received", senderTime));
     }
     private void writeMessage(Path file, Message m) throws IOException {
         Properties v = new Properties(); v.setProperty("body", m.body()); v.setProperty("time", Long.toString(m.time()));
+        v.setProperty("senderTime", Long.toString(m.senderTime()));
         v.setProperty("outgoing", Boolean.toString(m.outgoing())); v.setProperty("status", m.status()); AtomicFiles.write(file, v);
     }
     private Message readMessage(Path file) throws IOException {
@@ -68,7 +83,10 @@ public final class DesktopStore implements AutoCloseable {
         try {
             String status = AtomicFiles.required(v, "status"), outgoing = AtomicFiles.required(v, "outgoing");
             if (!Set.of("received", "pending", "delivered", "unknown").contains(status) || !Set.of("true", "false").contains(outgoing)) throw new IOException("Invalid message state");
-            return new Message(uuid(file.getFileName().toString().replace(".properties", "")), AtomicFiles.required(v, "body"), Long.parseLong(AtomicFiles.required(v, "time")), Boolean.parseBoolean(outgoing), status);
+            long time = Long.parseLong(AtomicFiles.required(v, "time"));
+            // Before receipt-time ordering, incoming `time` was the sender timestamp.
+            long senderTime = Long.parseLong(v.getProperty("senderTime", Long.toString(time)));
+            return new Message(uuid(file.getFileName().toString().replace(".properties", "")), AtomicFiles.required(v, "body"), time, Boolean.parseBoolean(outgoing), status, senderTime);
         } catch (IllegalArgumentException e) { throw new IOException("Corrupt message", e); }
     }
     public synchronized List<Message> messages(String peer) throws IOException {
@@ -87,14 +105,14 @@ public final class DesktopStore implements AutoCloseable {
     public synchronized void status(String peer, String id, String status) throws IOException {
         Path file = messagesPath(peer).resolve(uuid(id) + ".properties"); if (!Files.exists(file)) return;
         Message m = readMessage(file);
-        if (m.outgoing()) writeMessage(file, new Message(m.id(), m.body(), m.time(), true, status));
+        if (m.outgoing()) writeMessage(file, new Message(m.id(), m.body(), m.time(), true, status, m.senderTime()));
     }
     public synchronized void unknown(String peer) throws IOException {
         Path directory = messagesPath(peer); if (!Files.exists(directory)) return;
         try (var files = Files.list(directory)) {
             for (Path file : files.filter(f -> f.toString().endsWith(".properties")).toList()) {
                 Message m = readMessage(file);
-                if (m.outgoing() && m.status().equals("pending")) writeMessage(file, new Message(m.id(), m.body(), m.time(), true, "unknown"));
+                if (m.outgoing() && m.status().equals("pending")) writeMessage(file, new Message(m.id(), m.body(), m.time(), true, "unknown", m.senderTime()));
             }
         }
     }

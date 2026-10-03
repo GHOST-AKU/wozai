@@ -24,7 +24,14 @@ public final class Main {
                 }
                 language = store.language();
                 var identity = DesktopIdentity.load(path.resolve("identity.properties"));
-                new DesktopWindow(store, identity, path).setVisible(true);
+                DesktopWindow window = new DesktopWindow(store, identity, path); window.setVisible(true);
+                if (java.util.Arrays.asList(args).contains("--text-diagnostics")) {
+                    Path report = path.resolve("text-rendering.txt");
+                    SwingUtilities.invokeLater(() -> {
+                        try { window.writeTextDiagnostics(report); }
+                        catch (IOException e) { System.err.println("Unable to write text rendering diagnostics: " + e.getClass().getSimpleName()); }
+                    });
+                }
             } catch (Exception e) {
                 if (store != null) try { store.close(); } catch (Exception ignored) { }
                 Strings strings = new Strings(language);

@@ -46,6 +46,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & "$env:JAVA_HOME/bin/java.exe" "-Dwozai.bluetooth.library=$((Resolve-Path desktop/build/lib/wozai_bluetooth.dll).Path)" -cp 'desktop/build/classes;desktop/build/tests;desktop/build/lib/*' dev.ghost.wozai.LayoutTests desktop/build/gui-settings-windows.png
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Exercise bundled runtime layout at 100, 125, 150 and 200 percent scaling
+        shell: pwsh
+        run: |
+          foreach ($scale in @('1', '1.25', '1.5', '2')) {
+            & 'desktop/build/package/NearbyIM/runtime/bin/java.exe' "-Dsun.java2d.uiScale=$scale" -cp 'desktop/build/package/NearbyIM/app/*;desktop/build/tests' dev.ghost.wozai.LayoutTests "desktop/build/gui-settings-dpi-$scale.png"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
       - uses: actions/upload-artifact@v4
         with:
           name: NearbyIM-${{ steps.metadata.outputs.version }}-windows-x64
@@ -60,4 +67,5 @@ jobs:
             desktop/build/gui-settings*.png
             desktop/build/package-window.png
             desktop/build/gui-bundled-runtime*.png
+            desktop/build/*-text-rendering.txt
           if-no-files-found: ignore

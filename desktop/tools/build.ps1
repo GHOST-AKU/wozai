@@ -52,7 +52,7 @@ Copy-Item ../app/src/main/res/drawable-nodpi/ic_launcher_artwork.png build/class
 Invoke-JavaTool jar @('--create', '--file', 'build/lib/nearbyim-desktop.jar', '--main-class', 'dev.ghost.wozai.Main', '-C', 'build/classes', '.')
 $tests = (Get-ChildItem src/test/java -Recurse -Filter '*.java').FullName
 Invoke-JavaTool javac (@('--release', '17', '-encoding', 'UTF-8', '-cp', 'build/classes;build/lib/*', '-d', 'build/tests') + $tests)
-foreach ($test in @('DesktopTests', 'DataLocationTests', 'BluetoothTests', 'TransportTests', 'StringsTests')) {
+foreach ($test in @('DesktopTests', 'ReviewRegressionTests', 'DataLocationTests', 'BluetoothTests', 'TransportTests', 'StringsTests', 'FontTests')) {
     Invoke-JavaTool java @($bluetoothLibrary, '-cp', 'build/classes;build/tests;build/lib/*', "dev.ghost.wozai.$test")
 }
 if ($Package) {

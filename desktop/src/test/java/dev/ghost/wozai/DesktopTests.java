@@ -183,7 +183,9 @@ public final class DesktopTests {
         try (var store = new DesktopStore(path)) {
             store.peer(new DesktopStore.Peer(PEER, "朋友", "pin", "192.168.1.2:1234"));
             store.save(PEER, new DesktopStore.Message(mid, "你好\n🙂", 123, true, "pending"));
-            store.save(PEER, new DesktopStore.Message(mid, "duplicate", 124, true, "pending"));
+            store.save(PEER, new DesktopStore.Message(mid, "你好\n🙂", 123, true, "pending"));
+            try { store.save(PEER, new DesktopStore.Message(mid, "duplicate", 124, true, "pending")); throw new AssertionError("Conflicting message silently accepted"); }
+            catch (IOException expected) { passed++; }
             check(store.messages(PEER).size() == 1 && store.messages(PEER).get(0).body().equals("你好\n🙂"), "Message deduplication overwrote original");
             store.draft(PEER, "草稿");
             store.setSetting("language", "en");

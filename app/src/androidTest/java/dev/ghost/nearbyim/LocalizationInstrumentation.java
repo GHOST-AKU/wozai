@@ -125,6 +125,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
         ChatController controller = onMain(() -> field(activity, "controller"));
         liveController = controller;
         ChatService service = onMain(() -> field(activity, "service"));
+        testEmptyNearbyRestoration(controller);
         onMain(() -> { invoke(activity, "startTransport", new Class<?>[]{int.class}, Peer.LAN); return null; });
         await(() -> onMain(() -> controller.lanListening), "Real LAN reception starts");
         String peerId = UUID.randomUUID().toString(), name = "O'Brien {draft}";
@@ -234,6 +235,19 @@ public final class LocalizationInstrumentation extends Instrumentation {
                 if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) throw new IOException("Could not save screenshot");
             }
         } finally { bitmap.recycle(); }
+    }
+    private void testEmptyNearbyRestoration(ChatController controller) throws Exception {
+        onMain(() -> {
+            controller.peers.clear(); setField(activity, "page", 1);
+            setField(activity, "restoredNearbyY", 160); setField(activity, "peerSignature", null);
+            invoke(activity, "render", new Class<?>[0]); return null;
+        });
+        waitForIdleSync();
+        check(onMain(() -> (int) field(activity, "restoredNearbyY") == -1), "Attached empty nearby list consumes restored offset");
+        onMain(() -> { ((ScrollView) field(activity, "nearbyScroll")).scrollTo(0, 0); controller.lanSearching = true; invoke(activity, "renderNearby", new Class<?>[0]); return null; });
+        waitForIdleSync();
+        check(onMain(() -> ((ScrollView) field(activity, "nearbyScroll")).getScrollY() == 0), "Search state change does not reapply stale nearby offset");
+        onMain(() -> { controller.lanSearching = false; setField(activity, "page", 0); invoke(activity, "render", new Class<?>[0]); return null; });
     }
     private void verifyState(ChatController controller, ChatService service, String peerId, String draft, int start, int end) throws Exception {
         check(onMain(() -> field(activity, "controller") == controller && field(activity, "service") == service), "The service and controller survive activity recreation");

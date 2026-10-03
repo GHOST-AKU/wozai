@@ -444,7 +444,7 @@ public final class MainActivity extends Activity {
             TextView address = label(peer.mode == Peer.BLUETOOTH ? t(peer.paired ? "pairedAddress" : "unpairedAddress", peer.detail) : peer.detail, 12, muted); singleLine(address); text.addView(address); row.addView(text, new LinearLayout.LayoutParams(0, -2, 1));
             row.setFocusable(true); row.setClickable(true); row.setOnClickListener(v -> initiatePeer(peer)); peersList.addView(row);
         }
-        if (restoredNearbyY >= 0) { final int y = restoredNearbyY; nearbyScroll.post(() -> nearbyScroll.scrollTo(0, y)); if (count > 0) restoredNearbyY = -1; }
+        if (attached && restoredNearbyY >= 0) { final int y = restoredNearbyY; restoredNearbyY = -1; nearbyScroll.post(() -> nearbyScroll.scrollTo(0, y)); }
         if (count == 0) peersList.addView(empty(searching ? t("searchingNearby") : t("noDevicesTitle"), mode == Peer.LAN ? t("lanNoDevicesBody") : t("bluetoothNoDevicesBody")));
     }
     private void renderSettings() {

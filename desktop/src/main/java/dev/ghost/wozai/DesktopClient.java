@@ -99,19 +99,20 @@ public final class DesktopClient implements AutoCloseable {
         if (previous != null) try { previous.close(); } catch (IOException ignored) { }
     }
     public CompletableFuture<Void> connect(String text, String expectedId) {
-        if(text.startsWith("bluetooth:")) return connectBluetooth(text.substring(10),expectedId);
+        final String canonicalId = expectedId == null ? null : DesktopStore.uuid(expectedId);
+        if(text.startsWith("bluetooth:")) return connectBluetooth(text.substring(10),canonicalId);
         return submit(() -> {
             LocalEndpoint target = LocalEndpoint.parse(text);
             if (current != null || phase.equals("connecting")) throw new LocalizedIOException(UiText.of("busy"));
             long attempt = ++generation, trustVersion = policy.version(); phase = "connecting"; publish();
-            Socket socket = new Socket(); connecting = socket; connectingPeer = expectedId;
+            Socket socket = new Socket(); connecting = socket; connectingPeer = canonicalId;
             daemon(() -> {
                 try {
                     socket.connect(new InetSocketAddress(target.address, target.port), 8000);
                     socket.setTcpNoDelay(true); socket.setKeepAlive(true);
                     event(() -> {
                         if (attempt != generation || closed) { closeSocket(socket); return; }
-                        connecting = null; connectingPeer = null; attach(socket, false, expectedId, text, trustVersion);
+                        connecting = null; connectingPeer = null; attach(socket, false, canonicalId, text, trustVersion);
                     });
                 } catch (IOException e) {
                     closeSocket(socket);
@@ -137,12 +138,14 @@ public final class DesktopClient implements AutoCloseable {
         public void onHello(Frame hello) { event(() -> {
             if (current != this) return;
             if (policy.version() != trustVersion) { reject("canceled"); return; }
-            if (hello.id.equals(identity.id()) || expectedId != null && !expectedId.equals(hello.id)) { reject("identityChanged"); return; }
+            // Normalize only after authentication; the signed offer keeps its original bytes.
+            String peerId = DesktopStore.uuid(hello.id);
+            if (peerId.equalsIgnoreCase(identity.id()) || expectedId != null && !expectedId.equals(peerId)) { reject("identityChanged"); return; }
             try {
-                DesktopStore.Peer saved = store.peer(hello.id);
+                DesktopStore.Peer saved = store.peer(peerId);
                 String pin = saved == null || saved.publicKey().isEmpty() ? null : saved.publicKey();
-                authorization = policy.begin(hello.id, wire.remotePublicKey(), pin, !incoming, true);
-                peer = new DesktopStore.Peer(hello.id, hello.body, pin == null ? "" : pin, target.isEmpty() && saved != null ? saved.endpoint() : target);
+                authorization = policy.begin(peerId, wire.remotePublicKey(), pin, !incoming, true);
+                peer = new DesktopStore.Peer(peerId, hello.body, pin == null ? "" : pin, target.isEmpty() && saved != null ? saved.endpoint() : target);
                 if (authorization.decision == TrustPolicy.Decision.IDENTITY_CHANGED) { reject("identityChanged"); return; }
                 phase = "consent"; publish();
                 if (authorization.decision == TrustPolicy.Decision.APPROVE) wire.approve();
@@ -162,7 +165,7 @@ public final class DesktopClient implements AutoCloseable {
         public void onText(Frame frame) { event(() -> {
             if (current != this || peer == null || !wire.isReady()) return;
             try {
-                store.save(peer.id(), new DesktopStore.Message(frame.id, frame.body, frame.timestamp, false, "received"));
+                store.receive(peer.id(), frame.id, frame.body, frame.timestamp);
                 wire.acknowledge(frame.id); publish();
             } catch (IOException e) { failure(); }
         }); }
@@ -211,7 +214,7 @@ public final class DesktopClient implements AutoCloseable {
     public CompletableFuture<String> draft(String id) { return submit(() -> store.draft(id)); }
     public CompletableFuture<Void> draft(String id, String text) { return submit(() -> { store.draft(id, text); return null; }); }
     public CompletableFuture<Void> setting(String key, String value) { return submit(() -> { store.setSetting(key, value); return null; }); }
-    public CompletableFuture<Void> revoke(String id) { return submit(() -> {
+    public CompletableFuture<Void> revoke(String peerId) { final String id = DesktopStore.uuid(peerId); return submit(() -> {
         policy.revoke(id); store.revoke(id);
         if (id.equals(connectingPeer) || current != null && (id.equals(current.expectedId) || current.peer != null && current.peer.id().equals(id))) disconnectNow();
         publish(); return null;

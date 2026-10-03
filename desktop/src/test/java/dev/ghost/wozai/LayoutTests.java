@@ -50,6 +50,8 @@ public final class LayoutTests {
             for(int textSize:new int[]{0,2}) {
                 edt(() -> { size(w).setSelectedIndex(textSize); return null; }); Thread.sleep(180);
                 edt(() -> {
+                    float expectedSize = textSize == 0 ? 15f : 22.5f;
+                    check(Math.abs(nickname.getFont().getSize2D() - expectedSize) < .01f, "Application font scale duplicated monitor DPI: " + nickname.getFont());
                     check(!scroll.getHorizontalScrollBar().isVisible(),"Settings has horizontal overflow at text size "+textSize);
                     check(scroll.getViewport().getViewSize().width==scroll.getViewport().getExtentSize().width,"Settings content does not track the viewport width");
                     check(scroll.getVerticalScrollBar().getUnitIncrement(1)>=16,"Wheel increment is too small: "+scroll.getVerticalScrollBar().getUnitIncrement(1));
@@ -61,6 +63,7 @@ public final class LayoutTests {
                 });
             }
             edt(() -> { size(w).setSelectedIndex(0); scroll.getVerticalScrollBar().setValue(0); return null; }); Thread.sleep(150);
+            if (args.length > 0) edt(() -> { w.writeTextDiagnostics(Path.of(args[0].replace(".png", "-text-rendering.txt"))); return null; });
             Rectangle bounds=edt(() -> { Point p=scroll.getViewport().getLocationOnScreen(); return new Rectangle(p,scroll.getViewport().getSize()); });
             Robot robot=new Robot(); robot.mouseMove(bounds.x+bounds.width/2,bounds.y+bounds.height/2); robot.mouseWheel(6); Thread.sleep(350);
             check(edt(() -> scroll.getVerticalScrollBar().getValue())>=80,"Six wheel ticks barely move settings");

@@ -39,9 +39,18 @@ final class AppTheme {
     }
     private static String fontFamily() {
         if(fontFamily==null) {
-            try(var source=AppTheme.class.getResourceAsStream("fonts/NotoSansCJKsc-Regular.otf")) {
-                if(source==null)throw new IOException("Bundled Chinese font is missing");
-                Font font=Font.createFont(Font.TRUETYPE_FONT,source); GraphicsEnvironment.getLocalGraphicsEnvironment().registerFont(font); fontFamily=font.getFamily(java.util.Locale.ENGLISH);
+            try {
+                String family = null;
+                for (String weight : new String[]{"Regular", "Bold"}) {
+                    try (var source = AppTheme.class.getResourceAsStream("fonts/NotoSansCJKsc-" + weight + ".otf")) {
+                        if (source == null) throw new IOException("Bundled font weight is missing: " + weight);
+                        Font font = Font.createFont(Font.TRUETYPE_FONT, source);
+                        GraphicsEnvironment.getLocalGraphicsEnvironment().registerFont(font);
+                        family = font.getFamily(java.util.Locale.ENGLISH);
+                    }
+                }
+                // Register every weight before FlatLaf/StyleContext caches composite fonts.
+                fontFamily = family;
             } catch(IOException|FontFormatException e) { throw new IllegalStateException("Unable to load the bundled font", new dev.ghost.nearbyim.i18n.LocalizedIOException(dev.ghost.nearbyim.i18n.UiText.of("fontLoadFailed"), e)); }
         }
         return fontFamily;
@@ -63,7 +72,7 @@ final class AppTheme {
             Graphics2D p = (Graphics2D) g.create(); p.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             int size = Math.min(getWidth(), getHeight()); p.setColor(tonal); p.fillOval(0,0,size,size); p.setColor(accent);
             p.setFont(getFont().deriveFont(Font.BOLD, 20f)); String initial = name.isBlank() ? "?" : name.substring(0, name.offsetByCodePoints(0,1));
-            FontMetrics m = p.getFontMetrics(); p.drawString(initial, (size-m.stringWidth(initial))/2, (size-m.getHeight())/2+m.getAscent()); p.dispose();
+            FontMetrics m = getFontMetrics(p.getFont()); com.formdev.flatlaf.ui.FlatUIUtils.drawString(this, p, initial, (size-m.stringWidth(initial))/2, (size-m.getHeight())/2+m.getAscent()); p.dispose();
         }
     }
     private static final Map<String, BufferedImage> icons = new HashMap<>();

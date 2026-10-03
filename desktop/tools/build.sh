@@ -36,7 +36,7 @@ rm -f build/lib/wozai-desktop.jar
 jar --create --file build/lib/nearbyim-desktop.jar --main-class dev.ghost.wozai.Main -C build/classes .
 find src/test/java -name '*.java' > build/test-sources.txt
 javac --release 17 -encoding UTF-8 -cp 'build/classes:build/lib/*' -d build/tests @build/test-sources.txt
-for test in DesktopTests DataLocationTests BluetoothTests TransportTests StringsTests; do
+for test in DesktopTests ReviewRegressionTests DataLocationTests BluetoothTests TransportTests StringsTests FontTests; do
     java -cp 'build/classes:build/tests:build/lib/*' dev.ghost.wozai.$test
 done
 if [ "${1:-}" = '--run' ]; then java -cp 'build/lib/*' dev.ghost.wozai.Main; fi
