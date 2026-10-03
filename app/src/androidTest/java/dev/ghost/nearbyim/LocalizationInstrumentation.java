@@ -128,6 +128,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
         ChatService service = onMain(() -> field(activity, "service"));
         testEmptyNearbyRestoration(controller);
         testEmptySettingsRestoration(controller);
+        testEmptyHistoryRestoration(controller);
         onMain(() -> { invoke(activity, "startTransport", new Class<?>[]{int.class}, Peer.LAN); return null; });
         await(() -> onMain(() -> controller.lanListening), "Real LAN reception starts");
         String peerId = UUID.randomUUID().toString(), name = "O'Brien {draft}";
@@ -273,6 +274,28 @@ public final class LocalizationInstrumentation extends Instrumentation {
         waitForIdleSync();
         check(onMain(() -> ((ScrollView) field(activity, "settingsScroll")).getScrollY() == 0), "Empty trusted list refresh preserves user's settings scroll position");
         onMain(() -> { setField(activity, "page", 0); invoke(activity, "render", new Class<?>[0]); return null; });
+    }
+    private void testEmptyHistoryRestoration(ChatController controller) throws Exception {
+        onMain(() -> {
+            setField(activity, "controller", null); setField(activity, "page", 0);
+            setField(activity, "restoredHistoryY", 160); setField(activity, "renderedConversations", null);
+            invoke(activity, "renderHistory", new Class<?>[0]); return null;
+        });
+        waitForIdleSync();
+        check(onMain(() -> (int) field(activity, "restoredHistoryY") == 160), "History retains restored offset until controller attaches");
+        onMain(() -> {
+            setField(activity, "controller", controller); controller.conversations = new ArrayList<>();
+            invoke(activity, "render", new Class<?>[0]); return null;
+        });
+        waitForIdleSync();
+        check(onMain(() -> (int) field(activity, "restoredHistoryY") == -1), "Attached empty history consumes restored offset");
+        onMain(() -> {
+            ((ScrollView) field(activity, "historyScroll")).scrollTo(0, 0);
+            controller.conversations = new ArrayList<>();
+            invoke(activity, "renderHistory", new Class<?>[0]); return null;
+        });
+        waitForIdleSync();
+        check(onMain(() -> ((ScrollView) field(activity, "historyScroll")).getScrollY() == 0), "Empty history refresh preserves user's scroll position");
     }
     private void verifyState(ChatController controller, ChatService service, String peerId, String draft, int start, int end) throws Exception {
         check(onMain(() -> field(activity, "controller") == controller && field(activity, "service") == service), "The service and controller survive activity recreation");

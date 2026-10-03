@@ -307,23 +307,124 @@ void writeSocket(std::shared_ptr<SocketState> state, int length, FillBuffer&& fi
     }
 }
 
+// WSALookupServiceEnd explicitly cancels a blocked Next on another thread.
+// BluetoothFindFirstDevice with fIssueInquiry cannot be canceled this way.
+struct InquiryState {
+    std::mutex mutex;
+    HANDLE query = nullptr;
+    bool closed = false, started = false;
+    decltype(&WSALookupServiceNextW) nextLookup;
+    decltype(&WSALookupServiceEnd) endLookup;
+    explicit InquiryState(decltype(nextLookup) next = WSALookupServiceNextW,
+                          decltype(endLookup) end = WSALookupServiceEnd) : nextLookup(next), endLookup(end) { }
+    void requireActive() {
+        std::lock_guard<std::mutex> lock(mutex);
+        if (closed) throw NativeError("Bluetooth inquiry was canceled");
+    }
+    void begin(int seconds) {
+        std::lock_guard<std::mutex> lock(mutex);
+        if (closed) throw NativeError("Bluetooth inquiry was canceled");
+        if (started) throw NativeError("Bluetooth inquiry has already started");
+        started = true;
+        BTH_QUERY_DEVICE device{};
+        device.length = static_cast<UCHAR>(seconds);
+        BLOB blob{sizeof(device), reinterpret_cast<BYTE*>(&device)};
+        WSAQUERYSETW restrictions{};
+        restrictions.dwSize = sizeof(restrictions);
+        restrictions.dwNameSpace = NS_BTH;
+        restrictions.lpBlob = &blob;
+        HANDLE lookup = nullptr;
+        if (WSALookupServiceBeginW(&restrictions, LUP_CONTAINERS | LUP_FLUSHCACHE, &lookup) == SOCKET_ERROR)
+            winError("Starting Bluetooth inquiry", WSAGetLastError());
+        query = lookup;
+    }
+    enum class Result { Found, Resize, Done };
+    Result next(DWORD& size, WSAQUERYSETW* result) {
+        HANDLE current;
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            if (closed || !query) throw NativeError("Bluetooth inquiry was canceled");
+            current = query;
+        }
+        // Do not hold mutex while blocked: close() must be able to end the query.
+        int code = nextLookup(current, LUP_RETURN_NAME | LUP_RETURN_ADDR, &size, result);
+        int error = code == SOCKET_ERROR ? WSAGetLastError() : 0;
+        requireActive();
+        if (!error) return Result::Found;
+        if (error == WSAEFAULT) return Result::Resize;
+        if (error == WSA_E_NO_MORE || error == WSAENOMORE) return Result::Done;
+        winError("Searching Bluetooth devices", error);
+    }
+    int close() noexcept {
+        std::lock_guard<std::mutex> lock(mutex);
+        closed = true;
+        HANDLE current = std::exchange(query, nullptr);
+        return current && endLookup(current) == SOCKET_ERROR ? WSAGetLastError() : 0;
+    }
+    ~InquiryState() { close(); }
+};
+std::map<jlong, std::shared_ptr<InquiryState>> inquiries;
+jlong registerInquiry(std::shared_ptr<InquiryState> state) {
+    std::lock_guard<std::mutex> lock(registryMutex);
+    if (nextHandle == std::numeric_limits<jlong>::max()) throw NativeError("Bluetooth handle IDs exhausted");
+    jlong handle = nextHandle++;
+    inquiries.emplace(handle, std::move(state));
+    return handle;
+}
+std::shared_ptr<InquiryState> lookupInquiry(jlong handle) {
+    std::lock_guard<std::mutex> lock(registryMutex);
+    auto found = inquiries.find(handle);
+    if (handle <= 0 || found == inquiries.end()) throw NativeError("Bluetooth inquiry is closed or the handle is invalid");
+    return found->second;
+}
+std::shared_ptr<InquiryState> removeInquiry(jlong handle) {
+    std::lock_guard<std::mutex> lock(registryMutex);
+    auto found = inquiries.find(handle);
+    if (found == inquiries.end()) return {};
+    auto result = found->second;
+    inquiries.erase(found);
+    return result;
+}
+
 struct FoundDevice { BTH_ADDR address; std::wstring name; bool paired; };
-std::vector<FoundDevice> scanDevices(int seconds) {
+std::vector<FoundDevice> scanDevices(const std::shared_ptr<InquiryState>& inquiry, int seconds) {
     if (seconds < 1 || seconds > 30) throw InvalidArgument("Inquiry duration must be 1..30 seconds");
+    inquiry->requireActive();
     auto adapters = radios();
     if (adapters.empty()) throw NativeError("No enabled Windows Bluetooth radio");
     std::map<BTH_ADDR, FoundDevice> found;
-    // Inquire on one radio, then include the cached/paired devices from every radio.
-    // Running an inquiry per adapter would multiply the user's bounded duration.
+    inquiry->begin(seconds);
+    std::vector<char> buffer(4096);
+    for (;;) {
+        auto result = reinterpret_cast<WSAQUERYSETW*>(buffer.data());
+        std::memset(result, 0, sizeof(*result));
+        result->dwSize = sizeof(*result);
+        DWORD size = static_cast<DWORD>(buffer.size());
+        auto status = inquiry->next(size, result);
+        if (status == InquiryState::Result::Done) break;
+        if (status == InquiryState::Result::Resize) {
+            if (size <= buffer.size() || size > 1024 * 1024) throw NativeError("Invalid Bluetooth inquiry result size");
+            buffer.resize(size);
+            continue;
+        }
+        for (DWORD index = 0; index < result->dwNumberOfCsAddrs; ++index) {
+            const auto& remote = result->lpcsaBuffer[index].RemoteAddr;
+            if (!remote.lpSockaddr || remote.iSockaddrLength < static_cast<int>(sizeof(SOCKADDR_BTH)) || remote.lpSockaddr->sa_family != AF_BTH) continue;
+            BTH_ADDR mac = reinterpret_cast<SOCKADDR_BTH*>(remote.lpSockaddr)->btAddr;
+            if (mac && mac != 0xffffffffffffULL)
+                found[mac] = FoundDevice{mac, result->lpszServiceInstanceName ? result->lpszServiceInstanceName : L"", false};
+        }
+    }
+    // Include cached/paired devices from every adapter without another inquiry.
     for (std::size_t index = 0; index < adapters.size(); ++index) {
+        inquiry->requireActive();
         BLUETOOTH_DEVICE_SEARCH_PARAMS search{};
         search.dwSize = sizeof(search);
         search.fReturnAuthenticated = TRUE;
         search.fReturnRemembered = TRUE;
         search.fReturnUnknown = TRUE;
         search.fReturnConnected = TRUE;
-        search.fIssueInquiry = index == 0;
-        search.cTimeoutMultiplier = static_cast<UCHAR>(std::max(1, (seconds * 100) / 128));
+        search.fIssueInquiry = FALSE;
         search.hRadio = adapters[index].handle;
         BLUETOOTH_DEVICE_INFO device{};
         device.dwSize = sizeof(device);
@@ -338,6 +439,7 @@ std::vector<FoundDevice> scanDevices(int seconds) {
             ~FindOwner() { BluetoothFindDeviceClose(handle); }
         } owner{find};
         do {
+            inquiry->requireActive();
             BTH_ADDR mac = device.Address.ullLong;
             if (!mac || mac == 0xffffffffffffULL) continue;
             bool paired = device.fAuthenticated != FALSE;
@@ -356,13 +458,14 @@ std::vector<FoundDevice> scanDevices(int seconds) {
             winError("Enumerating Bluetooth devices", static_cast<int>(error));
     }
     std::vector<FoundDevice> result;
+    inquiry->requireActive();
     for (auto& item : found) result.push_back(std::move(item.second));
     return result;
 }
 } // namespace
 
 extern "C" {
-JNIEXPORT jint JNICALL Java_dev_ghost_wozai_WindowsBluetooth_nativeVersion(JNIEnv*, jclass) { return 1; }
+JNIEXPORT jint JNICALL Java_dev_ghost_wozai_WindowsBluetooth_nativeVersion(JNIEnv*, jclass) { return 2; }
 
 JNIEXPORT jstring JNICALL Java_dev_ghost_wozai_WindowsBluetooth_nativeStatus(JNIEnv* env, jclass) {
     return guarded<jstring>(env, nullptr, [&]() -> jstring {
@@ -379,10 +482,21 @@ JNIEXPORT jstring JNICALL Java_dev_ghost_wozai_WindowsBluetooth_nativeStatus(JNI
     });
 }
 
-JNIEXPORT jobjectArray JNICALL Java_dev_ghost_wozai_WindowsBluetooth_nativeScan(JNIEnv* env, jclass, jint seconds) {
+JNIEXPORT jlong JNICALL Java_dev_ghost_wozai_WindowsBluetooth_nativeOpenInquiry(JNIEnv* env, jclass) {
+    return guarded<jlong>(env, 0, [&] { return registerInquiry(std::make_shared<InquiryState>()); });
+}
+JNIEXPORT void JNICALL Java_dev_ghost_wozai_WindowsBluetooth_nativeCloseInquiry(JNIEnv* env, jclass, jlong handle) {
+    guardedVoid(env, [&] {
+        auto inquiry = removeInquiry(handle);
+        if (inquiry) { int error = inquiry->close(); if (error) winError("Canceling Bluetooth inquiry", error); }
+    });
+}
+JNIEXPORT jobjectArray JNICALL Java_dev_ghost_wozai_WindowsBluetooth_nativeScan(JNIEnv* env, jclass, jlong handle, jint seconds) {
     return guarded<jobjectArray>(env, nullptr, [&]() -> jobjectArray {
+        if (seconds < 1 || seconds > 30) throw InvalidArgument("Inquiry duration must be 1..30 seconds");
+        auto inquiry = lookupInquiry(handle);
         requireWinsock();
-        auto found = scanDevices(seconds);
+        auto found = scanDevices(inquiry, seconds);
         jclass type = env->FindClass("dev/ghost/wozai/WindowsBluetooth$Device");
         if (!type) return nullptr;
         jmethodID constructor = env->GetMethodID(type, "<init>", "(Ljava/lang/String;Ljava/lang/String;Z)V");

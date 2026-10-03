@@ -378,8 +378,8 @@ public final class MainActivity extends Activity {
         List<ChatStore.Conversation> conversations = controller == null ? Collections.emptyList() : controller.conversations;
         String connection = controller == null ? null : controller.connectedPeerId;
         if (renderedConversations == conversations && Objects.equals(renderedConnection, connection) && Objects.equals(renderedQuery, searchQuery)) return;
-        renderedConversations = conversations; renderedConnection = connection; renderedQuery = searchQuery; int oldY = restoredHistoryY >= 0 ? restoredHistoryY : historyScroll.getScrollY();
-        if (controller != null && !conversations.isEmpty()) restoredHistoryY = -1; historyList.removeAllViews();
+        renderedConversations = conversations; renderedConnection = connection; renderedQuery = searchQuery; int oldY = controller != null && restoredHistoryY >= 0 ? restoredHistoryY : historyScroll.getScrollY();
+        if (controller != null) restoredHistoryY = -1; historyList.removeAllViews();
         String query = searchQuery.trim().toLowerCase(Locale.ROOT); int count = 0; String previousGroup = null;
         for (ChatStore.Conversation conversation : conversations) {
             if (!safe(conversation.name).toLowerCase(Locale.ROOT).contains(query)) continue;

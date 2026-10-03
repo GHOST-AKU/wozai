@@ -160,11 +160,68 @@ public final class GuiTests {
             await(() -> !w.isDisplayable(), "GUI exit did not close");
             try (DesktopStore reopened = new DesktopStore(root)) { if (!reopened.draft(id).equals("unsent draft")) throw new AssertionError("Exit lost draft"); if (!reopened.setting("theme","").equals("dark")) throw new AssertionError("Theme not persisted"); }
             startupUsesSavedLanguage(root);
+            bluetoothScanCancellation(root.resolve("scan-cancellation"));
             System.out.println("GuiTests: consent, messaging, receipts, live and system translation, open dialogs, search/selection/scroll preservation, nickname search, light/dark theme, text scaling, startup preference, draft and exit passed");
         } finally {
             Locale.setDefault(Locale.Category.DISPLAY, originalDisplayLocale);
             if (remote != null) remote.close(UiText.EMPTY);
             DesktopWindow w = window; if (w != null) edt(() -> { if (w.isDisplayable()) w.dispatchEvent(new WindowEvent(w, WindowEvent.WINDOW_CLOSING)); return null; });
+        }
+    }
+    private static final class TestInquiry implements WindowsBluetooth.Inquiry {
+        final CountDownLatch started = new CountDownLatch(1), closed = new CountDownLatch(1), finish = new CountDownLatch(1);
+        final boolean delayed;
+        TestInquiry(boolean delayed) { this.delayed = delayed; }
+        public List<WindowsBluetooth.Device> scan(int seconds) throws IOException {
+            started.countDown();
+            try { if (!finish.await(8, TimeUnit.SECONDS)) throw new IOException("Test inquiry timed out"); }
+            catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new IOException(e); }
+            return List.of(new WindowsBluetooth.Device("AB:CD:01:23:45:67", delayed ? "Stale scan" : "Current scan", false));
+        }
+        public void close() { closed.countDown(); if (!delayed) finish.countDown(); }
+    }
+    private static void bluetoothScanCancellation(Path root) throws Exception {
+        List<TestInquiry> inquiries = new ArrayList<>();
+        DesktopWindow window = null;
+        try (DesktopStore store = new DesktopStore(root)) {
+            store.setSetting("language", "en");
+            var identity = DesktopIdentity.load(root.resolve("identity.properties"));
+            window = edt(() -> {
+                DesktopWindow result = new DesktopWindow(store, identity, root, () -> {
+                    TestInquiry inquiry = new TestInquiry(inquiries.isEmpty()); inquiries.add(inquiry); return inquiry;
+                });
+                result.setVisible(true); return result;
+            });
+            DesktopWindow w = window; Strings text = new Strings("en");
+            JButton scan = edt(() -> button(w, text.text("searchBluetooth")));
+            edt(() -> { scan.doClick(); return null; });
+            TestInquiry first = inquiries.get(0);
+            if (!first.started.await(2, TimeUnit.SECONDS)) throw new AssertionError("Bluetooth scan did not start");
+            edt(() -> { scan.doClick(); scan.doClick(); return null; });
+            if (first.closed.getCount() != 0 || inquiries.size() != 2) throw new AssertionError("Stop failed to cancel and accept immediate restart");
+            first.finish.countDown(); TestInquiry second = inquiries.get(1);
+            if (!second.started.await(2, TimeUnit.SECONDS)) throw new AssertionError("Restart waited for the old inquiry timeout");
+            edt(() -> { return null; });
+            JList<?> devices = edt(() -> components(w).stream().filter(c -> c instanceof JList<?> l && text.text("bluetoothDevices").equals(l.getAccessibleContext().getAccessibleName())).map(c -> (JList<?>)c).findFirst().orElseThrow());
+            if (!edt(() -> scan.getText().equals(text.text("stopSearch")) && devices.getModel().getSize() == 0)) throw new AssertionError("Stale completion reset or populated the new scan");
+            second.finish.countDown();
+            await(() -> devices.getModel().getSize() == 1 && ((WindowsBluetooth.Device)devices.getModel().getElementAt(0)).name().equals("Current scan"), "Restart did not publish fresh results");
+            edt(() -> { scan.doClick(); return null; });
+            TestInquiry third = inquiries.get(2);
+            if (!third.started.await(2, TimeUnit.SECONDS)) throw new AssertionError("Third scan did not start");
+            edt(() -> { button(w, text.text("stopAll")).doClick(); return null; });
+            if (third.closed.getCount() != 0) throw new AssertionError("Stop all left the Bluetooth inquiry running");
+            edt(() -> { scan.doClick(); return null; });
+            TestInquiry fourth = inquiries.get(3);
+            if (!fourth.started.await(2, TimeUnit.SECONDS)) throw new AssertionError("Restart after Stop all failed");
+            edt(() -> { w.dispatchEvent(new WindowEvent(w, WindowEvent.WINDOW_CLOSING)); return null; });
+            if (fourth.closed.getCount() != 0) throw new AssertionError("Exit left the Bluetooth inquiry running");
+            await(() -> !w.isDisplayable(), "Bluetooth scan prevented exit");
+            System.out.println("GuiTests: Bluetooth Stop, immediate restart, stale completion, Stop all and exit cancellation passed");
+        } finally {
+            for (TestInquiry inquiry : inquiries) { inquiry.close(); inquiry.finish.countDown(); }
+            DesktopWindow w = window;
+            if (w != null) { edt(() -> { if (w.isDisplayable()) w.dispatchEvent(new WindowEvent(w, WindowEvent.WINDOW_CLOSING)); return null; }); await(() -> !w.isDisplayable(), "Scan test cleanup failed"); }
         }
     }
     private static void startupUsesSavedLanguage(Path root) throws Exception {

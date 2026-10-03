@@ -56,7 +56,7 @@ public final class BluetoothTests {
         if (windows) {
             // A missing DLL must fail Windows CI even when the runner has no radio.
             check(status.supported(), "Packaged Windows JNI DLL failed to load: " + status.detail());
-            check(((Integer) nativeCall("nativeVersion", new Class<?>[0])) == 1, "Native JNI API version mismatch");
+            check(((Integer) nativeCall("nativeVersion", new Class<?>[0])) == 2, "Native JNI API version mismatch");
             nativeValidation();
         } else {
             check(!status.supported() && !status.available(), "Non-Windows platform attempted RFCOMM");
@@ -80,7 +80,21 @@ public final class BluetoothTests {
             expect(IllegalArgumentException.class, () -> nativeCall(operation, bufferTypes, 0L, new byte[4], 4, 1));
             expect(IOException.class, () -> nativeCall(operation, bufferTypes, Long.MAX_VALUE, new byte[4], 0, 1));
         }
-        expect(IllegalArgumentException.class, () -> nativeCall("nativeScan", new Class<?>[] { int.class }, 0));
+        Class<?>[] scanTypes = { long.class, int.class };
+        expect(IllegalArgumentException.class, () -> nativeCall("nativeScan", scanTypes, 0L, 0));
+        expect(IOException.class, () -> nativeCall("nativeScan", scanTypes, Long.MAX_VALUE, 1));
+        try (WindowsBluetooth.Inquiry inquiry = WindowsBluetooth.openInquiry()) {
+            expect(IllegalArgumentException.class, () -> inquiry.scan(0));
+            inquiry.close(); inquiry.close();
+            expect(IOException.class, () -> inquiry.scan(1));
+        }
+        long old = (Long) nativeCall("nativeOpenInquiry", new Class<?>[0]);
+        nativeCall("nativeCloseInquiry", new Class<?>[]{long.class}, old);
+        nativeCall("nativeCloseInquiry", new Class<?>[]{long.class}, old);
+        long next = (Long) nativeCall("nativeOpenInquiry", new Class<?>[0]);
+        check(next > old, "Inquiry handles were reused");
+        expect(IOException.class, () -> nativeCall("nativeScan", scanTypes, old, 1));
+        nativeCall("nativeCloseInquiry", new Class<?>[]{long.class}, next);
         Class<?>[] connectTypes = { long.class, String.class, int.class };
         expect(IllegalArgumentException.class, () -> nativeCall("nativeConnect", connectTypes, 0L, "AB:CD:01:23:45:67", 0));
         expect(IllegalArgumentException.class, () -> nativeCall("nativeConnect", connectTypes, 0L, "GG:CD:01:23:45:67", 100));

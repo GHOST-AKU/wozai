@@ -136,6 +136,58 @@ void cancelBlockedWrite() {
 }
 } // namespace
 
+namespace {
+struct BlockingLookup {
+    std::mutex mutex;
+    std::condition_variable changed;
+    std::promise<void> entered;
+    bool ended = false;
+    int ends = 0;
+};
+int WSAAPI blockedLookupNext(HANDLE handle, DWORD, DWORD*, WSAQUERYSETW*) {
+    auto& lookup = *static_cast<BlockingLookup*>(handle);
+    std::unique_lock<std::mutex> lock(lookup.mutex);
+    lookup.entered.set_value();
+    lookup.changed.wait(lock, [&] { return lookup.ended; });
+    WSASetLastError(WSA_E_CANCELLED);
+    return SOCKET_ERROR;
+}
+int WSAAPI cancelLookup(HANDLE handle) {
+    auto& lookup = *static_cast<BlockingLookup*>(handle);
+    std::lock_guard<std::mutex> lock(lookup.mutex);
+    lookup.ended = true; ++lookup.ends; lookup.changed.notify_all();
+    return 0;
+}
+void cancelInquiry() {
+    BlockingLookup backend;
+    auto inquiry = std::make_shared<InquiryState>(blockedLookupNext, cancelLookup);
+    inquiry->query = &backend;
+    auto entered = backend.entered.get_future();
+    jlong handle = registerInquiry(inquiry);
+    auto reader = std::async(std::launch::async, [&] {
+        DWORD size = sizeof(WSAQUERYSETW); WSAQUERYSETW result{};
+        try { inquiry->next(size, &result); return false; }
+        catch (const NativeError&) { return true; }
+    });
+    bool waiting = entered.wait_for(std::chrono::seconds(2)) == std::future_status::ready;
+    auto removed = removeInquiry(handle);
+    check(removed && removed->close() == 0, "Inquiry cancel did not end the provider lookup");
+    bool finished = reader.wait_for(std::chrono::seconds(2)) == std::future_status::ready;
+    check(waiting && finished && reader.get(), "Cancel did not interrupt blocked native inquiry");
+    inquiry->close();
+    check(backend.ends == 1, "Repeated inquiry close ended the provider twice");
+    check(!removeInquiry(handle), "Closed inquiry stayed registered");
+    auto replacement = std::make_shared<InquiryState>();
+    jlong next = registerInquiry(replacement);
+    check(next > handle && !removeInquiry(handle), "Stale inquiry cancellation affected a new scan");
+    removeInquiry(next)->close();
+    bool rejected = false;
+    try { replacement->begin(10); } catch (const NativeError&) { rejected = true; }
+    check(rejected, "An inquiry canceled before starting still reached the provider");
+    check(inquiries.empty(), "Inquiry test leaked handles");
+}
+}
+
 int main() {
     try {
         requireWinsock();
@@ -143,6 +195,7 @@ int main() {
         cancelReadAndRejectStaleHandle();
         cancelAccept();
         cancelBlockedWrite();
+        cancelInquiry();
         check(registry.empty(), "Native test leaked registered handles");
         std::cout << "Bluetooth native lifecycle: " << passed << " checks passed (loopback; no physical radio required)\n";
         return 0;

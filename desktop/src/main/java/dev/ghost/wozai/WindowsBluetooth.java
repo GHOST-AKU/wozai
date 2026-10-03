@@ -60,11 +60,36 @@ public final class WindowsBluetooth {
     }
 
     public static List<Device> scan() throws IOException { return scan(10); }
-    /** Inquiry is bounded to 1..30 seconds, rounded down to the radio's 1.28 second units. */
+    /** Inquiry is bounded to 1..30 seconds. */
     public static List<Device> scan(int inquirySeconds) throws IOException {
-        if (inquirySeconds < 1 || inquirySeconds > 30) throw new IllegalArgumentException("Inquiry duration must be 1..30 seconds");
-        requireAvailable();
-        return List.of(nativeScan(inquirySeconds));
+        validateInquiry(inquirySeconds);
+        try (Inquiry inquiry = openInquiry()) { return inquiry.scan(inquirySeconds); }
+    }
+
+    /** Allocate before starting so close() can cancel even a queued inquiry. */
+    public static Inquiry openInquiry() throws IOException {
+        if (LOAD_FAILURE != null) throw new LocalizedIOException(UiText.of("bluetoothUnavailable"));
+        return new NativeInquiry(nativeOpenInquiry());
+    }
+    public interface Inquiry extends AutoCloseable {
+        List<Device> scan(int inquirySeconds) throws IOException;
+        /** Cancels the native inquiry; safe to call concurrently and more than once. */
+        @Override void close() throws IOException;
+    }
+    private static final class NativeInquiry implements Inquiry {
+        private final AtomicLong handle;
+        private NativeInquiry(long handle) { this.handle = new AtomicLong(handle); }
+        @Override public List<Device> scan(int inquirySeconds) throws IOException {
+            validateInquiry(inquirySeconds);
+            return List.of(nativeScan(requireOpen(handle), inquirySeconds));
+        }
+        @Override public void close() throws IOException {
+            long value = handle.getAndSet(0);
+            if (value != 0) nativeCloseInquiry(value);
+        }
+    }
+    private static void validateInquiry(int seconds) {
+        if (seconds < 1 || seconds > 30) throw new IllegalArgumentException("Inquiry duration must be 1..30 seconds");
     }
 
     public static Server listen() throws IOException {
@@ -186,7 +211,7 @@ public final class WindowsBluetooth {
                 else System.loadLibrary(LIBRARY);
             }
             // Fail during initialization if the packaged DLL has an incompatible JNI API.
-            if (nativeVersion() != 1) return "The Windows Bluetooth DLL has an incompatible version";
+            if (nativeVersion() != 2) return "The Windows Bluetooth DLL has an incompatible version";
             return null;
         } catch (Exception | LinkageError e) {
             return "Windows Bluetooth DLL could not be loaded: " + e.getClass().getSimpleName() + ": " + e.getMessage();
@@ -195,7 +220,9 @@ public final class WindowsBluetooth {
 
     private static native int nativeVersion();
     private static native String nativeStatus() throws IOException;
-    private static native Device[] nativeScan(int inquirySeconds) throws IOException;
+    private static native long nativeOpenInquiry() throws IOException;
+    private static native Device[] nativeScan(long handle, int inquirySeconds) throws IOException;
+    private static native void nativeCloseInquiry(long handle) throws IOException;
     private static native long nativeListen() throws IOException;
     private static native long nativeOpen() throws IOException;
     private static native void nativeConnect(long handle, String address, int timeoutMillis) throws IOException;

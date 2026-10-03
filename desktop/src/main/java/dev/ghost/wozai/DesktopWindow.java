@@ -62,9 +62,16 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     private final JTextArea bluetoothStatus = new JTextArea();
     private final java.util.concurrent.ExecutorService bluetoothWorker = java.util.concurrent.Executors.newSingleThreadExecutor(r -> { Thread t = new Thread(r, "wozai-bluetooth-ui"); t.setDaemon(true); return t; });
     private long scanGeneration;
-    private boolean scanning, translating, scanRunning;
+    private boolean scanning, translating;
+    private WindowsBluetooth.Inquiry bluetoothInquiry;
+    @FunctionalInterface interface InquiryFactory { WindowsBluetooth.Inquiry open() throws IOException; }
+    private final InquiryFactory inquiryFactory;
 
     DesktopWindow(DesktopStore store, DesktopIdentity.Identity identity, Path dataPath) throws IOException {
+        this(store, identity, dataPath, WindowsBluetooth::openInquiry);
+    }
+    DesktopWindow(DesktopStore store, DesktopIdentity.Identity identity, Path dataPath, InquiryFactory inquiryFactory) throws IOException {
+        this.inquiryFactory = inquiryFactory;
         this.store = store; this.identity = identity;
         String language = store.language();
         AppTheme.install(store.setting("theme", "light").equals("dark"));
@@ -208,7 +215,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         content.add(settingRow("theme",themes,null));
         themes.addActionListener(e -> { if(translating)return; boolean dark=themes.getSelectedIndex()==1; if(dark==AppTheme.dark)return; AppTheme.install(dark); SwingUtilities.updateComponentTreeUI(this); styleNavigation(); AppTheme.refreshPrimary(getContentPane()); refreshThemeColors(); renderedMessages=""; renderMessages(); handle(client.setting("theme",dark?"dark":"light"),"storageFailure"); repaint(); });
         content.add(section("connectionsSection")); content.add(settingAction("trustedDevices",this::manageTrust));
-        content.add(settingAction("stopAll", () -> { discovery.stop(); discovered.clear(); refreshNearby(); ++scanGeneration; scanning=false; refreshBluetoothText(); handle(client.stopListening(),"error"); handle(client.stopBluetoothListening(),"error"); handle(client.disconnect(),"error"); }));
+        content.add(settingAction("stopAll", () -> { discovery.stop(); discovered.clear(); refreshNearby(); stopBluetoothScan(); handle(client.stopListening(),"error"); handle(client.stopBluetoothListening(),"error"); handle(client.disconnect(),"error"); }));
         content.add(section("dataLocation")); JTextArea data=new JTextArea(path.toString()); data.setEditable(false); data.setLineWrap(true); data.setWrapStyleWord(false); data.setOpaque(false); data.setBorder(BorderFactory.createEmptyBorder(0,4,0,4)); translations.add(() -> data.getAccessibleContext().setAccessibleName(strings.text("dataLocation"))); content.add(data);
         content.add(note("dataSummary")); content.add(settingAction("openData", () -> { try { Desktop.getDesktop().open(path.toFile()); } catch(Exception e) { notice("openDataFailed"); } }));
         content.add(section("appSection")); content.add(settingAction("help", () -> information("help","helpBodyWindows"))); content.add(settingAction("about", () -> information("about","aboutBodyWindows")));
@@ -454,9 +461,9 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     }
     private void handle(CompletableFuture<?> future, String errorKey) { future.whenComplete((value, error) -> { if (error != null) notice(errorText(error, errorKey)); }); }
     private void shutdown() {
-        if (shuttingDown) return; saveDraft(); shuttingDown = true; draftTimer.stop(); localeTimer.stop(); setEnabled(false);
+        if (shuttingDown) return; saveDraft(); shuttingDown = true; stopBluetoothScan(); draftTimer.stop(); localeTimer.stop(); setEnabled(false);
         new Thread(() -> {
-            ++scanGeneration; bluetoothWorker.shutdownNow(); discovery.close(); client.close(); try { store.close(); } catch (IOException ignored) { }
+            bluetoothWorker.shutdownNow(); discovery.close(); client.close(); try { store.close(); } catch (IOException ignored) { }
             SwingUtilities.invokeLater(() -> { for (Window window : getOwnedWindows()) window.dispose(); dispose(); });
         }, "wozai-shutdown").start();
     }
@@ -495,13 +502,22 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         else handle(client.listenBluetooth(),"bluetoothFailed"); refreshBluetoothStatus();
     }
     private void scanBluetooth() {
-        if(scanning) { ++scanGeneration; scanning=false; bluetoothText = UiText.of("bluetoothSearchDone"); refreshBluetoothText(); return; }
-        if(scanRunning) { notice("searchingBluetooth"); return; } scanRunning=true;
+        if(scanning) { stopBluetoothScan(); return; }
+        final WindowsBluetooth.Inquiry inquiry;
+        try { inquiry = inquiryFactory.open(); }
+        catch (IOException e) { notice("bluetoothFailed"); refreshBluetoothStatus(); return; }
+        bluetoothInquiry = inquiry;
         scanning=true; long scan=++scanGeneration; bluetoothText = UiText.of("searchingBluetooth"); refreshBluetoothText();
-        java.util.concurrent.CompletableFuture.supplyAsync(() -> { try { return WindowsBluetooth.scan(10); } catch(IOException e) { throw new java.util.concurrent.CompletionException(e); } },bluetoothWorker).whenComplete((devices,error) -> SwingUtilities.invokeLater(() -> {
-            scanRunning=false; if(shuttingDown||scan!=scanGeneration)return; scanning=false; refreshBluetoothText(); bluetoothModel.clear();
+        java.util.concurrent.CompletableFuture.supplyAsync(() -> { try (inquiry) { return inquiry.scan(10); } catch(IOException e) { throw new java.util.concurrent.CompletionException(e); } },bluetoothWorker).whenComplete((devices,error) -> SwingUtilities.invokeLater(() -> {
+            if(shuttingDown||scan!=scanGeneration)return; bluetoothInquiry=null; scanning=false; refreshBluetoothText(); bluetoothModel.clear();
             if(error!=null) { notice("bluetoothFailed"); refreshBluetoothStatus(); } else { devices.forEach(bluetoothModel::addElement); bluetoothText = UiText.of(devices.isEmpty()?"noBluetoothDevices":"bluetoothSearchDone"); refreshBluetoothText(); }
         }));
+    }
+    private void stopBluetoothScan() {
+        ++scanGeneration; scanning=false;
+        WindowsBluetooth.Inquiry inquiry=bluetoothInquiry; bluetoothInquiry=null;
+        if(inquiry!=null) try { inquiry.close(); } catch(IOException e) { if(!shuttingDown)notice("bluetoothFailed"); }
+        bluetoothText=UiText.of("bluetoothSearchDone"); refreshBluetoothText();
     }
     private void openBluetoothSettings() { try { if(!DesktopIdentity.windows())throw new IOException("Windows only"); new ProcessBuilder("cmd.exe","/c","start","","ms-settings:bluetooth").start(); } catch(IOException e) { notice("bluetoothUnavailable"); } }
     private void manageTrust() {
