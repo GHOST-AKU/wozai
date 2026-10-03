@@ -106,17 +106,17 @@ public final class LocalizationInstrumentation extends Instrumentation {
         check(AndroidText.messageState(context, ChatStore.PENDING).equals("Pending"), "Stored status code resolves to English");
         Context localized = AppLanguage.wrap(context);
         check(AppLanguage.wrap(localized) == localized, "An already localized context is reused");
-        android.icu.util.TimeZone originalZone = android.icu.util.TimeZone.getDefault();
+        java.util.TimeZone originalZone = java.util.TimeZone.getDefault();
         try {
             java.util.Date date = new java.util.Date(1_700_000_000_000L);
-            android.icu.util.TimeZone.setDefault(android.icu.util.TimeZone.getTimeZone("UTC"));
+            java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("UTC"));
             String before = AndroidText.get(localized, "messageTime", date);
-            android.icu.util.TimeZone.setDefault(android.icu.util.TimeZone.getTimeZone("GMT+09:00"));
+            java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("GMT+09:00"));
             String after = AndroidText.get(localized, "messageTime", date);
             check(!before.equals(after), "Cached native formatting follows time zone changes");
             String pattern = localized.getString(dev.ghost.nearbyim.i18n.I18nResources.id("messageTime"));
             check(after.equals(new android.icu.text.MessageFormat(pattern, java.util.Locale.ENGLISH).format(new Object[]{date})), "Cached native time equals a fresh ICU formatter");
-        } finally { android.icu.util.TimeZone.setDefault(originalZone); }
+        } finally { java.util.TimeZone.setDefault(originalZone); }
         java.util.concurrent.ExecutorService formatting = java.util.concurrent.Executors.newFixedThreadPool(4);
         try {
             java.util.List<java.util.concurrent.Future<String>> values = new java.util.ArrayList<>();
