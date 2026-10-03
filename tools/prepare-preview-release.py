@@ -144,8 +144,31 @@ Android、Windows、Linux 三端统一预览版，应用内部版本均为 **0.3
     print('Prepared release assets:', ', '.join(p.name for p in sorted(OUTPUT.iterdir())))
 
 
+def find_release():
+    # GitHub's by-tag endpoint only returns published releases. Draft releases
+    # are found through the authenticated list and do not have a Git tag yet.
+    matches = [r for r in api('releases?per_page=100') if r['tag_name'] == TAG]
+    require(len(matches) <= 1, 'Ambiguous preview release')
+    return matches[0] if matches else None
+
+
+def upload():
+    release = find_release()
+    if release is None:
+        subprocess.run(['gh', 'release', 'create', TAG, '--target', SOURCE, '--title',
+                        '我在 · NearbyIM 0.3.1 Preview 1 — Android / Windows / Linux',
+                        '--notes-file', str(OUTPUT / 'RELEASE-NOTES.md'), '--draft', '--prerelease'], check=True)
+    else:
+        require(release['draft'] and release['prerelease'] and release['target_commitish'] == SOURCE,
+                'Refusing to overwrite a published or unrelated release')
+        require({a['name'] for a in release['assets']} <= {p.name for p in OUTPUT.iterdir()},
+                'Draft contains unrecognized assets')
+    subprocess.run(['gh', 'release', 'upload', TAG, '--clobber', *map(str, sorted(OUTPUT.iterdir()))], check=True)
+
+
 def verify(published=False):
-    release = api(f'releases/tags/{TAG}')
+    release = find_release()
+    require(release is not None, 'Preview release is missing')
     require(release['prerelease'] and release['draft'] != published, 'Incorrect release visibility or prerelease flag')
     expected = {p.name: p for p in OUTPUT.iterdir()}
     require(set(expected) == {a['name'] for a in release['assets']}, 'Uploaded asset set differs from prepared assets')
@@ -153,11 +176,12 @@ def verify(published=False):
         file = expected[asset['name']]
         require(asset['state'] == 'uploaded' and asset['size'] == file.stat().st_size, f'Incomplete release asset: {file.name}')
         require(asset.get('digest') == 'sha256:' + digest(file), f'Uploaded SHA-256 mismatch: {file.name}')
-    ref = api(f'git/ref/tags/{TAG}')['object']
-    if ref['type'] == 'tag':
-        ref = api(f'git/tags/{ref["sha"]}')['object']
-    require(ref['type'] == 'commit' and ref['sha'] == SOURCE, 'Release tag points at the wrong source commit')
+    require(release['target_commitish'] == SOURCE, 'Draft source changed before publication')
     if published:
+        ref = api(f'git/ref/tags/{TAG}')['object']
+        if ref['type'] == 'tag':
+            ref = api(f'git/tags/{ref["sha"]}')['object']
+        require(ref['type'] == 'commit' and ref['sha'] == SOURCE, 'Release tag points at the wrong source commit')
         require(api('releases/latest')['tag_name'] == 'v0.2.0', 'Preview replaced the stable latest release')
     print('Verified', 'published prerelease' if published else 'draft assets', release['html_url'])
 
@@ -168,6 +192,8 @@ if __name__ == '__main__':
         print(json.dumps(provenance(), indent=2))
     elif operation == 'prepare':
         prepare()
+    elif operation == 'upload':
+        upload()
     elif operation in ('verify', 'published'):
         verify(operation == 'published')
     else:

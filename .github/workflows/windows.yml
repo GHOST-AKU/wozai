@@ -133,9 +133,7 @@ jobs:
       - name: Prepare application assets, source manifest, checksums and release notes
         run: python3 tools/prepare-preview-release.py prepare
       - name: Create reviewable draft and upload assets
-        run: |
-          gh release create "$RELEASE_TAG" --target "$SOURCE_COMMIT" --title '我在 · NearbyIM 0.3.1 Preview 1 — Android / Windows / Linux' --notes-file release-assets/RELEASE-NOTES.md --draft --prerelease
-          gh release upload "$RELEASE_TAG" release-assets/*
+        run: python3 tools/prepare-preview-release.py upload
       - name: Verify uploaded assets and publish as a prerelease
         run: |
           python3 tools/prepare-preview-release.py verify
