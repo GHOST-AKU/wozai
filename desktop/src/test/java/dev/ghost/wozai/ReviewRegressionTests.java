@@ -7,6 +7,7 @@ import java.net.*;
 import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicReference;
 
 /** Review regressions exercise persistence and the actual signed session/receipt pipeline. */
 public final class ReviewRegressionTests {
@@ -19,7 +20,7 @@ public final class ReviewRegressionTests {
             String test = args.length == 0 ? "all" : args[0];
             if (test.equals("all") || test.equals("uuid")) uuidPaths(root.resolve("uuid"));
             if (test.equals("all") || test.equals("restart")) restart(root.resolve("restart"));
-            for (String name : List.of("receipt", "conflict", "handshake"))
+            for (String name : List.of("receipt", "conflict", "handshake", "direction", "failedPublish"))
                 if (test.equals("all") || test.equals(name)) session(root.resolve(name), name);
             System.out.println("ReviewRegressionTests: " + checks + " checks passed");
         } finally {
@@ -52,26 +53,35 @@ public final class ReviewRegressionTests {
         public void close() throws IOException { socket.close(); }
     }; }
     private static void restart(Path root) throws Exception {
-        String id = UUID.randomUUID().toString(), oldId = UUID.randomUUID().toString();
+        String id = UUID.randomUUID().toString(), oldId = UUID.randomUUID().toString(), oldOutId = UUID.randomUUID().toString();
         DesktopStore.Message original;
         try (var store = new DesktopStore(root)) {
             store.peer(new DesktopStore.Peer(PEER, "Phone", "pin", ""));
             store.receive(PEER, id, "Saved", Long.MAX_VALUE); original = store.messages(PEER).get(0);
             Properties legacy = new Properties(); legacy.setProperty("body", "Old"); legacy.setProperty("time", "123"); legacy.setProperty("outgoing", "false"); legacy.setProperty("status", "received");
             AtomicFiles.write(root.resolve("messages").resolve(PEER).resolve(oldId + ".properties"), legacy);
+            legacy.setProperty("outgoing", "true"); legacy.setProperty("status", "pending");
+            AtomicFiles.write(root.resolve("messages").resolve(PEER).resolve(oldOutId + ".properties"), legacy);
         }
         try (var store = new DesktopStore(root)) {
             store.receive(PEER, id.toUpperCase(Locale.ROOT), "Saved", Long.MAX_VALUE);
             check(store.messages(PEER).stream().anyMatch(original::equals), "Restart lost receipt time or sender timestamp");
             store.receive(PEER, oldId, "Old", 123);
-            check(store.messages(PEER).size() == 2, "Legacy message could not be replayed");
+            check(store.messages(PEER).size() == 3, "Legacy message could not be replayed");
+            store.save(PEER, new DesktopStore.Message(oldId, "Other direction", 124, true, "pending"));
+            store.receive(PEER, oldOutId, "Other direction", 125);
+            store.acknowledge(PEER, oldId); store.acknowledge(PEER, oldOutId);
+            var messages = store.messages(PEER);
+            check(messages.size() == 5, "Direction namespaces lost legacy or new messages");
+            check(messages.stream().filter(m -> m.outgoing() && m.status().equals("delivered")).count() == 2, "ACK missed new or legacy outgoing namespace");
+            check(messages.stream().filter(m -> !m.outgoing() && m.status().equals("received")).count() == 3, "ACK changed an incoming legacy message");
+            check(Files.exists(root.resolve("messages").resolve(PEER).resolve(oldId + ".properties")) && Files.exists(root.resolve("messages").resolve(PEER).resolve(oldOutId + ".properties")), "Legacy compatibility moved the original files");
             for (var conflict : List.of(new DesktopStore.Message(id, "Saved", original.time() + 1, false, "received", Long.MAX_VALUE),
-                    new DesktopStore.Message(id, "Saved", original.time(), true, "received", Long.MAX_VALUE),
                     new DesktopStore.Message(id, "Saved", original.time(), false, "pending", Long.MAX_VALUE))) {
                 try { store.save(PEER, conflict); throw new AssertionError("Conflicting metadata silently accepted"); }
                 catch (IOException expected) { checks++; }
             }
-            Files.writeString(root.resolve("messages").resolve(PEER).resolve(id + ".properties"), "broken");
+            Files.writeString(root.resolve("messages").resolve(PEER).resolve("in-" + id + ".properties"), "broken");
             try { store.receive(PEER, id, "Saved", Long.MAX_VALUE); throw new AssertionError("Corrupt existing message accepted"); }
             catch (IOException expected) { checks++; }
         }
@@ -79,11 +89,13 @@ public final class ReviewRegressionTests {
     private static void session(Path root, String test) throws Exception {
         var requests = new LinkedBlockingQueue<DesktopClient.Request>();
         var acks = new LinkedBlockingQueue<String>();
+        var remoteText = new LinkedBlockingQueue<Frame>();
+        var state = new AtomicReference<DesktopClient.State>();
         CountDownLatch ready = new CountDownLatch(1), hello = new CountDownLatch(1), closed = new CountDownLatch(1);
         DeviceIdentity remoteIdentity = DeviceIdentity.generate();
         try (var store = new DesktopStore(root);
              var client = new DesktopClient(store, DesktopIdentity.load(root.resolve("identity.properties")), new DesktopClient.Listener() {
-                 public void changed(DesktopClient.State state) { }
+                 public void changed(DesktopClient.State next) { state.set(next); }
                  public void request(DesktopClient.Request request) { requests.add(request); }
                  public void notice(UiText text) { }
              });
@@ -95,7 +107,7 @@ public final class ReviewRegressionTests {
             FramedSession remote = new FramedSession(connection(socket), uppercase ? PEER.toUpperCase(Locale.ROOT) : PEER, "Phone", remoteIdentity, new FramedSession.Listener() {
                 public void onHello(Frame frame) { hello.countDown(); }
                 public void onReady() { ready.countDown(); }
-                public void onText(Frame frame) { }
+                public void onText(Frame frame) { remoteText.add(frame); }
                 public void onAck(String id) { acks.add(id); }
                 public void onClosed(UiText reason) { closed.countDown(); }
             });
@@ -107,7 +119,29 @@ public final class ReviewRegressionTests {
                 }
                 check(hello.await(3, TimeUnit.SECONDS), "Valid uppercase signed HELLO was rejected");
                 remote.approve(); check(ready.await(3, TimeUnit.SECONDS), "Session never ready");
+                long readyDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
+                while (System.nanoTime() < readyDeadline && !state.get().phase().equals("ready")) Thread.sleep(10);
+                check(state.get().phase().equals("ready"), "Desktop model never ready");
                 check(requests.isEmpty(), "UUID case bypassed existing trust");
+                if (test.equals("failedPublish")) {
+                    Files.writeString(root.resolve("peers").resolve(PEER + ".properties"), "broken");
+                    client.refresh().get(2, TimeUnit.SECONDS);
+                    check(closed.await(3, TimeUnit.SECONDS), "Unreadable peer store did not close session");
+                    awaitDisconnected(state);
+                    check(state.get().history().size() == 1, "Fallback state lost the last readable history");
+                    return;
+                }
+                if (test.equals("direction")) {
+                    check(client.send("Outbound").get(2, TimeUnit.SECONDS), "Outbound message rejected");
+                    Frame sent = remoteText.poll(3, TimeUnit.SECONDS); check(sent != null, "Remote did not observe outbound ID");
+                    remote.acknowledge(sent.id);
+                    check(remote.send(new Frame(Frame.TEXT, sent.id, "Inbound with same ID", 123)), "Opposite-direction message rejected");
+                    check(sent.id.equals(acks.poll(3, TimeUnit.SECONDS)), "Opposite-direction collision was not acknowledged");
+                    var pair = store.messages(PEER);
+                    check(pair.size() == 2 && pair.stream().anyMatch(m -> m.outgoing() && m.status().equals("delivered")) && pair.stream().anyMatch(m -> !m.outgoing() && m.body().equals("Inbound with same ID")), "Direction collision lost content or changed the wrong receipt");
+                    check(state.get().phase().equals("ready"), "Valid opposite-direction collision disconnected the UI");
+                    return;
+                }
                 long before = System.currentTimeMillis();
                 String id = UUID.randomUUID().toString();
                 if (uppercase) id = id.toUpperCase(Locale.ROOT);
@@ -136,8 +170,14 @@ public final class ReviewRegressionTests {
                     check(closed.await(3, TimeUnit.SECONDS), "Conflicting message did not terminate session");
                     check(acks.poll(200, TimeUnit.MILLISECONDS) == null, "Conflicting message was acknowledged");
                     check(store.messages(PEER).get(0).equals(original), "Conflict changed original content");
+                    awaitDisconnected(state);
                 }
             } finally { remote.close(UiText.EMPTY); }
         }
+    }
+    private static void awaitDisconnected(AtomicReference<DesktopClient.State> state) throws Exception {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
+        while (System.nanoTime() < deadline && !state.get().phase().equals("idle")) Thread.sleep(10);
+        check(state.get().phase().equals("idle") && state.get().peer() == null, "Storage failure left published UI state connected");
     }
 }

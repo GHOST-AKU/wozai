@@ -43,6 +43,16 @@ public final class DesktopStore implements AutoCloseable {
     }
     private Path peerFile(String id) { return root.resolve("peers").resolve(uuid(id) + ".properties"); }
     private Path messagesPath(String peer) { return root.resolve("messages").resolve(uuid(peer)); }
+    private Path messageFile(String peer, String id, boolean outgoing) throws IOException {
+        Path directory = messagesPath(peer);
+        String canonical = uuid(id);
+        Path file = directory.resolve((outgoing ? "out-" : "in-") + canonical + ".properties");
+        if (Files.exists(file)) return file;
+        // Legacy files stay in place. Their persisted direction determines their namespace.
+        Path legacy = directory.resolve(canonical + ".properties");
+        if (Files.exists(legacy) && readMessage(legacy).outgoing() == outgoing) return legacy;
+        return file;
+    }
     public synchronized Peer peer(String id) throws IOException {
         Path path = peerFile(id); if (!Files.exists(path)) return null;
         Properties v = AtomicFiles.read(path);
@@ -62,13 +72,13 @@ public final class DesktopStore implements AutoCloseable {
         return List.copyOf(peers);
     }
     public synchronized void save(String peer, Message message) throws IOException {
-        Path file = messagesPath(peer).resolve(uuid(message.id()) + ".properties");
+        Path file = messageFile(peer, message.id(), message.outgoing());
         if (Files.exists(file)) {
             if (!readMessage(file).equals(message)) throw new IOException("Conflicting message ID");
         } else writeMessage(file, message);
     }
     public synchronized void receive(String peer, String id, String body, long senderTime) throws IOException {
-        Path file = messagesPath(peer).resolve(uuid(id) + ".properties");
+        Path file = messageFile(peer, id, false);
         // Retries retain the first local receipt time, but must match the wire content.
         long receiptTime = Files.exists(file) ? readMessage(file).time() : System.currentTimeMillis();
         save(peer, new Message(id, body, receiptTime, false, "received", senderTime));
@@ -83,16 +93,22 @@ public final class DesktopStore implements AutoCloseable {
         try {
             String status = AtomicFiles.required(v, "status"), outgoing = AtomicFiles.required(v, "outgoing");
             if (!Set.of("received", "pending", "delivered", "unknown").contains(status) || !Set.of("true", "false").contains(outgoing)) throw new IOException("Invalid message state");
+            String filename = file.getFileName().toString().replace(".properties", "");
+            boolean direction = Boolean.parseBoolean(outgoing);
+            if (filename.startsWith("in-") || filename.startsWith("out-")) {
+                if (filename.startsWith("out-") != direction) throw new IOException("Invalid message direction");
+                filename = filename.substring(filename.indexOf('-') + 1);
+            }
             long time = Long.parseLong(AtomicFiles.required(v, "time"));
             // Before receipt-time ordering, incoming `time` was the sender timestamp.
             long senderTime = Long.parseLong(v.getProperty("senderTime", Long.toString(time)));
-            return new Message(uuid(file.getFileName().toString().replace(".properties", "")), AtomicFiles.required(v, "body"), time, Boolean.parseBoolean(outgoing), status, senderTime);
+            return new Message(uuid(filename), AtomicFiles.required(v, "body"), time, direction, status, senderTime);
         } catch (IllegalArgumentException e) { throw new IOException("Corrupt message", e); }
     }
     public synchronized List<Message> messages(String peer) throws IOException {
         Path directory = messagesPath(peer); if (!Files.exists(directory)) return List.of();
         // Keep only the most recent 200 in memory; all other files remain on disk.
-        Comparator<Message> order = Comparator.comparingLong(Message::time).thenComparing(Message::id);
+        Comparator<Message> order = Comparator.comparingLong(Message::time).thenComparing(Message::id).thenComparing(Message::outgoing);
         PriorityQueue<Message> latest = new PriorityQueue<>(order);
         try (var paths = Files.list(directory)) {
             for (Path path : (Iterable<Path>) paths.filter(f -> f.toString().endsWith(".properties"))::iterator) {
@@ -103,7 +119,7 @@ public final class DesktopStore implements AutoCloseable {
     }
     public synchronized void acknowledge(String peer, String id) throws IOException { status(peer, id, "delivered"); }
     public synchronized void status(String peer, String id, String status) throws IOException {
-        Path file = messagesPath(peer).resolve(uuid(id) + ".properties"); if (!Files.exists(file)) return;
+        Path file = messageFile(peer, id, true); if (!Files.exists(file)) return;
         Message m = readMessage(file);
         if (m.outgoing()) writeMessage(file, new Message(m.id(), m.body(), m.time(), true, status, m.senderTime()));
     }

@@ -35,6 +35,7 @@ public final class DesktopClient implements AutoCloseable {
     private Session current;
     private Listening listening;
     private String phase = "idle";
+    private List<DesktopStore.Peer> lastHistory = List.of();
     private static Thread daemon(Runnable r, String name) { Thread t = new Thread(r, name); t.setDaemon(true); return t; }
     public DesktopClient(DesktopStore store, DesktopIdentity.Identity identity, Listener listener) throws IOException {
         this.store = store; this.identity = identity; this.listener = listener;
@@ -60,10 +61,15 @@ public final class DesktopClient implements AutoCloseable {
     }
     public CompletableFuture<Void> refresh() { return submit(() -> { publish(); return null; }); }
     private void publish() {
-        try { listener.changed(new State(phase, current == null ? null : current.peer, listening, store.peers(), bluetoothServer != null, current == null ? "" : current.transport)); }
+        try { lastHistory = store.peers(); listener.changed(new State(phase, current == null ? null : current.peer, listening, lastHistory, bluetoothServer != null, current == null ? "" : current.transport)); }
         catch (IOException e) { failure(); }
     }
-    private void failure() { disconnectNow(); listener.notice(UiText.of("storageFailure")); }
+    private void failure() {
+        disconnectNow();
+        // The failed store must not be read again to tell the UI that the wire is closed.
+        listener.changed(new State(phase, null, listening, lastHistory, bluetoothServer != null, ""));
+        listener.notice(UiText.of("storageFailure"));
+    }
     public CompletableFuture<Listening> listen() {
         return submit(() -> {
             stopServer();
