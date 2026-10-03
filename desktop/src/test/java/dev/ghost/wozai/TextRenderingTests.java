@@ -68,9 +68,11 @@ public final class TextRenderingTests {
             SwingUtilities.invokeAndWait(() -> {
                 AppTheme.install(dark);
                 JFrame window = new JFrame(); window.setUndecorated(true);
-                JPanel panel = new JPanel(new GridLayout(4, 1)); panel.setBackground(Color.WHITE);
+                // Keep every capture on screen even on small CI desktops at
+                // 200% scaling; a four-row window extends under the taskbar.
+                JPanel panel = new JPanel(new CardLayout()); panel.setBackground(Color.WHITE);
                 List<JComponent> controls = new ArrayList<>();
-                for (int type = 0; type < 4; ++type) { JComponent view = control(type); panel.add(view); controls.add(view); }
+                for (int type = 0; type < 4; ++type) { JComponent view = control(type); panel.add(view, Integer.toString(type)); controls.add(view); }
                 window.setContentPane(panel); window.pack(); window.setLocation(80, 80); window.setVisible(true);
                 SwingUtilities.updateComponentTreeUI(window);
                 // A second theme installation also exercises rebuilding already-open controls.
@@ -83,6 +85,9 @@ public final class TextRenderingTests {
                 robot.waitForIdle(); robot.delay(200);
                 for (int index = 0; index < fixture.controls.size(); ++index) {
                     JComponent view = fixture.controls.get(index);
+                    final String card = Integer.toString(index);
+                    SwingUtilities.invokeAndWait(() -> ((CardLayout)fixture.window.getContentPane().getLayout()).show(fixture.window.getContentPane(), card));
+                    robot.waitForIdle(); robot.delay(200);
                     String label = (dark ? "dark" : "light") + "-" + view.getClass().getSimpleName();
                     BufferedImage nativeImage = nativeCapture(robot, view);
                     ImageIO.write(nativeImage, "png", Path.of(prefix + "-" + label + "-native.png").toFile());
