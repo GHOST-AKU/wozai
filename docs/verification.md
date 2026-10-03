@@ -9,7 +9,9 @@
 
 本地共享生成器/语言、16 项核心/会话、12 项认证、21 项信任和 11 项 SQLite 检查通过。桌面原有持久化、真实会话、目录/迁移、模拟蓝牙路由、3038 项文案检查与 Regular/Bold 字形检查通过；新增评审回归覆盖未来时间戳超过 200 条的历史/摘要、同内容回执、冲突不回执、大写签名 HELLO、UUID 文件路径和重启/旧格式。Android 主 APK、test APK 和 Lint 编译通过（0 错误，15 项现有图标/资源及工具版本警告）。Linux Xvfb 设置布局和滚轮检查通过。
 
-上述结果是本次评审修复的本地证据；下方 0.3.1 的历史 CI、下载链接和体积属于旧构建。Windows 实机文字质量仍需按清单验收。
+[平台验证 37088995099](https://github.com/GHOST-AKU/wozai/actions/runs/37088995099)验证应用源码 `efcc55d`：Android 构建/签名/对齐通过，API 26 与 34 各 137 项原生检查通过；Windows 编译、DPAPI、EXE、自带运行时 GUI、mDNS 和四档缩放布局通过。原始 Windows 日志另发现 8 项生成器测试因 cp1252 默认编码失败，且其退出码被后续脚本覆盖。`b5ee99e` 将测试配置读取改为 UTF-8，并让每个脚本的失败立即终止 Windows 工作流；[最终 Windows 验证 37089391450](https://github.com/GHOST-AKU/wozai/actions/runs/37089391450)完整通过，原始日志确认 8 项生成器和 43 项语言解析检查通过；62 项桌面、451 项评审回归、104 项目录/迁移、54 项蓝牙 JNI、3038 项文案和物理 Regular/Bold 字形检查通过，EXE、GUI/mDNS 与四档缩放布局再次通过。应用源码未因此改动。
+
+评审修复后的下载：[Windows 便携包](https://github.com/GHOST-AKU/wozai/actions/runs/37089391450/artifacts/11262585401)、[Windows 截图及渲染报告](https://github.com/GHOST-AKU/wozai/actions/runs/37089391450/artifacts/11262370856)、[Android 调试包](https://github.com/GHOST-AKU/wozai/actions/runs/37088995099/artifacts/11261517048)。Windows artifact 为 68,440,928 字节；下载与摘要沿用 GitHub artifact 的完整性机制，本环境未下载该 ZIP。新增 Bold 资源后体积增大。下方 0.3.1 的历史 CI、下载链接、体积和校验值属于旧构建。Windows 实机文字质量仍需按清单验收。
 
 ## 当前源码 0.3.1 · 新增繁体中文、日语与韩语
 

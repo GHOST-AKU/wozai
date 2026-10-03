@@ -54,7 +54,7 @@ Windows 私钥仍使用 DPAPI CurrentUser 保护。同一用户在本机移动�
 
 键盘：Tab、方向键和 Space/Enter 操作控件，Ctrl+1/2/3 切换聊天／附近／设置，Enter 发送、Shift+Enter 换行，Ctrl+Q 退出。包内 Java Access Bridge 可通过 `NearbyIM\runtime\bin\jabswitch.exe -enable` 启用，随后重启应用。读屏、Windows 高对比度及不同 DPI 仍需人工验收。
 
-PR #3 评审修复后，打包并提前注册 Noto Sans CJK SC **Regular 与 Bold**，标题和头像使用真实粗体字形；头像文字沿用 FlatLaf 的系统抗锯齿与 HiDPI 绘制。应用「文字大小」仅缩放逻辑字号，显示器 DPI 由 Java2D 处理；未强制覆盖系统 LCD 或 fractional metrics。新增 `--text-diagnostics` 可导出实际字体、显示变换及控件文字渲染配置；100% / 125% / 150% / 200% 的实机验收与命令见 [device-test.md](device-test.md#windows-文字清晰度与-dpipr-3)。新增 Bold 资源会增加便携包体积，之前 0.3.1 下载的体积与校验值不代表评审修复后的包。
+PR #3 评审修复的[最新 Windows 包](https://github.com/GHOST-AKU/wozai/actions/runs/37089391450/artifacts/11262585401)已通过[平台验证](https://github.com/GHOST-AKU/wozai/actions/runs/37089391450)。打包并提前注册 Noto Sans CJK SC **Regular 与 Bold**，标题和头像使用真实粗体字形；头像文字沿用 FlatLaf 的系统抗锯齿与 HiDPI 绘制。应用「文字大小」仅缩放逻辑字号，显示器 DPI 由 Java2D 处理；未强制覆盖系统 LCD 或 fractional metrics。新增 `--text-diagnostics` 可导出实际字体、显示变换及控件文字渲染配置；100% / 125% / 150% / 200% 的实机验收与命令见 [device-test.md](device-test.md#windows-文字清晰度与-dpipr-3)。新增 Bold 资源会增加便携包体积，之前 0.3.1 下载的体积与校验值不代表评审修复后的包。
 
 ## 从源码构建
 
