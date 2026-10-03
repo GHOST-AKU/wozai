@@ -33,6 +33,7 @@ import java.lang.reflect.Method;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
@@ -126,6 +127,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
         liveController = controller;
         ChatService service = onMain(() -> field(activity, "service"));
         testEmptyNearbyRestoration(controller);
+        testEmptySettingsRestoration(controller);
         onMain(() -> { invoke(activity, "startTransport", new Class<?>[]{int.class}, Peer.LAN); return null; });
         await(() -> onMain(() -> controller.lanListening), "Real LAN reception starts");
         String peerId = UUID.randomUUID().toString(), name = "O'Brien {draft}";
@@ -248,6 +250,29 @@ public final class LocalizationInstrumentation extends Instrumentation {
         waitForIdleSync();
         check(onMain(() -> ((ScrollView) field(activity, "nearbyScroll")).getScrollY() == 0), "Search state change does not reapply stale nearby offset");
         onMain(() -> { controller.lanSearching = false; setField(activity, "page", 0); invoke(activity, "render", new Class<?>[0]); return null; });
+    }
+    private void testEmptySettingsRestoration(ChatController controller) throws Exception {
+        onMain(() -> {
+            setField(activity, "controller", null); setField(activity, "page", 2);
+            setField(activity, "restoredSettingsY", 160); setField(activity, "renderedTrusted", null);
+            invoke(activity, "renderSettings", new Class<?>[0]); return null;
+        });
+        waitForIdleSync();
+        check(onMain(() -> (int) field(activity, "restoredSettingsY") == 160), "Settings retains restored offset until controller attaches");
+        onMain(() -> {
+            setField(activity, "controller", controller); controller.trustedDevices = new ArrayList<>();
+            invoke(activity, "render", new Class<?>[0]); return null;
+        });
+        waitForIdleSync();
+        check(onMain(() -> (int) field(activity, "restoredSettingsY") == -1), "Attached empty trusted list consumes restored settings offset");
+        onMain(() -> {
+            ((ScrollView) field(activity, "settingsScroll")).scrollTo(0, 0);
+            controller.trustedDevices = new ArrayList<>();
+            invoke(activity, "renderSettings", new Class<?>[0]); return null;
+        });
+        waitForIdleSync();
+        check(onMain(() -> ((ScrollView) field(activity, "settingsScroll")).getScrollY() == 0), "Empty trusted list refresh preserves user's settings scroll position");
+        onMain(() -> { setField(activity, "page", 0); invoke(activity, "render", new Class<?>[0]); return null; });
     }
     private void verifyState(ChatController controller, ChatService service, String peerId, String draft, int start, int end) throws Exception {
         check(onMain(() -> field(activity, "controller") == controller && field(activity, "service") == service), "The service and controller survive activity recreation");

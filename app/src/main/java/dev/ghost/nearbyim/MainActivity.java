@@ -458,7 +458,7 @@ public final class MainActivity extends Activity {
             trustedList.addView(settingsRow(device.name, info, () -> deviceInfo(device.id, device.name)));
         }
         if (trusted.isEmpty()) trustedList.addView(label(t("noTrustedDevices"), 14, muted));
-        if (restoredSettingsY >= 0) { final int y = restoredSettingsY; settingsScroll.post(() -> settingsScroll.scrollTo(0, y)); if (!trusted.isEmpty()) restoredSettingsY = -1; }
+        if (controller != null && restoredSettingsY >= 0) { final int y = restoredSettingsY; restoredSettingsY = -1; settingsScroll.post(() -> settingsScroll.scrollTo(0, y)); }
     }
     private void renderChat() {
         String peerId = controller == null ? restoredSelectedId : controller.selectedId;
