@@ -89,3 +89,75 @@ Windows ZIP 65.36 MiB；Linux deb 61.47 MiB、tar.gz 68.53 MiB。Windows 发 96�
 驱动每次发送完成后等待 200 ms，因此每方向 5 条/s 是上限，实际吞吐受保存与发送耗时影响，不能把这些 CPU 值解释为相同消息吞吐下的平台对比。采样段之外还有 2 s 的 Active 稳定期和命令调度／尾部收发，消息总数涵盖整段活动。原始 JSON 保留每个资源采样点及计数；实机和后续优化比较需匹配环境、实际吞吐及历史规模。
 
 首轮报告保留测量时 `3eb1eb4` 构建的原始数值与校验和；其后追加的 Linux 蓝牙接收队列修复在 PR 中单独验证，后续性能报告应继续注明各自实际构建提交。
+
+## 2026-10-04 优化对比
+
+优化前为干净构建 `ef4bae6`，优化后为干净构建 `c7f88c1`；后续 `34ee105` 只增加 Android instrumentation 的 R8 保留规则，与所测桌面代码相同。测量时工作区可能继续编辑，应用版本以 `distribution.build` 中的软件包构建元数据为准，两组软件包都没有未提交改动。
+
+使用同一 Debian 13 x64 容器、Temurin 17.0.16、自带 runtime、Xvfb 2560×1800、缩放 1.0、Noto Sans CJK SC，优化前后各重复三轮。每轮使用独立空资料；Idle 和 Connected 先稳定 **10 s**，再采样 30 s，Active 稳定 2 s、采样 30 s，负载仍为每方向最多 5 条/s、256 UTF-8 字节。这里的稳定时间与首轮基线的 30 s 不同，应比较本节两组数据。每轮结束后才开始下一轮。系统页缓存没有清空，也没有固定 CPU 频率。
+
+原始报告：优化前 [1](performance/2026-10-04-optimization-linux-before-1.json)、[2](performance/2026-10-04-optimization-linux-before-2.json)、[3](performance/2026-10-04-optimization-linux-before-3.json)；优化后 [1](performance/2026-10-04-optimization-linux-after-1.json)、[2](performance/2026-10-04-optimization-linux-after-2.json)、[3](performance/2026-10-04-optimization-linux-after-3.json)。保留全部资源采样点、启动样本、计数和包校验和。
+
+下表对各轮的 RSS 中位数、CPU 均值及后续启动中位数再取三轮中位数；没有把三个 P95 合并为总体 P95。CPU 仍以单核满载为 100%。
+
+| 指标 | 优化前 | 优化后 | 变化 |
+| --- | ---: | ---: | ---: |
+| Idle RSS（MiB） | 119.28 | 137.79 | +15.52% |
+| Connected / LAN RSS（MiB） | 137.59 | 147.66 | +7.31% |
+| Active / LAN RSS（MiB） | 273.29 | 237.30 | -13.17% |
+| Idle CPU（%） | 0.27 | 0.30 | +12.49% |
+| Connected / LAN CPU（%） | 0.93 | 1.03 | +10.71% |
+| Active / LAN CPU（%） | 118.26 | 48.80 | -58.74% |
+| 后续启动中位数（s） | 1.817 | 1.837 | +1.10% |
+
+逐轮结果用于查看波动：
+
+| 组别 / 轮次 | Idle / Connected / Active RSS（MiB） | Active CPU（%） | 后续启动中位数（s） | 发送 / 保存回执 / 接收 |
+| --- | --- | ---: | ---: | --- |
+| 优化前 / 1 | 117.88 / 137.59 / 265.47 | 120.27 | 1.817 | 158 / 158 / 158 |
+| 优化前 / 2 | 130.29 / 137.88 / 273.29 | 118.26 | 1.964 | 156 / 156 / 157 |
+| 优化前 / 3 | 119.28 / 136.17 / 292.79 | 115.68 | 1.791 | 158 / 158 / 158 |
+| 优化后 / 1 | 137.79 / 147.66 / 250.33 | 51.80 | 1.827 | 157 / 157 / 158 |
+| 优化后 / 2 | 137.27 / 145.59 / 237.30 | 45.86 | 1.837 | 158 / 158 / 157 |
+| 优化后 / 3 | 142.02 / 151.36 / 236.92 | 48.80 | 1.862 | 158 / 158 / 158 |
+
+六轮吞吐接近，所有发送均得到持久化保存回执。活跃聊天的 CPU 和 RSS 降低，但 **Idle RSS 增加约 15.5%，Connected RSS 增加约 7.3%**；因此不能声称所有状态都更省内存。JVM 分配、格式缓存与 runtime 压缩同时发生变化，当前实验不能单独归因。空闲 CPU 的绝对值仍低，但也没有测得下降。后续启动基本持平，不能据此宣称启动加速。这里是三轮容器数据，尚不能推断实机效果、长期历史、尾部延迟或蓝牙性能。
+
+### 包体与实现
+
+桌面聊天行按消息 UUID 和方向复用，追加只创建新行，回执只更新状态，保留旧消息的选择；删除、排序和日期分隔符同步更新。气泡尺寸按宽度、字体和内容缓存，语言、时区、主题和字体大小改变会失效。窗口使用消息列表比较，避免每次将全部历史拼接成字符串。ICU formatter 按语言和模板缓存，仅日期模板检查时区变化；Android 使用最多 256 项的 LRU，复用有效语言上下文，不缓存 Activity。
+
+桌面 runtime 使用 `jlink --compress=1` 的常量池共享；Linux tar 使用 gzip -9，deb 使用 xz -9 且单线程压缩。模块、五语资源、完整 CJK 字体和现有图标均保留。以下为同一 JDK 的本地实际构建，逻辑展开体积不等于文件系统占用块数。
+
+| Linux 包体 | 优化前（MiB） | 优化后（MiB） | 变化 |
+| --- | ---: | ---: | ---: |
+| 展开 app-image | 121.00 | 107.10 | -11.48% |
+| 内置 runtime | 76.46 | 62.56 | -18.18% |
+| tar.gz 下载 | 68.06 | 67.25 | -1.20% |
+| deb 下载 | 59.35 | 59.16 | -0.31% |
+
+展开目录明显缩小，压缩下载文件仅小幅缩小。试验过 runtime ZIP 压缩（`--compress=2`），它使展开目录更小，但下载包反而更大，并出现启动代价，因此最终采用常量池共享；该试验数据不作为最终收益。压缩级别提高也会增加打包耗时。
+
+Android release 开启 R8 和资源裁剪，新增同样优化、不可调试、使用调试签名的 preview 构建；debug 保留调试用途。preview 的 instrumentation 保留规则保障独立测试 APK 调用公开接口及必要的 UI 反射入口，mapping 单独上传，避免改变 APK artifact 的目录结构。五语资源保留、关闭语言 split，支持离线切换。
+
+同一 AGP 8.13.0 / Build Tools 35.0.0 工具链：优化前 `ef4bae6` 未裁剪的本地 unsigned release 为 **1,151,284 字节**；最终 `34ee105` CI signed preview 为 **604,300 字节**，减小 **47.51%**。这比较的是 release 配置与优化后的 preview，不是已发布旧 debug 包的体积；签名和 preview 的测试保留规则也不同。[包体元数据与 SHA-256](performance/2026-10-04-optimization-android-size.json)可核对最终 artifact。正式 unsigned release 使用更少的保留规则，本轮原生验收针对 optimized preview，不能直接当作正式签名 release 的全量运行验收。
+
+### 自动验收与 CI 观察
+
+[Windows / Linux 完整 CI](https://github.com/GHOST-AKU/wozai/actions/runs/37140881078)来自 `4ea2ad0`，其桌面代码与本节本地优化后相同。原始数据：[Windows CI](performance/2026-10-04-optimization-windows-ci.json)、[Linux CI](performance/2026-10-04-optimization-linux-ci.json)。包含打包运行时、实际 GUI、mDNS、签名会话、持久化回执及性能测量；Windows 原生文字像素在 100% / 125% / 150% / 200% 缩放下验证，保留字体与灰度抗锯齿。CI 的资源阶段使用默认 30 s 稳定期，与本节本地三轮的 10 s 不同。
+
+| 优化后 CI 指标 | Windows | Linux |
+| --- | ---: | ---: |
+| 展开 app-image（MiB） | 96.77 | 108.16 |
+| runtime（MiB） | 53.60 | 63.60 |
+| Idle RSS（MiB） | 129.66 | 148.37 |
+| Connected RSS（MiB） | 130.50 | 145.59 |
+| Active RSS（MiB） | 176.87 | 220.04 |
+| Active CPU（%） | 88.62 | 51.00 |
+| 后续启动中位数（s） | 3.438 | 1.719 |
+
+Windows 本轮发 / 收 / 保存回执为 112 / 112 / 112，Linux 为 157 / 158 / 157。Windows 的 CPU 与启动时间未比首轮 CI 下降；本轮吞吐、宿主负载和运行器状态不同，单次 CI 不能归因或据此宣称 Windows 更快。Windows、Linux 之间也不能互相比性能。
+
+新增 16 项消息行复用与缓存失效回归，先验证旧实现追加消息会重建已有行，再验证修复；五语 formatter 检查增至 3,190 项，包含时区缓存更新。[Android 最终 CI](https://github.com/GHOST-AKU/wozai/actions/runs/37141448276)来自 `34ee105`，编译、Lint、签名及对齐检查通过，API 26 / 34 对实际 optimized preview 各通过 **186 项原生检查**，覆盖并发复数格式化、时区更新、语言上下文复用和既有连接／重建流程。没有采集 Android CPU / RSS 或真机蓝牙数据。
+
+这些优化仍位于 PR #4；已发布 `v0.3.1-preview.1` 的资产没有更新。正式图标包待重新提供，长期 Android 签名及双机射频验收继续在现有 Issues 中跟踪。
