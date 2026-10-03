@@ -22,6 +22,9 @@ final class AppTheme {
         tonal = color(dark ? "25453A" : "DDF4E7"); line = color(dark ? "33413D" : "E3EAE5");
         FlatLaf.setPreferredFontFamily(fontFamily());
         if (dark) FlatDarkLaf.setup(); else FlatLightLaf.setup();
+        // Swing caches this hint when each UI is installed. Windows LCD text
+        // rendering creates RGB fringes; keep antialiasing, using grayscale.
+        if (DesktopIdentity.windows()) UIManager.put(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
         ui("defaultFont", new javax.swing.plaf.FontUIResource(com.formdev.flatlaf.util.FontUtils.getCompositeFont(fontFamily(),Font.PLAIN,15)));
         for (String type : new String[]{"Panel", "Viewport", "TabbedPane", "List", "TextArea", "ScrollPane"}) ui(type + ".background", background);
         for (String type : new String[]{"Label", "Button", "TextField", "TextArea", "List", "ComboBox", "TabbedPane"}) ui(type + ".foreground", ink);
