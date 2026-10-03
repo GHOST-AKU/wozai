@@ -4,6 +4,7 @@ import android.content.*;
 import android.os.*;
 import dev.ghost.nearbyim.core.*;
 import dev.ghost.nearbyim.storage.TrustPolicy;
+import dev.ghost.nearbyim.i18n.*;
 import dev.ghost.nearbyim.transport.*;
 import java.io.*;
 import java.security.GeneralSecurityException;
@@ -14,8 +15,9 @@ import java.util.concurrent.*;
 public final class ChatController implements TransportListener {
     public interface Hooks { void onChanged(); }
     public final String localId;
-    public String nickname, lanInfo = "尚未开启", bluetoothInfo = "尚未开启", status = "选择连接方式，找到身边的人", error = "";
-    public boolean lanRunning, bluetoothRunning, lanSearching, bluetoothSearching, connecting, connected;
+    public String nickname;
+    public UiText lanInfo = UiText.of("notStarted"), bluetoothInfo = UiText.of("notStarted"), status = UiText.of("initialStatus"), error = UiText.EMPTY;
+    public boolean lanRunning, bluetoothRunning, lanListening, bluetoothListening, lanSearching, bluetoothSearching, connecting, connected;
     public int sessionMode;
     public String connectedPeerId, selectedId, selectedName, approvalId, approvalName;
     public String savedMessageId, savedMessagePeer, savedMessageBody;
@@ -44,11 +46,13 @@ public final class ChatController implements TransportListener {
     public ChatController(Context context, Hooks hooks) {
         this.hooks = hooks; preferences = context.getSharedPreferences("identity", Context.MODE_PRIVATE);
         String id = preferences.getString("id", null);
+        boolean existingIdentity = id != null;
         if (id == null) { id = UUID.randomUUID().toString(); preferences.edit().putString("id", id).apply(); }
-        localId = id; nickname = preferences.getString("nickname", "附近的朋友");
+        localId = id; nickname = preferences.getString("nickname", null);
+        if (nickname == null) { nickname = AndroidText.initialNickname(context, existingIdentity); preferences.edit().putString("nickname", nickname).apply(); }
         DeviceIdentity loaded = null;
         try { loaded = AndroidIdentity.load(); }
-        catch (GeneralSecurityException | RuntimeException e) { error = "本机身份密钥不可用，暂时无法连接，请重启应用后重试"; }
+        catch (GeneralSecurityException | RuntimeException e) { error = UiText.of("identityUnavailableRestart"); }
         identity = loaded;
         store = new ChatStore(context); lan = new LanTransport(context, this); bluetooth = new BluetoothTransport(context, this);
         db(store::recoverPending, null); refresh();
@@ -62,34 +66,34 @@ public final class ChatController implements TransportListener {
     public void setNickname(String name) {
         String clean = name.trim();
         try { Protocol.write(new ByteArrayOutputStream(), new Frame(Frame.HELLO, localId, clean, 1)); }
-        catch (IOException e) { fail("昵称需要 1～32 个字符，不能包含换行或控制字符"); return; }
+        catch (IOException e) { fail(UiText.of("invalidNickname")); return; }
         nickname = clean; preferences.edit().putString("nickname", clean).apply(); changed();
     }
     public void start(int mode) {
-        if (identity == null) { fail("本机身份密钥不可用，暂时无法连接"); return; }
-        error = "";
-        if (mode == Peer.LAN) { if (lanRunning) return; lanRunning = true; lanInfo = "正在启动…"; lan.start(localId, nickname); }
-        else if (mode == Peer.BLUETOOTH) { if (bluetoothRunning) return; bluetoothRunning = true; bluetoothInfo = "正在启动…"; bluetooth.start(); }
-        else { fail("连接方式无效"); return; }
+        if (identity == null) { fail(UiText.of("identityUnavailable")); return; }
+        error = UiText.EMPTY;
+        if (mode == Peer.LAN) { if (lanRunning) return; lanRunning = true; lanListening = false; lanInfo = UiText.of("starting"); lan.start(localId, nickname); }
+        else if (mode == Peer.BLUETOOTH) { if (bluetoothRunning) return; bluetoothRunning = true; bluetoothListening = false; bluetoothInfo = UiText.of("starting"); bluetooth.start(); }
+        else { fail(UiText.of("invalidTransport")); return; }
         changed();
     }
     public void stop(int mode) {
-        if (active != null && sessionMode == mode) closeActive("连接已结束");
+        if (active != null && sessionMode == mode) closeActive(UiText.of("connectionEnded"));
         if (connecting && connectingMode == mode) cancelOutgoing();
-        if (mode == Peer.LAN) { lan.stop(); lanRunning = false; lanSearching = false; lanInfo = "尚未开启"; }
-        else { bluetooth.stop(); bluetoothRunning = false; bluetoothSearching = false; bluetoothInfo = "尚未开启"; }
+        if (mode == Peer.LAN) { lan.stop(); lanRunning = false; lanListening = false; lanSearching = false; lanInfo = UiText.of("notStarted"); }
+        else { bluetooth.stop(); bluetoothRunning = false; bluetoothListening = false; bluetoothSearching = false; bluetoothInfo = UiText.of("notStarted"); }
         peers.entrySet().removeIf(entry -> entry.getValue().mode == mode); changed();
     }
     public void stopAll() { stop(Peer.LAN); stop(Peer.BLUETOOTH); }
     public void search(int mode) {
-        if (!running(mode)) { fail("请先开启接收"); return; }
-        if (connecting) { fail("正在连接，请稍候"); return; }
-        error = ""; peers.entrySet().removeIf(entry -> entry.getValue().mode == mode);
+        if (!running(mode)) { fail(UiText.of("startReceptionFirst")); return; }
+        if (connecting) { fail(UiText.of("pleaseWaitConnecting")); return; }
+        error = UiText.EMPTY; peers.entrySet().removeIf(entry -> entry.getValue().mode == mode);
         if (mode == Peer.LAN) lan.discover(); else bluetooth.scan(); changed();
     }
     public void stopSearch(int mode) {
         if (mode == Peer.LAN) {
-            if (lanReconnectId != null) { cancelOutgoing(); status = "已停止连接尝试"; }
+            if (lanReconnectId != null) { cancelOutgoing(); status = UiText.of("connectionAttemptStopped"); }
             lan.stopSearch();
         } else bluetooth.stopSearch();
         changed();
@@ -119,31 +123,31 @@ public final class ChatController implements TransportListener {
     public void connectAddress(String address) { connectAddress(address, true); }
     public void connectAddress(String address, boolean remember) {
         try { LocalEndpoint endpoint = LocalEndpoint.parse(address); if (beginConnect(Peer.LAN, null, remember, null)) lan.connect(endpoint.address, endpoint.port); }
-        catch (IllegalArgumentException e) { fail(e.getMessage()); }
+        catch (LocalizedIllegalArgumentException e) { fail(e.text); }
     }
     public void reconnect(String peerId) {
         if (connected && Objects.equals(peerId, connectedPeerId)) return;
         ChatStore.TrustedDevice device = trustedDevice(peerId);
-        if (device == null) { fail("此设备尚未被记住，请去附近重新连接"); return; }
-        if (device.mode == Peer.BLUETOOTH && device.bluetoothAddress == null) { fail("没有可用的蓝牙地址，请去附近重新查找"); return; }
+        if (device == null) { fail(UiText.of("notRemembered")); return; }
+        if (device.mode == Peer.BLUETOOTH && device.bluetoothAddress == null) { fail(UiText.of("noBluetoothAddress")); return; }
         if (!beginConnect(device.mode, device.id, true, device.bluetoothAddress)) return;
         if (device.mode == Peer.BLUETOOTH) { bluetooth.connect(device.bluetoothAddress); return; }
         // Resolve a fresh advertised UUID. Never use a persisted IP as identity.
-        lanReconnectId = device.id; status = "正在查找已记住的设备…";
+        lanReconnectId = device.id; status = UiText.of("findingRemembered");
         peers.entrySet().removeIf(entry -> entry.getValue().mode == Peer.LAN);
         reconnectTimeout = () -> {
             if (lanReconnectId == null) return;
-            cancelOutgoing(); lan.stopSearch(); status = "暂时无法连接";
-            fail("暂时找不到对方，请确认同一网络、对方已开启接收后重试，或去附近查找");
+            cancelOutgoing(); lan.stopSearch(); status = UiText.of("connectionUnavailable");
+            fail(UiText.of("rememberedPeerNotFound"));
         };
         main.postDelayed(reconnectTimeout, 12000); lan.discover(); changed();
     }
     private boolean beginConnect(int mode, String expected, boolean remember, String bluetoothAddress) {
-        if (active != null || connecting) { fail("请先结束当前连接"); return false; }
-        if (identity == null) { fail("本机身份密钥不可用，暂时无法连接"); return false; }
-        if (!running(mode)) { fail("请先开启相应连接方式的接收"); return false; }
+        if (active != null || connecting) { fail(UiText.of("busy")); return false; }
+        if (identity == null) { fail(UiText.of("identityUnavailable")); return false; }
+        if (!running(mode)) { fail(UiText.of("startModeReceptionFirst")); return false; }
         expectedPeerId = expected; rememberOutgoing = remember; outgoingBluetoothAddress = bluetoothAddress;
-        connecting = true; connectingMode = mode; sessionMode = mode; error = ""; status = "正在连接…"; changed(); return true;
+        connecting = true; connectingMode = mode; sessionMode = mode; error = UiText.EMPTY; status = UiText.of("connecting"); changed(); return true;
     }
     private void clearReconnectWait() {
         lanReconnectId = null;
@@ -161,11 +165,11 @@ public final class ChatController implements TransportListener {
         // Keep an established current chat, but cancel authorization still in flight.
         if (remoteHello != null && peerId.equals(remoteHello.id)) {
             trust.cancel(authorization);
-            if (!connected) closeActive("信任已取消，请重新连接并同意");
+            if (!connected) closeActive(UiText.of("trustRevokedReconnect"));
         }
         if (connecting && peerId.equals(expectedPeerId)) {
-            if (active != null) closeActive("信任已取消，连接尝试已停止");
-            else { cancelOutgoing(); status = "信任已取消，连接尝试已停止"; }
+            if (active != null) closeActive(UiText.of("trustRevokedCanceled"));
+            else { cancelOutgoing(); status = UiText.of("trustRevokedCanceled"); }
         }
         db(() -> store.revokeTrust(peerId), this::refresh); changed();
     }
@@ -173,27 +177,27 @@ public final class ChatController implements TransportListener {
         if (destroyed) return;
         peers.put(peer.key, peer);
         if (connecting && lanReconnectId != null && lanReconnectId.equals(peer.peerId) && peer.mode == Peer.LAN) {
-            clearReconnectWait(); lan.stopSearch(); status = "正在连接…"; lan.connect(peer.host, peer.port);
+            clearReconnectWait(); lan.stopSearch(); status = UiText.of("connecting"); lan.connect(peer.host, peer.port);
         }
         changed();
     }
     public void onLost(String key) { peers.remove(key); changed(); }
     public void onSearching(int mode, boolean searching) { if (mode == Peer.LAN) lanSearching = searching; else bluetoothSearching = searching; changed(); }
-    public void onSearchStopFailed(int mode, String message) { fail(message); }
-    public void onListening(int mode, String detail) { if (mode == Peer.LAN) lanInfo = detail; else bluetoothInfo = detail; changed(); }
-    public void onError(int mode, String message, boolean fatal) {
-        if (lanReconnectId != null && mode == Peer.LAN) { cancelOutgoing(); status = "暂时无法连接"; }
+    public void onSearchStopFailed(int mode, UiText message) { fail(message); }
+    public void onListening(int mode, UiText detail) { if (mode == Peer.LAN) { lanInfo = detail; lanListening = true; } else { bluetoothInfo = detail; bluetoothListening = true; } changed(); }
+    public void onError(int mode, UiText message, boolean fatal) {
+        if (lanReconnectId != null && mode == Peer.LAN) { cancelOutgoing(); status = UiText.of("connectionUnavailable"); }
         if (fatal) {
             if (connecting && connectingMode == mode) cancelOutgoing();
-            if (mode == Peer.LAN) { lanRunning = false; lanSearching = false; lanInfo = "尚未开启"; } else { bluetoothRunning = false; bluetoothSearching = false; bluetoothInfo = "尚未开启"; }
+            if (mode == Peer.LAN) { lanRunning = false; lanListening = false; lanSearching = false; lanInfo = UiText.of("notStarted"); } else { bluetoothRunning = false; bluetoothListening = false; bluetoothSearching = false; bluetoothInfo = UiText.of("notStarted"); }
             peers.entrySet().removeIf(entry -> entry.getValue().mode == mode);
             if (active != null && sessionMode == mode) closeActive(message);
         }
         fail(message);
     }
-    public void onConnectFailed(int mode, String message) {
+    public void onConnectFailed(int mode, UiText message) {
         if (!connecting || connectingMode != mode || active != null) return;
-        cancelOutgoing(); status = "暂时无法连接"; fail(message);
+        cancelOutgoing(); status = UiText.of("connectionUnavailable"); fail(message);
     }
     public void onConnection(int mode, StreamConnection connection, boolean incoming) { onConnection(mode, connection, incoming, null); }
     public void onConnection(int mode, StreamConnection connection, boolean incoming, String bluetoothAddress) {
@@ -205,14 +209,14 @@ public final class ChatController implements TransportListener {
         final String socketAddress = bluetoothAddress != null ? bluetoothAddress : incoming ? null : outgoingBluetoothAddress;
         clearReconnectWait(); connecting = true; connectingMode = mode; connected = false; connectedPeerId = null;
         sessionMode = mode; remoteHello = null; authorization = null;
-        status = "已建立链路，正在验证身份…"; error = "";
+        status = UiText.of("handshake"); error = UiText.EMPTY;
         final FramedSession[] reference = new FramedSession[1];
         reference[0] = new FramedSession(connection, localId, nickname, identity, new FramedSession.Listener() {
             public void onHello(Frame hello) { main.post(() -> {
                 if (active != reference[0]) return;
                 String publicKey = reference[0].remotePublicKey();
                 if (publicKey == null || (expected != null && (!expected.equals(hello.id) || attemptRevision != trust.peerRevision(expected)))) {
-                    closeActive("找到的设备身份不符，请去附近重新查找"); fail("设备身份验证不符，未授权此连接"); return;
+                    closeActive(UiText.of("identityMismatch")); fail(UiText.of("identityVerificationFailed")); return;
                 }
                 remoteHello = hello;
                 final long revision = trust.peerRevision(hello.id);
@@ -221,12 +225,12 @@ public final class ChatController implements TransportListener {
                     if (active != reference[0] || revision != trust.peerRevision(hello.id)) return;
                     authorization = trust.begin(hello.id, publicKey, pin[0] == null ? null : pin[0].publicKey, !incoming, remember);
                     if (authorization.decision == TrustPolicy.Decision.IDENTITY_CHANGED) {
-                        closeActive("设备身份已变化，连接已拒绝");
-                        fail("此设备的身份密钥已变化。如确认需要重新认识，请先在设置中取消该设备信任，再重新连接");
+                        closeActive(UiText.of("identityChangedRejected"));
+                        fail(UiText.of("androidIdentityChanged"));
                     } else if (authorization.decision == TrustPolicy.Decision.APPROVE) {
-                        status = incoming ? "正在完成连接…" : "等待对方同意聊天…"; reference[0].approve(); changed();
+                        status = incoming ? UiText.of("completingConnection") : UiText.of("waitingPeerConsent"); reference[0].approve(); changed();
                     } else {
-                        approvalId = UUID.randomUUID().toString(); approvalName = hello.body; status = "等待同意聊天"; changed();
+                        approvalId = UUID.randomUUID().toString(); approvalName = hello.body; status = UiText.of("consent"); changed();
                     }
                 });
             }); }
@@ -239,7 +243,7 @@ public final class ChatController implements TransportListener {
                     if (!Objects.equals(selectedId, hello.id)) messages = new ArrayList<>();
                     selectedId = hello.id; selectedName = hello.body;
                 }
-                status = "已连接 · " + connection.label(); changed();
+                status = UiText.of("connectedVia", UiText.of(mode == Peer.BLUETOOTH ? "bluetooth" : "lan")); changed();
                 db(() -> {
                     trust.persist(grant, () -> store.remember(hello.id, hello.body, grant.publicKey, mode, socketAddress));
                     store.touch(hello.id, hello.body);
@@ -254,7 +258,7 @@ public final class ChatController implements TransportListener {
                 if (active != reference[0] || remoteHello == null) return;
                 String peerId = remoteHello.id; db(() -> store.delivered(peerId, id), ChatController.this::refresh);
             }); }
-            public void onClosed(String reason) { main.post(() -> releaseSession(reference[0], reason)); }
+            public void onClosed(UiText reason) { main.post(() -> releaseSession(reference[0], reason)); }
         });
         active = reference[0]; active.start(); changed();
     }
@@ -262,11 +266,11 @@ public final class ChatController implements TransportListener {
     public void approve(String token, boolean remember) {
         if (active == null || approvalId == null || !Objects.equals(token, approvalId) || remoteHello == null) return;
         if (!trust.approve(authorization, remember)) return;
-        approvalId = null; approvalName = null; status = "等待双方完成连接…";
+        approvalId = null; approvalName = null; status = UiText.of("waitingBothReady");
         active.approve(); changed();
     }
-    public void reject(String token) { if (active != null && approvalId != null && Objects.equals(token, approvalId)) closeActive("连接已拒绝"); }
-    private void releaseSession(FramedSession session, String reason) {
+    public void reject(String token) { if (active != null && approvalId != null && Objects.equals(token, approvalId)) closeActive(UiText.of("connectionRejected")); }
+    private void releaseSession(FramedSession session, UiText reason) {
         if (active != session) return;
         String peerId = remoteHello == null ? null : remoteHello.id;
         trust.cancel(authorization); authorization = null; active = null; remoteHello = null;
@@ -275,17 +279,17 @@ public final class ChatController implements TransportListener {
         if (peerId != null) db(() -> store.uncertain(peerId), this::refresh);
         changed();
     }
-    private void closeActive(String reason) {
+    private void closeActive(UiText reason) {
         FramedSession session = active;
         if (session != null) { releaseSession(session, reason); session.close(reason); }
     }
     private static void close(StreamConnection connection) { try { connection.close(); } catch (IOException ignored) {} }
-    public void disconnect() { closeActive("连接已结束"); cancelOutgoing(); status = "连接已结束"; changed(); }
+    public void disconnect() { closeActive(UiText.of("connectionEnded")); cancelOutgoing(); status = UiText.of("connectionEnded"); changed(); }
     public boolean canSend() { return !savingMessage && connected && active != null && active.isReady() && remoteHello != null && Objects.equals(selectedId, connectedPeerId); }
     public boolean send(String body) {
-        if (!canSend()) { fail("当前会话未连接"); return false; }
+        if (!canSend()) { fail(UiText.of("notConnected")); return false; }
         Frame frame = new Frame(Frame.TEXT, UUID.randomUUID().toString(), body, System.currentTimeMillis());
-        try { Protocol.write(new ByteArrayOutputStream(), frame); } catch (IOException e) { fail("消息不能为空，且不能超过 8192 个 UTF-8 字节"); return false; }
+        try { Protocol.write(new ByteArrayOutputStream(), frame); } catch (IOException e) { fail(UiText.of("invalidMessage")); return false; }
         FramedSession session = active; String peerId = remoteHello.id, name = remoteHello.body;
         savingMessage = true; changed();
         db(() -> store.save(peerId, name, frame, true), () -> {
@@ -319,11 +323,11 @@ public final class ChatController implements TransportListener {
         storage.execute(() -> {
             try { work.run(); if (success != null) main.post(() -> { if (!destroyed) success.run(); }); }
             catch (RuntimeException e) { main.post(() -> {
-                if (!destroyed) { if (failure != null) failure.run(); closeActive("本地记录保存失败，连接已停止"); fail("本地记录读写失败，请检查手机可用空间"); }
+                if (!destroyed) { if (failure != null) failure.run(); closeActive(UiText.of("androidStorageStopped")); fail(UiText.of("androidStorageFailure")); }
             }); }
         });
     }
-    private void fail(String message) { error = message; changed(); }
+    private void fail(UiText message) { error = message; changed(); }
     public void destroy() {
         if (destroyed) return; stopAll(); destroyed = true; observer = null; lan.destroy(); bluetooth.destroy();
         storage.execute(store::close); storage.shutdown();

@@ -8,3 +8,4 @@ app/build/
 *.keystore
 *.apk
 *.aab
+__pycache__/

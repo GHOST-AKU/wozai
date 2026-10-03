@@ -9,7 +9,7 @@ import java.util.*;
 
 /** Access exclusively on ChatController's storage executor. */
 public final class ChatStore extends SQLiteOpenHelper {
-    public static final String PENDING = "待确认", DELIVERED = "已送达", UNKNOWN = "未确认";
+    public static final String PENDING = "pending", DELIVERED = "delivered", UNKNOWN = "unknown";
     public static final class Conversation {
         public final String id, name, preview, state;
         public final boolean outgoing;
@@ -44,12 +44,9 @@ public final class ChatStore extends SQLiteOpenHelper {
         db.execSQL(StoreSchema.CREATE_TRUST);
     }
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        if (oldVersion == 1 && newVersion == StoreSchema.VERSION) {
-            // Only add authorization storage: UUID-only history has no key proof.
-            db.execSQL(StoreSchema.CREATE_TRUST); return;
-        }
-        throw new IllegalStateException("Unknown schema upgrade");
+        for (String statement : StoreSchema.upgradeStatements(oldVersion, newVersion)) db.execSQL(statement);
     }
+
     public void touch(String peerId, String name) {
         SQLiteDatabase db = getWritableDatabase();
         db.execSQL(StoreSchema.TOUCH_INSERT, new Object[]{peerId, name});
@@ -82,8 +79,7 @@ public final class ChatStore extends SQLiteOpenHelper {
         getWritableDatabase().update("messages", values, "peer_id=? AND outgoing=1 AND state=?", new String[]{peerId, PENDING});
     }
     public void recoverPending() {
-        ContentValues values = new ContentValues(); values.put("state", UNKNOWN);
-        getWritableDatabase().update("messages", values, "outgoing=1 AND state=?", new String[]{PENDING});
+        getWritableDatabase().execSQL(StoreSchema.RECOVER_PENDING);
     }
     public List<Message> messages(String peerId) {
         List<Message> list = new ArrayList<>();

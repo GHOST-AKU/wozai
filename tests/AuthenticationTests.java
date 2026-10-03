@@ -107,7 +107,7 @@ public final class AuthenticationTests {
                     CoreTests.check(session.remotePublicKey() == null && events.hello.isEmpty(), "Unproven offer disclosed authenticated identity");
                     raw.shutdownOutput();
                     CoreTests.check(events.closed.poll(2, java.util.concurrent.TimeUnit.SECONDS) != null && events.hello.isEmpty(), "Missing proof accepted");
-                } finally { session.close("cleanup"); }
+                } finally { session.close(dev.ghost.nearbyim.i18n.UiText.of("cleanup")); }
             }
         });
         CoreTests.test("Legacy unsigned greeting never reaches consent listener", () -> {
@@ -121,7 +121,7 @@ public final class AuthenticationTests {
                     CoreTests.check(events.closed.poll(2, java.util.concurrent.TimeUnit.SECONDS) != null
                                     && events.hello.isEmpty() && session.remotePublicKey() == null,
                             "Unsigned identity reached consent listener or was not refused");
-                } finally { session.close("cleanup"); }
+                } finally { session.close(dev.ghost.nearbyim.i18n.UiText.of("cleanup")); }
             }
         });
         System.out.println("Authentication result: " + CoreTests.passed + " passed, " + CoreTests.failed + " failed");

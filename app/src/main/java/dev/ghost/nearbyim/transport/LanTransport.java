@@ -8,6 +8,7 @@ import android.os.Handler;
 import android.os.Looper;
 import dev.ghost.nearbyim.core.*;
 import java.io.*;
+import dev.ghost.nearbyim.i18n.UiText;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -56,7 +57,7 @@ public final class LanTransport {
                     socket.setTcpNoDelay(true); socket.setKeepAlive(true);
                     main.post(() -> { if (epoch.get() == run) listener.onConnection(Peer.LAN, wrap(socket), true); else close(socket); });
                 }
-            } catch (IOException | RuntimeException e) { main.post(() -> { if (epoch.get() == run) { stop(); listener.onError(Peer.LAN, "无法开启局域网接收，请检查网络后重试", true); } }); }
+            } catch (IOException | RuntimeException e) { main.post(() -> { if (epoch.get() == run) { stop(); listener.onError(Peer.LAN, UiText.of("listenFailed"), true); } }); }
         });
     }
     private void register(int run, String id, String name, int port) {
@@ -67,12 +68,12 @@ public final class LanTransport {
             info.setAttribute("id", id); info.setAttribute("name", name);
             registration = new NsdManager.RegistrationListener() {
                 public void onServiceRegistered(NsdServiceInfo service) { main.post(() -> { if (epoch.get() == run) ownService = service.getServiceName(); }); }
-                public void onRegistrationFailed(NsdServiceInfo service, int code) { main.post(() -> { if (epoch.get() == run) listener.onError(Peer.LAN, "自动发现注册失败，可使用地址直连", false); }); }
+                public void onRegistrationFailed(NsdServiceInfo service, int code) { main.post(() -> { if (epoch.get() == run) listener.onError(Peer.LAN, UiText.of("lanRegisterFailure"), false); }); }
                 public void onServiceUnregistered(NsdServiceInfo service) {}
                 public void onUnregistrationFailed(NsdServiceInfo service, int code) {}
             };
             nsd.registerService(info, NsdManager.PROTOCOL_DNS_SD, registration);
-        } catch (RuntimeException e) { listener.onError(Peer.LAN, "自动发现不可用，可使用地址直连", false); }
+        } catch (RuntimeException e) { listener.onError(Peer.LAN, UiText.of("discoveryFailed"), false); }
     }
     public void discover() {
         stopDiscovery(); resolveQueue.clear(); visible.clear(); final int run = epoch.get(), scan = ++searchEpoch;
@@ -85,12 +86,12 @@ public final class LanTransport {
             }); }
             public void onStartDiscoveryFailed(String type, int code) { NsdManager.DiscoveryListener self = this; main.post(() -> {
                 discoveryListeners.remove(self); startedDiscovery.remove(self); listener.onSearching(Peer.LAN, !startedDiscovery.isEmpty());
-                if (epoch.get() == run && searchEpoch == scan) { discovery = null; listener.onError(Peer.LAN, "设备搜索失败，可使用地址直连", false); }
+                if (epoch.get() == run && searchEpoch == scan) { discovery = null; listener.onError(Peer.LAN, UiText.of("discoveryFailed"), false); }
             }); }
             public void onStopDiscoveryFailed(String type, int code) { main.post(() -> {
                 if (epoch.get() != run || searchEpoch != scan) return;
                 listener.onSearching(Peer.LAN, !startedDiscovery.isEmpty());
-                listener.onSearchStopFailed(Peer.LAN, "停止设备搜索失败，请重试");
+                listener.onSearchStopFailed(Peer.LAN, UiText.of("searchStopFailure"));
             }); }
             public void onServiceFound(NsdServiceInfo info) { main.post(() -> {
                 if (epoch.get() != run || searchEpoch != scan || !info.getServiceType().startsWith("_nearbyim._tcp") || info.getServiceName().equals(ownService)) return;
@@ -104,7 +105,7 @@ public final class LanTransport {
         try { discoveryListeners.add(discovery); nsd.discoverServices(TYPE, NsdManager.PROTOCOL_DNS_SD, discovery); }
         catch (RuntimeException e) {
             discoveryListeners.remove(discovery); discovery = null; listener.onSearching(Peer.LAN, !startedDiscovery.isEmpty());
-            listener.onError(Peer.LAN, "设备搜索不可用，可使用地址直连", false);
+            listener.onError(Peer.LAN, UiText.of("discoveryFailed"), false);
         }
     }
     @SuppressWarnings("deprecation")
@@ -128,7 +129,7 @@ public final class LanTransport {
         }); } catch (RuntimeException e) { resolving = false; resolveNext(run, scan); }
     }
     public void connect(InetAddress host, int port) {
-        if (host == null || !LocalEndpoint.isLocal(host) || port < 1 || port > 65535) { listener.onConnectFailed(Peer.LAN, "仅支持有效的局域网地址和端口"); return; }
+        if (host == null || !LocalEndpoint.isLocal(host) || port < 1 || port > 65535) { listener.onConnectFailed(Peer.LAN, UiText.of("invalidEndpoint")); return; }
         final int run = epoch.get(), attempt = connectEpoch.incrementAndGet();
         worker.execute(() -> {
             Socket socket = new Socket(); synchronized (lock) { if (run != epoch.get() || attempt != connectEpoch.get()) { close(socket); return; } pending.add(socket); }
@@ -138,12 +139,12 @@ public final class LanTransport {
                 main.post(() -> { if (epoch.get() == run && connectEpoch.get() == attempt) listener.onConnection(Peer.LAN, wrap(socket), false); else close(socket); });
             } catch (IOException | RuntimeException e) {
                 synchronized (lock) { pending.remove(socket); } close(socket);
-                main.post(() -> { if (epoch.get() == run && connectEpoch.get() == attempt) listener.onConnectFailed(Peer.LAN, "连接失败：确认对方已开启接收，并检查路由器客户端隔离或 VPN"); });
+                main.post(() -> { if (epoch.get() == run && connectEpoch.get() == attempt) listener.onConnectFailed(Peer.LAN, UiText.of("connectFailed")); });
             }
         });
     }
     public static String endpoint(InetAddress host, int port) { String ip = host.getHostAddress(); return (ip.contains(":") ? "[" + ip + "]" : ip) + ":" + port; }
-    private String addresses(int port) {
+    private UiText addresses(int port) {
         List<String> result = new ArrayList<>();
         try {
             ConnectivityManager manager = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -159,13 +160,13 @@ public final class LanTransport {
                 for (InetAddress address : Collections.list(iface.getInetAddresses())) if (address instanceof Inet4Address && LocalEndpoint.isLocal(address)) result.add(endpoint(address, port));
             }
         } catch (RuntimeException | SocketException ignored) {}
-        return result.isEmpty() ? "监听端口 " + port + " · 请连接 Wi-Fi 或手机热点" : String.join("\n", result);
+        return result.isEmpty() ? UiText.of("lanListeningWithoutAddress", Integer.toString(port)) : UiText.of("lanAddresses", String.join("\n", result));
     }
     private StreamConnection wrap(Socket socket) {
         return new StreamConnection() {
             public InputStream input() throws IOException { return socket.getInputStream(); }
             public OutputStream output() throws IOException { return socket.getOutputStream(); }
-            public String label() { return "局域网 · " + socket.getInetAddress().getHostAddress(); }
+            public String label() { return "LAN · " + socket.getInetAddress().getHostAddress(); }
             public void close() throws IOException { socket.close(); }
         };
     }

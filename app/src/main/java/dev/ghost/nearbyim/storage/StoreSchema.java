@@ -3,7 +3,20 @@ package dev.ghost.nearbyim.storage;
 /** SQLite statements executed by ChatStore and by the real SQLite migration tests. */
 public final class StoreSchema {
     private StoreSchema() {}
-    public static final int VERSION = 2;
+    public static final int VERSION = 3;
+    public static final String MIGRATE_MESSAGE_STATES = "UPDATE messages SET state=CASE state WHEN '待确认' THEN 'pending' WHEN '已送达' THEN 'delivered' WHEN '未确认' THEN 'unknown' ELSE state END WHERE outgoing=1";
+    public static final String RECOVER_PENDING = "UPDATE messages SET state='unknown' WHERE outgoing=1 AND state='pending'";
+    /** Ordered, lossless upgrade steps; v1 history never grants device trust. */
+    public static java.util.List<String> upgradeStatements(int oldVersion, int newVersion) {
+        if (oldVersion < 1 || newVersion > VERSION || newVersion < oldVersion)
+            throw new IllegalArgumentException("Unsupported schema upgrade: " + oldVersion + " -> " + newVersion);
+        java.util.List<String> statements = new java.util.ArrayList<>();
+        for (int version = oldVersion; version < newVersion; version++) {
+            if (version == 1) statements.add(CREATE_TRUST);
+            else if (version == 2) statements.add(MIGRATE_MESSAGE_STATES);
+        }
+        return statements;
+    }
     public static final String CREATE_CONVERSATIONS = "CREATE TABLE conversations (peer_id TEXT PRIMARY KEY, name TEXT NOT NULL, updated INTEGER NOT NULL)";
     public static final String CREATE_MESSAGES = "CREATE TABLE messages (peer_id TEXT NOT NULL, id TEXT NOT NULL, body TEXT NOT NULL, outgoing INTEGER NOT NULL, state TEXT NOT NULL, time INTEGER NOT NULL, received INTEGER NOT NULL, PRIMARY KEY(peer_id,id,outgoing))";
     public static final String CREATE_MESSAGE_INDEX = "CREATE INDEX messages_timeline ON messages(peer_id,received)";

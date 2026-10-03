@@ -1,0 +1,74 @@
+name: Build NearbyIM Windows client
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          architecture: x64
+      - name: Read shared release version
+        id: metadata
+        shell: pwsh
+        run: |
+          $version = (Get-Content i18n/config.json -Raw -Encoding UTF8 | ConvertFrom-Json).appVersion
+          "version=$version" >> $env:GITHUB_OUTPUT
+      - name: Test desktop and create portable Windows package
+        shell: pwsh
+        run: ./desktop/tools/build.ps1 -Package
+      - name: Test shared Android protocol and trust
+        shell: pwsh
+        run: |
+          ./tools/test-i18n.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./tools/test-core.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./tools/test-trust.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Run packaged Windows executable
+        shell: pwsh
+        run: ./desktop/tools/test-package.ps1
+      - name: Exercise bundled runtime GUI
+        if: always()
+        shell: pwsh
+        run: |
+          & 'desktop/build/package/NearbyIM/runtime/bin/java.exe' -cp 'desktop/build/package/NearbyIM/app/*;desktop/build/tests' dev.ghost.wozai.GuiTests desktop/build/gui-bundled-runtime.png
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Exercise native GUI and mDNS
+        shell: pwsh
+        run: |
+          & "$env:JAVA_HOME/bin/java.exe" "-Dwozai.bluetooth.library=$((Resolve-Path desktop/build/lib/wozai_bluetooth.dll).Path)" -cp 'desktop/build/classes;desktop/build/tests;desktop/build/lib/*' dev.ghost.wozai.DiscoveryTests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "$env:JAVA_HOME/bin/java.exe" "-Dwozai.bluetooth.library=$((Resolve-Path desktop/build/lib/wozai_bluetooth.dll).Path)" -cp 'desktop/build/classes;desktop/build/tests;desktop/build/lib/*' dev.ghost.wozai.GuiTests desktop/build/gui-windows.png
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "$env:JAVA_HOME/bin/java.exe" "-Dwozai.bluetooth.library=$((Resolve-Path desktop/build/lib/wozai_bluetooth.dll).Path)" -cp 'desktop/build/classes;desktop/build/tests;desktop/build/lib/*' dev.ghost.wozai.LayoutTests desktop/build/gui-settings-windows.png
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Exercise bundled runtime layout at 100, 125, 150 and 200 percent scaling
+        shell: pwsh
+        run: |
+          foreach ($scale in @('1', '1.25', '1.5', '2')) {
+            & 'desktop/build/package/NearbyIM/runtime/bin/java.exe' "-Dsun.java2d.uiScale=$scale" -cp 'desktop/build/package/NearbyIM/app/*;desktop/build/tests' dev.ghost.wozai.LayoutTests "desktop/build/gui-settings-dpi-$scale.png"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NearbyIM-${{ steps.metadata.outputs.version }}-windows-x64
+          path: desktop/build/package
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-preview-verification
+          path: |
+            desktop/build/gui-windows*.png
+            desktop/build/gui-settings*.png
+            desktop/build/package-window.png
+            desktop/build/gui-bundled-runtime*.png
+            desktop/build/*-text-rendering.txt
+          if-no-files-found: ignore

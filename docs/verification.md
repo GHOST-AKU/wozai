@@ -1,6 +1,81 @@
-# 验证记录 · 2026-10-01
+# 验证记录 · 2026-10-03
 
-## 当前源码 0.2.0
+## PR #3 评审修复
+
+- 桌面收到新消息时保存本地接收时间用于排序，另存 `senderTime` 校验重传。同一方向内相同 ID 的完整记录一致才幂等成功，正文、发送时间或状态冲突，以及原文件损坏均抛出错误；会话停止且不发 ACK。重传保留第一次接收时间，旧记录没有 `senderTime` 时按原格式读取。
+- 自动复审补充：收件/发件按 `in-` / `out-` 文件名分别保存独立消息 ID；旧无前缀文件按原有方向继续读取和更新。相同 ID 的两方向消息都保留，ACK 只更新发件。存储失败断开后发布不读取存储的离线状态，并保留最后可读的历史。新增同 ID 双向收发、旧文件混用与损坏存储回归通过，评审回归累计 478 项。
+- 已认证 HELLO 的 UUID 在桌面业务边界规范化；存储、消息、草稿、ACK、撤销与文件路径使用小写标准 UUID。签名认证仍验证原始 offer 字节，不改变 NIM2 协议。
+- 安卓附近列表在控制器附加后，即使为空也消费一次恢复的滚动位置；搜索状态改变不再重放旧位置。加入原生回归检查。
+- Windows 增加实际 Bold 字重与字形轮廓检查，头像文字使用 FlatLaf 文本绘制；增加实际渲染诊断、四档 Java2D 缩放布局检查和[实机 DPI 清单](device-test.md#windows-文字清晰度与-dpipr-3)。标准字号下没有额外乘以显示器 DPI。整体实机清晰度尚不能由 Linux 或虚拟 Windows Runner 证明。
+
+本地共享生成器/语言、16 项核心/会话、12 项认证、21 项信任和 11 项 SQLite 检查通过。桌面原有持久化、真实会话、目录/迁移、模拟蓝牙路由、3038 项文案检查与 Regular/Bold 字形检查通过；新增评审回归覆盖未来时间戳超过 200 条的历史/摘要、同内容回执、冲突不回执、大写签名 HELLO、UUID 文件路径和重启/旧格式。Android 主 APK、test APK 和 Lint 编译通过（0 错误，15 项现有图标/资源及工具版本警告）。Linux Xvfb 设置布局和滚轮检查通过。
+
+[平台验证 37088995099](https://github.com/GHOST-AKU/wozai/actions/runs/37088995099)验证应用源码 `efcc55d`：Android 构建/签名/对齐通过，API 26 与 34 各 137 项原生检查通过；Windows 编译、DPAPI、EXE、自带运行时 GUI、mDNS 和四档缩放布局通过。原始 Windows 日志另发现 8 项生成器测试因 cp1252 默认编码失败，且其退出码被后续脚本覆盖。`b5ee99e` 将测试配置读取改为 UTF-8，并让每个脚本的失败立即终止 Windows 工作流；[首轮 Windows 验证 37089391450](https://github.com/GHOST-AKU/wozai/actions/runs/37089391450)完整通过，原始日志确认 8 项生成器和 43 项语言解析检查通过；62 项桌面、451 项评审回归、104 项目录/迁移、54 项蓝牙 JNI、3038 项文案和物理 Regular/Bold 字形检查通过，EXE、GUI/mDNS 与四档缩放布局再次通过。应用源码未因此改动。
+
+[最终 Windows 验证 37090014435](https://github.com/GHOST-AKU/wozai/actions/runs/37090014435)验证最终应用/测试源码 `da1b457`，478 项评审回归及全部原有桌面、共享、EXE、DPAPI、GUI/mDNS、物理字重与四档缩放检查通过。验证分支 `e53e6ad` 仅调整手动工作流以单独运行 Windows，不改变应用或测试。Android 源码自 API 26/34 验证后未改变；后续 PR 提交仅记录最终结果。
+
+评审修复后的下载：[Windows 便携包](https://github.com/GHOST-AKU/wozai/actions/runs/37090014435/artifacts/11262342117)、[Windows 截图及渲染报告](https://github.com/GHOST-AKU/wozai/actions/runs/37090014435/artifacts/11262202262)、[Android 调试包](https://github.com/GHOST-AKU/wozai/actions/runs/37088995099/artifacts/11261517048)。Windows artifact 为 68,441,457 字节；下载与摘要沿用 GitHub artifact 的完整性机制，本环境未下载该 ZIP。新增 Bold 资源后体积增大。下方 0.3.1 的历史 CI、下载链接、体积和校验值属于旧构建。Windows 实机文字质量仍需按清单验收。
+
+## 历史构建 0.3.1 · 新增繁体中文、日语与韩语
+
+在现有共享架构中新增 `zh-Hant`、`ja`、`ko`，连同简体中文与英文，每种语言完整覆盖 299 个文案键。应用与测试源码为 `c8f1bdbdc6c4915119c332140ce8dc148ee456c9`，构建提交为 `3a4ebac20dc5f9bfcaf113544eb210d8c7b31bcd`。[最终运行 37014761654](https://github.com/GHOST-AKU/wozai/actions/runs/37014761654)的 Android 编译、Windows 打包、API 26 和 API 34 原生验证四项任务全部成功；后续提交仅更新交付文档和恢复手动触发。
+
+| 检查 | 实际结果 | 证明范围 |
+| --- | --- | --- |
+| 文案及语言元数据 | 五种语言各 299 键；8 项生成器测试、43 项语言解析检查通过；339 处字面消息键引用，0 错误 | 参数契约、生成一致性、台港澳繁体别名、日/韩地区和原生脚本、旧偏好与系统回退 |
+| Windows 格式与字体 | 3038 项通过 | 全目录 ICU 模式、日期/复数、字面昵称、缺键回退、逐条现有字体字形覆盖；未增加字体或 ICU 依赖 |
+| Android 编译与资源 | 主 APK/test APK 和 Lint 成功，0 错误、4 项保留警告 | 0.3.1 / code 5，minSdk 26、targetSdk 36；原生资源完整包含 en、zh-Hans、zh-Hant、ja、ko |
+| Android API 26 与 34 | 各 135 项通过，原始结果码 -1 | 三种新语言的原生文案、ICU 计数、日期、用户参数及帮助段落；原有中英文真实 TCP、许可等待/重建、草稿/光标/阅读位置、前台服务/通知及保存回执继续通过 |
+| Windows 实际运行 | 61 项桌面、104 项数据/迁移、54 项蓝牙 JNI，原生生命周期通过 | 实际 EXE、自带运行时、DPAPI 和便携路径；真实 mDNS、协议与信任回归 |
+| Windows 五语界面切换 | 完整 JDK 和自带运行时的真实 GUI 检查通过 | 活跃连接、草稿及回执保留；繁体、日语、韩语的操作与已打开帮助/关于/信任窗口更新；原有布局/滚轮检查通过 |
+
+Windows ZIP：[NearbyIM-0.3.1-windows-x64](https://github.com/GHOST-AKU/wozai/actions/runs/37014761654/artifacts/11229477243)，54,223,619 字节，上传 SHA-256 `7d05884598abd48e205a83cfa2149e785593c3bbf9b1ba59dc81280f4715ed9f`。约 51.71 MiB，比 0.3.0 增加 384,087 字节（约 0.37 MiB）。
+
+Android ZIP：[NearbyIM-0.3.1-android-debug](https://github.com/GHOST-AKU/wozai/actions/runs/37014761654/artifacts/11229167650)，760,215 字节，下载 SHA-256 `04e91c9034a0d7e557ebb47c4071aca6bd4ad1fe08607fac2cf5ea013a7f0e8c`。主 APK 为 853,580 字节，SHA-256 `238b97e8d1a1e49085abbcb41a12789ceee6cae6d5db8c1dab0a06db969dfc66`；ZIP CRC、构建校验值、v2 签名、zipalign 和版本/语言声明均已核验。
+
+本次临时调试证书 SHA-256 为 `304747e1145ceffc1a5c78f5dbb657486b4c53f46c994e94f8a08120154fe605`，与此前调试包不同。保留记录升级需要原签名密钥；不要卸载原应用。实体蓝牙、实际系统权限回调、母语用词人工审阅与读屏仍按设备清单验收。
+
+截图及原始记录：[Windows](https://github.com/GHOST-AKU/wozai/actions/runs/37014761654/artifacts/11230185005)、[Android API 26](https://github.com/GHOST-AKU/wozai/actions/runs/37014761654/artifacts/11229767335)、[Android API 34](https://github.com/GHOST-AKU/wozai/actions/runs/37014761654/artifacts/11229127615)。
+
+## 历史版本 0.3.0 · 安卓与 Windows 多语言
+
+两端使用同一份 299 键简体中文／英文目录、语言注册表和 ICU 格式契约；应用与测试源码提交为 `afaf6826bba8645f6e840f870013fecab79a5f63`。独立构建分支提交 `00ebdbde3e12cfc1a860d68935fd4499309e9410` 的[最终运行 37003827341](https://github.com/GHOST-AKU/wozai/actions/runs/37003827341)包含 Android 编译、Windows 打包、Android API 26 和 API 34 原生验证，四项任务全部通过。后续交付提交仅更新文档和恢复手动触发，不改变已经验证的应用源码。
+
+| 检查 | 实际结果 | 证明范围 |
+| --- | --- | --- |
+| 共享目录与生成器 | 两种语言各 299 键；8 项生成器测试、23 项语言解析检查通过；339 处字面消息键引用、0 错误；生成产物无漂移 | 重复/漏译/额外键、ICU 参数、标签与脚本、别名、英文回退、Windows CRLF |
+| 协议与认证 | 16 项核心/会话 + 12 项认证测试通过 | 真实 TCP、消息边界、有界窗口、许可、签名、篡改与重放拒绝 |
+| 信任与数据库 | 21 项信任策略 + 11 项 SQLite 测试通过 | 旧版中文状态迁为稳定状态码，历史正文保留，信任与消息独立 |
+| Android 编译与 Lint | 主 APK 与 test APK 编译成功；Lint 0 错误、4 警告 | JDK 17、AGP 8.13、SDK 36 / Build Tools 35.0.0；保留的警告为插件更新、API 26 资源限定及两处单色图标 |
+| Android API 26 原生运行 | 120 项通过；原始结果 `INSTRUMENTATION_CODE: -1` | 系统 ICU、真实认证 TCP、许可等待时重建、草稿/光标/阅读位置、前台服务、收发及回执 |
+| Android API 34 原生运行 | 120 项通过；原始结果 `INSTRUMENTATION_CODE: -1` | Android 13+ 系统应用语言选择与重建；后台已发布通知、通道名称随语言刷新；服务和身份保持 |
+| Windows 桌面与数据 | 61 项桌面、104 项目录/迁移检查通过 | 稳定身份、TCP/回执、便携目录、旧文件保留、互斥与失败处理 |
+| Windows 翻译 | 631 项通过 | 全部目录模式、ICU 复数/撇号/字面参数、逐键英文回退及语言偏好；启动错误按保存的语言显示 |
+| Windows 蓝牙实现 | 原生生命周期测试、54 项接口/JNI、蓝牙路由字节流测试通过 | 编译与桥接、资源释放、共用身份/许可/保存后回执；没有验证无线硬件 |
+| Windows 真实程序与 GUI | `NearbyIM.exe`、完整 JDK 和自带运行时均通过 | DPAPI、默认便携路径、退出；语言实时切换、已打开对话框、连接、草稿、搜索/选择/滚动位置保留；真实 mDNS |
+| Windows 布局 | 真实窗口检查通过 | Noto 字体、简洁页头、圆角高亮、输入与发送等高、窄窗口设置、大字号和滚轮 |
+| 安装包核验 | 最终安卓 artifact / APK SHA-256、ZIP CRC、v2 签名与 zipalign 校验通过 | 版本 0.3.0 / code 4，minSdk 26、targetSdk 36；原生资源含 en、zh-Hans，英文品牌 NearbyIM |
+| 独立代码审查 | 重要问题已修复，复审未发现剩余严重或重要问题 | 修复旧默认昵称变更、Unicode/脚本区域解析与单键英文 ICU 回退；临时法语、阿拉伯语 RTL、塞尔维亚语拉丁脚本目录可扩展 |
+
+原生语言检查使用安卓模拟器和真实 localhost TCP，不是实体蓝牙通信。用户此前已报告旧版 Windows 可与实体安卓通过局域网通信。0.3.0 的 Windows ↔ Android 蓝牙、实际系统权限/蓝牙启用弹窗在跨语言重建后的返回、不同 DPI 与读屏仍需按 [device-test.md](device-test.md)验收。
+
+### 0.3.0 下载与完整性
+
+| 产物 | 下载 | 字节数与 SHA-256 |
+| --- | --- | --- |
+| Windows 便携 ZIP | [NearbyIM-0.3.0-windows-x64](https://github.com/GHOST-AKU/wozai/actions/runs/37003827341/artifacts/11224653026) | 53,839,532；构建上传摘要 `e4880e5864cd1af698c59538cb015c672079ea1f6c8c3e948c7b8f288fbf0524` |
+| Android artifact ZIP | [NearbyIM-0.3.0-android-debug](https://github.com/GHOST-AKU/wozai/actions/runs/37003827341/artifacts/11225396246) | 737,310；下载核验 `e896e58a43f4170f6ccdf5ef3b7143498811c5a17b9e17746999dd3da5952988` |
+| ZIP 内主 APK `debug/app-debug.apk` | 从 Android ZIP 解压；测试 APK 不用于日常使用 | 775,900；`b52b3fcb11213403cb4283961fdd0965791d1bfdcad73a4c0e6c760353d60990` |
+
+运行记录与截图：[Windows](https://github.com/GHOST-AKU/wozai/actions/runs/37003827341/artifacts/11224638245)、[Android API 26](https://github.com/GHOST-AKU/wozai/actions/runs/37003827341/artifacts/11224603631)、[Android API 34](https://github.com/GHOST-AKU/wozai/actions/runs/37003827341/artifacts/11225366094)。
+
+### 安卓保留数据升级与签名
+
+本次 CI 调试证书 SHA-256 为 `35a79cd68a10132d5cd94d0bb5d423beec22093e9f9b3eaaea3198f9333628c1`，与此前交付的 0.2.0 调试 APK 不同。因此该下载包不能覆盖安装那个旧 APK；代码中的数据库迁移需要同包名、同签名密钥的正常更新。CI 当前每次生成临时调试密钥，还未配置长期发布签名。
+
+有历史记录的手机保留原应用，使用原签名密钥构建 0.3.0 升级包；**不要为安装本次调试包卸载旧应用**。卸载会删除消息、信任、草稿及 Keystore 身份。本次模拟器验证适用于新安装和同一密钥的会话测试，不能替代实体用户设备的保留数据更新。
+
+## 历史版本 0.2.0 · 2026-10-01 交付记录
 
 本轮实现浅色原生界面、独立设备信任与 NIM2 身份验证。用户恢复编译后，已在独立 GitHub Actions 构建分支生成 `WoZai-0.2.0-debug.apk`。本地仍缺少可运行的安卓设备，原生截图与双机测试待执行。
 

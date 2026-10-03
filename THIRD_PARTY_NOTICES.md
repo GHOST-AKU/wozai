@@ -8,6 +8,18 @@ Copyright 2015 the original author or authors. Licensed under Apache License, Ve
 
 No third-party Android UI or networking library is bundled with application source.
 
+## Desktop interface and networking
+
+The Windows desktop build downloads these pinned artifacts, with SHA-256 verification in `desktop/dependencies.txt`:
+
+- FlatLaf 3.6.2 (`com.formdev:flatlaf`), https://github.com/JFormDesigner/FlatLaf. Copyright FormDev Software GmbH. Apache License 2.0 at `licenses/FlatLaf-Apache-2.0.txt`, retained from the upstream JAR. Desktop visual tokens and bubble layout match the Android application.
+- JmDNS 3.6.2 (`org.jmdns:jmdns`), https://github.com/jmdns/jmdns. Originally developed by Arthur van Hoff, moved to SourceForge by Rick Blair and to GitHub by Kai Kreuzer; maintained by the JmDNS contributors. Upstream v3.6.2 license and notice are retained at `licenses/JmDNS-Apache-2.0.txt` and `licenses/JmDNS-NOTICE.txt`.
+- SLF4J API and NOP 2.0.17 (`org.slf4j:slf4j-api`, `org.slf4j:slf4j-nop`), https://www.slf4j.org/. Copyright 2004–2022 QOS.ch Sarl (Switzerland). MIT license at `licenses/SLF4J-MIT.txt` (retained from the upstream API JAR).
+- Noto Sans CJK SC Regular and Bold (思源黑体), https://github.com/notofonts/noto-cjk. Copyright Adobe and Google, SIL Open Font License 1.1 at `licenses/NotoSansCJK-OFL.txt`. The unmodified upstream fonts are downloaded and SHA-256 verified using `desktop/font-dependencies.txt`, embedded in the desktop JAR, and registered only within the running application. No system font installation is required.
+- ICU4J 77.1 (`com.ibm.icu:icu4j`), https://github.com/unicode-org/icu. Copyright Unicode, Inc. The Unicode License V3 and upstream third-party notices are retained at `licenses/ICU4J-LICENSE.txt`. Windows uses ICU MessageFormat for the same catalog syntax as Android's system ICU; Android adds no ICU library dependency.
+
+Windows packaging includes a linked Eclipse Temurin OpenJDK 17 runtime. Its legal notices remain in the bundled runtime's `legal/` directory; OpenJDK components use GPL-2.0 with the Classpath Exception and their included third-party licenses. The source build does not redistribute a JDK. These desktop dependencies do not change Android runtime dependencies.
+
 ## Google Material Icons
 
 The ten `app/src/main/res/drawable/outline_*_24.xml` vector icons are Material Icons Outlined assets from Google's official repository, retrieved on 2026-10-01:
@@ -28,3 +40,5 @@ Licensed under Apache License, Version 2.0. The upstream license is retained at 
 | `outline_more_vert_24.xml` | `navigation/more_vert/materialiconsoutlined/black/res/drawable` |
 | `outline_bluetooth_24.xml` | `device/bluetooth/materialiconsoutlined/black/res/drawable` |
 | `outline_wifi_24.xml` | `notification/wifi/materialiconsoutlined/black/res/drawable` |
+
+The Windows resources under `desktop/src/main/resources/dev/ghost/wozai/icons/` rasterize seven of these same Android vector paths for runtime tinting. The original Material Icons license is also included in the Windows package. The shared app artwork is maintained at `desktop/assets/icons/master/icon-master-1024.png`; `desktop/assets/icons/windows/nearbyim.ico` contains the Windows launcher sizes.

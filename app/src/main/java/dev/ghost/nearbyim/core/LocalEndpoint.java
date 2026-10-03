@@ -1,10 +1,12 @@
 package dev.ghost.nearbyim.core;
 import java.net.*;
+import dev.ghost.nearbyim.i18n.LocalizedIllegalArgumentException;
+import dev.ghost.nearbyim.i18n.UiText;
 public final class LocalEndpoint {
     public final InetAddress address; public final int port;
     private LocalEndpoint(InetAddress address, int port) { this.address = address; this.port = port; }
     public static LocalEndpoint parse(String text) {
-        if (text == null) throw new IllegalArgumentException("请输入局域网地址和端口");
+        if (text == null) throw new LocalizedIllegalArgumentException(UiText.of("endpointRequired"));
         String input = text.trim(), host, portText;
         if (input.startsWith("[")) {
             int end = input.indexOf(']');
@@ -25,7 +27,7 @@ public final class LocalEndpoint {
             if (!portText.matches("[0-9]{1,5}")) throw bad();
             int port = Integer.parseInt(portText); if (port < 1 || port > 65535) throw bad();
             InetAddress address = InetAddress.getByName(host);
-            if (!isLocal(address)) throw new IllegalArgumentException("仅支持局域网 IP 地址");
+            if (!isLocal(address)) throw new LocalizedIllegalArgumentException(UiText.of("localAddressOnly"));
             return new LocalEndpoint(address, port);
         } catch (UnknownHostException | NumberFormatException e) { throw bad(); }
     }
@@ -35,5 +37,5 @@ public final class LocalEndpoint {
                 && (address.isSiteLocalAddress() || address.isLinkLocalAddress()
                     || (bytes.length == 16 && (bytes[0] & 0xfe) == 0xfc));
     }
-    private static IllegalArgumentException bad() { return new IllegalArgumentException("地址格式示例：192.168.1.20:54321 或 [fd00::1]:54321"); }
+    private static IllegalArgumentException bad() { return new LocalizedIllegalArgumentException(UiText.of("invalidEndpoint")); }
 }

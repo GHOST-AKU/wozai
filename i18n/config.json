@@ -1,0 +1,56 @@
+{
+  "appVersion": "0.3.1",
+  "sourceLanguage": "zh-Hans",
+  "fallbackLanguage": "en",
+  "languages": [
+    {
+      "tag": "zh-Hans",
+      "nativeName": "简体中文",
+      "androidQualifier": "b+zh+Hans",
+      "aliases": [
+        "zh",
+        "zh-CN",
+        "zh-SG"
+      ],
+      "rtl": false
+    },
+    {
+      "tag": "en",
+      "nativeName": "English",
+      "androidQualifier": "en",
+      "aliases": [
+        "en-Latn"
+      ],
+      "rtl": false
+    },
+    {
+      "tag": "zh-Hant",
+      "nativeName": "繁體中文",
+      "androidQualifier": "b+zh+Hant",
+      "aliases": [
+        "zh-TW",
+        "zh-HK",
+        "zh-MO"
+      ],
+      "rtl": false
+    },
+    {
+      "tag": "ja",
+      "nativeName": "日本語",
+      "androidQualifier": "ja",
+      "aliases": [
+        "ja-Jpan"
+      ],
+      "rtl": false
+    },
+    {
+      "tag": "ko",
+      "nativeName": "한국어",
+      "androidQualifier": "ko",
+      "aliases": [
+        "ko-Kore"
+      ],
+      "rtl": false
+    }
+  ]
+}
