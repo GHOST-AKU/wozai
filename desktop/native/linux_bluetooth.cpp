@@ -25,7 +25,10 @@ namespace {
 constexpr const char* serviceUuid = "90c649e1-c095-4b22-8bc3-35e4c9c7b372";
 constexpr int maximumIoChunk = 65536;
 using namespace std::chrono_literals;
-struct NativeError : std::runtime_error { using std::runtime_error::runtime_error; };
+struct NativeError : std::runtime_error {
+    std::string remoteName;
+    explicit NativeError(const std::string& message, const std::string& remote = {}) : std::runtime_error(message), remoteName(remote) { }
+};
 struct InvalidArgument : NativeError { using NativeError::NativeError; };
 struct ConnectTimeout : NativeError { using NativeError::NativeError; };
 struct Variant {
@@ -217,6 +220,26 @@ class Runtime {
             g_dbus_method_invocation_return_value(call, nullptr);
         } catch (const std::exception& e) { g_dbus_method_invocation_return_dbus_error(call, "org.bluez.Error.Rejected", e.what()); }
     }
+    // Event-thread only. Keep the exported object and UUID state unless BlueZ
+    // confirms removal; a timeout may mean either retained or removed remotely.
+    void unregisterIdleProfile() {
+        if (profiles.empty()) return;
+        auto found = profiles.begin(); auto& profile = found->second;
+        if (profile.server) {
+            std::lock_guard<std::mutex> lock(profile.server->mutex);
+            if (!profile.server->closed) return;
+        }
+        for (auto& weak : profile.sockets) if (auto socket = weak.lock()) {
+            std::lock_guard<std::mutex> lock(socket->mutex); if (!socket->closed) return;
+        }
+        try {
+            Variant result(call("/org/bluez", "org.bluez.ProfileManager1", "UnregisterProfile",
+                    g_variant_new("(o)", found->first.c_str()), 1000, nullptr, owner.c_str()));
+        } catch (const NativeError& error) {
+            if (error.remoteName != "org.bluez.Error.DoesNotExist") throw;
+        }
+        g_dbus_connection_unregister_object(bus, profile.object); profiles.erase(found);
+    }
 public:
     std::timed_mutex discoveryMutex;
     Runtime() {
@@ -287,9 +310,11 @@ public:
                 parameters, nullptr, G_DBUS_CALL_FLAGS_NONE, timeout, cancel, &error);
         if (!result) {
             bool timedOut = g_error_matches(error, G_IO_ERROR, G_IO_ERROR_TIMED_OUT) || g_error_matches(error, G_DBUS_ERROR, G_DBUS_ERROR_TIMEOUT);
+            gchar* remote = g_dbus_error_get_remote_error(error);
+            std::string remoteName = remote ? remote : ""; g_free(remote);
             std::string message = std::string(method) + ": " + error->message; g_error_free(error);
-            if (timedOut) throw ConnectTimeout(message);
-            throw NativeError(message);
+            if (timedOut) throw ConnectTimeout(message, remoteName);
+            throw NativeError(message, remoteName);
         }
         return result;
     }
@@ -316,6 +341,9 @@ public:
         onLoop([&] {
             requireActive(state);
             if (!server && disconnecting.count(state->device)) throw NativeError("Bluetooth device is disconnecting");
+            // Reconcile any idle registration left by an earlier failed close
+            // before creating a new one; DoesNotExist also resolves lost replies.
+            unregisterIdleProfile(); requireActive(state);
             // BlueZ permits exactly one external profile per UUID, independent
             // of role or object path. Keep one bidirectional registration while
             // any listener or stream needs it; stopped reception never owns it.
@@ -383,18 +411,8 @@ public:
     }
     void unregisterIfIdle(const std::shared_ptr<State>&) {
         onLoop([&] {
-            if (profiles.empty()) return;
-            auto found = profiles.begin(); auto& profile = found->second;
-            if (profile.server) {
-                std::lock_guard<std::mutex> lock(profile.server->mutex);
-                if (!profile.server->closed) return;
-            }
-            for (auto& weak : profile.sockets) if (auto socket = weak.lock()) {
-                std::lock_guard<std::mutex> lock(socket->mutex); if (!socket->closed) return;
-            }
-            try { Variant result(call("/org/bluez", "org.bluez.ProfileManager1", "UnregisterProfile", g_variant_new("(o)", found->first.c_str()), 1000)); }
+            try { unregisterIdleProfile(); }
             catch (const NativeError&) { }
-            g_dbus_connection_unregister_object(bus, profile.object); profiles.erase(found);
         });
     }
 };

@@ -26,6 +26,8 @@ public:
     GDBusMethodInvocation* pendingPair = nullptr;
     GDBusMethodInvocation* pendingConnect = nullptr;
     std::atomic<GDBusMethodInvocation*> pendingCancel{nullptr};
+    std::atomic<int> unregisterFault{0}; // 1=error, 2=timeout/retained, 3=timeout/removed, 4=absent.
+    std::atomic<GDBusMethodInvocation*> pendingUnregister{nullptr};
     std::deque<int> peers;
     GVariant* managedObjects() {
         GVariantBuilder tree, interfaces, properties;
@@ -68,7 +70,20 @@ public:
             } else if (!std::strcmp(name, "UnregisterProfile")) {
                 const char* path; g_variant_get(args, "(&o)", &path);
                 std::lock_guard<std::mutex> lock(self.mutex);
+                if (self.unregisterFault == 1) {
+                    g_dbus_method_invocation_return_dbus_error(invocation, "org.bluez.Error.Failed", "Temporary unregister failure"); return;
+                }
+                if (self.unregisterFault == 2) {
+                    self.pendingUnregister = static_cast<GDBusMethodInvocation*>(g_object_ref(invocation)); return;
+                }
+                bool exists = std::any_of(self.profiles.begin(), self.profiles.end(), [&](const auto& profile) { return profile.path == path && profile.sender == sender; });
                 self.profiles.erase(std::remove_if(self.profiles.begin(), self.profiles.end(), [&](const auto& profile) { return profile.path == path && profile.sender == sender; }), self.profiles.end());
+                if (self.unregisterFault == 3) {
+                    self.pendingUnregister = static_cast<GDBusMethodInvocation*>(g_object_ref(invocation)); return;
+                }
+                if (!exists || self.unregisterFault == 4) {
+                    g_dbus_method_invocation_return_dbus_error(invocation, "org.bluez.Error.DoesNotExist", "Profile does not exist"); return;
+                }
             } else if (!std::strcmp(name, "SetDiscoveryFilter")) {
                 GVariant* filter; g_variant_get(args, "(@a{sv})", &filter); Variant values(filter); const char* transport = nullptr;
                 check(g_variant_lookup(values, "Transport", "&s", &transport) && !std::strcmp(transport, "bredr"), "Discovery is not classic Bluetooth");
@@ -234,6 +249,24 @@ void receptionLifecycle(BluezDouble& mock) {
     check(waiting.wait_for(80ms) == std::future_status::timeout, "Second accept did not block"); closeState(server);
     check(waiting.wait_for(2s) == std::future_status::ready && waiting.get(), "Stop reception did not cancel accept");
 }
+void unregisterFailureRecovery(BluezDouble& mock) {
+    for (int fault : {1, 2, 3, 4}) {
+        auto original = listen(); mock.unregisterFault = fault;
+        closeState(original); mock.unregisterFault = 0;
+        if (auto delayed = mock.pendingUnregister.exchange(nullptr)) {
+            g_dbus_method_invocation_return_value(delayed, nullptr); g_object_unref(delayed);
+        }
+        std::shared_ptr<State> resumed;
+        check(!fails([&] { resumed = listen(); }), "Bluetooth listener could not recover from failed/timed-out unregistration");
+        auto profile = mock.profile("server"); int pair[2];
+        check(socketpair(AF_UNIX, SOCK_STREAM, 0, pair) == 0, "Recovery socketpair failed");
+        Remote peer(pair[1]); mock.deliver(profile, pair[0]); ::close(pair[0]);
+        auto accepted = acceptSocket(resumed); char sent = 'u', received = 0;
+        check(::write(peer.fd, &sent, 1) == 1, "Recovery peer could not write");
+        check(readSocket(accepted, &received, 1) == 1 && received == sent, "Recovered listener did not receive a real descriptor stream");
+        closeState(resumed); closeState(accepted);
+    }
+}
 void duplicateConnectionPreservesChat(BluezDouble& mock) {
     auto server = listen(); auto profile = mock.profile("server");
     int pair[2]; check(socketpair(AF_UNIX, SOCK_STREAM, 0, pair) == 0, "Test socketpair failed");
@@ -345,7 +378,7 @@ int main(int argc, char** argv) {
         const char* address = std::getenv("DBUS_SESSION_BUS_ADDRESS"); if (!address) throw NativeError("Run tests inside dbus-run-session");
         g_setenv("DBUS_SYSTEM_BUS_ADDRESS", address, TRUE);
         auto& mock = *new BluezDouble();
-        scanLifecycle(mock); connectionAndStream(mock); receptionLifecycle(mock); duplicateConnectionPreservesChat(mock); disconnectedQueuePreservesReception(mock); cancelPairingAndConnect(mock); adapterLoss(mock);
+        scanLifecycle(mock); connectionAndStream(mock); receptionLifecycle(mock); unregisterFailureRecovery(mock); duplicateConnectionPreservesChat(mock); disconnectedQueuePreservesReception(mock); cancelPairingAndConnect(mock); adapterLoss(mock);
         if (argc > 1) {
             mock.routeToServer = true;
             gint status; GError* error = nullptr;

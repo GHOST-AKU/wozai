@@ -21,8 +21,8 @@ ${CXX:-c++} -std=c++17 -O2 -Wall -Wextra -Wpedantic -Werror native/linux_launche
 cp ../THIRD_PARTY_NOTICES.md "$image/"
 cp ../docs/linux.md "$image/README.md"
 cp ../docs/linux-verification.md "$image/linux-verification.md"
-# dpkg-shlibdeps inspects the launcher AND JNI library against distribution
-# symbols; a newer local compiler must never silently lower package requirements.
+# Inspect the launcher, JNI backend AND bundled JVM against distribution symbols;
+# runtime requirements must participate in apt dependencies, not just a report.
 native_dependencies=$(python3 tools/linux-runtime-dependencies.py "$image")
 cp -R ../licenses "$image/"
 cp ../docs/licenses/material-icons-LICENSE.txt "$image/licenses/"

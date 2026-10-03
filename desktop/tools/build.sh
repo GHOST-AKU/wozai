@@ -4,6 +4,7 @@ cd "$(dirname "$0")/.."
 if [ -n "${JAVA_HOME:-}" ]; then PATH="$JAVA_HOME/bin:$PATH"; export PATH; fi
 for tool in java javac jar; do command -v "$tool" >/dev/null || { echo "A full JDK 17 is required ($tool missing)." >&2; exit 1; }; done
 python3 ../tools/generate-i18n.py --check
+python3 tools/test-linux-runtime-dependencies.py
 mkdir -p build/lib build/classes build/tests
 python3 - <<'PY'
 from pathlib import Path
