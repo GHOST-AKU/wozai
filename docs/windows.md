@@ -4,7 +4,7 @@
 
 ## 使用与下载
 
-目标平台 Windows 10/11 x64。从[最新构建页面](https://github.com/GHOST-AKU/wozai/actions/runs/37090014435)底部 Artifacts 下载 [NearbyIM-0.3.1-windows-x64](https://github.com/GHOST-AKU/wozai/actions/runs/37090014435/artifacts/11262342117)，解压后运行 `NearbyIM/NearbyIM.exe`。保持整个软件目录完整；包内包含 Java 17 运行时、思源黑体和 Windows 蓝牙桥接库，无需另外安装 Java 或字体。Windows 窗口与 EXE 使用同一纸杯电话主图；平台资源目录见[图标说明](app-icon.md)。
+目标平台 Windows 10/11 x64。从[最新构建页面](https://github.com/GHOST-AKU/wozai/actions/runs/37100265708)底部 Artifacts 下载 [NearbyIM-0.3.1-windows-x64](https://github.com/GHOST-AKU/wozai/actions/runs/37100265708/artifacts/11265841287)，解压后运行 `NearbyIM/NearbyIM.exe`。保持整个软件目录完整；包内包含 Java 17 运行时、思源黑体和 Windows 蓝牙桥接库，无需另外安装 Java 或字体。Windows 窗口与 EXE 使用同一纸杯电话主图；平台资源目录见[图标说明](app-icon.md)。
 
 这是未签名的便携预览版，没有安装器、开机启动或托盘常驻。请将软件放在当前用户可读写的位置，例如 `D:\Apps\NearbyIM`，避免受保护的 `Program Files` 目录。
 
@@ -24,7 +24,7 @@
 3. Windows「附近 → 蓝牙」搜索设备，选择手机后连接。需要系统配对时，使用页面上的「Windows 蓝牙设置」完成，并确认两端配对提示。
 4. Windows 也可开启蓝牙接收，由安卓发起。若安卓未发现电脑，在 Windows 蓝牙设置的“更多蓝牙设置”允许设备发现此电脑；配对过的已知地址可直接重连。
 
-Windows 原生库使用 AF_BTH / RFCOMM、SDP 服务 UUID `90c649e1-c095-4b22-8bc3-35e4c9c7b372`，与安卓一致。系统配对不等于应用内信任；所有蓝牙字节进入同一签名握手、许可、保存及回执流程。扫描可能包含没有安装“我在”的设备，它们不能聊天。停止搜索会丢弃扫描结果；系统查询仍可能在有界的查询周期结束后返回。不会自动无限扫描或重连。
+Windows 原生库使用 AF_BTH / RFCOMM、SDP 服务 UUID `90c649e1-c095-4b22-8bc3-35e4c9c7b372`，与安卓一致。系统配对不等于应用内信任；所有蓝牙字节进入同一签名握手、许可、保存及回执流程。扫描可能包含没有安装“我在”的设备，它们不能聊天。停止搜索会取消系统蓝牙查询，可以立即重新搜索；旧查询的结果不会覆盖新的扫描。不会自动无限扫描或重连。
 
 两种接收可分别开启。「设置 → 停止所有接收与连接」同时停止监听、发现和聊天。仅支持一位活动聊天对象，新的来访不会替换当前连接。退出会保存草稿并关闭资源。
 
@@ -54,7 +54,7 @@ Windows 私钥仍使用 DPAPI CurrentUser 保护。同一用户在本机移动�
 
 键盘：Tab、方向键和 Space/Enter 操作控件，Ctrl+1/2/3 切换聊天／附近／设置，Enter 发送、Shift+Enter 换行，Ctrl+Q 退出。包内 Java Access Bridge 可通过 `NearbyIM\runtime\bin\jabswitch.exe -enable` 启用，随后重启应用。读屏、Windows 高对比度及不同 DPI 仍需人工验收。
 
-PR #3 评审修复的[最新 Windows 包](https://github.com/GHOST-AKU/wozai/actions/runs/37090014435/artifacts/11262342117)已通过[平台验证](https://github.com/GHOST-AKU/wozai/actions/runs/37090014435)。打包并提前注册 Noto Sans CJK SC **Regular 与 Bold**，标题和头像使用真实粗体字形；头像文字沿用 FlatLaf 的系统抗锯齿与 HiDPI 绘制。应用「文字大小」仅缩放逻辑字号，显示器 DPI 由 Java2D 处理；未强制覆盖系统 LCD 或 fractional metrics。新增 `--text-diagnostics` 可导出实际字体、显示变换及控件文字渲染配置；100% / 125% / 150% / 200% 的实机验收与命令见 [device-test.md](device-test.md#windows-文字清晰度与-dpipr-3)。新增 Bold 资源会增加便携包体积，之前 0.3.1 下载的体积与校验值不代表评审修复后的包。
+PR #3 评审修复的[最新 Windows 包](https://github.com/GHOST-AKU/wozai/actions/runs/37100265708/artifacts/11265841287)已通过[平台验证](https://github.com/GHOST-AKU/wozai/actions/runs/37100265708)。打包并提前注册 Noto Sans CJK SC **Regular 与 Bold**，标题和头像使用真实粗体字形；头像文字沿用 FlatLaf 的系统抗锯齿与 HiDPI 绘制。应用「文字大小」仅缩放逻辑字号，显示器 DPI 由 Java2D 处理；未强制覆盖系统 LCD 或 fractional metrics。新增 `--text-diagnostics` 可导出实际字体、显示变换及控件文字渲染配置；100% / 125% / 150% / 200% 的实机验收与命令见 [device-test.md](device-test.md#windows-文字清晰度与-dpipr-3)。新增 Bold 资源会增加便携包体积，之前 0.3.1 下载的体积与校验值不代表评审修复后的包。
 
 ## 从源码构建
 

@@ -119,3 +119,12 @@ sh tools/test-android-i18n.sh
 | 读屏/动画 | TalkBack；系统关闭动画 | 可读出操作与状态；关闭动画后无强制切页动画 |
 
 蓝牙硬件测试需要真实手机；安卓模拟器主要用于界面、数据库与局域网调试。前台服务不能保证在厂商省电策略或系统强杀后存活。
+
+
+## PR #3 后续评审修复验证
+
+应用与测试源码 `6ee5d40`，验证提交 `d315eee` 仅合并 Windows 任务到已注册的 Android 工作流；[构建 37100265708](https://github.com/GHOST-AKU/wozai/actions/runs/37100265708) 全部通过。Android API 26/34 各通过 143 项设备检查，新增检查验证空会话列表的恢复位置在控制器绑定前保留、绑定后清除、后续刷新保持用户滚动位置。
+
+Windows 原生生命周期测试新增阻塞查询取消、重复关闭、旧句柄隔离和启动前取消；查询提供者使用阻塞测试替身，生产代码调用 `WSALookupServiceEnd` 取消阻塞的查询。59 项蓝牙接口/JNI 检查通过。完整 JDK 和打包运行时均通过 GUI 操作测试，覆盖停止、立即重新搜索、迟到结果隔离、停止全部与退出；测试通过可控查询替身验证界面与取消调用，未使用实体蓝牙无线硬件。实体适配器停止扫描和 Windows ↔ Android 互通仍需实机验收。
+
+Windows EXE、478 项评审回归、五种语言及字体检查、100%/125%/150%/200% 布局检查均通过。[新版 Windows 包](https://github.com/GHOST-AKU/wozai/actions/runs/37100265708/artifacts/11265841287) 上传大小为 68,446,583 字节；[Android APK](https://github.com/GHOST-AKU/wozai/actions/runs/37100265708/artifacts/11266175433) 包含本次滚动恢复修复。
