@@ -26,6 +26,8 @@ public:
     GDBusMethodInvocation* pendingPair = nullptr;
     GDBusMethodInvocation* pendingConnect = nullptr;
     std::atomic<GDBusMethodInvocation*> pendingCancel{nullptr};
+    std::atomic<bool> holdDisconnect{false};
+    std::atomic<GDBusMethodInvocation*> pendingDisconnect{nullptr};
     std::atomic<int> unregisterFault{0}; // 1=error, 2=timeout/retained, 3=timeout/removed, 4=absent.
     std::atomic<GDBusMethodInvocation*> pendingUnregister{nullptr};
     std::atomic<int> registerFault{0}; // 1=timeout/accepted, 2=timeout/absent, 3=denied.
@@ -110,6 +112,7 @@ public:
                 if (self.holdCancel) { self.pendingCancel = static_cast<GDBusMethodInvocation*>(g_object_ref(invocation)); return; }
             } else if (!std::strcmp(name, "DisconnectProfile")) {
                 ++self.disconnects;
+                if (self.holdDisconnect) { self.pendingDisconnect = static_cast<GDBusMethodInvocation*>(g_object_ref(invocation)); return; }
                 // BlueZ Device1 DisconnectProfile is device-wide: the profile
                 // callback requests closure of every stream for this device.
                 auto profile = self.profile("both", sender);
@@ -344,6 +347,35 @@ void disconnectedQueuePreservesReception(BluezDouble& mock) {
     check(stopping.wait_for(2s) == std::future_status::ready && stopping.get(), "Stopping listener did not cancel accept after stale streams");
     closeState(live);
 }
+void delayedDisconnectKeepsFence(BluezDouble& mock) {
+    auto server = listen(); auto profile = mock.profile("server");
+    auto original = std::make_shared<State>(Kind::Socket);
+    connectSocket(original, testAddress, 3000); Remote originalPeer(mock.takePeer());
+    mock.holdDisconnect = true;
+    auto started = std::chrono::steady_clock::now(); closeState(original);
+    check(std::chrono::steady_clock::now() - started < 1500ms, "Delayed daemon reply made close unbounded");
+    check(mock.pendingDisconnect.load() != nullptr, "Disconnect was not held past the close deadline");
+    int pair[2]; check(socketpair(AF_UNIX, SOCK_STREAM, 0, pair) == 0, "Fence socketpair failed");
+    Remote inbound(pair[0]), inboundPeer(pair[1]);
+    check(fails([&] { mock.deliver(profile, inbound.fd); }), "Timed-out disconnect accepted a new inbound stream");
+    auto reconnect = std::make_shared<State>(Kind::Socket);
+    check(fails([&] { connectSocket(reconnect, testAddress, 3000); }), "Timed-out disconnect accepted a new outgoing stream");
+    mock.requestDisconnection(profile);
+    reconnect = std::make_shared<State>(Kind::Socket);
+    check(fails([&] { connectSocket(reconnect, testAddress, 3000); }), "Callback alone released an unresolved disconnect fence");
+    auto reply = mock.pendingDisconnect.exchange(nullptr);
+    g_dbus_method_invocation_return_value(reply, nullptr); g_object_unref(reply); mock.holdDisconnect = false;
+    bool restored = false;
+    for (int i = 0; i < 100 && !restored; ++i) {
+        reconnect = std::make_shared<State>(Kind::Socket);
+        restored = !fails([&] { connectSocket(reconnect, testAddress, 3000); });
+        if (!restored) std::this_thread::sleep_for(10ms);
+    }
+    check(restored, "Definitive disconnect completion did not release its fence");
+    Remote peer(mock.takePeer()); char sent = 'f', received = 0;
+    check(::write(peer.fd, &sent, 1) == 1 && readSocket(reconnect, &received, 1) == 1 && received == sent, "Reconnection after late completion was unusable");
+    closeState(server); closeState(reconnect);
+}
 void cancelPairingAndConnect(BluezDouble& mock) {
     mock.paired = false; mock.holdPair = true;
     auto connection = std::make_shared<State>(Kind::Socket);
@@ -357,6 +389,36 @@ void cancelPairingAndConnect(BluezDouble& mock) {
     auto timed = std::async(std::launch::async, [&] { return fails([&] { connectSocket(connection, testAddress, 150); }); });
     check(timed.wait_for(2s) == std::future_status::ready && timed.get(), "Connection timeout was not bounded"); mock.holdConnect = false;
     std::lock_guard<std::mutex> lock(mock.mutex); check(mock.profiles.empty(), "Cancelled client profile leaked");
+}
+void stalledCancellationSharesCloseDeadline(BluezDouble& mock) {
+    mock.paired = false; mock.holdPair = true; mock.holdCancel = true; mock.holdDisconnect = true;
+    auto connection = std::make_shared<State>(Kind::Socket);
+    int pairCalls = mock.pairCalls;
+    auto connecting = std::async(std::launch::async, [&] { return fails([&] { connectSocket(connection, testAddress, 120000); }); });
+    for (int i = 0; i < 100 && mock.pairCalls == pairCalls; ++i) std::this_thread::sleep_for(10ms);
+    check(mock.pairCalls > pairCalls, "Stalled cancellation did not reach pairing");
+    auto started = std::chrono::steady_clock::now(); closeState(connection);
+    check(std::chrono::steady_clock::now() - started < 1500ms, "Pair cancellation and disconnect used separate close deadlines");
+    check(mock.pendingCancel.load() != nullptr, "Cancellation was not stalled");
+    for (int i = 0; i < 100 && !mock.pendingDisconnect.load(); ++i) std::this_thread::sleep_for(10ms);
+    check(mock.pendingDisconnect.load() != nullptr, "Stalled cancellation did not start fenced disconnect");
+    check(connecting.wait_for(1s) == std::future_status::ready && connecting.get(), "Stalled cleanup prevented the connect caller from cancelling");
+    auto retry = std::make_shared<State>(Kind::Socket);
+    check(fails([&] { connectSocket(retry, testAddress, 3000); }), "Stalled cleanup allowed outgoing reconnect");
+    auto cancelReply = mock.pendingCancel.exchange(nullptr);
+    g_dbus_method_invocation_return_value(cancelReply, nullptr); g_object_unref(cancelReply);
+    auto profile = mock.profile("both"); mock.requestDisconnection(profile);
+    auto reply = mock.pendingDisconnect.exchange(nullptr);
+    g_dbus_method_invocation_return_value(reply, nullptr); g_object_unref(reply);
+    mock.holdPair = false; mock.holdCancel = false; mock.holdDisconnect = false; mock.paired = true;
+    bool restored = false;
+    for (int i = 0; i < 100 && !restored; ++i) {
+        retry = std::make_shared<State>(Kind::Socket);
+        restored = !fails([&] { connectSocket(retry, testAddress, 3000); });
+        if (!restored) std::this_thread::sleep_for(10ms);
+    }
+    check(restored, "Late cleanup completion prevented outgoing recovery");
+    Remote peer(mock.takePeer()); closeState(retry);
 }
 void adapterLoss(BluezDouble& mock) {
     auto server = listen(); auto connection = std::make_shared<State>(Kind::Socket);
@@ -403,13 +465,75 @@ void daemonRestartDuringCancellation() {
     check(readSocket(restored, &received, 1) == 1 && received == sent, "Restored stream was closed by old cleanup");
     closeState(server); closeState(restored); replacement.releaseName();
 }
+void ambiguousDisconnectKeepsFence(const char* error) {
+    auto& old = *new BluezDouble(); auto server = listen(); auto profile = old.profile("server");
+    auto connection = std::make_shared<State>(Kind::Socket);
+    connectSocket(connection, testAddress, 3000); Remote oldPeer(old.takePeer());
+    old.holdDisconnect = true; closeState(connection);
+    auto reply = old.pendingDisconnect.exchange(nullptr);
+    check(reply != nullptr, "Ambiguous disconnect did not reach daemon");
+    g_dbus_method_invocation_return_dbus_error(reply, error, "Disconnect completion is uncertain"); g_object_unref(reply);
+    int pair[2]; check(socketpair(AF_UNIX, SOCK_STREAM, 0, pair) == 0, "Ambiguous fence socketpair failed");
+    Remote inbound(pair[0]), inboundPeer(pair[1]);
+    check(fails([&] { old.deliver(profile, inbound.fd); }), "Ambiguous disconnect reply released inbound fence");
+    auto retry = std::make_shared<State>(Kind::Socket);
+    check(fails([&] { connectSocket(retry, testAddress, 3000); }), "Ambiguous disconnect reply released outgoing fence");
+    old.requestDisconnection(profile);
+    check(fails([&] { old.deliver(profile, inbound.fd); }), "Late callback released an ambiguous fence");
+    closeState(server);
+    { std::lock_guard<std::mutex> lock(old.mutex); check(old.profiles.size() == 1, "Unresolved disconnect unregistered its callback object"); }
+    old.releaseName();
+    auto& replacement = *new BluezDouble(); auto restored = std::make_shared<State>(Kind::Socket);
+    check(!fails([&] { connectSocket(restored, testAddress, 3000); }), "Owner invalidation did not release ambiguous disconnect fence");
+    Remote peer(replacement.takePeer()); char sent = 'a', received = 0;
+    check(::write(peer.fd, &sent, 1) == 1 && readSocket(restored, &received, 1) == 1 && received == sent, "Stream after owner invalidation was unusable");
+    closeState(restored); replacement.releaseName();
+}
+void oldDisconnectCompletionPreservesNewFence() {
+    auto& old = *new BluezDouble(); auto oldServer = listen(); auto oldProfile = old.profile("server");
+    auto connection = std::make_shared<State>(Kind::Socket);
+    connectSocket(connection, testAddress, 3000); Remote oldPeer(old.takePeer());
+    old.holdDisconnect = true; connection->closeLocal(); auto oldFinished = disconnectDevice(connection); closeState(connection);
+    check(oldFinished.valid(), "Old disconnect was not scheduled");
+    for (int i = 0; i < 100 && !old.pendingDisconnect.load(); ++i) std::this_thread::sleep_for(10ms);
+    check(old.pendingDisconnect.load() != nullptr, "Old daemon did not receive disconnect before restart");
+    old.releaseName();
+    auto& replacement = *new BluezDouble(); auto server = listen(); auto profile = replacement.profile("server");
+    auto restored = std::make_shared<State>(Kind::Socket);
+    connectSocket(restored, testAddress, 3000); Remote peer(replacement.takePeer());
+    replacement.holdDisconnect = true; closeState(restored);
+    check(fails([&] { old.requestDisconnection(oldProfile); }), "Old owner callback was accepted after daemon replacement");
+    auto oldReply = old.pendingDisconnect.exchange(nullptr);
+    check(oldReply != nullptr, "Old disconnect completion was not retained");
+    g_dbus_method_invocation_return_value(oldReply, nullptr); g_object_unref(oldReply);
+    check(oldFinished.wait_for(1s) == std::future_status::ready, "Old daemon completion was not processed");
+    int pair[2]; check(socketpair(AF_UNIX, SOCK_STREAM, 0, pair) == 0, "Replacement fence socketpair failed");
+    Remote inbound(pair[0]), inboundPeer(pair[1]);
+    check(fails([&] { replacement.deliver(profile, inbound.fd); }), "Old completion removed new owner's inbound fence");
+    auto retry = std::make_shared<State>(Kind::Socket);
+    check(fails([&] { connectSocket(retry, testAddress, 3000); }), "Old completion removed new owner's outgoing fence");
+    replacement.requestDisconnection(profile);
+    auto reply = replacement.pendingDisconnect.exchange(nullptr);
+    check(reply != nullptr, "New owner disconnect was not pending");
+    g_dbus_method_invocation_return_value(reply, nullptr); g_object_unref(reply); replacement.holdDisconnect = false;
+    bool connected = false;
+    for (int i = 0; i < 100 && !connected; ++i) {
+        retry = std::make_shared<State>(Kind::Socket);
+        connected = !fails([&] { connectSocket(retry, testAddress, 3000); });
+        if (!connected) std::this_thread::sleep_for(10ms);
+    }
+    check(connected, "Current owner's definitive completion did not release its fence");
+    Remote currentPeer(replacement.takePeer()); char sent = 'n', received = 0;
+    check(::write(currentPeer.fd, &sent, 1) == 1 && readSocket(retry, &received, 1) == 1 && received == sent, "Current owner's recovered stream was unusable");
+    closeState(oldServer); closeState(server); closeState(retry); replacement.releaseName();
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
         const char* address = std::getenv("DBUS_SESSION_BUS_ADDRESS"); if (!address) throw NativeError("Run tests inside dbus-run-session");
         g_setenv("DBUS_SYSTEM_BUS_ADDRESS", address, TRUE);
         auto& mock = *new BluezDouble();
-        scanLifecycle(mock); connectionAndStream(mock); receptionLifecycle(mock); registerFailureRecovery(mock); unregisterFailureRecovery(mock); duplicateConnectionPreservesChat(mock); disconnectedQueuePreservesReception(mock); cancelPairingAndConnect(mock); adapterLoss(mock);
+        scanLifecycle(mock); connectionAndStream(mock); receptionLifecycle(mock); registerFailureRecovery(mock); unregisterFailureRecovery(mock); duplicateConnectionPreservesChat(mock); disconnectedQueuePreservesReception(mock); delayedDisconnectKeepsFence(mock); cancelPairingAndConnect(mock); stalledCancellationSharesCloseDeadline(mock); adapterLoss(mock);
         if (argc > 1) {
             mock.routeToServer = true;
             gint status; GError* error = nullptr;
@@ -418,6 +542,8 @@ int main(int argc, char** argv) {
         }
         daemonLoss(mock);
         daemonRestartDuringCancellation();
+        for (const char* error : {"org.freedesktop.DBus.Error.NoReply", "org.freedesktop.DBus.Error.Timeout", "org.bluez.Error.InProgress"}) ambiguousDisconnectKeepsFence(error);
+        oldDisconnectCompletionPreservesNewFence();
         std::cout << "Linux native BlueZ tests: " << passed << " checks passed (private D-Bus and real Unix FD streams; no physical radio)\n";
         return 0;
     } catch (const std::exception& error) { std::cerr << "FAIL Linux native Bluetooth: " << error.what() << '\n'; return 1; }
