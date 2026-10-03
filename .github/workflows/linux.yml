@@ -1,7 +1,16 @@
 name: Build NearbyIM Linux client
 on:
   workflow_dispatch:
+    inputs:
+      performance-baseline:
+        description: 'Measure an informational baseline (no performance thresholds)'
+        type: boolean
+        default: false
   workflow_call:
+    inputs:
+      performance-baseline:
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -32,6 +41,19 @@ jobs:
         run: sh desktop/tools/build.sh --package
       - name: Verify native GUI, bundled runtime, scaling, mDNS and actual packaged launcher
         run: xvfb-run -a -s '-screen 0 2560x1800x24' sh desktop/tools/test-linux-gui.sh
+      - name: Measure desktop performance baseline
+        if: inputs['performance-baseline']
+        run: |
+          python3 -m pip install psutil==7.2.2
+          xvfb-run -a -s '-screen 0 2560x1800x24' python3 desktop/tools/performance.py measure --image desktop/build/package/NearbyIM --test-classes desktop/build/tests --environment-kind ci --device 'GitHub ubuntu-24.04 x64 runner; Xvfb 2560x1800' --output desktop/build/performance-linux.json
+      - uses: actions/upload-artifact@v4
+        if: always() && inputs['performance-baseline']
+        with:
+          name: linux-performance-baseline
+          path: |
+            desktop/build/performance-linux.json
+            desktop/build/performance-linux.logs
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
           name: NearbyIM-${{ steps.metadata.outputs.version }}-linux-x64

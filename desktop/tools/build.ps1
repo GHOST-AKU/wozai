@@ -49,6 +49,8 @@ Copy-Item src/main/resources/* build/classes -Recurse -Force
 New-Item -ItemType Directory -Force build/classes/dev/ghost/wozai/fonts | Out-Null
 Copy-Item build/fonts/*.otf build/classes/dev/ghost/wozai/fonts/ -Force
 Copy-Item ../app/src/main/res/drawable-nodpi/ic_launcher_artwork.png build/classes/dev/ghost/wozai/app-icon.png -Force
+& python tools/write-build-metadata.py build/classes/dev/ghost/wozai/build-info.json
+if ($LASTEXITCODE -ne 0) { throw 'Build metadata failed' }
 Invoke-JavaTool jar @('--create', '--file', 'build/lib/nearbyim-desktop.jar', '--main-class', 'dev.ghost.wozai.Main', '-C', 'build/classes', '.')
 $tests = (Get-ChildItem src/test/java -Recurse -Filter '*.java').FullName
 Invoke-JavaTool javac (@('--release', '17', '-encoding', 'UTF-8', '-cp', 'build/classes;build/lib/*', '-d', 'build/tests') + $tests)

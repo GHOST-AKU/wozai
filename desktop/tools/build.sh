@@ -37,6 +37,7 @@ cp -R src/main/resources/. build/classes/
 mkdir -p build/classes/dev/ghost/wozai/fonts
 cp build/fonts/*.otf build/classes/dev/ghost/wozai/fonts/
 cp ../app/src/main/res/drawable-nodpi/ic_launcher_artwork.png build/classes/dev/ghost/wozai/app-icon.png
+python3 tools/write-build-metadata.py build/classes/dev/ghost/wozai/build-info.json
 rm -f build/lib/wozai-desktop.jar
 jar --create --file build/lib/nearbyim-desktop.jar --main-class dev.ghost.wozai.Main -C build/classes .
 find src/test/java -name '*.java' > build/test-sources.txt

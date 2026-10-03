@@ -6,12 +6,18 @@ on:
         description: 'Also run Linux package and platform compatibility verification'
         type: boolean
         default: false
+      performance-baseline:
+        description: 'Measure an informational baseline (no performance thresholds)'
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
   linux-compatibility:
     if: inputs['include-linux'] || github.ref_name == 'feat/linux-client'
     uses: ./.github/workflows/linux.yml
+    with:
+      performance-baseline: ${{ inputs['performance-baseline'] }}
   windows:
     runs-on: windows-latest
     steps:
@@ -64,6 +70,22 @@ jobs:
             & 'desktop/build/package/NearbyIM/runtime/bin/java.exe' "-Dsun.java2d.uiScale=$scale" -cp 'desktop/build/package/NearbyIM/app/*;desktop/build/tests' dev.ghost.wozai.LayoutTests "desktop/build/gui-settings-dpi-$scale.png"
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
+      - name: Measure desktop performance baseline
+        if: inputs['performance-baseline']
+        shell: pwsh
+        run: |
+          python -m pip install psutil==7.2.2
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python desktop/tools/performance.py measure --image desktop/build/package/NearbyIM --test-classes desktop/build/tests --environment-kind ci --device 'GitHub windows-latest x64 runner; desktop session' --output desktop/build/performance-windows.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        if: always() && inputs['performance-baseline']
+        with:
+          name: windows-performance-baseline
+          path: |
+            desktop/build/performance-windows.json
+            desktop/build/performance-windows.logs
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
           name: NearbyIM-${{ steps.metadata.outputs.version }}-windows-x64

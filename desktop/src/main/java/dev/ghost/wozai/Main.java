@@ -36,7 +36,8 @@ public final class Main {
                 }
                 language = store.language();
                 var identity = DesktopIdentity.load(path.resolve("identity.properties"));
-                DesktopWindow window = new DesktopWindow(store, identity, path); window.setVisible(true);
+                DesktopWindow window = new DesktopWindow(store, identity, path);
+                PerformanceProbe.install(window, args); window.setVisible(true);
                 if (java.util.Arrays.asList(args).contains("--text-diagnostics")) {
                     Path report = path.resolve("text-rendering.txt");
                     SwingUtilities.invokeLater(() -> {

@@ -2,7 +2,7 @@
 
 一个无需账号、无需远程服务器的聊天项目。原生安卓端、Windows 与 Linux 预览版通过 **同一局域网** 或 **经典蓝牙** 聊天，共用 NIM2 协议。
 
-**当前开发版本：我在 · NearbyIM 0.3.1。安卓、Windows 与 Linux 共用完整的简体中文／英文／繁体中文／日语／韩语翻译目录，每种语言各 313 个文案键，默认跟随系统，涵盖界面、错误、通知、权限说明、日期、帮助与关于。多语言架构和新增语言流程见[架构说明](docs/i18n.md)。原有 NIM2 身份、信任与消息协议保持兼容。0.2.0 双机通信及可信重连已由用户报告通过；后续方向见[产品路线图](docs/roadmap.md)。**
+**当前开发版本：我在 · NearbyIM 0.3.1。安卓、Windows 与 Linux 共用完整的简体中文／英文／繁体中文／日语／韩语翻译目录，每种语言各 314 个文案键，默认跟随系统，涵盖界面、错误、通知、权限说明、日期、帮助与关于。多语言架构和新增语言流程见[架构说明](docs/i18n.md)。原有 NIM2 身份、信任与消息协议保持兼容。0.2.0 双机通信及可信重连已由用户报告通过；后续方向见[产品路线图](docs/roadmap.md)。**
 
 Windows 0.3.1 预览版包含局域网发现、IP 直连、经典蓝牙、文字聊天、可信重连、回执、本地记录和草稿，以及与安卓一致的配色、头像、搜索、消息气泡和图标。英文品牌统一为 NearbyIM，内置思源黑体，无需安装字体；设置支持窄窗口自动换行、顺畅滚动，并提供「使用说明」「关于我在」。支持五种语言、文字大小和浅色／深色主题。数据默认放在软件旁的 `data`，旧版便携和用户目录会复制迁移并保留原件。解压便携包后运行 `NearbyIM/NearbyIM.exe`，无需另装 Java。构建、使用范围和验证记录见 [Windows 说明](docs/windows.md)；安卓、Windows、Linux 图标资产见[图标说明](docs/app-icon.md)。Windows 蓝牙需真实适配器和手机验收；暂不支持附件和群聊，局域网内容仍为明文。
 
@@ -147,3 +147,5 @@ powershell -ExecutionPolicy Bypass -File tools/test-core.ps1
 应用源码没有额外指定开源许可证。附带的 Gradle Wrapper、Google Material 图标、桌面依赖、ICU4J 与 Noto 字体保留各自许可，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 官方参考：[蓝牙权限](https://developer.android.com/develop/connectivity/bluetooth/bt-permissions)、[RFCOMM 连接](https://developer.android.com/develop/connectivity/bluetooth/connect-bluetooth-devices)、[局域网权限](https://developer.android.com/privacy-and-security/local-network-permission)、[AGP 8.13](https://developer.android.com/build/releases/agp-8-13-0-release-notes)、[Gradle 校验值](https://gradle.org/release-checksums/)。
+
+桌面客户端的启动、资源占用、包体与通信性能测量方法见[性能基线](docs/performance.md)。
