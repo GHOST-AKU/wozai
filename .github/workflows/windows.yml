@@ -6,13 +6,18 @@ on:
         description: 'Also run Linux package and platform compatibility verification'
         type: boolean
         default: false
+      publish-preview:
+        description: 'Publish the verified 0.3.1 three-platform preview (skip rebuilding desktop)'
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
   linux-compatibility:
-    if: inputs['include-linux'] || github.ref_name == 'feat/linux-client'
+    if: '!inputs.publish-preview && (inputs.include-linux || github.ref_name == ''feat/linux-client'')'
     uses: ./.github/workflows/linux.yml
   windows:
+    if: ${{ !inputs.publish-preview }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -80,3 +85,60 @@ jobs:
             desktop/build/gui-bundled-runtime*.png
             desktop/build/*-text-rendering.txt
           if-no-files-found: ignore
+
+  publish-preview:
+    if: ${{ inputs.publish-preview }}
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: write
+    concurrency:
+      group: release-v0.3.1-preview.1
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      SOURCE_COMMIT: 26cf485a54247decd71127f98f206a895251d00b
+      DESKTOP_RUN: '37112914941'
+      ANDROID_RUN: '37114436270'
+      RELEASE_TAG: v0.3.1-preview.1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify build provenance and completed platform checks
+        run: python3 tools/prepare-preview-release.py check
+      - name: Download verified Windows image
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: '37112914941'
+          name: NearbyIM-0.3.1-windows-x64
+          path: release-input/windows
+      - name: Download verified Linux packages
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: '37112914941'
+          name: NearbyIM-0.3.1-linux-x64
+          path: release-input/linux
+      - name: Download verified Android application
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: '37114436270'
+          name: NearbyIM-0.3.1-android-debug
+          path: release-input/android
+      - name: Prepare application assets, source manifest, checksums and release notes
+        run: python3 tools/prepare-preview-release.py prepare
+      - name: Create reviewable draft and upload assets
+        run: |
+          gh release create "$RELEASE_TAG" --target "$SOURCE_COMMIT" --title '我在 · NearbyIM 0.3.1 Preview 1 — Android / Windows / Linux' --notes-file release-assets/RELEASE-NOTES.md --draft --prerelease
+          gh release upload "$RELEASE_TAG" release-assets/*
+      - name: Verify uploaded assets and publish as a prerelease
+        run: |
+          python3 tools/prepare-preview-release.py verify
+          gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false
+      - name: Verify public prerelease and pinned source
+        run: python3 tools/prepare-preview-release.py published
