@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Regenerate desktop toolbar icons from the Material Android vectors.
-Developer-only dependencies: Pillow and CairoSVG. Packaged builds use saved assets.
+Developer-only dependency: CairoSVG. Packaged builds use saved assets.
 """
 from pathlib import Path
 import xml.etree.ElementTree as ET

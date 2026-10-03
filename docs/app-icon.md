@@ -20,6 +20,6 @@ The unused `drawable-nodpi/ic_launcher_artwork.png` master copy was removed. Des
 
 ## Verification and toolbar exports
 
-`python3 tools/check-app-icons.py` verifies every original export's recorded hash. To also compare the source archive, pass its path as the first argument. Android preBuild and both desktop build scripts run this check. Desktop tests verify frame sizes, transparency, packaged resources, corrupt ICO bounds and the actual window's icon list. Windows/Linux CI checks the packaged GUI and scaling; no claim is made about every desktop environment's shell icon cache.
+`python3 tools/check-app-icons.py` verifies every original export's recorded hash. To also compare the source archive, pass its path as the first argument. `.gitattributes` preserves the original LF endings of the five icon XML exports on Windows too. Android preBuild and both desktop build scripts run this check. Desktop tests verify frame sizes, transparency, packaged resources, corrupt ICO bounds and the actual window's icon list. Windows/Linux CI checks the packaged GUI and scaling; no claim is made about every desktop environment's shell icon cache.
 
 `python3 desktop/tools/export-icons.py` regenerates only Material toolbar icons from Android vector assets and requires CairoSVG. It does not overwrite the supplied application ICO or any platform launcher export.
