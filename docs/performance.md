@@ -17,7 +17,7 @@ python3 desktop/tools/performance.py measure \
 
 Linux 无图形桌面的自动化环境用 `xvfb-run -a -s '-screen 0 2560x1800x24'` 包裹最后一条命令，并把 `--environment-kind` 改成 `ci` 或 `virtual`。Windows 先运行 `./desktop/tools/build.ps1 -Package`，将上述 `python3` 换成 `python` 即可；命令行不需要换行。不要把 Xvfb 标成实机屏幕。
 
-在 GitHub Actions 手动运行 Windows 构建工作流，勾选 `include-linux`、`performance-baseline`，可同时生成两个平台的 JSON 和日志 artifacts。Linux 工作流也可单独勾选运行。既有构建默认不开启性能测量；首轮仅测量，不因数值高低阻止构建。发现流程失败、消息不能互传或回执未保存仍会失败，部分结果标成 `failed`，不会输出成功的零资源值。
+在 GitHub Actions 手动运行 Windows 构建工作流，勾选 `include-linux`、`performance-baseline`，可同时生成两个平台的 JSON 和日志 artifacts。Linux 工作流合入默认分支后也可单独勾选运行；当前开发分支先通过 Windows 工作流的 include-linux 入口调用。既有构建默认不开启性能测量；首轮仅测量，不因数值高低阻止构建。发现流程失败、消息不能互传或回执未保存仍会失败，部分结果标成 `failed`，不会输出成功的零资源值。
 
 | 指标 | 口径 |
 | --- | --- |

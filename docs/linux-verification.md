@@ -21,7 +21,7 @@
 
 使用 `sh desktop/tools/build.sh --package` 生成自带运行时的 tar.gz 与 deb 包；`sh desktop/tools/test-linux-gui.sh` 验证 GUI 与真实启动器。两个软件包包含字体、图标、依赖许可证及 Linux 使用说明，未包含任何测试聊天资料。
 
-`.github/workflows/linux.yml` 仅支持手动／复用调用。Windows 手动工作流新增可选的 Linux 兼容验证入口；Linux 开发分支上会在手动运行 Windows 工作流时一并验证 Linux。未增加提交自动触发，未合并主分支。
+`.github/workflows/linux.yml` 仅支持手动／复用调用；尚未合入默认分支时，GitHub 不会登记它的独立手动入口，应从 Windows 工作流调用。Windows 手动工作流新增可选的 Linux 兼容验证入口；Linux 开发分支上会在手动运行 Windows 工作流时一并验证 Linux。未增加提交自动触发，未合并主分支。
 
 打包脚本使用 `dpkg-shlibdeps` 同时检查启动器和 BlueZ JNI 库，按实际符号生成 deb 的原生依赖，不硬编码编译器运行库下限；还检查包内 JVM 的 ELF 版本，写入 `runtime-requirements.txt`。本地 GCC 14 构建要求 GLIBC 2.34、GLIBCXX 3.4.32、CXXABI 1.3.15、`libstdc++6 >= 14`。Ubuntu 24.04 CI 构建使用其发行版工具链，具体要求以各软件包内记录及 deb 控制字段为准。应用目录软件包动态链接系统 GIO／GLib，不包含蓝牙驱动或系统守护进程。ARM64 仅提供构建路径，未验证其二进制包。
 
