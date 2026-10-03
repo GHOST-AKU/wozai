@@ -16,4 +16,5 @@
 -keep class dev.ghost.nearbyim.core.FramedSession$* { public *; }
 -keep class dev.ghost.nearbyim.core.StreamConnection { public *; }
 -keep class dev.ghost.nearbyim.i18n.UiText { public *; }
+-keep class dev.ghost.nearbyim.i18n.I18nResources { public *; }
 -keep class dev.ghost.nearbyim.transport.Peer { public *; }
