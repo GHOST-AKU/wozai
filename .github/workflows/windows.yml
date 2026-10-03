@@ -26,8 +26,11 @@ jobs:
         shell: pwsh
         run: |
           ./tools/test-i18n.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           ./tools/test-core.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           ./tools/test-trust.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Run packaged Windows executable
         shell: pwsh
         run: ./desktop/tools/test-package.ps1

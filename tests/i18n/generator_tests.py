@@ -14,7 +14,7 @@ spec.loader.exec_module(generator)
 
 class CatalogTests(unittest.TestCase):
     def setUp(self):
-        self.config = json.loads((ROOT / "i18n/config.json").read_text())
+        self.config = json.loads((ROOT / "i18n/config.json").read_text(encoding="utf-8"))
         # These encoding/validation fixtures deliberately use two small catalogs.
         self.config["languages"] = [language for language in self.config["languages"]
                                     if language["tag"] in ("zh-Hans", "en")]
