@@ -10,7 +10,7 @@ android {
         minSdk = 26
         targetSdk = 36
         testInstrumentationRunner = "dev.ghost.nearbyim.LocalizationInstrumentation"
-        versionCode = 6
+        versionCode = 7
         versionName = i18nConfiguration["appVersion"] as String
     }
     compileOptions {

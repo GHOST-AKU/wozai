@@ -1,6 +1,11 @@
 name: Build 我在 Android previews
 on:
   workflow_dispatch:
+    inputs:
+      release-tag:
+        description: 'Validate the signed APKs already uploaded to an existing draft release'
+        type: string
+        default: ''
 permissions:
   contents: read
 jobs:
@@ -63,8 +68,37 @@ jobs:
             app/build/outputs/apk/checksums.txt
             app/build/outputs/apk/signature.txt
           if-no-files-found: error
+  release-input:
+    if: inputs['release-tag'] != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - run: sdkmanager 'build-tools;35.0.0'
+      - name: Validate the exact signed release APKs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ inputs['release-tag'] }}
+        run: python3 tools/release-assets.py android
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-release-validation-input
+          path: |
+            app/build/outputs/apk/preview/app-preview.apk
+            app/build/outputs/apk/androidTest/preview/app-preview-androidTest.apk
+          if-no-files-found: error
   android-localization:
-    needs: build
+    needs: [build, release-input]
+    if: always() && needs.build.result == 'success' && (needs.release-input.result == 'success' || needs.release-input.result == 'skipped')
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -74,7 +108,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: NearbyIM-${{ needs.build.outputs.version }}-android-preview
+          name: ${{ inputs['release-tag'] != '' && 'android-release-validation-input' || format('NearbyIM-{0}-android-preview', needs.build.outputs.version) }}
           path: app/build/outputs/apk
       - name: Enable KVM
         run: |

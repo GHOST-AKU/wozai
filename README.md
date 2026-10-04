@@ -1,12 +1,12 @@
 # 我在 · NearbyIM
 
-一个无需账号、无需远程服务器的聊天项目。原生安卓端、Windows 与 Linux 预览版通过 **同一局域网** 或 **经典蓝牙** 聊天，共用 NIM2 协议。
+一个无需账号、无需远程服务器的聊天项目。原生安卓端、Windows 与 Linux 客户端通过 **同一局域网** 或 **经典蓝牙** 聊天，共用 NIM3 协议。
 
-**当前开发版本：我在 · NearbyIM 0.3.1。安卓、Windows 与 Linux 共用完整的简体中文／英文／繁体中文／日语／韩语翻译目录，每种语言各 314 个文案键，默认跟随系统，涵盖界面、错误、通知、权限说明、日期、帮助与关于。多语言架构和新增语言流程见[架构说明](docs/i18n.md)。原有 NIM2 身份、信任与消息协议保持兼容。0.2.0 双机通信及可信重连已由用户报告通过；后续方向见[产品路线图](docs/roadmap.md)。**
+**当前正式版：我在 · NearbyIM 0.3.1。** [下载 Android、Windows、Linux 客户端](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.1)。三端支持文件／照片传输、图片气泡与应用内查看，聊天输入采用 Material 图标。五种语言各 349 个文案键；架构见[多语言说明](docs/i18n.md)。升级范围、签名状态和已知限制见[0.3.1 发布说明](docs/releases/0.3.1.md)。通信采用 NIM3，双方都需要更新；内容尚未端到端加密。
 
-Windows 0.3.1 预览版包含局域网发现、IP 直连、经典蓝牙、文字聊天、可信重连、回执、本地记录和草稿，以及与安卓一致的配色、头像、搜索、消息气泡和图标。英文品牌统一为 NearbyIM，内置思源黑体，无需安装字体；设置支持窄窗口自动换行、顺畅滚动，并提供「使用说明」「关于我在」。支持五种语言、文字大小和浅色／深色主题。数据默认放在软件旁的 `data`，旧版便携和用户目录会复制迁移并保留原件。解压便携包后运行 `NearbyIM/NearbyIM.exe`，无需另装 Java。构建、使用范围和验证记录见 [Windows 说明](docs/windows.md)；安卓、Windows、Linux 图标资产见[图标说明](docs/app-icon.md)。Windows 蓝牙需真实适配器和手机验收；暂不支持附件和群聊，局域网内容仍为明文。
+Windows 0.3.1包含局域网发现、IP 直连、经典蓝牙、文字聊天、可信重连、回执、本地记录和草稿，以及与安卓一致的配色、头像、搜索、消息气泡和图标。英文品牌统一为 NearbyIM，内置思源黑体，无需安装字体；设置支持窄窗口自动换行、顺畅滚动，并提供「使用说明」「关于我在」。支持五种语言、文字大小和浅色／深色主题。数据默认放在软件旁的 `data`，旧版便携和用户目录会复制迁移并保留原件。解压便携包后运行 `NearbyIM/NearbyIM.exe`，无需另装 Java。构建、使用范围和验证记录见 [Windows 说明](docs/windows.md)；安卓、Windows、Linux 图标资产见[图标说明](docs/app-icon.md)。Windows 蓝牙需真实适配器和手机验收；支持文件／照片，暂不支持群聊；局域网内容仍为明文。
 
-Linux 0.3.1 预览版复用桌面界面、字体和五语资源，支持局域网和 BlueZ 经典蓝牙 RFCOMM、可信重连、回执、历史与草稿。提供自带 Java 的 tar.gz 与 deb 包，以及桌面菜单入口；数据位于 XDG 用户目录，移动程序或安装到只读目录不会改变设备身份。使用、构建与下载见 [Linux 说明](docs/linux.md)，自动验证及真实设备验收范围见 [Linux 验证记录](docs/linux-verification.md)。
+Linux 0.3.1复用桌面界面、字体和五语资源，支持局域网和 BlueZ 经典蓝牙 RFCOMM、可信重连、回执、历史与草稿。提供自带 Java 的 tar.gz 与 deb 包，以及桌面菜单入口；数据位于 XDG 用户目录，移动程序或安装到只读目录不会改变设备身份。使用、构建与下载见 [Linux 说明](docs/linux.md)，自动验证及真实设备验收范围见 [Linux 验证记录](docs/linux-verification.md)。
 
 当前问题通过 [GitHub Issues](https://github.com/GHOST-AKU/wozai/issues) 跟进：[Windows 有线网络发现 #5](https://github.com/GHOST-AKU/wozai/issues/5)、[同时多人私聊 #6](https://github.com/GHOST-AKU/wozai/issues/6)、[桌面蓝牙真机验收 #7](https://github.com/GHOST-AKU/wozai/issues/7)、[Android 签名与升级 #8](https://github.com/GHOST-AKU/wozai/issues/8)。
 
@@ -23,9 +23,9 @@ Linux 0.3.1 预览版复用桌面界面、字体和五语资源，支持局域�
 
 另外包含本地 SQLite 记录、会话摘要与昵称搜索、按会话区分的草稿、跟随系统的深浅主题，以及维持连接的前台服务。主页面为「聊天 / 附近 / 设置」，首页左上「我在」，右上显示真实聊天连接状态，启动图标保持纸杯电话白色底板。服务持续通知可停止所有连接。移出最近任务会停止服务；系统强杀后需要重新连接。
 
-新连接采用 **NIM2 认证封装协议**，不向旧版无认证连接降级。两部设备都需要支持 NIM2（0.2.0 及以后版本）；旧版本机消息仍保留，但旧 UUID 历史不能直接转换成可信设备，升级后首次需要重新绑定身份。
+新连接采用 **NIM3 认证封装协议**，双方都需使用本次 0.3.1 或其他支持 NIM3 的版本，不向 NIM2 或无认证连接降级。本地历史保留；安卓覆盖安装还要求签名证书一致。
 
-第一版是一对一文字聊天，不包含群聊、文件、语音、互联网转发或自动重发。
+当前支持文字、文件和照片，不包含群聊、语音、互联网转发或自动重发。认可聊天后自动接收附件，单文件最大 1 GiB；收到文件完整保存并通过校验后才确认送达。
 
 ## 生成 APK
 
@@ -57,9 +57,9 @@ Windows PowerShell：
 
 第一次同步需要访问 Google Maven、Maven Central 与 Gradle 分发服务器。SDK 路径由 Android Studio 写入本机 `local.properties`，不要把它提交到仓库。
 
-已附 `.github/workflows/android.yml`，仅支持手动运行。在 GitHub 的 Actions 页面打开 Android 构建工作流，选择 **Run workflow** 和所需分支；开发预览使用 `feat/linux-client`。构建成功后可下载 `NearbyIM-<版本>-android-preview` 和 `NearbyIM-<版本>-android-debug` artifacts，R8 mapping 单独保存。上传源码和提交修改不会自动编译 APK。本轮 0.3.1 的[优化预览构建](https://github.com/GHOST-AKU/wozai/actions/runs/37162619608)已通过编译、Lint、签名及对齐检查，API 26/34 对 optimized preview 各通过 186 项原生检查。可下载[安卓预览包](https://github.com/GHOST-AKU/wozai/actions/runs/37162619608/artifacts/11288327377)，解压后安装 `preview/app-preview.apk`；这是 CI artifact，已发布的 GitHub Release 资产尚未更新。
+已附 `.github/workflows/android.yml`，仅支持手动运行。普通构建上传优化预览、调试包、测试 APK 和 R8 mapping 到 Actions artifacts。正式发布时可通过 `release-tag` 输入验证 Release 草稿中已经签名的同一 APK，避免测试另一个证书的替代包。测试 APK 不随正式 Release 分发。发布步骤见[0.3.1 发布说明](docs/releases/0.3.1.md)。
 
-安卓保留数据升级需要与已安装版本使用同一签名密钥。本次 CI 使用临时调试证书，与之前交付的 0.2.0 证书不同，不能覆盖安装该旧包。已有聊天记录的手机请保留原应用，使用原签名密钥构建升级包；卸载会删除记录和设备身份。详情见[验证记录](docs/verification.md)。
+安卓保留数据升级需要与已安装版本使用同一签名密钥。0.3.1 Release 使用当前交付测试包的同一调试证书，versionCode 为 7；原长期签名仍缺失，未确认能覆盖旧公共预览包或 0.2.0。已有聊天记录的手机请保留原应用，使用原签名密钥构建升级包；卸载会删除记录和设备身份。详情见[验证记录](docs/verification.md)。
 
 ## 两部手机怎么聊
 

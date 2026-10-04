@@ -2,6 +2,10 @@ name: Build NearbyIM Windows client
 on:
   workflow_dispatch:
     inputs:
+      release-tag:
+        description: 'Upload verified packages to an existing draft release (requires include-linux)'
+        type: string
+        default: ''
       include-linux:
         description: 'Also run Linux package and platform compatibility verification'
         type: boolean
@@ -111,3 +115,28 @@ jobs:
             desktop/build/text-rendering-*.png
             desktop/build/text-rendering-*.txt
           if-no-files-found: ignore
+  stage-release:
+    if: inputs['release-tag'] != '' && inputs['include-linux']
+    needs: [windows, linux-compatibility]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read release version
+        id: metadata
+        run: python3 -c 'import json; print("version=" + json.load(open("i18n/config.json"))["appVersion"])' >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@v4
+        with:
+          name: NearbyIM-${{ steps.metadata.outputs.version }}-windows-x64
+          path: build/release-input/windows
+      - uses: actions/download-artifact@v4
+        with:
+          name: NearbyIM-${{ steps.metadata.outputs.version }}-linux-x64
+          path: build/release-input/linux
+      - name: Validate and stage desktop release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ inputs['release-tag'] }}
+        run: python3 tools/release-assets.py desktop
