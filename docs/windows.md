@@ -1,12 +1,12 @@
-# 我在 · NearbyIM · Windows 预览版 0.3.1
+# 我在 · NearbyIM · Windows 0.3.1
 
-与 Android 0.2.0 及以后版本共用 NIM2 协议、设备身份验证、信任、文字聊天和送达回执。Windows 支持局域网及经典蓝牙 RFCOMM，界面沿用安卓的薄荷绿设计、Material 图标、会话头像、搜索、左右消息气泡，以及浅色／深色主题。0.3.0 将两端文案、语言注册表和格式契约统一，协议保持兼容。
+与 Android、Linux 0.3.1 共用 NIM3 协议、设备身份验证、信任、文字／文件／照片和保存回执；双方都需支持 NIM3，不能与旧 NIM2 公共预览版互通。Windows 支持局域网及经典蓝牙 RFCOMM，界面采用 Material 图标、圆角聊天输入栏、附件菜单和应用内图片查看，以及浅色／深色主题。认可聊天后自动接收附件，单文件最大 1 GiB，完整保存后确认送达。
 
 ## 使用与下载
 
-目标平台 Windows 10/11 x64。从[最新构建页面](https://github.com/GHOST-AKU/wozai/actions/runs/37162806254)底部 Artifacts 下载 [NearbyIM-0.3.1-windows-x64](https://github.com/GHOST-AKU/wozai/actions/runs/37162806254/artifacts/11288018558)，解压后运行 `NearbyIM/NearbyIM.exe`。保持整个软件目录完整；包内包含 Java 17 运行时、思源黑体和 Windows 蓝牙桥接库，无需另外安装 Java 或字体。Windows 窗口与 EXE 使用正式 ICO 的 16–256px 多尺寸图像；平台资源与原包校验见[图标说明](app-icon.md)。
+目标平台 Windows 10/11 x64。从 [0.3.1 Release](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.1) 下载 `NearbyIM-0.3.1-windows-x64.zip`，解压后运行 `NearbyIM/NearbyIM.exe`。保持整个软件目录完整；包内包含 Java 17 运行时、思源黑体和 Windows 蓝牙桥接库，无需另外安装 Java 或字体。Windows 窗口与 EXE 使用 ICO 的 16–256px 多尺寸图像；平台资源见[图标说明](app-icon.md)。
 
-这是未签名的便携预览版，没有安装器、开机启动或托盘常驻。请将软件放在当前用户可读写的位置，例如 `D:\Apps\NearbyIM`，避免受保护的 `Program Files` 目录。
+这是未进行 Windows 代码签名的便携软件，没有安装器、开机启动或托盘常驻。请将软件放在当前用户可读写的位置，例如 `D:\Apps\NearbyIM`，避免受保护的 `Program Files` 目录。
 
 ### 局域网
 
@@ -42,7 +42,7 @@ Windows 私钥仍使用 DPAPI CurrentUser 保护。同一用户在本机移动�
 
 每条消息原子保存，保存完成才发送回执。断线或重启后未收到回执的发送消息为「未确认」，不会自动重发。回执只表明对方保存，不能表明已读。「清空聊天记录」保留信任和草稿；「取消设备信任」撤销认可并断开该设备，保留聊天记录。局域网与蓝牙共用信任记录，昵称、IP 和系统配对均不代替公钥。
 
-无需账号、云同步或遥测。局域网消息内容仍是明文，签名提供身份连续性和完整性；蓝牙使用系统安全 RFCOMM 配对与链路加密，没有额外的端到端内容加密。附件、群聊和互联网转发尚未实现。
+无需账号、云同步或遥测。局域网消息内容仍是明文，签名提供身份连续性和完整性；蓝牙使用系统安全 RFCOMM 配对与链路加密，没有额外的端到端内容加密。支持文件／照片；群聊和互联网转发尚未实现。
 
 ## 界面、语言与无障碍
 
@@ -78,7 +78,7 @@ java -cp 'desktop/build/classes:desktop/build/tests:desktop/build/lib/*' dev.gho
 java -cp 'desktop/build/classes:desktop/build/tests:desktop/build/lib/*' dev.ghost.wozai.LayoutTests desktop/build/gui-settings.png
 ```
 
-Linux 仅验证 Java、局域网与界面，蓝牙明确显示平台不可用。依赖为 FlatLaf 3.6.2、JmDNS 3.6.2、SLF4J API / NOP 2.0.17、ICU4J 77.1；SHA-256 固定在 `desktop/dependencies.txt`。中文字体来自官方 Noto CJK 仓库，SHA-256 固定在 `desktop/font-dependencies.txt`。字体、许可与运行时 legal 文件随软件打包。重新导出图标时运行 `desktop/tools/export-icons.py`（开发工具需要 Pillow / CairoSVG，正常构建使用已保存的资源）。
+Linux 另有 BlueZ JNI 后端、软件包和自动验证，使用范围见 [Linux 说明](linux.md)。依赖为 FlatLaf 3.6.2、JmDNS 3.6.2、SLF4J API / NOP 2.0.17、ICU4J 77.1；SHA-256 固定在 `desktop/dependencies.txt`。中文字体来自官方 Noto CJK 仓库，SHA-256 固定在 `desktop/font-dependencies.txt`。字体、许可与运行时 legal 文件随软件打包。重新导出图标时运行 `desktop/tools/export-icons.py`（开发工具需要 Pillow / CairoSVG，正常构建使用已保存的资源）。
 
 ## 验证记录 · 2026-10-02
 

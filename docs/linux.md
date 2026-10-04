@@ -1,10 +1,10 @@
-# 我在 · NearbyIM · Linux 预览版 0.3.1
+# 我在 · NearbyIM · Linux 0.3.1
 
-Linux 客户端与 Android、Windows 共用 NIM2 签名协议、设备身份、应用内信任、文字聊天和保存回执。包含局域网发现／直连、经典蓝牙 RFCOMM、历史重连、会话草稿、浅深主题、大字体与简体中文、英语、繁体中文、日语、韩语。软件包自带 Java 17 和 Noto CJK 字体。
+Linux 客户端与 Android、Windows 共用 NIM3 签名协议、设备身份、应用内信任、文字／文件／照片和保存回执。包含局域网发现／直连、经典蓝牙 RFCOMM、历史重连、会话草稿、浅深主题、大字体与简体中文、英语、繁体中文、日语、韩语。软件包自带 Java 17 和 Noto CJK 字体。
 
 ## 运行与安装
 
-当前 PR #4 的[正式图标构建验收](https://github.com/GHOST-AKU/wozai/actions/runs/37162806254)已通过，可下载 [NearbyIM-0.3.1-linux-x64](https://github.com/GHOST-AKU/wozai/actions/runs/37162806254/artifacts/11287789267) artifact，包含 tar.gz 和 deb。这是 CI 软件包，已有 GitHub Release 资产尚未更新；图标来源与多尺寸接入见[图标说明](app-icon.md)。
+从 [0.3.1 Release](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.1) 下载 `NearbyIM-0.3.1-linux-x64.tar.gz` 或 `NearbyIM-0.3.1-linux-x64.deb`，校验 `SHA256SUMS.txt`。双方都必须支持 NIM3，旧公共 NIM2 预览版不能互通。照片可在应用内查看和缩放；认可聊天后自动接收附件，单文件最大 1 GiB，完整保存后确认送达。图标来源与多尺寸接入见[图标说明](app-icon.md)。
 
 首发构建为 Linux x64。需要满足包内 `runtime-requirements.txt` 所列的系统运行库版本、图形桌面（X11，或启用 XWayland 的 Wayland 桌面）、系统 X11／字体／音频库和 BlueZ 蓝牙服务。提供 tar.gz 应用目录及 Debian／Ubuntu 的 deb 包；蓝牙需要支持经典蓝牙的适配器。ARM64 可在对应架构的 Linux 上从源码构建，尚未发布或验证其软件包。
 
@@ -51,7 +51,7 @@ Linux 使用 BlueZ 的 `Adapter1`、`Device1` 与 `ProfileManager1`，由系统�
 
 收到消息并原子保存后才发送回执。「已送达」表示对方保存，不代表已读。断线后没有回执的发送消息为「未确认」，不会自动重发。清空记录保留设备信任，取消信任会断开该设备并保留历史。退出后需重新开启接收。
 
-局域网内容仍为明文；NIM2 签名提供身份连续性与完整性，不提供内容加密。蓝牙要求系统认证配对并使用 BlueZ 链路安全。没有账号、云同步、遥测、附件、群聊或互联网中继。
+局域网内容仍为明文；NIM3 签名提供身份连续性与完整性，不提供内容加密。蓝牙要求系统认证配对并使用 BlueZ 链路安全。没有账号、云同步、遥测、群聊或互联网中继。文件和照片尚未端到端加密。
 
 ## 从源码构建
 
