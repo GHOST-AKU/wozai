@@ -29,6 +29,12 @@ subprocess.run([str(sdk / "zipalign"), "-c", "4", str(args.apk)], check=True)
 with args.apk.open("rb") as stream:
     digest = hashlib.file_digest(stream, "sha256").hexdigest()
 info = {"apk": args.apk.name, "sha256": digest, "certificate_sha256": certificates[0]}
+if args.test_apk:
+    manifest = subprocess.check_output([str(sdk / "aapt2"), "dump", "xmltree", str(args.apk),
+                                        "--file", "AndroidManifest.xml"], text=True)
+    if ('="dev.ghost.nearbyim.SigningUpgradeInstrumentation"' not in manifest
+            or '="dev.ghost.nearbyim"' not in manifest):
+        raise SystemExit("Upgrade test APK does not register the expected instrumentation target")
 if not args.test_apk:
     badging = subprocess.check_output([str(sdk / "aapt2"), "dump", "badging", str(args.apk)], text=True)
     package = badging.splitlines()[0]
