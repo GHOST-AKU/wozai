@@ -167,7 +167,7 @@ Windows 本轮发 / 收 / 保存回执为 112 / 112 / 112，Linux 为 157 / 158 
 
 ## PR #5：Linux runtime 与空闲内存（2026-10-04）
 
-跟踪 [Issue #9](https://github.com/GHOST-AKU/wozai/issues/9)。本轮从 PR #4 的合并提交 `ce972fc6971e554b0453e94d1d5d9a4e31a8e7f1` 开始，包含最后提交 `64fcce8`、正式多尺寸图标和蓝牙清理修复。先完成干净构建，再复制 app-image，仅替换 runtime。两组应用 JAR 的 SHA-256 都为 `22c7f6ec4a7bf8a9004bb714ada5090075ed245092c966e13d87147366899e1d`，构建元数据均为干净 `ce972fc`。实验软件包没有重新生成压缩分发文件，JSON 的 `distribution.packages` 为空。
+本轮仓库实际编号为 [PR #10](https://github.com/GHOST-AKU/wozai/pull/10)，跟踪 [Issue #9](https://github.com/GHOST-AKU/wozai/issues/9)。本轮从 PR #4 的合并提交 `ce972fc6971e554b0453e94d1d5d9a4e31a8e7f1` 开始，包含最后提交 `64fcce8`、正式多尺寸图标和蓝牙清理修复。先完成干净构建，再复制 app-image，仅替换 runtime。两组应用 JAR 的 SHA-256 都为 `22c7f6ec4a7bf8a9004bb714ada5090075ed245092c966e13d87147366899e1d`，构建元数据均为干净 `ce972fc`。实验软件包没有重新生成压缩分发文件，JSON 的 `distribution.packages` 为空。
 
 Debian 13 x64 容器、Xeon Platinum 8370C、3 个可见逻辑 CPU、约 9.7 GiB 可见内存，Temurin 17.0.16，Xvfb :98 2560×1800×24，系统／FlatLaf 缩放 1.0，内置 Noto Sans CJK SC。与上一节的 Xeon 8573C 不同，不能直接把本节与旧报告相减作为实机或同设备回归。正式样本无 NMT、堆限制或显式 GC 参数。Idle / Connected 先稳定 10 s、采样 30 s；Active 稳定 2 s、采样 30 s，仍为每方向最多 5 条/s、256 UTF-8 字节。每轮独立空资料、五次新 JVM 启动；不控制系统页缓存或 CPU 频率。没有并发打包或其他测量任务。
 
@@ -214,3 +214,25 @@ Linux 打包改为 `--compress=0`，保留 gzip / xz -9。取舍是展开安装�
 ```
 
 本节第一组来自 main 上 `--compress=1` 的包；修复后重现第一组需改上述参数为 `--compress=1`。不要更改应用 JAR、图标、模块、JDK、测量参数或显示环境。两组分别调用本文 `performance.py measure`，加 `--settle 10 --seconds 30`，交替顺序各三轮。核对两组 JAR 相同、runtime 模块与语言一致，保留实际命令、两组 `lib/modules` 的 SHA-256 与 `lib/runtime/release`。压缩级别不写入 Java 应用构建元数据，必须像本节 JSON 的 `experiment` 字段一样单独注明，不能把实验的 runtime 替换描述成原始 main 打包结果。
+
+
+### 内存分类与持续观测
+
+[原始诊断记录与复现步骤](performance/2026-10-04-runtime-memory-diagnostics/README.md)使用上述相同 `ce972fc` 应用 JAR，独立新 JVM／资料，空闲和已连接无消息各观测 180 s，每种配置／状态各一次。两组均额外启用 `-XX:NativeMemoryTracking=summary`，在 30 / 90 / 180 s 用同一 JDK 的 `jcmd` 读取 NMT 与堆信息，并读取进程映射；最后才生成会触发完整 GC 的 live histogram。仅连接段另每 5 s 采 RSS。**诊断有额外开销，不混入前面的六组正式样本**；NMT committed 不等于 RSS，也不覆盖全部 runtime 文件映射。
+
+| 诊断状态 / 配置 | RSS 30 / 90 / 180 s（MiB） | runtime `lib/modules` 映射 RSS（MiB，三点相同） | 堆已提交 30 / 180 s（MiB） | 末尾完整 GC 后存活对象字节 |
+| --- | --- | ---: | --- | ---: |
+| Idle / 共享 | 131.32 / 131.81 / 139.40 | 21.30 | 48 / 48 | 10,341,160 |
+| Idle / 不共享 | 109.34 / 109.85 / 119.04 | 1.25 | 48 / 48 | 10,339,304 |
+| Connected / 共享 | 148.45 / 150.33 / 155.95 | 20.19 | 40 / 40 | 10,794,616 |
+| Connected / 不共享 | 135.49 / 158.93 / 140.70 | 1.25 | 48 / 48 | 10,794,696 |
+
+关闭常量池共享后，Idle 的 runtime 文件驻留减少约 **20.05 MiB**，Connected 减少约 **18.94 MiB**。Idle 堆提交容量相同；两组完整 GC 后的存活堆分别相差不到 2 KiB 和 80 字节。文件映射差异与三轮 RSS 降幅的量级一致，证据支持当前常驻内存差异主要来自 runtime 文件驻留，未指向 formatter 缓存或消息行复用的存活堆增长。不依据 NMT reserved 的巨大虚拟地址空间判断 RSS；不依据一次完整 GC 证明没有泄漏。
+
+**尚未解决：** 两组带诊断参数的进程在 180 s 内仍有匿名内存增长；不共享的 Connected 段在 90 s 还出现约 159 MiB 的暂时峰值，随后回落。诊断附加、JIT、GC、页面驻留及应用周期任务可能参与，当前记录不能将它们逐项归因，也不能证明无诊断参数的长期增长趋势。本轮确认并降低启动／稳定阶段的 runtime 驻留开销，**没有宣称消除所有增长或长期无泄漏**。Issue #9 保持 OPEN，后续需无诊断参数的长时对照、多次 live-heap／native 分解和实机验证；目前不以强制 GC 或武断堆上限作为修复。
+
+### 本轮构建与 GUI 验证
+
+修改 Linux 打包配置的提交 `ca6a6c8fb28debc091f9973510ea0bf3fd376b09` 已通过 [Linux 完整 CI](https://github.com/GHOST-AKU/wozai/actions/runs/37169441304)：协议／信任／文案与源码检查、桌面测试、41 项正式图标原始导出核对、16 项窗口图标检查、378 项 BlueZ 原生模拟检查、16 项 JNI／NIM2／保存回执检查、实际 mDNS、完整 JDK 与包内 runtime GUI、四档缩放、真实便携启动器和只读移动目录／身份重启／菜单入口。正常消息收发、保存回执、语言／主题／字号、选择与滚动、草稿和退出均通过。射频设备仍不可用，这些检查不证明真机蓝牙配对或互通。
+
+CI 使用其独立运行器、JDK 和默认 30 s 稳定期；不能与本地 10 s 稳定期的对照混算。[性能 JSON 与日志 artifact](https://github.com/GHOST-AKU/wozai/actions/runs/37169441304/artifacts/11290738058)、[软件包](https://github.com/GHOST-AKU/wozai/actions/runs/37169441304/artifacts/11289719521)、[GUI 验证附件](https://github.com/GHOST-AKU/wozai/actions/runs/37169441304/artifacts/11289699673)均上传成功。工作流日志可读取，但当前任务拉取 artifact 时其存储下载端返回 HTTP 403，因此没有将 CI 原始 JSON复制到仓库，也没有摘录未读取的 CI RSS／CPU 数值。本文六组本地 JSON 和四组完整诊断记录均已保存。后续补充诊断与验证说明只改变文档／证据，不改变该 CI 所测的应用代码和打包配置。

@@ -1,0 +1,22 @@
+{
+  "environment_kind": "virtual",
+  "device": "Debian 13 x64 container; Xeon Platinum 8370C; 3 visible logical CPUs; Temurin 17.0.16; Xvfb :98 2560x1800x24; scaling 1.0",
+  "application_source_commit": "ce972fc6971e554b0453e94d1d5d9a4e31a8e7f1",
+  "application_build_dirty": false,
+  "application_jar_sha256": "22c7f6ec4a7bf8a9004bb714ada5090075ed245092c966e13d87147366899e1d",
+  "flags": "-XX:NativeMemoryTracking=summary; repeated jcmd attachment; GC.class_histogram at the end only; same flags on both levels",
+  "states": [
+    "idle: native packaged launcher --performance-ready-file on new profile",
+    "connected LAN: PerformanceScenario peer + GUI target; no active command or messages; peer excluded"
+  ],
+  "observations_s": [
+    30,
+    90,
+    180
+  ],
+  "cautions": [
+    "diagnostic instrumentation changes process memory and timing; not acceptance benchmark",
+    "NMT committed bytes are not RSS and do not include all mapped runtime files",
+    "final live histogram forces full GC; post-GC RSS is not performance acceptance"
+  ]
+}

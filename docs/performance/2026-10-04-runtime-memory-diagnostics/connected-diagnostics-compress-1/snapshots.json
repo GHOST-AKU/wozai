@@ -1,0 +1,255 @@
+{
+  "level": 1,
+  "flags": "-XX:NativeMemoryTracking=summary; repeated jcmd attachment; separate from acceptance benchmark; peer excluded",
+  "state": "connected LAN, no messages",
+  "connection": {
+    "phase": "connected",
+    "connect_ms": "133.977428",
+    "discovery_ms": "2413.606596",
+    "payload_utf8_bytes": "256",
+    "messages_per_second_each_direction": "5"
+  },
+  "snapshots": [
+    {
+      "elapsed_s": 3.988999878856703e-06,
+      "rss": 164192256
+    },
+    {
+      "elapsed_s": 5.00710981799989,
+      "rss": 157904896
+    },
+    {
+      "elapsed_s": 10.01352072199984,
+      "rss": 166965248
+    },
+    {
+      "elapsed_s": 15.019644857999992,
+      "rss": 168050688
+    },
+    {
+      "elapsed_s": 20.025909061999982,
+      "rss": 168148992
+    },
+    {
+      "elapsed_s": 25.032271877999847,
+      "rss": 155578368
+    },
+    {
+      "elapsed_s": 30.04109056099992,
+      "rss": 155656192,
+      "maps": {
+        "anonymous": {
+          "rss": 108646400,
+          "pss": 108646400,
+          "private_dirty": 108646400,
+          "size": 5766651904
+        },
+        "other": {
+          "rss": 25841664,
+          "pss": 16069632,
+          "private_dirty": 1662976,
+          "size": 40837120
+        },
+        "runtime_modules": {
+          "rss": 21168128,
+          "pss": 14123008,
+          "private_dirty": 0,
+          "size": 34115584
+        }
+      }
+    },
+    {
+      "elapsed_s": 30.45891778700002,
+      "rss": 155770880
+    },
+    {
+      "elapsed_s": 35.065223725999886,
+      "rss": 155791360
+    },
+    {
+      "elapsed_s": 40.072213493999925,
+      "rss": 155881472
+    },
+    {
+      "elapsed_s": 45.08201610399988,
+      "rss": 155938816
+    },
+    {
+      "elapsed_s": 50.09044390600002,
+      "rss": 155955200
+    },
+    {
+      "elapsed_s": 55.041528399999834,
+      "rss": 156131328
+    },
+    {
+      "elapsed_s": 60.06382894199987,
+      "rss": 156270592
+    },
+    {
+      "elapsed_s": 65.07802036199996,
+      "rss": 156454912
+    },
+    {
+      "elapsed_s": 70.08931106099999,
+      "rss": 156659712
+    },
+    {
+      "elapsed_s": 75.09666275099994,
+      "rss": 156864512
+    },
+    {
+      "elapsed_s": 80.00307495899983,
+      "rss": 157102080
+    },
+    {
+      "elapsed_s": 85.00949403899995,
+      "rss": 181780480
+    },
+    {
+      "elapsed_s": 90.02041343199994,
+      "rss": 157630464,
+      "maps": {
+        "anonymous": {
+          "rss": 110620672,
+          "pss": 110620672,
+          "private_dirty": 110620672,
+          "size": 5767700480
+        },
+        "other": {
+          "rss": 25841664,
+          "pss": 16069632,
+          "private_dirty": 1662976,
+          "size": 40837120
+        },
+        "runtime_modules": {
+          "rss": 21168128,
+          "pss": 14123008,
+          "private_dirty": 0,
+          "size": 34115584
+        }
+      }
+    },
+    {
+      "elapsed_s": 90.30347516799998,
+      "rss": 157638656
+    },
+    {
+      "elapsed_s": 95.00972203699985,
+      "rss": 157761536
+    },
+    {
+      "elapsed_s": 100.01665746100002,
+      "rss": 157839360
+    },
+    {
+      "elapsed_s": 105.02641136900002,
+      "rss": 157945856
+    },
+    {
+      "elapsed_s": 110.03648792299987,
+      "rss": 157986816
+    },
+    {
+      "elapsed_s": 115.0431199059999,
+      "rss": 158031872
+    },
+    {
+      "elapsed_s": 120.05068329400001,
+      "rss": 158048256
+    },
+    {
+      "elapsed_s": 125.06051826099997,
+      "rss": 158064640
+    },
+    {
+      "elapsed_s": 130.06725246899987,
+      "rss": 158068736
+    },
+    {
+      "elapsed_s": 135.07563246699988,
+      "rss": 158081024
+    },
+    {
+      "elapsed_s": 140.08320880899987,
+      "rss": 158130176
+    },
+    {
+      "elapsed_s": 145.0915416339999,
+      "rss": 158158848
+    },
+    {
+      "elapsed_s": 150.00716608699986,
+      "rss": 158179328
+    },
+    {
+      "elapsed_s": 155.01432635399988,
+      "rss": 158220288
+    },
+    {
+      "elapsed_s": 160.02179590899982,
+      "rss": 158285824
+    },
+    {
+      "elapsed_s": 165.03065328899993,
+      "rss": 158289920
+    },
+    {
+      "elapsed_s": 170.0420822399999,
+      "rss": 158294016
+    },
+    {
+      "elapsed_s": 175.049245379,
+      "rss": 168316928
+    },
+    {
+      "elapsed_s": 180.1382598549999,
+      "rss": 163524608,
+      "maps": {
+        "anonymous": {
+          "rss": 116502528,
+          "pss": 116502528,
+          "private_dirty": 116502528,
+          "size": 5767700480
+        },
+        "other": {
+          "rss": 25853952,
+          "pss": 16078848,
+          "private_dirty": 1662976,
+          "size": 40837120
+        },
+        "runtime_modules": {
+          "rss": 21168128,
+          "pss": 14123008,
+          "private_dirty": 0,
+          "size": 34115584
+        }
+      }
+    },
+    {
+      "elapsed_s": 180.65139652999983,
+      "note": "after histogram full GC, not performance acceptance",
+      "rss": 165167104,
+      "maps": {
+        "anonymous": {
+          "rss": 118145024,
+          "pss": 118145024,
+          "private_dirty": 118145024,
+          "size": 5767700480
+        },
+        "other": {
+          "rss": 25853952,
+          "pss": 16078848,
+          "private_dirty": 1662976,
+          "size": 40837120
+        },
+        "runtime_modules": {
+          "rss": 21168128,
+          "pss": 14123008,
+          "private_dirty": 0,
+          "size": 34115584
+        }
+      }
+    }
+  ]
+}
