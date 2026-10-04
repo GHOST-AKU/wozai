@@ -1,0 +1,104 @@
+{
+  "level": 0,
+  "flags": "-XX:NativeMemoryTracking=summary; repeated jcmd attachment; separate from acceptance benchmark",
+  "state": "idle",
+  "snapshots": [
+    {
+      "elapsed_s": 30.013723345000017,
+      "rss": 114647040,
+      "maps": {
+        "anonymous": {
+          "rss": 87666688,
+          "pss": 87666688,
+          "private_dirty": 87666688,
+          "size": 5749866496
+        },
+        "other": {
+          "rss": 25669632,
+          "pss": 24200192,
+          "private_dirty": 1658880,
+          "size": 40837120
+        },
+        "runtime_modules": {
+          "rss": 1310720,
+          "pss": 1310720,
+          "private_dirty": 0,
+          "size": 48693248
+        }
+      }
+    },
+    {
+      "elapsed_s": 90.41705589399999,
+      "rss": 115183616,
+      "maps": {
+        "anonymous": {
+          "rss": 88203264,
+          "pss": 88203264,
+          "private_dirty": 88203264,
+          "size": 5750915072
+        },
+        "other": {
+          "rss": 25669632,
+          "pss": 24200192,
+          "private_dirty": 1658880,
+          "size": 40837120
+        },
+        "runtime_modules": {
+          "rss": 1310720,
+          "pss": 1310720,
+          "private_dirty": 0,
+          "size": 48693248
+        }
+      }
+    },
+    {
+      "elapsed_s": 180.20686307699998,
+      "rss": 124817408,
+      "maps": {
+        "anonymous": {
+          "rss": 97824768,
+          "pss": 97824768,
+          "private_dirty": 97824768,
+          "size": 5750915072
+        },
+        "other": {
+          "rss": 25681920,
+          "pss": 24209408,
+          "private_dirty": 1658880,
+          "size": 40837120
+        },
+        "runtime_modules": {
+          "rss": 1310720,
+          "pss": 1310720,
+          "private_dirty": 0,
+          "size": 48693248
+        }
+      }
+    },
+    {
+      "elapsed_s": 180.68342324699984,
+      "note": "after histogram full GC, not performance acceptance",
+      "rss": 130564096,
+      "maps": {
+        "anonymous": {
+          "rss": 103571456,
+          "pss": 103571456,
+          "private_dirty": 103571456,
+          "size": 5750915072
+        },
+        "other": {
+          "rss": 25681920,
+          "pss": 24209408,
+          "private_dirty": 1658880,
+          "size": 40837120
+        },
+        "runtime_modules": {
+          "rss": 1310720,
+          "pss": 1310720,
+          "private_dirty": 0,
+          "size": 48693248
+        }
+      }
+    }
+  ]
+}
