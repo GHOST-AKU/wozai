@@ -96,6 +96,9 @@ def android(version, source, tag):
     info = json.loads((folder / "ANDROID-INPUT-MANIFEST.json").read_text())
     require(info["version"] == version and info["source_commit"] == source,
             "Wrong Android release provenance")
+    expected_code = int(re.search(r"versionCode\s*=\s*(\d+)",
+                                  Path("app/build.gradle.kts").read_text()).group(1))
+    require(info["version_code"] == expected_code, "Wrong Android input version code")
     require(set(info["assets"]) == {app_name, test_name}, "Unexpected Android inputs")
     sdk = Path(os.environ["ANDROID_HOME"]) / "build-tools/35.0.0"
     for name, target in [(app_name, "preview/app-preview.apk"),
@@ -125,9 +128,9 @@ def main():
     tag = os.environ["RELEASE_TAG"]
     require(tag == "v" + version, "Release tag does not match the shared version")
     require(run("git", "rev-parse", "HEAD") == source, "Unexpected checkout")
-    release = json.loads(run("gh", "api", f"repos/{os.environ['GH_REPO']}/releases/tags/{tag}"))
-    require(release["draft"] is True, "Assets may only be staged in a draft release")
-    require(release["target_commitish"] == source, "Draft points at another source commit")
+    release = json.loads(run("gh", "release", "view", tag, "--json", "isDraft,targetCommitish"))
+    require(release["isDraft"] is True, "Assets may only be staged in a draft release")
+    require(release["targetCommitish"] == source, "Draft points at another source commit")
     {"desktop": desktop, "android": android}[sys.argv[1]](version, source, tag)
 
 
