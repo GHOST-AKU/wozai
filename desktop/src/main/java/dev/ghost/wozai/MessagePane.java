@@ -16,7 +16,11 @@ final class MessagePane extends JPanel implements Scrollable {
     void thumbnail(String id,boolean outgoing,java.awt.image.BufferedImage image){
         Key key=new Key(id,outgoing);MessageRow row=rows.get(key);
         if(row!=null&&row.message.attachment()!=null&&previewIds.contains(key)){
+            JScrollPane scroll=(JScrollPane)SwingUtilities.getAncestorOfClass(JScrollPane.class,this);
+            JScrollBar bar=scroll==null?null:scroll.getVerticalScrollBar();int position=bar==null?0:bar.getValue();
+            boolean bottom=bar!=null&&position+bar.getVisibleAmount()>=bar.getMaximum()-24;
             row.bubble.thumbnail.setIcon(new ImageIcon(image));row.bubble.body.setVisible(false);row.bubble.preferred=null;revalidate();repaint();
+            if(bottom)SwingUtilities.invokeLater(()->{if(rows.get(key)==row)bar.setValue(bar.getMaximum());});
         }
     }
     private static boolean photo(AttachmentRecord r){return r!=null&&r.info.mime.startsWith("image/")&&(r.outgoing?r.state.equals("delivered"):r.state.equals("received"));}

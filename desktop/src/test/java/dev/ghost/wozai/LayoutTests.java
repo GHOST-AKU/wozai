@@ -30,7 +30,7 @@ public final class LayoutTests {
             Thread.sleep(250);
             edt(() -> {
                 var composer=all(w).stream().filter(c -> c instanceof JTextArea a && "Type a message".equals(a.getAccessibleContext().getAccessibleName())).map(c -> (JTextArea)c).findFirst().orElseThrow();
-                var send=all(w).stream().filter(c -> c instanceof JButton b && "Send".equals(b.getText())).map(c -> (JButton)c).findFirst().orElseThrow();
+                var send=all(w).stream().filter(c -> c instanceof JButton b && "Send".equals(b.getAccessibleContext().getAccessibleName())).map(c -> (JButton)c).findFirst().orElseThrow();
                 var capsule=composer.getParent().getParent().getParent();
                 check(Math.abs(capsule.getHeight()-send.getHeight())<=1,"Composer and send button have different heights: "+capsule.getHeight()+" / "+send.getHeight());
                 check(w.getJMenuBar()==null,"Header repeats the brand in a menu bar");

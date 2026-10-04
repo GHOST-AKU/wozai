@@ -126,8 +126,11 @@ public final class GuiTests {
                 button(w,"Attachments").doClick();JPopupMenu choices=(JPopupMenu)Arrays.stream(MenuSelectionManager.defaultManager().getSelectedPath()).filter(c->c instanceof JPopupMenu).findFirst().orElseThrow();if(button(choices,"Photo").getIcon()==null||button(choices,"File").getIcon()==null)throw new AssertionError("Attachment icons missing");MenuSelectionManager.defaultManager().clearSelectedPath();return null;
             });
             Path photo=root.resolve("chat-photo.png");java.awt.image.BufferedImage pixels=new java.awt.image.BufferedImage(800,600,java.awt.image.BufferedImage.TYPE_INT_RGB);Graphics2D paint=pixels.createGraphics();paint.setPaint(new GradientPaint(0,0,new Color(80,185,210),0,600,new Color(240,224,159)));paint.fillRect(0,0,800,600);paint.setColor(new Color(25,100,80));paint.fillOval(-120,340,800,550);paint.dispose();ImageIO.write(pixels,"png",photo.toFile());
+            JScrollPane photoScroll=edt(()->(JScrollPane)SwingUtilities.getAncestorOfClass(JScrollPane.class,components(w).stream().filter(c->c instanceof MessagePane).findFirst().orElseThrow()));
+            edt(()->{photoScroll.getVerticalScrollBar().setValue(photoScroll.getVerticalScrollBar().getMaximum());return null;});
             String photoId=phoneTransfer.offer(()->Files.newInputStream(photo),"chat-photo.png","image/png").get(5,TimeUnit.SECONDS);
             await(()->components(w).stream().anyMatch(c->c instanceof JLabel l&&l.getIcon() instanceof ImageIcon&&l.getAccessibleContext().getAccessibleName()!=null&&l.getAccessibleContext().getAccessibleName().contains("chat-photo.png")),"Automatic photo reception did not produce a bubble");
+            await(()->{JScrollBar bar=photoScroll.getVerticalScrollBar();return bar.getValue()+bar.getVisibleAmount()>=bar.getMaximum()-24;},"Thumbnail growth moved chat away from newest message");
             edt(()->{JLabel preview=components(w).stream().filter(c->c instanceof JLabel l&&l.getIcon() instanceof ImageIcon&&l.getAccessibleContext().getAccessibleName()!=null&&l.getAccessibleContext().getAccessibleName().contains("chat-photo.png")).map(c->(JLabel)c).findFirst().orElseThrow();preview.dispatchEvent(new java.awt.event.MouseEvent(preview,java.awt.event.MouseEvent.MOUSE_CLICKED,1,0,10,10,1,false,java.awt.event.MouseEvent.BUTTON1));return null;});
             JDialog viewer=edt(()->dialog(w,"chat-photo.png"));
             await(()->components(viewer).stream().anyMatch(c->c instanceof JLabel l&&l.getText().contains("Mouse wheel")),"Internal viewer did not decode photo");
@@ -137,6 +140,8 @@ public final class GuiTests {
             if(!Arrays.equals(Files.readAllBytes(photo),Files.readAllBytes(store.attachmentFile(id,store.messages(id).stream().filter(m->m.id().equals(photoId)).findFirst().orElseThrow().attachment().info))))throw new AssertionError("Photo preview changed transferred bytes");
             Path document=root.resolve("report.pdf");Files.write(document,new byte[24576]);String documentId=phoneTransfer.offer(()->Files.newInputStream(document),"report.pdf","application/pdf").get(5,TimeUnit.SECONDS);
             await(()->components(w).stream().anyMatch(c->c instanceof JTextArea a&&a.getText().contains("report.pdf")&&a.getText().contains("24.0 KiB")&&a.getText().contains("Received")),"Compact file card not rendered");
+            edt(()->{photoScroll.getVerticalScrollBar().setValue(photoScroll.getVerticalScrollBar().getMaximum());area(w,"Type a message").setText("收到文件和照片 🙂");return null;});
+            new Robot().waitForIdle();
             if (args.length > 0) {
                 Path screenshot = Path.of(args[0]); Files.createDirectories(screenshot.toAbsolutePath().getParent());
                 Rectangle bounds = edt(w::getBounds); ImageIO.write(new Robot().createScreenCapture(bounds), "png", screenshot.toFile());
@@ -156,7 +161,7 @@ public final class GuiTests {
             await(() -> help.getTitle().equals("使用说明") && about.getTitle().equals("关于我在") && trust.getTitle().equals("已信任设备"), "Open dialogs kept the old language");
             if (!edt(() -> components(help).stream().anyMatch(c -> c instanceof JTextArea a && a.getText().contains("局域网")) && components(about).stream().anyMatch(c -> c instanceof JTextArea a && a.getText().contains(LanguageRegistry.VERSION)))) throw new AssertionError("Open information bodies/version did not refresh");
             if (!edt(() -> search.getText().equals("pho") && components(w).stream().anyMatch(c -> c instanceof JList<?> list && "聊天".equals(list.getAccessibleContext().getAccessibleName()) && list.getSelectedValue() instanceof DesktopStore.Peer peer && peer.id().equals(id)))) throw new AssertionError("Language change lost search or selected history");
-            if (previousScroll == 0 || Math.abs(edt(() -> chatScroll.getVerticalScrollBar().getValue()) - previousScroll) > 32) throw new AssertionError("Language change lost the conversation scroll position");
+            if (previousScroll == 0 || Math.abs(edt(() -> chatScroll.getVerticalScrollBar().getValue()) - previousScroll) > 32) throw new AssertionError("Language change lost the conversation scroll position: "+previousScroll+" -> "+edt(() -> chatScroll.getVerticalScrollBar().getValue()));
             for (String tag : new String[]{"zh-Hant", "ja", "ko"}) {
                 Strings translated = new Strings(tag);
                 edt(() -> { language(languages, tag); return null; });
