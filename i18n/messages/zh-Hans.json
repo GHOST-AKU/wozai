@@ -338,5 +338,13 @@
   "attachmentStateFailed": "传输失败",
   "attachmentStateInterrupted": "传输中断",
   "attachmentStateUnknown": "结果未知，对方可能已保存",
-  "attachmentPhotoPreview": "照片预览：{0}"
+  "attachmentPhotoPreview": "照片预览：{0}",
+  "attachments": "附件",
+  "emoji": "表情",
+  "attachmentSummary": "{0} · {1}",
+  "photoLoading": "正在加载照片…",
+  "photoUnavailable": "照片无法显示",
+  "photoZoomHint": "双指缩放 · 双击放大",
+  "photoZoomIn": "放大照片",
+  "photoZoomOut": "缩小照片"
 }

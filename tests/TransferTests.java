@@ -12,7 +12,7 @@ public final class TransferTests {
         final CountDownLatch hello=new CountDownLatch(1),ready=new CountDownLatch(1);
         final Path root;
         FramedSession wire;AttachmentTransfer transfers;
-        volatile boolean persistedBeforeReceipt, dropReceipt,corruptChunk,failSave;
+        volatile boolean persistedBeforeReceipt, dropReceipt,corruptChunk,failSave,automaticReception;
         volatile AttachmentRecord latest;
         final CountDownLatch closed=new CountDownLatch(1);
         End(Path root){this.root=root;}
@@ -21,13 +21,13 @@ public final class TransferTests {
         public void onText(Frame frame){texts.add(frame);wire.acknowledge(frame.id);}
         public void onAck(String id){}
         public void onClosed(UiText reason){closed.countDown();if(transfers!=null)transfers.close();}
-        public void onAttachment(Frame frame){transfers.receive(frame);}
+        public void onAttachment(Frame frame){transfers.receive(frame,automaticReception);}
         void init(Socket socket,String id)throws Exception {
             wire=new FramedSession(SessionTests.connection(socket),id,"peer",DeviceIdentity.generate(),this);
             transfers=new AttachmentTransfer(root,new AttachmentTransfer.Wire(){
                 public boolean send(Frame frame){if(frame.type==Frame.FILE_RECEIPT){CoreTests.check(persistedBeforeReceipt,"Receipt precedes persistence");if(dropReceipt)return false;}if(corruptChunk&&frame.type==Frame.FILE_CHUNK){byte[] data=frame.data.clone();data[0]^=1;frame=new Frame(frame.type,frame.id,frame.body,frame.timestamp,frame.offset,data);}return wire.sendAttachment(frame);}
                 public void abort(){wire.close(UiText.of("test"));}
-            },r->{if(r.state.equals("received")){if(failSave)throw new IOException("Injected metadata save failure");CoreTests.check(Files.exists(AttachmentTransfer.file(root,r.info)),"Completed file missing");persistedBeforeReceipt=true;}latest=r;changes.add(r);},32768,AttachmentInfo.MAX_SIZE);
+            },r->{if(r.state.equals("received")){if(failSave)throw new IOException("Injected metadata save failure");CoreTests.check(Files.exists(AttachmentTransfer.file(root,r.info)),"Completed file missing");persistedBeforeReceipt=true;}latest=r;changes.add(r);},32768,AttachmentInfo.MAX_SIZE,true);
         }
         AttachmentRecord waitFor(String state)throws Exception {
             long end=System.nanoTime()+TimeUnit.SECONDS.toNanos(15);
@@ -45,6 +45,24 @@ public final class TransferTests {
         public void close()throws Exception{a.transfers.shutdown().get(3,TimeUnit.SECONDS);b.transfers.shutdown().get(3,TimeUnit.SECONDS);a.wire.close(UiText.EMPTY);b.wire.close(UiText.EMPTY);try(var files=Files.walk(base)){for(Path file:files.sorted(Comparator.reverseOrder()).toList())Files.deleteIfExists(file);}}
     }
     static void run(){
+        CoreTests.test("Authorized automatic reception saves without per-file confirmation",()->{
+            try(Pair p=new Pair()){
+                p.b.automaticReception=true;byte[] data=new byte[98765];new Random(24).nextBytes(data);
+                p.a.transfers.offer(()->new ByteArrayInputStream(data),"automatic.bin","application/octet-stream").get(3,TimeUnit.SECONDS);
+                AttachmentRecord received=p.b.waitFor("received");p.a.waitFor("delivered");
+                CoreTests.check(Arrays.equals(data,Files.readAllBytes(AttachmentTransfer.file(p.b.root,received.info))),"Automatically received bytes changed");
+            }
+        });
+        CoreTests.test("Sent photos retain a private copy for chat preview and clear with history",()->{
+            try(Pair p=new Pair()){
+                p.b.automaticReception=true;byte[] data={1,2,3,4};
+                p.a.transfers.offer(()->new ByteArrayInputStream(data),"photo.jpg","image/jpeg").get(3,TimeUnit.SECONDS);
+                p.b.waitFor("received");AttachmentRecord sent=p.a.waitFor("delivered");Path photo=AttachmentTransfer.file(p.a.root,sent.info,true);
+                CoreTests.check(Arrays.equals(data,Files.readAllBytes(photo)),"Sent photo copy missing or changed");
+                AttachmentTransfer.clean(p.a.root,Set.of(sent.info.id));CoreTests.check(Files.exists(photo),"Recovery deleted a delivered photo");
+                AttachmentTransfer.clean(p.a.root,Set.of());CoreTests.check(!Files.exists(photo),"Clear left a sent photo");
+            }
+        });
         CoreTests.test("Real signed TCP file waits for consent and saves before receipt",()->{
             try(Pair p=new Pair()){
                 byte[] data=new byte[32768*7+9];new Random(42).nextBytes(data);

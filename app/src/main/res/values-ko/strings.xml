@@ -49,8 +49,10 @@
     <string name="attachment_state_transferring" formatted="false">"전송 중"</string>
     <string name="attachment_state_unknown" formatted="false">"결과를 알 수 없음; 상대가 저장했을 수 있습니다"</string>
     <string name="attachment_state_verifying" formatted="false">"검증 및 저장 중"</string>
+    <string name="attachment_summary" formatted="false">"{0} · {1}"</string>
     <string name="attachment_unavailable" formatted="false">"파일을 사용할 수 없습니다. 삭제되었을 수 있습니다."</string>
     <string name="attachment_upgrade_required" formatted="false">"전송 프로토콜이 호환되지 않습니다. 양쪽 앱을 업데이트하세요."</string>
+    <string name="attachments" formatted="false">"첨부 파일"</string>
     <string name="back" formatted="false">"뒤로"</string>
     <string name="back_to_chats" formatted="false">"채팅 목록으로 돌아가기"</string>
     <string name="bluetooth" formatted="false">"블루투스"</string>
@@ -154,6 +156,7 @@
     <string name="discovery_failed" formatted="false">"자동 검색을 사용할 수 없습니다. IP 주소로 연결하세요."</string>
     <string name="draft_retained_hint" formatted="false">"연결하면 메시지를 보낼 수 있습니다. 초안은 여기에 남습니다."</string>
     <string name="earlier" formatted="false">"이전"</string>
+    <string name="emoji" formatted="false">"이모지"</string>
     <string name="empty_chat" formatted="false">"왼쪽에서 채팅을 선택하거나 ‘근처’에서 기기에 연결하세요."</string>
     <string name="endpoint" formatted="false">"상대 기기의 IP 주소와 포트"</string>
     <string name="endpoint_hint" formatted="false">"예: 192.168.1.20:54321. 상대 기기에 표시된 주소를 확인하세요."</string>
@@ -254,6 +257,11 @@
     <string name="peer_unresponsive" formatted="false">"상대 기기가 응답하지 않습니다. 다시 연결하세요."</string>
     <string name="pending" formatted="false">"확인 대기"</string>
     <string name="permissions_summary" formatted="false">"근처 기기 및 알림 권한 확인"</string>
+    <string name="photo_loading" formatted="false">"사진 로딩 중…"</string>
+    <string name="photo_unavailable" formatted="false">"사진을 표시할 수 없습니다"</string>
+    <string name="photo_zoom_hint" formatted="false">"두 손가락으로 확대/축소 · 두 번 탭하여 확대"</string>
+    <string name="photo_zoom_in" formatted="false">"사진 확대"</string>
+    <string name="photo_zoom_out" formatted="false">"사진 축소"</string>
     <string name="please_wait_connecting" formatted="false">"연결 중입니다. 잠시 기다려 주세요."</string>
     <string name="portable_hint" formatted="false">"포터블 버전은 앱 옆의 data 폴더에 데이터를 저장합니다. 이전 데이터는 복사하여 이전하고 원본도 유지합니다. 기기 식별 정보는 현재 Windows 사용자로 보호되므로 다른 사용자나 컴퓨터에서는 자동으로 잠금 해제할 수 없습니다."</string>
     <string name="privacy" formatted="false">"계정이나 원격 서버가 필요하지 않습니다. 기록은 이 컴퓨터에 저장됩니다. LAN 메시지는 평문이며, 기기 식별 서명은 내용을 암호화하지 않습니다."</string>

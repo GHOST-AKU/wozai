@@ -363,15 +363,23 @@ public final class LocalizationInstrumentation extends Instrumentation {
     }
     private void testFileTransfers(ChatController controller,String peer)throws Exception {
         check(onMain(()->((android.widget.Button)field(activity,"fileButton")).isEnabled()&&((android.widget.Button)field(activity,"photoButton")).isEnabled()),"Native file and photo selectors are enabled for the ready peer");
-        Bitmap photo=Bitmap.createBitmap(400,200,Bitmap.Config.ARGB_8888);int[] pixels=new int[80000];java.util.Random random=new java.util.Random(73);for(int i=0;i<pixels.length;i++)pixels[i]=0xff000000|random.nextInt(0x1000000);photo.setPixels(pixels,0,400,0,0,400,200);
+        check(onMain(()->((android.view.View)field(activity,"attachmentTray")).getVisibility()==android.view.View.GONE),"Composer attachment choices start collapsed");
+        onMain(()->{((android.view.View)field(activity,"attachmentToggle")).performClick();return null;});
+        check(onMain(()->((android.view.View)field(activity,"photoButton")).isShown()&&((android.view.View)field(activity,"fileButton")).isShown()),"Paperclip reveals file and photo choices");
+        onMain(()->{invoke(activity,"handleBack",new Class<?>[0]);return null;});
+        check(onMain(()->(boolean)field(activity,"detail")&&((android.view.View)field(activity,"attachmentTray")).getVisibility()==android.view.View.GONE),"Back closes attachment choices before leaving chat");
+        check(onMain(()->{android.widget.Button button=field(activity,"sendButton");return button.getText().length()==0&&button.getWidth()==button.getHeight()&&button.getCompoundDrawables()[0]!=null;}),"Composer uses a circular Material send icon");
+        Bitmap photo=Bitmap.createBitmap(400,200,Bitmap.Config.ARGB_8888);int[] pixels=new int[80000];java.util.Random random=new java.util.Random(73);for(int i=0;i<pixels.length;i++){int y=i/400;pixels[i]=0xff000000|((40+y/2+random.nextInt(8))<<16)|((90+y/2+random.nextInt(8))<<8)|(180-y/3+random.nextInt(8));}photo.setPixels(pixels,0,400,0,0,400,200);
         java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream();photo.compress(Bitmap.CompressFormat.PNG,100,bytes);photo.recycle();byte[] data=bytes.toByteArray();
         String id=remoteTransfers.offer(()->new java.io.ByteArrayInputStream(data),"native-photo.png","image/png").get(10,TimeUnit.SECONDS);
-        await(()->onMain(()->controller.messages.stream().anyMatch(m->m.id.equals(id)&&m.attachment!=null&&m.attachment.state.equals("offered"))),"Android shows explicit attachment consent");
-        onMain(()->{controller.attachmentAction(peer,id,false,"accept");return null;});remoteFileState("delivered");
+        remoteFileState("delivered");
         await(()->onMain(()->controller.messages.stream().anyMatch(m->m.id.equals(id)&&m.attachment!=null&&m.attachment.state.equals("received"))),"Android persists received photo");
+        check(onMain(()->controller.connected&&controller.error.isEmpty()),"Approved Android chat receives photos without another confirmation");
         AttachmentRecord received=onMain(()->controller.messages.stream().filter(m->m.id.equals(id)).findFirst().get().attachment);
         java.nio.file.Path file=controller.attachmentPath(peer,received.info).get(10,TimeUnit.SECONDS);
         check(java.util.Arrays.equals(data,java.nio.file.Files.readAllBytes(file)),"Android preserves original photo bytes across signed chunks");
+        await(()->onMain(()->{android.view.ViewGroup bubbles=field(activity,"bubbles");android.widget.ImageView image=bubbles.findViewWithTag("photo:"+id);return image!=null&&image.getDrawable() instanceof android.graphics.drawable.BitmapDrawable;}),"Received photo renders inside its chat bubble");
+        screenshot("zh-Hans-photo-chat");testPhotoViewer(id);
         android.net.Uri uri=new android.net.Uri.Builder().scheme("content").authority(getTargetContext().getPackageName()+".attachments").appendPath(peer).appendPath(file.getFileName().toString()).appendQueryParameter("name",received.info.name).appendQueryParameter("mime",received.info.mime).build();
         onMain(()->{
             setField(activity,"pendingAttachmentPeer",peer);setField(activity,"pendingAttachmentToken",controller.attachmentSessionToken());setField(activity,"controller",null);
@@ -382,7 +390,24 @@ public final class LocalizationInstrumentation extends Instrumentation {
         onMain(()->{setField(activity,"controller",controller);invoke(activity,"resumeAttachmentSelection",new Class<?>[0]);return null;});AttachmentRecord offer=remoteFileState("offered");remoteTransfers.accept(offer.info.id).get(10,TimeUnit.SECONDS);remoteFileState("received");
         await(()->onMain(()->controller.messages.stream().anyMatch(m->m.id.equals(offer.info.id)&&m.outgoing&&m.attachment!=null&&m.attachment.state.equals("delivered"))),"Android sends content URI and records the save receipt");
         check(offer.info.hash.equals(received.info.hash),"Content URI source retains the original digest");
+        java.nio.file.Path sent=controller.attachmentPath(peer,new AttachmentRecord(offer.info,true,"delivered",offer.info.size)).get(10,TimeUnit.SECONDS);
+        check(java.util.Arrays.equals(data,java.nio.file.Files.readAllBytes(sent)),"Android keeps sent photo bytes for chat preview");
+        await(()->onMain(()->{android.view.ViewGroup bubbles=field(activity,"bubbles");android.widget.ImageView image=bubbles.findViewWithTag("photo:"+offer.info.id);return image!=null&&image.getDrawable() instanceof android.graphics.drawable.BitmapDrawable;}),"Sent photo also renders in the chat timeline");
+        screenshot("zh-Hans-photo-both-directions");
         long token=onMain(()->controller.attachmentSessionToken());onMain(()->{controller.sendAttachment(peer,token-1,uri);return null;});check(onMain(()->controller.error.key.equals("notConnected")),"Stale picker result cannot cross session generations");
+    }
+    private void testPhotoViewer(String id)throws Exception {
+        ActivityMonitor monitor=addMonitor("dev.ghost.nearbyim.PhotoActivity",null,false);Activity viewer=null;
+        try{
+            onMain(()->{android.view.ViewGroup bubbles=field(activity,"bubbles");bubbles.findViewWithTag("photo:"+id).performClick();return null;});
+            viewer=waitForMonitorWithTimeout(monitor,10000);check(viewer!=null,"Tapping a photo opens the internal viewer");Activity current=viewer;
+            await(()->onMain(()->{android.widget.ImageView image=field(current,"image");return image.getWidth()>0&&image.getDrawable() instanceof android.graphics.drawable.BitmapDrawable;}),"Internal viewer decodes its photo without another app");
+            onMain(()->{Object image=field(current,"image");invoke(image,"zoom",new Class<?>[]{float.class},2f);return null;});
+            check(onMain(()->(float)field(field(current,"image"),"factor")>1.9f),"Native viewer zoom controls enlarge the image");
+            screenshot("zh-Hans-internal-photo-viewer");
+            check(onMain(()->liveController.connected),"Photo viewer preserves the established chat session");
+        }finally{if(viewer!=null){Activity closing=viewer;onMain(()->{closing.finish();return null;});}removeMonitor(monitor);}
+        await(()->onMain(()->field(activity,"controller")!=null),"Chat rebinds after the native viewer closes");
     }
     private static StreamConnection connection(Socket socket) {
         return new StreamConnection() {

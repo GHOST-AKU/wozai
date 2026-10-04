@@ -338,5 +338,13 @@
   "attachmentStateFailed": "Transfer failed",
   "attachmentStateInterrupted": "Transfer interrupted",
   "attachmentStateUnknown": "Result unknown; the peer may have saved it",
-  "attachmentPhotoPreview": "Photo preview: {0}"
+  "attachmentPhotoPreview": "Photo preview: {0}",
+  "attachments": "Attachments",
+  "emoji": "Emoji",
+  "attachmentSummary": "{0} · {1}",
+  "photoLoading": "Loading photo…",
+  "photoUnavailable": "Unable to display photo",
+  "photoZoomHint": "Pinch to zoom · Double-tap to enlarge",
+  "photoZoomIn": "Zoom in",
+  "photoZoomOut": "Zoom out"
 }

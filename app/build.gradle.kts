@@ -1,5 +1,7 @@
 plugins { id("com.android.application") }
 
+dependencies { implementation("androidx.exifinterface:exifinterface:1.4.1") }
+
 val i18nConfiguration = groovy.json.JsonSlurper().parse(rootProject.file("i18n/config.json")) as Map<*, *>
 
 android {

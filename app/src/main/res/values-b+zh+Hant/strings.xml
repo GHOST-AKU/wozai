@@ -49,8 +49,10 @@
     <string name="attachment_state_transferring" formatted="false">"傳輸中"</string>
     <string name="attachment_state_unknown" formatted="false">"結果未知，對方可能已儲存"</string>
     <string name="attachment_state_verifying" formatted="false">"驗證及儲存中"</string>
+    <string name="attachment_summary" formatted="false">"{0} · {1}"</string>
     <string name="attachment_unavailable" formatted="false">"檔案無法使用，可能已被刪除。"</string>
     <string name="attachment_upgrade_required" formatted="false">"檔案傳輸協定不相容，請更新雙方應用程式。"</string>
+    <string name="attachments" formatted="false">"附件"</string>
     <string name="back" formatted="false">"返回"</string>
     <string name="back_to_chats" formatted="false">"返回聊天列表"</string>
     <string name="bluetooth" formatted="false">"藍牙"</string>
@@ -154,6 +156,7 @@
     <string name="discovery_failed" formatted="false">"自動發現不可用，可透過 IP 位址連線。"</string>
     <string name="draft_retained_hint" formatted="false">"連線後即可傳送，草稿會留在這裡。"</string>
     <string name="earlier" formatted="false">"較早"</string>
+    <string name="emoji" formatted="false">"表情"</string>
     <string name="empty_chat" formatted="false">"從左側選擇聊天，或在「附近」連線至一部裝置。"</string>
     <string name="endpoint" formatted="false">"對方的 IP 位址與連接埠"</string>
     <string name="endpoint_hint" formatted="false">"例如 192.168.1.20:54321。請在對方的「我的連線」中查看。"</string>
@@ -254,6 +257,11 @@
     <string name="peer_unresponsive" formatted="false">"對方失去回應，請重新連線。"</string>
     <string name="pending" formatted="false">"待確認"</string>
     <string name="permissions_summary" formatted="false">"檢視附近裝置與通知權限"</string>
+    <string name="photo_loading" formatted="false">"正在載入照片…"</string>
+    <string name="photo_unavailable" formatted="false">"照片無法顯示"</string>
+    <string name="photo_zoom_hint" formatted="false">"雙指縮放 · 點兩下放大"</string>
+    <string name="photo_zoom_in" formatted="false">"放大照片"</string>
+    <string name="photo_zoom_out" formatted="false">"縮小照片"</string>
     <string name="please_wait_connecting" formatted="false">"正在連線，請稍候"</string>
     <string name="portable_hint" formatted="false">"可攜式版本預設將資料儲存在軟體旁的 data 資料夾。舊版資料會複製遷移並保留原件。裝置身分仍由目前 Windows 使用者保護，複製到另一使用者或電腦不會自動解鎖身分。"</string>
     <string name="privacy" formatted="false">"無需帳號或遠端伺服器。聊天記錄儲存在本機。區域網路文字仍是明文；身分簽章不提供內容加密。"</string>

@@ -20,3 +20,6 @@
 -keep class dev.ghost.nearbyim.transport.Peer { public *; }
 
 -keep class dev.ghost.nearbyim.core.Attachment* { public *; }
+-keep class dev.ghost.nearbyim.PhotoDecoder { public *; }
+-keep class dev.ghost.nearbyim.PhotoActivity { *; }
+-keep class dev.ghost.nearbyim.PhotoActivity$* { *; }

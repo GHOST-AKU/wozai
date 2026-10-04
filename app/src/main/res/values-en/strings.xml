@@ -49,8 +49,10 @@
     <string name="attachment_state_transferring" formatted="false">"Transferring"</string>
     <string name="attachment_state_unknown" formatted="false">"Result unknown; the peer may have saved it"</string>
     <string name="attachment_state_verifying" formatted="false">"Verifying and saving"</string>
+    <string name="attachment_summary" formatted="false">"{0} · {1}"</string>
     <string name="attachment_unavailable" formatted="false">"File unavailable. It may have been deleted."</string>
     <string name="attachment_upgrade_required" formatted="false">"Incompatible transfer protocol. Update the app on both devices."</string>
+    <string name="attachments" formatted="false">"Attachments"</string>
     <string name="back" formatted="false">"Back"</string>
     <string name="back_to_chats" formatted="false">"Back to chats"</string>
     <string name="bluetooth" formatted="false">"Bluetooth"</string>
@@ -154,6 +156,7 @@
     <string name="discovery_failed" formatted="false">"Automatic discovery is unavailable. Use an IP address to connect."</string>
     <string name="draft_retained_hint" formatted="false">"Connect to send a message. Your draft will stay here."</string>
     <string name="earlier" formatted="false">"Earlier"</string>
+    <string name="emoji" formatted="false">"Emoji"</string>
     <string name="empty_chat" formatted="false">"Select a chat on the left, or connect to a device in Nearby."</string>
     <string name="endpoint" formatted="false">"Peer IP address and port"</string>
     <string name="endpoint_hint" formatted="false">"For example 192.168.1.20:54321. Read this from the other device."</string>
@@ -254,6 +257,11 @@
     <string name="peer_unresponsive" formatted="false">"The other device stopped responding. Connect again."</string>
     <string name="pending" formatted="false">"Pending"</string>
     <string name="permissions_summary" formatted="false">"View nearby device and notification permissions"</string>
+    <string name="photo_loading" formatted="false">"Loading photo…"</string>
+    <string name="photo_unavailable" formatted="false">"Unable to display photo"</string>
+    <string name="photo_zoom_hint" formatted="false">"Pinch to zoom · Double-tap to enlarge"</string>
+    <string name="photo_zoom_in" formatted="false">"Zoom in"</string>
+    <string name="photo_zoom_out" formatted="false">"Zoom out"</string>
     <string name="please_wait_connecting" formatted="false">"Connecting. Please wait."</string>
     <string name="portable_hint" formatted="false">"Portable builds keep data in the data folder beside the app. Legacy data is copied and retained. Identity is protected by the current Windows user; another user or computer cannot automatically unlock it."</string>
     <string name="privacy" formatted="false">"No account or remote server. History stays on this computer. LAN text is still plaintext; identity signatures do not encrypt content."</string>

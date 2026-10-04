@@ -256,7 +256,7 @@ public final class ChatController implements TransportListener {
                     try{storage.submit(()->store.attachment(hello.id,hello.body,record)).get(10,TimeUnit.SECONDS);}
                     catch(Exception e){throw new IOException("Attachment metadata save failed",e);}
                     main.post(()->{if(!destroyed)refresh();});
-                },wire.attachmentChunkSize(),wire.attachmentSizeLimit());}
+                },wire.attachmentChunkSize(),wire.attachmentSizeLimit(),true);}
                 catch(IOException e){closeActive(UiText.of("attachmentFailed"));return;}
                 if (!incoming) {
                     if (!Objects.equals(selectedId, hello.id)) messages = new ArrayList<>();
@@ -268,7 +268,7 @@ public final class ChatController implements TransportListener {
                     store.touch(hello.id, hello.body);
                 }, ChatController.this::refresh);
             }); }
-            public void onAttachment(Frame frame){main.post(()->{if(active==reference[0]&&transfers!=null)transfers.receive(frame);});}
+            public void onAttachment(Frame frame){main.post(()->{if(active==reference[0]&&transfers!=null)transfers.receive(frame,true);});}
             public void onText(Frame frame) { main.post(() -> {
                 if (active != reference[0] || remoteHello == null || !reference[0].isReady()) return;
                 String id = remoteHello.id, name = remoteHello.body;
@@ -333,6 +333,15 @@ public final class ChatController implements TransportListener {
     public CompletableFuture<Path> attachmentPath(String peer,AttachmentInfo info){return CompletableFuture.supplyAsync(()->{
         try{Path path=store.attachmentFile(peer,info);if(!Files.isRegularFile(path,LinkOption.NOFOLLOW_LINKS))throw new IOException("Attachment unavailable");return path;}
         catch(IOException e){throw new CompletionException(e);}
+    },fileSelection);}
+    public CompletableFuture<Path> attachmentPath(String peer,AttachmentRecord record){return CompletableFuture.supplyAsync(()->{
+        try{Path path=store.attachmentFile(peer,record.info,record.outgoing);if(!Files.isRegularFile(path,LinkOption.NOFOLLOW_LINKS))throw new IOException("Attachment unavailable");return path;}
+        catch(IOException e){throw new CompletionException(e);}
+    },fileSelection);}
+    public CompletableFuture<Void> exportAttachment(String peer,AttachmentRecord record,Uri uri){return attachmentPath(peer,record).thenAcceptAsync(path->{
+        try(InputStream input=Files.newInputStream(path);OutputStream output=resolver.openOutputStream(uri,"wt")){
+            if(output==null)throw new IOException("Export unavailable");byte[] bytes=new byte[32768];int n;while((n=input.read(bytes))!=-1)output.write(bytes,0,n);
+        }catch(IOException e){throw new CompletionException(e);}
     },fileSelection);}
     public CompletableFuture<Void> exportAttachment(String peer,AttachmentInfo info,Uri uri){return attachmentPath(peer,info).thenAcceptAsync(path->{
         try(InputStream input=Files.newInputStream(path);OutputStream output=resolver.openOutputStream(uri,"wt")){

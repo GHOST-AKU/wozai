@@ -338,5 +338,13 @@
   "attachmentStateFailed": "転送失敗",
   "attachmentStateInterrupted": "転送中断",
   "attachmentStateUnknown": "結果不明（相手が保存済みの可能性あり）",
-  "attachmentPhotoPreview": "写真プレビュー：{0}"
+  "attachmentPhotoPreview": "写真プレビュー：{0}",
+  "attachments": "添付",
+  "emoji": "絵文字",
+  "attachmentSummary": "{0} · {1}",
+  "photoLoading": "写真を読み込み中…",
+  "photoUnavailable": "写真を表示できません",
+  "photoZoomHint": "ピンチで拡大・縮小 · ダブルタップで拡大",
+  "photoZoomIn": "写真を拡大",
+  "photoZoomOut": "写真を縮小"
 }

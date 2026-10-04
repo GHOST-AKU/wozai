@@ -338,5 +338,13 @@
   "attachmentStateFailed": "傳輸失敗",
   "attachmentStateInterrupted": "傳輸中斷",
   "attachmentStateUnknown": "結果未知，對方可能已儲存",
-  "attachmentPhotoPreview": "照片預覽：{0}"
+  "attachmentPhotoPreview": "照片預覽：{0}",
+  "attachments": "附件",
+  "emoji": "表情",
+  "attachmentSummary": "{0} · {1}",
+  "photoLoading": "正在載入照片…",
+  "photoUnavailable": "照片無法顯示",
+  "photoZoomHint": "雙指縮放 · 點兩下放大",
+  "photoZoomIn": "放大照片",
+  "photoZoomOut": "縮小照片"
 }

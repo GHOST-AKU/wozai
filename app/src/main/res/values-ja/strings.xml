@@ -49,8 +49,10 @@
     <string name="attachment_state_transferring" formatted="false">"転送中"</string>
     <string name="attachment_state_unknown" formatted="false">"結果不明（相手が保存済みの可能性あり）"</string>
     <string name="attachment_state_verifying" formatted="false">"検証・保存中"</string>
+    <string name="attachment_summary" formatted="false">"{0} · {1}"</string>
     <string name="attachment_unavailable" formatted="false">"ファイルを利用できません。削除された可能性があります。"</string>
     <string name="attachment_upgrade_required" formatted="false">"転送プロトコルが非対応です。両方のアプリを更新してください。"</string>
+    <string name="attachments" formatted="false">"添付"</string>
     <string name="back" formatted="false">"戻る"</string>
     <string name="back_to_chats" formatted="false">"チャット一覧に戻る"</string>
     <string name="bluetooth" formatted="false">"Bluetooth"</string>
@@ -154,6 +156,7 @@
     <string name="discovery_failed" formatted="false">"自動検出を利用できません。IP アドレスで接続してください。"</string>
     <string name="draft_retained_hint" formatted="false">"接続すると送信できます。下書きはここに保持されます。"</string>
     <string name="earlier" formatted="false">"以前"</string>
+    <string name="emoji" formatted="false">"絵文字"</string>
     <string name="empty_chat" formatted="false">"左側からチャットを選ぶか、「近く」でデバイスに接続してください。"</string>
     <string name="endpoint" formatted="false">"相手の IP アドレスとポート"</string>
     <string name="endpoint_hint" formatted="false">"例：192.168.1.20:54321。相手のデバイスに表示されているアドレスを確認してください。"</string>
@@ -254,6 +257,11 @@
     <string name="peer_unresponsive" formatted="false">"相手から応答がありません。再接続してください。"</string>
     <string name="pending" formatted="false">"確認待ち"</string>
     <string name="permissions_summary" formatted="false">"付近のデバイスと通知の権限を確認"</string>
+    <string name="photo_loading" formatted="false">"写真を読み込み中…"</string>
+    <string name="photo_unavailable" formatted="false">"写真を表示できません"</string>
+    <string name="photo_zoom_hint" formatted="false">"ピンチで拡大・縮小 · ダブルタップで拡大"</string>
+    <string name="photo_zoom_in" formatted="false">"写真を拡大"</string>
+    <string name="photo_zoom_out" formatted="false">"写真を縮小"</string>
     <string name="please_wait_connecting" formatted="false">"接続中です。お待ちください。"</string>
     <string name="portable_hint" formatted="false">"ポータブル版はアプリと同じ場所の data フォルダーに保存します。旧データはコピーして移行し、元のファイルも保持します。識別情報は現在の Windows ユーザーで保護され、別のユーザーやパソコンでは自動的に解除できません。"</string>
     <string name="privacy" formatted="false">"アカウントやリモートサーバーは不要です。履歴はこのパソコンに保存されます。LAN のメッセージは平文です。識別情報の署名は内容を暗号化しません。"</string>

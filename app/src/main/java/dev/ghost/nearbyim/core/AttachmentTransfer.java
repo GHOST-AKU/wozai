@@ -17,6 +17,7 @@ public final class AttachmentTransfer implements AutoCloseable {
     private final Listener listener;
     private final int chunkSize;
     private final long sizeLimit;
+    private final boolean retainSentPhotos;
     private final ThreadPoolExecutor worker=new ThreadPoolExecutor(1,1,0,TimeUnit.SECONDS,new ArrayBlockingQueue<>(16),r->daemon(r,"attachment-state"),new ThreadPoolExecutor.AbortPolicy());
     private final ThreadPoolExecutor preparer=new ThreadPoolExecutor(1,1,0,TimeUnit.SECONDS,new ArrayBlockingQueue<>(1),r->daemon(r,"attachment-source"),new ThreadPoolExecutor.AbortPolicy());
     private final ScheduledExecutorService timer=Executors.newSingleThreadScheduledExecutor(r->daemon(r,"attachment-timeout"));
@@ -42,7 +43,11 @@ public final class AttachmentTransfer implements AutoCloseable {
         Task(AttachmentInfo info,boolean outgoing,Path temporary){this.info=info;this.outgoing=outgoing;this.temporary=temporary;}
     }
     public AttachmentTransfer(Path root,Wire wire,Listener listener,int chunkSize,long sizeLimit)throws IOException {
+        this(root,wire,listener,chunkSize,sizeLimit,false);
+    }
+    public AttachmentTransfer(Path root,Wire wire,Listener listener,int chunkSize,long sizeLimit,boolean retainSentPhotos)throws IOException {
         this.root=root;this.wire=wire;this.listener=listener;
+        this.retainSentPhotos=retainSentPhotos;
         if(chunkSize<1||chunkSize>AttachmentInfo.CHUNK_SIZE||sizeLimit<0||sizeLimit>AttachmentInfo.MAX_SIZE)throw new IOException("Invalid transfer limits");
         this.chunkSize=chunkSize;this.sizeLimit=sizeLimit;privateDirectory(root);
         timer.scheduleWithFixedDelay(()->execute(()->timeouts()),1,1,TimeUnit.SECONDS);
@@ -88,7 +93,10 @@ public final class AttachmentTransfer implements AutoCloseable {
         }catch(Exception e){posted=execute(()->{if(outgoing==task)finish(task,"failed",false);else Files.deleteIfExists(task.temporary);});}
         finally{if(!posted||task.canceled.get())delete(task.temporary);}
     }
-    public void receive(Frame frame){if(!execute(()->handle(frame)))wire.abort();}
+    public void receive(Frame frame){receive(frame,false);}
+    public void receive(Frame frame,boolean automaticallyAccept){
+        if(!execute(()->{handle(frame);if(automaticallyAccept&&frame.type==Frame.FILE_OFFER)accept(frame.id);}))wire.abort();
+    }
     public CompletableFuture<Void> accept(String id){return command(()->{
         Task task=incoming;if(task==null||!task.info.id.equals(id)||!task.state.equals("offered"))return;
         try{
@@ -173,7 +181,11 @@ public final class AttachmentTransfer implements AutoCloseable {
         for(Task task:tasks)if(task!=null&&TimeUnit.NANOSECONDS.toSeconds(now-task.activity)>= (task.state.equals("offered")?120:60))finish(task,"failed",!task.state.equals("preparing"));
     }
     private void finish(Task task,String state,boolean notifyPeer)throws IOException {
-        task.canceled.set(true);close(task.preparing.getAndSet(null));close(task.input);close(task.output);task.input=null;task.output=null;delete(task.temporary);
+        task.canceled.set(true);close(task.preparing.getAndSet(null));close(task.input);close(task.output);task.input=null;task.output=null;
+        if(retainSentPhotos&&task.outgoing&&state.equals("delivered")&&task.info.mime.startsWith("image/")){
+            Files.move(task.temporary,file(root,task.info,true),StandardCopyOption.ATOMIC_MOVE);
+        }
+        delete(task.temporary);
         if(notifyPeer)send(control(Frame.FILE_CANCEL,task.info.id,state.equals("canceled")?"canceled":"failed"));
         task.state=state;notice(task,true);remember(task.info.id,4);if(task==outgoing)outgoing=null;if(task==incoming)incoming=null;
     }
@@ -193,14 +205,18 @@ public final class AttachmentTransfer implements AutoCloseable {
         worker.shutdown();
     }
     public static Path file(Path root,AttachmentInfo info)throws IOException {
+        return file(root,info,false);
+    }
+    public static Path file(Path root,AttachmentInfo info,boolean outgoing)throws IOException {
         String id=info.id;String suffix="bin";int dot=info.name.lastIndexOf('.');if(dot>=0){String extension=info.name.substring(dot+1);if(extension.matches("[A-Za-z0-9]{1,16}"))suffix=extension.toLowerCase(Locale.ROOT);}
         if(id==null||!id.matches("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}"))throw new IOException("Invalid attachment path");
-        Path path=root.resolve("in-"+id+"."+suffix);if(Files.isSymbolicLink(path)||Files.exists(path,LinkOption.NOFOLLOW_LINKS)&&!Files.isRegularFile(path,LinkOption.NOFOLLOW_LINKS))throw new IOException("Unsafe attachment file");return path;
+        Path path=root.resolve((outgoing?"out-":"in-")+id+"."+suffix);if(Files.isSymbolicLink(path)||Files.exists(path,LinkOption.NOFOLLOW_LINKS)&&!Files.isRegularFile(path,LinkOption.NOFOLLOW_LINKS))throw new IOException("Unsafe attachment file");return path;
     }
     public static void clean(Path root,Set<String> received)throws IOException {
         privateDirectory(root);try(java.util.stream.Stream<Path> entries=Files.list(root)){
             for(Path path:(Iterable<Path>)entries::iterator){String name=path.getFileName().toString();if(!Files.isRegularFile(path,LinkOption.NOFOLLOW_LINKS)||Files.isSymbolicLink(path))throw new IOException("Unsafe attachment entry");
-                if(name.matches("(in|out)-[0-9a-f-]{36}\\.part")||name.matches("in-[0-9a-f-]{36}\\.[a-z0-9]{1,16}")&&!received.contains(name.substring(3,39)))Files.delete(path);
+                int prefix=name.startsWith("out-")?4:3;
+                if(name.matches("(in|out)-[0-9a-f-]{36}\\.part")||name.matches("(in|out)-[0-9a-f-]{36}\\.[a-z0-9]{1,16}")&&!received.contains(name.substring(prefix,prefix+36)))Files.delete(path);
             }
         }
     }

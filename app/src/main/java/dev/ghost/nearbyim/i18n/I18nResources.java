@@ -57,8 +57,10 @@ public final class I18nResources {
             case "attachmentStateTransferring": return R.string.attachment_state_transferring;
             case "attachmentStateUnknown": return R.string.attachment_state_unknown;
             case "attachmentStateVerifying": return R.string.attachment_state_verifying;
+            case "attachmentSummary": return R.string.attachment_summary;
             case "attachmentUnavailable": return R.string.attachment_unavailable;
             case "attachmentUpgradeRequired": return R.string.attachment_upgrade_required;
+            case "attachments": return R.string.attachments;
             case "back": return R.string.back;
             case "backToChats": return R.string.back_to_chats;
             case "bluetooth": return R.string.bluetooth;
@@ -162,6 +164,7 @@ public final class I18nResources {
             case "discoveryFailed": return R.string.discovery_failed;
             case "draftRetainedHint": return R.string.draft_retained_hint;
             case "earlier": return R.string.earlier;
+            case "emoji": return R.string.emoji;
             case "emptyChat": return R.string.empty_chat;
             case "endpoint": return R.string.endpoint;
             case "endpointHint": return R.string.endpoint_hint;
@@ -262,6 +265,11 @@ public final class I18nResources {
             case "peerUnresponsive": return R.string.peer_unresponsive;
             case "pending": return R.string.pending;
             case "permissionsSummary": return R.string.permissions_summary;
+            case "photoLoading": return R.string.photo_loading;
+            case "photoUnavailable": return R.string.photo_unavailable;
+            case "photoZoomHint": return R.string.photo_zoom_hint;
+            case "photoZoomIn": return R.string.photo_zoom_in;
+            case "photoZoomOut": return R.string.photo_zoom_out;
             case "pleaseWaitConnecting": return R.string.please_wait_connecting;
             case "portableHint": return R.string.portable_hint;
             case "privacy": return R.string.privacy;

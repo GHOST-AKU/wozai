@@ -93,7 +93,7 @@ public final class ChatStore extends SQLiteOpenHelper {
                 String peer=cursor.getString(0);AttachmentRecord record=decodeAttachment(cursor.getString(3));AttachmentRecord recovered;
                 try{recovered=record.recovered();}catch(IOException e){throw new IllegalStateException(e);}
                 if(!recovered.equals(record)){ContentValues values=new ContentValues();values.put("attachment",encodeAttachment(recovered));db.update("messages",values,"peer_id=? AND id=? AND outgoing=?",new String[]{peer,record.info.id,record.outgoing?"1":"0"});}
-                if(!recovered.outgoing&&recovered.state.equals("received"))complete.computeIfAbsent(peer,k->new HashSet<>()).add(record.info.id);
+                if(!recovered.outgoing&&recovered.state.equals("received")||recovered.outgoing&&recovered.state.equals("delivered")&&recovered.info.mime.startsWith("image/"))complete.computeIfAbsent(peer,k->new HashSet<>()).add(record.info.id);
             }
         }
         try{if(Files.exists(attachments))try(java.util.stream.Stream<Path> dirs=Files.list(attachments)){for(Path dir:(Iterable<Path>)dirs::iterator){String peer=dir.getFileName().toString();AttachmentTransfer.clean(attachmentDirectory(peer),complete.getOrDefault(peer,Collections.emptySet()));}}}
@@ -106,6 +106,7 @@ public final class ChatStore extends SQLiteOpenHelper {
         Files.createDirectories(attachments);Path directory=attachments.resolve(peer);if(Files.isSymbolicLink(directory))throw new IOException("Unsafe attachment directory");return directory;
     }
     public Path attachmentFile(String peer,AttachmentInfo info)throws IOException{return AttachmentTransfer.file(attachmentDirectory(peer),info);}
+    public Path attachmentFile(String peer,AttachmentInfo info,boolean outgoing)throws IOException{return AttachmentTransfer.file(attachmentDirectory(peer),info,outgoing);}
     public void attachment(String peer,String name,AttachmentRecord record){
         SQLiteDatabase db=getWritableDatabase();db.beginTransaction();try{
             touch(peer,name);ContentValues values=new ContentValues();values.put("attachment",encodeAttachment(record));values.put("state",record.outgoing?(record.state.equals("delivered")?DELIVERED:record.active()?PENDING:UNKNOWN):"");
