@@ -7,12 +7,12 @@ import java.util.*;
 
 /** Authentication and integrity only: frame bodies remain visible on the transport. */
 final class AuthenticatedChannel {
-    static final int MAGIC = 0x4e494d32, VERSION = 2, OFFER = 1, PROOF = 2, RECORD = 3;
+    static final int MAGIC = 0x4e494d33, VERSION = 3, OFFER = 1, PROOF = 2, RECORD = 3;
     static final int NONCE_BYTES = 32, MAX_KEY_BYTES = 256, MAX_SIGNATURE_BYTES = 80;
-    static final int MAX_OFFER_BYTES = 512, MAX_PROOF_BYTES = 96, MAX_RECORD_BYTES = 9344;
-    private static final int MAX_HELLO_BYTES = 190, MAX_INNER_FRAME_BYTES = 9220;
-    private static final byte[] SESSION_DOMAIN = domain("wozai-session-v2"),
-            PROOF_DOMAIN = domain("wozai-proof-v2"), RECORD_DOMAIN = domain("wozai-record-v2");
+    static final int MAX_OFFER_BYTES = 512, MAX_PROOF_BYTES = 96, MAX_RECORD_BYTES = AttachmentInfo.CHUNK_SIZE + 2176;
+    private static final int MAX_HELLO_BYTES = 190, MAX_INNER_FRAME_BYTES = AttachmentInfo.CHUNK_SIZE + 2052;
+    private static final byte[] SESSION_DOMAIN = domain("wozai-session-v3"),
+            PROOF_DOMAIN = domain("wozai-proof-v3"), RECORD_DOMAIN = domain("wozai-record-v3");
     private final DeviceIdentity identity;
     private final Frame localHello;
     private final byte[] localOffer;
@@ -23,6 +23,8 @@ final class AuthenticatedChannel {
     private volatile boolean verified;
     private boolean proofWritten;
     private long outgoingSequence, incomingSequence;
+    private int remoteCapabilities, chunkSize;
+    private long fileSize;
 
     AuthenticatedChannel(DeviceIdentity identity, Frame hello) throws IOException {
         this.identity = Objects.requireNonNull(identity); localHello = Objects.requireNonNull(hello);
@@ -32,6 +34,7 @@ final class AuthenticatedChannel {
         writeBytes(payload, encode(hello));
         writeBytes(payload, Base64.getDecoder().decode(identity.publicKey()));
         byte[] nonce = new byte[NONCE_BYTES]; new SecureRandom().nextBytes(nonce); payload.write(nonce);
+        payload.writeInt(3); payload.writeInt(AttachmentInfo.CHUNK_SIZE); payload.writeLong(AttachmentInfo.MAX_SIZE);
         localOffer = bytes.toByteArray();
     }
 
@@ -44,7 +47,10 @@ final class AuthenticatedChannel {
         Frame hello = decode(readBytes(payload, MAX_HELLO_BYTES));
         if (hello.type != Frame.HELLO || hello.id.equalsIgnoreCase(localHello.id)) throw new IOException("Invalid greeting");
         byte[] keyBytes = readBytes(payload, MAX_KEY_BYTES);
-        byte[] nonce = new byte[NONCE_BYTES]; payload.readFully(nonce); end(payload);
+        byte[] nonce = new byte[NONCE_BYTES]; payload.readFully(nonce);
+        remoteCapabilities=payload.readInt();int peerChunk=payload.readInt();long peerSize=payload.readLong();end(payload);
+        if((remoteCapabilities&1)==0||peerChunk<1||peerChunk>AttachmentInfo.CHUNK_SIZE||peerSize<0||peerSize>AttachmentInfo.MAX_SIZE)throw new IOException("Invalid peer capabilities");
+        chunkSize=peerChunk;fileSize=peerSize;
         try {
             remoteKey = DeviceIdentity.decodePublicKey(keyBytes);
             outgoingBinding = binding(localOffer, offer); incomingBinding = binding(offer, localOffer);
@@ -67,6 +73,9 @@ final class AuthenticatedChannel {
         verify(proof(incomingBinding), signature); verified = true;
     }
 
+    boolean attachments() { return verified && (remoteCapabilities&2)!=0; }
+    int chunkSize() { return chunkSize; }
+    long fileSize() { return fileSize; }
     Frame remoteHello() { return verified ? remoteHello : null; }
     String remotePublicKey() { return verified ? encodedRemoteKey : null; }
 
@@ -132,7 +141,7 @@ final class AuthenticatedChannel {
         int max = kind == OFFER ? MAX_OFFER_BYTES : kind == PROOF ? MAX_PROOF_BYTES : MAX_RECORD_BYTES;
         if (size < 6 || size > max) throw new IOException("Invalid authenticated envelope length");
         if (in.readInt() != MAGIC || in.readUnsignedByte() != VERSION || in.readUnsignedByte() != kind)
-            throw new IOException("Unsupported authenticated protocol");
+            throw new UnsupportedProtocolException();
         byte[] bytes = new byte[size];
         bytes[0] = (byte) (MAGIC >>> 24); bytes[1] = (byte) (MAGIC >>> 16); bytes[2] = (byte) (MAGIC >>> 8); bytes[3] = (byte) MAGIC;
         bytes[4] = (byte) VERSION; bytes[5] = (byte) kind; in.readFully(bytes, 6, size - 6); return bytes;

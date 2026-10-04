@@ -3,7 +3,9 @@ package dev.ghost.nearbyim;
 import android.content.*;
 import android.database.Cursor;
 import android.database.sqlite.*;
-import dev.ghost.nearbyim.core.Frame;
+import dev.ghost.nearbyim.core.*;
+import java.nio.file.*;
+import java.io.IOException;
 import dev.ghost.nearbyim.storage.StoreSchema;
 import java.util.*;
 
@@ -29,14 +31,19 @@ public final class ChatStore extends SQLiteOpenHelper {
         }
     }
     public static final class Message {
+        public final AttachmentRecord attachment;
         public final String id, text, state;
         public final boolean outgoing;
         public final long time;
         Message(String id, String text, String state, boolean outgoing, long time) {
-            this.id = id; this.text = text; this.state = state; this.outgoing = outgoing; this.time = time;
+            this(id,text,state,outgoing,time,null);
+        }
+        Message(String id,String text,String state,boolean outgoing,long time,AttachmentRecord attachment){
+            this.id=id;this.text=text;this.state=state;this.outgoing=outgoing;this.time=time;this.attachment=attachment;
         }
     }
-    public ChatStore(Context context) { super(context, "nearby-im.db", null, StoreSchema.VERSION); }
+    private final Path attachments;
+    public ChatStore(Context context) { super(context, "nearby-im.db", null, StoreSchema.VERSION); attachments=context.getFilesDir().toPath().resolve("attachments"); }
     public void onCreate(SQLiteDatabase db) {
         db.execSQL(StoreSchema.CREATE_CONVERSATIONS);
         db.execSQL(StoreSchema.CREATE_MESSAGES);
@@ -62,9 +69,9 @@ public final class ChatStore extends SQLiteOpenHelper {
             // Constraint duplicates are benign; all other database failures propagate, preventing an ACK.
             try { db.insertOrThrow("messages", null, values); }
             catch (SQLiteConstraintException duplicate) {
-                try (Cursor existing = db.query("messages", new String[]{"body"}, "peer_id=? AND id=? AND outgoing=?",
+                try (Cursor existing = db.query("messages", new String[]{"body","attachment"}, "peer_id=? AND id=? AND outgoing=?",
                         new String[]{peerId, frame.id, outgoing ? "1" : "0"}, null, null, null)) {
-                    if (!existing.moveToFirst() || !existing.getString(0).equals(frame.body)) throw duplicate;
+                    if (!existing.moveToFirst() || !existing.getString(0).equals(frame.body)||!existing.isNull(1)) throw duplicate;
                 }
             }
             db.setTransactionSuccessful();
@@ -79,13 +86,45 @@ public final class ChatStore extends SQLiteOpenHelper {
         getWritableDatabase().update("messages", values, "peer_id=? AND outgoing=1 AND state=?", new String[]{peerId, PENDING});
     }
     public void recoverPending() {
-        getWritableDatabase().execSQL(StoreSchema.RECOVER_PENDING);
+        SQLiteDatabase db=getWritableDatabase();db.execSQL(StoreSchema.RECOVER_PENDING);
+        Map<String,Set<String>> complete=new HashMap<>();
+        try(Cursor cursor=db.query("messages",new String[]{"peer_id","id","outgoing","attachment"},"attachment IS NOT NULL",null,null,null,null)){
+            while(cursor.moveToNext()){
+                String peer=cursor.getString(0);AttachmentRecord record=decodeAttachment(cursor.getString(3));AttachmentRecord recovered;
+                try{recovered=record.recovered();}catch(IOException e){throw new IllegalStateException(e);}
+                if(!recovered.equals(record)){ContentValues values=new ContentValues();values.put("attachment",encodeAttachment(recovered));db.update("messages",values,"peer_id=? AND id=? AND outgoing=?",new String[]{peer,record.info.id,record.outgoing?"1":"0"});}
+                if(!recovered.outgoing&&recovered.state.equals("received"))complete.computeIfAbsent(peer,k->new HashSet<>()).add(record.info.id);
+            }
+        }
+        try{if(Files.exists(attachments))try(java.util.stream.Stream<Path> dirs=Files.list(attachments)){for(Path dir:(Iterable<Path>)dirs::iterator){String peer=dir.getFileName().toString();AttachmentTransfer.clean(attachmentDirectory(peer),complete.getOrDefault(peer,Collections.emptySet()));}}}
+        catch(IOException e){throw new IllegalStateException(e);}
+    }
+    private static AttachmentRecord decodeAttachment(String value){try{return value==null?null:AttachmentRecord.decode(value);}catch(IOException e){throw new IllegalStateException(e);}}
+    private static String encodeAttachment(AttachmentRecord value){try{return value.encode();}catch(IOException e){throw new IllegalStateException(e);}}
+    public Path attachmentDirectory(String peer)throws IOException {
+        if(!peer.matches("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}")||Files.isSymbolicLink(attachments))throw new IOException("Unsafe attachment path");
+        Files.createDirectories(attachments);Path directory=attachments.resolve(peer);if(Files.isSymbolicLink(directory))throw new IOException("Unsafe attachment directory");return directory;
+    }
+    public Path attachmentFile(String peer,AttachmentInfo info)throws IOException{return AttachmentTransfer.file(attachmentDirectory(peer),info);}
+    public void attachment(String peer,String name,AttachmentRecord record){
+        SQLiteDatabase db=getWritableDatabase();db.beginTransaction();try{
+            touch(peer,name);ContentValues values=new ContentValues();values.put("attachment",encodeAttachment(record));values.put("state",record.outgoing?(record.state.equals("delivered")?DELIVERED:record.active()?PENDING:UNKNOWN):"");
+            try(Cursor cursor=db.query("messages",new String[]{"attachment"},"peer_id=? AND id=? AND outgoing=?",new String[]{peer,record.info.id,record.outgoing?"1":"0"},null,null,null)){
+                if(cursor.moveToFirst()){
+                    AttachmentRecord previous=decodeAttachment(cursor.getString(0));if(previous==null||!previous.active()&&!previous.equals(record))throw new SQLiteException("Conflicting attachment ID");
+                    db.update("messages",values,"peer_id=? AND id=? AND outgoing=?",new String[]{peer,record.info.id,record.outgoing?"1":"0"});
+                }else{
+                    values.put("peer_id",peer);values.put("id",record.info.id);values.put("body",record.info.name);values.put("outgoing",record.outgoing?1:0);values.put("time",System.currentTimeMillis());values.put("received",System.currentTimeMillis());db.insertOrThrow("messages",null,values);
+                }
+            }
+            db.setTransactionSuccessful();
+        }finally{db.endTransaction();}
     }
     public List<Message> messages(String peerId) {
         List<Message> list = new ArrayList<>();
-        try (Cursor cursor = getReadableDatabase().query("messages", new String[]{"id", "body", "state", "outgoing", "time"},
+        try (Cursor cursor = getReadableDatabase().query("messages", new String[]{"id", "body", "state", "outgoing", "time", "attachment"},
                 "peer_id=?", new String[]{peerId}, null, null, "received DESC, rowid DESC", "200")) {
-            while (cursor.moveToNext()) list.add(new Message(cursor.getString(0), cursor.getString(1), cursor.getString(2), cursor.getInt(3) == 1, cursor.getLong(4)));
+            while (cursor.moveToNext()) list.add(new Message(cursor.getString(0), cursor.getString(1), cursor.getString(2), cursor.getInt(3) == 1, cursor.getLong(4),decodeAttachment(cursor.isNull(5)?null:cursor.getString(5))));
         }
         Collections.reverse(list); return list;
     }
@@ -98,6 +137,7 @@ public final class ChatStore extends SQLiteOpenHelper {
         return list;
     }
     public void clear(String peerId) {
+        try{Path directory=attachmentDirectory(peerId);if(Files.exists(directory))AttachmentTransfer.clean(directory,Collections.emptySet());}catch(IOException e){throw new IllegalStateException(e);}
         getWritableDatabase().execSQL(StoreSchema.CLEAR_MESSAGES, new Object[]{peerId});
     }
     public TrustedDevice trusted(String peerId) {

@@ -8,6 +8,7 @@ import dev.ghost.nearbyim.i18n.UiText;
 
 public final class FramedSession {
     public interface Listener {
+        default void onAttachment(Frame frame) { throw new IllegalStateException("Attachments unavailable"); }
         void onHello(Frame hello); void onReady(); void onText(Frame frame); void onAck(String id); void onClosed(UiText reason);
     }
     private final StreamConnection connection;
@@ -69,10 +70,13 @@ public final class FramedSession {
                         enqueue(() -> channel.write(output, new Frame(Frame.PONG, "", "", System.currentTimeMillis()))); break;
                     case Frame.PONG:
                         if (!isReady()) throw new IOException("Heartbeat before approval"); break;
-                    default: throw new IOException("Unexpected frame");
+                    default:
+                        if(frame.type>=Frame.FILE_OFFER && frame.type<=Frame.FILE_CANCEL && isReady() && channel.attachments())listener.onAttachment(frame);
+                        else throw new IOException("Unexpected frame");
                 }
             }
-        } catch (IOException | RuntimeException error) { close(UiText.of("disconnected")); }
+        } catch (UnsupportedProtocolException error) { close(UiText.of("attachmentUpgradeRequired")); }
+        catch (IOException | RuntimeException error) { close(UiText.of("disconnected")); }
     }
     public void approve() {
         if (!greeted || approved || closed.get()) return;
@@ -94,6 +98,13 @@ public final class FramedSession {
             }, 5, 5, TimeUnit.SECONDS);
             listener.onReady();
         }
+    }
+    public boolean attachmentsSupported() { return isReady() && channel.attachments(); }
+    public int attachmentChunkSize() { return channel.chunkSize(); }
+    public long attachmentSizeLimit() { return channel.fileSize(); }
+    public boolean sendAttachment(Frame frame) {
+        if(!attachmentsSupported() || frame.type<Frame.FILE_OFFER || frame.type>Frame.FILE_CANCEL)return false;
+        return enqueue(() -> channel.write(output,frame));
     }
     public boolean send(Frame frame) {
         if (!isReady() || frame.type != Frame.TEXT) return false;

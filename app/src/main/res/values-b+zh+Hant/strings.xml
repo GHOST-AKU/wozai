@@ -27,6 +27,30 @@
     <string name="app_section" formatted="false">"應用程式"</string>
     <string name="app_settings" formatted="false">"應用程式設定"</string>
     <string name="appearance_section" formatted="false">"外觀"</string>
+    <string name="attachment_accept" formatted="false">"接收"</string>
+    <string name="attachment_details" formatted="false">"{0} · {1,number} / {2,number} 位元組 · {3}"</string>
+    <string name="attachment_failed" formatted="false">"檔案操作失敗，請檢查檔案授權及可用空間。"</string>
+    <string name="attachment_hint" formatted="false">"單檔最大 1 GiB；內容未加密。"</string>
+    <string name="attachment_open" formatted="false">"開啟"</string>
+    <string name="attachment_overwrite" formatted="false">"檔案已存在，是否取代？"</string>
+    <string name="attachment_photo_preview" formatted="false">"照片預覽：{0}"</string>
+    <string name="attachment_progress" formatted="false">"傳輸進度：{0,number}%；{1}"</string>
+    <string name="attachment_reject" formatted="false">"拒絕"</string>
+    <string name="attachment_save_as" formatted="false">"另存新檔"</string>
+    <string name="attachment_state_awaiting_receipt" formatted="false">"等待儲存回執"</string>
+    <string name="attachment_state_canceled" formatted="false">"已取消"</string>
+    <string name="attachment_state_delivered" formatted="false">"已送達"</string>
+    <string name="attachment_state_failed" formatted="false">"傳輸失敗"</string>
+    <string name="attachment_state_interrupted" formatted="false">"傳輸中斷"</string>
+    <string name="attachment_state_offered" formatted="false">"等待接收"</string>
+    <string name="attachment_state_preparing" formatted="false">"準備中"</string>
+    <string name="attachment_state_received" formatted="false">"已接收"</string>
+    <string name="attachment_state_rejected" formatted="false">"已拒絕"</string>
+    <string name="attachment_state_transferring" formatted="false">"傳輸中"</string>
+    <string name="attachment_state_unknown" formatted="false">"結果未知，對方可能已儲存"</string>
+    <string name="attachment_state_verifying" formatted="false">"驗證及儲存中"</string>
+    <string name="attachment_unavailable" formatted="false">"檔案無法使用，可能已被刪除。"</string>
+    <string name="attachment_upgrade_required" formatted="false">"檔案傳輸協定不相容，請更新雙方應用程式。"</string>
     <string name="back" formatted="false">"返回"</string>
     <string name="back_to_chats" formatted="false">"返回聊天列表"</string>
     <string name="bluetooth" formatted="false">"藍牙"</string>
@@ -267,8 +291,10 @@
     <string name="searching_nearby" formatted="false">"正在搜尋附近裝置…"</string>
     <string name="select_chat" formatted="false">"選擇聊天"</string>
     <string name="send" formatted="false">"傳送"</string>
+    <string name="send_file" formatted="false">"檔案"</string>
     <string name="send_hint" formatted="false">"Enter 傳送 · Shift+Enter 換行 · 最多 8192 UTF-8 位元組"</string>
     <string name="send_interrupted" formatted="false">"訊息傳送中斷，請重新連線。"</string>
+    <string name="send_photo" formatted="false">"照片"</string>
     <string name="service_connecting" formatted="false">"正在連線服務…"</string>
     <string name="settings" formatted="false">"設定"</string>
     <string name="start_mode_reception_first" formatted="false">"請先開啟相應連線方式的接收"</string>

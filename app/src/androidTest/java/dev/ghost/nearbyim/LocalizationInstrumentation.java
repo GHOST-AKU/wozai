@@ -15,6 +15,9 @@ import android.service.notification.StatusBarNotification;
 import android.widget.EditText;
 import android.widget.ScrollView;
 import dev.ghost.nearbyim.core.DeviceIdentity;
+import dev.ghost.nearbyim.core.AttachmentInfo;
+import dev.ghost.nearbyim.core.AttachmentRecord;
+import dev.ghost.nearbyim.core.AttachmentTransfer;
 import dev.ghost.nearbyim.core.Frame;
 import dev.ghost.nearbyim.core.FramedSession;
 import dev.ghost.nearbyim.core.StreamConnection;
@@ -49,6 +52,8 @@ public final class LocalizationInstrumentation extends Instrumentation {
     private String originalLanguage;
     private MainActivity activity;
     private FramedSession remote;
+    private AttachmentTransfer remoteTransfers;
+    private final BlockingQueue<AttachmentRecord> remoteFileStates=new LinkedBlockingQueue<>();
     private ChatController liveController;
     private final AtomicReference<MainActivity> latestActivity = new AtomicReference<>();
     private int checks;
@@ -69,12 +74,14 @@ public final class LocalizationInstrumentation extends Instrumentation {
             originalLanguage = onMain(() -> AppLanguage.selection(application));
             onMain(() -> { application.registerActivityLifecycleCallbacks(lifecycle); AppLanguage.select(application, "en"); return null; });
             testNativeFormatting();
+            checks+=AndroidAttachmentChecks.run(getTargetContext());
             testRecreationWithLiveSession();
             results.putString("stream", "NearbyIM Android localization: " + checks + " checks passed\n");
         } catch (Throwable failure) {
             code = Activity.RESULT_CANCELED; StringWriter trace = new StringWriter(); failure.printStackTrace(new PrintWriter(trace));
             results.putString("stream", trace.toString());
         } finally {
+            if(remoteTransfers!=null)remoteTransfers.close();
             if (remote != null) remote.close(UiText.of("connectionEnded"));
             try {
                 onMain(() -> {
@@ -167,11 +174,16 @@ public final class LocalizationInstrumentation extends Instrumentation {
             Socket localSocket = socketServer.accept();
             remote = new FramedSession(connection(remoteSocket), peerId, name, DeviceIdentity.generate(), new FramedSession.Listener() {
                 public void onHello(Frame frame) { reference.get().approve(); }
+                public void onAttachment(Frame frame){remoteTransfers.receive(frame);}
                 public void onReady() { ready.countDown(); }
                 public void onText(Frame frame) { reference.get().acknowledge(frame.id); }
                 public void onAck(String id) { receipts.add(id); }
                 public void onClosed(UiText reason) {}
             });
+            remoteTransfers=new AttachmentTransfer(new File(getTargetContext().getCacheDir(),"native-remote-attachments-"+peerId).toPath(),new AttachmentTransfer.Wire(){
+                public boolean send(Frame frame){return reference.get().sendAttachment(frame);}
+                public void abort(){reference.get().close(UiText.of("attachmentFailed"));}
+            },record->remoteFileStates.add(record),AttachmentInfo.CHUNK_SIZE,AttachmentInfo.MAX_SIZE);
             reference.set(remote); remote.start();
             onMain(() -> { controller.onConnection(Peer.LAN, connection(localSocket), true); return null; });
         }
@@ -201,6 +213,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
         onMain(() -> { setField(activity, "pendingAction", null); setField(activity, "pendingStage", 0); controller.approve(approval, true); return null; });
         check(ready.await(10, TimeUnit.SECONDS), "Live peer receives consent after locale recreation");
         await(() -> onMain(() -> controller.connected), "Controller remains connected");
+        testFileTransfers(controller,peerId);
         for (int i = 0; i < 35; i++) {
             String id = UUID.randomUUID().toString();
             check(remote.send(new Frame(Frame.TEXT, id, "Message " + i + "\nSaved before locale recreation", System.currentTimeMillis())), "Peer sends timeline text " + i);
@@ -341,6 +354,34 @@ public final class LocalizationInstrumentation extends Instrumentation {
         Constructor<?> constructor = action.getDeclaredConstructor(int.class, int.class, Peer.class, String.class, String.class, boolean.class);
         constructor.setAccessible(true);
         return constructor.newInstance(6, Peer.LAN, new Peer(Peer.LAN, "test", name, "192.168.1.2:1234", null, 1234, null, id), null, id, true);
+    }
+    private AttachmentRecord remoteFileState(String state)throws Exception{
+        long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(30);
+        while(System.nanoTime()<deadline){AttachmentRecord record=remoteFileStates.poll(100,TimeUnit.MILLISECONDS);if(record!=null&&record.state.equals(state))return record;}
+        throw new AssertionError("No remote file state "+state);
+    }
+    private void testFileTransfers(ChatController controller,String peer)throws Exception {
+        check(onMain(()->((android.widget.Button)field(activity,"fileButton")).isEnabled()&&((android.widget.Button)field(activity,"photoButton")).isEnabled()),"Native file and photo selectors are enabled for the ready peer");
+        Bitmap photo=Bitmap.createBitmap(400,200,Bitmap.Config.ARGB_8888);int[] pixels=new int[80000];java.util.Random random=new java.util.Random(73);for(int i=0;i<pixels.length;i++)pixels[i]=0xff000000|random.nextInt(0x1000000);photo.setPixels(pixels,0,400,0,0,400,200);
+        java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream();photo.compress(Bitmap.CompressFormat.PNG,100,bytes);photo.recycle();byte[] data=bytes.toByteArray();
+        String id=remoteTransfers.offer(()->new java.io.ByteArrayInputStream(data),"native-photo.png","image/png").get(10,TimeUnit.SECONDS);
+        await(()->onMain(()->controller.messages.stream().anyMatch(m->m.id.equals(id)&&m.attachment!=null&&m.attachment.state.equals("offered"))),"Android shows explicit attachment consent");
+        onMain(()->{controller.attachmentAction(peer,id,false,"accept");return null;});remoteFileState("delivered");
+        await(()->onMain(()->controller.messages.stream().anyMatch(m->m.id.equals(id)&&m.attachment!=null&&m.attachment.state.equals("received"))),"Android persists received photo");
+        AttachmentRecord received=onMain(()->controller.messages.stream().filter(m->m.id.equals(id)).findFirst().get().attachment);
+        java.nio.file.Path file=controller.attachmentPath(peer,received.info).get(10,TimeUnit.SECONDS);
+        check(java.util.Arrays.equals(data,java.nio.file.Files.readAllBytes(file)),"Android preserves original photo bytes across signed chunks");
+        android.net.Uri uri=new android.net.Uri.Builder().scheme("content").authority(getTargetContext().getPackageName()+".attachments").appendPath(peer).appendPath(file.getFileName().toString()).appendQueryParameter("name",received.info.name).appendQueryParameter("mime",received.info.mime).build();
+        onMain(()->{
+            setField(activity,"pendingAttachmentPeer",peer);setField(activity,"pendingAttachmentToken",controller.attachmentSessionToken());setField(activity,"controller",null);
+            activity.onActivityResult(20,Activity.RESULT_OK,new Intent().setData(uri));
+            return null;
+        });
+        check(onMain(()->peer.equals(field(activity,"pendingAttachmentPeer"))),"Picker result waits for asynchronous service rebinding");
+        onMain(()->{setField(activity,"controller",controller);invoke(activity,"resumeAttachmentSelection",new Class<?>[0]);return null;});AttachmentRecord offer=remoteFileState("offered");remoteTransfers.accept(offer.info.id).get(10,TimeUnit.SECONDS);remoteFileState("received");
+        await(()->onMain(()->controller.messages.stream().anyMatch(m->m.id.equals(offer.info.id)&&m.outgoing&&m.attachment!=null&&m.attachment.state.equals("delivered"))),"Android sends content URI and records the save receipt");
+        check(offer.info.hash.equals(received.info.hash),"Content URI source retains the original digest");
+        long token=onMain(()->controller.attachmentSessionToken());onMain(()->{controller.sendAttachment(peer,token-1,uri);return null;});check(onMain(()->controller.error.key.equals("notConnected")),"Stale picker result cannot cross session generations");
     }
     private static StreamConnection connection(Socket socket) {
         return new StreamConnection() {

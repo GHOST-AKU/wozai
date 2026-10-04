@@ -1,6 +1,7 @@
 package dev.ghost.wozai;
 
 import javax.swing.*;
+import dev.ghost.nearbyim.core.AttachmentRecord;
 import java.awt.*;
 import java.time.*;
 import java.util.Date;
@@ -9,6 +10,10 @@ import java.util.*;
 
 /** Selectable, accessible message bubbles that reflow with the viewport and text size. */
 final class MessagePane extends JPanel implements Scrollable {
+    interface AttachmentActions {void action(DesktopStore.Message message,String action);}
+    private AttachmentActions actions=(message,action)->{};
+    void actions(AttachmentActions value){actions=value;}
+    void thumbnail(String id,java.awt.image.BufferedImage image){MessageRow row=rows.get(new Key(id,false));if(row!=null&&row.message.attachment()!=null&&row.message.attachment().state.equals("received")&&previewIds.contains(id)){row.bubble.thumbnail.setIcon(new ImageIcon(image));row.bubble.preferred=null;revalidate();repaint();}}
     private String text = "";
     private float scale = 1;
     private record Key(String id, boolean outgoing) { }
@@ -17,8 +22,8 @@ final class MessagePane extends JPanel implements Scrollable {
         DesktopStore.Message message;
         final Bubble bubble;
         final List<Component> components;
-        MessageRow(DesktopStore.Message value, String receipt) {
-            message = value; bubble = new Bubble(value.body(), receipt, value.outgoing());
+        MessageRow(DesktopStore.Message value, String receipt,Strings strings) {
+            message = value; bubble = new Bubble(value.body(), receipt, value.outgoing());bubble.attachment(value,strings);
             JPanel row = new JPanel(null) {
                 public Dimension getPreferredSize() { return new Dimension(Math.max(200,MessagePane.this.getWidth()-40),bubble.getPreferredSize().height); }
                 public Dimension getMaximumSize() { return new Dimension(Integer.MAX_VALUE,bubble.getPreferredSize().height); }
@@ -27,11 +32,12 @@ final class MessagePane extends JPanel implements Scrollable {
             row.setOpaque(false); row.setAlignmentX(.5f); row.add(bubble); row.applyComponentOrientation(getComponentOrientation());
             components = List.of(row, Box.createVerticalStrut(10));
         }
-        void update(DesktopStore.Message value, String receipt) {
+        void update(DesktopStore.Message value, String receipt,Strings strings) {
             if (!message.body().equals(value.body())) { bubble.bodyText = value.body(); bubble.preferred = null; bubble.body.setText(value.body()); bubble.body.getAccessibleContext().setAccessibleName(value.body()); }
-            bubble.receipt.setText(receipt); message = value;
+            bubble.receipt.setText(receipt); message = value;bubble.attachment(value,strings);
         }
     }
+    private final Set<String> previewIds=new HashSet<>();
     private final Map<Key, MessageRow> rows = new HashMap<>();
     private final Map<LocalDate, DateRow> dates = new HashMap<>();
     private Locale renderedLocale;
@@ -47,6 +53,7 @@ final class MessagePane extends JPanel implements Scrollable {
             removeAll(); rows.clear(); dates.clear(); renderedLocale = strings.locale(); renderedZone = zone; renderedDark = AppTheme.dark; renderedScale = scale;
         }
         applyComponentOrientation(strings.rtl() ? ComponentOrientation.RIGHT_TO_LEFT : ComponentOrientation.LEFT_TO_RIGHT); setBackground(AppTheme.background);
+        previewIds.clear();for(int i=messages.size()-1;i>=0&&previewIds.size()<12;i--){AttachmentRecord r=messages.get(i).attachment();if(r!=null&&!r.outgoing&&r.state.equals("received")&&r.info.mime.startsWith("image/"))previewIds.add(r.info.id);}
         StringBuilder content = new StringBuilder(); LocalDate previous = null;
         List<Component> desired = new ArrayList<>(); Set<Key> liveRows = new HashSet<>(); Set<LocalDate> liveDates = new HashSet<>();
         for (var message : messages) {
@@ -62,9 +69,10 @@ final class MessagePane extends JPanel implements Scrollable {
             Key key = new Key(message.id(), message.outgoing()); liveRows.add(key); MessageRow row = rows.get(key);
             if (row == null || !row.message.equals(message)) {
                 String receipt = message.outgoing() ? strings.text("messageReceipt", new Date(message.time()), strings.text(message.status())) : strings.text("messageTime", new Date(message.time()));
-                if (row == null) { row = new MessageRow(message, receipt); rows.put(key, row); }
-                else row.update(message, receipt);
+                if (row == null) { row = new MessageRow(message, receipt,strings); rows.put(key, row); }
+                else row.update(message, receipt,strings);
             }
+            if(!previewIds.contains(message.id())&&row.bubble.thumbnail.getIcon()!=null){row.bubble.thumbnail.setIcon(null);row.bubble.preferred=null;}
             String receipt = row.bubble.receipt.getText();
             content.append(message.body()).append('\n').append(receipt).append('\n');
             desired.addAll(row.components);
@@ -77,6 +85,7 @@ final class MessagePane extends JPanel implements Scrollable {
         text = content.toString(); revalidate(); repaint();
     }
     private final class Bubble extends JPanel {
+        private final JPanel footer=new JPanel(); private final JLabel thumbnail=new JLabel();
         private final JTextArea body; private final JLabel receipt; private final boolean outgoing;
         private String bodyText, measuredReceipt;
         private Font measuredBodyFont, measuredReceiptFont;
@@ -87,17 +96,33 @@ final class MessagePane extends JPanel implements Scrollable {
             body=new JTextArea(text); body.setMargin(new Insets(0,0,0,0)); body.setBorder(BorderFactory.createEmptyBorder()); body.setEditable(false); body.setOpaque(false); body.setLineWrap(true); body.setWrapStyleWord(true); body.setForeground(AppTheme.ink); body.setFont(body.getFont().deriveFont(15f*scale));
             body.getAccessibleContext().setAccessibleName(text);
             receipt=new JLabel(status, SwingConstants.TRAILING); receipt.setForeground(AppTheme.muted); receipt.setFont(receipt.getFont().deriveFont(12f*scale));
-            add(body,BorderLayout.CENTER); add(receipt,BorderLayout.SOUTH);
+            footer.setOpaque(false);footer.setLayout(new BoxLayout(footer,BoxLayout.Y_AXIS));footer.add(receipt);add(body,BorderLayout.CENTER);add(footer,BorderLayout.SOUTH);thumbnail.setHorizontalAlignment(SwingConstants.CENTER);
         }
+        void attachment(DesktopStore.Message message,Strings strings){
+            AttachmentRecord record=message.attachment();if(record==null)return;
+            String state=strings.text(record.stateKey());
+            bodyText=strings.text("attachmentDetails",record.info.name,record.transferred,record.info.size,state);body.setText(bodyText);body.getAccessibleContext().setAccessibleName(bodyText);preferred=null;
+            footer.removeAll();AttachmentActions handler=actions;
+            if(record.active()&&!record.state.equals("offered")&&!record.state.equals("preparing")){
+                JProgressBar progress=new JProgressBar(0,100);int percent=record.info.size==0?0:(int)(100*record.transferred/record.info.size);progress.setValue(percent);progress.setStringPainted(true);progress.getAccessibleContext().setAccessibleName(strings.text("attachmentProgress",percent,state));footer.add(progress);
+            }
+            JPanel buttons=new JPanel(new GridLayout(1,0,4,4));buttons.setOpaque(false);
+            if(!record.outgoing&&record.state.equals("offered")){attachmentButton(buttons,strings.text("attachmentAccept"),()->handler.action(message,"accept"));attachmentButton(buttons,strings.text("attachmentReject"),()->handler.action(message,"reject"));}
+            else if(record.active())attachmentButton(buttons,strings.text("cancel"),()->handler.action(message,"cancel"));
+            else if(!record.outgoing&&record.state.equals("received")){attachmentButton(buttons,strings.text("attachmentOpen"),()->handler.action(message,"open"));attachmentButton(buttons,strings.text("attachmentSaveAs"),()->handler.action(message,"save"));if(record.info.mime.startsWith("image/")&&previewIds.contains(record.info.id)){add(thumbnail,BorderLayout.NORTH);thumbnail.getAccessibleContext().setAccessibleName(strings.text("attachmentPhotoPreview",record.info.name));handler.action(message,"preview");}}
+            if(buttons.getComponentCount()>0)footer.add(buttons);footer.add(receipt);
+        }
+        void attachmentButton(JPanel panel,String text,Runnable action){JButton button=new JButton(text);button.setFont(button.getFont().deriveFont(13f*scale));button.getAccessibleContext().setAccessibleName(text);button.addActionListener(e->action.run());panel.add(button);}
         public Dimension getPreferredSize() {
             int available = Math.max(200, MessagePane.this.getWidth()==0 ? 600 : MessagePane.this.getWidth()-40);
             if (preferred != null && measuredAvailable == available && body.getFont().equals(measuredBodyFont)
                     && receipt.getFont().equals(measuredReceiptFont) && receipt.getText().equals(measuredReceipt)) return new Dimension(preferred);
             FontMetrics m=body.getFontMetrics(body.getFont()); int natural=0; for(String s:bodyText.split("\n",-1)) natural=Math.max(natural,m.stringWidth(s));
             int width=Math.min((int)(available*.78),Math.max(Math.max(natural,receipt.getPreferredSize().width)+32,90));
+            width=Math.max(width,Math.min((int)(available*.78),footer.getPreferredSize().width+32));
             body.setSize(Math.max(40,width-32),Integer.MAX_VALUE/100);
             measuredAvailable=available; measuredBodyFont=body.getFont(); measuredReceiptFont=receipt.getFont(); measuredReceipt=receipt.getText();
-            preferred = new Dimension(width,body.getPreferredSize().height+receipt.getPreferredSize().height+28); return new Dimension(preferred);
+            preferred = new Dimension(width,body.getPreferredSize().height+footer.getPreferredSize().height+thumbnail.getPreferredSize().height+28); return new Dimension(preferred);
         }
         public Dimension getMaximumSize() { return getPreferredSize(); }
         protected void paintComponent(Graphics g) { Graphics2D p=(Graphics2D)g.create(); p.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON); p.setColor(outgoing?AppTheme.tonal:AppTheme.surface); p.fillRoundRect(0,0,getWidth(),getHeight(),24,24); p.dispose(); super.paintComponent(g); }

@@ -25,6 +25,11 @@ import dev.ghost.nearbyim.transport.Peer;
 import dev.ghost.nearbyim.i18n.LanguageRegistry;
 import dev.ghost.nearbyim.i18n.UiText;
 import java.util.*;
+import dev.ghost.nearbyim.core.AttachmentInfo;
+import dev.ghost.nearbyim.core.AttachmentRecord;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import java.nio.file.Path;
 
 /** Native, local-data UI. Discovery, authorization and delivery remain controller state. */
 public final class MainActivity extends Activity {
@@ -40,7 +45,13 @@ public final class MainActivity extends Activity {
     private TextView pageTitle, networkName, networkState, errorView, receiveStatus, connectionInfo, modeHint, bluetoothState, requestStatus;
     private TextView chatName, chatStatus, chatAvatar, nickname, reconnectHint, languageValue;
     private Button lanTab, bluetoothTab, receiveButton, searchButton, discoverableButton, manualButton, sendButton, reconnectButton, newMessages;
-    private Button newChatButton, cancelConnectionButton;
+    private Button newChatButton, cancelConnectionButton,fileButton,photoButton;
+    private String pendingAttachmentPeer,pendingExportPeer,pendingExportRecord;
+    private long pendingAttachmentToken;
+    private final java.util.concurrent.ThreadPoolExecutor imageWorker=new java.util.concurrent.ThreadPoolExecutor(1,1,0,java.util.concurrent.TimeUnit.SECONDS,new java.util.concurrent.ArrayBlockingQueue<>(16),r->{Thread thread=new Thread(r,"attachment-thumbnail");thread.setDaemon(true);return thread;},new java.util.concurrent.ThreadPoolExecutor.AbortPolicy());
+    private final LinkedHashMap<String,Bitmap> thumbnails=new LinkedHashMap<>();
+    private final Set<String> loadingThumbnails=new HashSet<>(),thumbnailTargets=new HashSet<>();
+    private final LinkedHashSet<String> failedThumbnails=new LinkedHashSet<>();
     private ImageView networkIcon;
     private ProgressBar scanProgress;
     private EditText composer, conversationSearch;
@@ -96,6 +107,7 @@ public final class MainActivity extends Activity {
         super.onCreate(saved);
         if (saved == null) { SharedPreferences preferences = getSharedPreferences("ui", MODE_PRIVATE); mode = preferences.getInt("lastMode", Peer.LAN); rememberNext = preferences.getBoolean("rememberNext", true); }
         if (saved != null) {
+            pendingAttachmentPeer=saved.getString("pendingAttachmentPeer");pendingAttachmentToken=saved.getLong("pendingAttachmentToken");pendingExportPeer=saved.getString("pendingExportPeer");pendingExportRecord=saved.getString("pendingExportRecord");
             mode = saved.getInt("mode", Peer.LAN); page = saved.getInt("page", 0); detail = saved.getBoolean("detail");
             pendingAction = (UiAction) saved.getSerializable("pendingAction"); pendingStage = saved.getInt("pendingStage");
             restoredSelectedId = saved.getString("selectedId"); restoredSelectedName = saved.getString("selectedName");
@@ -135,7 +147,9 @@ public final class MainActivity extends Activity {
         if (approvalDialog != null) { approvalDialog.setOnCancelListener(null); approvalDialog.dismiss(); approvalDialog = null; shownApproval = null; }
         super.onStop();
     }
+    protected void onDestroy(){imageWorker.shutdownNow();thumbnails.clear();super.onDestroy();}
     protected void onSaveInstanceState(Bundle state) {
+        state.putString("pendingAttachmentPeer",pendingAttachmentPeer);state.putLong("pendingAttachmentToken",pendingAttachmentToken);state.putString("pendingExportPeer",pendingExportPeer);state.putString("pendingExportRecord",pendingExportRecord);
         saveDraftAndPosition();
         state.putInt("mode", mode); state.putInt("page", page); state.putBoolean("detail", detail); state.putString("draft", composer.getText().toString());
         state.putString("selectedId", controller == null ? restoredSelectedId : controller.selectedId);
@@ -335,6 +349,10 @@ public final class MainActivity extends Activity {
         messageScroll.setOnScrollChangeListener((v, x, y, oldX, oldY) -> { if (!rebuildingMessages && atBottom()) newMessages.setVisibility(View.GONE); });
         newMessages = button(t("newMessages"), false); newMessages.setVisibility(View.GONE); newMessages.setOnClickListener(v -> { messageScroll.smoothScrollTo(0, bubbles.getHeight()); newMessages.setVisibility(View.GONE); });
         chatPage.addView(newMessages, new LinearLayout.LayoutParams(-1, -2));
+        LinearLayout attachmentRow=horizontal();attachmentRow.setPadding(dp(16),dp(4),dp(16),0);
+        fileButton=button(t("sendFile"),false);photoButton=button(t("sendPhoto"),false);fileButton.setContentDescription(t("sendFile"));photoButton.setContentDescription(t("sendPhoto"));
+        fileButton.setOnClickListener(v->chooseAttachment(false));photoButton.setOnClickListener(v->chooseAttachment(true));attachmentRow.addView(fileButton);attachmentRow.addView(photoButton);chatPage.addView(attachmentRow);
+        TextView attachmentHint=label(t("attachmentHint"),11,muted);attachmentHint.setPadding(dp(16),0,dp(16),0);chatPage.addView(attachmentHint);
         LinearLayout inputRow = horizontal(); inputRow.setGravity(Gravity.BOTTOM); inputRow.setPadding(dp(16), dp(8), dp(16), dp(10));
         composer = new EditText(this); composer.setTextColor(ink); composer.setHintTextColor(muted); composer.setTextSize(16); composer.setHint(t("androidComposer")); composer.setBackground(shape(surface, 24));
         composer.setPadding(dp(16), dp(12), dp(16), dp(12)); composer.setMinHeight(dp(48)); composer.setMaxLines(4); composer.setVerticalScrollBarEnabled(true);
@@ -483,7 +501,7 @@ public final class MainActivity extends Activity {
         reconnectButton.setVisibility(trusted ? View.VISIBLE : View.GONE); reconnectButton.setEnabled(controller != null);
         reconnectButton.setText(connecting ? t("cancelConnection") : controller != null && !UiText.EMPTY.equals(controller.error) ? t("retryConnection") : t("reconnect"));
         reconnectHint.setText(connecting ? t(controller.status) : trusted ? controller != null && !UiText.EMPTY.equals(controller.error) ? t("reconnectUnavailable") : t("reconnectRemembered") : t("draftRetainedHint"));
-        composer.setEnabled(peerId != null); updateSend();
+        composer.setEnabled(peerId != null);fileButton.setEnabled(controller!=null&&controller.canSendAttachment());photoButton.setEnabled(controller!=null&&controller.canSendAttachment());updateSend();
         if (controller == null || renderedMessages == controller.messages && Objects.equals(renderedPeer, peerId)) return;
         boolean newPeer = !Objects.equals(renderedPeer, peerId), wasAtBottom = atBottom(); int previousScroll = messageScroll.getScrollY();
         String oldLast = renderedMessages == null || renderedMessages.isEmpty() ? null : renderedMessages.get(renderedMessages.size() - 1).id;
@@ -491,6 +509,7 @@ public final class MainActivity extends Activity {
         boolean appended = !newPeer && oldLast != null && newLast != null && !Objects.equals(oldLast, newLast);
         if (renderedPeer != null && newPeer && !Objects.equals(renderedPeer, deferredScrollPeer)) historyPositions.put(renderedPeer, previousScroll);
         if (newPeer) { deferredScrollPeer = peerId != null && historyPositions.containsKey(peerId) ? peerId : null; deferredScrollY = deferredScrollPeer == null ? 0 : historyPositions.get(peerId); }
+        thumbnailTargets.clear();for(int i=controller.messages.size()-1;i>=0&&thumbnailTargets.size()<12;i--){AttachmentRecord a=controller.messages.get(i).attachment;if(a!=null&&!a.outgoing&&a.state.equals("received")&&a.info.mime.startsWith("image/"))thumbnailTargets.add(a.info.id);}
         renderedPeer = peerId; renderedMessages = controller.messages; final int generation = ++messageGeneration; rebuildingMessages = true; bubbles.removeAllViews();
         if (controller.messages.isEmpty()) bubbles.addView(empty(t("noMessageTitle"), t("firstMessageHint")));
         else { long previousDay = Long.MIN_VALUE; for (ChatStore.Message message : controller.messages) {
@@ -516,9 +535,57 @@ public final class MainActivity extends Activity {
     private void addBubble(ChatStore.Message message) {
         LinearLayout row = horizontal(); row.setGravity(message.outgoing ? Gravity.END : Gravity.START); row.setPadding(0, dp(4), 0, dp(4));
         LinearLayout bubble = vertical(); bubble.setBackground(shape(message.outgoing ? tonal : surface, 18)); bubble.setPadding(dp(14), dp(10), dp(14), dp(10));
-        TextView body = label(message.text, 16, ink); body.setTag("messageBody"); body.setTextIsSelectable(true); bubble.addView(body);
+        AttachmentRecord attachment=message.attachment;
+        String messageText=attachment==null?message.text:t("attachmentDetails",attachment.info.name,attachment.transferred,attachment.info.size,attachmentState(attachment));
+        TextView body = label(messageText, 16, ink); body.setTag("messageBody"); body.setTextIsSelectable(true); bubble.addView(body);
+        if(attachment!=null){
+            String peer=controller.selectedId;
+            if(!attachment.outgoing&&attachment.state.equals("received")&&attachment.info.mime.startsWith("image/")&&thumbnailTargets.contains(attachment.info.id)){
+                ImageView image=new ImageView(this);image.setAdjustViewBounds(true);image.setMaxWidth(dp(220));image.setMaxHeight(dp(220));image.setContentDescription(t("attachmentPhotoPreview",attachment.info.name));bubble.addView(image);thumbnail(peer,attachment,image);
+            }
+            if(attachment.active()&&!attachment.state.equals("offered")&&!attachment.state.equals("preparing")){
+                ProgressBar progress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);int percent=attachment.info.size==0?0:(int)(100*attachment.transferred/attachment.info.size);progress.setMax(100);progress.setProgress(percent);progress.setContentDescription(t("attachmentProgress",percent,attachmentState(attachment)));bubble.addView(progress,new LinearLayout.LayoutParams(dp(220),dp(20)));
+            }
+            LinearLayout controls=vertical();
+            if(!attachment.outgoing&&attachment.state.equals("offered")){attachmentButton(controls,t("attachmentAccept"),()->controller.attachmentAction(peer,message.id,message.outgoing,"accept"));attachmentButton(controls,t("attachmentReject"),()->controller.attachmentAction(peer,message.id,message.outgoing,"reject"));}
+            else if(attachment.active())attachmentButton(controls,t("cancel"),()->controller.attachmentAction(peer,message.id,message.outgoing,"cancel"));
+            else if(!attachment.outgoing&&attachment.state.equals("received")){attachmentButton(controls,t("attachmentOpen"),()->openAttachment(peer,attachment));attachmentButton(controls,t("attachmentSaveAs"),()->saveAttachment(peer,attachment));}
+            bubble.addView(controls);
+        }
         TextView meta = label(message.outgoing ? t("outgoingMessageMeta", AndroidText.date(this, message.time, "jm"), AndroidText.messageState(this, message.state)) : AndroidText.date(this, message.time, "jm"), 11, muted);
         meta.setTag("messageMeta"); meta.setPadding(0, dp(5), 0, 0); bubble.addView(meta); row.addView(bubble, new LinearLayout.LayoutParams(-2, -2)); bubbles.addView(row);
+    }
+    private String attachmentState(AttachmentRecord record){return t(record.stateKey());}
+    private void attachmentButton(LinearLayout row,String text,Runnable action){Button button=button(text,false);button.setContentDescription(text);button.setOnClickListener(v->{if(controller!=null)action.run();});row.addView(button);}
+    private void chooseAttachment(boolean photo){
+        if(controller==null||!controller.canSendAttachment())return;pendingAttachmentPeer=controller.connectedPeerId;pendingAttachmentToken=controller.attachmentSessionToken();
+        Intent intent=new Intent(Intent.ACTION_OPEN_DOCUMENT);intent.addCategory(Intent.CATEGORY_OPENABLE);intent.setType(photo?"image/*":"*/*");
+        try{startActivityForResult(intent,20);}catch(ActivityNotFoundException e){pendingAttachmentPeer=null;toast(t("attachmentFailed"));}
+    }
+    private void saveAttachment(String peer,AttachmentRecord record){
+        try{pendingExportPeer=peer;pendingExportRecord=record.encode();Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT);intent.addCategory(Intent.CATEGORY_OPENABLE);intent.setType(record.info.mime);intent.putExtra(Intent.EXTRA_TITLE,AttachmentInfo.safeName(record.info.name));startActivityForResult(intent,21);}
+        catch(Exception e){pendingExportPeer=null;pendingExportRecord=null;toast(t("attachmentFailed"));}
+    }
+    private void openAttachment(String peer,AttachmentRecord record){
+        if(controller==null)return;controller.attachmentPath(peer,record.info).whenComplete((path,error)->ui.post(()->{
+            if(isDestroyed())return;if(error!=null){toast(t("attachmentUnavailable"));return;}
+            Uri uri=new Uri.Builder().scheme("content").authority(getPackageName()+".attachments").appendPath(peer).appendPath(path.getFileName().toString()).appendQueryParameter("name",record.info.name).appendQueryParameter("mime",record.info.mime).build();
+            Intent intent=new Intent(Intent.ACTION_VIEW).setDataAndType(uri,record.info.mime).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);intent.setClipData(ClipData.newRawUri(record.info.name,uri));
+            try{startActivity(intent);}catch(ActivityNotFoundException e){toast(t("attachmentFailed"));}
+        }));
+    }
+    private void thumbnail(String peer,AttachmentRecord record,ImageView view){
+        String key=peer+":"+record.info.id;Bitmap cached=thumbnails.get(key);if(cached!=null){view.setImageBitmap(cached);return;}
+        if(controller==null||failedThumbnails.contains(key)||!loadingThumbnails.add(key))return;
+        try{controller.attachmentPath(peer,record.info).thenApplyAsync(path->{
+            BitmapFactory.Options options=new BitmapFactory.Options();options.inJustDecodeBounds=true;BitmapFactory.decodeFile(path.toString(),options);
+            if(options.outWidth<=0||options.outHeight<=0||(long)options.outWidth*options.outHeight>100000000)return null;
+            options.inJustDecodeBounds=false;options.inSampleSize=1;while(Math.max(options.outWidth,options.outHeight)/options.inSampleSize>256)options.inSampleSize*=2;
+            return BitmapFactory.decodeFile(path.toString(),options);
+        },imageWorker).whenComplete((bitmap,error)->ui.post(()->{
+            loadingThumbnails.remove(key);if(isDestroyed())return;if(bitmap==null){failedThumbnails.add(key);while(failedThumbnails.size()>16)failedThumbnails.remove(failedThumbnails.iterator().next());return;}thumbnails.put(key,bitmap);while(thumbnails.size()>12)thumbnails.remove(thumbnails.keySet().iterator().next());
+            if(controller!=null&&Objects.equals(peer,controller.selectedId)&&thumbnailTargets.contains(record.info.id)){renderedMessages=null;renderChat();}
+        }));}catch(java.util.concurrent.RejectedExecutionException e){loadingThumbnails.remove(key);}
     }
     private void updateMessageWidths() {
         if (messageScroll == null || bubbles == null) return;
@@ -639,6 +706,12 @@ public final class MainActivity extends Activity {
     }
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if(requestCode==20){String peer=pendingAttachmentPeer;long token=pendingAttachmentToken;pendingAttachmentPeer=null;
+            if(resultCode==RESULT_OK&&data!=null&&data.getData()!=null&&controller!=null&&peer!=null)controller.sendAttachment(peer,token,data.getData());return;
+        }
+        if(requestCode==21){String peer=pendingExportPeer,encoded=pendingExportRecord;pendingExportPeer=null;pendingExportRecord=null;
+            if(resultCode==RESULT_OK&&data!=null&&data.getData()!=null&&controller!=null&&peer!=null&&encoded!=null)try{AttachmentRecord record=AttachmentRecord.decode(encoded);controller.exportAttachment(peer,record.info,data.getData()).whenComplete((v,e)->{if(e!=null)ui.post(()->{if(!isDestroyed())toast(t("attachmentFailed"));});});}catch(Exception e){toast(t("attachmentFailed"));}return;
+        }
         if (requestCode == 8 && pendingAction != null && pendingStage == ENABLE_STAGE) {
             UiAction action = pendingAction; if (resultCode == RESULT_OK) { pendingStage = BIND_STAGE; withPermissions(action); }
             else { pendingAction = null; pendingStage = 0; toast(t("bluetoothEnableCanceled")); }
