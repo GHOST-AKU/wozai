@@ -47,6 +47,7 @@ public final class MainActivity extends Activity {
     private Button newChatButton, cancelConnectionButton,fileButton,photoButton;
     private LinearLayout attachmentTray;
     private Button attachmentToggle,emojiButton;
+    private PopupMenu attachmentActions;
     private String pendingAttachmentPeer,pendingExportPeer,pendingExportRecord;
     private long pendingAttachmentToken;
     private Uri selectedAttachmentUri,selectedExportUri;
@@ -146,6 +147,7 @@ public final class MainActivity extends Activity {
     protected void onResume() { super.onResume(); if (root != null) render(); }
     protected void onStop() {
         saveDraftAndPosition(); ui.removeCallbacks(discoverabilityTick);
+        if(attachmentActions!=null){attachmentActions.dismiss();attachmentActions=null;}
         if (controller != null) { restoredSelectedId = controller.selectedId; restoredSelectedName = controller.selectedName; controller.observe(null); }
         if (bound) { unbindService(binding); bound = false; } controller = null; service = null;
         if (approvalDialog != null) { approvalDialog.setOnCancelListener(null); approvalDialog.dismiss(); approvalDialog = null; shownApproval = null; }
@@ -560,7 +562,7 @@ public final class MainActivity extends Activity {
                 image.setContentDescription(t("attachmentPhotoPreview",attachment.info.name));image.setImageResource(R.drawable.outline_photo_24);
                 int width=Math.min(dp(240),Math.max(dp(100),Math.round((getResources().getDisplayMetrics().widthPixels-dp(48))*.78f)));
                 Bitmap cached=thumbnails.get(previewKey);int height=cached==null?dp(160):Math.max(dp(100),Math.min(dp(300),Math.round(width*(float)cached.getHeight()/cached.getWidth())));
-                bubble.addView(image,new LinearLayout.LayoutParams(width,height));image.setOnClickListener(v->openAttachment(peer,attachment));
+                bubble.addView(image,new LinearLayout.LayoutParams(width,height));image.setOnClickListener(v->openAttachment(peer,attachment));image.setOnLongClickListener(v->{attachmentMenu(image,peer,attachment);return true;});
                 if(cached!=null)image.setImageBitmap(cached);else if(thumbnailTargets.contains(previewKey))thumbnail(peer,attachment,image);
             }else{
                 LinearLayout card=horizontal();card.setGravity(Gravity.CENTER_VERTICAL);ImageView symbol=icon(attachment.info.mime.startsWith("image/")?R.drawable.outline_photo_24:R.drawable.outline_description_24,accent,"");
@@ -568,7 +570,7 @@ public final class MainActivity extends Activity {
                 TextView name=label(attachment.info.name,14,ink);name.setTypeface(null,Typeface.BOLD);name.setMaxLines(2);name.setEllipsize(TextUtils.TruncateAt.END);name.setTag("messageBody");description.addView(name);
                 String bytes=android.text.format.Formatter.formatShortFileSize(this,attachment.info.size);if(attachment.active()&&attachment.transferred>0)bytes=android.text.format.Formatter.formatShortFileSize(this,attachment.transferred)+" / "+bytes;
                 TextView status=label(t("attachmentSummary",bytes,failedThumbnails.contains(previewKey)?t("photoUnavailable"):attachmentState(attachment)),12,muted);description.addView(status);card.addView(description,new LinearLayout.LayoutParams(0,-2,1));bubble.addView(card,new LinearLayout.LayoutParams(Math.min(dp(260),Math.max(dp(160),getResources().getDisplayMetrics().widthPixels-dp(80))),-2));
-                if(photoAvailable(attachment))card.setOnClickListener(v->openAttachment(peer,attachment));
+                if(photoAvailable(attachment)){card.setOnClickListener(v->openAttachment(peer,attachment));card.setOnLongClickListener(v->{attachmentMenu(card,peer,attachment);return true;});}
             }
             if(attachment.active()){
                 LinearLayout progressRow=horizontal();progressRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -583,7 +585,7 @@ public final class MainActivity extends Activity {
     private String attachmentState(AttachmentRecord record){return t(record.stateKey());}
     private boolean photoAvailable(AttachmentRecord record){return record.outgoing?record.state.equals("delivered")&&record.info.mime.startsWith("image/"):record.state.equals("received");}
     private void attachmentMenu(View anchor,String peer,AttachmentRecord record){
-        if(!photoAvailable(record))return;PopupMenu menu=new PopupMenu(this,anchor);menu.getMenu().add(0,1,0,t("attachmentOpen"));menu.getMenu().add(0,2,1,t("attachmentSaveAs"));
+        if(!photoAvailable(record))return;if(attachmentActions!=null)attachmentActions.dismiss();PopupMenu menu=new PopupMenu(this,anchor);attachmentActions=menu;menu.getMenu().add(0,1,0,t("attachmentOpen"));menu.getMenu().add(0,2,1,t("attachmentSaveAs"));
         menu.setOnMenuItemClickListener(item->{if(item.getItemId()==1)openAttachment(peer,record);else saveAttachment(peer,record);return true;});menu.show();
     }
     private Button attachmentChoice(int resource,String text,Runnable action){

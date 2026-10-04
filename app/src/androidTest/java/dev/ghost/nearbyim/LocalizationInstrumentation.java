@@ -379,6 +379,8 @@ public final class LocalizationInstrumentation extends Instrumentation {
         java.nio.file.Path file=controller.attachmentPath(peer,received.info).get(10,TimeUnit.SECONDS);
         check(java.util.Arrays.equals(data,java.nio.file.Files.readAllBytes(file)),"Android preserves original photo bytes across signed chunks");
         await(()->onMain(()->{android.view.ViewGroup bubbles=field(activity,"bubbles");android.widget.ImageView image=bubbles.findViewWithTag("photo:"+id);return image!=null&&image.getDrawable() instanceof android.graphics.drawable.BitmapDrawable;}),"Received photo renders inside its chat bubble");
+        check(onMain(()->{android.view.ViewGroup bubbles=field(activity,"bubbles");return bubbles.findViewWithTag("photo:"+id).performLongClick();}),"Photo press opens attachment actions on the image itself");
+        check(onMain(()->{android.widget.PopupMenu menu=field(activity,"attachmentActions");boolean found=menu.getMenu().getItem(1).getTitle().toString().equals(AndroidText.get(activity,"attachmentSaveAs"));menu.dismiss();return found;}),"Photo long-press offers Save as");
         screenshot("zh-Hans-photo-chat");testPhotoViewer(id);
         android.net.Uri uri=new android.net.Uri.Builder().scheme("content").authority(getTargetContext().getPackageName()+".attachments").appendPath(peer).appendPath(file.getFileName().toString()).appendQueryParameter("name",received.info.name).appendQueryParameter("mime",received.info.mime).build();
         onMain(()->{
@@ -394,6 +396,11 @@ public final class LocalizationInstrumentation extends Instrumentation {
         check(java.util.Arrays.equals(data,java.nio.file.Files.readAllBytes(sent)),"Android keeps sent photo bytes for chat preview");
         await(()->onMain(()->{android.view.ViewGroup bubbles=field(activity,"bubbles");android.widget.ImageView image=bubbles.findViewWithTag("photo:"+offer.info.id);return image!=null&&image.getDrawable() instanceof android.graphics.drawable.BitmapDrawable;}),"Sent photo also renders in the chat timeline");
         screenshot("zh-Hans-photo-both-directions");
+        byte[] document="A document received automatically".getBytes(java.nio.charset.StandardCharsets.UTF_8);String documentId=remoteTransfers.offer(()->new java.io.ByteArrayInputStream(document),"note.txt","text/plain").get(10,TimeUnit.SECONDS);remoteFileState("delivered");
+        await(()->onMain(()->controller.messages.stream().anyMatch(m->m.id.equals(documentId)&&m.attachment!=null&&m.attachment.state.equals("received"))),"Ordinary files also arrive without another confirmation");
+        check(onMain(()->{android.view.ViewGroup bubbles=field(activity,"bubbles"),bubble=bubbles.findViewWithTag("attachment:"+documentId);return bubble!=null&&bubble.getChildAt(0).performLongClick();}),"File card press opens actions on its clickable content");
+        check(onMain(()->{android.widget.PopupMenu menu=field(activity,"attachmentActions");boolean found=menu.getMenu().size()==2&&menu.getMenu().getItem(1).getTitle().toString().equals(AndroidText.get(activity,"attachmentSaveAs"));menu.dismiss();return found;}),"File long-press exposes both Open and Save as");
+        screenshot("zh-Hans-photo-and-file-chat");
         long token=onMain(()->controller.attachmentSessionToken());onMain(()->{controller.sendAttachment(peer,token-1,uri);return null;});check(onMain(()->controller.error.key.equals("notConnected")),"Stale picker result cannot cross session generations");
     }
     private void testPhotoViewer(String id)throws Exception {

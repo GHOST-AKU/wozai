@@ -18,7 +18,7 @@ public final class PhotoDecoder {
         try(InputStream input=open(resolver,uri)){BitmapFactory.decodeStream(input,null,options);}
         if(options.outWidth<=0||options.outHeight<=0||(long)options.outWidth*options.outHeight>100000000)throw new IOException("Unsupported photo dimensions");
         options.inJustDecodeBounds=false;options.inSampleSize=1;
-        while(Math.max(options.outWidth,options.outHeight)/options.inSampleSize>maximumSide)options.inSampleSize*=2;
+        while((Math.max(options.outWidth,options.outHeight)+options.inSampleSize-1)/options.inSampleSize>maximumSide)options.inSampleSize*=2;
         Bitmap bitmap;try(InputStream input=open(resolver,uri)){bitmap=BitmapFactory.decodeStream(input,null,options);}
         if(bitmap==null)throw new IOException("Unsupported photo");
         int orientation=ExifInterface.ORIENTATION_NORMAL;

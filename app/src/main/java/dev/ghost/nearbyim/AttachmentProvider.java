@@ -13,7 +13,7 @@ public final class AttachmentProvider extends ContentProvider {
     public boolean onCreate(){return true;}
     private File file(Uri uri)throws FileNotFoundException {
         java.util.List<String> parts=uri.getPathSegments();
-        if(parts.size()!=2||!parts.get(0).matches("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}")||!parts.get(1).matches("(in|out)-[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}\\.[a-z0-9]{1,16}"))throw new FileNotFoundException("Invalid attachment URI");
+        if(parts.size()!=2||!parts.get(0).matches("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}")||!parts.get(1).matches("(in|out)-[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}\\.[a-z0-9]{1,16}")||parts.get(1).endsWith(".part"))throw new FileNotFoundException("Invalid attachment URI");
         try{
             File root=new File(getContext().getFilesDir(),"attachments"),directory=new File(root,parts.get(0)),file=new File(directory,parts.get(1));
             if(Files.isSymbolicLink(root.toPath())||Files.isSymbolicLink(directory.toPath())||Files.isSymbolicLink(file.toPath())||!Files.isRegularFile(file.toPath(),LinkOption.NOFOLLOW_LINKS)||!file.getCanonicalPath().startsWith(root.getCanonicalPath()+File.separator))throw new FileNotFoundException("Attachment unavailable");

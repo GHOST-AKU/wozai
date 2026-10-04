@@ -208,7 +208,7 @@ public final class AttachmentTransfer implements AutoCloseable {
         return file(root,info,false);
     }
     public static Path file(Path root,AttachmentInfo info,boolean outgoing)throws IOException {
-        String id=info.id;String suffix="bin";int dot=info.name.lastIndexOf('.');if(dot>=0){String extension=info.name.substring(dot+1);if(extension.matches("[A-Za-z0-9]{1,16}"))suffix=extension.toLowerCase(Locale.ROOT);}
+        String id=info.id;String suffix="bin";int dot=info.name.lastIndexOf('.');if(dot>=0){String extension=info.name.substring(dot+1);if(extension.matches("[A-Za-z0-9]{1,16}")&&!extension.equalsIgnoreCase("part"))suffix=extension.toLowerCase(Locale.ROOT);}
         if(id==null||!id.matches("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}"))throw new IOException("Invalid attachment path");
         Path path=root.resolve((outgoing?"out-":"in-")+id+"."+suffix);if(Files.isSymbolicLink(path)||Files.exists(path,LinkOption.NOFOLLOW_LINKS)&&!Files.isRegularFile(path,LinkOption.NOFOLLOW_LINKS))throw new IOException("Unsafe attachment file");return path;
     }

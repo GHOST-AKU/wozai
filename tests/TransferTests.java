@@ -63,6 +63,16 @@ public final class TransferTests {
                 AttachmentTransfer.clean(p.a.root,Set.of());CoreTests.check(!Files.exists(photo),"Clear left a sent photo");
             }
         });
+        CoreTests.test("A part filename cannot collide with transfer staging or recovery cleanup",()->{
+            try(Pair p=new Pair()){
+                p.b.automaticReception=true;byte[] data={5,4,3,2,1};
+                p.a.transfers.offer(()->new ByteArrayInputStream(data),"photo.part","image/png").get(3,TimeUnit.SECONDS);
+                AttachmentRecord received=p.b.waitFor("received");p.a.waitFor("delivered");
+                Path incoming=AttachmentTransfer.file(p.b.root,received.info),outgoing=AttachmentTransfer.file(p.a.root,received.info,true);
+                AttachmentTransfer.clean(p.b.root,Set.of(received.info.id));AttachmentTransfer.clean(p.a.root,Set.of(received.info.id));
+                CoreTests.check(Arrays.equals(data,Files.readAllBytes(incoming))&&Arrays.equals(data,Files.readAllBytes(outgoing)),"Reserved temporary suffix lost completed photo bytes");
+            }
+        });
         CoreTests.test("Real signed TCP file waits for consent and saves before receipt",()->{
             try(Pair p=new Pair()){
                 byte[] data=new byte[32768*7+9];new Random(42).nextBytes(data);
