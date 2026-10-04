@@ -24,7 +24,7 @@ The Linux Bluetooth bridge dynamically links the distribution's GLib/GIO librari
 
 ## Google Material Icons
 
-The ten `app/src/main/res/drawable/outline_*_24.xml` vector icons are Material Icons Outlined assets from Google's official repository, retrieved on 2026-10-01:
+The `app/src/main/res/drawable/outline_*_24.xml` vector icons are Material Icons Outlined assets from Google's official repository, retrieved on 2026-10-01 and 2026-10-04:
 
 https://github.com/google/material-design-icons
 
@@ -42,5 +42,13 @@ Licensed under Apache License, Version 2.0. The upstream license is retained at 
 | `outline_more_vert_24.xml` | `navigation/more_vert/materialiconsoutlined/black/res/drawable` |
 | `outline_bluetooth_24.xml` | `device/bluetooth/materialiconsoutlined/black/res/drawable` |
 | `outline_wifi_24.xml` | `notification/wifi/materialiconsoutlined/black/res/drawable` |
+| `outline_attach_file_24.xml` | `editor/attach_file/materialiconsoutlined/black/res/drawable` |
+| `outline_send_24.xml` | `content/send/materialiconsoutlined/black/res/drawable` |
+| `outline_emoji_emotions_24.xml` | `social/emoji_emotions/materialiconsoutlined/black/res/drawable` |
+| `outline_photo_24.xml` | `image/photo/materialiconsoutlined/black/res/drawable` |
+| `outline_description_24.xml` | `action/description/materialiconsoutlined/black/res/drawable` |
+| `outline_file_download_24.xml` | `file/file_download/materialiconsoutlined/black/res/drawable` |
+| `outline_zoom_in_24.xml` | `action/zoom_in/materialiconsoutlined/black/res/drawable` |
+| `outline_zoom_out_24.xml` | `action/zoom_out/materialiconsoutlined/black/res/drawable` |
 
-The Windows resources under `desktop/src/main/resources/dev/ghost/wozai/icons/` rasterize seven of these same Android vector paths for runtime tinting. The original Material Icons license is also included in the Windows package. The shared app artwork is maintained at `desktop/assets/icons/master/icon-master-1024.png`; `desktop/assets/icons/windows/nearbyim.ico` contains the Windows launcher sizes.
+The Windows and Linux resources under `desktop/src/main/resources/dev/ghost/wozai/icons/` rasterize sixteen of these same Android vector paths for runtime tinting. The original Material Icons license is also included in the Windows and Linux packages. The shared app artwork is maintained at `desktop/assets/icons/master/icon-master-1024.png`; `desktop/assets/icons/windows/nearbyim.ico` contains the Windows launcher sizes.

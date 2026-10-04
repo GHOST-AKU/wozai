@@ -23,6 +23,8 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name=".PhotoActivity" android:exported="false" />
+        <provider android:name=".AttachmentProvider" android:authorities="${applicationId}.attachments" android:exported="false" android:grantUriPermissions="true" />
         <service android:name=".ChatService" android:exported="false" android:foregroundServiceType="connectedDevice" />
     </application>
 </manifest>

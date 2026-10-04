@@ -4,6 +4,9 @@ import dev.ghost.nearbyim.i18n.LanguageRegistry;
 import dev.ghost.nearbyim.i18n.LocalizedIOException;
 import dev.ghost.nearbyim.i18n.UiText;
 import java.io.*;
+import dev.ghost.nearbyim.core.AttachmentInfo;
+import dev.ghost.nearbyim.core.AttachmentRecord;
+import dev.ghost.nearbyim.core.AttachmentTransfer;
 import java.nio.channels.*;
 import java.nio.file.*;
 import java.util.*;
@@ -14,8 +17,9 @@ public final class DesktopStore implements AutoCloseable {
         public Peer { id = uuid(id); }
         public String toString() { return name + (publicKey.isEmpty() ? "" : " ✓"); }
     }
-    public record Message(String id, String body, long time, boolean outgoing, String status, long senderTime) {
+    public record Message(String id, String body, long time, boolean outgoing, String status, long senderTime, AttachmentRecord attachment) {
         public Message { id = uuid(id); }
+        public Message(String id,String body,long time,boolean outgoing,String status,long senderTime) { this(id,body,time,outgoing,status,senderTime,null); }
         public Message(String id, String body, long time, boolean outgoing, String status) {
             this(id, body, time, outgoing, status, time);
         }
@@ -34,7 +38,7 @@ public final class DesktopStore implements AutoCloseable {
         if (acquired == null) { lockChannel.close(); throw new LocalizedIOException(UiText.of("dataInUse", root.toString())); }
         lock = acquired;
         try {
-            for (Peer peer : peers()) unknown(peer.id());
+            for (Peer peer : peers()) { unknown(peer.id()); recoverAttachments(peer.id()); }
         } catch (IOException | RuntimeException e) { close(); throw e; }
     }
     static String uuid(String id) {
@@ -86,6 +90,7 @@ public final class DesktopStore implements AutoCloseable {
     private void writeMessage(Path file, Message m) throws IOException {
         Properties v = new Properties(); v.setProperty("body", m.body()); v.setProperty("time", Long.toString(m.time()));
         v.setProperty("senderTime", Long.toString(m.senderTime()));
+        if(m.attachment()!=null)v.setProperty("attachment",m.attachment().encode());
         v.setProperty("outgoing", Boolean.toString(m.outgoing())); v.setProperty("status", m.status()); AtomicFiles.write(file, v);
     }
     private Message readMessage(Path file) throws IOException {
@@ -102,7 +107,9 @@ public final class DesktopStore implements AutoCloseable {
             long time = Long.parseLong(AtomicFiles.required(v, "time"));
             // Before receipt-time ordering, incoming `time` was the sender timestamp.
             long senderTime = Long.parseLong(v.getProperty("senderTime", Long.toString(time)));
-            return new Message(uuid(filename), AtomicFiles.required(v, "body"), time, direction, status, senderTime);
+            AttachmentRecord attachment=v.containsKey("attachment")?AttachmentRecord.decode(v.getProperty("attachment")):null;
+            if(attachment!=null&&(!attachment.info.id.equals(uuid(filename))||attachment.outgoing!=direction))throw new IOException("Conflicting attachment identity");
+            return new Message(uuid(filename), AtomicFiles.required(v, "body"), time, direction, status, senderTime,attachment);
         } catch (IllegalArgumentException e) { throw new IOException("Corrupt message", e); }
     }
     public synchronized List<Message> messages(String peer) throws IOException {
@@ -121,21 +128,44 @@ public final class DesktopStore implements AutoCloseable {
     public synchronized void status(String peer, String id, String status) throws IOException {
         Path file = messageFile(peer, id, true); if (!Files.exists(file)) return;
         Message m = readMessage(file);
-        if (m.outgoing()) writeMessage(file, new Message(m.id(), m.body(), m.time(), true, status, m.senderTime()));
+        if (m.outgoing()) writeMessage(file, new Message(m.id(), m.body(), m.time(), true, status, m.senderTime(),m.attachment()));
     }
     public synchronized void unknown(String peer) throws IOException {
         Path directory = messagesPath(peer); if (!Files.exists(directory)) return;
         try (var files = Files.list(directory)) {
             for (Path file : files.filter(f -> f.toString().endsWith(".properties")).toList()) {
                 Message m = readMessage(file);
-                if (m.outgoing() && m.status().equals("pending")) writeMessage(file, new Message(m.id(), m.body(), m.time(), true, "unknown", m.senderTime()));
+                if (m.outgoing() && m.status().equals("pending")) writeMessage(file, new Message(m.id(), m.body(), m.time(), true, "unknown", m.senderTime(),m.attachment()));
             }
         }
     }
     public synchronized void revoke(String id) throws IOException {
         Peer p = peer(id); if (p != null) peer(new Peer(p.id(), p.name(), "", p.endpoint()));
     }
+    public synchronized Path attachmentDirectory(String peer)throws IOException {
+        Path base=root.resolve("attachments");if(Files.isSymbolicLink(base))throw new IOException("Unsafe attachment root");
+        Files.createDirectories(base);AtomicFiles.privatePermissions(base,true);Path directory=base.resolve(uuid(peer));
+        if(Files.isSymbolicLink(directory))throw new IOException("Unsafe attachment directory");return directory;
+    }
+    public synchronized Path attachmentFile(String peer,AttachmentInfo info)throws IOException {return AttachmentTransfer.file(attachmentDirectory(peer),info);}
+    public synchronized Path attachmentFile(String peer,AttachmentInfo info,boolean outgoing)throws IOException {return AttachmentTransfer.file(attachmentDirectory(peer),info,outgoing);}
+    public synchronized void attachment(String peer,AttachmentRecord record)throws IOException {
+        Path file=messageFile(peer,record.info.id,record.outgoing);Message previous=Files.exists(file)?readMessage(file):null;
+        if(previous!=null&&(previous.attachment()==null||!previous.attachment().active()&&!previous.attachment().equals(record)))throw new IOException("Conflicting attachment ID");
+        String state=record.outgoing?(record.state.equals("delivered")?"delivered":record.active()?"pending":"unknown"):"received";
+        writeMessage(file,new Message(record.info.id,record.info.name,previous==null?System.currentTimeMillis():previous.time(),record.outgoing,state,record.info.time,record));
+    }
+    private void recoverAttachments(String peer)throws IOException {
+        Set<String> received=new HashSet<>();Path directory=messagesPath(peer);
+        if(Files.exists(directory))try(var files=Files.list(directory)){for(Path file:files.filter(f->f.toString().endsWith(".properties")).toList()){
+            Message m=readMessage(file);if(m.attachment()==null)continue;AttachmentRecord r=m.attachment().recovered();
+            if(!r.equals(m.attachment()))writeMessage(file,new Message(m.id(),m.body(),m.time(),m.outgoing(),m.outgoing()?"unknown":"received",m.senderTime(),r));
+            if(!r.outgoing&&r.state.equals("received")||r.outgoing&&r.state.equals("delivered")&&r.info.mime.startsWith("image/"))received.add(r.info.id);
+        }}
+        Path contents=attachmentDirectory(peer);if(Files.exists(contents))AttachmentTransfer.clean(contents,received);
+    }
     public synchronized void clear(String id) throws IOException {
+        Path contents=attachmentDirectory(id);if(Files.exists(contents))AttachmentTransfer.clean(contents,Set.of());
         Path path = messagesPath(id); if (!Files.exists(path)) return;
         try (var files = Files.list(path)) { for (Path file : files.toList()) Files.delete(file); }
     }

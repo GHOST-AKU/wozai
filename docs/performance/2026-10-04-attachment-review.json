@@ -1,0 +1,112 @@
+{
+  "schema": 1,
+  "measured_at_utc": "2026-10-04T10:33:46.556272+00:00",
+  "before_commit": "a02e865314666ef56ecb7c065f4b2ffa0681726f",
+  "after_commit": "67174917cd2ae356744bfe227cbd7eafd70303e9",
+  "environment": {
+    "kind": "virtual",
+    "os": "Debian 13 x64 container",
+    "java": "Temurin 17.0.16+8",
+    "logical_cpus": 3,
+    "android_build": "AGP 8.13.0; Build Tools 35.0.0; same local debug certificate"
+  },
+  "icon_paint": {
+    "method": "Fresh JVM for each sample; warmed EDT, 3000 warmup paints, 10000 measured paints; 24px target, 96px source; ThreadMXBean thread-allocated-byte counter; no concurrent compilation or GUI tests. Alternating before and after for 3 pairs. Headless offscreen Java2D; not overall application CPU/FPS or RSS.",
+    "samples": {
+      "before": [
+        {
+          "paints": 10000,
+          "allocated_bytes": 442409256,
+          "elapsed_ms": 1156.853
+        },
+        {
+          "paints": 10000,
+          "allocated_bytes": 442099976,
+          "elapsed_ms": 1122.238
+        },
+        {
+          "paints": 10000,
+          "allocated_bytes": 442413776,
+          "elapsed_ms": 1207.428
+        }
+      ],
+      "after": [
+        {
+          "paints": 10000,
+          "allocated_bytes": 6800064,
+          "elapsed_ms": 390.038
+        },
+        {
+          "paints": 10000,
+          "allocated_bytes": 6800064,
+          "elapsed_ms": 322.228
+        },
+        {
+          "paints": 10000,
+          "allocated_bytes": 6800064,
+          "elapsed_ms": 321.885
+        }
+      ]
+    },
+    "medians": {
+      "before": {
+        "allocated_bytes": 442409256,
+        "elapsed_ms": 1156.853
+      },
+      "after": {
+        "allocated_bytes": 6800064,
+        "elapsed_ms": 322.228
+      }
+    },
+    "allocation_reduction_percent": 98.4629471676334,
+    "elapsed_reduction_percent": 72.14615858713252,
+    "tint_cache_max_pixel_bytes": 2359296
+  },
+  "android": {
+    "debug": {
+      "before_bytes": 1781311,
+      "after_bytes": 829532,
+      "reduction_percent": 53.43137722722198,
+      "before_sha256": "ee7a389d8195468978cfee00a2b4f335e676b49202d6f02639ef91eba1800d83",
+      "after_sha256": "4eeb4bcc336d8dcfd4427116fac16f0f0490064a19dc66c7f0bad36f486fda1c"
+    },
+    "preview": {
+      "before_bytes": 676182,
+      "after_bytes": 650076,
+      "reduction_percent": 3.86079487475266,
+      "before_sha256": "8ec405029a0e14f61e525f6b246568b45577d2e03a265fffbd0d23c581600cbd",
+      "after_sha256": "2732c04fecd500fa67865f3a0723066b27820b64728feea096ef6ef3b85d2e18"
+    },
+    "certificate_sha256": "47a10fd5a882ab26c9a11fcc61df3b41f7c41017746fc6840cfbe581ca52c1dd"
+  },
+  "linux_packages": {
+    "tar.gz": {
+      "before_bytes": 70997153,
+      "after_bytes": 71000713,
+      "after_sha256": "21056a0947da9749bf48ff00ee2b85c02ad211023213b4b3169f48e92fa74e16"
+    },
+    "deb": {
+      "before_bytes": 61570140,
+      "after_bytes": 61565732,
+      "after_sha256": "c2b3e334b253ae04426cf102beb47a809cc369093b09ab447e5ba2bd29286ad0"
+    }
+  },
+  "verification": {
+    "implementation_commit": "67174917cd2ae356744bfe227cbd7eafd70303e9",
+    "android_ci": "https://github.com/GHOST-AKU/wozai/actions/runs/37195190726",
+    "desktop_ci": "https://github.com/GHOST-AKU/wozai/actions/runs/37195192408",
+    "android_api_26_checks": 287,
+    "android_api_34_checks": 287,
+    "image_safety_checks": 1073,
+    "large_transfer_bytes": 50331648,
+    "large_transfer_max_heap_bytes": 33554432
+  },
+  "limitations": [
+    "No Android CPU/RSS measurement or physical Bluetooth acceptance.",
+    "No new long-term idle/connected RSS leak acceptance; Issue #9 stays open.",
+    "Original Android release signing key unavailable; these APKs use a local debug certificate matching earlier local deliveries.",
+    "HEIC/AVIF retrieval still depends on platform codecs and metadata; no physical HEIC/AVIF fixture acceptance in this review.",
+    "Automatic reception has per-file limits and free-space protection but no cumulative per-peer quota; repeated authorized transfers can consume storage.",
+    "Encryption remains deferred by user; signature/integrity tests are not confidentiality acceptance."
+  ]
+}

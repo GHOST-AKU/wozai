@@ -20,13 +20,39 @@
     <string name="android_lan_hint" formatted="false">"両方のデバイスを同じ Wi-Fi またはアクセスポイントに接続してください。LAN のメッセージは平文で送信されるため、信頼できるネットワークを使用してください。"</string>
     <string name="android_request_body" formatted="false">"{0} で接続します。デバイスを登録すると次回から再接続できます。デバイス情報で信頼を解除できます。\n\nニックネームは相手が入力したものです。デバイスの信頼は本名の確認を意味しません。"</string>
     <string name="android_request_lan_body" formatted="false">"{0} で接続します。デバイスを登録すると次回から再接続できます。デバイス情報で信頼を解除できます。\n\nニックネームは相手が入力したものです。デバイスの信頼は本名の確認を意味しません。LAN のメッセージは平文で送信されるため、信頼できるネットワークを使用してください。"</string>
-    <string name="android_storage_failure" formatted="false">"ローカルデータを読み書きできません。このデバイスの空き容量を確認してください。"</string>
+    <string name="android_storage_failure" formatted="false">"ローカルデータを読み書きできません。再試行し、問題が続く場合はエラーを報告してください。"</string>
     <string name="android_storage_stopped" formatted="false">"ローカルデータを保存できず、接続を停止しました。"</string>
     <string name="app" formatted="false">"NearbyIM"</string>
     <string name="app_permissions" formatted="false">"アプリの権限"</string>
     <string name="app_section" formatted="false">"アプリ"</string>
     <string name="app_settings" formatted="false">"アプリの設定"</string>
     <string name="appearance_section" formatted="false">"表示"</string>
+    <string name="attachment_accept" formatted="false">"受信"</string>
+    <string name="attachment_details" formatted="false">"{0} · {1,number} / {2,number} バイト · {3}"</string>
+    <string name="attachment_failed" formatted="false">"ファイル操作に失敗しました。アクセス権と空き容量を確認してください。"</string>
+    <string name="attachment_hint" formatted="false">"1 ファイル最大 1 GiB。内容は暗号化されません。"</string>
+    <string name="attachment_open" formatted="false">"開く"</string>
+    <string name="attachment_overwrite" formatted="false">"ファイルが存在します。置き換えますか？"</string>
+    <string name="attachment_photo_preview" formatted="false">"写真プレビュー：{0}"</string>
+    <string name="attachment_progress" formatted="false">"転送状況：{0,number}%、{1}"</string>
+    <string name="attachment_reject" formatted="false">"拒否"</string>
+    <string name="attachment_save_as" formatted="false">"名前を付けて保存"</string>
+    <string name="attachment_state_awaiting_receipt" formatted="false">"保存確認待ち"</string>
+    <string name="attachment_state_canceled" formatted="false">"キャンセル済み"</string>
+    <string name="attachment_state_delivered" formatted="false">"送達済み"</string>
+    <string name="attachment_state_failed" formatted="false">"転送失敗"</string>
+    <string name="attachment_state_interrupted" formatted="false">"転送中断"</string>
+    <string name="attachment_state_offered" formatted="false">"受信待ち"</string>
+    <string name="attachment_state_preparing" formatted="false">"準備中"</string>
+    <string name="attachment_state_received" formatted="false">"受信済み"</string>
+    <string name="attachment_state_rejected" formatted="false">"拒否されました"</string>
+    <string name="attachment_state_transferring" formatted="false">"転送中"</string>
+    <string name="attachment_state_unknown" formatted="false">"結果不明（相手が保存済みの可能性あり）"</string>
+    <string name="attachment_state_verifying" formatted="false">"検証・保存中"</string>
+    <string name="attachment_summary" formatted="false">"{0} · {1}"</string>
+    <string name="attachment_unavailable" formatted="false">"ファイルを利用できません。削除された可能性があります。"</string>
+    <string name="attachment_upgrade_required" formatted="false">"転送プロトコルが非対応です。両方のアプリを更新してください。"</string>
+    <string name="attachments" formatted="false">"添付"</string>
     <string name="back" formatted="false">"戻る"</string>
     <string name="back_to_chats" formatted="false">"チャット一覧に戻る"</string>
     <string name="bluetooth" formatted="false">"Bluetooth"</string>
@@ -130,6 +156,7 @@
     <string name="discovery_failed" formatted="false">"自動検出を利用できません。IP アドレスで接続してください。"</string>
     <string name="draft_retained_hint" formatted="false">"接続すると送信できます。下書きはここに保持されます。"</string>
     <string name="earlier" formatted="false">"以前"</string>
+    <string name="emoji" formatted="false">"絵文字"</string>
     <string name="empty_chat" formatted="false">"左側からチャットを選ぶか、「近く」でデバイスに接続してください。"</string>
     <string name="endpoint" formatted="false">"相手の IP アドレスとポート"</string>
     <string name="endpoint_hint" formatted="false">"例：192.168.1.20:54321。相手のデバイスに表示されているアドレスを確認してください。"</string>
@@ -230,6 +257,12 @@
     <string name="peer_unresponsive" formatted="false">"相手から応答がありません。再接続してください。"</string>
     <string name="pending" formatted="false">"確認待ち"</string>
     <string name="permissions_summary" formatted="false">"付近のデバイスと通知の権限を確認"</string>
+    <string name="photo_desktop_zoom_hint" formatted="false">"ホイールで拡大・縮小 · ドラッグで移動 · ダブルクリックで全体表示"</string>
+    <string name="photo_loading" formatted="false">"写真を読み込み中…"</string>
+    <string name="photo_unavailable" formatted="false">"写真を表示できません"</string>
+    <string name="photo_zoom_hint" formatted="false">"ピンチで拡大・縮小 · ダブルタップで拡大"</string>
+    <string name="photo_zoom_in" formatted="false">"写真を拡大"</string>
+    <string name="photo_zoom_out" formatted="false">"写真を縮小"</string>
     <string name="please_wait_connecting" formatted="false">"接続中です。お待ちください。"</string>
     <string name="portable_hint" formatted="false">"ポータブル版はアプリと同じ場所の data フォルダーに保存します。旧データはコピーして移行し、元のファイルも保持します。識別情報は現在の Windows ユーザーで保護され、別のユーザーやパソコンでは自動的に解除できません。"</string>
     <string name="privacy" formatted="false">"アカウントやリモートサーバーは不要です。履歴はこのパソコンに保存されます。LAN のメッセージは平文です。識別情報の署名は内容を暗号化しません。"</string>
@@ -267,8 +300,10 @@
     <string name="searching_nearby" formatted="false">"近くのデバイスを検索中…"</string>
     <string name="select_chat" formatted="false">"チャットを選択"</string>
     <string name="send" formatted="false">"送信"</string>
+    <string name="send_file" formatted="false">"ファイル"</string>
     <string name="send_hint" formatted="false">"Enter で送信 · Shift+Enter で改行 · UTF-8 で最大 8192 バイト"</string>
     <string name="send_interrupted" formatted="false">"送信が中断されました。再接続してください。"</string>
+    <string name="send_photo" formatted="false">"写真"</string>
     <string name="service_connecting" formatted="false">"サービスに接続中…"</string>
     <string name="settings" formatted="false">"設定"</string>
     <string name="start_mode_reception_first" formatted="false">"先にこの接続方式の受信を有効にしてください"</string>

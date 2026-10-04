@@ -136,6 +136,7 @@ public final class DesktopClient implements AutoCloseable {
         final FramedSession wire;
         DesktopStore.Peer peer;
         TrustPolicy.Authorization authorization;
+        AttachmentTransfer transfers;
         Session(StreamConnection connection, boolean incoming, String expectedId, String target, long trustVersion) throws IOException {
             this.incoming = incoming; this.expectedId = expectedId; this.target = target; this.trustVersion = trustVersion; this.transport = connection.label().equals("Bluetooth") ? "bluetooth" : "lan";
             String nickname = store.nickname();
@@ -165,9 +166,15 @@ public final class DesktopClient implements AutoCloseable {
                 final String[] pin = {peer.publicKey()};
                 policy.persist(authorization, () -> pin[0] = wire.remotePublicKey());
                 peer = new DesktopStore.Peer(peer.id(), peer.name(), pin[0], peer.endpoint());
-                store.peer(peer); phase = "ready"; publish();
+                store.peer(peer);
+                if(wire.attachmentsSupported())transfers=new AttachmentTransfer(store.attachmentDirectory(peer.id()),new AttachmentTransfer.Wire(){
+                    public boolean send(Frame frame){return wire.sendAttachment(frame);}
+                    public void abort(){wire.close(UiText.of("attachmentFailed"));}
+                },record->{store.attachment(peer.id(),record);event(()->publish());},wire.attachmentChunkSize(),wire.attachmentSizeLimit(),true);
+                phase = "ready"; publish();
             } catch (IOException e) { failure(); }
         }); }
+        public void onAttachment(Frame frame){event(()->{if(current==this&&transfers!=null)transfers.receive(frame,true);});}
         public void onText(Frame frame) { event(() -> {
             if (current != this || peer == null || !wire.isReady()) return;
             try {
@@ -216,6 +223,23 @@ public final class DesktopClient implements AutoCloseable {
             publish(); return sent;
         } catch (IOException e) { failure(); throw e; }
     }); }
+    public CompletableFuture<String> sendAttachment(String peerId,java.nio.file.Path file){return submit(()->{
+        Session session=current;
+        if(session==null||session.peer==null||!session.peer.id().equals(peerId)||session.transfers==null||!session.wire.attachmentsSupported())throw new LocalizedIOException(UiText.of("notConnected"));
+        if(!java.nio.file.Files.isRegularFile(file))throw new LocalizedIOException(UiText.of("attachmentFailed"));
+        String name=file.getFileName().toString();String mime=java.nio.file.Files.probeContentType(file);if(mime==null||!mime.matches("[A-Za-z0-9!#$&^_.+/-]{1,127}"))mime="application/octet-stream";
+        return session.transfers.offer(()->java.nio.file.Files.newInputStream(file),name,mime);
+    }).thenCompose(future->future);}
+    public CompletableFuture<Void> attachmentAction(String peerId,String id,boolean outgoing,String action){return submit(()->{
+        Session session=current;if(session==null||session.peer==null||!session.peer.id().equals(peerId)||session.transfers==null)throw new LocalizedIOException(UiText.of("notConnected"));
+        if(action.equals("accept"))return session.transfers.accept(id);if(action.equals("reject"))return session.transfers.reject(id);return session.transfers.cancel(id,outgoing);
+    }).thenCompose(future->future);}
+    public CompletableFuture<java.nio.file.Path> attachmentPath(String peerId,AttachmentInfo info){return submit(()->{
+        java.nio.file.Path file=store.attachmentFile(peerId,info);if(!java.nio.file.Files.isRegularFile(file,java.nio.file.LinkOption.NOFOLLOW_LINKS))throw new LocalizedIOException(UiText.of("attachmentUnavailable"));return file;
+    });}
+    public CompletableFuture<java.nio.file.Path> attachmentPath(String peerId,AttachmentRecord record){return submit(()->{
+        java.nio.file.Path file=store.attachmentFile(peerId,record.info,record.outgoing);if(!java.nio.file.Files.isRegularFile(file,java.nio.file.LinkOption.NOFOLLOW_LINKS))throw new LocalizedIOException(UiText.of("attachmentUnavailable"));return file;
+    });}
     public CompletableFuture<List<DesktopStore.Message>> messages(String id) { return submit(() -> store.messages(id)); }
     public CompletableFuture<String> draft(String id) { return submit(() -> store.draft(id)); }
     public CompletableFuture<Void> draft(String id, String text) { return submit(() -> { store.draft(id, text); return null; }); }
@@ -225,12 +249,13 @@ public final class DesktopClient implements AutoCloseable {
         if (id.equals(connectingPeer) || current != null && (id.equals(current.expectedId) || current.peer != null && current.peer.id().equals(id))) disconnectNow();
         publish(); return null;
     }); }
-    public CompletableFuture<Void> clear(String id) { return submit(() -> { store.clear(id); publish(); return null; }); }
+    public CompletableFuture<Void> clear(String id) { return submit(() -> { if(current!=null&&current.peer!=null&&current.peer.id().equals(id)&&current.transfers!=null)current.transfers.cancelAll().get(5,TimeUnit.SECONDS);store.clear(id); publish(); return null; }); }
     public CompletableFuture<Void> disconnect() { return submit(() -> { disconnectNow(); publish(); return null; }); }
     private void disconnectNow() {
         ++generation; closeSocket(connecting); connecting = null; closeConnection(connectingBluetooth); connectingBluetooth=null; connectingPeer = null;
         Session previous = current; current = null; phase = "idle";
         if (previous != null) {
+            if(previous.transfers!=null)try{previous.transfers.shutdown().get(5,TimeUnit.SECONDS);}catch(Exception e){listener.notice(UiText.of("attachmentFailed"));}
             policy.cancel(previous.authorization); previous.wire.close(UiText.of("disconnected"));
             if (previous.peer != null) try { store.unknown(previous.peer.id()); }
             catch (IOException e) { listener.notice(UiText.of("storageFailure")); }

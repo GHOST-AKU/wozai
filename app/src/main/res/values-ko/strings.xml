@@ -20,13 +20,39 @@
     <string name="android_lan_hint" formatted="false">"두 기기를 같은 Wi-Fi 또는 핫스팟에 연결하세요. LAN 메시지는 평문으로 전송되므로 신뢰할 수 있는 네트워크를 사용하세요."</string>
     <string name="android_request_body" formatted="false">"{0} 연결입니다. 이 기기를 기억하면 다음에 다시 연결할 수 있습니다. 기기 정보에서 신뢰를 해제할 수 있습니다.\n\n닉네임은 상대가 직접 입력합니다. 기기 신뢰는 실명을 인증하지 않습니다."</string>
     <string name="android_request_lan_body" formatted="false">"{0} 연결입니다. 이 기기를 기억하면 다음에 다시 연결할 수 있습니다. 기기 정보에서 신뢰를 해제할 수 있습니다.\n\n닉네임은 상대가 직접 입력합니다. 기기 신뢰는 실명을 인증하지 않습니다. LAN 메시지는 평문으로 전송되므로 신뢰할 수 있는 네트워크를 사용하세요."</string>
-    <string name="android_storage_failure" formatted="false">"로컬 데이터를 읽거나 저장하지 못했습니다. 기기의 남은 공간을 확인하세요."</string>
+    <string name="android_storage_failure" formatted="false">"로컬 데이터를 읽거나 저장하지 못했습니다. 다시 시도하고 문제가 계속되면 오류를 신고하세요."</string>
     <string name="android_storage_stopped" formatted="false">"로컬 데이터를 저장하지 못해 연결을 중지했습니다."</string>
     <string name="app" formatted="false">"NearbyIM"</string>
     <string name="app_permissions" formatted="false">"앱 권한"</string>
     <string name="app_section" formatted="false">"앱"</string>
     <string name="app_settings" formatted="false">"앱 설정"</string>
     <string name="appearance_section" formatted="false">"화면 설정"</string>
+    <string name="attachment_accept" formatted="false">"수락"</string>
+    <string name="attachment_details" formatted="false">"{0} · {1,number} / {2,number} 바이트 · {3}"</string>
+    <string name="attachment_failed" formatted="false">"파일 작업에 실패했습니다. 파일 접근 권한과 여유 공간을 확인하세요."</string>
+    <string name="attachment_hint" formatted="false">"파일당 최대 1 GiB. 내용은 암호화되지 않습니다."</string>
+    <string name="attachment_open" formatted="false">"열기"</string>
+    <string name="attachment_overwrite" formatted="false">"파일이 이미 있습니다. 바꾸시겠습니까?"</string>
+    <string name="attachment_photo_preview" formatted="false">"사진 미리보기: {0}"</string>
+    <string name="attachment_progress" formatted="false">"전송 진행률: {0,number}%; {1}"</string>
+    <string name="attachment_reject" formatted="false">"거절"</string>
+    <string name="attachment_save_as" formatted="false">"다른 이름으로 저장"</string>
+    <string name="attachment_state_awaiting_receipt" formatted="false">"저장 확인 대기 중"</string>
+    <string name="attachment_state_canceled" formatted="false">"취소됨"</string>
+    <string name="attachment_state_delivered" formatted="false">"전달 완료"</string>
+    <string name="attachment_state_failed" formatted="false">"전송 실패"</string>
+    <string name="attachment_state_interrupted" formatted="false">"전송 중단됨"</string>
+    <string name="attachment_state_offered" formatted="false">"수락 대기 중"</string>
+    <string name="attachment_state_preparing" formatted="false">"준비 중"</string>
+    <string name="attachment_state_received" formatted="false">"수신 완료"</string>
+    <string name="attachment_state_rejected" formatted="false">"거절됨"</string>
+    <string name="attachment_state_transferring" formatted="false">"전송 중"</string>
+    <string name="attachment_state_unknown" formatted="false">"결과를 알 수 없음; 상대가 저장했을 수 있습니다"</string>
+    <string name="attachment_state_verifying" formatted="false">"검증 및 저장 중"</string>
+    <string name="attachment_summary" formatted="false">"{0} · {1}"</string>
+    <string name="attachment_unavailable" formatted="false">"파일을 사용할 수 없습니다. 삭제되었을 수 있습니다."</string>
+    <string name="attachment_upgrade_required" formatted="false">"전송 프로토콜이 호환되지 않습니다. 양쪽 앱을 업데이트하세요."</string>
+    <string name="attachments" formatted="false">"첨부 파일"</string>
     <string name="back" formatted="false">"뒤로"</string>
     <string name="back_to_chats" formatted="false">"채팅 목록으로 돌아가기"</string>
     <string name="bluetooth" formatted="false">"블루투스"</string>
@@ -130,6 +156,7 @@
     <string name="discovery_failed" formatted="false">"자동 검색을 사용할 수 없습니다. IP 주소로 연결하세요."</string>
     <string name="draft_retained_hint" formatted="false">"연결하면 메시지를 보낼 수 있습니다. 초안은 여기에 남습니다."</string>
     <string name="earlier" formatted="false">"이전"</string>
+    <string name="emoji" formatted="false">"이모지"</string>
     <string name="empty_chat" formatted="false">"왼쪽에서 채팅을 선택하거나 ‘근처’에서 기기에 연결하세요."</string>
     <string name="endpoint" formatted="false">"상대 기기의 IP 주소와 포트"</string>
     <string name="endpoint_hint" formatted="false">"예: 192.168.1.20:54321. 상대 기기에 표시된 주소를 확인하세요."</string>
@@ -230,6 +257,12 @@
     <string name="peer_unresponsive" formatted="false">"상대 기기가 응답하지 않습니다. 다시 연결하세요."</string>
     <string name="pending" formatted="false">"확인 대기"</string>
     <string name="permissions_summary" formatted="false">"근처 기기 및 알림 권한 확인"</string>
+    <string name="photo_desktop_zoom_hint" formatted="false">"휠로 확대/축소 · 드래그로 이동 · 두 번 클릭해 창에 맞추기"</string>
+    <string name="photo_loading" formatted="false">"사진 로딩 중…"</string>
+    <string name="photo_unavailable" formatted="false">"사진을 표시할 수 없습니다"</string>
+    <string name="photo_zoom_hint" formatted="false">"두 손가락으로 확대/축소 · 두 번 탭하여 확대"</string>
+    <string name="photo_zoom_in" formatted="false">"사진 확대"</string>
+    <string name="photo_zoom_out" formatted="false">"사진 축소"</string>
     <string name="please_wait_connecting" formatted="false">"연결 중입니다. 잠시 기다려 주세요."</string>
     <string name="portable_hint" formatted="false">"포터블 버전은 앱 옆의 data 폴더에 데이터를 저장합니다. 이전 데이터는 복사하여 이전하고 원본도 유지합니다. 기기 식별 정보는 현재 Windows 사용자로 보호되므로 다른 사용자나 컴퓨터에서는 자동으로 잠금 해제할 수 없습니다."</string>
     <string name="privacy" formatted="false">"계정이나 원격 서버가 필요하지 않습니다. 기록은 이 컴퓨터에 저장됩니다. LAN 메시지는 평문이며, 기기 식별 서명은 내용을 암호화하지 않습니다."</string>
@@ -267,8 +300,10 @@
     <string name="searching_nearby" formatted="false">"근처 기기 검색 중…"</string>
     <string name="select_chat" formatted="false">"채팅 선택"</string>
     <string name="send" formatted="false">"보내기"</string>
+    <string name="send_file" formatted="false">"파일"</string>
     <string name="send_hint" formatted="false">"Enter로 전송 · Shift+Enter로 줄바꿈 · UTF-8 기준 최대 8192바이트"</string>
     <string name="send_interrupted" formatted="false">"전송이 중단되었습니다. 다시 연결하세요."</string>
+    <string name="send_photo" formatted="false">"사진"</string>
     <string name="service_connecting" formatted="false">"서비스에 연결 중…"</string>
     <string name="settings" formatted="false">"설정"</string>
     <string name="start_mode_reception_first" formatted="false">"먼저 이 연결 방식의 수신을 켜세요"</string>

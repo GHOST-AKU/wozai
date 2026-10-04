@@ -240,3 +240,38 @@ done
 修改 Linux 打包配置的提交 `ca6a6c8fb28debc091f9973510ea0bf3fd376b09` 已通过 [Linux 完整 CI](https://github.com/GHOST-AKU/wozai/actions/runs/37169441304)：协议／信任／文案与源码检查、桌面测试、41 项正式图标原始导出核对、16 项窗口图标检查、378 项 BlueZ 原生模拟检查、16 项 JNI／NIM2／保存回执检查、实际 mDNS、完整 JDK 与包内 runtime GUI、四档缩放、真实便携启动器和只读移动目录／身份重启／菜单入口。正常消息收发、保存回执、语言／主题／字号、选择与滚动、草稿和退出均通过。射频设备仍不可用，这些检查不证明真机蓝牙配对或互通。
 
 CI 使用其独立运行器、JDK 和默认 30 s 稳定期；不能与本地 10 s 稳定期的对照混算。[性能 JSON 与日志 artifact](https://github.com/GHOST-AKU/wozai/actions/runs/37169441304/artifacts/11290738058)、[软件包](https://github.com/GHOST-AKU/wozai/actions/runs/37169441304/artifacts/11289719521)、[GUI 验证附件](https://github.com/GHOST-AKU/wozai/actions/runs/37169441304/artifacts/11289699673)均上传成功。工作流日志可读取，但当前任务拉取 artifact 时其存储下载端返回 HTTP 403，因此没有将 CI 原始 JSON 复制到仓库，也没有摘录未读取的 CI RSS／CPU 数值。本文六组本地 JSON 和四组完整诊断记录均已保存。后续补充诊断与验证说明只改变文档／证据，不改变该 CI 所测的应用代码和打包配置。
+## 文件／照片传输三端自我评审（2026-10-04）
+
+实现提交 `67174917cd2ae356744bfe227cbd7eafd70303e9`，对照提交 `a02e865314666ef56ecb7c065f4b2ffa0681726f`。本轮包含 Android、Windows、Linux。[原始测量、包校验和与验收链接](performance/2026-10-04-attachment-review.json)。
+
+确认并修复的风险：
+
+- **图片元数据分配没有上限。** Android 的预览像素虽有上限，原 AndroidX EXIF 实现仍会按 PNG／WebP 的 EXIF／XMP 长度分配数组。现仅读取方向：EXIF 最多 64 KiB，PNG 校验 CRC，处理长度溢出／截断，最多扫描 256 个段；JPEG 还限制 1 MiB 的头部扫描。其余元数据不提取。保留 JPEG／PNG／WebP 的八种方向和大小端 TIFF；HEIC／AVIF 使用系统元数据检索器及受限 EXIF 读取。无法识别或超限的方向元数据退回原像素，不改写原文件。这限制应用自行解析元数据的分配，不代表审计过系统图片解码器。
+- **附件“打开”可能启动程序。** Windows／Linux 原来直接交给系统打开任意附件扩展名；Android 也可能调起 APK 安装器。现常见文档、音视频、压缩包可外部打开，程序／脚本／未知扩展名仅另存为；图片始终走内置查看器。处理入口再次检查策略，移除远端文件名的方向控制符并规范 MIME 大小写。原问题需要用户点击，不是无交互远程执行；外部文档应用和压缩包内容不在本轮审计范围。
+- **图标重绘产生大量临时对象。** 桌面此前每次绘制重新创建并染色 96×96 ARGB 图片。现按图标与颜色缓存，最多 64 项，像素数据上限 2.25 MiB，切换主题时清空，禁用色也独立缓存。
+
+同一工具链、同一签名、同一构建类型的 APK 比较：
+
+| APK | 修复前（字节） | 修复后（字节） | 减小 |
+| --- | ---: | ---: | ---: |
+| debug | 1,781,311 | 829,532 | 53.43% |
+| R8 preview | 676,182 | 650,076 | 3.86% |
+
+去掉只用于读取方向的 AndroidX 依赖。preview 原本已经裁剪该库的大部分内容，因此相同类型的降幅更小；不能把旧 debug 与新 preview 的差值全部归因于本次修复。签名、zipalign、debug／preview Lint 均通过；保留五语和正式图标。以上是本地 APK 字节数，CI 的 artifact ZIP 大小不等于 APK 大小。
+
+三轮交替、独立 JVM 的图标绘制微基准：Temurin 17.0.16、Debian 13 容器、EDT 预热 3,000 次，再测 10,000 次，24 px 目标、96 px 源，无并行编译或 GUI 测试。线程累计分配中位数 **442,409,256 → 6,800,064 字节，减少 98.46%**；绘制耗时中位数 **1,156.853 → 322.228 ms**。这是离屏 Java2D 微基准，不是整体 CPU、启动、FPS 或 RSS 改善比例。可用相同 JDK 编译 [IconPaintBenchmark.java](../desktop/tools/IconPaintBenchmark.java)，分别运行在两个提交构建的类路径上复现；所有六个样本保留在 JSON 中。
+
+Linux 已完成桌面构建后，使用完整 JDK 17（随包运行时没有测量模块），从仓库根目录运行：
+
+```sh
+javac --release 17 -cp 'desktop/build/classes:desktop/build/lib/*' -d build/icon-benchmark desktop/tools/IconPaintBenchmark.java
+java -Djava.awt.headless=true -cp 'build/icon-benchmark:desktop/build/classes:desktop/build/lib/*' dev.ghost.wozai.IconPaintBenchmark
+```
+
+对照组保持同一测量类，将运行类路径中的 `desktop/build/classes:desktop/build/lib/*` 换为旧提交干净构建、保留副本的 `/path/to/baseline/NearbyIM/lib/app/*`，避免误用当前实现。待所有编译／GUI 测试停止后交替各运行三次；不同虚拟机的耗时不可直接对比。
+
+桌面包体基本不变：本地 tar.gz **70,997,153 → 71,000,713 字节**，deb **61,570,140 → 61,565,732 字节**。展开运行时约 76 MiB，两份完整中日韩字体原始数据约 32 MiB、ICU 约 14 MiB。保留现有字体／语言／运行时配置；应用 JAR 的 lossless ZIP level 9 试验仅节省约 14 KiB，不引入额外打包步骤。既有 Linux `compress=0` 的内存取舍继续适用，不恢复已测得增加 RSS 的 constant-pool sharing。
+
+[Android CI](https://github.com/GHOST-AKU/wozai/actions/runs/37195190726)全部通过，API 26／34 对实际 optimized preview **各 287 项原生检查**，新增检查覆盖八种 PNG 旋转／镜像的逐像素结果、过大 EXIF 拒绝和 APK 打开策略。[Windows／Linux CI](https://github.com/GHOST-AKU/wozai/actions/runs/37195192408)全部通过：原生构建、随包运行时、真实 GUI、mDNS、照片查看、四档缩放及 Windows 文字像素。核心图片／附件安全检查 **1,073 项**及 **48 MiB 文件在 32 MiB 最大堆下传输**通过。本地 Linux 完整打包／GUI／移动目录／身份重启检查亦通过，构建元数据干净且指向实现提交。
+
+本地曾在并行编译下触发连接／大文件测试超时，随后停止并行编译并串行完整复测通过，未修改超时阈值。微基准在串行复测结束后采集。本轮没有新的 Android CPU／RSS 测量，没有重新完成长期空闲／仅连接内存验收，Issue #9 保持开放。自动接收仍无累计对端配额；连续授权传输可消耗存储，现有单文件限制和剩余空间保护不是累计配额。#7 蓝牙真机、#8 原签名密钥仍阻碍对应验收；HEIC／AVIF 真机格式未验收，加密按既定顺序继续后置。进展与后续验收留在既有 Issues，不另建 TODO。

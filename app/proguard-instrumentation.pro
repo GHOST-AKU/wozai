@@ -8,6 +8,7 @@
 -keep class dev.ghost.nearbyim.AppLanguage { public *; }
 -keep class dev.ghost.nearbyim.AndroidText { public *; }
 -keep class dev.ghost.nearbyim.ChatController { public *; }
+-keepclassmembers class dev.ghost.nearbyim.ChatController { java.util.concurrent.ThreadPoolExecutor fileSelection; }
 -keep class dev.ghost.nearbyim.ChatStore { public *; }
 -keep class dev.ghost.nearbyim.ChatStore$* { public *; }
 -keep class dev.ghost.nearbyim.core.DeviceIdentity { public *; }
@@ -18,3 +19,9 @@
 -keep class dev.ghost.nearbyim.i18n.UiText { public *; }
 -keep class dev.ghost.nearbyim.i18n.I18nResources { public *; }
 -keep class dev.ghost.nearbyim.transport.Peer { public *; }
+
+-keep class dev.ghost.nearbyim.core.Attachment* { public *; }
+-keep class dev.ghost.nearbyim.PhotoDecoder { public *; }
+-keep class dev.ghost.nearbyim.core.ImageOrientation { public *; }
+-keep class dev.ghost.nearbyim.PhotoActivity { *; }
+-keep class dev.ghost.nearbyim.PhotoActivity$* { *; }

@@ -20,13 +20,39 @@
     <string name="android_lan_hint" formatted="false">"两部设备连接同一 Wi-Fi，或加入同一个热点。局域网消息以明文传输，请使用可信网络。"</string>
     <string name="android_request_body" formatted="false">"{0}连接。记住后，下次可以直接连接。可在设备信息中取消信任。\n\n昵称由对方填写，设备信任不认证真实姓名。"</string>
     <string name="android_request_lan_body" formatted="false">"{0}连接。记住后，下次可以直接连接。可在设备信息中取消信任。\n\n昵称由对方填写，设备信任不认证真实姓名。局域网消息以明文传输，请使用可信网络。"</string>
-    <string name="android_storage_failure" formatted="false">"本地记录读写失败，请检查手机可用空间"</string>
+    <string name="android_storage_failure" formatted="false">"本地记录读写失败，请重试；若问题持续，请报告错误"</string>
     <string name="android_storage_stopped" formatted="false">"本地记录保存失败，连接已停止"</string>
     <string name="app" formatted="false">"我在"</string>
     <string name="app_permissions" formatted="false">"应用权限"</string>
     <string name="app_section" formatted="false">"应用"</string>
     <string name="app_settings" formatted="false">"应用设置"</string>
     <string name="appearance_section" formatted="false">"外观"</string>
+    <string name="attachment_accept" formatted="false">"接收"</string>
+    <string name="attachment_details" formatted="false">"{0} · {1,number} / {2,number} 字节 · {3}"</string>
+    <string name="attachment_failed" formatted="false">"文件操作失败，请检查文件授权和可用空间。"</string>
+    <string name="attachment_hint" formatted="false">"单文件最大 1 GiB；内容未加密。"</string>
+    <string name="attachment_open" formatted="false">"打开"</string>
+    <string name="attachment_overwrite" formatted="false">"文件已存在，是否替换？"</string>
+    <string name="attachment_photo_preview" formatted="false">"照片预览：{0}"</string>
+    <string name="attachment_progress" formatted="false">"传输进度：{0,number}%；{1}"</string>
+    <string name="attachment_reject" formatted="false">"拒绝"</string>
+    <string name="attachment_save_as" formatted="false">"另存为"</string>
+    <string name="attachment_state_awaiting_receipt" formatted="false">"等待保存回执"</string>
+    <string name="attachment_state_canceled" formatted="false">"已取消"</string>
+    <string name="attachment_state_delivered" formatted="false">"已送达"</string>
+    <string name="attachment_state_failed" formatted="false">"传输失败"</string>
+    <string name="attachment_state_interrupted" formatted="false">"传输中断"</string>
+    <string name="attachment_state_offered" formatted="false">"等待接收"</string>
+    <string name="attachment_state_preparing" formatted="false">"准备中"</string>
+    <string name="attachment_state_received" formatted="false">"已接收"</string>
+    <string name="attachment_state_rejected" formatted="false">"已拒绝"</string>
+    <string name="attachment_state_transferring" formatted="false">"传输中"</string>
+    <string name="attachment_state_unknown" formatted="false">"结果未知，对方可能已保存"</string>
+    <string name="attachment_state_verifying" formatted="false">"校验并保存中"</string>
+    <string name="attachment_summary" formatted="false">"{0} · {1}"</string>
+    <string name="attachment_unavailable" formatted="false">"文件不可用，可能已被删除。"</string>
+    <string name="attachment_upgrade_required" formatted="false">"文件传输协议不兼容，请升级双方应用。"</string>
+    <string name="attachments" formatted="false">"附件"</string>
     <string name="back" formatted="false">"返回"</string>
     <string name="back_to_chats" formatted="false">"返回聊天列表"</string>
     <string name="bluetooth" formatted="false">"蓝牙"</string>
@@ -130,6 +156,7 @@
     <string name="discovery_failed" formatted="false">"自动发现不可用，可通过 IP 地址连接。"</string>
     <string name="draft_retained_hint" formatted="false">"连接后即可发送，草稿会留在这里。"</string>
     <string name="earlier" formatted="false">"较早"</string>
+    <string name="emoji" formatted="false">"表情"</string>
     <string name="empty_chat" formatted="false">"从左侧选择聊天，或在“附近”连接一台设备。"</string>
     <string name="endpoint" formatted="false">"对方的 IP 地址与端口"</string>
     <string name="endpoint_hint" formatted="false">"例如 192.168.1.20:54321。请在对方的“我的连接”中查看。"</string>
@@ -230,6 +257,12 @@
     <string name="peer_unresponsive" formatted="false">"对方失去响应，请重新连接。"</string>
     <string name="pending" formatted="false">"待确认"</string>
     <string name="permissions_summary" formatted="false">"查看附近设备与通知权限"</string>
+    <string name="photo_desktop_zoom_hint" formatted="false">"滚轮缩放 · 拖动查看 · 双击适应窗口"</string>
+    <string name="photo_loading" formatted="false">"正在加载照片…"</string>
+    <string name="photo_unavailable" formatted="false">"照片无法显示"</string>
+    <string name="photo_zoom_hint" formatted="false">"双指缩放 · 双击放大"</string>
+    <string name="photo_zoom_in" formatted="false">"放大照片"</string>
+    <string name="photo_zoom_out" formatted="false">"缩小照片"</string>
     <string name="please_wait_connecting" formatted="false">"正在连接，请稍候"</string>
     <string name="portable_hint" formatted="false">"便携版默认将数据保存在软件旁的 data 文件夹。旧版数据会复制迁移并保留原件。设备身份仍由当前 Windows 用户保护，复制到另一用户或电脑不会自动解锁身份。"</string>
     <string name="privacy" formatted="false">"无需账号或远程服务器。聊天记录保存在本机。局域网文字仍是明文；身份签名不提供内容加密。"</string>
@@ -267,8 +300,10 @@
     <string name="searching_nearby" formatted="false">"正在搜索附近设备…"</string>
     <string name="select_chat" formatted="false">"选择聊天"</string>
     <string name="send" formatted="false">"发送"</string>
+    <string name="send_file" formatted="false">"文件"</string>
     <string name="send_hint" formatted="false">"Enter 发送 · Shift+Enter 换行 · 最多 8192 UTF-8 字节"</string>
     <string name="send_interrupted" formatted="false">"消息发送中断，请重新连接。"</string>
+    <string name="send_photo" formatted="false">"照片"</string>
     <string name="service_connecting" formatted="false">"正在连接服务…"</string>
     <string name="settings" formatted="false">"设置"</string>
     <string name="start_mode_reception_first" formatted="false">"请先开启相应连接方式的接收"</string>

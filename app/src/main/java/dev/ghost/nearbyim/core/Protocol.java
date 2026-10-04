@@ -9,7 +9,7 @@ import java.util.regex.Pattern;
 /** Both transports use this bounded, versioned binary protocol. */
 public final class Protocol {
     public static final int MAX_TEXT_BYTES = 8192;
-    private static final int MAGIC = 0x4e494d31, MAX_FRAME = 9216;
+    private static final int MAGIC = 0x4e494d31, MAX_FRAME = AttachmentInfo.CHUNK_SIZE + 2048;
     private static final Pattern UUID = Pattern.compile("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
 
     public static void write(OutputStream output, Frame frame) throws IOException {
@@ -18,6 +18,7 @@ public final class Protocol {
         DataOutputStream payload = new DataOutputStream(bytes);
         payload.writeInt(MAGIC); payload.writeByte(1); payload.writeByte(frame.type);
         payload.writeLong(frame.timestamp); writeString(payload, frame.id); writeString(payload, frame.body);
+        if(frame.type>=Frame.FILE_OFFER) { payload.writeLong(frame.offset); payload.writeInt(frame.data.length); payload.write(frame.data); }
         DataOutputStream wire = new DataOutputStream(output);
         wire.writeInt(bytes.size()); bytes.writeTo(wire); wire.flush();
     }
@@ -30,13 +31,20 @@ public final class Protocol {
         DataInputStream payload = new DataInputStream(new ByteArrayInputStream(bytes));
         if (payload.readInt() != MAGIC || payload.readUnsignedByte() != 1) throw new IOException("Unsupported protocol");
         int type = payload.readUnsignedByte(); long time = payload.readLong();
-        Frame frame = new Frame(type, readString(payload, 64), readString(payload, MAX_TEXT_BYTES), time);
+        String id=readString(payload,64), body=readString(payload,MAX_TEXT_BYTES); long offset=0;byte[] data=new byte[0];
+        if(type>=Frame.FILE_OFFER) {
+            offset=payload.readLong();int n=payload.readInt();
+            if(n<0||n>AttachmentInfo.CHUNK_SIZE||n>payload.available())throw new IOException("Invalid binary frame size");
+            data=new byte[n];payload.readFully(data);
+        }
+        Frame frame = new Frame(type,id,body,time,offset,data);
         if (payload.available() != 0) throw new IOException("Trailing frame data");
         validate(frame); return frame;
     }
 
     private static void validate(Frame frame) throws IOException {
         if (frame == null || frame.id == null || frame.body == null || frame.timestamp < 0) throw new IOException("Invalid frame");
+        if(frame.type<Frame.FILE_OFFER && (frame.offset!=0||frame.data.length!=0))throw new IOException("Unexpected binary payload");
         switch (frame.type) {
             case Frame.HELLO:
                 identity(frame.id);
@@ -49,6 +57,19 @@ public final class Protocol {
                 break;
             case Frame.ACK: identity(frame.id); empty(frame.body); break;
             case Frame.READY: case Frame.BYE: case Frame.PING: case Frame.PONG: empty(frame.id); empty(frame.body); break;
+            case Frame.FILE_OFFER: empty(frame.body); AttachmentInfo.from(frame); break;
+            case Frame.FILE_CHUNK:
+                identity(frame.id);empty(frame.body);
+                if(frame.offset<0||frame.offset>AttachmentInfo.MAX_SIZE||frame.data.length<1||frame.data.length>AttachmentInfo.CHUNK_SIZE||frame.data.length>AttachmentInfo.MAX_SIZE-frame.offset)throw new IOException("Invalid file chunk");
+                break;
+            case Frame.FILE_PROGRESS:
+                identity(frame.id);empty(frame.body);
+                if(frame.offset<0||frame.offset>AttachmentInfo.MAX_SIZE||frame.data.length!=0)throw new IOException("Invalid progress");break;
+            case Frame.FILE_ACCEPT:case Frame.FILE_FINISH:case Frame.FILE_RECEIPT:
+                identity(frame.id);empty(frame.body);if(frame.offset!=0||frame.data.length!=0)throw new IOException("Invalid file control");break;
+            case Frame.FILE_REJECT:case Frame.FILE_CANCEL:
+                identity(frame.id);
+                if(!java.util.Arrays.asList("rejected","busy","canceled","failed","timeout","tooLarge").contains(frame.body)||frame.offset!=0||frame.data.length!=0)throw new IOException("Invalid cancellation");break;
             default: throw new IOException("Unknown frame type");
         }
     }

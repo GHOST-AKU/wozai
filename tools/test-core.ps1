@@ -10,5 +10,11 @@ try {
     & java -cp build/core-tests dev.ghost.nearbyim.core.CoreTests
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     & java -cp build/core-tests dev.ghost.nearbyim.core.AuthenticationTests
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    & java -cp build/core-tests dev.ghost.nearbyim.core.AttachmentTests
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentLargeFileTest
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.ImageSafetyTests
     exit $LASTEXITCODE
 } finally { Pop-Location }

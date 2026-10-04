@@ -15,6 +15,7 @@ final class AppTheme {
     static boolean dark;
     private static String fontFamily;
     static void install(boolean useDark) {
+        tintedIcons.clear();
         dark = useDark;
         background = color(dark ? "101619" : "FAFCFA"); surface = color(dark ? "222B2F" : "EEF3EF");
         ink = color(dark ? "F1F5F3" : "17211C"); muted = color(dark ? "9AA8AD" : "58675F");
@@ -61,12 +62,12 @@ final class AppTheme {
     static JScrollPane scroll(Component view) { JScrollPane scroll=new JScrollPane(view); scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER); scroll.setBorder(BorderFactory.createEmptyBorder()); scroll.getVerticalScrollBar().setUnitIncrement(24); return scroll; }
     private static void ui(String key,Object value) { UIManager.put(key,value instanceof Color color ? new javax.swing.plaf.ColorUIResource(color) : value); }
     private static Color color(String hex) { return new Color(Integer.parseInt(hex, 16)); }
-    static void primary(JButton button) { button.putClientProperty("wozai.primary",true); button.putClientProperty("FlatLaf.style", "background: " + hex(accent) + "; foreground: " + hex(accentInk) + "; borderWidth: 0; arc: 24"); }
+    static void primary(JButton button) { button.putClientProperty("wozai.primary",true); button.putClientProperty("FlatLaf.style", "background: " + hex(accent) + "; foreground: " + hex(accentInk) + "; borderWidth: 0; arc: "+(Boolean.TRUE.equals(button.getClientProperty("wozai.round"))?999:24)); }
     static void refreshPrimary(Component component) { if(component instanceof JComponent view && Boolean.TRUE.equals(view.getClientProperty("wozai.muted")))view.setForeground(muted); if(component instanceof JButton button && Boolean.TRUE.equals(button.getClientProperty("wozai.primary")))primary(button); if(component instanceof Container container)for(Component child:container.getComponents())refreshPrimary(child); }
     static String hex(Color c) { return String.format("#%06x", c.getRGB() & 0xffffff); }
     static final class SurfacePanel extends JPanel {
         SurfacePanel(LayoutManager layout) { super(layout); setOpaque(false); }
-        protected void paintComponent(Graphics g) { Graphics2D p=(Graphics2D)g.create(); p.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON); p.setColor(surface); p.fillRoundRect(0,0,getWidth(),getHeight(),28,28); p.dispose(); super.paintComponent(g); }
+        protected void paintComponent(Graphics g) { Graphics2D p=(Graphics2D)g.create(); p.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON); p.setColor(surface); p.fillRoundRect(0,0,getWidth(),getHeight(),52,52); p.dispose(); super.paintComponent(g); }
     }
     static final class Avatar extends JComponent {
         private final String name;
@@ -79,11 +80,20 @@ final class AppTheme {
         }
     }
     private static final Map<String, BufferedImage> icons = new HashMap<>();
+    private record TintKey(String name,int color) {}
+    private static final Map<TintKey,BufferedImage> tintedIcons=new java.util.LinkedHashMap<>(64,0.75f,true){
+        protected boolean removeEldestEntry(Map.Entry<TintKey,BufferedImage> entry){return size()>64;}
+    };
     static Icon icon(String name) { return new Icon() {
         public int getIconWidth() { return 24; } public int getIconHeight() { return 24; }
         public void paintIcon(Component c, Graphics g, int x, int y) {
             BufferedImage source = icons.computeIfAbsent(name, n -> { try { return ImageIO.read(AppTheme.class.getResource("icons/" + n + ".png")); } catch (IOException e) { throw new IllegalStateException(e); } });
-            BufferedImage tinted = new BufferedImage(96,96,BufferedImage.TYPE_INT_ARGB); Graphics2D t = tinted.createGraphics(); t.drawImage(source,0,0,null); t.setComposite(AlphaComposite.SrcIn); t.setColor(c.isEnabled() ? c.getForeground() : muted); t.fillRect(0,0,96,96); t.dispose();
+            Color color=c.isEnabled()?c.getForeground():muted;
+            BufferedImage tinted=tintedIcons.computeIfAbsent(new TintKey(name,color.getRGB()),key->{
+                BufferedImage image=new BufferedImage(96,96,BufferedImage.TYPE_INT_ARGB);Graphics2D t=image.createGraphics();
+                try{t.drawImage(source,0,0,null);t.setComposite(AlphaComposite.SrcIn);t.setColor(color);t.fillRect(0,0,96,96);}finally{t.dispose();}
+                return image;
+            });
             Graphics2D p=(Graphics2D)g.create(); p.setRenderingHint(RenderingHints.KEY_INTERPOLATION,RenderingHints.VALUE_INTERPOLATION_BICUBIC); p.drawImage(tinted,x,y,24,24,null); p.dispose();
         }
     }; }

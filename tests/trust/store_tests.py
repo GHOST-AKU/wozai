@@ -9,15 +9,26 @@ export = subprocess.check_output(['java', '-cp', classpath, 'dev.ghost.nearbyim.
 version = int(export[0])
 sql = [base64.b64decode(line).decode() for line in export[1:]]
 CREATE_CONVERSATIONS, CREATE_MESSAGES, CREATE_INDEX, CREATE_TRUST, CONVERSATIONS, REMEMBER, REVOKE, CLEAR, TOUCH_INSERT, TOUCH_UPDATE, RECOVER_PENDING = sql
+LEGACY_MESSAGES=CREATE_MESSAGES.replace(' attachment TEXT,','')
+
+class AttachmentMigrationTests(unittest.TestCase):
+    def test_v3_to_v4_preserves_text_and_adds_nullable_attachment_metadata(self):
+        self.assertEqual(4, version, 'attachments need a lossless schema migration')
+        db=sqlite3.connect(':memory:')
+        db.execute("CREATE TABLE messages (peer_id TEXT NOT NULL,id TEXT NOT NULL,body TEXT NOT NULL,outgoing INTEGER NOT NULL,state TEXT NOT NULL,time INTEGER NOT NULL,received INTEGER NOT NULL,PRIMARY KEY(peer_id,id,outgoing))")
+        db.execute('INSERT INTO messages VALUES (?,?,?,?,?,?,?)',('peer','id','old text',1,'delivered',1,2))
+        export=subprocess.check_output(['java','-cp',classpath,'dev.ghost.nearbyim.storage.SchemaExport','3','4'],text=True)
+        for line in export.splitlines(): db.execute(base64.b64decode(line).decode())
+        self.assertEqual(('old text','delivered',None),db.execute('SELECT body,state,attachment FROM messages').fetchone())
 
 class StoreTests(unittest.TestCase):
     def test_schema_supports_language_independent_status_upgrade(self):
-        self.assertEqual(3, version, "legacy translated states need an explicit migration")
+        self.assertEqual(4, version, "attachment schema includes earlier language-independent status migration")
 
     def setUp(self):
         self.db = sqlite3.connect(':memory:')
         # Exact v1 schema, including histories with no key binding.
-        for statement in (CREATE_CONVERSATIONS, CREATE_MESSAGES, CREATE_INDEX):
+        for statement in (CREATE_CONVERSATIONS, LEGACY_MESSAGES, CREATE_INDEX):
             self.db.execute(statement)
         self.db.execute('INSERT INTO conversations VALUES (?,?,?)', ('old', '旧朋友', 999999))
         self.db.execute('INSERT INTO messages VALUES (?,?,?,?,?,?,?)', ('old','first','你好',0,'',10,10))
@@ -69,7 +80,7 @@ class StoreTests(unittest.TestCase):
 class StatusMigrationTests(unittest.TestCase):
     def setUp(self):
         self.db = sqlite3.connect(':memory:')
-        for statement in (CREATE_CONVERSATIONS, CREATE_MESSAGES, CREATE_INDEX):
+        for statement in (CREATE_CONVERSATIONS, LEGACY_MESSAGES, CREATE_INDEX):
             self.db.execute(statement)
         self.db.execute('INSERT INTO conversations VALUES (?,?,?)', ('peer', 'Nickname 我的朋友', 123))
         for i, state in enumerate(('待确认', '已送达', '未确认', 'pending', 'delivered', 'unknown')):

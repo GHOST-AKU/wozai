@@ -20,13 +20,39 @@
     <string name="android_lan_hint" formatted="false">"Connect both devices to the same Wi-Fi or hotspot. LAN messages are sent in plaintext, so use a trusted network."</string>
     <string name="android_request_body" formatted="false">"Connection over {0}. Remember this device to reconnect next time. You can revoke trust in Device information.\n\nThe other person chooses their nickname. Device trust does not verify their real name."</string>
     <string name="android_request_lan_body" formatted="false">"Connection over {0}. Remember this device to reconnect next time. You can revoke trust in Device information.\n\nThe other person chooses their nickname. Device trust does not verify their real name. LAN messages are sent in plaintext, so use a trusted network."</string>
-    <string name="android_storage_failure" formatted="false">"Local data could not be read or saved. Check the available space on this device."</string>
+    <string name="android_storage_failure" formatted="false">"Local data could not be read or saved. Try again; if the problem persists, report the error."</string>
     <string name="android_storage_stopped" formatted="false">"Local data could not be saved. The connection was stopped."</string>
     <string name="app" formatted="false">"NearbyIM"</string>
     <string name="app_permissions" formatted="false">"App permissions"</string>
     <string name="app_section" formatted="false">"Application"</string>
     <string name="app_settings" formatted="false">"App settings"</string>
     <string name="appearance_section" formatted="false">"Appearance"</string>
+    <string name="attachment_accept" formatted="false">"Accept"</string>
+    <string name="attachment_details" formatted="false">"{0} · {1,number} / {2,number} bytes · {3}"</string>
+    <string name="attachment_failed" formatted="false">"File operation failed. Check file access and available space."</string>
+    <string name="attachment_hint" formatted="false">"Up to 1 GiB per file. Contents are not encrypted."</string>
+    <string name="attachment_open" formatted="false">"Open"</string>
+    <string name="attachment_overwrite" formatted="false">"File exists. Replace it?"</string>
+    <string name="attachment_photo_preview" formatted="false">"Photo preview: {0}"</string>
+    <string name="attachment_progress" formatted="false">"Transfer progress: {0,number}%; {1}"</string>
+    <string name="attachment_reject" formatted="false">"Reject"</string>
+    <string name="attachment_save_as" formatted="false">"Save as"</string>
+    <string name="attachment_state_awaiting_receipt" formatted="false">"Waiting for save receipt"</string>
+    <string name="attachment_state_canceled" formatted="false">"Canceled"</string>
+    <string name="attachment_state_delivered" formatted="false">"Delivered"</string>
+    <string name="attachment_state_failed" formatted="false">"Transfer failed"</string>
+    <string name="attachment_state_interrupted" formatted="false">"Transfer interrupted"</string>
+    <string name="attachment_state_offered" formatted="false">"Waiting for acceptance"</string>
+    <string name="attachment_state_preparing" formatted="false">"Preparing"</string>
+    <string name="attachment_state_received" formatted="false">"Received"</string>
+    <string name="attachment_state_rejected" formatted="false">"Rejected"</string>
+    <string name="attachment_state_transferring" formatted="false">"Transferring"</string>
+    <string name="attachment_state_unknown" formatted="false">"Result unknown; the peer may have saved it"</string>
+    <string name="attachment_state_verifying" formatted="false">"Verifying and saving"</string>
+    <string name="attachment_summary" formatted="false">"{0} · {1}"</string>
+    <string name="attachment_unavailable" formatted="false">"File unavailable. It may have been deleted."</string>
+    <string name="attachment_upgrade_required" formatted="false">"Incompatible transfer protocol. Update the app on both devices."</string>
+    <string name="attachments" formatted="false">"Attachments"</string>
     <string name="back" formatted="false">"Back"</string>
     <string name="back_to_chats" formatted="false">"Back to chats"</string>
     <string name="bluetooth" formatted="false">"Bluetooth"</string>
@@ -130,6 +156,7 @@
     <string name="discovery_failed" formatted="false">"Automatic discovery is unavailable. Use an IP address to connect."</string>
     <string name="draft_retained_hint" formatted="false">"Connect to send a message. Your draft will stay here."</string>
     <string name="earlier" formatted="false">"Earlier"</string>
+    <string name="emoji" formatted="false">"Emoji"</string>
     <string name="empty_chat" formatted="false">"Select a chat on the left, or connect to a device in Nearby."</string>
     <string name="endpoint" formatted="false">"Peer IP address and port"</string>
     <string name="endpoint_hint" formatted="false">"For example 192.168.1.20:54321. Read this from the other device."</string>
@@ -230,6 +257,12 @@
     <string name="peer_unresponsive" formatted="false">"The other device stopped responding. Connect again."</string>
     <string name="pending" formatted="false">"Pending"</string>
     <string name="permissions_summary" formatted="false">"View nearby device and notification permissions"</string>
+    <string name="photo_desktop_zoom_hint" formatted="false">"Mouse wheel to zoom · Drag to pan · Double-click to fit"</string>
+    <string name="photo_loading" formatted="false">"Loading photo…"</string>
+    <string name="photo_unavailable" formatted="false">"Unable to display photo"</string>
+    <string name="photo_zoom_hint" formatted="false">"Pinch to zoom · Double-tap to enlarge"</string>
+    <string name="photo_zoom_in" formatted="false">"Zoom in"</string>
+    <string name="photo_zoom_out" formatted="false">"Zoom out"</string>
     <string name="please_wait_connecting" formatted="false">"Connecting. Please wait."</string>
     <string name="portable_hint" formatted="false">"Portable builds keep data in the data folder beside the app. Legacy data is copied and retained. Identity is protected by the current Windows user; another user or computer cannot automatically unlock it."</string>
     <string name="privacy" formatted="false">"No account or remote server. History stays on this computer. LAN text is still plaintext; identity signatures do not encrypt content."</string>
@@ -267,8 +300,10 @@
     <string name="searching_nearby" formatted="false">"Searching for nearby devices…"</string>
     <string name="select_chat" formatted="false">"Select a chat"</string>
     <string name="send" formatted="false">"Send"</string>
+    <string name="send_file" formatted="false">"File"</string>
     <string name="send_hint" formatted="false">"Enter to send · Shift+Enter for newline · Up to 8192 UTF-8 bytes"</string>
     <string name="send_interrupted" formatted="false">"Sending was interrupted. Connect again."</string>
+    <string name="send_photo" formatted="false">"Photo"</string>
     <string name="service_connecting" formatted="false">"Connecting to the service…"</string>
     <string name="settings" formatted="false">"Settings"</string>
     <string name="start_mode_reception_first" formatted="false">"Enable reception for this connection method first"</string>
