@@ -160,6 +160,57 @@ Windows 本轮发 / 收 / 保存回执为 112 / 112 / 112，Linux 为 157 / 158 
 
 新增 16 项消息行复用与缓存失效回归，先验证旧实现追加消息会重建已有行，再验证修复；五语 formatter 检查增至 3,190 项，包含时区缓存更新。[Android 最终 CI](https://github.com/GHOST-AKU/wozai/actions/runs/37141448276)来自 `34ee105`，编译、Lint、签名及对齐检查通过，API 26 / 34 对实际 optimized preview 各通过 **186 项原生检查**，覆盖并发复数格式化、时区更新、语言上下文复用和既有连接／重建流程。没有采集 Android CPU / RSS 或真机蓝牙数据。
 
-这些优化仍位于 PR #4；已发布 `v0.3.1-preview.1` 的资产没有更新。性能采样时尚未重新取得正式图标包；随后收到原 ZIP 并核对 41 项原始导出，桌面多尺寸窗口图标接入见[图标说明](app-icon.md)。本节性能数据没有随该图标改动重新采集。长期 Android 签名及双机射频验收继续在现有 Issues 中跟踪。
+这些优化已随 PR #4 合并到 main；已发布 `v0.3.1-preview.1` 的资产没有更新。性能采样时尚未重新取得正式图标包；随后收到原 ZIP 并核对 41 项原始导出，桌面多尺寸窗口图标接入见[图标说明](app-icon.md)。本节性能数据没有随该图标改动重新采集。长期 Android 签名及双机射频验收继续在现有 Issues 中跟踪。
 
 采样后补充 BlueZ 断开超时保护修复，构建提交 `61789e0` 的[最终 Windows / Linux CI](https://github.com/GHOST-AKU/wozai/actions/runs/37143201285)全部通过：原生／JNI 联合 378 项、实际消息与存储链路 16 项，以及软件包、GUI、mDNS 和四种缩放。该修复改变蓝牙清理路径，没有重新采集 LAN 性能；本节优化对比继续保留原始 `c7f88c1` 软件包的数值与校验和。
+
+
+## PR #5：Linux runtime 与空闲内存（2026-10-04）
+
+跟踪 [Issue #9](https://github.com/GHOST-AKU/wozai/issues/9)。本轮从 PR #4 的合并提交 `ce972fc6971e554b0453e94d1d5d9a4e31a8e7f1` 开始，包含最后提交 `64fcce8`、正式多尺寸图标和蓝牙清理修复。先完成干净构建，再复制 app-image，仅替换 runtime。两组应用 JAR 的 SHA-256 都为 `22c7f6ec4a7bf8a9004bb714ada5090075ed245092c966e13d87147366899e1d`，构建元数据均为干净 `ce972fc`。实验软件包没有重新生成压缩分发文件，JSON 的 `distribution.packages` 为空。
+
+Debian 13 x64 容器、Xeon Platinum 8370C、3 个可见逻辑 CPU、约 9.7 GiB 可见内存，Temurin 17.0.16，Xvfb :98 2560×1800×24，系统／FlatLaf 缩放 1.0，内置 Noto Sans CJK SC。与上一节的 Xeon 8573C 不同，不能直接把本节与旧报告相减作为实机或同设备回归。正式样本无 NMT、堆限制或显式 GC 参数。Idle / Connected 先稳定 10 s、采样 30 s；Active 稳定 2 s、采样 30 s，仍为每方向最多 5 条/s、256 UTF-8 字节。每轮独立空资料、五次新 JVM 启动；不控制系统页缓存或 CPU 频率。没有并发打包或其他测量任务。
+
+唯一变量是 `jlink --compress=1`（常量池共享）或 `--compress=0`。模块、裁剪选项与五语列表完全相同；应用的 ICU formatter 缓存、消息行复用和正式图标均保留。顺序为 **1→0、0→1、1→0**，前一轮正常退出后才启动下一轮。
+
+原始 JSON（保留每个采样点、流量、回执、应用构建信息、runtime 模块文件 SHA-256 与 release 元数据）：常量池共享 [1](performance/2026-10-04-runtime-compress-1-1.json)、[2](performance/2026-10-04-runtime-compress-1-2.json)、[3](performance/2026-10-04-runtime-compress-1-3.json)；不共享 [1](performance/2026-10-04-runtime-compress-0-1.json)、[2](performance/2026-10-04-runtime-compress-0-2.json)、[3](performance/2026-10-04-runtime-compress-0-3.json)。
+
+对各轮中位 RSS、均值 CPU 和后续启动中位数再取三轮中位数；没有合并各轮 P95。
+
+| 指标 | 常量池共享 | 不共享 | 变化 |
+| --- | ---: | ---: | ---: |
+| Idle RSS（MiB） | 125.69 | 108.04 | -14.04% |
+| Connected / LAN RSS（MiB） | 149.47 | 129.28 | -13.51% |
+| Active / LAN RSS（MiB） | 232.75 | 212.75 | -8.59% |
+| Idle CPU（%） | 0.33 | 0.33 | 基本持平 |
+| Connected CPU（%） | 1.23 | 1.30 | +5.41% |
+| Active CPU（%） | 56.17 | 58.53 | +4.21% |
+| 后续启动中位数（s） | 1.795 | 1.826 | +1.68% |
+| 展开 app-image（MiB） | 106.82 | 120.72 | +13.90 MiB |
+| 展开 runtime（MiB） | 62.56 | 76.46 | +13.90 MiB |
+
+| 配置 / 轮次 | Idle / Connected / Active RSS（MiB） | Active CPU（%） | 后续启动中位数（s） | 发送 / 保存回执 / 接收 |
+| --- | --- | ---: | ---: | --- |
+| 共享 / 1 | 133.81 / 150.07 / 221.80 | 60.43 | 1.873 | 158 / 158 / 157 |
+| 共享 / 2 | 123.81 / 149.47 / 233.04 | 55.20 | 1.795 | 158 / 158 / 158 |
+| 共享 / 3 | 125.69 / 148.76 / 232.75 | 56.17 | 1.713 | 158 / 158 / 157 |
+| 不共享 / 1 | 108.89 / 129.28 / 213.84 | 60.57 | 1.826 | 158 / 158 / 158 |
+| 不共享 / 2 | 107.39 / 130.67 / 212.75 | 58.53 | 1.843 | 158 / 158 / 158 |
+| 不共享 / 3 | 108.04 / 127.17 / 200.57 | 55.23 | 1.580 | 158 / 158 / 158 |
+
+每个配对都测到 Idle / Connected RSS 降低，三轮范围不重叠。单变量结果将当前版本的这部分常驻内存差异归因到 runtime 常量池共享，不能把旧报告的全部增长归因于它，也不能据此证明 JVM 堆泄漏。活跃状态 RSS 降低；CPU 中位数小幅上升，两组逐轮 Active CPU 范围重叠，不能声称 CPU 或启动加速，也不足以证明 CPU 完全无回归。吞吐接近、全部回执已持久化；消息复用和 formatter 缓存代码没有回退。
+
+Linux 打包改为 `--compress=0`，保留 gzip / xz -9。取舍是展开安装体积增加约 13.90 MiB。Windows 没有同条件三轮对照，本轮保留其既有配置；Android、蓝牙真机和原签名密钥不在本节性能验收范围内。Issues #5–#8 的进展／阻碍记录仍保留在对应 Issue。
+
+### 复现单变量实验
+
+先在干净提交上执行 `sh desktop/tools/build.sh --package`，保存 app-image，再复制为第二组。只删除第二组的 `lib/runtime`，使用构建该包的同一 JDK：
+
+```sh
+"$JAVA_HOME/bin/jlink" --output /path/to/second/NearbyIM/lib/runtime \
+  --add-modules java.base,java.desktop,java.logging,jdk.crypto.ec,jdk.accessibility,jdk.localedata \
+  --strip-debug --no-man-pages --no-header-files --compress=0 \
+  --include-locales=zh-Hans,en,zh-Hant,ja,ko
+```
+
+本节第一组来自 main 上 `--compress=1` 的包；修复后重现第一组需改上述参数为 `--compress=1`。不要更改应用 JAR、图标、模块、JDK、测量参数或显示环境。两组分别调用本文 `performance.py measure`，加 `--settle 10 --seconds 30`，交替顺序各三轮。核对两组 JAR 相同、runtime 模块与语言一致，保留实际命令、两组 `lib/modules` 的 SHA-256 与 `lib/runtime/release`。压缩级别不写入 Java 应用构建元数据，必须像本节 JSON 的 `experiment` 字段一样单独注明，不能把实验的 runtime 替换描述成原始 main 打包结果。

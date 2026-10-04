@@ -10,14 +10,14 @@ case $(uname -m) in x86_64) architecture=x64; deb_arch=amd64;; aarch64) architec
 mkdir -p build/package-input build/package
 rm -rf build/package-input/* build/package/NearbyIM
 cp build/lib/*.jar build/lib/libwozai_bluetooth.so build/package-input/
-# Constant-pool sharing leaves modules compressible by tar/deb. ZIP-style
-# jlink compression reduced installation files but inflated download sizes.
+# Constant-pool sharing raised Idle/Connected RSS in the matched Linux trials
+# (docs/performance.md). Keep modules uncompressed; tar/deb still compress them.
 jpackage --type app-image --name NearbyIM --app-version "$version" --vendor GHOST-AKU \
     --input build/package-input --main-jar nearbyim-desktop.jar --main-class dev.ghost.wozai.Main \
     --dest build/package --icon assets/icons/linux/hicolor/256x256/apps/nearbyim.png \
     --java-options '-Dwozai.installDir=$APPDIR/../..' \
     --add-modules java.base,java.desktop,java.logging,jdk.crypto.ec,jdk.accessibility,jdk.localedata \
-    --jlink-options "--strip-debug --no-man-pages --no-header-files --compress=1 --include-locales=$locales"
+    --jlink-options "--strip-debug --no-man-pages --no-header-files --compress=0 --include-locales=$locales"
 image=build/package/NearbyIM
 ${CXX:-c++} -std=c++17 -O2 -Wall -Wextra -Wpedantic -Werror native/linux_launcher.cpp -o "$image/bin/NearbyIM"
 cp ../THIRD_PARTY_NOTICES.md "$image/"
