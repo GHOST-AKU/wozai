@@ -15,7 +15,8 @@ android {
         applicationId = "dev.ghost.nearbyim"
         minSdk = 26
         targetSdk = 36
-        testInstrumentationRunner = "dev.ghost.nearbyim.LocalizationInstrumentation"
+        testInstrumentationRunner = providers.gradleProperty("testInstrumentationRunner")
+            .orElse("dev.ghost.nearbyim.LocalizationInstrumentation").get()
         versionCode = 8
         versionName = i18nConfiguration["appVersion"] as String
     }

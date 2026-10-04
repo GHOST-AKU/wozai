@@ -45,6 +45,7 @@ with tempfile.TemporaryDirectory(prefix="wozai-signing-", dir=os.environ.get("RU
     if certificate.returncode or not fingerprint or fingerprint.group(1).replace(":", "").lower() != pin["certificate_sha256"]:
         raise SystemExit("Private keystore/password/alias does not match the persistent certificate; refusing to build")
     subprocess.run([str(root / "gradlew"), "--no-daemon", "-PtestBuildType=release",
+                    "-PtestInstrumentationRunner=dev.ghost.nearbyim.SigningUpgradeInstrumentation",
                     ":app:assembleRelease", ":app:assembleReleaseAndroidTest", ":app:assembleDebug", ":app:lintRelease"],
                    cwd=root, env=environment, check=True)
     folder = root / "build/signing-upgrade"
