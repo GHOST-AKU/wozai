@@ -104,6 +104,25 @@ public final class LocalizationInstrumentation extends Instrumentation {
         check(AndroidText.get(context, "androidHelpBody").contains("\n\n"), "Android resources preserve paragraph breaks");
         check(AndroidText.get(context, "unknownRuntimeMessage").equals(AndroidText.get(context, "error")), "Unknown runtime keys fall back to a translated generic error");
         check(AndroidText.messageState(context, ChatStore.PENDING).equals("Pending"), "Stored status code resolves to English");
+        Context localized = AppLanguage.wrap(context);
+        check(AppLanguage.wrap(localized) == localized, "An already localized context is reused");
+        java.util.TimeZone originalZone = java.util.TimeZone.getDefault();
+        try {
+            java.util.Date date = new java.util.Date(1_700_000_000_000L);
+            java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("UTC"));
+            String before = AndroidText.get(localized, "messageTime", date);
+            java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("GMT+09:00"));
+            String after = AndroidText.get(localized, "messageTime", date);
+            check(!before.equals(after), "Cached native formatting follows time zone changes");
+            String pattern = localized.getString(dev.ghost.nearbyim.i18n.I18nResources.id("messageTime"));
+            check(after.equals(new android.icu.text.MessageFormat(pattern, java.util.Locale.ENGLISH).format(new Object[]{date})), "Cached native time equals a fresh ICU formatter");
+        } finally { java.util.TimeZone.setDefault(originalZone); }
+        java.util.concurrent.ExecutorService formatting = java.util.concurrent.Executors.newFixedThreadPool(4);
+        try {
+            java.util.List<java.util.concurrent.Future<String>> values = new java.util.ArrayList<>();
+            for (int i = 0; i < 40; ++i) { final int count = i % 2 + 1; values.add(formatting.submit(() -> AndroidText.get(localized, "deviceCount", count))); }
+            for (int i = 0; i < values.size(); ++i) check(values.get(i).get().equals(i % 2 == 0 ? "1 device" : "2 devices"), "Cached ICU formatting remains isolated across threads");
+        } finally { formatting.shutdownNow(); }
         check(!AndroidText.date(context, 1700000000000L, "MMMdjm").isEmpty(), "Native locale date formatter");
         for (String[] expected : new String[][]{{"zh-Hant", "傳送", "2 台裝置"},
                 {"ja", "送信", "2 台のデバイス"}, {"ko", "보내기", "기기 2대"}}) {

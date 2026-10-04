@@ -64,6 +64,9 @@ public final class GuiTests {
             DesktopIdentity.Identity identity = DesktopIdentity.load(root.resolve("identity.properties"));
             window = edt(() -> { AppTheme.install(false); DesktopWindow w = new DesktopWindow(store, identity, root); w.setVisible(true); return w; });
             DesktopWindow w = window;
+            if (!w.getIconImages().stream().map(image -> image.getWidth(null)).toList().equals(DesktopIdentity.windows()
+                    ? List.of(16, 24, 32, 48, 64, 128, 256) : List.of(16, 22, 24, 32, 48, 64, 96, 128, 256, 512)))
+                throw new AssertionError("Window did not install formal platform icon sizes");
             await(() -> components(w).stream().anyMatch(c -> c instanceof JList<?> l && "Chats".equals(l.getAccessibleContext().getAccessibleName()) && l.getModel().getSize() == 1), "History did not load");
             edt(() -> { components(w).stream().filter(c -> c instanceof JList<?> l && "Chats".equals(l.getAccessibleContext().getAccessibleName())).forEach(c -> ((JList<?>) c).setSelectedIndex(0)); return null; });
             await(() -> area(w, "Type a message").getText().equals("saved draft"), "UI draft did not load");
@@ -168,15 +171,15 @@ public final class GuiTests {
             DesktopWindow w = window; if (w != null) edt(() -> { if (w.isDisplayable()) w.dispatchEvent(new WindowEvent(w, WindowEvent.WINDOW_CLOSING)); return null; });
         }
     }
-    private static final class TestInquiry implements WindowsBluetooth.Inquiry {
+    private static final class TestInquiry implements DesktopBluetooth.Inquiry {
         final CountDownLatch started = new CountDownLatch(1), closed = new CountDownLatch(1), finish = new CountDownLatch(1);
         final boolean delayed;
         TestInquiry(boolean delayed) { this.delayed = delayed; }
-        public List<WindowsBluetooth.Device> scan(int seconds) throws IOException {
+        public List<DesktopBluetooth.Device> scan(int seconds) throws IOException {
             started.countDown();
             try { if (!finish.await(8, TimeUnit.SECONDS)) throw new IOException("Test inquiry timed out"); }
             catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new IOException(e); }
-            return List.of(new WindowsBluetooth.Device("AB:CD:01:23:45:67", delayed ? "Stale scan" : "Current scan", false));
+            return List.of(new DesktopBluetooth.Device("AB:CD:01:23:45:67", delayed ? "Stale scan" : "Current scan", false));
         }
         public void close() { closed.countDown(); if (!delayed) finish.countDown(); }
     }
@@ -205,7 +208,7 @@ public final class GuiTests {
             JList<?> devices = edt(() -> components(w).stream().filter(c -> c instanceof JList<?> l && text.text("bluetoothDevices").equals(l.getAccessibleContext().getAccessibleName())).map(c -> (JList<?>)c).findFirst().orElseThrow());
             if (!edt(() -> scan.getText().equals(text.text("stopSearch")) && devices.getModel().getSize() == 0)) throw new AssertionError("Stale completion reset or populated the new scan");
             second.finish.countDown();
-            await(() -> devices.getModel().getSize() == 1 && ((WindowsBluetooth.Device)devices.getModel().getElementAt(0)).name().equals("Current scan"), "Restart did not publish fresh results");
+            await(() -> devices.getModel().getSize() == 1 && ((DesktopBluetooth.Device)devices.getModel().getElementAt(0)).name().equals("Current scan"), "Restart did not publish fresh results");
             edt(() -> { scan.doClick(); return null; });
             TestInquiry third = inquiries.get(2);
             if (!third.started.await(2, TimeUnit.SECONDS)) throw new AssertionError("Third scan did not start");

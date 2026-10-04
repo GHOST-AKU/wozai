@@ -94,16 +94,17 @@ public final class DesktopTests {
                     check(store.setting("language", "").equals("en"), "Nickname migration changed the chosen language");
                 }
             }
+            String freshNickname = DesktopIdentity.windows() ? "NearbyIM Windows" : "NearbyIM Linux";
             Path fresh = root.resolve("fresh");
             try (DesktopStore store = new DesktopStore(fresh);
                  DesktopClient client = new DesktopClient(store, DesktopIdentity.load(fresh.resolve("identity.properties")), silentListener())) {
-                check(store.setting("nickname", "").equals("NearbyIM Windows"), "Fresh profile did not persist the system-localized nickname before connecting");
+                check(store.setting("nickname", "").equals(freshNickname), "Fresh profile did not persist the system-localized nickname before connecting");
                 store.setSetting("language", "zh-Hans"); client.refresh().get(2, TimeUnit.SECONDS);
-                check(store.setting("nickname", "").equals("NearbyIM Windows"), "Language change renamed a device");
+                check(store.setting("nickname", "").equals(freshNickname), "Language change renamed a device");
             }
             try (DesktopStore store = new DesktopStore(fresh);
                  DesktopClient client = new DesktopClient(store, DesktopIdentity.load(fresh.resolve("identity.properties")), silentListener())) {
-                check(store.setting("nickname", "").equals("NearbyIM Windows"), "Restart reinterpreted a persisted nickname as an old default");
+                check(store.setting("nickname", "").equals(freshNickname), "Restart reinterpreted a persisted nickname as an old default");
                 store.setSetting("nickname", "O'Brien 朋友");
             }
             try (DesktopStore store = new DesktopStore(fresh);
@@ -281,10 +282,14 @@ public final class DesktopTests {
                 } finally { android.close(UiText.EMPTY); }
             }
             client.stopListening().get(3, TimeUnit.SECONDS);
-            try (var probe = new Socket(address, port)) { throw new AssertionError("Listener still accepted connections"); }
-            // A closed local listener can refuse or reset the connect, depending
-            // on the OS and whether its former accept thread has just exited.
-            catch (SocketException expected) { passed++; }
+            // Linux can finish a TCP handshake while the kernel releases an
+            // accept() already in progress. Reception must reject that socket
+            // without starting authentication; TCP connect success alone is not
+            // evidence that the application is still accepting peers.
+            try (var probe = new Socket(address, port)) {
+                probe.setSoTimeout(2000);
+                check(probe.getInputStream().read() == -1, "Stopped listener began another protocol session");
+            } catch (SocketException expected) { passed++; }
         }
     }
 }

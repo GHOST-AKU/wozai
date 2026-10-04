@@ -297,5 +297,20 @@
   "notificationReceiving": "受信は有効です。タップして NearbyIM に戻ります。",
   "notificationTitle": "NearbyIM は実行中です",
   "yesterday": "昨日",
-  "defaultNicknameWindows": "NearbyIM Windows"
+  "defaultNicknameWindows": "NearbyIM Windows",
+  "versionLinux": "Linux プレビュー版 · {0}",
+  "aboutBodyLinux": "我在 · NearbyIM\nLinux プレビュー版 {0}\n\nアカウント不要の、近くの人とのテキストチャット。\n\nLAN またはクラシック Bluetooth で 1 対 1 のチャットができます。メッセージはこのパソコンに保存されます。データを削除すると、履歴とデバイスの信頼も削除されます。",
+  "helpBodyLinux": "LAN：両方のデバイスを同じ Wi-Fi またはアクセスポイントに接続してください。受信を有効にして検索するか、IP アドレスとポートを入力します。LAN のメッセージは平文で送信されるため、信頼できるネットワークを使用してください。\n\nBluetooth：アダプターと BlueZ システムサービスを有効にしてください。両方で受信を有効にし、検索される側を検出可能にします。初回のペアリングにはデスクトップのペアリングエージェントが必要です。システム設定でペアリングできます。登録済みのデバイスと検索結果を一覧に表示します。登録したデバイスは履歴から再接続できます。受信の停止は接続済みのチャットを切断しません。\n\n初回のチャットでは、デバイスを登録するか、今回のみ許可できます。システムのペアリングだけではアプリの信頼は付与されません。再接続時は同じ公開鍵を確認します。設定で信頼を解除できます。\n\n「確認待ち」は保存確認がまだ届いていない状態、「配信済み」は相手が保存した状態、「未確認」は結果が不明な状態です。いずれも既読を意味しません。\n\n履歴と下書きは再起動後も保持されます。終了後は受信を再び有効にしてください。データは XDG_DATA_HOME/wozai、既定では ~/.local/share/wozai に保存され、アプリの場所に依存しません。秘密鍵は追加の暗号化をせず、所有者だけがアクセスできるファイル権限で保護します。データを削除すると履歴と信頼も削除されます。",
+  "bluetoothHintLinux": "BlueZ を介したクラシック Bluetooth RFCOMM。両方で Bluetooth と受信を有効にし、検索される側を検出可能にしてください。GNOME、KDE または Blueman のシステム設定でペアリングできます。システムのペアリングだけではアプリの信頼は付与されません。",
+  "bluetoothSettingsLinux": "Bluetooth 設定",
+  "bluetoothSettingsUnavailableLinux": "Bluetooth 設定アプリが見つかりません。デスクトップのシステム設定を開くか Blueman をインストールし、ペアリングと検出の設定を行ってください。",
+  "bluetoothUnavailableLinux": "Bluetooth を利用できません。BlueZ が動作し、アダプターが有効で、現在のユーザーがシステムの Bluetooth サービスにアクセスできるか確認してください。",
+  "startupErrorLinux": "NearbyIM を起動できませんでした。すでに起動していないか、データフォルダーに書き込めるか確認してください。既存データは保持されています。",
+  "bluetoothHintWindows": "Android と同じクラシック Bluetooth を使用します。両方で Bluetooth と受信を有効にしてください。必要に応じて Windows の Bluetooth 設定でペアリングしてください。システムのペアリングだけではアプリの信頼は付与されません。",
+  "bluetoothSettingsWindows": "Windows の Bluetooth 設定",
+  "bluetoothSettingsUnavailableWindows": "Bluetooth を利用できません。このパソコンに Bluetooth アダプターがあり、有効になっているか確認してください。",
+  "bluetoothUnavailableWindows": "Bluetooth を利用できません。このパソコンに Bluetooth アダプターがあり、有効になっているか確認してください。",
+  "desktopEntryInstalled": "アプリメニューの項目を作成しました：{0}",
+  "desktopEntryFailed": "アプリメニューの項目を作成できませんでした。完全な Linux パッケージから実行し、メニューのディレクトリに書き込めるか確認してください。",
+  "defaultNicknameLinux": "NearbyIM Linux"
 }

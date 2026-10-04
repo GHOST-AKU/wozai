@@ -14,17 +14,18 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Windows classic Bluetooth RFCOMM using the Microsoft Bluetooth stack.
+ * Classic Bluetooth RFCOMM using the Windows stack or the Linux BlueZ system bus.
  * All operations except close() can block and must run off the Swing event thread.
  * The native library uses the same authenticated/encrypted service as Android.
  */
-public final class WindowsBluetooth {
+public final class DesktopBluetooth {
     public static final String SERVICE_UUID = "90c649e1-c095-4b22-8bc3-35e4c9c7b372";
     private static final String LIBRARY = "wozai_bluetooth";
     private static final boolean WINDOWS = System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("windows");
+    private static final boolean LINUX = System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("linux");
     private static final String LOAD_FAILURE = loadLibrary();
 
-    private WindowsBluetooth() { }
+    private DesktopBluetooth() { }
 
     /** supported distinguishes a missing platform/library from a missing or disabled radio. */
     public record Status(boolean supported, boolean available, String detail) { }
@@ -42,7 +43,7 @@ public final class WindowsBluetooth {
         if (LOAD_FAILURE != null) return new Status(false, false, LOAD_FAILURE);
         try {
             String failure = nativeStatus();
-            return new Status(true, failure == null, failure == null ? "Windows Bluetooth RFCOMM is ready" : failure);
+            return new Status(true, failure == null, failure == null ? "Bluetooth RFCOMM is ready" : failure);
         } catch (IOException e) {
             return new Status(true, false, e.getMessage());
         }
@@ -68,7 +69,7 @@ public final class WindowsBluetooth {
 
     /** Allocate before starting so close() can cancel even a queued inquiry. */
     public static Inquiry openInquiry() throws IOException {
-        if (LOAD_FAILURE != null) throw new LocalizedIOException(UiText.of("bluetoothUnavailable"));
+        if (LOAD_FAILURE != null) throw new LocalizedIOException(UiText.of(DesktopPlatform.key("bluetoothUnavailable")));
         return new NativeInquiry(nativeOpenInquiry());
     }
     public interface Inquiry extends AutoCloseable {
@@ -118,7 +119,7 @@ public final class WindowsBluetooth {
 
     private static void requireAvailable() throws IOException {
         Status status = status();
-        if (!status.available()) throw new LocalizedIOException(UiText.of("bluetoothUnavailable"));
+        if (!status.available()) throw new LocalizedIOException(UiText.of(DesktopPlatform.key("bluetoothUnavailable")));
     }
     private static void validateTimeout(int timeoutMillis) {
         if (timeoutMillis < 1 || timeoutMillis > 120_000)
@@ -195,26 +196,26 @@ public final class WindowsBluetooth {
     }
 
     private static String loadLibrary() {
-        if (!WINDOWS) return "Classic Bluetooth RFCOMM is available only on Windows";
+        if (!WINDOWS && !LINUX) return "Classic Bluetooth RFCOMM requires Windows or Linux BlueZ";
         try {
             String override = System.getProperty("wozai.bluetooth.library", "");
             if (!override.isEmpty()) {
                 Path path = Path.of(override);
-                if (!path.isAbsolute()) return "wozai.bluetooth.library must be an absolute DLL path";
+                if (!path.isAbsolute()) return "wozai.bluetooth.library must be an absolute native library path";
                 System.load(path.toString());
             } else {
-                // jpackage stores both the application JAR and the DLL in its app directory.
-                Path source = Path.of(WindowsBluetooth.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+                // jpackage stores the application JAR and native library together.
+                Path source = Path.of(DesktopBluetooth.class.getProtectionDomain().getCodeSource().getLocation().toURI());
                 Path directory = Files.isDirectory(source) ? source : source.getParent();
-                Path adjacent = directory.resolve(LIBRARY + ".dll");
+                Path adjacent = directory.resolve(System.mapLibraryName(LIBRARY));
                 if (Files.isRegularFile(adjacent)) System.load(adjacent.toAbsolutePath().toString());
                 else System.loadLibrary(LIBRARY);
             }
-            // Fail during initialization if the packaged DLL has an incompatible JNI API.
-            if (nativeVersion() != 2) return "The Windows Bluetooth DLL has an incompatible version";
+            // Fail during initialization if the packaged library has an incompatible JNI API.
+            if (nativeVersion() != 2) return "The Bluetooth native library has an incompatible version";
             return null;
         } catch (Exception | LinkageError e) {
-            return "Windows Bluetooth DLL could not be loaded: " + e.getClass().getSimpleName() + ": " + e.getMessage();
+            return "Bluetooth native library could not be loaded: " + e.getClass().getSimpleName() + ": " + e.getMessage();
         }
     }
 

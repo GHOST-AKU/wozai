@@ -1,10 +1,14 @@
 # 我在 · NearbyIM
 
-一个无需账号、无需远程服务器的聊天项目。原生安卓端和 Windows 预览版通过 **同一局域网** 或 **经典蓝牙** 聊天，共用 NIM2 协议。
+一个无需账号、无需远程服务器的聊天项目。原生安卓端、Windows 与 Linux 预览版通过 **同一局域网** 或 **经典蓝牙** 聊天，共用 NIM2 协议。
 
-**当前开发版本：我在 · NearbyIM 0.3.1。安卓与 Windows 共用完整的简体中文／英文／繁体中文／日语／韩语翻译目录，每种语言各 299 个文案键，默认跟随系统，涵盖界面、错误、通知、权限说明、日期、帮助与关于。多语言架构和新增语言流程见[架构说明](docs/i18n.md)。原有 NIM2 身份、信任与消息协议保持兼容。0.2.0 双机通信及可信重连已由用户报告通过；后续方向见[产品路线图](docs/roadmap.md)。**
+**当前开发版本：我在 · NearbyIM 0.3.1。安卓、Windows 与 Linux 共用完整的简体中文／英文／繁体中文／日语／韩语翻译目录，每种语言各 314 个文案键，默认跟随系统，涵盖界面、错误、通知、权限说明、日期、帮助与关于。多语言架构和新增语言流程见[架构说明](docs/i18n.md)。原有 NIM2 身份、信任与消息协议保持兼容。0.2.0 双机通信及可信重连已由用户报告通过；后续方向见[产品路线图](docs/roadmap.md)。**
 
 Windows 0.3.1 预览版包含局域网发现、IP 直连、经典蓝牙、文字聊天、可信重连、回执、本地记录和草稿，以及与安卓一致的配色、头像、搜索、消息气泡和图标。英文品牌统一为 NearbyIM，内置思源黑体，无需安装字体；设置支持窄窗口自动换行、顺畅滚动，并提供「使用说明」「关于我在」。支持五种语言、文字大小和浅色／深色主题。数据默认放在软件旁的 `data`，旧版便携和用户目录会复制迁移并保留原件。解压便携包后运行 `NearbyIM/NearbyIM.exe`，无需另装 Java。构建、使用范围和验证记录见 [Windows 说明](docs/windows.md)；安卓、Windows、Linux 图标资产见[图标说明](docs/app-icon.md)。Windows 蓝牙需真实适配器和手机验收；暂不支持附件和群聊，局域网内容仍为明文。
+
+Linux 0.3.1 预览版复用桌面界面、字体和五语资源，支持局域网和 BlueZ 经典蓝牙 RFCOMM、可信重连、回执、历史与草稿。提供自带 Java 的 tar.gz 与 deb 包，以及桌面菜单入口；数据位于 XDG 用户目录，移动程序或安装到只读目录不会改变设备身份。使用、构建与下载见 [Linux 说明](docs/linux.md)，自动验证及真实设备验收范围见 [Linux 验证记录](docs/linux-verification.md)。
+
+当前问题通过 [GitHub Issues](https://github.com/GHOST-AKU/wozai/issues) 跟进：[Windows 有线网络发现 #5](https://github.com/GHOST-AKU/wozai/issues/5)、[同时多人私聊 #6](https://github.com/GHOST-AKU/wozai/issues/6)、[桌面蓝牙真机验收 #7](https://github.com/GHOST-AKU/wozai/issues/7)、[Android 签名与升级 #8](https://github.com/GHOST-AKU/wozai/issues/8)。
 
 ## 已实现的功能
 
@@ -43,9 +47,17 @@ Windows PowerShell：
 
 生成路径：`app/build/outputs/apk/debug/app-debug.apk`。当前调试安装包命名为 `NearbyIM-0.3.1-debug.apk`，使用 Android 调试签名，供安装测试。把同一个 APK 安装到两部安卓手机。此版本的最低系统配置为 Android 8.0 / API 26，目标 SDK 为 36。
 
+构建经过 R8 与资源裁剪的预览包：
+
+```sh
+./gradlew -PtestBuildType=preview :app:assemblePreview :app:assemblePreviewAndroidTest :app:lintPreview
+```
+
+安装 `app/build/outputs/apk/preview/app-preview.apk`。preview 不可调试，仍使用调试签名；`androidTest` APK 仅用于原生验收。debug 保留开发调试用途，正式 release 尚需配置长期签名。
+
 第一次同步需要访问 Google Maven、Maven Central 与 Gradle 分发服务器。SDK 路径由 Android Studio 写入本机 `local.properties`，不要把它提交到仓库。
 
-已附 `.github/workflows/android.yml`，仅支持手动运行。在 GitHub 的 Actions 页面选择 **Build 我在 debug APK → Run workflow**，构建成功后可下载 `NearbyIM-<版本>-android-debug` artifact。上传源码和提交修改不会自动编译 APK。本轮 0.3.1 的[最终构建](https://github.com/GHOST-AKU/wozai/actions/runs/37014761654)已通过安卓编译、Lint、API 26/34 原生多语言检查和 Windows 打包验证。可下载[安卓调试包](https://github.com/GHOST-AKU/wozai/actions/runs/37014761654/artifacts/11229167650)，解压后安装 `debug/app-debug.apk`；`androidTest` 中的 APK 仅用于测试。独立构建分支在验收后也恢复手动触发。
+已附 `.github/workflows/android.yml`，仅支持手动运行。在 GitHub 的 Actions 页面打开 Android 构建工作流，选择 **Run workflow** 和所需分支；开发预览使用 `feat/linux-client`。构建成功后可下载 `NearbyIM-<版本>-android-preview` 和 `NearbyIM-<版本>-android-debug` artifacts，R8 mapping 单独保存。上传源码和提交修改不会自动编译 APK。本轮 0.3.1 的[优化预览构建](https://github.com/GHOST-AKU/wozai/actions/runs/37162619608)已通过编译、Lint、签名及对齐检查，API 26/34 对 optimized preview 各通过 186 项原生检查。可下载[安卓预览包](https://github.com/GHOST-AKU/wozai/actions/runs/37162619608/artifacts/11288327377)，解压后安装 `preview/app-preview.apk`；这是 CI artifact，已发布的 GitHub Release 资产尚未更新。
 
 安卓保留数据升级需要与已安装版本使用同一签名密钥。本次 CI 使用临时调试证书，与之前交付的 0.2.0 证书不同，不能覆盖安装该旧包。已有聊天记录的手机请保留原应用，使用原签名密钥构建升级包；卸载会删除记录和设备身份。详情见[验证记录](docs/verification.md)。
 
@@ -143,3 +155,5 @@ powershell -ExecutionPolicy Bypass -File tools/test-core.ps1
 应用源码没有额外指定开源许可证。附带的 Gradle Wrapper、Google Material 图标、桌面依赖、ICU4J 与 Noto 字体保留各自许可，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 官方参考：[蓝牙权限](https://developer.android.com/develop/connectivity/bluetooth/bt-permissions)、[RFCOMM 连接](https://developer.android.com/develop/connectivity/bluetooth/connect-bluetooth-devices)、[局域网权限](https://developer.android.com/privacy-and-security/local-network-permission)、[AGP 8.13](https://developer.android.com/build/releases/agp-8-13-0-release-notes)、[Gradle 校验值](https://gradle.org/release-checksums/)。
+
+桌面客户端的启动、资源占用、包体与通信性能测量方法见[性能基线](docs/performance.md)。

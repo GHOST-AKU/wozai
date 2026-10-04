@@ -28,8 +28,8 @@ public final class DesktopClient implements AutoCloseable {
     private volatile boolean closed;
     private volatile ServerSocket server;
     private volatile Socket connecting;
-    private volatile WindowsBluetooth.Connection connectingBluetooth;
-    private volatile WindowsBluetooth.Server bluetoothServer;
+    private volatile DesktopBluetooth.Connection connectingBluetooth;
+    private volatile DesktopBluetooth.Server bluetoothServer;
     private String connectingPeer;
     private long generation;
     private Session current;
@@ -246,10 +246,10 @@ public final class DesktopClient implements AutoCloseable {
         Map<String,DesktopStore.Message> values=new HashMap<>(); for(var peer:store.peers()) { var messages=store.messages(peer.id()); if(!messages.isEmpty())values.put(peer.id(),messages.get(messages.size()-1)); } return values;
     }); }
     public CompletableFuture<Void> listenBluetooth() { return submit(() -> {
-        stopBluetoothServer(); WindowsBluetooth.Server opened=WindowsBluetooth.listen(); bluetoothServer=opened;
+        stopBluetoothServer(); DesktopBluetooth.Server opened=DesktopBluetooth.listen(); bluetoothServer=opened;
         daemon(() -> {
             try { while(bluetoothServer==opened && !closed) {
-                WindowsBluetooth.Connection connection=opened.accept();
+                DesktopBluetooth.Connection connection=opened.accept();
                 try { model.execute(() -> { if(closed||bluetoothServer!=opened||current!=null||phase.equals("connecting"))closeConnection(connection); else attach(connection,true,null,connection.routeKey(),policy.version()); }); }
                 catch(RejectedExecutionException e) { closeConnection(connection); }
             } } catch(IOException e) { event(() -> { if(bluetoothServer==opened) { stopBluetoothServer(); publish(); listener.notice(UiText.of("bluetoothFailed")); } }); }
@@ -258,9 +258,9 @@ public final class DesktopClient implements AutoCloseable {
     public CompletableFuture<Void> stopBluetoothListening() { return submit(() -> { stopBluetoothServer(); publish(); return null; }); }
     private void stopBluetoothServer() { var previous=bluetoothServer; bluetoothServer=null; if(previous!=null)try { previous.close(); } catch(IOException ignored) { } }
     private CompletableFuture<Void> connectBluetooth(String address,String expectedId) { return submit(() -> {
-        String normalized=WindowsBluetooth.normalizeAddress(address);
+        String normalized=DesktopBluetooth.normalizeAddress(address);
         if(current!=null||phase.equals("connecting"))throw new LocalizedIOException(UiText.of("busy"));
-        WindowsBluetooth.Connection connection=WindowsBluetooth.openConnection(normalized);
+        DesktopBluetooth.Connection connection=DesktopBluetooth.openConnection(normalized);
         long attempt=++generation, trustVersion=policy.version(); connectingBluetooth=connection; connectingPeer=expectedId; phase="connecting"; publish();
         daemon(() -> {
             try { connection.connect(30000); event(() -> { if(attempt!=generation||closed) { closeConnection(connection); return; } connectingBluetooth=null; connectingPeer=null; attach(connection,false,expectedId,connection.routeKey(),trustVersion); }); }

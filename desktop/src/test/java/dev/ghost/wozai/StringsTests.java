@@ -17,6 +17,16 @@ public final class StringsTests {
     private static int passed;
     private static void check(boolean condition, String message) { if (!condition) throw new AssertionError(message); passed++; }
     public static void main(String[] args) throws Exception {
+        com.ibm.icu.util.TimeZone originalZone = com.ibm.icu.util.TimeZone.getDefault();
+        try {
+            Strings cached = new Strings("en"); Date date = new Date(1_700_000_000_000L);
+            com.ibm.icu.util.TimeZone.setDefault(com.ibm.icu.util.TimeZone.getTimeZone("UTC"));
+            String before = cached.text("messageTime", date);
+            com.ibm.icu.util.TimeZone.setDefault(com.ibm.icu.util.TimeZone.getTimeZone("GMT+09:00"));
+            String after = cached.text("messageTime", date);
+            check(!before.equals(after), "Cached formatting ignored a time zone change");
+            check(after.equals(new Strings("en").text("messageTime", date)), "Cached formatting differs from a fresh formatter after a time zone change");
+        } finally { com.ibm.icu.util.TimeZone.setDefault(originalZone); }
         Strings strings = new Strings(LanguageRegistry.SYSTEM, () -> Locale.FRANCE);
         check(strings.locale().getLanguage().equals("en"), "Unsupported system language must fall back to English");
         check(new Strings("unknown", () -> Locale.SIMPLIFIED_CHINESE).selection().equals(LanguageRegistry.SYSTEM), "Unknown saved selection did not follow the system");

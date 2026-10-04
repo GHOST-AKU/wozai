@@ -27,13 +27,26 @@ final class Strings {
     private String selection;
     private boolean rtl;
     private boolean fallbackBundle;
+    private record FormatKey(String pattern, Locale locale) { }
+    private record CachedFormat(MessageFormat value, String zone) { }
+    private final Map<FormatKey, CachedFormat> formats = new HashMap<>();
+    private static boolean temporal(String pattern) {
+        var parsed = new com.ibm.icu.text.MessagePattern(pattern);
+        for (int i = 0; i < parsed.countParts(); ++i) {
+            var part = parsed.getPart(i);
+            if (part.getType() == com.ibm.icu.text.MessagePattern.Part.Type.ARG_TYPE
+                    && Set.of("date", "time").contains(parsed.getSubstring(part))) return true;
+        }
+        return false;
+    }
     Strings(String language) { this(language, () -> Locale.getDefault(Locale.Category.DISPLAY)); }
     Strings(String language, Supplier<Locale> systemLocale) { this.systemLocale = systemLocale; language(language); }
-    void language(String language) {
+    synchronized void language(String language) {
         selection = LanguageRegistry.normalizeSelection(language);
         resolveLanguage();
     }
     private void resolveLanguage() {
+        Locale previousLocale = locale; ResourceBundle previousBundle = bundle;
         Locale system = systemLocale.get();
         LanguageRegistry.Language language = LanguageRegistry.resolve(selection, system);
         locale = LanguageRegistry.locale(selection, system);
@@ -42,8 +55,9 @@ final class Strings {
             bundle = ResourceBundle.getBundle("dev.ghost.wozai.Strings", Locale.forLanguageTag(language.tag), UTF8);
             fallbackBundle = false;
         } catch (MissingResourceException e) { bundle = english; fallbackBundle = true; }
+        if (!Objects.equals(previousLocale, locale) || previousBundle != bundle) formats.clear();
     }
-    boolean refreshSystemLanguage() {
+    synchronized boolean refreshSystemLanguage() {
         if (!LanguageRegistry.SYSTEM.equals(selection)) return false;
         Locale previous = locale;
         resolveLanguage();
@@ -54,11 +68,19 @@ final class Strings {
         if (fallback.containsKey(key)) return fallback.getString(key);
         return fallback.getString("error");
     }
-    String text(String key, Object... args) {
+    synchronized String text(String key, Object... args) {
         Object[] rendered = args.clone();
         for (int i = 0; i < rendered.length; i++) if (rendered[i] instanceof UiText nested) rendered[i] = text(nested);
         Locale formattingLocale = fallbackBundle || !bundle.containsKey(key) ? Locale.ENGLISH : locale;
-        return new MessageFormat(pattern(key, bundle, english), formattingLocale).format(rendered);
+        FormatKey format = new FormatKey(pattern(key, bundle, english), formattingLocale);
+        // ICU parsing is expensive and formatters are mutable. Reuse the small
+        // catalog cache under this lock, including recursively formatted UiText.
+        CachedFormat cached = formats.get(format);
+        if (cached == null || cached.zone() != null && !cached.zone().equals(com.ibm.icu.util.TimeZone.getDefault().getID())) {
+            String zone = temporal(format.pattern()) ? com.ibm.icu.util.TimeZone.getDefault().getID() : null;
+            cached = new CachedFormat(new MessageFormat(format.pattern(), format.locale()), zone); formats.put(format, cached);
+        }
+        return cached.value().format(rendered);
     }
     String text(UiText text) { return text == null || text.key.isEmpty() ? "" : text(text.key, text.arguments); }
     Locale locale() { return locale; }

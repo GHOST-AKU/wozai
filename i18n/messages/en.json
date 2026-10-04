@@ -297,5 +297,20 @@
   "notificationReceiving": "Reception is enabled. Tap to return to NearbyIM.",
   "notificationTitle": "NearbyIM is running",
   "yesterday": "Yesterday",
-  "defaultNicknameWindows": "NearbyIM Windows"
+  "defaultNicknameWindows": "NearbyIM Windows",
+  "versionLinux": "Linux preview · {0}",
+  "aboutBodyLinux": "NearbyIM\nLinux preview {0}\n\nNearby text chat without an account.\n\nChat one to one over LAN or classic Bluetooth. Messages stay on this computer. Deleting local data removes chat history and device trust.",
+  "helpBodyLinux": "LAN: Join the same Wi-Fi or hotspot. Enable reception and search, or enter the complete IP address and port. LAN text is plaintext; use a trusted network.\n\nBluetooth: Enable the adapter and the BlueZ system service. Enable reception on both devices and discoverability on the device being searched. Use system Bluetooth settings for pairing; a running desktop pairing agent is required for new devices. Paired devices and nearby search results appear in the list. Remembered devices can reconnect from history. Stopping reception keeps an established chat open.\n\nApprove and remember a device or allow this time only. System pairing alone does not grant app trust. Reconnection verifies the same public key. Revoke trust in Settings.\n\nPending means no storage receipt yet; delivered means the other device saved the message; unconfirmed means the result is unknown. None means read.\n\nHistory and drafts survive restarts. Enable reception again after quitting. Data is stored in XDG_DATA_HOME/wozai, or ~/.local/share/wozai by default, independently of the application folder. Private keys are stored without additional encryption and protected by owner-only file permissions. Deleting data removes history and device trust.",
+  "bluetoothHintLinux": "Classic Bluetooth RFCOMM through BlueZ. Enable both adapters and reception. Pair using GNOME, KDE or Blueman system settings and allow discoverability when searching. System pairing does not grant app trust.",
+  "bluetoothSettingsLinux": "Bluetooth settings",
+  "bluetoothSettingsUnavailableLinux": "No Bluetooth settings application was found. Open your desktop system settings or install Blueman, then pair the devices and enable discoverability there.",
+  "bluetoothUnavailableLinux": "Bluetooth is unavailable. Check that BlueZ is running, an adapter is powered on, and your user can access the system Bluetooth service.",
+  "startupErrorLinux": "NearbyIM could not start. Check that it is not already running and that its data folder is writable. Existing data was preserved.",
+  "bluetoothHintWindows": "Uses the same classic Bluetooth as Android. Enable Bluetooth and reception on both devices. Pair in Windows Bluetooth settings when needed. System pairing does not grant app trust.",
+  "bluetoothSettingsWindows": "Windows Bluetooth settings",
+  "bluetoothSettingsUnavailableWindows": "Bluetooth is unavailable. Check that this computer has an enabled Bluetooth adapter.",
+  "bluetoothUnavailableWindows": "Bluetooth is unavailable. Check that this computer has an enabled Bluetooth adapter.",
+  "desktopEntryInstalled": "Desktop entry installed: {0}",
+  "desktopEntryFailed": "Could not install the desktop entry. Run this command from the complete Linux package and check that your application menu directory is writable.",
+  "defaultNicknameLinux": "NearbyIM Linux"
 }

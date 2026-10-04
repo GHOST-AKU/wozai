@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "app_version": "0.3.1",
+  "toolchain": {
+    "agp": "8.13.0",
+    "build_tools": "35.0.0"
+  },
+  "before": {
+    "source_commit": "ef4bae6a8e6435f28c7e7a96b0cc12ae0c8ecaf0",
+    "build_type": "release",
+    "minify": false,
+    "signed": false,
+    "environment": "local",
+    "bytes": 1151284,
+    "sha256": "2a851228e4fa634727618bb89a88def66668813af245fabf117de6955450cafa"
+  },
+  "after": {
+    "source_commit": "34ee10516e2d8817f9ce0428c868cf205317f9c2",
+    "build_type": "preview",
+    "minify": true,
+    "signed": "CI debug certificate",
+    "environment": "GitHub Actions",
+    "bytes": 604300,
+    "sha256": "f350184955186edd5b23311b9a9f9f1be2590a9088d4a9ff49c8a5cc27e48861",
+    "run_url": "https://github.com/GHOST-AKU/wozai/actions/runs/37141448276",
+    "artifact_id": 11280278049
+  },
+  "limitations": [
+    "Unsigned release versus signed preview; preview preserves instrumentation entrypoints.",
+    "No Android CPU/RSS or physical Bluetooth measurements.",
+    "Not a size comparison against the published debug APK."
+  ]
+}
