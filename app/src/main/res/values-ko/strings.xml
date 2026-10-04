@@ -257,6 +257,7 @@
     <string name="peer_unresponsive" formatted="false">"상대 기기가 응답하지 않습니다. 다시 연결하세요."</string>
     <string name="pending" formatted="false">"확인 대기"</string>
     <string name="permissions_summary" formatted="false">"근처 기기 및 알림 권한 확인"</string>
+    <string name="photo_desktop_zoom_hint" formatted="false">"휠로 확대/축소 · 드래그로 이동 · 두 번 클릭해 창에 맞추기"</string>
     <string name="photo_loading" formatted="false">"사진 로딩 중…"</string>
     <string name="photo_unavailable" formatted="false">"사진을 표시할 수 없습니다"</string>
     <string name="photo_zoom_hint" formatted="false">"두 손가락으로 확대/축소 · 두 번 탭하여 확대"</string>

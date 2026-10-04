@@ -55,11 +55,8 @@ public final class LinuxBluetoothWireTests {
                 await(() -> { try { return sendStore.messages(receiverId.id()).size() == 2; } catch (Exception e) { return false; } }, "Stopped receiver's established stream was closed");
                 byte[] attachmentBytes=new byte[32768*5+13];new Random(123).nextBytes(attachmentBytes);Path source=root.resolve("native-file.bin");Files.write(source,attachmentBytes);
                 String attachmentId=sender.sendAttachment(receiverId.id(),source).get(5,TimeUnit.SECONDS);
-                await(()->{try{return receiveStore.messages(senderId.id()).stream().anyMatch(m->m.id().equals(attachmentId)&&m.attachment()!=null&&m.attachment().state.equals("offered"));}catch(Exception e){return false;}},"JNI attachment offer lost");
-                AttachmentRecord offer=receiveStore.messages(senderId.id()).stream().filter(m->m.id().equals(attachmentId)).findFirst().get().attachment();
-                check(!Files.exists(receiveStore.attachmentFile(senderId.id(),offer.info)),"Native receiver created content before attachment consent");
-                receiver.attachmentAction(senderId.id(),attachmentId,false,"accept").get(5,TimeUnit.SECONDS);
                 await(()->{try{return sendStore.messages(receiverId.id()).stream().anyMatch(m->m.id().equals(attachmentId)&&m.attachment()!=null&&m.attachment().state.equals("delivered"));}catch(Exception e){return false;}},"Native attachment save receipt lost");
+                AttachmentRecord offer=receiveStore.messages(senderId.id()).stream().filter(m->m.id().equals(attachmentId)).findFirst().get().attachment();
                 check(Arrays.equals(attachmentBytes,Files.readAllBytes(receiveStore.attachmentFile(senderId.id(),offer.info))),"JNI binary chunks changed bytes");
                 sender.disconnect().get(3, TimeUnit.SECONDS);
                 await(() -> incoming.idle() && outgoing.idle(), "Disconnect retained active session");

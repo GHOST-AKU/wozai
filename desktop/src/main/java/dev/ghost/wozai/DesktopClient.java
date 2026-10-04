@@ -170,11 +170,11 @@ public final class DesktopClient implements AutoCloseable {
                 if(wire.attachmentsSupported())transfers=new AttachmentTransfer(store.attachmentDirectory(peer.id()),new AttachmentTransfer.Wire(){
                     public boolean send(Frame frame){return wire.sendAttachment(frame);}
                     public void abort(){wire.close(UiText.of("attachmentFailed"));}
-                },record->{store.attachment(peer.id(),record);event(()->publish());},wire.attachmentChunkSize(),wire.attachmentSizeLimit());
+                },record->{store.attachment(peer.id(),record);event(()->publish());},wire.attachmentChunkSize(),wire.attachmentSizeLimit(),true);
                 phase = "ready"; publish();
             } catch (IOException e) { failure(); }
         }); }
-        public void onAttachment(Frame frame){event(()->{if(current==this&&transfers!=null)transfers.receive(frame);});}
+        public void onAttachment(Frame frame){event(()->{if(current==this&&transfers!=null)transfers.receive(frame,true);});}
         public void onText(Frame frame) { event(() -> {
             if (current != this || peer == null || !wire.isReady()) return;
             try {
@@ -236,6 +236,9 @@ public final class DesktopClient implements AutoCloseable {
     }).thenCompose(future->future);}
     public CompletableFuture<java.nio.file.Path> attachmentPath(String peerId,AttachmentInfo info){return submit(()->{
         java.nio.file.Path file=store.attachmentFile(peerId,info);if(!java.nio.file.Files.isRegularFile(file,java.nio.file.LinkOption.NOFOLLOW_LINKS))throw new LocalizedIOException(UiText.of("attachmentUnavailable"));return file;
+    });}
+    public CompletableFuture<java.nio.file.Path> attachmentPath(String peerId,AttachmentRecord record){return submit(()->{
+        java.nio.file.Path file=store.attachmentFile(peerId,record.info,record.outgoing);if(!java.nio.file.Files.isRegularFile(file,java.nio.file.LinkOption.NOFOLLOW_LINKS))throw new LocalizedIOException(UiText.of("attachmentUnavailable"));return file;
     });}
     public CompletableFuture<List<DesktopStore.Message>> messages(String id) { return submit(() -> store.messages(id)); }
     public CompletableFuture<String> draft(String id) { return submit(() -> store.draft(id)); }

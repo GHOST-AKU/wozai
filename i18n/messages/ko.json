@@ -346,5 +346,6 @@
   "photoUnavailable": "사진을 표시할 수 없습니다",
   "photoZoomHint": "두 손가락으로 확대/축소 · 두 번 탭하여 확대",
   "photoZoomIn": "사진 확대",
-  "photoZoomOut": "사진 축소"
+  "photoZoomOut": "사진 축소",
+  "photoDesktopZoomHint": "휠로 확대/축소 · 드래그로 이동 · 두 번 클릭해 창에 맞추기"
 }

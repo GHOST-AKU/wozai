@@ -51,7 +51,7 @@ Licensed under Apache License, Version 2.0. The upstream license is retained at 
 | `outline_zoom_in_24.xml` | `action/zoom_in/materialiconsoutlined/black/res/drawable` |
 | `outline_zoom_out_24.xml` | `action/zoom_out/materialiconsoutlined/black/res/drawable` |
 
-The Windows resources under `desktop/src/main/resources/dev/ghost/wozai/icons/` rasterize seven of these same Android vector paths for runtime tinting. The original Material Icons license is also included in the Windows package. The shared app artwork is maintained at `desktop/assets/icons/master/icon-master-1024.png`; `desktop/assets/icons/windows/nearbyim.ico` contains the Windows launcher sizes.
+The Windows and Linux resources under `desktop/src/main/resources/dev/ghost/wozai/icons/` rasterize sixteen of these same Android vector paths for runtime tinting. The original Material Icons license is also included in the Windows and Linux packages. The shared app artwork is maintained at `desktop/assets/icons/master/icon-master-1024.png`; `desktop/assets/icons/windows/nearbyim.ico` contains the Windows launcher sizes.
 
 ## Android photo metadata
 

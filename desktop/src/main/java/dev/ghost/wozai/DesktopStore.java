@@ -148,6 +148,7 @@ public final class DesktopStore implements AutoCloseable {
         if(Files.isSymbolicLink(directory))throw new IOException("Unsafe attachment directory");return directory;
     }
     public synchronized Path attachmentFile(String peer,AttachmentInfo info)throws IOException {return AttachmentTransfer.file(attachmentDirectory(peer),info);}
+    public synchronized Path attachmentFile(String peer,AttachmentInfo info,boolean outgoing)throws IOException {return AttachmentTransfer.file(attachmentDirectory(peer),info,outgoing);}
     public synchronized void attachment(String peer,AttachmentRecord record)throws IOException {
         Path file=messageFile(peer,record.info.id,record.outgoing);Message previous=Files.exists(file)?readMessage(file):null;
         if(previous!=null&&(previous.attachment()==null||!previous.attachment().active()&&!previous.attachment().equals(record)))throw new IOException("Conflicting attachment ID");
@@ -159,7 +160,7 @@ public final class DesktopStore implements AutoCloseable {
         if(Files.exists(directory))try(var files=Files.list(directory)){for(Path file:files.filter(f->f.toString().endsWith(".properties")).toList()){
             Message m=readMessage(file);if(m.attachment()==null)continue;AttachmentRecord r=m.attachment().recovered();
             if(!r.equals(m.attachment()))writeMessage(file,new Message(m.id(),m.body(),m.time(),m.outgoing(),m.outgoing()?"unknown":"received",m.senderTime(),r));
-            if(!r.outgoing&&r.state.equals("received"))received.add(r.info.id);
+            if(!r.outgoing&&r.state.equals("received")||r.outgoing&&r.state.equals("delivered")&&r.info.mime.startsWith("image/"))received.add(r.info.id);
         }}
         Path contents=attachmentDirectory(peer);if(Files.exists(contents))AttachmentTransfer.clean(contents,received);
     }

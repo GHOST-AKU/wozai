@@ -257,6 +257,7 @@
     <string name="peer_unresponsive" formatted="false">"对方失去响应，请重新连接。"</string>
     <string name="pending" formatted="false">"待确认"</string>
     <string name="permissions_summary" formatted="false">"查看附近设备与通知权限"</string>
+    <string name="photo_desktop_zoom_hint" formatted="false">"滚轮缩放 · 拖动查看 · 双击适应窗口"</string>
     <string name="photo_loading" formatted="false">"正在加载照片…"</string>
     <string name="photo_unavailable" formatted="false">"照片无法显示"</string>
     <string name="photo_zoom_hint" formatted="false">"双指缩放 · 双击放大"</string>

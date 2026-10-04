@@ -257,6 +257,7 @@
     <string name="peer_unresponsive" formatted="false">"相手から応答がありません。再接続してください。"</string>
     <string name="pending" formatted="false">"確認待ち"</string>
     <string name="permissions_summary" formatted="false">"付近のデバイスと通知の権限を確認"</string>
+    <string name="photo_desktop_zoom_hint" formatted="false">"ホイールで拡大・縮小 · ドラッグで移動 · ダブルクリックで全体表示"</string>
     <string name="photo_loading" formatted="false">"写真を読み込み中…"</string>
     <string name="photo_unavailable" formatted="false">"写真を表示できません"</string>
     <string name="photo_zoom_hint" formatted="false">"ピンチで拡大・縮小 · ダブルタップで拡大"</string>

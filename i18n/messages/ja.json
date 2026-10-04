@@ -346,5 +346,6 @@
   "photoUnavailable": "写真を表示できません",
   "photoZoomHint": "ピンチで拡大・縮小 · ダブルタップで拡大",
   "photoZoomIn": "写真を拡大",
-  "photoZoomOut": "写真を縮小"
+  "photoZoomOut": "写真を縮小",
+  "photoDesktopZoomHint": "ホイールで拡大・縮小 · ドラッグで移動 · ダブルクリックで全体表示"
 }

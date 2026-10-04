@@ -61,12 +61,12 @@ final class AppTheme {
     static JScrollPane scroll(Component view) { JScrollPane scroll=new JScrollPane(view); scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER); scroll.setBorder(BorderFactory.createEmptyBorder()); scroll.getVerticalScrollBar().setUnitIncrement(24); return scroll; }
     private static void ui(String key,Object value) { UIManager.put(key,value instanceof Color color ? new javax.swing.plaf.ColorUIResource(color) : value); }
     private static Color color(String hex) { return new Color(Integer.parseInt(hex, 16)); }
-    static void primary(JButton button) { button.putClientProperty("wozai.primary",true); button.putClientProperty("FlatLaf.style", "background: " + hex(accent) + "; foreground: " + hex(accentInk) + "; borderWidth: 0; arc: 24"); }
+    static void primary(JButton button) { button.putClientProperty("wozai.primary",true); button.putClientProperty("FlatLaf.style", "background: " + hex(accent) + "; foreground: " + hex(accentInk) + "; borderWidth: 0; arc: "+(Boolean.TRUE.equals(button.getClientProperty("wozai.round"))?999:24)); }
     static void refreshPrimary(Component component) { if(component instanceof JComponent view && Boolean.TRUE.equals(view.getClientProperty("wozai.muted")))view.setForeground(muted); if(component instanceof JButton button && Boolean.TRUE.equals(button.getClientProperty("wozai.primary")))primary(button); if(component instanceof Container container)for(Component child:container.getComponents())refreshPrimary(child); }
     static String hex(Color c) { return String.format("#%06x", c.getRGB() & 0xffffff); }
     static final class SurfacePanel extends JPanel {
         SurfacePanel(LayoutManager layout) { super(layout); setOpaque(false); }
-        protected void paintComponent(Graphics g) { Graphics2D p=(Graphics2D)g.create(); p.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON); p.setColor(surface); p.fillRoundRect(0,0,getWidth(),getHeight(),28,28); p.dispose(); super.paintComponent(g); }
+        protected void paintComponent(Graphics g) { Graphics2D p=(Graphics2D)g.create(); p.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON); p.setColor(surface); p.fillRoundRect(0,0,getWidth(),getHeight(),52,52); p.dispose(); super.paintComponent(g); }
     }
     static final class Avatar extends JComponent {
         private final String name;

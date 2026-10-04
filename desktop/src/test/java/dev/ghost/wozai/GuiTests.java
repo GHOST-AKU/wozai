@@ -28,7 +28,7 @@ public final class GuiTests {
         return result;
     }
     private static JButton button(Component root, String text) {
-        return components(root).stream().filter(c -> c instanceof JButton b && b.getText().equals(text)).map(c -> (JButton) c).findFirst().orElseThrow();
+        return components(root).stream().filter(c -> c instanceof JButton b && (b.getText().equals(text)||text.equals(b.getAccessibleContext().getAccessibleName()))).map(c -> (JButton) c).findFirst().orElseThrow();
     }
     private static void language(JComboBox<?> choices, String tag) {
         for (int i = 0; i < choices.getItemCount(); i++) if (choices.getItemAt(i) instanceof DesktopWindow.LanguageOption option && option.tag().equals(tag)) {
@@ -55,7 +55,7 @@ public final class GuiTests {
     }; }
     public static void main(String[] args) throws Exception {
         Path root = Files.createTempDirectory("wozai-gui-test");
-        DesktopWindow window = null; FramedSession remote = null;
+        DesktopWindow window = null; FramedSession remote = null;AttachmentTransfer phoneTransfer=null;
         String id = UUID.randomUUID().toString();
         Locale originalDisplayLocale = Locale.getDefault(Locale.Category.DISPLAY);
         try (DesktopStore store = new DesktopStore(root)) {
@@ -91,13 +91,16 @@ public final class GuiTests {
             catch (IllegalArgumentException e) { throw new AssertionError("Displayed address is not connectable: " + address, e); }
             CountDownLatch hello = new CountDownLatch(1), ready = new CountDownLatch(1);
             BlockingQueue<Frame> text = new LinkedBlockingQueue<>();
+            java.util.concurrent.atomic.AtomicReference<AttachmentTransfer> transferRef=new java.util.concurrent.atomic.AtomicReference<>();
             remote = new FramedSession(socket(new Socket(endpoint.address, endpoint.port)), id, "Phone", DeviceIdentity.generate(), new FramedSession.Listener() {
                 public void onHello(Frame frame) { hello.countDown(); }
                 public void onReady() { ready.countDown(); }
                 public void onText(Frame frame) { text.add(frame); }
+                public void onAttachment(Frame frame){transferRef.get().receive(frame,true);}
                 public void onAck(String id) { }
                 public void onClosed(UiText reason) { }
             });
+            FramedSession phone=remote;
             remote.start();
             await(() -> Arrays.stream(Window.getWindows()).anyMatch(dialog -> dialog.isVisible() && components(dialog).stream().anyMatch(c -> c instanceof JButton b && b.getText().equals("Approve and remember"))), "Consent controls missing");
             JDialog consent = edt(() -> dialog(w, "Chat request"));
@@ -106,6 +109,7 @@ public final class GuiTests {
             edt(() -> { language(languages, "en"); button(consent, "Approve and remember").doClick(); return null; });
             if (!hello.await(3, TimeUnit.SECONDS)) throw new AssertionError("No phone HELLO"); remote.approve();
             if (!ready.await(3, TimeUnit.SECONDS)) throw new AssertionError("GUI consent did not connect");
+            phoneTransfer=new AttachmentTransfer(root.resolve("phone-attachments"),new AttachmentTransfer.Wire(){public boolean send(Frame frame){return phone.sendAttachment(frame);}public void abort(){phone.close(UiText.EMPTY);}},record->{},phone.attachmentChunkSize(),phone.attachmentSizeLimit(),true);transferRef.set(phoneTransfer);
             await(() -> button(w, "Send").isEnabled(), "Ready chat composer disabled");
             if (!edt(() -> UIManager.getLookAndFeel() instanceof com.formdev.flatlaf.FlatLaf)) throw new AssertionError("Android visual theme not installed");
             edt(() -> { ((JTabbedPane) components(w).stream().filter(c -> c instanceof JTabbedPane).findFirst().orElseThrow()).setSelectedIndex(0); area(w, "Type a message").setText("Windows → Phone 🙂"); button(w, "Send").doClick(); return null; });
@@ -116,6 +120,23 @@ public final class GuiTests {
             await(() -> components(w).stream().filter(c -> c instanceof MessagePane).map(c -> ((MessagePane)c).text()).findFirst().orElseThrow().contains("Delivered") && components(w).stream().filter(c -> c instanceof MessagePane).map(c -> ((MessagePane)c).text()).findFirst().orElseThrow().contains("Hello!"), "Messages or receipt not rendered");
             edt(() -> { components(w).stream().filter(c -> c instanceof JComboBox<?> b && "Standard".equals(b.getItemAt(0))).forEach(c -> ((JComboBox<?>)c).setSelectedIndex(0)); return null; });
             await(() -> components(w).stream().filter(c -> c instanceof MessagePane).map(c -> ((MessagePane)c).text()).findFirst().orElseThrow().contains("Delivered"), "Receipt lost after restoring text size");
+            edt(()->{
+                JButton sendIcon=button(w,"Send");if(sendIcon.getIcon()==null||!sendIcon.getText().isEmpty())throw new AssertionError("Send icon not applied");
+                button(w,"Emoji").doClick();JPopupMenu emojis=(JPopupMenu)Arrays.stream(MenuSelectionManager.defaultManager().getSelectedPath()).filter(c->c instanceof JPopupMenu).findFirst().orElseThrow();button(emojis,"🙂").doClick();if(!area(w,"Type a message").getText().contains("🙂"))throw new AssertionError("Emoji did not enter composer");area(w,"Type a message").setText("");
+                button(w,"Attachments").doClick();JPopupMenu choices=(JPopupMenu)Arrays.stream(MenuSelectionManager.defaultManager().getSelectedPath()).filter(c->c instanceof JPopupMenu).findFirst().orElseThrow();if(button(choices,"Photo").getIcon()==null||button(choices,"File").getIcon()==null)throw new AssertionError("Attachment icons missing");MenuSelectionManager.defaultManager().clearSelectedPath();return null;
+            });
+            Path photo=root.resolve("chat-photo.png");java.awt.image.BufferedImage pixels=new java.awt.image.BufferedImage(800,600,java.awt.image.BufferedImage.TYPE_INT_RGB);Graphics2D paint=pixels.createGraphics();paint.setPaint(new GradientPaint(0,0,new Color(80,185,210),0,600,new Color(240,224,159)));paint.fillRect(0,0,800,600);paint.setColor(new Color(25,100,80));paint.fillOval(-120,340,800,550);paint.dispose();ImageIO.write(pixels,"png",photo.toFile());
+            String photoId=phoneTransfer.offer(()->Files.newInputStream(photo),"chat-photo.png","image/png").get(5,TimeUnit.SECONDS);
+            await(()->components(w).stream().anyMatch(c->c instanceof JLabel l&&l.getIcon() instanceof ImageIcon&&l.getAccessibleContext().getAccessibleName()!=null&&l.getAccessibleContext().getAccessibleName().contains("chat-photo.png")),"Automatic photo reception did not produce a bubble");
+            edt(()->{JLabel preview=components(w).stream().filter(c->c instanceof JLabel l&&l.getIcon() instanceof ImageIcon&&l.getAccessibleContext().getAccessibleName()!=null&&l.getAccessibleContext().getAccessibleName().contains("chat-photo.png")).map(c->(JLabel)c).findFirst().orElseThrow();preview.dispatchEvent(new java.awt.event.MouseEvent(preview,java.awt.event.MouseEvent.MOUSE_CLICKED,1,0,10,10,1,false,java.awt.event.MouseEvent.BUTTON1));return null;});
+            JDialog viewer=edt(()->dialog(w,"chat-photo.png"));
+            await(()->components(viewer).stream().anyMatch(c->c instanceof JLabel l&&l.getText().contains("Mouse wheel")),"Internal viewer did not decode photo");
+            edt(()->{button(viewer,"Zoom in").doClick();PhotoViewer.Canvas canvas=components(viewer).stream().filter(c->c instanceof PhotoViewer.Canvas).map(c->(PhotoViewer.Canvas)c).findFirst().orElseThrow();if(canvas.zoom()<=1)throw new AssertionError("Viewer button did not zoom");if(button(viewer,"Save as").getIcon()==null)throw new AssertionError("Viewer save missing");return null;});
+            if(args.length>0){Rectangle bounds=edt(viewer::getBounds);ImageIO.write(new Robot().createScreenCapture(bounds),"png",Path.of(args[0].replace(".png","-photo.png")).toFile());}
+            edt(()->{button(viewer,"Close").doClick();return null;});
+            if(!Arrays.equals(Files.readAllBytes(photo),Files.readAllBytes(store.attachmentFile(id,store.messages(id).stream().filter(m->m.id().equals(photoId)).findFirst().orElseThrow().attachment().info))))throw new AssertionError("Photo preview changed transferred bytes");
+            Path document=root.resolve("report.pdf");Files.write(document,new byte[24576]);String documentId=phoneTransfer.offer(()->Files.newInputStream(document),"report.pdf","application/pdf").get(5,TimeUnit.SECONDS);
+            await(()->components(w).stream().anyMatch(c->c instanceof JTextArea a&&a.getText().contains("report.pdf")&&a.getText().contains("24.0 KiB")&&a.getText().contains("Received")),"Compact file card not rendered");
             if (args.length > 0) {
                 Path screenshot = Path.of(args[0]); Files.createDirectories(screenshot.toAbsolutePath().getParent());
                 Rectangle bounds = edt(w::getBounds); ImageIO.write(new Robot().createScreenCapture(bounds), "png", screenshot.toFile());
@@ -167,6 +188,7 @@ public final class GuiTests {
             System.out.println("GuiTests: consent, messaging, receipts, live and system translation, open dialogs, search/selection/scroll preservation, nickname search, light/dark theme, text scaling, startup preference, draft and exit passed");
         } finally {
             Locale.setDefault(Locale.Category.DISPLAY, originalDisplayLocale);
+            if(phoneTransfer!=null)phoneTransfer.close();
             if (remote != null) remote.close(UiText.EMPTY);
             DesktopWindow w = window; if (w != null) edt(() -> { if (w.isDisplayable()) w.dispatchEvent(new WindowEvent(w, WindowEvent.WINDOW_CLOSING)); return null; });
         }

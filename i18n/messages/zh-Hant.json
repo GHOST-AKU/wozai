@@ -346,5 +346,6 @@
   "photoUnavailable": "照片無法顯示",
   "photoZoomHint": "雙指縮放 · 點兩下放大",
   "photoZoomIn": "放大照片",
-  "photoZoomOut": "縮小照片"
+  "photoZoomOut": "縮小照片",
+  "photoDesktopZoomHint": "滾輪縮放 · 拖曳查看 · 按兩下適應視窗"
 }

@@ -35,7 +35,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     private final JTextArea composer = new JTextArea(3, 30), addresses = new JTextArea(4, 30);
     private final JTextArea feedback = new JTextArea(2, 40);
     private final JLabel status = plainLabel(""), chatTitle = plainLabel("");
-    private final JButton listenButton = new JButton(), send = new JButton(),sendFile=new JButton(),sendPhoto=new JButton();
+    private final JButton listenButton = new JButton(), send = new JButton(),sendFile=new JButton(),sendPhoto=new JButton(),attach=new JButton(),emoji=new JButton();
     private final java.util.concurrent.ThreadPoolExecutor attachmentWorker=new java.util.concurrent.ThreadPoolExecutor(1,1,0,java.util.concurrent.TimeUnit.SECONDS,new java.util.concurrent.ArrayBlockingQueue<>(16),r->{Thread t=new Thread(r,"attachment-ui");t.setDaemon(true);return t;},new java.util.concurrent.ThreadPoolExecutor.AbortPolicy());
     private final Map<String,java.awt.image.BufferedImage> thumbnails=new LinkedHashMap<>();
     private final Set<String> loadingThumbnails=new HashSet<>();
@@ -54,6 +54,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     private long conversationGeneration;
     private List<DesktopStore.Message> renderedMessages;
     private JDialog requestDialog;
+    private PhotoViewer photoViewer;
     private final Map<String,JDialog> informationDialogs = new HashMap<>();
     private DesktopClient.Request pendingRequest;
     private JTextArea requestDescription;
@@ -144,14 +145,20 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         translations.add(() -> transcript.getAccessibleContext().setAccessibleName(strings.text("messages")));
         JScrollPane messageScroll = AppTheme.scroll(transcript); chat.add(messageScroll, BorderLayout.CENTER);
         JPanel input = new JPanel(new BorderLayout(8, 6));
-        AppTheme.primary(send); send.setPreferredSize(new Dimension(88,48));
-        composer.setLineWrap(true); composer.setWrapStyleWord(true); composer.setMargin(new Insets(8, 8, 8, 8));
-        translations.add(() -> { composer.getAccessibleContext().setAccessibleName(strings.text("composer")); composer.getAccessibleContext().setAccessibleDescription(strings.text("sendHint")); send.setText(strings.text("send")); });
+        send.putClientProperty("wozai.round",true);AppTheme.primary(send);send.setIcon(AppTheme.icon("send"));send.setPreferredSize(new Dimension(48,48));
+        composer.setLineWrap(true); composer.setWrapStyleWord(true); composer.setMargin(new Insets(8,8,8,8));
+        translations.add(() -> { composer.getAccessibleContext().setAccessibleName(strings.text("composer")); composer.getAccessibleContext().setAccessibleDescription(strings.text("sendHint")); send.setToolTipText(strings.text("send"));send.getAccessibleContext().setAccessibleName(strings.text("send")); });
         send.addActionListener(e -> sendMessage()); composer.setRows(1); composer.setBackground(AppTheme.surface); composer.setBorder(BorderFactory.createEmptyBorder(8,8,8,8));
         JScrollPane editor=new JScrollPane(composer); editor.setBorder(BorderFactory.createEmptyBorder()); editor.setOpaque(false); editor.getViewport().setOpaque(false); composer.setOpaque(false);
-        JPanel capsule=new AppTheme.SurfacePanel(new BorderLayout()); capsule.setBorder(BorderFactory.createEmptyBorder(4,8,4,8)); capsule.add(editor); input.add(capsule,BorderLayout.CENTER);
-        input.add(send,BorderLayout.LINE_END);
-        JLabel inputHint=label("sendHint"); inputHint.putClientProperty("wozai.muted",true); inputHint.setForeground(AppTheme.muted); inputHint.setFont(inputHint.getFont().deriveFont(12f)); input.add(inputHint,BorderLayout.SOUTH);
+        JPanel capsule=new AppTheme.SurfacePanel(new BorderLayout(4,0));capsule.setBorder(BorderFactory.createEmptyBorder(2,4,2,4));capsule.add(editor,BorderLayout.CENTER);
+        emoji.setIcon(AppTheme.icon("emoji_emotions"));attach.setIcon(AppTheme.icon("attach_file"));
+        for(JButton control:new JButton[]{emoji,attach}){control.setPreferredSize(new Dimension(44,44));control.putClientProperty("JButton.buttonType","toolBarButton");}
+        translations.add(()->{emoji.setToolTipText(strings.text("emoji"));emoji.getAccessibleContext().setAccessibleName(strings.text("emoji"));attach.setToolTipText(strings.text("attachments"));attach.getAccessibleContext().setAccessibleName(strings.text("attachments"));});
+        capsule.add(emoji,BorderLayout.LINE_START);capsule.add(attach,BorderLayout.LINE_END);input.add(capsule,BorderLayout.CENTER);
+        JPanel sendHolder=new JPanel(new BorderLayout());sendHolder.setOpaque(false);sendHolder.add(send,BorderLayout.SOUTH);input.add(sendHolder,BorderLayout.LINE_END);
+        JPopupMenu emojiMenu=new JPopupMenu();JPanel emojiChoices=new JPanel(new GridLayout(3,4,2,2));
+        for(String value:new String[]{"😀","😂","🙂","😍","😎","🥳","👍","❤️","🎉","🙏","👋","🔥"}){JButton choice=new JButton(value);choice.setPreferredSize(new Dimension(48,44));choice.getAccessibleContext().setAccessibleName(value);choice.addActionListener(e->{composer.replaceSelection(value);composer.requestFocusInWindow();emojiMenu.setVisible(false);});emojiChoices.add(choice);}
+        emojiMenu.add(emojiChoices);emoji.addActionListener(e->emojiMenu.show(emoji,0,-emojiMenu.getPreferredSize().height));
         composer.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "send");
         composer.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, InputEvent.SHIFT_DOWN_MASK), "insert-break");
         composer.getActionMap().put("send", new AbstractAction() { public void actionPerformed(ActionEvent e) { sendMessage(); } });
@@ -161,7 +168,9 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         });
         JPanel attachments=new JPanel(new FlowLayout(FlowLayout.LEADING,8,0));attachments.setOpaque(false);
         translations.add(()->{sendFile.setText(strings.text("sendFile"));sendPhoto.setText(strings.text("sendPhoto"));sendFile.setToolTipText(strings.text("attachmentHint"));sendPhoto.setToolTipText(strings.text("attachmentHint"));sendFile.getAccessibleContext().setAccessibleName(strings.text("sendFile"));sendPhoto.getAccessibleContext().setAccessibleName(strings.text("sendPhoto"));});
-        sendFile.addActionListener(e->chooseAttachment(false));sendPhoto.addActionListener(e->chooseAttachment(true));attachments.add(sendFile);attachments.add(sendPhoto);input.add(attachments,BorderLayout.NORTH);
+        sendFile.addActionListener(e->chooseAttachment(false));sendPhoto.addActionListener(e->chooseAttachment(true));sendFile.setIcon(AppTheme.icon("description"));sendPhoto.setIcon(AppTheme.icon("photo"));attachments.add(sendPhoto);attachments.add(sendFile);
+        JPopupMenu attachmentMenu=new JPopupMenu();attachmentMenu.add(attachments);JLabel capacity=label("attachmentHint");capacity.setBorder(BorderFactory.createEmptyBorder(8,12,8,12));capacity.setForeground(AppTheme.muted);attachmentMenu.add(capacity);attach.addActionListener(e->attachmentMenu.show(attach,Math.min(0,attach.getWidth()-attachmentMenu.getPreferredSize().width),-attachmentMenu.getPreferredSize().height));
+        sendFile.addActionListener(e->attachmentMenu.setVisible(false));sendPhoto.addActionListener(e->attachmentMenu.setVisible(false));
         chat.add(input, BorderLayout.SOUTH);
         history.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         history.addListSelectionListener(e -> { if (!e.getValueIsAdjusting() && !updatingSelection) select(history.getSelectedValue()); });
@@ -321,7 +330,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         addresses.setText(state.listening() == null ? strings.text("notListening") : state.listening().endpoints().isEmpty() ? strings.text("noAddress") : String.join("\n", state.listening().endpoints()));
         DesktopStore.Peer peer = selectedPeer(); chatTitle.setText(peer == null ? strings.text("selectChat") : peer.name());
         send.setEnabled(selected != null && state.peer() != null && selected.equals(state.peer().id()) && state.phase().equals("ready") && !composer.getText().isBlank());
-        boolean fileReady=selected!=null&&state.peer()!=null&&selected.equals(state.peer().id())&&state.phase().equals("ready");sendFile.setEnabled(fileReady);sendPhoto.setEnabled(fileReady);
+        boolean fileReady=selected!=null&&state.peer()!=null&&selected.equals(state.peer().id())&&state.phase().equals("ready");sendFile.setEnabled(fileReady);sendPhoto.setEnabled(fileReady);attach.setEnabled(fileReady);emoji.setEnabled(selected!=null);
         composer.setEnabled(selected != null); refreshBluetoothText();
     }
     private DesktopStore.Peer selectedPeer() { if (state != null) for (var peer : state.history()) if (peer.id().equals(selected)) return peer; return null; }
@@ -366,16 +375,21 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         var record=message.attachment();if(record==null)return;
         if(action.equals("accept")||action.equals("reject")||action.equals("cancel")){handle(client.attachmentAction(peer,message.id(),message.outgoing(),action),"attachmentFailed");return;}
         if(action.equals("preview")){
-            String key=peer+":"+message.id();var cached=thumbnails.get(key);if(cached!=null){SwingUtilities.invokeLater(()->{if(peer.equals(selected))transcript.thumbnail(message.id(),cached);});return;}
+            String key=peer+":"+message.id()+":"+message.outgoing();var cached=thumbnails.get(key);if(cached!=null){SwingUtilities.invokeLater(()->{if(peer.equals(selected))transcript.thumbnail(message.id(),message.outgoing(),cached);});return;}
             if(failedThumbnails.contains(key)||!loadingThumbnails.add(key))return;
-            client.attachmentPath(peer,record.info).thenApplyAsync(path->{try{return AttachmentImages.read(path);}catch(IOException e){return null;}},attachmentWorker).whenComplete((image,error)->SwingUtilities.invokeLater(()->{
-                loadingThumbnails.remove(key);if(shuttingDown)return;if(image==null){failedThumbnails.add(key);while(failedThumbnails.size()>16)failedThumbnails.remove(failedThumbnails.iterator().next());return;}thumbnails.put(key,image);while(thumbnails.size()>12)thumbnails.remove(thumbnails.keySet().iterator().next());if(peer.equals(selected))transcript.thumbnail(message.id(),image);
+            client.attachmentPath(peer,record).thenApplyAsync(path->{try{return AttachmentImages.read(path);}catch(IOException e){return null;}},attachmentWorker).whenComplete((image,error)->SwingUtilities.invokeLater(()->{
+                loadingThumbnails.remove(key);if(shuttingDown)return;if(image==null){failedThumbnails.add(key);while(failedThumbnails.size()>16)failedThumbnails.remove(failedThumbnails.iterator().next());return;}thumbnails.put(key,image);while(thumbnails.size()>12)thumbnails.remove(thumbnails.keySet().iterator().next());if(peer.equals(selected))transcript.thumbnail(message.id(),message.outgoing(),image);
             }));return;
+        }
+        if(action.equals("view")){
+            if(photoViewer!=null)photoViewer.dispose();
+            PhotoViewer viewer=new PhotoViewer(this,strings,record.info.name,()->attachmentAction(peer,message,"save"));photoViewer=viewer;dialogTranslations.put(viewer,List.of(viewer::translate));viewer.addWindowListener(new WindowAdapter(){public void windowClosed(WindowEvent e){dialogTranslations.remove(viewer);if(photoViewer==viewer)photoViewer=null;}});scaleFonts(viewer.getContentPane(),fontScale);viewer.setVisible(true);
+            client.attachmentPath(peer,record).thenApplyAsync(path->{try{return viewer.active()?AttachmentImages.read(path,2048):null;}catch(IOException e){return null;}},attachmentWorker).whenComplete((image,error)->SwingUtilities.invokeLater(()->viewer.image(image,strings)));return;
         }
         Path destination=null;
         if(action.equals("save")){JFileChooser chooser=new JFileChooser();chooser.setSelectedFile(new java.io.File(AttachmentInfo.safeName(record.info.name)));if(chooser.showSaveDialog(this)!=JFileChooser.APPROVE_OPTION)return;destination=chooser.getSelectedFile().toPath();if(Files.exists(destination)&&JOptionPane.showConfirmDialog(this,strings.text("attachmentOverwrite"),strings.text("attachmentSaveAs"),JOptionPane.YES_NO_OPTION)!=JOptionPane.YES_OPTION)return;}
         Path target=destination;
-        handle(client.attachmentPath(peer,record.info).thenAcceptAsync(path->{try{if(target!=null)Files.copy(path,target,StandardCopyOption.REPLACE_EXISTING);else Desktop.getDesktop().open(path.toFile());}catch(IOException e){throw new java.util.concurrent.CompletionException(e);}},attachmentWorker),"attachmentFailed");
+        handle(client.attachmentPath(peer,record).thenAcceptAsync(path->{try{if(target!=null)Files.copy(path,target,StandardCopyOption.REPLACE_EXISTING);else Desktop.getDesktop().open(path.toFile());}catch(IOException e){throw new java.util.concurrent.CompletionException(e);}},attachmentWorker),"attachmentFailed");
     }
     private void sendMessage() {
         if (!send.isEnabled()) { notice("notConnected"); return; }

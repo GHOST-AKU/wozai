@@ -265,6 +265,7 @@ public final class I18nResources {
             case "peerUnresponsive": return R.string.peer_unresponsive;
             case "pending": return R.string.pending;
             case "permissionsSummary": return R.string.permissions_summary;
+            case "photoDesktopZoomHint": return R.string.photo_desktop_zoom_hint;
             case "photoLoading": return R.string.photo_loading;
             case "photoUnavailable": return R.string.photo_unavailable;
             case "photoZoomHint": return R.string.photo_zoom_hint;

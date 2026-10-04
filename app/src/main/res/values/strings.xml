@@ -257,6 +257,7 @@
     <string name="peer_unresponsive" formatted="false">"The other device stopped responding. Connect again."</string>
     <string name="pending" formatted="false">"Pending"</string>
     <string name="permissions_summary" formatted="false">"View nearby device and notification permissions"</string>
+    <string name="photo_desktop_zoom_hint" formatted="false">"Mouse wheel to zoom · Drag to pan · Double-click to fit"</string>
     <string name="photo_loading" formatted="false">"Loading photo…"</string>
     <string name="photo_unavailable" formatted="false">"Unable to display photo"</string>
     <string name="photo_zoom_hint" formatted="false">"Pinch to zoom · Double-tap to enlarge"</string>

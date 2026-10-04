@@ -346,5 +346,6 @@
   "photoUnavailable": "Unable to display photo",
   "photoZoomHint": "Pinch to zoom · Double-tap to enlarge",
   "photoZoomIn": "Zoom in",
-  "photoZoomOut": "Zoom out"
+  "photoZoomOut": "Zoom out",
+  "photoDesktopZoomHint": "Mouse wheel to zoom · Drag to pan · Double-click to fit"
 }
