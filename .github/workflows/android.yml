@@ -2,6 +2,10 @@ name: Build 我在 Android previews
 on:
   workflow_dispatch:
     inputs:
+      signed-upgrade-input-run:
+        description: 'Run ID containing locally signed public APKs for upgrade acceptance (no private key required)'
+        type: string
+        default: ''
       release-tag:
         description: 'Validate the signed APKs already uploaded to an existing draft release'
         type: string
@@ -132,3 +136,12 @@ jobs:
             build/android-i18n-device.txt
             build/android-i18n-screenshots/
           if-no-files-found: ignore
+  signing-upgrade:
+    if: inputs['signed-upgrade-input-run'] != ''
+    needs: build
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/android-upgrade.yml
+    with:
+      input-run-id: ${{ inputs['signed-upgrade-input-run'] }}

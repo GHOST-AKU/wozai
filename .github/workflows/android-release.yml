@@ -1,0 +1,50 @@
+name: Build Android with the persistent signing certificate
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  signed-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
+      - name: Build, lint and verify with the persistent signing secrets
+        env:
+          WOZAI_ANDROID_KEYSTORE_BASE64: ${{ secrets.WOZAI_ANDROID_KEYSTORE_BASE64 }}
+          WOZAI_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.WOZAI_ANDROID_KEYSTORE_PASSWORD }}
+        run: python3 tools/build-signed-android.py
+      - name: Prepare the published baseline and upgrade inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/prepare-android-upgrade.py prepare
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-signed-upgrade-input
+          path: build/signing-upgrade/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-signed-release
+          path: |
+            build/signing-upgrade/candidate.apk
+            build/signing-upgrade/signature.json
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-release-r8-mapping
+          path: app/build/outputs/mapping/release/
+          if-no-files-found: error
+  verify-upgrade:
+    needs: signed-build
+    uses: ./.github/workflows/android-upgrade.yml
+    with:
+      input-run-id: ${{ github.run_id }}

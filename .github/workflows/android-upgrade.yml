@@ -1,0 +1,55 @@
+name: Verify Android signing and persistent-data upgrades
+on:
+  workflow_call:
+    inputs:
+      input-run-id:
+        type: string
+        required: true
+permissions:
+  contents: read
+  actions: read
+jobs:
+  upgrade:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        api-level: [26, 34]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - run: sdkmanager 'build-tools;35.0.0'
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-signed-upgrade-input
+          path: build/signing-upgrade
+          run-id: ${{ inputs.input-run-id }}
+          github-token: ${{ github.token }}
+      - name: Verify every input signature, hash, version and source
+        run: python3 tools/prepare-android-upgrade.py verify
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Upgrade the actual published APK and reject a different certificate
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api-level }}
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          script: sh tools/test-android-upgrade.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-signing-upgrade-api-${{ matrix.api-level }}
+          path: build/upgrade-evidence
+          if-no-files-found: ignore
