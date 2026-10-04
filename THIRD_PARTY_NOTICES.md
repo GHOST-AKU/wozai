@@ -52,7 +52,3 @@ Licensed under Apache License, Version 2.0. The upstream license is retained at 
 | `outline_zoom_out_24.xml` | `action/zoom_out/materialiconsoutlined/black/res/drawable` |
 
 The Windows and Linux resources under `desktop/src/main/resources/dev/ghost/wozai/icons/` rasterize sixteen of these same Android vector paths for runtime tinting. The original Material Icons license is also included in the Windows and Linux packages. The shared app artwork is maintained at `desktop/assets/icons/master/icon-master-1024.png`; `desktop/assets/icons/windows/nearbyim.ico` contains the Windows launcher sizes.
-
-## Android photo metadata
-
-AndroidX ExifInterface 1.4.1 (`androidx.exifinterface:exifinterface`) reads image orientation for bounded chat previews and the internal photo viewer, replacing the older framework EXIF parser. Copyright The Android Open Source Project; Apache License 2.0, retained at `licenses/AndroidX-ExifInterface-Apache-2.0.txt`. Source: https://android.googlesource.com/platform/frameworks/support/+/androidx-main/exifinterface/ . Gradle resolves this pinned library and its AndroidX annotation dependencies from Google's Maven repository. It adds no network service or Android UI toolkit.

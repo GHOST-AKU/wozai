@@ -56,7 +56,24 @@ final class AndroidAttachmentChecks {
             android.graphics.Bitmap preview=PhotoDecoder.decode(context.getContentResolver(),uri,256);check(preview.getWidth()==100&&preview.getHeight()==200,"Thumbnail decoding did not bound or rotate EXIF dimensions");preview.recycle();
             android.graphics.Bitmap full=PhotoDecoder.decode(context.getContentResolver(),uri,2048);check(full.getWidth()==800&&full.getHeight()==1600,"Viewer did not preserve the photo's EXIF orientation");full.recycle();
             android.graphics.Bitmap odd=android.graphics.Bitmap.createBitmap(1025,513,android.graphics.Bitmap.Config.ARGB_8888);odd.eraseColor(android.graphics.Color.BLUE);try(OutputStream output=Files.newOutputStream(file)){odd.compress(android.graphics.Bitmap.CompressFormat.PNG,100,output);}odd.recycle();android.graphics.Bitmap bounded=PhotoDecoder.decode(context.getContentResolver(),uri,256);check(Math.max(bounded.getWidth(),bounded.getHeight())<=256,"Odd photo dimensions exceeded the preview decoding bound");bounded.recycle();
+            android.graphics.Bitmap pixels=android.graphics.Bitmap.createBitmap(2,3,android.graphics.Bitmap.Config.ARGB_8888);
+            int[] colors={0xffff0000,0xff00ff00,0xff0000ff,0xffffff00,0xffff00ff,0xff00ffff};pixels.setPixels(colors,0,2,0,0,2,3);
+            ByteArrayOutputStream png=new ByteArrayOutputStream();pixels.compress(android.graphics.Bitmap.CompressFormat.PNG,100,png);pixels.recycle();byte[] originalPng=png.toByteArray();
+            for(int direction=1;direction<=8;direction++){
+                byte[] tiff={73,73,42,0,8,0,0,0,1,0,18,1,3,0,1,0,0,0,(byte)direction,0,0,0,0,0,0,0};
+                ByteArrayOutputStream annotated=new ByteArrayOutputStream();DataOutputStream out=new DataOutputStream(annotated);out.write(originalPng,0,33);out.writeInt(tiff.length);out.writeBytes("eXIf");out.write(tiff);java.util.zip.CRC32 crc=new java.util.zip.CRC32();crc.update(new byte[]{101,88,73,102});crc.update(tiff);out.writeInt((int)crc.getValue());out.write(originalPng,33,originalPng.length-33);Files.write(file,annotated.toByteArray());
+                android.graphics.Bitmap decoded=PhotoDecoder.decode(context.getContentResolver(),uri,2048);
+                try{check(decoded.getWidth()==(direction>=5?3:2)&&decoded.getHeight()==(direction>=5?2:3),"PNG orientation dimensions lost");
+                    for(int y=0;y<3;y++)for(int x=0;x<2;x++){
+                        int dx=x,dy=y;switch(direction){case 2:dx=1-x;break;case 3:dx=1-x;dy=2-y;break;case 4:dy=2-y;break;case 5:dx=y;dy=x;break;case 6:dx=2-y;dy=x;break;case 7:dx=2-y;dy=1-x;break;case 8:dx=y;dy=1-x;break;}
+                        check(decoded.getPixel(dx,dy)==colors[y*2+x],"PNG rotation/mirror pixels lost: "+direction);
+                    }
+                }finally{decoded.recycle();}
+            }
+            byte[] oversized={(byte)137,80,78,71,13,10,26,10,127,(byte)255,(byte)255,(byte)255,101,88,73,102};
+            check(ImageOrientation.read(new ByteArrayInputStream(oversized))==1,"Native oversized EXIF accepted");
+            check(!new AttachmentInfo(UUID.randomUUID().toString(),"install.apk","application/vnd.android.package-archive",0,"0000000000000000000000000000000000000000000000000000000000000000",1).canOpenExternally(),"Android installer opened from received file");
         }finally{Files.deleteIfExists(file);Files.deleteIfExists(directory);}
-        return 17;
+        return 75;
     }
 }

@@ -128,10 +128,10 @@ final class MessagePane extends JPanel implements Scrollable {
             if(record.active()){
                 JButton cancel=new JButton(AppTheme.icon("close"));cancel.setPreferredSize(new Dimension(36,36));cancel.setToolTipText(strings.text("cancel"));cancel.getAccessibleContext().setAccessibleName(strings.text("cancel"));cancel.addActionListener(e->handler.action(message,"cancel"));buttons.add(cancel);
             }
-            String open=record.info.mime.startsWith("image/")?"view":"open";
+            String open=record.info.mime.startsWith("image/")?"view":record.info.canOpenExternally()?"open":"save";
             JPopupMenu menu=new JPopupMenu();boolean completed=photo(record)||!record.outgoing&&record.state.equals("received");
             if(completed){
-                JMenuItem view=new JMenuItem(strings.text("attachmentOpen"),AppTheme.icon(photo(record)?"photo":"description"));view.addActionListener(e->handler.action(message,open));menu.add(view);
+                if(!open.equals("save")){JMenuItem view=new JMenuItem(strings.text("attachmentOpen"),AppTheme.icon(photo(record)?"photo":"description"));view.addActionListener(e->handler.action(message,open));menu.add(view);}
                 JMenuItem save=new JMenuItem(strings.text("attachmentSaveAs"),AppTheme.icon("file_download"));save.addActionListener(e->handler.action(message,"save"));menu.add(save);
             }
             for(JComponent target:new JComponent[]{this,body,thumbnail,receipt,attachmentIcon}){

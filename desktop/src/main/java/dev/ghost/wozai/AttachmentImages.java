@@ -24,32 +24,7 @@ final class AttachmentImages {
             }finally{reader.dispose();}
         }
     }
-    private static int orientation(Path path)throws IOException {
-        try(DataInputStream in=new DataInputStream(new BufferedInputStream(Files.newInputStream(path)))){
-            if(in.readUnsignedShort()!=0xffd8)return 1;
-            // Bound metadata scanning, including malformed marker padding.
-            int scanned=2;
-            while(scanned<1024*1024){
-                int prefix=in.readUnsignedByte();scanned++;if(prefix!=255)return 1;
-                int marker;do{marker=in.readUnsignedByte();scanned++;if(scanned>=1024*1024)return 1;}while(marker==255);
-                if(marker==0xda||marker==0xd9)return 1;if(marker==1||marker>=0xd0&&marker<=0xd7)continue;
-                int length=in.readUnsignedShort()-2;scanned+=2;if(length<0||scanned+length>1024*1024)return 1;
-                if(marker==0xe1){byte[] bytes=in.readNBytes(length);if(bytes.length!=length)return 1;int value=exif(bytes);if(value!=0)return value;}
-                else in.skipNBytes(length);
-                scanned+=length;
-            }
-        }catch(EOFException ignored){}return 1;
-    }
-    private static int exif(byte[] b){
-        if(b.length<14||b[0]!='E'||b[1]!='x'||b[2]!='i'||b[3]!='f'||b[4]!=0||b[5]!=0)return 0;
-        boolean little=b[6]=='I'&&b[7]=='I';if(!little&&!(b[6]=='M'&&b[7]=='M'))return 0;
-        if(number(b,8,2,little)!=42)return 0;long offset=number(b,10,4,little)+6;if(offset<14||offset>b.length-2)return 0;
-        int start=(int)offset,count=(int)number(b,start,2,little);
-        for(int i=0;i<count;i++){int pos=start+2+i*12;if(pos>b.length-12)return 0;
-            if(number(b,pos,2,little)==0x112&&number(b,pos+2,2,little)==3&&number(b,pos+4,4,little)==1){int value=(int)number(b,pos+8,2,little);return value>=1&&value<=8?value:0;}
-        }return 0;
-    }
-    private static long number(byte[] b,int p,int n,boolean little){long value=0;for(int i=0;i<n;i++)value|=(long)(b[p+i]&255)<<((little?i:n-1-i)*8);return value;}
+    private static int orientation(Path path)throws IOException {try(InputStream input=Files.newInputStream(path)){return dev.ghost.nearbyim.core.ImageOrientation.read(input);}}
     private static BufferedImage orient(BufferedImage image,int o){
         if(image==null||o==1)return image;int w=image.getWidth(),h=image.getHeight();boolean swap=o>=5;
         BufferedImage result=new BufferedImage(swap?h:w,swap?w:h,BufferedImage.TYPE_INT_ARGB);

@@ -15,7 +15,7 @@ public final class AttachmentInfo {
                 || name.codePointCount(0,name.length()) > 255 || encodeText(name).length > 1024
                 || name.codePoints().anyMatch(Character::isISOControl) || mime == null || !mime.matches("[A-Za-z0-9!#$&^_.+/-]{1,127}")
                 || size < 0 || size > MAX_SIZE || hash == null || !hash.matches("[0-9a-f]{64}") || time < 0) throw new IOException("Invalid attachment metadata");
-        this.id=id; this.name=name; this.mime=mime; this.size=size; this.hash=hash; this.time=time;
+        this.id=id; String display=displayName(name); this.name=display.trim().isEmpty()?"attachment":display; this.mime=mime.toLowerCase(Locale.ROOT); this.size=size; this.hash=hash; this.time=time;
     }
     public Frame offer() throws IOException {
         ByteArrayOutputStream bytes=new ByteArrayOutputStream(); DataOutputStream out=new DataOutputStream(bytes);
@@ -43,8 +43,17 @@ public final class AttachmentInfo {
     public static String hex(byte[] bytes) { StringBuilder s=new StringBuilder(bytes.length*2);for(byte b:bytes)s.append(String.format(Locale.ROOT,"%02x",b&255));return s.toString(); }
     private static byte[] hex(String value){byte[] b=new byte[value.length()/2];for(int i=0;i<b.length;i++)b[i]=(byte)Integer.parseInt(value.substring(i*2,i*2+2),16);return b;}
     public static String safeName(String value) {
-        String s=value.replaceAll("[\\\\/\\p{Cntrl}:*?\"<>|]","_").replaceAll("[. ]+$","");
+        String s=displayName(value).replaceAll("[\\\\/\\p{Cntrl}:*?\"<>|]","_").replaceAll("[. ]+$","");
         if(s.trim().isEmpty()||s.equals(".")||s.equals("..")||s.matches("(?i)(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\\..*)?"))s="attachment";
         return s;
+    }
+    /** Prevent remote direction controls from disguising a filename's extension. */
+    public static String displayName(String value){return value.replaceAll("[\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]","");}
+    /** External apps may interpret executable or unknown extensions as launch requests. */
+    public boolean canOpenExternally(){
+        String filename=safeName(name).toLowerCase(Locale.ROOT);int dot=filename.lastIndexOf('.');
+        if(dot<0)return false;
+        String extension=filename.substring(dot+1);
+        return Arrays.asList("pdf","txt","csv","log","rtf","doc","docx","xls","xlsx","ppt","pptx","odt","ods","odp","epub","mp3","m4a","aac","flac","wav","ogg","mp4","m4v","mkv","webm","mov","avi","zip","7z","rar","gz","tar","bz2","xz").contains(extension);
     }
 }

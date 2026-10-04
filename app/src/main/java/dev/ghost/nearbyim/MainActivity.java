@@ -585,7 +585,7 @@ public final class MainActivity extends Activity {
     private String attachmentState(AttachmentRecord record){return t(record.stateKey());}
     private boolean photoAvailable(AttachmentRecord record){return record.outgoing?record.state.equals("delivered")&&record.info.mime.startsWith("image/"):record.state.equals("received");}
     private void attachmentMenu(View anchor,String peer,AttachmentRecord record){
-        if(!photoAvailable(record))return;if(attachmentActions!=null)attachmentActions.dismiss();PopupMenu menu=new PopupMenu(this,anchor);attachmentActions=menu;menu.getMenu().add(0,1,0,t("attachmentOpen"));menu.getMenu().add(0,2,1,t("attachmentSaveAs"));
+        if(!photoAvailable(record))return;if(attachmentActions!=null)attachmentActions.dismiss();PopupMenu menu=new PopupMenu(this,anchor);attachmentActions=menu;if(record.info.mime.startsWith("image/")||record.info.canOpenExternally())menu.getMenu().add(0,1,0,t("attachmentOpen"));menu.getMenu().add(0,2,1,t("attachmentSaveAs"));
         menu.setOnMenuItemClickListener(item->{if(item.getItemId()==1)openAttachment(peer,record);else saveAttachment(peer,record);return true;});menu.show();
     }
     private Button attachmentChoice(int resource,String text,Runnable action){
@@ -607,6 +607,7 @@ public final class MainActivity extends Activity {
         catch(Exception e){pendingExportPeer=null;pendingExportRecord=null;toast(t("attachmentFailed"));}
     }
     private void openAttachment(String peer,AttachmentRecord record){
+        if(!record.info.mime.startsWith("image/")&&!record.info.canOpenExternally()){saveAttachment(peer,record);return;}
         if(controller==null)return;controller.attachmentPath(peer,record).whenComplete((path,error)->ui.post(()->{
             if(isDestroyed())return;if(error!=null){toast(t("attachmentUnavailable"));return;}
             Uri uri=new Uri.Builder().scheme("content").authority(getPackageName()+".attachments").appendPath(peer).appendPath(path.getFileName().toString()).appendQueryParameter("name",record.info.name).appendQueryParameter("mime",record.info.mime).build();

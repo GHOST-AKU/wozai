@@ -387,6 +387,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
             PhotoViewer viewer=new PhotoViewer(this,strings,record.info.name,()->attachmentAction(peer,message,"save"));photoViewer=viewer;dialogTranslations.put(viewer,List.of(viewer::translate));viewer.addWindowListener(new WindowAdapter(){public void windowClosed(WindowEvent e){dialogTranslations.remove(viewer);if(photoViewer==viewer)photoViewer=null;}});scaleFonts(viewer.getContentPane(),fontScale);viewer.setVisible(true);
             client.attachmentPath(peer,record).thenApplyAsync(path->{try{return viewer.active()?AttachmentImages.read(path,2048):null;}catch(IOException e){return null;}},attachmentWorker).whenComplete((image,error)->SwingUtilities.invokeLater(()->viewer.image(image,strings)));return;
         }
+        if(!action.equals("save")&&!record.info.canOpenExternally())action="save";
         Path destination=null;
         if(action.equals("save")){JFileChooser chooser=new JFileChooser();chooser.setSelectedFile(new java.io.File(AttachmentInfo.safeName(record.info.name)));if(chooser.showSaveDialog(this)!=JFileChooser.APPROVE_OPTION)return;destination=chooser.getSelectedFile().toPath();if(Files.exists(destination)&&JOptionPane.showConfirmDialog(this,strings.text("attachmentOverwrite"),strings.text("attachmentSaveAs"),JOptionPane.YES_NO_OPTION)!=JOptionPane.YES_OPTION)return;}
         Path target=destination;

@@ -7,3 +7,5 @@ java -cp build/core-tests dev.ghost.nearbyim.core.CoreTests "$@"
 java -cp build/core-tests dev.ghost.nearbyim.core.AuthenticationTests
 java -cp build/core-tests dev.ghost.nearbyim.core.AttachmentTests
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentLargeFileTest
+
+java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.ImageSafetyTests
