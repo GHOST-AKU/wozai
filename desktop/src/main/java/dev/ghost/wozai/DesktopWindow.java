@@ -376,9 +376,10 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         if(action.equals("accept")||action.equals("reject")||action.equals("cancel")){handle(client.attachmentAction(peer,message.id(),message.outgoing(),action),"attachmentFailed");return;}
         if(action.equals("preview")){
             String key=peer+":"+message.id()+":"+message.outgoing();var cached=thumbnails.get(key);if(cached!=null){SwingUtilities.invokeLater(()->{if(peer.equals(selected))transcript.thumbnail(message.id(),message.outgoing(),cached);});return;}
-            if(failedThumbnails.contains(key)||!loadingThumbnails.add(key))return;
+            if(failedThumbnails.contains(key)){SwingUtilities.invokeLater(()->{if(peer.equals(selected))transcript.thumbnail(message.id(),message.outgoing(),null);});return;}
+            if(!loadingThumbnails.add(key))return;
             client.attachmentPath(peer,record).thenApplyAsync(path->{try{return AttachmentImages.read(path);}catch(IOException e){return null;}},attachmentWorker).whenComplete((image,error)->SwingUtilities.invokeLater(()->{
-                loadingThumbnails.remove(key);if(shuttingDown)return;if(image==null){failedThumbnails.add(key);while(failedThumbnails.size()>16)failedThumbnails.remove(failedThumbnails.iterator().next());return;}thumbnails.put(key,image);while(thumbnails.size()>12)thumbnails.remove(thumbnails.keySet().iterator().next());if(peer.equals(selected))transcript.thumbnail(message.id(),message.outgoing(),image);
+                loadingThumbnails.remove(key);if(shuttingDown)return;if(image==null){failedThumbnails.add(key);while(failedThumbnails.size()>16)failedThumbnails.remove(failedThumbnails.iterator().next());if(peer.equals(selected))transcript.thumbnail(message.id(),message.outgoing(),null);return;}thumbnails.put(key,image);while(thumbnails.size()>12)thumbnails.remove(thumbnails.keySet().iterator().next());if(peer.equals(selected))transcript.thumbnail(message.id(),message.outgoing(),image);
             }));return;
         }
         if(action.equals("view")){

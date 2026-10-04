@@ -19,11 +19,14 @@ final class MessagePane extends JPanel implements Scrollable {
             JScrollPane scroll=(JScrollPane)SwingUtilities.getAncestorOfClass(JScrollPane.class,this);
             JScrollBar bar=scroll==null?null:scroll.getVerticalScrollBar();int position=bar==null?0:bar.getValue();
             boolean bottom=bar!=null&&position+bar.getVisibleAmount()>=bar.getMaximum()-24;
-            row.bubble.thumbnail.setIcon(new ImageIcon(image));row.bubble.body.setVisible(false);row.bubble.preferred=null;revalidate();repaint();
+            if(image==null){row.bubble.previewFailed=true;row.bubble.attachment(row.message,currentStrings);}
+            else{row.bubble.thumbnail.setIcon(new ImageIcon(image));row.bubble.body.setVisible(false);row.bubble.preferred=null;}
+            revalidate();repaint();
             if(bottom)SwingUtilities.invokeLater(()->{if(rows.get(key)==row)bar.setValue(bar.getMaximum());});
         }
     }
     private static boolean photo(AttachmentRecord r){return r!=null&&r.info.mime.startsWith("image/")&&(r.outgoing?r.state.equals("delivered"):r.state.equals("received"));}
+    private Strings currentStrings;
     private String text = "";
     private float scale = 1;
     private record Key(String id, boolean outgoing) { }
@@ -58,7 +61,7 @@ final class MessagePane extends JPanel implements Scrollable {
     String text() { return text; }
     void scale(float value) { scale = value; }
     void render(List<DesktopStore.Message> messages, Strings strings) {
-        ZoneId zone = ZoneId.systemDefault();
+        currentStrings=strings;ZoneId zone = ZoneId.systemDefault();
         if (!strings.locale().equals(renderedLocale) || !zone.equals(renderedZone) || renderedDark != AppTheme.dark || renderedScale != scale) {
             removeAll(); rows.clear(); dates.clear(); renderedLocale = strings.locale(); renderedZone = zone; renderedDark = AppTheme.dark; renderedScale = scale;
         }
@@ -82,7 +85,7 @@ final class MessagePane extends JPanel implements Scrollable {
                 if (row == null) { row = new MessageRow(message, receipt,strings); rows.put(key, row); }
                 else row.update(message, receipt,strings);
             }
-            if(row.bubble.photoBubble!=previewIds.contains(key))row.bubble.attachment(message,strings);
+            if(row.bubble.photoBubble!=(previewIds.contains(key)&&!row.bubble.previewFailed))row.bubble.attachment(message,strings);
             String receipt = row.bubble.receipt.getText();
             content.append(message.body()).append('\n').append(receipt).append('\n');
             desired.addAll(row.components);
@@ -95,7 +98,7 @@ final class MessagePane extends JPanel implements Scrollable {
         text = content.toString(); revalidate(); repaint();
     }
     private final class Bubble extends JPanel {
-        private final JPanel footer=new JPanel(); private final JLabel attachmentIcon=new JLabel(); private boolean photoBubble;
+        private final JPanel footer=new JPanel(); private final JLabel attachmentIcon=new JLabel(); private boolean photoBubble,previewFailed;
         private final JLabel thumbnail=new JLabel(){
             public Dimension getPreferredSize(){Icon icon=getIcon();if(icon==null)return new Dimension(240,160);double ratio=Math.min(320.0/icon.getIconWidth(),260.0/icon.getIconHeight());return new Dimension((int)(icon.getIconWidth()*ratio),(int)(icon.getIconHeight()*ratio));}
             protected void paintComponent(Graphics g){Icon icon=getIcon();if(!(icon instanceof ImageIcon image)){super.paintComponent(g);return;}Graphics2D p=(Graphics2D)g.create();double ratio=Math.min((double)getWidth()/icon.getIconWidth(),(double)getHeight()/icon.getIconHeight());int w=(int)(icon.getIconWidth()*ratio),h=(int)(icon.getIconHeight()*ratio);int x=(getWidth()-w)/2,y=(getHeight()-h)/2;p.setRenderingHint(RenderingHints.KEY_INTERPOLATION,RenderingHints.VALUE_INTERPOLATION_BILINEAR);p.clip(new java.awt.geom.RoundRectangle2D.Double(x,y,w,h,16,16));p.drawImage(image.getImage(),x,y,w,h,null);p.dispose();}
@@ -114,7 +117,7 @@ final class MessagePane extends JPanel implements Scrollable {
         }
         void attachment(DesktopStore.Message message,Strings strings){
             AttachmentRecord record=message.attachment();if(record==null)return;
-            String state=strings.text(record.stateKey());photoBubble=photo(record)&&previewIds.contains(new Key(message.id(),message.outgoing()));
+            String state=strings.text(record.stateKey());photoBubble=photo(record)&&!previewFailed&&previewIds.contains(new Key(message.id(),message.outgoing()));
             bodyText=record.info.name+"\n"+strings.text("attachmentSummary",MessagePane.size(record.info.size),state);body.setText(bodyText);body.getAccessibleContext().setAccessibleName(bodyText);preferred=null;
             body.setVisible(!photoBubble||thumbnail.getIcon()==null);remove(body);remove(thumbnail);remove(attachmentIcon);if(!photoBubble)thumbnail.setIcon(null);
             footer.removeAll();AttachmentActions handler=actions;
