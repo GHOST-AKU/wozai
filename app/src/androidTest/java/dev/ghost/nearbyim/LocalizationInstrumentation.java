@@ -213,6 +213,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
         onMain(() -> { setField(activity, "pendingAction", null); setField(activity, "pendingStage", 0); controller.approve(approval, true); return null; });
         check(ready.await(10, TimeUnit.SECONDS), "Live peer receives consent after locale recreation");
         await(() -> onMain(() -> controller.connected), "Controller remains connected");
+        check(onMain(() -> controller.error.key.isEmpty()), "Chat consent does not report a false storage failure");
         testFileTransfers(controller,peerId);
         for (int i = 0; i < 35; i++) {
             String id = UUID.randomUUID().toString();

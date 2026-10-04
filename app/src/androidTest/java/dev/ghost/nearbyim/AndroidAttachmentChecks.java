@@ -20,6 +20,15 @@ final class AndroidAttachmentChecks {
             public SQLiteDatabase openOrCreateDatabase(String name,int mode,SQLiteDatabase.CursorFactory factory,DatabaseErrorHandler handler){return SQLiteDatabase.openOrCreateDatabase(getDatabasePath(name).getPath(),factory,handler);}
         };
         try {
+            Path sandbox=root.resolve("sandbox");
+            try(AttachmentTransfer transfer=new AttachmentTransfer(sandbox,new AttachmentTransfer.Wire(){
+                public boolean send(Frame frame){return true;}
+                public void abort(){throw new AssertionError("Empty attachment session aborted");}
+            },record->{},AttachmentInfo.CHUNK_SIZE,AttachmentInfo.MAX_SIZE)){
+                check(Files.isDirectory(sandbox),"Attachment session could not initialize in Android's private directory");
+                check(sandbox.toFile().getUsableSpace()>0,"Android private-directory free space could not be read");
+                transfer.shutdown().get(10,java.util.concurrent.TimeUnit.SECONDS);
+            }
             try(SQLiteDatabase legacy=SQLiteDatabase.openOrCreateDatabase(isolated.getDatabasePath("nearby-im.db"),null)){
                 legacy.execSQL(dev.ghost.nearbyim.storage.StoreSchema.CREATE_CONVERSATIONS);legacy.execSQL(dev.ghost.nearbyim.storage.StoreSchema.CREATE_MESSAGES.replace(" attachment TEXT,",""));legacy.execSQL(dev.ghost.nearbyim.storage.StoreSchema.CREATE_MESSAGE_INDEX);legacy.execSQL(dev.ghost.nearbyim.storage.StoreSchema.CREATE_TRUST);
                 legacy.execSQL("INSERT INTO messages VALUES (?,?,?,?,?,?,?)",new Object[]{peer,id,"old text 中文",1,"delivered",1,2});legacy.setVersion(3);
@@ -40,6 +49,6 @@ final class AndroidAttachmentChecks {
             boolean denied=false;try{context.getContentResolver().openOutputStream(uri).close();}catch(FileNotFoundException|SecurityException expected){denied=true;}check(denied,"Provider allowed writing");
             Uri unsafe=new Uri.Builder().scheme("content").authority(context.getPackageName()+".attachments").appendPath("..").appendPath("identity").build();denied=false;try{context.getContentResolver().openInputStream(unsafe).close();}catch(FileNotFoundException|SecurityException expected){denied=true;}check(denied,"Provider allowed traversal");
         }finally{Files.deleteIfExists(file);Files.deleteIfExists(directory);}
-        return 9;
+        return 11;
     }
 }

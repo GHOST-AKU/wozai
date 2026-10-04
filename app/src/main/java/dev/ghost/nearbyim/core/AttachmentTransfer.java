@@ -92,7 +92,7 @@ public final class AttachmentTransfer implements AutoCloseable {
     public CompletableFuture<Void> accept(String id){return command(()->{
         Task task=incoming;if(task==null||!task.info.id.equals(id)||!task.state.equals("offered"))return;
         try{
-            if(Files.getFileStore(root).getUsableSpace()<task.info.size+1024*1024)throw new IOException("Insufficient disk space");
+            if(root.toFile().getUsableSpace()<task.info.size+1024*1024)throw new IOException("Insufficient disk space");
             Files.createFile(task.temporary);privateFile(task.temporary);task.output=new FileOutputStream(task.temporary.toFile());task.digest=MessageDigest.getInstance("SHA-256");
             task.state="transferring";touch(task);notice(task,true);send(control(Frame.FILE_ACCEPT,id,""));
         }catch(IOException e){finish(task,"failed",true);}
@@ -206,9 +206,9 @@ public final class AttachmentTransfer implements AutoCloseable {
     }
     private static void privateDirectory(Path path)throws IOException {
         if(Files.isSymbolicLink(path)||Files.exists(path,LinkOption.NOFOLLOW_LINKS)&&!Files.isDirectory(path,LinkOption.NOFOLLOW_LINKS))throw new IOException("Unsafe attachment directory");
-        Files.createDirectories(path);if(Files.getFileStore(path).supportsFileAttributeView("posix"))Files.setPosixFilePermissions(path,java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        Files.createDirectories(path);if(Files.getFileAttributeView(path,java.nio.file.attribute.PosixFileAttributeView.class,LinkOption.NOFOLLOW_LINKS)!=null)Files.setPosixFilePermissions(path,java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
     }
-    private static void privateFile(Path path)throws IOException {if(Files.getFileStore(path).supportsFileAttributeView("posix"))Files.setPosixFilePermissions(path,java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));}
+    private static void privateFile(Path path)throws IOException {if(Files.getFileAttributeView(path,java.nio.file.attribute.PosixFileAttributeView.class,LinkOption.NOFOLLOW_LINKS)!=null)Files.setPosixFilePermissions(path,java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));}
     private static void close(Closeable stream){if(stream!=null)try{stream.close();}catch(IOException ignored){}}
     private static void delete(Path path){try{Files.deleteIfExists(path);}catch(IOException ignored){}}
 }

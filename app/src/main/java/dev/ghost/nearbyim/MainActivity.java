@@ -48,6 +48,7 @@ public final class MainActivity extends Activity {
     private Button newChatButton, cancelConnectionButton,fileButton,photoButton;
     private String pendingAttachmentPeer,pendingExportPeer,pendingExportRecord;
     private long pendingAttachmentToken;
+    private Uri selectedAttachmentUri,selectedExportUri;
     private final java.util.concurrent.ThreadPoolExecutor imageWorker=new java.util.concurrent.ThreadPoolExecutor(1,1,0,java.util.concurrent.TimeUnit.SECONDS,new java.util.concurrent.ArrayBlockingQueue<>(16),r->{Thread thread=new Thread(r,"attachment-thumbnail");thread.setDaemon(true);return thread;},new java.util.concurrent.ThreadPoolExecutor.AbortPolicy());
     private final LinkedHashMap<String,Bitmap> thumbnails=new LinkedHashMap<>();
     private final Set<String> loadingThumbnails=new HashSet<>(),thumbnailTargets=new HashSet<>();
@@ -98,7 +99,7 @@ public final class MainActivity extends Activity {
             service = ((ChatService.LocalBinder) binder).service(); controller = service.controller;
             if (controller.selectedId == null && restoredSelectedId != null)
                 controller.selectConversation(new ChatStore.Conversation(restoredSelectedId, restoredSelectedName, 0));
-            controller.observe(MainActivity.this::render); resumePending();
+            controller.observe(MainActivity.this::render); resumePending(); resumeAttachmentSelection();
         }
         public void onServiceDisconnected(ComponentName name) { service = null; controller = null; render(); }
     };
@@ -108,6 +109,8 @@ public final class MainActivity extends Activity {
         if (saved == null) { SharedPreferences preferences = getSharedPreferences("ui", MODE_PRIVATE); mode = preferences.getInt("lastMode", Peer.LAN); rememberNext = preferences.getBoolean("rememberNext", true); }
         if (saved != null) {
             pendingAttachmentPeer=saved.getString("pendingAttachmentPeer");pendingAttachmentToken=saved.getLong("pendingAttachmentToken");pendingExportPeer=saved.getString("pendingExportPeer");pendingExportRecord=saved.getString("pendingExportRecord");
+            String attachmentUri=saved.getString("selectedAttachmentUri"),exportUri=saved.getString("selectedExportUri");
+            selectedAttachmentUri=attachmentUri==null?null:Uri.parse(attachmentUri);selectedExportUri=exportUri==null?null:Uri.parse(exportUri);
             mode = saved.getInt("mode", Peer.LAN); page = saved.getInt("page", 0); detail = saved.getBoolean("detail");
             pendingAction = (UiAction) saved.getSerializable("pendingAction"); pendingStage = saved.getInt("pendingStage");
             restoredSelectedId = saved.getString("selectedId"); restoredSelectedName = saved.getString("selectedName");
@@ -150,6 +153,7 @@ public final class MainActivity extends Activity {
     protected void onDestroy(){imageWorker.shutdownNow();thumbnails.clear();super.onDestroy();}
     protected void onSaveInstanceState(Bundle state) {
         state.putString("pendingAttachmentPeer",pendingAttachmentPeer);state.putLong("pendingAttachmentToken",pendingAttachmentToken);state.putString("pendingExportPeer",pendingExportPeer);state.putString("pendingExportRecord",pendingExportRecord);
+        state.putString("selectedAttachmentUri",selectedAttachmentUri==null?null:selectedAttachmentUri.toString());state.putString("selectedExportUri",selectedExportUri==null?null:selectedExportUri.toString());
         saveDraftAndPosition();
         state.putInt("mode", mode); state.putInt("page", page); state.putBoolean("detail", detail); state.putString("draft", composer.getText().toString());
         state.putString("selectedId", controller == null ? restoredSelectedId : controller.selectedId);
@@ -706,16 +710,34 @@ public final class MainActivity extends Activity {
     }
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if(requestCode==20){String peer=pendingAttachmentPeer;long token=pendingAttachmentToken;pendingAttachmentPeer=null;
-            if(resultCode==RESULT_OK&&data!=null&&data.getData()!=null&&controller!=null&&peer!=null)controller.sendAttachment(peer,token,data.getData());return;
+        if(requestCode==20){
+            selectedAttachmentUri=resultCode==RESULT_OK&&data!=null?data.getData():null;
+            if(selectedAttachmentUri==null)pendingAttachmentPeer=null;
+            resumeAttachmentSelection();return;
         }
-        if(requestCode==21){String peer=pendingExportPeer,encoded=pendingExportRecord;pendingExportPeer=null;pendingExportRecord=null;
-            if(resultCode==RESULT_OK&&data!=null&&data.getData()!=null&&controller!=null&&peer!=null&&encoded!=null)try{AttachmentRecord record=AttachmentRecord.decode(encoded);controller.exportAttachment(peer,record.info,data.getData()).whenComplete((v,e)->{if(e!=null)ui.post(()->{if(!isDestroyed())toast(t("attachmentFailed"));});});}catch(Exception e){toast(t("attachmentFailed"));}return;
+        if(requestCode==21){
+            selectedExportUri=resultCode==RESULT_OK&&data!=null?data.getData():null;
+            if(selectedExportUri==null){pendingExportPeer=null;pendingExportRecord=null;}
+            resumeAttachmentSelection();return;
         }
         if (requestCode == 8 && pendingAction != null && pendingStage == ENABLE_STAGE) {
             UiAction action = pendingAction; if (resultCode == RESULT_OK) { pendingStage = BIND_STAGE; withPermissions(action); }
             else { pendingAction = null; pendingStage = 0; toast(t("bluetoothEnableCanceled")); }
         } else if (requestCode == 9) { discoverableUntil = resultCode > 0 ? SystemClock.elapsedRealtime() + resultCode * 1000L : 0; updateDiscoverability(); }
+    }
+    private void resumeAttachmentSelection(){
+        if(controller==null)return;
+        if(selectedAttachmentUri!=null&&pendingAttachmentPeer!=null){
+            Uri uri=selectedAttachmentUri;String peer=pendingAttachmentPeer;long token=pendingAttachmentToken;
+            selectedAttachmentUri=null;pendingAttachmentPeer=null;
+            controller.sendAttachment(peer,token,uri);
+        }
+        if(selectedExportUri!=null&&pendingExportPeer!=null&&pendingExportRecord!=null){
+            Uri uri=selectedExportUri;String peer=pendingExportPeer,encoded=pendingExportRecord;
+            selectedExportUri=null;pendingExportPeer=null;pendingExportRecord=null;
+            try{AttachmentRecord record=AttachmentRecord.decode(encoded);controller.exportAttachment(peer,record.info,uri).whenComplete((v,e)->{if(e!=null)ui.post(()->{if(!isDestroyed())toast(t("attachmentFailed"));});});}
+            catch(Exception e){toast(t("attachmentFailed"));}
+        }
     }
     @SuppressLint("MissingPermission")
     private void updateDiscoverability() {

@@ -274,7 +274,7 @@
   "waitingBothReady": "Waiting for both devices to finish connecting…",
   "connectionRejected": "Connection refused",
   "androidStorageStopped": "Local data could not be saved. The connection was stopped.",
-  "androidStorageFailure": "Local data could not be read or saved. Check the available space on this device.",
+  "androidStorageFailure": "Local data could not be read or saved. Try again; if the problem persists, report the error.",
   "lanRegisterFailure": "Automatic discovery registration failed. Use an IP address to connect.",
   "searchStopFailure": "Device search could not be stopped. Try again.",
   "lanAddresses": "{0}",

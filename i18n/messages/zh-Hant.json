@@ -274,7 +274,7 @@
   "waitingBothReady": "等待雙方完成連線…",
   "connectionRejected": "連線已拒絕",
   "androidStorageStopped": "本機記錄儲存失敗，連線已停止",
-  "androidStorageFailure": "本機記錄讀寫失敗，請檢查手機可用空間",
+  "androidStorageFailure": "本機記錄讀寫失敗，請重試；若問題持續，請回報錯誤",
   "lanRegisterFailure": "自動發現註冊失敗，可使用位址直連",
   "searchStopFailure": "停止裝置搜尋失敗，請重試",
   "lanAddresses": "{0}",

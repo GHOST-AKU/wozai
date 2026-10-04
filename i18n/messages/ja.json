@@ -274,7 +274,7 @@
   "waitingBothReady": "両方のデバイスの接続完了待ち…",
   "connectionRejected": "接続を拒否しました",
   "androidStorageStopped": "ローカルデータを保存できず、接続を停止しました。",
-  "androidStorageFailure": "ローカルデータを読み書きできません。このデバイスの空き容量を確認してください。",
+  "androidStorageFailure": "ローカルデータを読み書きできません。再試行し、問題が続く場合はエラーを報告してください。",
   "lanRegisterFailure": "自動検出の登録に失敗しました。IP アドレスで接続してください。",
   "searchStopFailure": "デバイス検索を停止できませんでした。再試行してください。",
   "lanAddresses": "{0}",

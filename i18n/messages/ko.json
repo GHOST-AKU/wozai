@@ -274,7 +274,7 @@
   "waitingBothReady": "두 기기의 연결 완료 대기 중…",
   "connectionRejected": "연결이 거부되었습니다",
   "androidStorageStopped": "로컬 데이터를 저장하지 못해 연결을 중지했습니다.",
-  "androidStorageFailure": "로컬 데이터를 읽거나 저장하지 못했습니다. 기기의 남은 공간을 확인하세요.",
+  "androidStorageFailure": "로컬 데이터를 읽거나 저장하지 못했습니다. 다시 시도하고 문제가 계속되면 오류를 신고하세요.",
   "lanRegisterFailure": "자동 검색 등록에 실패했습니다. IP 주소로 연결하세요.",
   "searchStopFailure": "기기 검색을 중지하지 못했습니다. 다시 시도하세요.",
   "lanAddresses": "{0}",

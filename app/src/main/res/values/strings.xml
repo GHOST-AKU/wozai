@@ -20,7 +20,7 @@
     <string name="android_lan_hint" formatted="false">"Connect both devices to the same Wi-Fi or hotspot. LAN messages are sent in plaintext, so use a trusted network."</string>
     <string name="android_request_body" formatted="false">"Connection over {0}. Remember this device to reconnect next time. You can revoke trust in Device information.\n\nThe other person chooses their nickname. Device trust does not verify their real name."</string>
     <string name="android_request_lan_body" formatted="false">"Connection over {0}. Remember this device to reconnect next time. You can revoke trust in Device information.\n\nThe other person chooses their nickname. Device trust does not verify their real name. LAN messages are sent in plaintext, so use a trusted network."</string>
-    <string name="android_storage_failure" formatted="false">"Local data could not be read or saved. Check the available space on this device."</string>
+    <string name="android_storage_failure" formatted="false">"Local data could not be read or saved. Try again; if the problem persists, report the error."</string>
     <string name="android_storage_stopped" formatted="false">"Local data could not be saved. The connection was stopped."</string>
     <string name="app" formatted="false">"NearbyIM"</string>
     <string name="app_permissions" formatted="false">"App permissions"</string>

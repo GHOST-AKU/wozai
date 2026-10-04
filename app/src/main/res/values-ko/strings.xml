@@ -20,7 +20,7 @@
     <string name="android_lan_hint" formatted="false">"두 기기를 같은 Wi-Fi 또는 핫스팟에 연결하세요. LAN 메시지는 평문으로 전송되므로 신뢰할 수 있는 네트워크를 사용하세요."</string>
     <string name="android_request_body" formatted="false">"{0} 연결입니다. 이 기기를 기억하면 다음에 다시 연결할 수 있습니다. 기기 정보에서 신뢰를 해제할 수 있습니다.\n\n닉네임은 상대가 직접 입력합니다. 기기 신뢰는 실명을 인증하지 않습니다."</string>
     <string name="android_request_lan_body" formatted="false">"{0} 연결입니다. 이 기기를 기억하면 다음에 다시 연결할 수 있습니다. 기기 정보에서 신뢰를 해제할 수 있습니다.\n\n닉네임은 상대가 직접 입력합니다. 기기 신뢰는 실명을 인증하지 않습니다. LAN 메시지는 평문으로 전송되므로 신뢰할 수 있는 네트워크를 사용하세요."</string>
-    <string name="android_storage_failure" formatted="false">"로컬 데이터를 읽거나 저장하지 못했습니다. 기기의 남은 공간을 확인하세요."</string>
+    <string name="android_storage_failure" formatted="false">"로컬 데이터를 읽거나 저장하지 못했습니다. 다시 시도하고 문제가 계속되면 오류를 신고하세요."</string>
     <string name="android_storage_stopped" formatted="false">"로컬 데이터를 저장하지 못해 연결을 중지했습니다."</string>
     <string name="app" formatted="false">"NearbyIM"</string>
     <string name="app_permissions" formatted="false">"앱 권한"</string>

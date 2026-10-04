@@ -274,7 +274,7 @@
   "waitingBothReady": "等待双方完成连接…",
   "connectionRejected": "连接已拒绝",
   "androidStorageStopped": "本地记录保存失败，连接已停止",
-  "androidStorageFailure": "本地记录读写失败，请检查手机可用空间",
+  "androidStorageFailure": "本地记录读写失败，请重试；若问题持续，请报告错误",
   "lanRegisterFailure": "自动发现注册失败，可使用地址直连",
   "searchStopFailure": "停止设备搜索失败，请重试",
   "lanAddresses": "{0}",

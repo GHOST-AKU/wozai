@@ -20,7 +20,7 @@
     <string name="android_lan_hint" formatted="false">"兩部裝置連線同一 Wi-Fi，或加入同一個熱點。區域網路訊息以明文傳輸，請使用可信網路。"</string>
     <string name="android_request_body" formatted="false">"{0}連線。記住後，下次可以直接連線。可在裝置資訊中取消信任。\n\n暱稱由對方填寫，裝置信任不認證真實姓名。"</string>
     <string name="android_request_lan_body" formatted="false">"{0}連線。記住後，下次可以直接連線。可在裝置資訊中取消信任。\n\n暱稱由對方填寫，裝置信任不認證真實姓名。區域網路訊息以明文傳輸，請使用可信網路。"</string>
-    <string name="android_storage_failure" formatted="false">"本機記錄讀寫失敗，請檢查手機可用空間"</string>
+    <string name="android_storage_failure" formatted="false">"本機記錄讀寫失敗，請重試；若問題持續，請回報錯誤"</string>
     <string name="android_storage_stopped" formatted="false">"本機記錄儲存失敗，連線已停止"</string>
     <string name="app" formatted="false">"我在"</string>
     <string name="app_permissions" formatted="false">"應用程式權限"</string>

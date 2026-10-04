@@ -375,7 +375,7 @@ public final class ChatController implements TransportListener {
         if (destroyed) return;
         storage.execute(() -> {
             try { work.run(); if (success != null) main.post(() -> { if (!destroyed) success.run(); }); }
-            catch (RuntimeException e) { main.post(() -> {
+            catch (RuntimeException e) { android.util.Log.e("NearbyIM", "Local record operation failed", e); main.post(() -> {
                 if (!destroyed) { if (failure != null) failure.run(); closeActive(UiText.of("androidStorageStopped")); fail(UiText.of("androidStorageFailure")); }
             }); }
         });
