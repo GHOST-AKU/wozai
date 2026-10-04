@@ -1,0 +1,10 @@
+{
+  "application_id": "dev.ghost.nearbyim",
+  "key_alias": "nearbyim",
+  "certificate_sha256": "47a10fd5a882ab26c9a11fcc61df3b41f7c41017746fc6840cfbe581ca52c1dd",
+  "baseline_tag": "v0.3.1",
+  "baseline_apk": "NearbyIM-0.3.1-android.apk",
+  "baseline_version_code": 7,
+  "baseline_apk_sha256": "2639536a577934ee497d43c655d2d61b8ef2a545996155588e605d82ac0eae83",
+  "baseline_version_name": "0.3.1"
+}

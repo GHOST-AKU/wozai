@@ -6,6 +6,9 @@ app/build/
 *.iml
 *.jks
 *.keystore
+*.p12
+*.pfx
+.signing/
 *.apk
 *.aab
 __pycache__/

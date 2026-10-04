@@ -53,7 +53,7 @@ Windows PowerShell：
 ./gradlew -PtestBuildType=preview :app:assemblePreview :app:assemblePreviewAndroidTest :app:lintPreview
 ```
 
-安装 `app/build/outputs/apk/preview/app-preview.apk`。preview 不可调试，仍使用调试签名；`androidTest` APK 仅用于原生验收。debug 保留开发调试用途，正式 release 尚需配置长期签名。
+安装 `app/build/outputs/apk/preview/app-preview.apk`。preview 不可调试，默认使用调试签名；`androidTest` APK 仅用于原生验收。debug 保留开发调试用途。固定证书的 release 构建、加密密钥备份和 CI Secrets 配置见 [Android 签名说明](docs/android-signing.md)；签名维护版本的 versionCode 为 8，现有 0.3.1 Release 资产仍为 code 7。
 
 第一次同步需要访问 Google Maven、Maven Central 与 Gradle 分发服务器。SDK 路径由 Android Studio 写入本机 `local.properties`，不要把它提交到仓库。
 
