@@ -1,0 +1,395 @@
+{
+  "checked_at_utc": "2026-10-04T02:20:27.138054+00:00",
+  "scope": "post-experiment review of the preserved runtime copies used in the six trials and four diagnostics",
+  "same_relative_file_paths": true,
+  "file_count_per_runtime": 96,
+  "different_file_contents": [
+    "lib/modules"
+  ],
+  "sha256_by_path": {
+    "bin/java": {
+      "compress_1": "1c7e3313ab05bef3da61d7659a12cc50622ddc41b6db2b3a88d480445bf9619f",
+      "compress_0": "1c7e3313ab05bef3da61d7659a12cc50622ddc41b6db2b3a88d480445bf9619f"
+    },
+    "bin/keytool": {
+      "compress_1": "467b36277912edde0bf314ef61e8a816ae1d80e3adf624bdd567dfb69617ae5a",
+      "compress_0": "467b36277912edde0bf314ef61e8a816ae1d80e3adf624bdd567dfb69617ae5a"
+    },
+    "conf/logging.properties": {
+      "compress_1": "b62d2733ab99556b108a1951d894c5a8d76b1ac7a00c02c388f9eb9be046c56f",
+      "compress_0": "b62d2733ab99556b108a1951d894c5a8d76b1ac7a00c02c388f9eb9be046c56f"
+    },
+    "conf/net.properties": {
+      "compress_1": "2e070ed1d97052f0ce8771ed2ef74a38d7c260a45fde7a3682c8844e5fdf58a4",
+      "compress_0": "2e070ed1d97052f0ce8771ed2ef74a38d7c260a45fde7a3682c8844e5fdf58a4"
+    },
+    "conf/sdp/sdp.conf.template": {
+      "compress_1": "e9441e51f0d29e25313d33a9005640f11ad93c27f01bc46a34bf02f2a98ffd6b",
+      "compress_0": "e9441e51f0d29e25313d33a9005640f11ad93c27f01bc46a34bf02f2a98ffd6b"
+    },
+    "conf/security/java.policy": {
+      "compress_1": "1224c11b69032c80e1493416641c82a37e558913a41f959f83ab2f96f097d6c0",
+      "compress_0": "1224c11b69032c80e1493416641c82a37e558913a41f959f83ab2f96f097d6c0"
+    },
+    "conf/security/java.security": {
+      "compress_1": "16be24c22b20883c815c2d1f1fbf82df95921c1887dda7649b326db5d0203911",
+      "compress_0": "16be24c22b20883c815c2d1f1fbf82df95921c1887dda7649b326db5d0203911"
+    },
+    "conf/security/policy/README.txt": {
+      "compress_1": "6da0747334b0fea7592fd92614b2bbc8b126535e129b1fee483774d914e98eb5",
+      "compress_0": "6da0747334b0fea7592fd92614b2bbc8b126535e129b1fee483774d914e98eb5"
+    },
+    "conf/security/policy/limited/default_US_export.policy": {
+      "compress_1": "758b930a526fc670ab7537f8c26321527050a31f5f42149a2dda623c56a0a1a9",
+      "compress_0": "758b930a526fc670ab7537f8c26321527050a31f5f42149a2dda623c56a0a1a9"
+    },
+    "conf/security/policy/limited/default_local.policy": {
+      "compress_1": "2b2627548e61316150d47ffc3e6cad465ca05b3cccd4785eb7d21aa7baa0f441",
+      "compress_0": "2b2627548e61316150d47ffc3e6cad465ca05b3cccd4785eb7d21aa7baa0f441"
+    },
+    "conf/security/policy/limited/exempt_local.policy": {
+      "compress_1": "8c3d7648abcd95a272ce12db870082937f4d7f6878d730d83cb7fbb31eb8b2c9",
+      "compress_0": "8c3d7648abcd95a272ce12db870082937f4d7f6878d730d83cb7fbb31eb8b2c9"
+    },
+    "conf/security/policy/unlimited/default_US_export.policy": {
+      "compress_1": "758b930a526fc670ab7537f8c26321527050a31f5f42149a2dda623c56a0a1a9",
+      "compress_0": "758b930a526fc670ab7537f8c26321527050a31f5f42149a2dda623c56a0a1a9"
+    },
+    "conf/security/policy/unlimited/default_local.policy": {
+      "compress_1": "8d8a318e6d90dfd7e26612d2b6385aa704f686ca6134c551f8928418d92b851a",
+      "compress_0": "8d8a318e6d90dfd7e26612d2b6385aa704f686ca6134c551f8928418d92b851a"
+    },
+    "conf/sound.properties": {
+      "compress_1": "299c2360b6155eb28990ec49cd21753f97e43442fe8fab03e04f3e213df43a66",
+      "compress_0": "299c2360b6155eb28990ec49cd21753f97e43442fe8fab03e04f3e213df43a66"
+    },
+    "legal/java.base/ADDITIONAL_LICENSE_INFO": {
+      "compress_1": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "compress_0": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916"
+    },
+    "legal/java.base/ASSEMBLY_EXCEPTION": {
+      "compress_1": "a44eb7b5caf5534c6ef536b21edb40b4d6babf91bf97d9d45596868618b2c6fb",
+      "compress_0": "a44eb7b5caf5534c6ef536b21edb40b4d6babf91bf97d9d45596868618b2c6fb"
+    },
+    "legal/java.base/LICENSE": {
+      "compress_1": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "compress_0": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726"
+    },
+    "legal/java.base/aes.md": {
+      "compress_1": "45c6d4da48325edfbff3dcf71c704e504c057904435ed23c6d57046d551eb69d",
+      "compress_0": "45c6d4da48325edfbff3dcf71c704e504c057904435ed23c6d57046d551eb69d"
+    },
+    "legal/java.base/asm.md": {
+      "compress_1": "1ff912740e84e024711def5fa482ffbb46eff64559760c467352dfa7c39a3307",
+      "compress_0": "1ff912740e84e024711def5fa482ffbb46eff64559760c467352dfa7c39a3307"
+    },
+    "legal/java.base/c-libutl.md": {
+      "compress_1": "bef40679922d6fdfb7e4ddb223ad6722300f6054ba737bbf6188d60fcec517f9",
+      "compress_0": "bef40679922d6fdfb7e4ddb223ad6722300f6054ba737bbf6188d60fcec517f9"
+    },
+    "legal/java.base/cldr.md": {
+      "compress_1": "f2bd33ded550a05d59e8f659416ef382490504548d846e6388b1dffd273aa077",
+      "compress_0": "f2bd33ded550a05d59e8f659416ef382490504548d846e6388b1dffd273aa077"
+    },
+    "legal/java.base/icu.md": {
+      "compress_1": "af0057e8553906083f69c2fb9fe9ed4ae8bc2340a0b1e376a424702f00300b29",
+      "compress_0": "af0057e8553906083f69c2fb9fe9ed4ae8bc2340a0b1e376a424702f00300b29"
+    },
+    "legal/java.base/public_suffix.md": {
+      "compress_1": "54bd8ebaa51b530b13082da28457ae188f76cc64977607e0bc61e0ab11cd7aa7",
+      "compress_0": "54bd8ebaa51b530b13082da28457ae188f76cc64977607e0bc61e0ab11cd7aa7"
+    },
+    "legal/java.base/siphash.md": {
+      "compress_1": "5a792b5a74ad2a5f3d6a7ad8b7a841116e58a772c18bc6e392320a365b222c76",
+      "compress_0": "5a792b5a74ad2a5f3d6a7ad8b7a841116e58a772c18bc6e392320a365b222c76"
+    },
+    "legal/java.base/unicode.md": {
+      "compress_1": "5e4e6623a21a63f9bc16ea54af4133b8038e490c0d499a74676f9e5a61b9c5b2",
+      "compress_0": "5e4e6623a21a63f9bc16ea54af4133b8038e490c0d499a74676f9e5a61b9c5b2"
+    },
+    "legal/java.base/zlib.md": {
+      "compress_1": "809b62ba648e02302f7d9ea6b6886c10d5253ac86ad528038a50c73eada5fce2",
+      "compress_0": "809b62ba648e02302f7d9ea6b6886c10d5253ac86ad528038a50c73eada5fce2"
+    },
+    "legal/java.datatransfer/ADDITIONAL_LICENSE_INFO": {
+      "compress_1": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "compress_0": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916"
+    },
+    "legal/java.datatransfer/ASSEMBLY_EXCEPTION": {
+      "compress_1": "a44eb7b5caf5534c6ef536b21edb40b4d6babf91bf97d9d45596868618b2c6fb",
+      "compress_0": "a44eb7b5caf5534c6ef536b21edb40b4d6babf91bf97d9d45596868618b2c6fb"
+    },
+    "legal/java.datatransfer/LICENSE": {
+      "compress_1": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "compress_0": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726"
+    },
+    "legal/java.desktop/ADDITIONAL_LICENSE_INFO": {
+      "compress_1": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "compress_0": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916"
+    },
+    "legal/java.desktop/ASSEMBLY_EXCEPTION": {
+      "compress_1": "a44eb7b5caf5534c6ef536b21edb40b4d6babf91bf97d9d45596868618b2c6fb",
+      "compress_0": "a44eb7b5caf5534c6ef536b21edb40b4d6babf91bf97d9d45596868618b2c6fb"
+    },
+    "legal/java.desktop/LICENSE": {
+      "compress_1": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "compress_0": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726"
+    },
+    "legal/java.desktop/colorimaging.md": {
+      "compress_1": "04d61e3e8e71dd452ebe52008af5378d9f6640d14578aeb515dc5375973b0189",
+      "compress_0": "04d61e3e8e71dd452ebe52008af5378d9f6640d14578aeb515dc5375973b0189"
+    },
+    "legal/java.desktop/giflib.md": {
+      "compress_1": "6cd971730d3047ea57f6865b7bdca2509a9876ae24d5c0ed0c4e32def5f9107e",
+      "compress_0": "6cd971730d3047ea57f6865b7bdca2509a9876ae24d5c0ed0c4e32def5f9107e"
+    },
+    "legal/java.desktop/harfbuzz.md": {
+      "compress_1": "54923f5f4cbfa0bfa6bd0eae88856be9305528c3f231ac8f6fce9c38de2b7740",
+      "compress_0": "54923f5f4cbfa0bfa6bd0eae88856be9305528c3f231ac8f6fce9c38de2b7740"
+    },
+    "legal/java.desktop/jpeg.md": {
+      "compress_1": "580be596216ee11e2554b24ce944973acaede2ebf5ffba34a6bd8cc441c05043",
+      "compress_0": "580be596216ee11e2554b24ce944973acaede2ebf5ffba34a6bd8cc441c05043"
+    },
+    "legal/java.desktop/lcms.md": {
+      "compress_1": "fc1d7f60c7cdc96b5cadafd4f3610c6a74f2d0afa08852036929c7a1474ebab6",
+      "compress_0": "fc1d7f60c7cdc96b5cadafd4f3610c6a74f2d0afa08852036929c7a1474ebab6"
+    },
+    "legal/java.desktop/libpng.md": {
+      "compress_1": "4e4c0ecd9795b9181538ea94fa63e6817e6e1f4b51481d720adaee0fde409c20",
+      "compress_0": "4e4c0ecd9795b9181538ea94fa63e6817e6e1f4b51481d720adaee0fde409c20"
+    },
+    "legal/java.desktop/mesa3d.md": {
+      "compress_1": "63f4e6f75caebbccb95d903fb43e46ac7111b3624d0a34f146b276d7d9e7b152",
+      "compress_0": "63f4e6f75caebbccb95d903fb43e46ac7111b3624d0a34f146b276d7d9e7b152"
+    },
+    "legal/java.desktop/pipewire.md": {
+      "compress_1": "56a8fb1652c70ac204d13bb52ca4d678162e7d21a97d10209c2a633de8082de0",
+      "compress_0": "56a8fb1652c70ac204d13bb52ca4d678162e7d21a97d10209c2a633de8082de0"
+    },
+    "legal/java.desktop/xwd.md": {
+      "compress_1": "1d4ffa93c87f35084b02a7aa90a21084b4019db4fe1003c2e5ce775b4a384f59",
+      "compress_0": "1d4ffa93c87f35084b02a7aa90a21084b4019db4fe1003c2e5ce775b4a384f59"
+    },
+    "legal/java.logging/ADDITIONAL_LICENSE_INFO": {
+      "compress_1": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "compress_0": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916"
+    },
+    "legal/java.logging/ASSEMBLY_EXCEPTION": {
+      "compress_1": "a44eb7b5caf5534c6ef536b21edb40b4d6babf91bf97d9d45596868618b2c6fb",
+      "compress_0": "a44eb7b5caf5534c6ef536b21edb40b4d6babf91bf97d9d45596868618b2c6fb"
+    },
+    "legal/java.logging/LICENSE": {
+      "compress_1": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "compress_0": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726"
+    },
+    "legal/java.prefs/ADDITIONAL_LICENSE_INFO": {
+      "compress_1": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "compress_0": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916"
+    },
+    "legal/java.prefs/ASSEMBLY_EXCEPTION": {
+      "compress_1": "a44eb7b5caf5534c6ef536b21edb40b4d6babf91bf97d9d45596868618b2c6fb",
+      "compress_0": "a44eb7b5caf5534c6ef536b21edb40b4d6babf91bf97d9d45596868618b2c6fb"
+    },
+    "legal/java.prefs/LICENSE": {
+      "compress_1": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "compress_0": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726"
+    },
+    "legal/java.xml/ADDITIONAL_LICENSE_INFO": {
+      "compress_1": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "compress_0": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916"
+    },
+    "legal/java.xml/ASSEMBLY_EXCEPTION": {
+      "compress_1": "a44eb7b5caf5534c6ef536b21edb40b4d6babf91bf97d9d45596868618b2c6fb",
+      "compress_0": "a44eb7b5caf5534c6ef536b21edb40b4d6babf91bf97d9d45596868618b2c6fb"
+    },
+    "legal/java.xml/LICENSE": {
+      "compress_1": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "compress_0": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726"
+    },
+    "legal/java.xml/bcel.md": {
+      "compress_1": "853a1e7ce397bb10de0e2b3bde0844bcc651f17d983decd07d2d003c0304c311",
+      "compress_0": "853a1e7ce397bb10de0e2b3bde0844bcc651f17d983decd07d2d003c0304c311"
+    },
+    "legal/java.xml/dom.md": {
+      "compress_1": "6686e8877667584a3a7c07344baadca1a03e29f677162d87c3c0811e990d1148",
+      "compress_0": "6686e8877667584a3a7c07344baadca1a03e29f677162d87c3c0811e990d1148"
+    },
+    "legal/java.xml/jcup.md": {
+      "compress_1": "8d5dcfdf50455a3c34c753a98f21e953248af200415a9084e3f102cb6c43b8bf",
+      "compress_0": "8d5dcfdf50455a3c34c753a98f21e953248af200415a9084e3f102cb6c43b8bf"
+    },
+    "legal/java.xml/xalan.md": {
+      "compress_1": "ea67226be5cfe19c7e79725c2c24a16676323264d69f9747c528de0b44541b03",
+      "compress_0": "ea67226be5cfe19c7e79725c2c24a16676323264d69f9747c528de0b44541b03"
+    },
+    "legal/java.xml/xerces.md": {
+      "compress_1": "472224f99de833f4f4c19f2f8a0317f22114e1c641f5d77ffa3a4280a1b80176",
+      "compress_0": "472224f99de833f4f4c19f2f8a0317f22114e1c641f5d77ffa3a4280a1b80176"
+    },
+    "legal/jdk.accessibility/ADDITIONAL_LICENSE_INFO": {
+      "compress_1": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "compress_0": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916"
+    },
+    "legal/jdk.accessibility/ASSEMBLY_EXCEPTION": {
+      "compress_1": "a44eb7b5caf5534c6ef536b21edb40b4d6babf91bf97d9d45596868618b2c6fb",
+      "compress_0": "a44eb7b5caf5534c6ef536b21edb40b4d6babf91bf97d9d45596868618b2c6fb"
+    },
+    "legal/jdk.accessibility/LICENSE": {
+      "compress_1": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "compress_0": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726"
+    },
+    "legal/jdk.crypto.ec/ADDITIONAL_LICENSE_INFO": {
+      "compress_1": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "compress_0": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916"
+    },
+    "legal/jdk.crypto.ec/ASSEMBLY_EXCEPTION": {
+      "compress_1": "a44eb7b5caf5534c6ef536b21edb40b4d6babf91bf97d9d45596868618b2c6fb",
+      "compress_0": "a44eb7b5caf5534c6ef536b21edb40b4d6babf91bf97d9d45596868618b2c6fb"
+    },
+    "legal/jdk.crypto.ec/LICENSE": {
+      "compress_1": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "compress_0": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726"
+    },
+    "lib/classlist": {
+      "compress_1": "64c6dce56c28cb9f677f6aef4bb911abfbb2e323eebc449ff79fc0882dddb550",
+      "compress_0": "64c6dce56c28cb9f677f6aef4bb911abfbb2e323eebc449ff79fc0882dddb550"
+    },
+    "lib/jexec": {
+      "compress_1": "fc6546c54a8230d00588d49cfad44a39c76debacb4123131bb1372c2c722ed2a",
+      "compress_0": "fc6546c54a8230d00588d49cfad44a39c76debacb4123131bb1372c2c722ed2a"
+    },
+    "lib/jrt-fs.jar": {
+      "compress_1": "ed5f05119769fe939930f7889223ef01807eaa81bffb59d57b0cd6ef06ae0d53",
+      "compress_0": "ed5f05119769fe939930f7889223ef01807eaa81bffb59d57b0cd6ef06ae0d53"
+    },
+    "lib/jspawnhelper": {
+      "compress_1": "c6bf9dfa82b160b7e75499391cbbe093c1cab5b22d0d7e60b3e1d30a6659c148",
+      "compress_0": "c6bf9dfa82b160b7e75499391cbbe093c1cab5b22d0d7e60b3e1d30a6659c148"
+    },
+    "lib/jvm.cfg": {
+      "compress_1": "aa9efb969444c1484e29adecab55a122458090616e766b2f1230ef05bc3867e0",
+      "compress_0": "aa9efb969444c1484e29adecab55a122458090616e766b2f1230ef05bc3867e0"
+    },
+    "lib/libawt.so": {
+      "compress_1": "5da5146bebff61c56b103a42de70bfb638b1406faec3708d90a7e331c9eafe36",
+      "compress_0": "5da5146bebff61c56b103a42de70bfb638b1406faec3708d90a7e331c9eafe36"
+    },
+    "lib/libawt_headless.so": {
+      "compress_1": "58b80aa460c39f41106d00bc9c3983a4c9ae6222355047be01450ff9216703a1",
+      "compress_0": "58b80aa460c39f41106d00bc9c3983a4c9ae6222355047be01450ff9216703a1"
+    },
+    "lib/libawt_xawt.so": {
+      "compress_1": "19ab61a7895de24c46b8adeb6e4aec414d7a9e56f8e6142531abf49759790bb0",
+      "compress_0": "19ab61a7895de24c46b8adeb6e4aec414d7a9e56f8e6142531abf49759790bb0"
+    },
+    "lib/libfontmanager.so": {
+      "compress_1": "e0ce5e87edfd3f01babe969f3d999ec36db2deec176adcb585077043ea322b4d",
+      "compress_0": "e0ce5e87edfd3f01babe969f3d999ec36db2deec176adcb585077043ea322b4d"
+    },
+    "lib/libjava.so": {
+      "compress_1": "716fe581cc940dffb293e3b316d477148b3628107bb4c3fdbf2c68a16c90a166",
+      "compress_0": "716fe581cc940dffb293e3b316d477148b3628107bb4c3fdbf2c68a16c90a166"
+    },
+    "lib/libjavajpeg.so": {
+      "compress_1": "53e9c85168746383d6dd2706cc4801c4f30b08407c2d804c1c706c617a703af1",
+      "compress_0": "53e9c85168746383d6dd2706cc4801c4f30b08407c2d804c1c706c617a703af1"
+    },
+    "lib/libjawt.so": {
+      "compress_1": "9f7954bf6d394512a94d3dad548aea888ba11a2fbf9ebd077af91c5d47416367",
+      "compress_0": "9f7954bf6d394512a94d3dad548aea888ba11a2fbf9ebd077af91c5d47416367"
+    },
+    "lib/libjimage.so": {
+      "compress_1": "c1e5b1fe649e244e5f45ad4ab379b51fc0d17b2654dd0897fd2fc00266dd8c4c",
+      "compress_0": "c1e5b1fe649e244e5f45ad4ab379b51fc0d17b2654dd0897fd2fc00266dd8c4c"
+    },
+    "lib/libjli.so": {
+      "compress_1": "79f7398739f96472aa4deb432c5a6ef54dc5001a5b5d4ca24a1e4bed8f5e2cdd",
+      "compress_0": "79f7398739f96472aa4deb432c5a6ef54dc5001a5b5d4ca24a1e4bed8f5e2cdd"
+    },
+    "lib/libjsig.so": {
+      "compress_1": "0784255cf2d38c70dddf2e154bb265d87ce46dfb8d4778e881fe762f4d30e137",
+      "compress_0": "0784255cf2d38c70dddf2e154bb265d87ce46dfb8d4778e881fe762f4d30e137"
+    },
+    "lib/libjsound.so": {
+      "compress_1": "8155a41550ee6485a97fc4bb5dbfb6ff3e3949fc2dc8acce3650cf30ca3c3b47",
+      "compress_0": "8155a41550ee6485a97fc4bb5dbfb6ff3e3949fc2dc8acce3650cf30ca3c3b47"
+    },
+    "lib/liblcms.so": {
+      "compress_1": "895dec77530aa9af7c72f36eb5da0d1492df5630ab5cb4d1cb9474fffdbd9ffb",
+      "compress_0": "895dec77530aa9af7c72f36eb5da0d1492df5630ab5cb4d1cb9474fffdbd9ffb"
+    },
+    "lib/libmlib_image.so": {
+      "compress_1": "70f1268c4087b2d4d8dcfe2a23da35f5d0bc6b17a0049e896e52b72daaf016b4",
+      "compress_0": "70f1268c4087b2d4d8dcfe2a23da35f5d0bc6b17a0049e896e52b72daaf016b4"
+    },
+    "lib/libnet.so": {
+      "compress_1": "422dc4462ab8b1423a789e62a3721350bb99e850578ac3ff6628d589115decef",
+      "compress_0": "422dc4462ab8b1423a789e62a3721350bb99e850578ac3ff6628d589115decef"
+    },
+    "lib/libnio.so": {
+      "compress_1": "1151bfc879521ddbde241c6d04c9dcff08a12b89c806d281fce4ea90f1aa2989",
+      "compress_0": "1151bfc879521ddbde241c6d04c9dcff08a12b89c806d281fce4ea90f1aa2989"
+    },
+    "lib/libprefs.so": {
+      "compress_1": "1b87f8f8ac15842077f309a1ebd4c72461b02afffe17cc20a3f8d6791e96071f",
+      "compress_0": "1b87f8f8ac15842077f309a1ebd4c72461b02afffe17cc20a3f8d6791e96071f"
+    },
+    "lib/libsplashscreen.so": {
+      "compress_1": "6343b49fbb458146678e58f5cc2173213a48e1f84d3cf9038145988bc2878518",
+      "compress_0": "6343b49fbb458146678e58f5cc2173213a48e1f84d3cf9038145988bc2878518"
+    },
+    "lib/libverify.so": {
+      "compress_1": "12ffee1810c1d19562eb71c5fb15bcf6158e7b465ab887cd5b44f1350e333ce2",
+      "compress_0": "12ffee1810c1d19562eb71c5fb15bcf6158e7b465ab887cd5b44f1350e333ce2"
+    },
+    "lib/libzip.so": {
+      "compress_1": "e846d4feae7bbc1453023a31c33c7f092532f15a17fc2f32c057eeea2f01d850",
+      "compress_0": "e846d4feae7bbc1453023a31c33c7f092532f15a17fc2f32c057eeea2f01d850"
+    },
+    "lib/modules": {
+      "compress_1": "dcc6e9bf2b8ebab122882c2ad399162ff694a17700f7ea326ea7bb6d60638b86",
+      "compress_0": "a0572317b5068a2026bf57d7b194c3184bebf0e524621705d5cb19d2237e5f11"
+    },
+    "lib/psfont.properties.ja": {
+      "compress_1": "5a4bd51b969bf187ff86d94f4a71fdfbfa602762975fa3c73d264b4575f7c78f",
+      "compress_0": "5a4bd51b969bf187ff86d94f4a71fdfbfa602762975fa3c73d264b4575f7c78f"
+    },
+    "lib/psfontj2d.properties": {
+      "compress_1": "780c565d5af3ee6f68b887b75c041cdf46a0592f67012f12eeb691283e92630a",
+      "compress_0": "780c565d5af3ee6f68b887b75c041cdf46a0592f67012f12eeb691283e92630a"
+    },
+    "lib/security/blocked.certs": {
+      "compress_1": "96572f243f31c2ef81a6e627542e596f6a9295cff3c7ae095c1b595cb1457ded",
+      "compress_0": "96572f243f31c2ef81a6e627542e596f6a9295cff3c7ae095c1b595cb1457ded"
+    },
+    "lib/security/cacerts": {
+      "compress_1": "baf4ee685bd54ca4384ad7896c2e3fc4154ca962243e2128b242b83b372b2452",
+      "compress_0": "baf4ee685bd54ca4384ad7896c2e3fc4154ca962243e2128b242b83b372b2452"
+    },
+    "lib/security/default.policy": {
+      "compress_1": "7b08347377c82d10380726d3952062445ac9c20353c0eb3b9acd73a5a589362d",
+      "compress_0": "7b08347377c82d10380726d3952062445ac9c20353c0eb3b9acd73a5a589362d"
+    },
+    "lib/security/public_suffix_list.dat": {
+      "compress_1": "5a3a571cc2e016fee10c221036cf1d2b52ee8ba39288ef20abe2667828ca30b4",
+      "compress_0": "5a3a571cc2e016fee10c221036cf1d2b52ee8ba39288ef20abe2667828ca30b4"
+    },
+    "lib/server/libjsig.so": {
+      "compress_1": "0784255cf2d38c70dddf2e154bb265d87ce46dfb8d4778e881fe762f4d30e137",
+      "compress_0": "0784255cf2d38c70dddf2e154bb265d87ce46dfb8d4778e881fe762f4d30e137"
+    },
+    "lib/server/libjvm.so": {
+      "compress_1": "2c072960df337c99810dea67cc6fe44e4ec00121e8374363a79e780d8d96b2b3",
+      "compress_0": "2c072960df337c99810dea67cc6fe44e4ec00121e8374363a79e780d8d96b2b3"
+    },
+    "lib/tzdb.dat": {
+      "compress_1": "7be2a3adf10ff841579629f7725b15f0db41e8856527ec72847b5477073a3d29",
+      "compress_0": "7be2a3adf10ff841579629f7725b15f0db41e8856527ec72847b5477073a3d29"
+    },
+    "release": {
+      "compress_1": "4c74d2aaee5f2986fdb8f6caa13635405f3ade921a1e5c45499deb24fa6a2938",
+      "compress_0": "4c74d2aaee5f2986fdb8f6caa13635405f3ade921a1e5c45499deb24fa6a2938"
+    }
+  }
+}

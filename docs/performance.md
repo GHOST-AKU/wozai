@@ -165,9 +165,11 @@ Windows 本轮发 / 收 / 保存回执为 112 / 112 / 112，Linux 为 157 / 158 
 采样后补充 BlueZ 断开超时保护修复，构建提交 `61789e0` 的[最终 Windows / Linux CI](https://github.com/GHOST-AKU/wozai/actions/runs/37143201285)全部通过：原生／JNI 联合 378 项、实际消息与存储链路 16 项，以及软件包、GUI、mDNS 和四种缩放。该修复改变蓝牙清理路径，没有重新采集 LAN 性能；本节优化对比继续保留原始 `c7f88c1` 软件包的数值与校验和。
 
 
-## PR #5：Linux runtime 与空闲内存（2026-10-04）
+<a id="pr-5linux-runtime-与空闲内存2026-10-04"></a>
 
-本轮仓库实际编号为 [PR #10](https://github.com/GHOST-AKU/wozai/pull/10)，跟踪 [Issue #9](https://github.com/GHOST-AKU/wozai/issues/9)。本轮从 PR #4 的合并提交 `ce972fc6971e554b0453e94d1d5d9a4e31a8e7f1` 开始，包含最后提交 `64fcce8`、正式多尺寸图标和蓝牙清理修复。先完成干净构建，再复制 app-image，仅替换 runtime。两组应用 JAR 的 SHA-256 都为 `22c7f6ec4a7bf8a9004bb714ada5090075ed245092c966e13d87147366899e1d`，构建元数据均为干净 `ce972fc`。实验软件包没有重新生成压缩分发文件，JSON 的 `distribution.packages` 为空。
+## PR #10：Linux runtime 与空闲内存（2026-10-04）
+
+[PR #10](https://github.com/GHOST-AKU/wozai/pull/10) 跟踪 [Issue #9](https://github.com/GHOST-AKU/wozai/issues/9)。本轮从 PR #4 的合并提交 `ce972fc6971e554b0453e94d1d5d9a4e31a8e7f1` 开始，包含最后提交 `64fcce8`、正式多尺寸图标和蓝牙清理修复。先完成干净构建，再复制 app-image，仅替换 runtime。两组应用 JAR 的 SHA-256 都为 `22c7f6ec4a7bf8a9004bb714ada5090075ed245092c966e13d87147366899e1d`，构建元数据均为干净 `ce972fc`。实验软件包没有重新生成压缩分发文件，JSON 的 `distribution.packages` 为空。
 
 Debian 13 x64 容器、Xeon Platinum 8370C、3 个可见逻辑 CPU、约 9.7 GiB 可见内存，Temurin 17.0.16，Xvfb :98 2560×1800×24，系统／FlatLaf 缩放 1.0，内置 Noto Sans CJK SC。与上一节的 Xeon 8573C 不同，不能直接把本节与旧报告相减作为实机或同设备回归。正式样本无 NMT、堆限制或显式 GC 参数。Idle / Connected 先稳定 10 s、采样 30 s；Active 稳定 2 s、采样 30 s，仍为每方向最多 5 条/s、256 UTF-8 字节。每轮独立空资料、五次新 JVM 启动；不控制系统页缓存或 CPU 频率。没有并发打包或其他测量任务。
 
@@ -204,16 +206,18 @@ Linux 打包改为 `--compress=0`，保留 gzip / xz -9。取舍是展开安装�
 
 ### 复现单变量实验
 
-先在干净提交上执行 `sh desktop/tools/build.sh --package`，保存 app-image，再复制为第二组。只删除第二组的 `lib/runtime`，使用构建该包的同一 JDK：
+先固定一个干净提交并执行 `sh desktop/tools/build.sh --package`，保存原始 app-image。将它复制到临时实验目录的 `compress-1/NearbyIM` 和 `compress-0/NearbyIM`；仅移除这两个实验副本的 `lib/runtime`，保留原始软件包。使用构建该包的同一 JDK，显式生成两种配置，不依赖当前打包脚本的默认压缩级别：
 
 ```sh
-"$JAVA_HOME/bin/jlink" --output /path/to/second/NearbyIM/lib/runtime \
-  --add-modules java.base,java.desktop,java.logging,jdk.crypto.ec,jdk.accessibility,jdk.localedata \
-  --strip-debug --no-man-pages --no-header-files --compress=0 \
-  --include-locales=zh-Hans,en,zh-Hant,ja,ko
+for level in 1 0; do
+  "$JAVA_HOME/bin/jlink" --output "/path/to/experiment/compress-$level/NearbyIM/lib/runtime" \
+    --add-modules java.base,java.desktop,java.logging,jdk.crypto.ec,jdk.accessibility,jdk.localedata \
+    --strip-debug --no-man-pages --no-header-files --compress="$level" \
+    --include-locales=zh-Hans,en,zh-Hant,ja,ko
+done
 ```
 
-本节第一组来自 main 上 `--compress=1` 的包；修复后重现第一组需改上述参数为 `--compress=1`。不要更改应用 JAR、图标、模块、JDK、测量参数或显示环境。两组分别调用本文 `performance.py measure`，加 `--settle 10 --seconds 30`，交替顺序各三轮。核对两组 JAR 相同、runtime 模块与语言一致，保留实际命令、两组 `lib/modules` 的 SHA-256 与 `lib/runtime/release`。压缩级别不写入 Java 应用构建元数据，必须像本节 JSON 的 `experiment` 字段一样单独注明，不能把实验的 runtime 替换描述成原始 main 打包结果。
+本节历史实验的共享组直接复制 `ce972fc` 原包，不共享组才替换 runtime。复现本节所测应用需固定 `ce972fc`、Temurin 17.0.16 与显示／测量条件；其他提交或 JDK 的实验应另存报告，不标成这批历史样本。不要更改两组应用 JAR、图标、模块、JDK、测量参数或显示环境。两组分别调用本文 `performance.py measure`，加 `--settle 10 --seconds 30`，按 1→0、0→1、1→0 顺序各三轮。核对两组 JAR 相同、runtime 模块与语言一致，并比较完整 runtime 文件路径及逐文件 SHA-256；本轮自审对保留的实验副本核对，唯一内容差异为 `lib/modules`，记录见 [runtime-comparison.json](performance/2026-10-04-runtime-memory-diagnostics/runtime-comparison.json)。压缩级别不写入 Java 应用构建元数据，必须像本节 JSON 的 `experiment` 字段一样单独注明，不能把实验的 runtime 替换描述成原始 main 打包结果。
 
 
 ### 内存分类与持续观测
@@ -229,10 +233,10 @@ Linux 打包改为 `--compress=0`，保留 gzip / xz -9。取舍是展开安装�
 
 关闭常量池共享后，Idle 的 runtime 文件驻留减少约 **20.05 MiB**，Connected 减少约 **18.94 MiB**。Idle 堆提交容量相同；两组完整 GC 后的存活堆分别相差不到 2 KiB 和 80 字节。文件映射差异与三轮 RSS 降幅的量级一致，证据支持当前常驻内存差异主要来自 runtime 文件驻留，未指向 formatter 缓存或消息行复用的存活堆增长。不依据 NMT reserved 的巨大虚拟地址空间判断 RSS；不依据一次完整 GC 证明没有泄漏。
 
-**尚未解决：** 两组带诊断参数的进程在 180 s 内仍有匿名内存增长；不共享的 Connected 段在 90 s 还出现约 159 MiB 的暂时峰值，随后回落。诊断附加、JIT、GC、页面驻留及应用周期任务可能参与，当前记录不能将它们逐项归因，也不能证明无诊断参数的长期增长趋势。本轮确认并降低启动／稳定阶段的 runtime 驻留开销，**没有宣称消除所有增长或长期无泄漏**。Issue #9 保持 OPEN，后续需无诊断参数的长时对照、多次 live-heap／native 分解和实机验证；目前不以强制 GC 或武断堆上限作为修复。
+**尚未解决：** 两组带诊断参数的进程在 180 s 内仍有匿名内存增长；完整的 Connected 每 5 s 采样中，共享配置观测峰值为 **173.36 MiB（85.01 s）**，不共享为 **162.54 MiB（90.36 s）**，两组都在峰值后回落。上表只列 30 / 90 / 180 s 快照，不能用其中最大值代表全段采样峰值；离散采样也不能保证捕捉瞬时最大值。诊断附加、JIT、GC、页面驻留及应用周期任务可能参与，当前记录不能将它们逐项归因，也不能证明无诊断参数的长期增长趋势。本轮确认并降低启动／稳定阶段的 runtime 驻留开销，**没有宣称消除所有增长或长期无泄漏**。Issue #9 保持 OPEN，后续需无诊断参数的长时对照、多次 live-heap／native 分解和实机验证；目前不以强制 GC 或武断堆上限作为修复。
 
 ### 本轮构建与 GUI 验证
 
 修改 Linux 打包配置的提交 `ca6a6c8fb28debc091f9973510ea0bf3fd376b09` 已通过 [Linux 完整 CI](https://github.com/GHOST-AKU/wozai/actions/runs/37169441304)：协议／信任／文案与源码检查、桌面测试、41 项正式图标原始导出核对、16 项窗口图标检查、378 项 BlueZ 原生模拟检查、16 项 JNI／NIM2／保存回执检查、实际 mDNS、完整 JDK 与包内 runtime GUI、四档缩放、真实便携启动器和只读移动目录／身份重启／菜单入口。正常消息收发、保存回执、语言／主题／字号、选择与滚动、草稿和退出均通过。射频设备仍不可用，这些检查不证明真机蓝牙配对或互通。
 
-CI 使用其独立运行器、JDK 和默认 30 s 稳定期；不能与本地 10 s 稳定期的对照混算。[性能 JSON 与日志 artifact](https://github.com/GHOST-AKU/wozai/actions/runs/37169441304/artifacts/11290738058)、[软件包](https://github.com/GHOST-AKU/wozai/actions/runs/37169441304/artifacts/11289719521)、[GUI 验证附件](https://github.com/GHOST-AKU/wozai/actions/runs/37169441304/artifacts/11289699673)均上传成功。工作流日志可读取，但当前任务拉取 artifact 时其存储下载端返回 HTTP 403，因此没有将 CI 原始 JSON复制到仓库，也没有摘录未读取的 CI RSS／CPU 数值。本文六组本地 JSON 和四组完整诊断记录均已保存。后续补充诊断与验证说明只改变文档／证据，不改变该 CI 所测的应用代码和打包配置。
+CI 使用其独立运行器、JDK 和默认 30 s 稳定期；不能与本地 10 s 稳定期的对照混算。[性能 JSON 与日志 artifact](https://github.com/GHOST-AKU/wozai/actions/runs/37169441304/artifacts/11290738058)、[软件包](https://github.com/GHOST-AKU/wozai/actions/runs/37169441304/artifacts/11289719521)、[GUI 验证附件](https://github.com/GHOST-AKU/wozai/actions/runs/37169441304/artifacts/11289699673)均上传成功。工作流日志可读取，但当前任务拉取 artifact 时其存储下载端返回 HTTP 403，因此没有将 CI 原始 JSON 复制到仓库，也没有摘录未读取的 CI RSS／CPU 数值。本文六组本地 JSON 和四组完整诊断记录均已保存。后续补充诊断与验证说明只改变文档／证据，不改变该 CI 所测的应用代码和打包配置。
