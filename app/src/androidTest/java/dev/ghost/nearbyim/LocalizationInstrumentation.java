@@ -401,7 +401,32 @@ public final class LocalizationInstrumentation extends Instrumentation {
         check(onMain(()->{android.view.ViewGroup bubbles=field(activity,"bubbles"),bubble=bubbles.findViewWithTag("attachment:"+documentId);return bubble!=null&&bubble.getChildAt(0).performLongClick();}),"File card press opens actions on its clickable content");
         check(onMain(()->{android.widget.PopupMenu menu=field(activity,"attachmentActions");boolean found=menu.getMenu().size()==2&&menu.getMenu().getItem(1).getTitle().toString().equals(AndroidText.get(activity,"attachmentSaveAs"));menu.dismiss();return found;}),"File long-press exposes both Open and Save as");
         screenshot("zh-Hans-photo-and-file-chat");
+        testAttachmentQueueRejection(controller,peer,received,uri);
         long token=onMain(()->controller.attachmentSessionToken());onMain(()->{controller.sendAttachment(peer,token-1,uri);return null;});check(onMain(()->controller.error.key.equals("notConnected")),"Stale picker result cannot cross session generations");
+    }
+    private void rejectedAttachmentFuture(java.util.concurrent.CompletableFuture<?> future,String message)throws Exception {
+        try{future.get(1,TimeUnit.SECONDS);throw new AssertionError(message+": unexpectedly succeeded");}
+        catch(java.util.concurrent.ExecutionException error){check(error.getCause() instanceof java.util.concurrent.RejectedExecutionException,message);}
+    }
+    private void testAttachmentQueueRejection(ChatController controller,String peer,AttachmentRecord received,android.net.Uri uri)throws Exception {
+        java.util.concurrent.ThreadPoolExecutor worker=field(controller,"fileSelection");
+        await(()->worker.getActiveCount()==0&&worker.getQueue().isEmpty(),"Document worker is idle before saturation test");
+        CountDownLatch started=new CountDownLatch(1),release=new CountDownLatch(1);
+        try{
+            worker.execute(()->{started.countDown();try{release.await(30,TimeUnit.SECONDS);}catch(InterruptedException error){Thread.currentThread().interrupt();}});
+            check(started.await(5,TimeUnit.SECONDS),"Document worker is occupied while the UI submits paths");
+            worker.execute(()->{});worker.execute(()->{});
+            check(worker.getMaximumPoolSize()==1&&worker.getQueue().size()==2,"Document worker retains its bounded capacity");
+            rejectedAttachmentFuture(onMain(()->controller.attachmentPath(peer,received.info)),"Info path returns a failed future on saturation");
+            rejectedAttachmentFuture(onMain(()->controller.attachmentPath(peer,received)),"Record path returns a failed future on saturation");
+            rejectedAttachmentFuture(onMain(()->controller.exportAttachment(peer,received.info,uri)),"Info export propagates rejection through its future");
+            rejectedAttachmentFuture(onMain(()->controller.exportAttachment(peer,received,uri)),"Record export propagates rejection through its future");
+            onMain(()->{invoke(activity,"openAttachment",new Class<?>[]{String.class,AttachmentRecord.class},peer,received);return null;});waitForIdleSync();
+            check(onMain(()->!activity.isDestroyed()&&!activity.isFinishing()&&controller.connected),"Opening an attachment on saturation leaves chat alive");
+        }finally{release.countDown();}
+        await(()->worker.getActiveCount()==0&&worker.getQueue().isEmpty(),"Document worker drains after saturation");
+        check(java.nio.file.Files.isRegularFile(controller.attachmentPath(peer,received.info).get(10,TimeUnit.SECONDS)),"Info path recovers after saturation");
+        check(java.nio.file.Files.isRegularFile(controller.attachmentPath(peer,received).get(10,TimeUnit.SECONDS)),"Record path recovers after saturation");
     }
     private void testPhotoViewer(String id)throws Exception {
         ActivityMonitor monitor=addMonitor("dev.ghost.nearbyim.PhotoActivity",null,false);Activity viewer=null;
@@ -413,8 +438,29 @@ public final class LocalizationInstrumentation extends Instrumentation {
             check(onMain(()->(float)field(field(current,"image"),"factor")>1.9f),"Native viewer zoom controls enlarge the image");
             screenshot("zh-Hans-internal-photo-viewer");
             check(onMain(()->liveController.connected),"Photo viewer preserves the established chat session");
+            testPhotoExportTitles(current);
         }finally{if(viewer!=null){Activity closing=viewer;onMain(()->{closing.finish();return null;});}removeMonitor(monitor);}
         await(()->onMain(()->field(activity,"controller")!=null),"Chat rebinds after the native viewer closes");
+    }
+    private void testPhotoExportTitles(Activity viewer)throws Exception {
+        android.net.Uri source=onMain(()->field(viewer,"photo"));AtomicReference<Intent> requested=new AtomicReference<>();
+        ActivityMonitor monitor=new ActivityMonitor(){
+            public ActivityResult onStartActivity(Intent intent){
+                if(!Intent.ACTION_CREATE_DOCUMENT.equals(intent.getAction()))return null;
+                requested.set(new Intent(intent));return new ActivityResult(Activity.RESULT_CANCELED,null);
+            }
+        };
+        addMonitor(monitor);
+        String[] names={"dir/unsafe\\photo.png. ","CON.png","...","\u202eimage.png","日本語 图像.png",null};
+        String[] expected={"dir_unsafe_photo.png","attachment","attachment","image.png","日本語 图像.png",source.getLastPathSegment()};
+        try{
+            for(int i=0;i<names.length;i++){
+                android.net.Uri.Builder builder=source.buildUpon().clearQuery().appendQueryParameter("mime","image/png");
+                if(names[i]!=null)builder.appendQueryParameter("name",names[i]);android.net.Uri candidate=builder.build();requested.set(null);
+                onMain(()->{setField(viewer,"photo",candidate);invoke(viewer,"save",new Class<?>[0]);return null;});
+                Intent intent=requested.get();check(intent!=null&&expected[i].equals(intent.getStringExtra(Intent.EXTRA_TITLE))&&"image/png".equals(intent.getType())&&intent.hasCategory(Intent.CATEGORY_OPENABLE),"Photo save intent sanitizes its title and keeps document type: "+names[i]);
+            }
+        }finally{removeMonitor(monitor);onMain(()->{setField(viewer,"photo",source);return null;});}
     }
     private static StreamConnection connection(Socket socket) {
         return new StreamConnection() {

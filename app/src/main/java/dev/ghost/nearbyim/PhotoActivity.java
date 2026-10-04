@@ -12,6 +12,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.view.*;
 import android.widget.*;
+import dev.ghost.nearbyim.core.AttachmentInfo;
 import java.io.*;
 import java.util.concurrent.*;
 
@@ -51,7 +52,8 @@ public final class PhotoActivity extends Activity {
         });
     }
     private void save(){
-        Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType(getContentResolver().getType(photo));intent.putExtra(Intent.EXTRA_TITLE,photo.getQueryParameter("name"));
+        String name=photo.getQueryParameter("name");if(name==null)name=photo.getLastPathSegment();
+        Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType(getContentResolver().getType(photo));intent.putExtra(Intent.EXTRA_TITLE,AttachmentInfo.safeName(name==null?"attachment":name));
         try{startActivityForResult(intent,1);}catch(android.content.ActivityNotFoundException e){Toast.makeText(this,text("attachmentFailed"),Toast.LENGTH_SHORT).show();}
     }
     protected void onActivityResult(int request,int result,Intent data){

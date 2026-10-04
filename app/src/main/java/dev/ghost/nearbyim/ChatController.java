@@ -330,14 +330,18 @@ public final class ChatController implements TransportListener {
         CompletableFuture<Void> future=action.equals("accept")?transfers.accept(id):action.equals("reject")?transfers.reject(id):transfers.cancel(id,outgoing);
         future.whenComplete((v,e)->{if(e!=null)main.post(()->{if(!destroyed)fail(UiText.of("attachmentFailed"));});});
     }
-    public CompletableFuture<Path> attachmentPath(String peer,AttachmentInfo info){return CompletableFuture.supplyAsync(()->{
+    private CompletableFuture<Path> attachmentPath(java.util.function.Supplier<Path> lookup){
+        try{return CompletableFuture.supplyAsync(lookup,fileSelection);}
+        catch(RejectedExecutionException error){CompletableFuture<Path> failed=new CompletableFuture<>();failed.completeExceptionally(error);return failed;}
+    }
+    public CompletableFuture<Path> attachmentPath(String peer,AttachmentInfo info){return attachmentPath(()->{
         try{Path path=store.attachmentFile(peer,info);if(!Files.isRegularFile(path,LinkOption.NOFOLLOW_LINKS))throw new IOException("Attachment unavailable");return path;}
         catch(IOException e){throw new CompletionException(e);}
-    },fileSelection);}
-    public CompletableFuture<Path> attachmentPath(String peer,AttachmentRecord record){return CompletableFuture.supplyAsync(()->{
+    });}
+    public CompletableFuture<Path> attachmentPath(String peer,AttachmentRecord record){return attachmentPath(()->{
         try{Path path=store.attachmentFile(peer,record.info,record.outgoing);if(!Files.isRegularFile(path,LinkOption.NOFOLLOW_LINKS))throw new IOException("Attachment unavailable");return path;}
         catch(IOException e){throw new CompletionException(e);}
-    },fileSelection);}
+    });}
     public CompletableFuture<Void> exportAttachment(String peer,AttachmentRecord record,Uri uri){return attachmentPath(peer,record).thenAcceptAsync(path->{
         try(InputStream input=Files.newInputStream(path);OutputStream output=resolver.openOutputStream(uri,"wt")){
             if(output==null)throw new IOException("Export unavailable");byte[] bytes=new byte[32768];int n;while((n=input.read(bytes))!=-1)output.write(bytes,0,n);
