@@ -96,7 +96,7 @@ Android 覆盖安装并保留聊天数据要求新旧 APK 使用相同签名证�
 
 ### Android
 
-需要 JDK 17、Android SDK Platform 36、Build Tools 35.0.0，以及支持 AGP 8.13 的 Android Studio。
+需要 JDK 17、Python 3、Android SDK Platform 36、Build Tools 35.0.0，以及支持 AGP 8.13 的 Android Studio。
 
 ```sh
 ./gradlew :app:assembleDebug :app:lintDebug
@@ -125,6 +125,13 @@ sh tools/test-i18n.sh
 sh tools/test-core.sh
 sh tools/test-trust.sh
 sh tools/check-source.sh
+```
+
+Windows PowerShell：
+
+```powershell
+.\tools\test-i18n.ps1
+.\tools\test-core.ps1
 ```
 
 这些检查不等同于 Android 完整编译或真实设备验收。完整步骤见 [设备测试说明](docs/device-test.md)。
@@ -157,7 +164,7 @@ sh tools/check-source.sh
 
 ## 📄 第三方组件与许可
 
-项目当前没有额外指定统一的源码开源许可证。Gradle Wrapper、Google Material 图标、桌面依赖、ICU4J 与 Noto 字体等第三方组件保留各自许可，详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+除另有说明外，本项目源码以 **GNU Affero General Public License v3.0 or later（AGPL-3.0-or-later）** 发布，完整条款见 [LICENSE](LICENSE)。Gradle Wrapper、Google Material 图标、桌面依赖、ICU4J 与 Noto 字体等第三方组件保留各自许可，详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 ---
 
