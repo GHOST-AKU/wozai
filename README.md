@@ -1,5 +1,7 @@
 # 我在 · NearbyIM
 
+**简体中文** | [English](docs/readme/README.en.md)
+
 **不经过远程服务器，也能好好聊天。**
 
 我在（NearbyIM）是一款面向近距离通信的开源聊天应用。它让 Android、Windows 和 Linux 设备通过 **同一局域网** 或 **经典蓝牙** 直接建立连接，无需注册账号，也不依赖云端聊天服务器。
