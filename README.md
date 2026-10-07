@@ -1,6 +1,6 @@
 # 我在 · NearbyIM
 
-**简体中文** | [English](README_EN.md)
+**简体中文** | [English](docs/readme/README.en.md)
 
 **不经过远程服务器，也能好好聊天。**
 
