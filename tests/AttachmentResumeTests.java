@@ -65,6 +65,7 @@ public final class AttachmentResumeTests {
             revokedPending(root);
             bridgeRejectsForeignRoot(root);
             cancelPausedPeer(root);
+            expireOwnedSource(root);
             AttachmentInfo pending=AttachmentInfo.v2(ID,"data.bin","application/octet-stream",10,null,1);
             AttachmentRecord paused=new AttachmentRecord(pending,true,"paused",7);
             check(paused.mayReplace(new AttachmentRecord(pending,true,"checking",0)),"Paused history cannot resume");
@@ -75,6 +76,17 @@ public final class AttachmentResumeTests {
         }finally{try(var paths=Files.walk(root)){for(Path path:paths.sorted(Comparator.reverseOrder()).toList())Files.deleteIfExists(path);}}
     }
     private static TransferTaskKey sender(String id,String generation){return new TransferTaskKey("a".repeat(64),"b".repeat(64),TransferTaskKey.Direction.SEND,id,generation);}
+    private static void expireOwnedSource(Path root)throws Exception {
+        Path directory=root.resolve("expired-source");Files.createDirectories(directory);Path original=directory.resolve("source.bin");Files.write(original,new byte[10]);
+        try(AttachmentV2Tests.Pair pair=new AttachmentV2Tests.Pair(directory,false,AttachmentV2Tests.CONNECTION)) {
+            Path copies=directory.resolve("a/.sources-v2");OwnedSnapshotSource source;
+            try(FileAttachmentSource input=new FileAttachmentSource(original)){source=new OwnedSnapshotSource(AttachmentSourceSnapshot.create(input,copies,1024),copies);}
+            Path copy=source.path();TransferTaskKey key=sender(ID,source.generation());AttachmentInfo info=AttachmentInfo.v2(ID,"expired.bin","application/octet-stream",10,null,1);
+            new TransferCheckpointStore(directory.resolve("a/.tasks-v2")).checkpoint(new TransferCheckpoint(key,info,source.persistentReference(),0,0,0,TransferCheckpoint.State.PAUSED,1));source.close();
+            pair.a.offer(new FileAttachmentSource(original),"new.bin","application/octet-stream").get(3,java.util.concurrent.TimeUnit.SECONDS);
+            check(!Files.exists(copy)&&Files.exists(original),"Expired task retained its owned snapshot or removed the selected original");
+        }
+    }
     private static void bridgeRejectsForeignRoot(Path root)throws Exception {
         Path directory=root.resolve("foreign-root");Files.createDirectories(directory);Path original=directory.resolve("source.bin");Files.write(original,new byte[10]);
         try(AttachmentV2Tests.Pair pair=new AttachmentV2Tests.Pair(directory,false,AttachmentV2Tests.CONNECTION)) {

@@ -10,6 +10,11 @@ test_apk=build/signing-upgrade/test.apk
 wrong=build/signing-upgrade/wrong.apk
 code=$(python3 -c 'import re; from pathlib import Path; print(re.search(r"versionCode\s*=\s*(\d+)",Path("app/build.gradle.kts").read_text()).group(1))')
 baseline_code=$(python3 -c 'import json; print(json.load(open("tools/android-signing.json"))["baseline_version_code"])')
+case "${UPGRADE_BASELINE_CODE:-7}" in
+    7) ;;
+    8) baseline=build/signing-upgrade/maintenance.apk; baseline_code=8 ;;
+    *) echo 'Unsupported upgrade baseline'; exit 1 ;;
+esac
 launch() {
     adb shell am start -W -n dev.ghost.nearbyim/.MainActivity > "build/upgrade-evidence/launch-$1.txt"
     python3 - "$1" <<'PY'
@@ -49,4 +54,7 @@ instrument verify "$baseline_code" after-rejection
 adb install -r -g "$candidate"
 launch upgraded
 instrument verify "$code" after-upgrade
+instrument noise "$code" noise-created
+launch restarted
+instrument noise "$code" noise-preserved
 echo 'Same-certificate upgrade preserved persistent data; wrong certificate rejected without data loss'

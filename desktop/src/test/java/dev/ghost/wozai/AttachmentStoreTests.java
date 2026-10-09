@@ -18,6 +18,10 @@ public final class AttachmentStoreTests {
     }
     static void await(java.util.concurrent.Callable<Boolean> condition)throws Exception{long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(20);while(System.nanoTime()<deadline){if(condition.call())return;Thread.sleep(10);}throw new AssertionError("Desktop attachment timed out");}
     static AttachmentRecord record(DesktopStore store,String peer,String id)throws Exception{return store.messages(peer).stream().filter(m->m.id().equals(id)).findFirst().map(DesktopStore.Message::attachment).orElse(null);}
+    static String generation(DesktopClient client)throws Exception {
+        Field current=DesktopClient.class.getDeclaredField("current");current.setAccessible(true);Object session=current.get(client);
+        Field wire=session.getClass().getDeclaredField("wire");wire.setAccessible(true);return ((FramedSession)wire.get(session)).connectionGeneration();
+    }
     static void clientTransfer(Path root)throws Exception {
         Path a=root.resolve("a"),b=root.resolve("b");Files.createDirectories(a);Files.createDirectories(b);var ai=DesktopIdentity.load(a.resolve("identity.properties"));var bi=DesktopIdentity.load(b.resolve("identity.properties"));Events ae=new Events(),be=new Events();
         InetAddress address=Collections.list(NetworkInterface.getNetworkInterfaces()).stream().flatMap(i->Collections.list(i.getInetAddresses()).stream()).filter(i->i instanceof Inet4Address&&LocalEndpoint.isLocal(i)).findFirst().orElseThrow();
@@ -31,6 +35,20 @@ public final class AttachmentStoreTests {
             await(()->record(as,bi.id(),photoId)!=null&&record(as,bi.id(),photoId).state.equals("delivered"));AttachmentRecord sent=record(as,bi.id(),photoId);
             Path retained=ac.attachmentPath(bi.id(),sent).get(10,TimeUnit.SECONDS);if(!Arrays.equals(data,Files.readAllBytes(retained)))throw new AssertionError("Sent photo was not retained");
             retainedPhoto=retained;sentPhoto=sent.info;
+            // Exercise the real factory, storage and reconnect path, including a fresh Noise transcript.
+            Path large=root.resolve("resume.bin");byte[] block=new byte[1024*1024];new Random(123).nextBytes(block);
+            try(java.io.OutputStream out=Files.newOutputStream(large)){for(int n=0;n<64;n++)out.write(block);}
+            String oldGeneration=generation(ac),resumeId=ac.sendAttachment(bi.id(),large).get(10,TimeUnit.SECONDS);
+            await(()->record(bs,ai.id(),resumeId)!=null&&record(bs,ai.id(),resumeId).transferred>=1024*1024);
+            ac.attachmentAction(bi.id(),resumeId,true,"pause").get(10,TimeUnit.SECONDS);
+            await(()->record(as,bi.id(),resumeId).state.equals("paused")&&record(bs,ai.id(),resumeId).state.equals("paused"));
+            ac.disconnect().get(10,TimeUnit.SECONDS);await(()->!ae.ready()&&!be.ready());
+            ac.connect(endpoint,bi.id()).get(10,TimeUnit.SECONDS);await(()->ae.ready()&&be.ready());
+            if(oldGeneration.equals(generation(ac)))throw new AssertionError("Reconnect reused a Noise generation");
+            ac.attachmentAction(bi.id(),resumeId,true,"resume").get(10,TimeUnit.SECONDS);
+            await(()->record(as,bi.id(),resumeId).state.equals("delivered")&&record(bs,ai.id(),resumeId).state.equals("received"));
+            Path resumed=bc.attachmentPath(ai.id(),record(bs,ai.id(),resumeId)).get(10,TimeUnit.SECONDS);
+            if(Files.mismatch(large,resumed)!=-1)throw new AssertionError("Authenticated reconnect changed resumed content");
             Path exported=root.resolve("exported.pdf");Files.copy(received,exported);bc.clear(ai.id()).get(10,TimeUnit.SECONDS);if(Files.exists(received)||!Files.exists(exported)||bs.peer(ai.id()).publicKey().isEmpty())throw new AssertionError("Clear damaged independent export or trust");
             boolean refused=false;try{ac.sendAttachment(UUID.randomUUID().toString(),source).get(10,TimeUnit.SECONDS);}catch(ExecutionException expected){refused=true;}if(!refused)throw new AssertionError("Wrong peer selector sent a file");
         }

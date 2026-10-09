@@ -9,6 +9,26 @@ public final class ProtocolV4 {
     public static final int MAX_PLAINTEXT_BYTES=48*1024;
     private static final int MAGIC=0x4e494d34;
     private ProtocolV4(){}
+    public static final class Record {
+        public final Frame frame;public final TransferPacket transfer;
+        private Record(Frame frame,TransferPacket transfer){this.frame=frame;this.transfer=transfer;}
+    }
+    public static byte[] encodeTransfer(TransferPacket packet)throws IOException {
+        if(packet==null)throw new IOException("Missing file packet");
+        byte[] bytes=TransferCodec.encodeWithPrefix(packet,26);
+        if(bytes.length>MAX_PLAINTEXT_BYTES)throw new IOException("NIM4 plaintext too large");
+        ByteBuffer.wrap(bytes).putInt(MAGIC).put((byte)4).put((byte)Frame.ATTACHMENT_V2).putLong(0).putInt(0).putInt(0).putInt(bytes.length-26);
+        return bytes;
+    }
+    /** Parse untrusted file packets once, before consent/generation checks in the session/engine. */
+    public static Record decodeRecord(byte[] bytes)throws IOException {
+        if(bytes==null||bytes.length<22||bytes.length>MAX_PLAINTEXT_BYTES)throw new IOException("Invalid NIM4 plaintext size");
+        if((bytes[5]&255)!=Frame.ATTACHMENT_V2)return new Record(decode(bytes),null);
+        DataInputStream in=new DataInputStream(new ByteArrayInputStream(bytes));
+        if(in.readInt()!=MAGIC||in.readUnsignedByte()!=4||in.readUnsignedByte()!=Frame.ATTACHMENT_V2||in.readLong()!=0||in.readInt()!=0||in.readInt()!=0)throw new IOException("Invalid file frame metadata");
+        int length=in.readInt();if(length!=in.available()||length>TransferCodec.MAX_PACKET_BYTES)throw new IOException("Invalid file frame size");
+        return new Record(null,TransferCodec.decode(bytes,bytes.length-length,length));
+    }
     public static byte[] encode(Frame frame)throws IOException {
         validate(frame);ByteArrayOutputStream bytes=new ByteArrayOutputStream();DataOutputStream out=new DataOutputStream(bytes);
         out.writeInt(MAGIC);out.writeByte(4);out.writeByte(frame.type);out.writeLong(frame.timestamp);text(out,frame.id);text(out,frame.body);
@@ -26,7 +46,7 @@ public final class ProtocolV4 {
         if(frame==null||frame.id==null||frame.body==null||frame.data==null||frame.timestamp<0||frame.offset!=0)throw new IOException("Invalid NIM4 frame");
         if(frame.type==Frame.ATTACHMENT_V2) {
             if(!frame.id.isEmpty()||!frame.body.isEmpty()||frame.timestamp!=0||frame.data.length>TransferCodec.MAX_PACKET_BYTES)throw new IOException("Invalid file frame metadata");
-            ByteArrayInputStream input=new ByteArrayInputStream(frame.data);TransferCodec.read(input);if(input.available()!=0)throw new IOException("Trailing file packet");
+            TransferCodec.decode(frame.data,0,frame.data.length);
         }else {
             if(frame.type<Frame.READY||frame.type>Frame.PONG)throw new IOException("Unsupported NIM4 record type");
             Protocol.validate(frame);

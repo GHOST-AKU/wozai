@@ -17,7 +17,7 @@ android {
         targetSdk = 36
         testInstrumentationRunner = providers.gradleProperty("testInstrumentationRunner")
             .orElse("dev.ghost.nearbyim.LocalizationInstrumentation").get()
-        versionCode = 8
+        versionCode = 9
         versionName = i18nConfiguration["appVersion"] as String
     }
     compileOptions {

@@ -252,7 +252,7 @@ public final class AttachmentTransferV2 implements AutoCloseable {
         for(TransferCheckpoint value:checkpoints.list()) {
             if(!value.key().localRoot().equals(localRoot)||!value.key().remoteRoot().equals(remoteRoot)||value.key().direction()!=direction
                     ||value.state()==TransferCheckpoint.State.COMPLETE||value.state()==TransferCheckpoint.State.CANCELED)continue;
-            if(now-value.updatedMillis()>RETENTION_MS){checkpoints.cancel(value.key());if(direction==TransferTaskKey.Direction.RECEIVE)Files.deleteIfExists(partial(value.key()));}
+            if(now-value.updatedMillis()>RETENTION_MS){checkpoints.cancel(value.key());if(direction==TransferTaskKey.Direction.RECEIVE)Files.deleteIfExists(partial(value.key()));discardSavedSource(value);}
             else pending++;
         }if(pending>=4)throw new IOException("Too many paused attachment tasks");
     }

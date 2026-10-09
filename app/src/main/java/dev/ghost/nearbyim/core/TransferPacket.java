@@ -24,6 +24,9 @@ public final class TransferPacket {
         this(kind,id,sourceGeneration,connectionGeneration,fromSender,totalSize,offset,windowBytes,0,0,data,hash,info,reason);
     }
     TransferPacket(Kind kind,String id,String sourceGeneration,String connectionGeneration,boolean fromSender,long totalSize,long offset,long windowBytes,long verifiedOffset,long durableOffset,byte[] data,byte[] hash,AttachmentInfo info,String reason)throws IOException {
+        this(kind,id,sourceGeneration,connectionGeneration,fromSender,totalSize,offset,windowBytes,verifiedOffset,durableOffset,data,hash,info,reason,true);
+    }
+    TransferPacket(Kind kind,String id,String sourceGeneration,String connectionGeneration,boolean fromSender,long totalSize,long offset,long windowBytes,long verifiedOffset,long durableOffset,byte[] data,byte[] hash,AttachmentInfo info,String reason,boolean copy)throws IOException {
         if(kind==null||!uuid(id)||!uuid(sourceGeneration)||connectionGeneration==null||!CONNECTION.matcher(connectionGeneration).matches()
                 ||data==null||data.length>TransferLimits.DATA_BYTES||reason==null||!REASONS.contains(reason))throw new IOException("Invalid transfer packet metadata");
         TransferLimits.validateRange(totalSize,offset,data.length);
@@ -41,7 +44,7 @@ public final class TransferPacket {
                 ||(kind==Kind.ACCEPT||kind==Kind.CREDIT||kind==Kind.COMPLETE)&&fromSender)
             throw new IOException("Invalid transfer packet fields");
         this.kind=kind;transferId=id;this.sourceGeneration=sourceGeneration;this.connectionGeneration=connectionGeneration;this.fromSender=fromSender;
-        this.totalSize=totalSize;this.offset=offset;this.windowBytes=windowBytes;this.verifiedOffset=verifiedOffset;this.durableOffset=durableOffset;this.data=data.clone();this.hash=hash==null?null:hash.clone();this.info=info;this.reason=reason;
+        this.totalSize=totalSize;this.offset=offset;this.windowBytes=windowBytes;this.verifiedOffset=verifiedOffset;this.durableOffset=durableOffset;this.data=copy?data.clone():data;this.hash=hash==null?null:copy?hash.clone():hash;this.info=info;this.reason=reason;
     }
     private static boolean uuid(String value){return value!=null&&UUID.matcher(value).matches();}
     public static TransferPacket offer(AttachmentInfo info,String generation,String connection)throws IOException {

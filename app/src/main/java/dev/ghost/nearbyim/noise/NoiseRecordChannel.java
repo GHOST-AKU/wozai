@@ -92,8 +92,9 @@ public final class NoiseRecordChannel implements AutoCloseable {
     private void verifyProof(Claim peer,byte[] binding,int role)throws GeneralSecurityException,IOException {DeviceIdentity.verifyProof(peer.key,proof(binding,role),readEncrypted(ROOT_PROOF,80));}
     private static byte[] proof(byte[] binding,int role)throws IOException {ByteArrayOutputStream bytes=new ByteArrayOutputStream();bytes.write(binding);bytes.write(role);return bytes.toByteArray();}
     private void sendEncrypted(int kind,byte[] plaintext)throws GeneralSecurityException,IOException {
-        ensureOpen();int size=plaintext.length+16;byte[] ciphertext=new byte[size];int n=pair.getSender().encryptWithAd(aad(kind,size),plaintext,0,ciphertext,0,plaintext.length);
-        if(n!=size)throw new IOException("Invalid encrypted size");writeEnvelope(kind,ciphertext);
+        ensureOpen();int size=plaintext.length+16;byte[] header=aad(kind,size),record=new byte[header.length+size];System.arraycopy(header,0,record,0,header.length);
+        int n=pair.getSender().encryptWithAd(header,plaintext,0,record,header.length,plaintext.length);
+        if(n!=size)throw new IOException("Invalid encrypted size");output.write(record);output.flush();
     }
     private byte[] readEncrypted(int kind,int maximum)throws GeneralSecurityException,IOException {
         byte[] ciphertext=readEnvelope(kind,maximum+16);if(ciphertext.length<16)throw new IOException("Truncated encrypted record");byte[] plaintext=new byte[ciphertext.length-16];

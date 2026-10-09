@@ -362,7 +362,7 @@ public final class MainActivity extends Activity {
         attachmentTray=vertical();attachmentTray.setPadding(dp(8),dp(8),dp(8),dp(8));attachmentTray.setBackground(shape(surface,20));attachmentTray.setVisibility(View.GONE);
         fileButton=attachmentChoice(R.drawable.outline_description_24,t("sendFile"),()->chooseAttachment(false));photoButton=attachmentChoice(R.drawable.outline_photo_24,t("sendPhoto"),()->chooseAttachment(true));
         LinearLayout choices=horizontal();choices.addView(photoButton,new LinearLayout.LayoutParams(dp(96),dp(80)));choices.addView(fileButton,new LinearLayout.LayoutParams(dp(96),dp(80)));attachmentTray.addView(choices);
-        TextView transferInfo=label(t("attachmentHintV2"),11,muted);transferInfo.setPadding(dp(8),dp(4),dp(8),dp(4));attachmentTray.addView(transferInfo);
+        TextView transferInfo=label(t(controller!=null&&controller.isPreparingAttachment()?"attachmentStatePreparing":"attachmentHintV2"),11,muted);transferInfo.setPadding(dp(8),dp(4),dp(8),dp(4));attachmentTray.addView(transferInfo);
         LinearLayout.LayoutParams trayParams=new LinearLayout.LayoutParams(-1,-2);trayParams.setMargins(dp(12),dp(4),dp(12),0);chatPage.addView(attachmentTray,trayParams);
         LinearLayout inputRow = horizontal(); inputRow.setGravity(Gravity.BOTTOM); inputRow.setPadding(dp(8), dp(6), dp(8), dp(8));
         LinearLayout inputBox=horizontal();inputBox.setGravity(Gravity.BOTTOM);inputBox.setBackground(shape(isDark()?surface:Color.WHITE,26));inputBox.setElevation(dp(1));
@@ -510,7 +510,7 @@ public final class MainActivity extends Activity {
         if (switched || chatAvatar == null) { chatAvatarBox.removeAllViews(); chatAvatar = avatar(peerId, peerName, 40); chatAvatarBox.addView(chatAvatar, new LinearLayout.LayoutParams(dp(40), dp(40))); }
         boolean ready = controller != null && controller.connected && Objects.equals(peerId, controller.connectedPeerId);
         boolean connecting = controller != null && outgoingRequest && (controller.connecting || controller.hasSession() && !controller.connected);
-        chatStatus.setText(ready ? t("connectedVia", modeName(controller.sessionMode)) : connecting ? t("connecting") : t("localHistoryDisconnected"));
+        chatStatus.setText(ready ? controller.isPreparingAttachment()?t("attachmentStatePreparing"):t("connectedVia", modeName(controller.sessionMode)) : connecting ? t("connecting") : t("localHistoryDisconnected"));
         reconnectRow.setVisibility(!ready && peerId != null ? View.VISIBLE : View.GONE);
         boolean trusted = controller != null && controller.isTrusted(peerId);
         reconnectButton.setVisibility(trusted ? View.VISIBLE : View.GONE); reconnectButton.setEnabled(controller != null);

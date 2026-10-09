@@ -23,6 +23,13 @@
 -keep class dev.ghost.nearbyim.i18n.UiText { public *; }
 -keep class dev.ghost.nearbyim.i18n.I18nResources { public *; }
 -keep class dev.ghost.nearbyim.transport.Peer { public *; }
+# Controlled route/order fixtures call these package entry points from the test APK.
+-keep class dev.ghost.nearbyim.transport.LanTransport {
+    static int networkScore(...);
+    static int routeScore(...);
+    static void bindAndConnect(...);
+}
+-keep interface dev.ghost.nearbyim.transport.LanTransport$SocketBinding { *; }
 
 -keep class dev.ghost.nearbyim.core.Attachment* { public *; }
 -keep class dev.ghost.nearbyim.AndroidAttachmentSource { public *; }

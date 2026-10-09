@@ -1,6 +1,12 @@
 name: Build Android with the persistent signing certificate
 on:
   workflow_dispatch:
+  workflow_call:
+    secrets:
+      WOZAI_ANDROID_KEYSTORE_BASE64:
+        required: true
+      WOZAI_ANDROID_KEYSTORE_PASSWORD:
+        required: true
 permissions:
   contents: read
   actions: read
@@ -22,10 +28,23 @@ jobs:
           WOZAI_ANDROID_KEYSTORE_BASE64: ${{ secrets.WOZAI_ANDROID_KEYSTORE_BASE64 }}
           WOZAI_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.WOZAI_ANDROID_KEYSTORE_PASSWORD }}
         run: python3 tools/build-signed-android.py
-      - name: Prepare the published baseline and upgrade inputs
+      - name: Check out the fixed code8 maintenance baseline
+        uses: actions/checkout@v4
+        with:
+          ref: c0855151a2012954f1b34a88eb9b8ca0b4c8355a
+          path: build/maintenance-source
+      - name: Build code8 with the same persistent certificate
+        working-directory: build/maintenance-source
+        env:
+          WOZAI_ANDROID_KEYSTORE_BASE64: ${{ secrets.WOZAI_ANDROID_KEYSTORE_BASE64 }}
+          WOZAI_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.WOZAI_ANDROID_KEYSTORE_PASSWORD }}
+        run: python3 tools/build-signed-android.py
+      - name: Collect public code8 APK and prepare upgrade inputs
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 tools/prepare-android-upgrade.py prepare
+        run: |
+          cp build/maintenance-source/build/signing-upgrade/candidate.apk build/signing-upgrade/maintenance.apk
+          python3 tools/prepare-android-upgrade.py prepare
       - uses: actions/upload-artifact@v4
         with:
           name: android-signed-upgrade-input

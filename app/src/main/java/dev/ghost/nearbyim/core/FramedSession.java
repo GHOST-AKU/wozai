@@ -60,7 +60,13 @@ public final class FramedSession {
             }else {noise.establish();output=connection.output();}
             greeted = true; listener.onHello(noise==null?channel.remoteHello():noise.remoteHello());
             while (!closed.get()) {
-                Frame frame = noise==null?channel.read(input):ProtocolV4.decode(noise.read());
+                Frame frame;
+                if(noise==null)frame=channel.read(input);
+                else {
+                    ProtocolV4.Record record=ProtocolV4.decodeRecord(noise.read());lastReadNanos=System.nanoTime();
+                    if(record.transfer!=null){if(!isReady())throw new IOException("File before approval");listener.onTransfer(record.transfer);continue;}
+                    frame=record.frame;
+                }
                 lastReadNanos = System.nanoTime();
                 switch (frame.type) {
                     case Frame.READY:
@@ -124,7 +130,7 @@ public final class FramedSession {
     }
     public boolean sendTransfer(TransferPacket packet) {
         if(!attachmentsV2())return false;
-        try {ByteArrayOutputStream bytes=new ByteArrayOutputStream();TransferCodec.write(bytes,packet);return enqueueFrame(new Frame(Frame.ATTACHMENT_V2,"","",0,0,bytes.toByteArray()));}
+        try {byte[] plaintext=ProtocolV4.encodeTransfer(packet);return enqueue(()->noise.write(plaintext),plaintext.length+256,true);}
         catch(IOException error){close(UiText.of("attachmentFailed"));return false;}
     }
     public boolean send(Frame frame) {

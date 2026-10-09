@@ -361,6 +361,7 @@ public final class ChatController implements TransportListener {
     public TransferProgress transferProgress(String peer,AttachmentRecord record){return transferProgress.getOrDefault(peer+":"+record.info.id+":"+record.outgoing,TransferProgress.UNKNOWN);}
     public long attachmentQuota(){return attachmentStorage==null?TransferStorageBudget.DEFAULT_QUOTA:attachmentStorage.quota();}
     public boolean hasActiveAttachments(){return !selectingSources.isEmpty()||transfers!=null&&transfers.hasActive();}
+    public boolean isPreparingAttachment(){return !selectingSources.isEmpty();}
     public void pauseAttachments(){ClientAttachmentTransfers selected=transfers;if(selected!=null)selected.pauseAll().whenComplete((value,error)->{if(error!=null)main.post(()->fail(attachmentError(error)));});}
     public void cancelAttachments(){attachmentToken++;selectingSources.forEach((source,token)->{selectingSources.remove(source);try{source.close();}catch(IOException ignored){}discardSelection(source);});ClientAttachmentTransfers selected=transfers;if(selected!=null)selected.cancelAll().whenComplete((value,error)->{if(error!=null)main.post(()->fail(attachmentError(error)));});changed();}
     public CompletableFuture<Void> attachmentQuota(long bytes){CompletableFuture<Void> future=new CompletableFuture<>();try{fileSelection.execute(()->{try{if(attachmentStorage==null)attachmentStorage=new TransferStorageBudget(store.attachmentsRoot(),bytes);else attachmentStorage.quota(bytes);preferences.edit().putLong("attachmentQuota",bytes).apply();future.complete(null);}catch(IOException error){future.completeExceptionally(new LocalizedIOException(UiText.of("attachmentQuotaInUse"),error));}});}catch(RejectedExecutionException error){future.completeExceptionally(error);}return future;}
@@ -372,15 +373,16 @@ public final class ChatController implements TransportListener {
             try{
                 original=new AndroidAttachmentSource(applicationContext,uri);
                 selectingSources.put(original,token);
+                main.post(this::changed);
                 String fileName=original.name(),contentType=original.mime();
                 AttachmentSource source=selected.prepareSource(original);
                 selectingSources.remove(original);selectingSources.put(source,token);
                 main.post(()->{
                     selectingSources.remove(source);
                     if(destroyed||!canSendAttachment()||token!=attachmentToken||!Objects.equals(peer,connectedPeerId)){try{source.close();}catch(IOException ignored){}discardSelection(source);if(!destroyed&&token==attachmentToken)fail(UiText.of("notConnected"));return;}
-                    selected.offer(source,fileName,contentType).whenComplete((id,e)->{if(e!=null)main.post(()->{if(!destroyed&&token==attachmentToken)fail(attachmentError(e));});});
+                    changed();selected.offer(source,fileName,contentType).whenComplete((id,e)->{if(e!=null)main.post(()->{if(!destroyed&&token==attachmentToken)fail(attachmentError(e));});});
                 });
-            }catch(Exception e){if(original!=null){selectingSources.remove(original);try{original.discard();}catch(IOException ignored){}}main.post(()->{if(!destroyed&&token==attachmentToken)fail(attachmentError(e));});}
+            }catch(Exception e){if(original!=null){selectingSources.remove(original);try{original.discard();}catch(IOException ignored){}}main.post(()->{changed();if(!destroyed&&token==attachmentToken)fail(attachmentError(e));});}
         });}catch(RejectedExecutionException e){fail(UiText.of("attachmentFailed"));}
     }
     private void discardSelection(AttachmentSource source){try{fileSelection.execute(()->{try{source.discard();}catch(IOException ignored){}});}catch(RejectedExecutionException stopped){}}

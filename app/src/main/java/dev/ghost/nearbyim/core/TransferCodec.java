@@ -10,27 +10,45 @@ public final class TransferCodec {
     private static final int MAGIC=0x46543033;
     private TransferCodec(){}
     public static void write(OutputStream output,TransferPacket packet)throws IOException {
-        ByteArrayOutputStream bytes=new ByteArrayOutputStream();DataOutputStream payload=new DataOutputStream(bytes);
+        output.write(encodeWithPrefix(packet,0));
+    }
+    /** Reserve the outer record header without copying the file payload between encoders. */
+    static byte[] encodeWithPrefix(TransferPacket packet,int prefix)throws IOException {
+        if(packet==null||prefix<0||prefix>ProtocolV4.MAX_PLAINTEXT_BYTES)throw new IOException("Invalid transfer encoding range");
+        ByteArrayOutputStream bytes=new ByteArrayOutputStream(384);DataOutputStream payload=new DataOutputStream(bytes);
         payload.writeInt(MAGIC);payload.writeByte(packet.kind.ordinal());payload.writeBoolean(packet.fromSender);
         text(payload,packet.transferId);text(payload,packet.sourceGeneration);text(payload,packet.connectionGeneration);
         payload.writeLong(packet.totalSize);payload.writeLong(packet.offset);payload.writeLong(packet.windowBytes);payload.writeLong(packet.verifiedOffset);payload.writeLong(packet.durableOffset);text(payload,packet.reason);
         payload.writeBoolean(packet.info!=null);if(packet.info!=null)packet.info.writeV2(payload);
         payload.writeBoolean(packet.hash!=null);if(packet.hash!=null)payload.write(packet.hash);
-        payload.writeInt(packet.data.length);payload.write(packet.data);
-        if(bytes.size()+4>MAX_PACKET_BYTES)throw new IOException("Transfer packet too large");
-        DataOutputStream out=new DataOutputStream(output);out.writeInt(bytes.size());bytes.writeTo(out);
+        payload.writeInt(packet.data.length);
+        int length=bytes.size()+packet.data.length;
+        if(length+4>MAX_PACKET_BYTES)throw new IOException("Transfer packet too large");
+        byte[] result=new byte[prefix+4+length];
+        ByteBuffer.wrap(result,prefix,4).putInt(length);
+        byte[] header=bytes.toByteArray();System.arraycopy(header,0,result,prefix+4,header.length);
+        System.arraycopy(packet.data,0,result,prefix+4+header.length,packet.data.length);
+        return result;
     }
     public static TransferPacket read(InputStream input)throws IOException {
         DataInputStream wire=new DataInputStream(input);int length=wire.readInt();
         if(length<32||length>MAX_PACKET_BYTES-4)throw new IOException("Invalid transfer packet length");
-        byte[] bytes=new byte[length];wire.readFully(bytes);DataInputStream in=new DataInputStream(new ByteArrayInputStream(bytes));
+        byte[] bytes=new byte[length];wire.readFully(bytes);return parse(new DataInputStream(new ByteArrayInputStream(bytes)));
+    }
+    public static TransferPacket decode(byte[] bytes,int offset,int count)throws IOException {
+        if(bytes==null||offset<0||count<36||count>MAX_PACKET_BYTES||offset>bytes.length-count)throw new IOException("Invalid transfer packet range");
+        DataInputStream in=new DataInputStream(new ByteArrayInputStream(bytes,offset,count));
+        if(in.readInt()!=count-4)throw new IOException("Invalid transfer packet length");return parse(in);
+    }
+    private static TransferPacket parse(DataInputStream in)throws IOException {
         if(in.readInt()!=MAGIC)throw new IOException("Unsupported transfer codec");int code=in.readUnsignedByte();
         if(code>=TransferPacket.Kind.values().length)throw new IOException("Unknown transfer packet type");boolean sender=flag(in);
         String id=text(in,36),generation=text(in,36),connection=text(in,128);long size=in.readLong(),offset=in.readLong(),window=in.readLong(),verified=in.readLong(),durable=in.readLong();String reason=text(in,16);
         AttachmentInfo info=flag(in)?AttachmentInfo.readV2(in):null;byte[] hash=null;if(flag(in)){hash=new byte[32];in.readFully(hash);}
         int n=in.readInt();if(n<0||n>TransferLimits.DATA_BYTES||n>in.available())throw new IOException("Invalid transfer data length");
         byte[] data=new byte[n];in.readFully(data);if(in.available()!=0)throw new IOException("Trailing transfer packet data");
-        return new TransferPacket(TransferPacket.Kind.values()[code],id,generation,connection,sender,size,offset,window,verified,durable,data,hash,info,reason);
+        // data/hash were freshly allocated here and cannot be mutated through the wire input.
+        return new TransferPacket(TransferPacket.Kind.values()[code],id,generation,connection,sender,size,offset,window,verified,durable,data,hash,info,reason,false);
     }
     private static boolean flag(DataInputStream in)throws IOException {int value=in.readUnsignedByte();if(value>1)throw new IOException("Invalid boolean field");return value==1;}
     private static void text(DataOutputStream out,String value)throws IOException {byte[] bytes=value.getBytes(StandardCharsets.UTF_8);out.writeInt(bytes.length);out.write(bytes);}
