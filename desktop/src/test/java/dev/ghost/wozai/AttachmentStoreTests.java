@@ -43,6 +43,7 @@ public final class AttachmentStoreTests {
             ac.attachmentAction(bi.id(),resumeId,true,"pause").get(10,TimeUnit.SECONDS);
             await(()->record(as,bi.id(),resumeId).state.equals("paused")&&record(bs,ai.id(),resumeId).state.equals("paused"));
             ac.disconnect().get(10,TimeUnit.SECONDS);await(()->!ae.ready()&&!be.ready());
+            Field barrier=DesktopClient.class.getDeclaredField("attachmentsStopped");barrier.setAccessible(true);barrier.set(ac,CompletableFuture.failedFuture(new java.io.IOException("Previously reported pause persistence failure; writer already stopped")));
             ac.connect(endpoint,bi.id()).get(10,TimeUnit.SECONDS);await(()->ae.ready()&&be.ready());
             if(oldGeneration.equals(generation(ac)))throw new AssertionError("Reconnect reused a Noise generation");
             ac.attachmentAction(bi.id(),resumeId,true,"resume").get(10,TimeUnit.SECONDS);

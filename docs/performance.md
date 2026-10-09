@@ -295,3 +295,11 @@ JFR 发现文件包重复解析、临时 payload/Frame 数组和分离的小记�
 Linux 实际 GUI 的空闲 / 已认证仅连接各三轮，每轮 30 分钟；源 `af0b8ad33fbb8e7dcbf9d72f0381f4648e198b59`，独立 Xvfb 与临时 profile，六轮并行、正常关闭，均不读取用户聊天或导出密钥。前后五分钟 RSS 中位数变化：空闲 +3.885/+5.131/+3.906 MiB，连接 +29.383/+25.391/+24.754 MiB。FD 保持 40 / 45；线程 30→29 / 44→43。连接 used heap 末尾比起点低（期间发生 young GC）；空闲没有再次 GC。**used heap 不是 post-GC 存活堆；连接 RSS 保留仍需追踪，不能宣称内存增长已全部解决。** [摘要](performance/2026-10-09-linux-memory-30min-summary.json)与[完整一秒采样报告 gzip](performance/2026-10-09-linux-memory-30min.json.gz)。实际两个 DesktopClient 同时各传 256 MiB，并在传输中交替发送 20 条文字；SQLite 保存回执 P95=44.977 ms、本地取消完成=4.591 ms，原文件保留，最终双向内容一致。该测量属于虚拟 Linux LAN，不代表 RFCOMM 或手机时延。Windows 同类 30 分钟 CI 测量已启用，结果和 Android 长期趋势继续记 Issue #9。
 
 真实 Android↔Android LAN / 热点双向 10 GiB、蜂窝并存绑定、纯 RFCOMM 基线与长跑、ARM 手机能耗/温升仍受设备不足阻碍，记录在 #7/#11/#15。原签名的候选 APK 和 code7/code8→code9 升级由 CI 独立验证，记录在 #8；正式发布是另外的动作，不修改 v0.3.1 资产。
+
+### 连接 RSS 的追加诊断与测量故障
+
+上述连接段的最后 15 分钟仍增长约 11.180 / 11.504 / 9.723 MiB，不能只归因于启动。另用相同生产路径的实际 GUI 做了一轮 10 分钟 NMT 诊断（`799c756` 工作区，编译的生产类来自 `40d00e6`，临时资料、`-Xmx256m`，只在末尾执行会触发完整 GC 的类计数）。[摘要和每 30 秒采样](performance/2026-10-09-linux-connected-nmt/summary.json)、[起始 NMT](performance/2026-10-09-linux-connected-nmt/native-0.txt)、[末尾 NMT](performance/2026-10-09-linux-connected-nmt/native-600.txt)、[末尾存活类计数](performance/2026-10-09-linux-connected-nmt/live-class-counts.txt)不包含聊天内容或密钥。
+
+RSS 首／末采样为 112.746 / 128.359 MiB；NMT committed 为 157,322 / 157,753 KiB，malloc 为 16,970 / 16,537 KiB，Java heap committed 都是 55,296 KiB。末尾 GC 后 used heap 为 13,406,515 字节，RSS 反而从 134,598,656 到 134,791,168 字节。驻留页面与 JVM 保留可能参与，但 NMT committed 与 RSS 的差值不是完整归因；只有一次末尾存活计数也不能证明没有泄漏。此诊断有额外开销，不混入前面的六轮无强制 GC 测量，Issue #9 继续开放。
+
+Windows 首轮长跑 [37919911551](https://github.com/GHOST-AKU/wozai/actions/runs/37919911551)在采样末尾因计时器返回相同时间戳而除零失败，没有可验收的完整报告。已修正短／长采样器的零间隔处理：不计算无意义的瞬时 CPU，保留前次 CPU 计数直到时间推进；使用确定性时钟回归复现旧实现失败并验证累计 CPU 没有丢失。失败轮次另存部分采样且明确 `verified_normal_shutdown=false`，不能当成成功轮次。修正后的 Windows 三轮空闲／三轮连接仍须由后续 CI 完整运行，最终状态记录在 #9。

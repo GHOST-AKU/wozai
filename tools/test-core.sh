@@ -15,6 +15,7 @@ java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentSourceTests
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentV2ControlTests
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentV2Tests
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentResumeTests
+java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentLifecycleReviewTests
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.ProtocolV4Tests
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.FairRecordWriterTests
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.SecureSessionTests

@@ -362,5 +362,6 @@
   "attachmentStorageFull": "可用存储空间不足。",
   "attachmentQuota": "附件空间配额",
   "attachmentQuotaGiB": "{0,number} GiB",
-  "attachmentQuotaInUse": "新的配额不能小于已占用及预留空间。"
+  "attachmentQuotaInUse": "新的配额不能小于已占用及预留空间。",
+  "attachmentStateSourceUnavailable": "已暂停：源文件暂时无法读取，恢复访问后可续传"
 }

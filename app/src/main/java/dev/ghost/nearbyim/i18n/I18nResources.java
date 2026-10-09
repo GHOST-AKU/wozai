@@ -67,6 +67,7 @@ public final class I18nResources {
             case "attachmentStatePreparing": return R.string.attachment_state_preparing;
             case "attachmentStateReceived": return R.string.attachment_state_received;
             case "attachmentStateRejected": return R.string.attachment_state_rejected;
+            case "attachmentStateSourceUnavailable": return R.string.attachment_state_source_unavailable;
             case "attachmentStateTransferring": return R.string.attachment_state_transferring;
             case "attachmentStateUnknown": return R.string.attachment_state_unknown;
             case "attachmentStateVerifying": return R.string.attachment_state_verifying;

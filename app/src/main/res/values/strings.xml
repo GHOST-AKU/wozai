@@ -59,6 +59,7 @@
     <string name="attachment_state_preparing" formatted="false">"Preparing"</string>
     <string name="attachment_state_received" formatted="false">"Received"</string>
     <string name="attachment_state_rejected" formatted="false">"Rejected"</string>
+    <string name="attachment_state_source_unavailable" formatted="false">"Paused: source temporarily unreadable. Restore access, then resume."</string>
     <string name="attachment_state_transferring" formatted="false">"Transferring"</string>
     <string name="attachment_state_unknown" formatted="false">"Result unknown; the peer may have saved it"</string>
     <string name="attachment_state_verifying" formatted="false">"Verifying and saving"</string>

@@ -26,6 +26,7 @@ def heap(pid):
 
 def one(args, phase, index):
     processes, handles = [], []
+    points, heaps = [], []
     with tempfile.TemporaryDirectory(prefix=f"wozai-memory-{phase}-{index}-", dir=args.work_dir) as temporary:
         directory = Path(temporary)
         env = os.environ.copy()
@@ -69,15 +70,22 @@ def one(args, phase, index):
                 time.sleep(.5)
             heap_start = heap(target.pid)
             start = time.monotonic()
-            points, heaps = [], [{"elapsed_s": 0, **heap_start}]
+            heaps = [{"elapsed_s": 0, **heap_start}]
             _, previous_cpu = tree.reading()
             previous_time = start
-            while time.monotonic() - start < args.seconds:
-                time.sleep(min(1, max(0, args.seconds - (time.monotonic() - start))))
+            while True:
+                remaining = start + args.seconds - time.monotonic()
+                if remaining <= 0:
+                    break
+                time.sleep(min(1, remaining))
                 if any(process.poll() is not None for process in [target, *peers]):
                     raise RuntimeError("Measured client/peer exited")
                 rss, cpu = tree.reading()
                 now = time.monotonic()
+                # Windows can return the same clock value at the final sub-tick
+                # interval. Keep the earlier CPU counters until time advances.
+                if now <= previous_time:
+                    continue
                 elapsed = now - start
                 delta = sum(max(0, value - previous_cpu.get(identity, 0)) for identity, value in cpu.items())
                 process = performance.psutil.Process(target.pid)
@@ -98,9 +106,17 @@ def one(args, phase, index):
                 if process.wait(timeout=35) != 0:
                     raise RuntimeError("Client shutdown failed")
             edge = min(300, args.seconds / 3)
-            return {"phase": phase, "round": index, "duration_s": points[-1]["elapsed_s"],
+            report = {"phase": phase, "round": index, "duration_s": points[-1]["elapsed_s"],
                     "rss_change_edge_medians_bytes": statistics.median(p["rss_bytes"] for p in points if p["elapsed_s"] >= args.seconds - edge) - statistics.median(p["rss_bytes"] for p in points if p["elapsed_s"] <= edge),
                     "samples": points, "heap_samples": heaps, "verified_normal_shutdown": True}
+            (args.output.parent / f"{phase}-{index}.json").write_text(json.dumps(report, indent=2) + "\n")
+            return report
+        except Exception as failure:
+            # Retain partial measurements without certifying a failed run.
+            (args.output.parent / f"{phase}-{index}-failed.json").write_text(json.dumps({
+                "phase": phase, "round": index, "samples": points, "heap_samples": heaps,
+                "verified_normal_shutdown": False, "failure": str(failure)}, indent=2) + "\n")
+            raise
         finally:
             for process in reversed(processes):
                 if process.poll() is None:

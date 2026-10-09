@@ -59,6 +59,7 @@
     <string name="attachment_state_preparing" formatted="false">"准备中"</string>
     <string name="attachment_state_received" formatted="false">"已接收"</string>
     <string name="attachment_state_rejected" formatted="false">"已拒绝"</string>
+    <string name="attachment_state_source_unavailable" formatted="false">"已暂停：源文件暂时无法读取，恢复访问后可续传"</string>
     <string name="attachment_state_transferring" formatted="false">"传输中"</string>
     <string name="attachment_state_unknown" formatted="false">"结果未知，对方可能已保存"</string>
     <string name="attachment_state_verifying" formatted="false">"校验并保存中"</string>

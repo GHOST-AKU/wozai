@@ -1,0 +1,270 @@
+{
+  "purpose": "Additional NMT diagnosis; one virtual Linux connected GUI, 10min, forced GC only at end. Not a repeat of the no-forced-GC 30min acceptance runs.",
+  "source": "799c75692399ff1cdcac8fd977e82627652d8a12; compiled production classes match40d00e6",
+  "round": {
+    "phase": "connected",
+    "round": 10,
+    "duration_s": 600.003,
+    "rss_change_edge_medians_bytes": 13352960.0,
+    "heap_samples": [
+      {
+        "elapsed_s": 0,
+        "used_heap_bytes": 22191411,
+        "young_gc": 4.0,
+        "full_gc": 0.0,
+        "gc_seconds": 0.03
+      },
+      {
+        "elapsed_s": 60.127889210998546,
+        "used_heap_bytes": 23239987,
+        "young_gc": 4.0,
+        "full_gc": 0.0,
+        "gc_seconds": 0.03
+      },
+      {
+        "elapsed_s": 120.59462599200197,
+        "used_heap_bytes": 24288563,
+        "young_gc": 4.0,
+        "full_gc": 0.0,
+        "gc_seconds": 0.03
+      },
+      {
+        "elapsed_s": 181.02390125300735,
+        "used_heap_bytes": 25337139,
+        "young_gc": 4.0,
+        "full_gc": 0.0,
+        "gc_seconds": 0.03
+      },
+      {
+        "elapsed_s": 241.45802894199733,
+        "used_heap_bytes": 25337139,
+        "young_gc": 4.0,
+        "full_gc": 0.0,
+        "gc_seconds": 0.03
+      },
+      {
+        "elapsed_s": 301.8980988859839,
+        "used_heap_bytes": 26385715,
+        "young_gc": 4.0,
+        "full_gc": 0.0,
+        "gc_seconds": 0.03
+      },
+      {
+        "elapsed_s": 362.4295631769928,
+        "used_heap_bytes": 27434291,
+        "young_gc": 4.0,
+        "full_gc": 0.0,
+        "gc_seconds": 0.03
+      },
+      {
+        "elapsed_s": 422.8228233490081,
+        "used_heap_bytes": 27434291,
+        "young_gc": 4.0,
+        "full_gc": 0.0,
+        "gc_seconds": 0.03
+      },
+      {
+        "elapsed_s": 483.3265624170017,
+        "used_heap_bytes": 28482867,
+        "young_gc": 4.0,
+        "full_gc": 0.0,
+        "gc_seconds": 0.03
+      },
+      {
+        "elapsed_s": 543.745743403997,
+        "used_heap_bytes": 28482867,
+        "young_gc": 4.0,
+        "full_gc": 0.0,
+        "gc_seconds": 0.03
+      },
+      {
+        "elapsed_s": 600.0028559420025,
+        "used_heap_bytes": 13406515,
+        "young_gc": 4.0,
+        "full_gc": 1.0,
+        "gc_seconds": 0.053
+      }
+    ],
+    "verified_normal_shutdown": true,
+    "samples_every_30_seconds": [
+      {
+        "elapsed_s": 1.002,
+        "rss_bytes": 118222848,
+        "cpu_percent_one_core": 0.0,
+        "threads": 45,
+        "file_descriptors": 46,
+        "os_handles": null
+      },
+      {
+        "elapsed_s": 31.06,
+        "rss_bytes": 118870016,
+        "cpu_percent_one_core": 0.0,
+        "threads": 44,
+        "file_descriptors": 46,
+        "os_handles": null
+      },
+      {
+        "elapsed_s": 61.455,
+        "rss_bytes": 119492608,
+        "cpu_percent_one_core": 0.7533862145013331,
+        "threads": 44,
+        "file_descriptors": 46,
+        "os_handles": null
+      },
+      {
+        "elapsed_s": 91.513,
+        "rss_bytes": 119975936,
+        "cpu_percent_one_core": 0.0,
+        "threads": 44,
+        "file_descriptors": 46,
+        "os_handles": null
+      },
+      {
+        "elapsed_s": 121.89,
+        "rss_bytes": 120406016,
+        "cpu_percent_one_core": 0.0,
+        "threads": 44,
+        "file_descriptors": 46,
+        "os_handles": null
+      },
+      {
+        "elapsed_s": 151.954,
+        "rss_bytes": 122380288,
+        "cpu_percent_one_core": 7.990192877230712,
+        "threads": 44,
+        "file_descriptors": 46,
+        "os_handles": null
+      },
+      {
+        "elapsed_s": 182.352,
+        "rss_bytes": 122793984,
+        "cpu_percent_one_core": 0.7531019140074932,
+        "threads": 44,
+        "file_descriptors": 46,
+        "os_handles": null
+      },
+      {
+        "elapsed_s": 212.403,
+        "rss_bytes": 123236352,
+        "cpu_percent_one_core": 0.998730072778681,
+        "threads": 44,
+        "file_descriptors": 46,
+        "os_handles": null
+      },
+      {
+        "elapsed_s": 242.801,
+        "rss_bytes": 123744256,
+        "cpu_percent_one_core": 0.7444468175778727,
+        "threads": 44,
+        "file_descriptors": 46,
+        "os_handles": null
+      },
+      {
+        "elapsed_s": 272.86,
+        "rss_bytes": 130772992,
+        "cpu_percent_one_core": 0.0,
+        "threads": 44,
+        "file_descriptors": 46,
+        "os_handles": null
+      },
+      {
+        "elapsed_s": 303.198,
+        "rss_bytes": 131182592,
+        "cpu_percent_one_core": 0.7691254818589931,
+        "threads": 44,
+        "file_descriptors": 46,
+        "os_handles": null
+      },
+      {
+        "elapsed_s": 333.252,
+        "rss_bytes": 131506176,
+        "cpu_percent_one_core": 0.0,
+        "threads": 44,
+        "file_descriptors": 46,
+        "os_handles": null
+      },
+      {
+        "elapsed_s": 363.75,
+        "rss_bytes": 131874816,
+        "cpu_percent_one_core": 0.757555447621307,
+        "threads": 44,
+        "file_descriptors": 46,
+        "os_handles": null
+      },
+      {
+        "elapsed_s": 393.787,
+        "rss_bytes": 132202496,
+        "cpu_percent_one_core": 0.0,
+        "threads": 44,
+        "file_descriptors": 46,
+        "os_handles": null
+      },
+      {
+        "elapsed_s": 424.143,
+        "rss_bytes": 132534272,
+        "cpu_percent_one_core": 0.0,
+        "threads": 44,
+        "file_descriptors": 46,
+        "os_handles": null
+      },
+      {
+        "elapsed_s": 454.259,
+        "rss_bytes": 132947968,
+        "cpu_percent_one_core": 0.0,
+        "threads": 44,
+        "file_descriptors": 46,
+        "os_handles": null
+      },
+      {
+        "elapsed_s": 484.643,
+        "rss_bytes": 133283840,
+        "cpu_percent_one_core": 0.0,
+        "threads": 44,
+        "file_descriptors": 46,
+        "os_handles": null
+      },
+      {
+        "elapsed_s": 514.686,
+        "rss_bytes": 133619712,
+        "cpu_percent_one_core": 0.9983571454226227,
+        "threads": 44,
+        "file_descriptors": 46,
+        "os_handles": null
+      },
+      {
+        "elapsed_s": 545.055,
+        "rss_bytes": 133955584,
+        "cpu_percent_one_core": 0.0,
+        "threads": 44,
+        "file_descriptors": 46,
+        "os_handles": null
+      },
+      {
+        "elapsed_s": 575.134,
+        "rss_bytes": 134275072,
+        "cpu_percent_one_core": 0.9989008853752027,
+        "threads": 44,
+        "file_descriptors": 46,
+        "os_handles": null
+      },
+      {
+        "elapsed_s": 600.003,
+        "rss_bytes": 134594560,
+        "cpu_percent_one_core": 2.4988441159263557,
+        "threads": 44,
+        "file_descriptors": 46,
+        "os_handles": null
+      }
+    ]
+  },
+  "post_gc": {
+    "rss_before_gc": 134598656,
+    "rss_after_gc": 134791168,
+    "heap_after_gc": {
+      "used_heap_bytes": 13406515,
+      "young_gc": 4.0,
+      "full_gc": 1.0,
+      "gc_seconds": 0.053
+    }
+  }
+}

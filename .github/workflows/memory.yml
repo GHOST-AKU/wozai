@@ -29,6 +29,8 @@ jobs:
         run: |
           python -m pip install psutil==7.2.2
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python desktop/tools/test-memory-clock.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python desktop/tools/memory-trend.py --seconds 1800 --rounds 3 --output desktop/build/memory-30min/report.json --work-dir "$env:RUNNER_TEMP"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4

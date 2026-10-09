@@ -362,5 +362,6 @@
   "attachmentStorageFull": "Available storage is insufficient.",
   "attachmentQuota": "Attachment storage quota",
   "attachmentQuotaGiB": "{0,number} GiB",
-  "attachmentQuotaInUse": "The new quota must cover stored and reserved space."
+  "attachmentQuotaInUse": "The new quota must cover stored and reserved space.",
+  "attachmentStateSourceUnavailable": "Paused: source temporarily unreadable. Restore access, then resume."
 }

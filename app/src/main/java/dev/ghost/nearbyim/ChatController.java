@@ -191,7 +191,7 @@ public final class ChatController implements TransportListener {
             else { cancelOutgoing(); status = UiText.of("trustRevokedCanceled"); }
         }
         db(()->store.revokeTrust(peerId),this::refresh);
-        attachmentsStopped=attachmentsStopped.thenRunAsync(()->{try{for(AttachmentRecord record:AttachmentTransferV2.cancelPending(store.attachmentDirectory(peerId)))store.attachment(peerId,peerId,record);AndroidAttachmentSource.releaseUnusedGrants(applicationContext);}catch(IOException failure){throw new CompletionException(failure);}},storage);
+        attachmentsStopped=attachmentsStopped.handle((value,failure)->null).thenRunAsync(()->{try{for(AttachmentRecord record:AttachmentTransferV2.cancelPending(store.attachmentDirectory(peerId)))store.attachment(peerId,peerId,record);AndroidAttachmentSource.releaseUnusedGrants(applicationContext);}catch(IOException failure){throw new CompletionException(failure);}},storage);
         attachmentsStopped.whenComplete((value,failure)->main.post(()->{if(!destroyed){if(failure!=null)fail(attachmentError(failure));refresh();}}));changed();
     }
     public void onPeer(Peer peer) {
@@ -302,7 +302,7 @@ public final class ChatController implements TransportListener {
     private void approveWithFiles(FramedSession wire) {
         if(active!=wire||remoteHello==null||attachmentsPreparing!=null)return;
         Frame hello=remoteHello;TrustPolicy.Authorization grant=authorization;long revision=trust.peerRevision(hello.id);boolean rfcomm=sessionMode==Peer.BLUETOOTH;
-        CompletableFuture<Void> previousStopped=attachmentsStopped;
+        CompletableFuture<Void> previousStopped=attachmentsStopped.handle((value,failure)->null);
         CompletableFuture<ClientAttachmentTransfers> preparing=new CompletableFuture<>();attachmentsPreparing=preparing;
         previousStopped.whenComplete((ignored,stopFailure)->{
             if(stopFailure!=null){preparing.completeExceptionally(stopFailure);return;}
@@ -338,9 +338,9 @@ public final class ChatController implements TransportListener {
     private void releaseSession(FramedSession session, UiText reason) {
         if (active != session) return;
         String peerId = remoteHello == null ? null : remoteHello.id;
-        if(transfers!=null){attachmentsStopped=CompletableFuture.allOf(attachmentsStopped,transfers.shutdown());transfers=null;}attachmentToken++;
+        if(transfers!=null){recordAttachmentShutdown(transfers.shutdown());transfers=null;}attachmentToken++;
         if(attachmentsPreparing!=null){CompletableFuture<ClientAttachmentTransfers> pending=attachmentsPreparing;attachmentsPreparing=null;
-            attachmentsStopped=CompletableFuture.allOf(attachmentsStopped,pending.handle((created,failure)->created==null?CompletableFuture.<Void>completedFuture(null):created.shutdown()).thenCompose(value->value));}
+            recordAttachmentShutdown(pending.handle((created,failure)->created==null?CompletableFuture.<Void>completedFuture(null):created.shutdown()).thenCompose(value->value));}
         selectingSources.forEach((source,token)->{if(token!=attachmentToken){selectingSources.remove(source);try{source.close();}catch(IOException ignored){}}});
         transferProgress.clear();
         trust.cancel(authorization); authorization = null; active = null; remoteHello = null;
@@ -362,6 +362,11 @@ public final class ChatController implements TransportListener {
     public long attachmentQuota(){return attachmentStorage==null?TransferStorageBudget.DEFAULT_QUOTA:attachmentStorage.quota();}
     public boolean hasActiveAttachments(){return !selectingSources.isEmpty()||transfers!=null&&transfers.hasActive();}
     public boolean isPreparingAttachment(){return !selectingSources.isEmpty();}
+    private void recordAttachmentShutdown(CompletableFuture<Void> stopped){
+        // Completion is the writer-resource barrier; persistence errors remain reported separately.
+        CompletableFuture<Void> reported=stopped.handle((value,failure)->{if(failure!=null)main.post(()->{if(!destroyed)fail(attachmentError(failure));});return null;});
+        attachmentsStopped=CompletableFuture.allOf(attachmentsStopped.handle((value,failure)->null),reported);
+    }
     public void pauseAttachments(){ClientAttachmentTransfers selected=transfers;if(selected!=null)selected.pauseAll().whenComplete((value,error)->{if(error!=null)main.post(()->fail(attachmentError(error)));});}
     public void cancelAttachments(){attachmentToken++;selectingSources.forEach((source,token)->{selectingSources.remove(source);try{source.close();}catch(IOException ignored){}discardSelection(source);});ClientAttachmentTransfers selected=transfers;if(selected!=null)selected.cancelAll().whenComplete((value,error)->{if(error!=null)main.post(()->fail(attachmentError(error)));});changed();}
     public CompletableFuture<Void> attachmentQuota(long bytes){CompletableFuture<Void> future=new CompletableFuture<>();try{fileSelection.execute(()->{try{if(attachmentStorage==null)attachmentStorage=new TransferStorageBudget(store.attachmentsRoot(),bytes);else attachmentStorage.quota(bytes);preferences.edit().putLong("attachmentQuota",bytes).apply();future.complete(null);}catch(IOException error){future.completeExceptionally(new LocalizedIOException(UiText.of("attachmentQuotaInUse"),error));}});}catch(RejectedExecutionException error){future.completeExceptionally(error);}return future;}
@@ -434,7 +439,7 @@ public final class ChatController implements TransportListener {
         selectedId = conversation.id; selectedName = conversation.name; refresh(); changed();
     }
     public void clearConversation() {if(selectedId==null)return;String id=selectedId;if(remoteHello!=null&&Objects.equals(id,remoteHello.id))closeActive(UiText.of("connectionEnded"));
-        attachmentsStopped=attachmentsStopped.thenRunAsync(()->{store.clear(id);try{AndroidAttachmentSource.releaseUnusedGrants(applicationContext);}catch(IOException failure){throw new CompletionException(failure);}},storage);
+        attachmentsStopped=attachmentsStopped.handle((value,failure)->null).thenRunAsync(()->{store.clear(id);try{AndroidAttachmentSource.releaseUnusedGrants(applicationContext);}catch(IOException failure){throw new CompletionException(failure);}},storage);
         attachmentsStopped.whenComplete((value,failure)->main.post(()->{if(!destroyed){if(failure!=null)fail(attachmentError(failure));refresh();}}));}
     private void refresh() {
         String selection = selectedId; long version = trust.version();

@@ -59,6 +59,7 @@
     <string name="attachment_state_preparing" formatted="false">"준비 중"</string>
     <string name="attachment_state_received" formatted="false">"수신 완료"</string>
     <string name="attachment_state_rejected" formatted="false">"거절됨"</string>
+    <string name="attachment_state_source_unavailable" formatted="false">"일시 정지: 원본 파일을 읽을 수 없습니다. 접근 권한을 복구한 후 재개하세요."</string>
     <string name="attachment_state_transferring" formatted="false">"전송 중"</string>
     <string name="attachment_state_unknown" formatted="false">"결과를 알 수 없음; 상대가 저장했을 수 있습니다"</string>
     <string name="attachment_state_verifying" formatted="false">"검증 및 저장 중"</string>

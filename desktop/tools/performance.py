@@ -75,10 +75,15 @@ def sample(tree, settle, seconds):
     _, previous = tree.reading()
     start = previous_time = time.monotonic()
     points, consumed = [], 0.0
-    while time.monotonic() - start < seconds:
-        time.sleep(min(0.2, max(0, seconds - (time.monotonic() - start))))
+    while True:
+        remaining = start + seconds - time.monotonic()
+        if remaining <= 0:
+            break
+        time.sleep(min(0.2, remaining))
         rss, cpu = tree.reading()
         now = time.monotonic()
+        if now <= previous_time:
+            continue
         delta = sum(max(0, value - previous.get(identity, 0)) for identity, value in cpu.items())
         consumed += delta
         points.append({"elapsed_s": round(now - start, 4), "rss_bytes": rss,

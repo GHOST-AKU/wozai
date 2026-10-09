@@ -168,9 +168,8 @@ public final class DesktopClient implements AutoCloseable {
         }); }
         void approveAfterFiles() {
             if(current!=this||preparing)return;preparing=true;
-            attachmentsStopped.whenComplete((ignored,stopFailure)->event(()->{
+            attachmentsStopped.handle((ignored,stopFailure)->null).thenRun(()->event(()->{
                 if(current!=this||!policy.ready(authorization))return;
-                if(stopFailure!=null){failure();return;}
                 try {
                     java.nio.file.Path directory=store.attachmentDirectory(peer.id());String localRoot=identity.signer().fingerprint(),remoteRoot=DeviceIdentity.fingerprint(wire.remotePublicKey());
                     AttachmentTransferV2.SourceResolver sources=checkpoint->{String saved=checkpoint.sourceReference();
@@ -277,11 +276,11 @@ public final class DesktopClient implements AutoCloseable {
     public CompletableFuture<Void> revoke(String peerId) { final String id = DesktopStore.uuid(peerId); return submit(() -> {
         policy.revoke(id); store.revoke(id);
         if (id.equals(connectingPeer) || current != null && (id.equals(current.expectedId) || current.peer != null && current.peer.id().equals(id))) disconnectNow();
-        attachmentsStopped.get(5,TimeUnit.SECONDS);
+        attachmentsStopped.handle((value,failure)->null).get(5,TimeUnit.SECONDS);
         for(AttachmentRecord record:AttachmentTransferV2.cancelPending(store.attachmentDirectory(id)))store.attachment(id,record);
         publish(); return null;
     }); }
-    public CompletableFuture<Void> clear(String id) { return submit(() -> {if(current!=null&&current.peer!=null&&current.peer.id().equals(id))disconnectNow();attachmentsStopped.get(5,TimeUnit.SECONDS);store.clear(id); publish(); return null; }); }
+    public CompletableFuture<Void> clear(String id) { return submit(() -> {if(current!=null&&current.peer!=null&&current.peer.id().equals(id))disconnectNow();attachmentsStopped.handle((value,failure)->null).get(5,TimeUnit.SECONDS);store.clear(id); publish(); return null; }); }
     public CompletableFuture<Void> disconnect() { return submit(() -> { disconnectNow(); publish(); return null; }); }
     private void disconnectNow() {
         ++generation; closeSocket(connecting); connecting = null; closeConnection(connectingBluetooth); connectingBluetooth=null; connectingPeer = null;

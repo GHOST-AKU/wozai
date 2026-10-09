@@ -59,6 +59,7 @@
     <string name="attachment_state_preparing" formatted="false">"準備中"</string>
     <string name="attachment_state_received" formatted="false">"受信済み"</string>
     <string name="attachment_state_rejected" formatted="false">"拒否されました"</string>
+    <string name="attachment_state_source_unavailable" formatted="false">"一時停止：元のファイルを読み込めません。アクセスを復旧して再開してください。"</string>
     <string name="attachment_state_transferring" formatted="false">"転送中"</string>
     <string name="attachment_state_unknown" formatted="false">"結果不明（相手が保存済みの可能性あり）"</string>
     <string name="attachment_state_verifying" formatted="false">"検証・保存中"</string>
