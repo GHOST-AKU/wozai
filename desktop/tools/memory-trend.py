@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Opt-in Linux virtual GUI memory trend; disposable profiles, no message/key dumps."""
+"""Opt-in desktop GUI memory trend; disposable profiles, no message/key dumps."""
 import argparse
 import concurrent.futures
 import hashlib
@@ -36,17 +36,18 @@ def one(args, phase, index):
             processes.append(process)
             return process
         try:
-            display = 140 + index * 2 + (phase == "connected")
-            display_file = Path(f"/tmp/.X11-unix/X{display}")
-            if display_file.exists():
-                raise RuntimeError("Benchmark display is occupied")
-            xvfb = launch(["Xvfb", f":{display}", "-screen", "0", "1280x1024x24", "-nolisten", "tcp"], "xvfb")
-            end = time.monotonic() + 10
-            while not display_file.exists():
-                if xvfb.poll() is not None or time.monotonic() >= end:
-                    raise RuntimeError("Benchmark display did not start")
-                time.sleep(.05)
-            env["DISPLAY"] = f":{display}"
+            if os.name != "nt":
+                display = 140 + index * 2 + (phase == "connected")
+                display_file = Path(f"/tmp/.X11-unix/X{display}")
+                if display_file.exists():
+                    raise RuntimeError("Benchmark display is occupied")
+                xvfb = launch(["Xvfb", f":{display}", "-screen", "0", "1280x1024x24", "-nolisten", "tcp"], "xvfb")
+                end = time.monotonic() + 10
+                while not display_file.exists():
+                    if xvfb.poll() is not None or time.monotonic() >= end:
+                        raise RuntimeError("Benchmark display did not start")
+                    time.sleep(.05)
+                env["DISPLAY"] = f":{display}"
             cp = os.pathsep.join([str(ROOT / "desktop/build/classes"), str(ROOT / "desktop/build/tests"), str(ROOT / "desktop/build/lib/*")])
             base = ["java", "-Xmx256m", "-cp", cp]
             peers = []
@@ -82,7 +83,9 @@ def one(args, phase, index):
                 process = performance.psutil.Process(target.pid)
                 points.append({"elapsed_s": round(elapsed, 3), "rss_bytes": rss,
                                "cpu_percent_one_core": 100 * delta / (now - previous_time),
-                               "threads": process.num_threads(), "file_descriptors": process.num_fds()})
+                               "threads": process.num_threads(),
+                               "file_descriptors": None if os.name == "nt" else process.num_fds(),
+                               "os_handles": process.num_handles() if os.name == "nt" else None})
                 previous_cpu, previous_time = cpu, now
                 if elapsed - heaps[-1]["elapsed_s"] >= 60:
                     heaps.append({"elapsed_s": elapsed, **heap(target.pid)})
@@ -130,7 +133,8 @@ def main():
         futures = [executor.submit(one, args, phase, index) for phase in ["idle", "connected"] for index in range(1, args.rounds + 1)]
         reports = [future.result() for future in futures]
     report = {"source_commit": commit + ("+dirty" if dirty else ""), "class_artifact_sha256": digest.hexdigest(), "environment_kind": "virtual",
-              "limitations": "Linux x64 compiled client GUI in isolated Xvfb displays; all rounds run concurrently. jstat used heap is not post-GC live heap. No phone, Windows, physical network, thermal or release acceptance.", "rounds": reports}
+              "platform": "Windows" if os.name == "nt" else "Linux",
+              "limitations": "Compiled desktop GUI in a virtual desktop (isolated Xvfb on Linux); all rounds run concurrently. jstat used heap is not post-GC live heap. No phone, physical network, thermal or release acceptance.", "rounds": reports}
     args.output.write_text(json.dumps(report, indent=2) + "\n")
     print(f"Verified {len(reports)} independent client runs; report: {args.output}", flush=True)
 
