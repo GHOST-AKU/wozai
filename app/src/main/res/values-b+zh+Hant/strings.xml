@@ -14,12 +14,12 @@
     <string name="android_bluetooth_search_not_started" formatted="false">"搜尋沒有啟動，可嘗試已配對裝置；Android 11 及以前需開啟系統定位"</string>
     <string name="android_bluetooth_unavailable" formatted="false">"這部裝置不支援藍牙，可切換區域網路。"</string>
     <string name="android_composer" formatted="false">"說點什麼…"</string>
-    <string name="android_direct_body" formatted="false">"輸入對方顯示的完整位址和連接埠。區域網路訊息以明文傳輸，請使用可信網路。"</string>
-    <string name="android_help_body" formatted="false">"區域網路：雙方連線同一個 Wi-Fi 或熱點，開啟接收後搜尋，也可輸入完整 IP 位址和連接埠。區域網路文字以明文傳輸，請使用可信網路。\n\n藍牙：對方開啟接收並允許被發現後搜尋，首次連線按系統提示配對。已記住裝置可透過歷史直接連線，對方仍需開啟藍牙和接收服務。\n\n首次聊天可選擇記住裝置或僅本次。記住後驗證同一裝置身分再直接連線；可在設定中取消信任。\n\n待確認表示尚未收到儲存回條，已送達表示對方已儲存，未確認表示結果未知，不能表示已讀。\n\n聊天記錄儲存在本機。草稿在會話切換和介面重建時保留，停止應用程式後不保證保留。系統結束應用程式後需要重新開啟接收。"</string>
+    <string name="android_direct_body" formatted="false">"輸入對方顯示的完整位址和連接埠。"</string>
+    <string name="android_help_body" formatted="false">"區域網路：雙方連線同一個 Wi-Fi 或熱點，開啟接收後搜尋，也可輸入完整 IP 位址和連接埠。聊天與檔案傳輸使用端對端加密。本機聊天記錄和附件不加密。\n\n藍牙：對方開啟接收並允許被發現後搜尋，首次連線按系統提示配對。已記住裝置可透過歷史直接連線，對方仍需開啟藍牙和接收服務。\n\n首次聊天可選擇記住裝置或僅本次。記住後驗證同一裝置身分再直接連線；可在設定中取消信任。\n\n待確認表示尚未收到儲存回條，已送達表示對方已儲存，未確認表示結果未知，不能表示已讀。\n\n聊天記錄儲存在本機。草稿在會話切換和介面重建時保留，停止應用程式後不保證保留。系統結束應用程式後需要重新開啟接收。"</string>
     <string name="android_identity_changed" formatted="false">"此裝置的身分金鑰已變化。如確認需要重新認識，請先在設定中取消該裝置信任，再重新連線"</string>
-    <string name="android_lan_hint" formatted="false">"兩部裝置連線同一 Wi-Fi，或加入同一個熱點。區域網路訊息以明文傳輸，請使用可信網路。"</string>
+    <string name="android_lan_hint" formatted="false">"兩部裝置連線同一 Wi-Fi，或加入同一個熱點。"</string>
     <string name="android_request_body" formatted="false">"{0}連線。記住後，下次可以直接連線。可在裝置資訊中取消信任。\n\n暱稱由對方填寫，裝置信任不認證真實姓名。"</string>
-    <string name="android_request_lan_body" formatted="false">"{0}連線。記住後，下次可以直接連線。可在裝置資訊中取消信任。\n\n暱稱由對方填寫，裝置信任不認證真實姓名。區域網路訊息以明文傳輸，請使用可信網路。"</string>
+    <string name="android_request_lan_body" formatted="false">"{0}連線。記住後，下次可以直接連線。可在裝置資訊中取消信任。\n\n暱稱由對方填寫，裝置信任不認證真實姓名。聊天與檔案傳輸使用端對端加密。本機聊天記錄和附件不加密。"</string>
     <string name="android_storage_failure" formatted="false">"本機記錄讀寫失敗，請重試；若問題持續，請回報錯誤"</string>
     <string name="android_storage_stopped" formatted="false">"本機記錄儲存失敗，連線已停止"</string>
     <string name="app" formatted="false">"我在"</string>
@@ -189,8 +189,8 @@
     <string name="handshake" formatted="false">"正在驗證裝置…"</string>
     <string name="handshake_timeout" formatted="false">"對方沒有回應握手，請重新連線。"</string>
     <string name="help" formatted="false">"使用說明"</string>
-    <string name="help_body_linux" formatted="false">"區域網路：雙方連線同一個 Wi-Fi 或熱點，開啟接收後搜尋，也可輸入完整 IP 位址和連接埠。區域網路文字以明文傳輸，請使用可信網路。\n\n藍牙：開啟介面卡與 BlueZ 系統服務。雙方開啟接收，被搜尋的一方允許被發現。首次配對需要執行桌面系統的配對代理，可在系統藍牙設定中配對。清單顯示已配對及搜尋到的裝置，記住的裝置可從歷史重新連線。停止接收不會中斷已建立的聊天。\n\n首次聊天可選擇記住裝置或僅本次。系統配對不等於應用程式內信任。重新連線會驗證同一公鑰；可在設定中取消信任。\n\n待確認表示尚未收到儲存回條，已送達表示對方已儲存，未確認表示結果未知，均不表示已讀。\n\n記錄與草稿儲存在本機，重新啟動後保留。退出後需要重新開啟接收。資料位於 XDG_DATA_HOME/wozai，預設 ~/.local/share/wozai，與軟體安裝位置無關。裝置私鑰沒有額外加密，使用僅目前使用者可存取的檔案權限保護。刪除資料會刪除記錄與裝置信任。"</string>
-    <string name="help_body_windows" formatted="false">"區域網路：雙方連線同一個 Wi-Fi 或熱點，開啟接收後搜尋，也可輸入完整 IP 位址和連接埠。區域網路文字以明文傳輸，請使用可信網路。\n\n藍牙：對方開啟接收並允許被發現後搜尋，首次連線按系統提示配對。Windows 可透過「Windows 藍牙設定」完成配對。已記住裝置可透過歷史直接連線，對方仍需開啟藍牙和接收服務。\n\n首次聊天可選擇記住裝置或僅本次。記住後驗證同一裝置身分再直接連線；可在設定中取消信任。\n\n待確認表示尚未收到儲存回條，已送達表示對方已儲存，未確認表示結果未知，不能表示已讀。\n\n聊天記錄儲存在本機。Windows 端的草稿會儲存，切換會話或重新啟動後仍可恢復。退出後需要重新開啟接收。\n\n可攜式版本資料放在軟體旁的 data 資料夾，舊版資料遷移後原件保留。裝置私鑰由目前 Windows 使用者保護，複製到另一使用者或電腦不會自動解鎖身分。刪除 data 會刪除記錄和裝置信任。"</string>
+    <string name="help_body_linux" formatted="false">"區域網路：雙方連線同一個 Wi-Fi 或熱點，開啟接收後搜尋，也可輸入完整 IP 位址和連接埠。聊天與檔案傳輸使用端對端加密。本機聊天記錄和附件不加密。\n\n藍牙：開啟介面卡與 BlueZ 系統服務。雙方開啟接收，被搜尋的一方允許被發現。首次配對需要執行桌面系統的配對代理，可在系統藍牙設定中配對。清單顯示已配對及搜尋到的裝置，記住的裝置可從歷史重新連線。停止接收不會中斷已建立的聊天。\n\n首次聊天可選擇記住裝置或僅本次。系統配對不等於應用程式內信任。重新連線會驗證同一公鑰；可在設定中取消信任。\n\n待確認表示尚未收到儲存回條，已送達表示對方已儲存，未確認表示結果未知，均不表示已讀。\n\n記錄與草稿儲存在本機，重新啟動後保留。退出後需要重新開啟接收。資料位於 XDG_DATA_HOME/wozai，預設 ~/.local/share/wozai，與軟體安裝位置無關。裝置私鑰沒有額外加密，使用僅目前使用者可存取的檔案權限保護。刪除資料會刪除記錄與裝置信任。"</string>
+    <string name="help_body_windows" formatted="false">"區域網路：雙方連線同一個 Wi-Fi 或熱點，開啟接收後搜尋，也可輸入完整 IP 位址和連接埠。聊天與檔案傳輸使用端對端加密。本機聊天記錄和附件不加密。\n\n藍牙：對方開啟接收並允許被發現後搜尋，首次連線按系統提示配對。Windows 可透過「Windows 藍牙設定」完成配對。已記住裝置可透過歷史直接連線，對方仍需開啟藍牙和接收服務。\n\n首次聊天可選擇記住裝置或僅本次。記住後驗證同一裝置身分再直接連線；可在設定中取消信任。\n\n待確認表示尚未收到儲存回條，已送達表示對方已儲存，未確認表示結果未知，不能表示已讀。\n\n聊天記錄儲存在本機。Windows 端的草稿會儲存，切換會話或重新啟動後仍可恢復。退出後需要重新開啟接收。\n\n可攜式版本資料放在軟體旁的 data 資料夾，舊版資料遷移後原件保留。裝置私鑰由目前 Windows 使用者保護，複製到另一使用者或電腦不會自動解鎖身分。刪除 data 會刪除記錄和裝置信任。"</string>
     <string name="history_trust_retained" formatted="false">"本機聊天記錄和信任會保留。"</string>
     <string name="identity_changed" formatted="false">"裝置身分與歷史記錄不符，已拒絕連線。請先確認對方是否重新安裝了應用程式。"</string>
     <string name="identity_changed_rejected" formatted="false">"裝置身分已變化，連線已拒絕"</string>
@@ -280,7 +280,7 @@
     <string name="photo_zoom_out" formatted="false">"縮小照片"</string>
     <string name="please_wait_connecting" formatted="false">"正在連線，請稍候"</string>
     <string name="portable_hint" formatted="false">"可攜式版本預設將資料儲存在軟體旁的 data 資料夾。舊版資料會複製遷移並保留原件。裝置身分仍由目前 Windows 使用者保護，複製到另一使用者或電腦不會自動解鎖身分。"</string>
-    <string name="privacy" formatted="false">"無需帳號或遠端伺服器。聊天記錄儲存在本機。區域網路文字仍是明文；身分簽章不提供內容加密。"</string>
+    <string name="privacy" formatted="false">"無需帳號或遠端伺服器。聊天與檔案傳輸使用端對端加密，本機記錄和附件不加密。首次連線請當面核對裝置身分。"</string>
     <string name="quit" formatted="false">"結束"</string>
     <string name="ready" formatted="false">"已連線"</string>
     <string name="received" formatted="false">"已收到"</string>

@@ -30,6 +30,12 @@ public final class DeviceIdentity {
     }
 
     public String publicKey() { return publicKey; }
+    public String fingerprint(){try{return fingerprint(publicKey);}catch(GeneralSecurityException invalid){throw new IllegalStateException(invalid);}}
+    public static String fingerprint(String encoded)throws GeneralSecurityException {
+        byte[] bytes;try{bytes=Base64.getDecoder().decode(encoded);}catch(IllegalArgumentException error){throw new InvalidKeyException("Invalid root encoding",error);}
+        decodePublicKey(bytes);byte[] hash=MessageDigest.getInstance("SHA-256").digest(bytes);StringBuilder result=new StringBuilder(64);
+        for(byte value:hash)result.append(String.format(Locale.ROOT,"%02x",value&255));return result.toString();
+    }
 
     public byte[] sign(byte[] message) throws GeneralSecurityException {
         Signature signer = Signature.getInstance("SHA256withECDSA");

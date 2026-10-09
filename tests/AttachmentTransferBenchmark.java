@@ -40,7 +40,7 @@ public final class AttachmentTransferBenchmark {
                 throw new IllegalArgumentException("Unknown, missing or duplicate benchmark argument");
         }
         String mode=options.getOrDefault("mode","signed-v3");
-        if(!Set.of("raw-tcp","signed-v3","file-v2").contains(mode))throw new IllegalArgumentException("Benchmark mode not implemented: "+mode);
+        if(!Set.of("raw-tcp","signed-v3","file-v2","noise-v4").contains(mode))throw new IllegalArgumentException("Benchmark mode not implemented: "+mode);
         long size=Long.parseLong(options.getOrDefault("size","50331648"));
         int rounds=Integer.parseInt(options.getOrDefault("rounds","3"));
         if(size<0||size>MAX_SIZE||mode.equals("signed-v3")&&size>AttachmentInfo.MAX_SIZE||rounds<1||rounds>20)
@@ -63,7 +63,7 @@ public final class AttachmentTransferBenchmark {
             report.put("source_generation_ns",source.generationNs);report.putAll(diskBaseline(root,source,size));
             List<Map<String,Object>> samples=new ArrayList<>();
             for(int i=0;i<rounds;i++) {
-                Round sample=switch(mode){case "raw-tcp"->raw(source,size);case "file-v2"->v2(root.resolve("round-"+i),source,size);default->signed(root.resolve("round-"+i),source,size);};
+                Round sample=switch(mode){case "raw-tcp"->raw(source,size);case "file-v2"->v2(root.resolve("round-"+i),source,size);case "noise-v4"->encrypted(root.resolve("round-"+i),source,size);default->signed(root.resolve("round-"+i),source,size);};
                 Map<String,Object> data=sample.report(size,mode,source.hash);data.put("round",i+1);samples.add(data);
             }
             report.put("rounds",samples);
@@ -200,6 +200,57 @@ public final class AttachmentTransferBenchmark {
         try(ServerSocket server=new ServerSocket(0,1,InetAddress.getLoopbackAddress());Socket client=new Socket(InetAddress.getLoopbackAddress(),server.getLocalPort());Socket accepted=server.accept();
             V2Endpoint a=new V2Endpoint(root.resolve("a"),timing,true,client);V2Endpoint b=new V2Endpoint(root.resolve("b"),timing,false,accepted)) {
             a.start();b.start();timing.setup=System.nanoTime()-setup;timing.start=System.nanoTime();
+            a.transfer.offer(new FileAttachmentSource(source.path),"benchmark.bin","application/octet-stream").get(10,TimeUnit.SECONDS);
+            AttachmentRecord received=b.complete.get(TIMEOUT_SECONDS,TimeUnit.SECONDS);a.complete.get(TIMEOUT_SECONDS,TimeUnit.SECONDS);
+            Path file=AttachmentTransfer.file(b.root,received.info);requireDigest(source.hash,hashFile(file),size,Files.size(file));return timing;
+        }finally{deleteTree(root);}
+    }
+    /** Formal NIM4 session, encrypted records and the same durable file engine used by clients. */
+    private static final class NoiseEndpoint implements FramedSession.Listener,AutoCloseable {
+        final Path root;final Round timing;final boolean sender;final DeviceIdentity identity=DeviceIdentity.generate();
+        final CountDownLatch hello=new CountDownLatch(1),ready=new CountDownLatch(1);
+        final CompletableFuture<AttachmentRecord> complete=new CompletableFuture<>();
+        FramedSession session;volatile AttachmentTransferV2 transfer;
+        NoiseEndpoint(Path root,Round timing,boolean sender,Socket socket)throws Exception {
+            this.root=root;this.timing=timing;this.sender=sender;socket.setTcpNoDelay(true);
+            byte[] privateKey=new byte[32];new SecureRandom().nextBytes(privateKey);
+            try{session=FramedSession.secure(SessionTests.connection(socket),sender?CoreTests.A:CoreTests.B,"benchmark",identity,privateKey,sender,this);}finally{Arrays.fill(privateKey,(byte)0);}
+        }
+        public void onHello(Frame frame) {
+            try {
+                transfer=new AttachmentTransferV2(root,identity.fingerprint(),DeviceIdentity.fingerprint(session.remotePublicKey()),session.connectionGeneration(),false,new AttachmentTransferV2.Wire(){
+                    public boolean send(TransferPacket packet){return session.sendTransfer(packet);}public void abort(){session.close(UiText.of("attachmentFailed"));}
+                },record->{
+                    if(sender&&record.state.equals("offered"))timing.prepared=System.nanoTime();
+                    if(!sender&&record.state.equals("verifying"))timing.commitStart=System.nanoTime();
+                    if(!sender&&record.state.equals("received")) {
+                        try(FileOutputStream out=new FileOutputStream(root.resolve("received.record").toFile())){out.write(record.encode().getBytes(java.nio.charset.StandardCharsets.UTF_8));out.getChannel().force(true);}
+                        timing.committed=System.nanoTime();complete.complete(record);
+                    }
+                    if(sender&&record.state.equals("delivered")){timing.receipt=System.nanoTime();complete.complete(record);}
+                    if(Set.of("failed","canceled").contains(record.state))complete.completeExceptionally(new IOException("Encrypted transfer "+record.state));
+                });hello.countDown();
+            }catch(Exception error){complete.completeExceptionally(error);session.close(UiText.of("attachmentFailed"));}
+        }
+        public void onReady(){ready.countDown();}
+        public void onText(Frame frame){session.acknowledge(frame.id);}
+        public void onAck(String id){}
+        public void onClosed(UiText reason){complete.completeExceptionally(new IOException("Encrypted benchmark closed: "+reason.key));}
+        public void onTransfer(TransferPacket packet) {
+            if(!sender&&packet.kind==TransferPacket.Kind.DATA&&timing.first==0)timing.first=System.nanoTime();
+            if(!sender&&packet.kind==TransferPacket.Kind.END)timing.last=System.nanoTime();
+            try{transfer.receive(packet,true);}catch(IOException failure){complete.completeExceptionally(failure);session.close(UiText.of("attachmentFailed"));}
+        }
+        public void close()throws Exception {session.close(UiText.EMPTY);if(transfer!=null)transfer.shutdown().get(5,TimeUnit.SECONDS);}
+    }
+    private static Round encrypted(Path root,Source source,long size)throws Exception {
+        Round timing=new Round();long setup=System.nanoTime();
+        try(ServerSocket server=new ServerSocket(0,1,InetAddress.getLoopbackAddress());Socket client=new Socket(InetAddress.getLoopbackAddress(),server.getLocalPort());Socket accepted=server.accept();
+            NoiseEndpoint a=new NoiseEndpoint(root.resolve("a"),timing,true,client);NoiseEndpoint b=new NoiseEndpoint(root.resolve("b"),timing,false,accepted)) {
+            a.session.start();b.session.start();
+            if(!a.hello.await(10,TimeUnit.SECONDS)||!b.hello.await(10,TimeUnit.SECONDS))throw new IOException("Encrypted benchmark handshake failed");
+            a.session.approve();b.session.approve();if(!a.ready.await(10,TimeUnit.SECONDS)||!b.ready.await(10,TimeUnit.SECONDS))throw new IOException("Encrypted benchmark consent failed");
+            timing.setup=System.nanoTime()-setup;timing.start=System.nanoTime();
             a.transfer.offer(new FileAttachmentSource(source.path),"benchmark.bin","application/octet-stream").get(10,TimeUnit.SECONDS);
             AttachmentRecord received=b.complete.get(TIMEOUT_SECONDS,TimeUnit.SECONDS);a.complete.get(TIMEOUT_SECONDS,TimeUnit.SECONDS);
             Path file=AttachmentTransfer.file(b.root,received.info);requireDigest(source.hash,hashFile(file),size,Files.size(file));return timing;

@@ -63,6 +63,8 @@ public final class AttachmentResumeTests {
             pauseDuringPrefix(root);
             receiptWithoutSource(root);
             revokedPending(root);
+            bridgeRejectsForeignRoot(root);
+            cancelPausedPeer(root);
             AttachmentInfo pending=AttachmentInfo.v2(ID,"data.bin","application/octet-stream",10,null,1);
             AttachmentRecord paused=new AttachmentRecord(pending,true,"paused",7);
             check(paused.mayReplace(new AttachmentRecord(pending,true,"checking",0)),"Paused history cannot resume");
@@ -73,6 +75,28 @@ public final class AttachmentResumeTests {
         }finally{try(var paths=Files.walk(root)){for(Path path:paths.sorted(Comparator.reverseOrder()).toList())Files.deleteIfExists(path);}}
     }
     private static TransferTaskKey sender(String id,String generation){return new TransferTaskKey("a".repeat(64),"b".repeat(64),TransferTaskKey.Direction.SEND,id,generation);}
+    private static void bridgeRejectsForeignRoot(Path root)throws Exception {
+        Path directory=root.resolve("foreign-root");Files.createDirectories(directory);Path original=directory.resolve("source.bin");Files.write(original,new byte[10]);
+        try(AttachmentV2Tests.Pair pair=new AttachmentV2Tests.Pair(directory,false,AttachmentV2Tests.CONNECTION)) {
+            TransferTaskKey foreign=new TransferTaskKey("a".repeat(64),"e".repeat(64),TransferTaskKey.Direction.SEND,ID,GEN);
+            AttachmentInfo info=AttachmentInfo.v2(ID,"data.bin","application/octet-stream",10,null,1);
+            new TransferCheckpointStore(directory.resolve("a/.tasks-v2")).checkpoint(new TransferCheckpoint(foreign,info,"foreign provider URI",0,0,0,TransferCheckpoint.State.PAUSED,System.currentTimeMillis()));
+            java.util.concurrent.atomic.AtomicInteger opened=new java.util.concurrent.atomic.AtomicInteger();
+            ClientAttachmentTransfers bridge=new ClientAttachmentTransfers(directory.resolve("a"),pair.a,saved->{opened.incrementAndGet();return new FileAttachmentSource(original,GEN);});
+            try{bridge.resume(ID,true).get(3,java.util.concurrent.TimeUnit.SECONDS);throw new AssertionError("Foreign task resumed");}catch(IOException|java.util.concurrent.ExecutionException expected){}
+            check(opened.get()==0,"A different root's task opened its persisted source before identity rejection");
+        }
+    }
+    private static void cancelPausedPeer(Path root)throws Exception {
+        Path directory=root.resolve("cancel-paused-peer");Files.createDirectories(directory);Path original=directory.resolve("source.bin");Files.write(original,new byte[2*TransferLimits.BLOCK_BYTES]);
+        try(AttachmentV2Tests.Pair pair=new AttachmentV2Tests.Pair(directory,false,AttachmentV2Tests.CONNECTION)) {
+            pair.holdCredit=true;String id=pair.a.offer(new FileAttachmentSource(original),"data.bin","application/octet-stream").get();
+            AttachmentV2Tests.waitFor(pair.aRecords,"transferring");pair.a.pause(id,true).get();AttachmentV2Tests.waitFor(pair.aRecords,"paused");AttachmentV2Tests.waitFor(pair.bRecords,"paused");
+            pair.a.cancelAll().get();AttachmentV2Tests.waitFor(pair.aRecords,"canceled");AttachmentV2Tests.waitFor(pair.bRecords,"canceled");
+            check(Files.exists(original),"Cancel all deleted the selected original");
+            check(new TransferCheckpointStore(directory.resolve("b/.tasks-v2")).list().stream().allMatch(saved->saved.state()==TransferCheckpoint.State.CANCELED),"Peer retained a resumable canceled task");
+        }
+    }
     private static void ownedSource(Path root)throws Exception {
         try(AttachmentV2Tests.Pair pair=new AttachmentV2Tests.Pair()) {
             Path originals=pair.root.resolve("selected.bin"),snapshots=pair.root.resolve("a/.sources-v2");Files.write(originals,new byte[2*TransferLimits.BLOCK_BYTES]);Files.createDirectories(snapshots);

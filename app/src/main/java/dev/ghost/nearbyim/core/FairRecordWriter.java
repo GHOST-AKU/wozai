@@ -35,7 +35,7 @@ public final class FairRecordWriter implements AutoCloseable {
             synchronized(lock) {
                 while(!closed&&files.isEmpty()&&controls.isEmpty())try{lock.wait();}catch(InterruptedException e){if(closed)return;}
                 if(closed)return;
-                if(!controls.isEmpty()&&(files.isEmpty()||controlBurst<8)){entry=controls.removeFirst();controlBurst++;}
+                if(!controls.isEmpty()&&(files.isEmpty()||controlBurst<8)){entry=controls.removeFirst();controlBurst=Math.min(8,controlBurst+1);}
                 else{entry=files.removeFirst();controlBurst=0;}
             }
             try {entry.operation.run();}

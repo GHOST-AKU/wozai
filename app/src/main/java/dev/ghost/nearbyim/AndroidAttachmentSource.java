@@ -80,12 +80,20 @@ public final class AndroidAttachmentSource implements AttachmentSource {
     @android.annotation.TargetApi(27) private static String nanoseconds(StructStat stat){return ":"+stat.st_mtim.tv_nsec+":"+stat.st_ctim.tv_nsec;}
     public synchronized void close()throws IOException{if(closed)return;closed=true;synchronized(OPEN){int count=OPEN.getOrDefault(uri.toString(),1)-1;if(count==0)OPEN.remove(uri.toString());else OPEN.put(uri.toString(),count);}asset.close();}
     public void discard()throws IOException {
-        close();synchronized(OPEN){if(OPEN.containsKey(uri.toString()))return;
-            if(Files.exists(attachments,LinkOption.NOFOLLOW_LINKS))try(var directories=Files.list(attachments)){for(Path peer:(Iterable<Path>)directories::iterator){
-                if(Files.isSymbolicLink(peer)||!Files.isDirectory(peer,LinkOption.NOFOLLOW_LINKS))throw new IOException("Unsafe attachment directory");Path journal=peer.resolve(".tasks-v2");if(!Files.exists(journal,LinkOption.NOFOLLOW_LINKS))continue;
-                for(TransferCheckpoint saved:new TransferCheckpointStore(journal).list())if(saved.state()!=TransferCheckpoint.State.COMPLETE&&saved.state()!=TransferCheckpoint.State.CANCELED&&saved.sourceReference().startsWith(uri+"\n"))return;
-            }}
-            try{resolver.releasePersistableUriPermission(uri,Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(SecurityException absent){}
-        }
+        close();releaseUnused(resolver,attachments,uri);
+    }
+    /** Run after canceled task journals are durable and their source handles have closed. */
+    public static void releaseUnusedGrants(Context context)throws IOException {
+        ContentResolver resolver=context.getContentResolver();Path attachments=context.getFilesDir().toPath().resolve("attachments");
+        for(UriPermission grant:resolver.getPersistedUriPermissions())if(grant.isReadPermission())releaseUnused(resolver,attachments,grant.getUri());
+    }
+    private static void releaseUnused(ContentResolver resolver,Path attachments,Uri uri)throws IOException {
+        synchronized(OPEN){if(OPEN.containsKey(uri.toString()))return;}
+        if(Files.isSymbolicLink(attachments))throw new IOException("Unsafe attachment directory");
+        if(Files.exists(attachments,LinkOption.NOFOLLOW_LINKS))try(var directories=Files.list(attachments)){for(Path peer:(Iterable<Path>)directories::iterator){
+            if(Files.isSymbolicLink(peer)||!Files.isDirectory(peer,LinkOption.NOFOLLOW_LINKS))throw new IOException("Unsafe attachment directory");Path journal=peer.resolve(".tasks-v2");if(!Files.exists(journal,LinkOption.NOFOLLOW_LINKS))continue;
+            for(TransferCheckpoint saved:new TransferCheckpointStore(journal).list())if(saved.state()!=TransferCheckpoint.State.COMPLETE&&saved.state()!=TransferCheckpoint.State.CANCELED&&saved.sourceReference().startsWith(uri+"\n"))return;
+        }}
+        synchronized(OPEN){if(OPEN.containsKey(uri.toString()))return;try{resolver.releasePersistableUriPermission(uri,Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(SecurityException absent){}}
     }
 }

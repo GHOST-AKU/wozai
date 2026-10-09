@@ -36,7 +36,7 @@ public final class FramedSession {
     }
     private FramedSession(StreamConnection connection,String localId,String nickname,DeviceIdentity identity,byte[] staticKey,boolean initiator,Listener listener)throws IOException {
         this.connection=Objects.requireNonNull(connection);this.listener=Objects.requireNonNull(listener);channel=null;
-        noise=new NoiseRecordChannel(connection,initiator,identity,localId,nickname,staticKey,null,null);
+        noise=new NoiseRecordChannel(connection,initiator,identity,localId==null?null:localId.toLowerCase(Locale.ROOT),nickname,staticKey,null,null);
     }
     /** Explicit NIM4 selection; this constructor never falls back to NIM3. */
     public static FramedSession secure(StreamConnection connection,String localId,String nickname,DeviceIdentity identity,byte[] staticKey,boolean initiator,Listener listener)throws IOException {

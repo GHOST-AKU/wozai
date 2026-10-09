@@ -132,8 +132,8 @@ sh tools/check-source.sh
 Windows PowerShell:
 
 ```powershell
-.\tools\test-i18n.ps1
-.\tools\test-core.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\test-i18n.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\test-core.ps1
 ```
 
 These checks are not equivalent to a full Android build or real-device acceptance testing. See the [device testing guide](../device-test.md) for the complete procedure.

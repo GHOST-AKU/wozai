@@ -104,7 +104,7 @@ public final class ReviewRegressionTests {
              var accepted = server.accept()) {
             boolean uppercase = test.equals("handshake");
             if (uppercase) store.peer(new DesktopStore.Peer(PEER, "Phone", remoteIdentity.publicKey(), ""));
-            FramedSession remote = new FramedSession(connection(socket), uppercase ? PEER.toUpperCase(Locale.ROOT) : PEER, "Phone", remoteIdentity, new FramedSession.Listener() {
+            FramedSession remote = FramedSession.secure(connection(socket), uppercase ? PEER.toUpperCase(Locale.ROOT) : PEER, "Phone", remoteIdentity, TestNoise.key(), true, new FramedSession.Listener() {
                 public void onHello(Frame frame) { hello.countDown(); }
                 public void onReady() { ready.countDown(); }
                 public void onText(Frame frame) { remoteText.add(frame); }

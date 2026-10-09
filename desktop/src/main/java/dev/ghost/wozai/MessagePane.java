@@ -127,7 +127,7 @@ final class MessagePane extends JPanel implements Scrollable {
             TransferProgress measurement=MessagePane.this.progress.apply(message);
             if(record.state.equals("transferring")&&measurement.bytesPerSecond()>0)footer.add(new JLabel(strings.text("attachmentSpeedEta",MessagePane.size(measurement.bytesPerSecond()),measurement.remainingSeconds())));
             if(record.active()&&!record.state.equals("offered")&&!record.state.equals("preparing")){
-                JProgressBar progress=new JProgressBar(0,100);int percent=record.info.size==0?0:(int)(100*record.transferred/record.info.size);progress.setValue(percent);progress.setStringPainted(true);progress.getAccessibleContext().setAccessibleName(strings.text("attachmentProgress",percent,state));footer.add(progress);
+                JProgressBar progress=new JProgressBar(0,100);int percent=record.info.size==0?0:(int)(100*record.transferred/record.info.size);progress.setValue(percent);progress.setIndeterminate(record.state.equals("checking")||record.state.equals("verifying"));progress.setStringPainted(true);progress.getAccessibleContext().setAccessibleName(strings.text("attachmentProgress",percent,state));footer.add(progress);
             }
             JPanel buttons=new JPanel(new FlowLayout(FlowLayout.TRAILING,0,0));buttons.setOpaque(false);
             if(record.info.version==2&&(record.active()||record.resumable())){

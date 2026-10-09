@@ -19,7 +19,10 @@ public final class AttachmentBenchmarkTests {
             AttachmentTransferBenchmark.main(new String[]{"--mode","file-v2","--size","0","--rounds","1","--output",v2.toString(),"--work-dir",root.resolve("data").toString()});
             check(Files.readString(v2).contains("\"verified\":true"),"File v2 result was not verified");
             check(Files.readString(v2).contains("\"file_store_type\""),"Filesystem identity missing");
-            for(String mode:List.of("invalid","noise-v4")) {
+            Path encrypted=root.resolve("noise.json");
+            AttachmentTransferBenchmark.main(new String[]{"--mode","noise-v4","--size","0","--rounds","1","--output",encrypted.toString(),"--work-dir",root.resolve("encrypted-data").toString()});
+            check(Files.readString(encrypted).contains("\"verified\":true"),"Encrypted transfer result was not verified");
+            for(String mode:List.of("invalid")) {
                 Path missing=root.resolve(mode+".json");
                 rejects(()->AttachmentTransferBenchmark.main(new String[]{"--mode",mode,"--size","0","--output",missing.toString()}));
                 check(!Files.exists(missing),"Unsupported mode published a report");

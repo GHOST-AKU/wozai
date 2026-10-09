@@ -23,6 +23,8 @@ def main():
     classes = ROOT / "build/core-tests"
     classes.mkdir(parents=True, exist_ok=True)
     sources = sorted((ROOT / "app/src/main/java/dev/ghost/nearbyim/core").glob("*.java"))
+    sources += sorted((ROOT / "app/src/main/java/dev/ghost/nearbyim/noise").glob("*.java"))
+    sources += sorted((ROOT / "third_party/noise-java/src").rglob("*.java"))
     sources += [ROOT / "app/src/main/java/dev/ghost/nearbyim/i18n" / name for name in ["UiText.java", "LocalizedIllegalArgumentException.java"]]
     sources += sorted((ROOT / "tests").glob("*.java"))
     subprocess.run(["java", "-m", "jdk.compiler/com.sun.tools.javac.Main", "-encoding", "UTF-8", "-d", str(classes), *map(str, sources)], check=True, cwd=ROOT)

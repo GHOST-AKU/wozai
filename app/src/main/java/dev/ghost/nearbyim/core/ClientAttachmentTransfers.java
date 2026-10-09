@@ -27,7 +27,7 @@ public final class ClientAttachmentTransfers {
     /** Called on the platform's file/model executor, never the Android/UI thread. */
     public CompletableFuture<Void> resume(String id,boolean outgoing)throws IOException {
         if(streaming==null)return failed(new IOException("Resume requires V2"));
-        TransferCheckpoint checkpoint=new TransferCheckpointStore(root.resolve(".tasks-v2")).list().stream().filter(value->value.info().id.equals(id)&&(value.key().direction()==TransferTaskKey.Direction.SEND)==outgoing).findFirst().orElseThrow(()->new IOException("Missing attachment task"));
+        TransferCheckpoint checkpoint=new TransferCheckpointStore(root.resolve(".tasks-v2")).list().stream().filter(value->streaming.owns(value.key())&&value.info().id.equals(id)&&(value.key().direction()==TransferTaskKey.Direction.SEND)==outgoing).findFirst().orElseThrow(()->new IOException("Missing attachment task"));
         AttachmentSource source=null;if(outgoing)try{source=sources.open(checkpoint);}catch(IOException error){if(checkpoint.info().hash==null)throw error;}
         return streaming.resume(checkpoint.key(),source).thenApply(value->null);
     }

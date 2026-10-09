@@ -16,7 +16,7 @@ public final class AttachmentTransferV2 implements AutoCloseable {
     public interface Listener {void changed(AttachmentRecord record)throws IOException;default void progress(AttachmentRecord record,TransferProgress progress){}}
     public interface SourceResolver {AttachmentSource open(TransferCheckpoint checkpoint)throws IOException;}
     private interface Work {void run()throws Exception;}
-    private static final long QUEUE_BUDGET=8L*1024*1024;
+    private static final long QUEUE_BUDGET=9L*1024*1024;
     private final Path root;
     private final TransferCheckpointStore checkpoints;
     private final TransferStorageBudget storage;
@@ -70,7 +70,9 @@ public final class AttachmentTransferV2 implements AutoCloseable {
         Files.createDirectories(root);permissions(root,"rwx------");
         checkpoints=new TransferCheckpointStore(root.resolve(".tasks-v2"));this.storage=Objects.requireNonNull(storage);
         sourceResolver=value->{String reference=value.sourceReference();if(reference.startsWith("snapshot:\n"))return OwnedSnapshotSource.restore(root.resolve(".sources-v2"),reference,value.key().sourceGeneration());
-            String uri=reference.split("\n",2)[0];if(!uri.startsWith("file:"))throw new IOException("Source needs selection or restored provider grant");return new FileAttachmentSource(Paths.get(java.net.URI.create(uri)),value.key().sourceGeneration());};
+            String uri=reference.split("\n",2)[0];if(!uri.startsWith("file:"))throw new IOException("Source needs selection or restored provider grant");
+            FileAttachmentSource source=new FileAttachmentSource(Paths.get(java.net.URI.create(uri)),value.key().sourceGeneration());
+            if(!reference.equals(source.persistentReference())){source.close();throw new IOException("Attachment source changed");}return source;};
         FileChannel lease=FileChannel.open(root.resolve(".tasks-v2/.writer.lock"),StandardOpenOption.CREATE,StandardOpenOption.WRITE,LinkOption.NOFOLLOW_LINKS);
         try{if(lease.tryLock()==null)throw new IOException("Attachment directory already has a writer");permissions(root.resolve(".tasks-v2/.writer.lock"),"rw-------");}
         catch(IOException|java.nio.channels.OverlappingFileLockException error){lease.close();throw new IOException("Attachment directory already has a writer",error);}writerLock=lease;
@@ -96,6 +98,7 @@ public final class AttachmentTransferV2 implements AutoCloseable {
     private <T> CompletableFuture<T> track(CompletableFuture<T> future){operations.add(future);future.whenComplete((value,error)->operations.remove(future));return future;}
     private CompletableFuture<Void> command(Work work){CompletableFuture<Void> future=track(new CompletableFuture<>());if(!post(()->{try{work.run();future.complete(null);}catch(Exception error){future.completeExceptionally(error);throw error;}}))future.completeExceptionally(new IOException("Attachment session closed"));return future;}
     public void sourceResolver(SourceResolver value){sourceResolver=Objects.requireNonNull(value);}
+    public boolean owns(TransferTaskKey key){return key!=null&&key.localRoot().equals(localRoot)&&key.remoteRoot().equals(remoteRoot);}
     /** May perform bounded disk I/O; call on the platform file executor before offer. */
     public AttachmentSource prepareSource(AttachmentSource source)throws IOException {
         if(source.seekable()&&source.size()>=0)return source;
@@ -351,7 +354,7 @@ public final class AttachmentTransferV2 implements AutoCloseable {
     public CompletableFuture<Void> cancelAll() {
         for(Task task:new Task[]{outgoing,incoming})if(task!=null){task.canceled.set(true);closeTaskIO(task);}
         return command(()->{if(outgoing!=null)finish(outgoing,"canceled",true);if(incoming!=null)finish(incoming,"canceled",true);
-            for(AttachmentRecord record:cancelPending(root))listener.changed(record);});
+            for(TransferCheckpoint saved:checkpoints.list())if(owns(saved.key())&&saved.state()!=TransferCheckpoint.State.CANCELED&&saved.state()!=TransferCheckpoint.State.COMPLETE)cancelSaved(saved.info().id,saved.key().direction()==TransferTaskKey.Direction.SEND,true);});
     }
     /** Invoke on this engine's actor, or while no V2 writer owns the peer directory. */
     public static List<AttachmentRecord> cancelPending(Path root)throws IOException {
@@ -378,9 +381,10 @@ public final class AttachmentTransferV2 implements AutoCloseable {
             task.input=task.source.open(0);MessageDigest hash;
             try{hash=digest();}catch(NoSuchAlgorithmException error){throw new IOException(error);}
             try(InputStream input=task.input;FileChannel file=FileChannel.open(temporary,StandardOpenOption.CREATE_NEW,StandardOpenOption.WRITE,LinkOption.NOFOLLOW_LINKS)) {
+                task.output=file;
                 permissions(temporary,"rw-------");byte[] bytes=new byte[TransferLimits.DATA_BYTES];long copied=0;int empty=0;
                 try{while(copied<task.info.size){if(closed||task.canceled.get())throw new InterruptedIOException("Photo retention canceled");int n=input.read(bytes,0,(int)Math.min(bytes.length,task.info.size-copied));if(n<0)throw new EOFException("Photo source truncated");if(n==0){if(++empty>32)throw new IOException("Photo source made no progress");continue;}empty=0;hash.update(bytes,0,n);ByteBuffer buffer=ByteBuffer.wrap(bytes,0,n);while(buffer.hasRemaining())file.write(buffer);copied+=n;reservation.written(copied);}task.source.verifyUnchanged();require(task.info.hash.equals(AttachmentInfo.hex(hash.digest())));file.force(true);}finally{Arrays.fill(bytes,(byte)0);}
-            }finally{task.input=null;}
+            }finally{task.input=null;task.output=null;}
             Files.move(temporary,destination,StandardCopyOption.ATOMIC_MOVE);saved=true;TransferCheckpointStore.syncDirectory(root);
         }finally{if(!saved)Files.deleteIfExists(temporary);}
     }

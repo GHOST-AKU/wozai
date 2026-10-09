@@ -9,7 +9,7 @@ import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.*;
 
-/** Verifies Bluetooth routes share the real signed NIM2 consent/storage/ACK pipeline. */
+/** Verifies Bluetooth routes share the real encrypted NIM4 consent/storage/ACK pipeline. */
 public final class TransportTests {
     private static StreamConnection wrap(Socket socket,String label) { return new StreamConnection() {
         public InputStream input() throws IOException { return socket.getInputStream(); }
@@ -24,7 +24,7 @@ public final class TransportTests {
             public void changed(DesktopClient.State s) { states.add(s); } public void request(DesktopClient.Request r) { requests.add(r); } public void notice(UiText text) { }
         }); var listener=new ServerSocket(0,1,InetAddress.getLoopbackAddress()); var outgoing=new Socket(InetAddress.getLoopbackAddress(),listener.getLocalPort()); var incoming=listener.accept()) {
             CountDownLatch ready=new CountDownLatch(1), hello=new CountDownLatch(1); var remoteIdentity=DeviceIdentity.generate();
-            FramedSession remote=new FramedSession(wrap(outgoing,"Phone"),peerId,"Android Bluetooth",remoteIdentity,new FramedSession.Listener() {
+            FramedSession remote=FramedSession.secure(wrap(outgoing,"Phone"),peerId,"Android Bluetooth",remoteIdentity,TestNoise.key(),true,new FramedSession.Listener() {
                 public void onHello(Frame f) { hello.countDown(); } public void onReady() { ready.countDown(); } public void onText(Frame f) { } public void onAck(String id) { acks.add(id); } public void onClosed(UiText why) { }
             });
             try {

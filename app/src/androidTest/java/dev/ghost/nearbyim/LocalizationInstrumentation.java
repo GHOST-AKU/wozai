@@ -18,6 +18,9 @@ import dev.ghost.nearbyim.core.DeviceIdentity;
 import dev.ghost.nearbyim.core.AttachmentInfo;
 import dev.ghost.nearbyim.core.AttachmentRecord;
 import dev.ghost.nearbyim.core.AttachmentTransfer;
+import dev.ghost.nearbyim.core.AttachmentTransferV2;
+import dev.ghost.nearbyim.core.TransferPacket;
+import dev.ghost.nearbyim.core.FileAttachmentSource;
 import dev.ghost.nearbyim.core.Frame;
 import dev.ghost.nearbyim.core.FramedSession;
 import dev.ghost.nearbyim.core.StreamConnection;
@@ -52,7 +55,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
     private String originalLanguage;
     private MainActivity activity;
     private FramedSession remote;
-    private AttachmentTransfer remoteTransfers;
+    private volatile AttachmentTransferV2 remoteTransfers;
     private final BlockingQueue<AttachmentRecord> remoteFileStates=new LinkedBlockingQueue<>();
     private ChatController liveController;
     private final AtomicReference<MainActivity> latestActivity = new AtomicReference<>();
@@ -86,8 +89,8 @@ public final class LocalizationInstrumentation extends Instrumentation {
             code = Activity.RESULT_CANCELED; StringWriter trace = new StringWriter(); failure.printStackTrace(new PrintWriter(trace));
             results.putString("stream", trace.toString());
         } finally {
-            if(remoteTransfers!=null)remoteTransfers.close();
             if (remote != null) remote.close(UiText.of("connectionEnded"));
+            if(remoteTransfers!=null)try{remoteTransfers.shutdown().get(10,TimeUnit.SECONDS);}catch(Exception failure){code=Activity.RESULT_CANCELED;results.putString("stream",results.getString("stream","")+"Remote file cleanup failed: "+failure.getClass().getSimpleName()+"\n");}
             try {
                 onMain(() -> {
                     if (liveController != null) liveController.stopAll();
@@ -177,18 +180,19 @@ public final class LocalizationInstrumentation extends Instrumentation {
         try (ServerSocket socketServer = new ServerSocket(0, 1, InetAddress.getLoopbackAddress())) {
             Socket remoteSocket = new Socket(InetAddress.getLoopbackAddress(), socketServer.getLocalPort());
             Socket localSocket = socketServer.accept();
-            remote = new FramedSession(connection(remoteSocket), peerId, name, DeviceIdentity.generate(), new FramedSession.Listener() {
-                public void onHello(Frame frame) { reference.get().approve(); }
-                public void onAttachment(Frame frame){remoteTransfers.receive(frame);}
+            DeviceIdentity remoteRoot=DeviceIdentity.generate();byte[] remoteKey=new byte[32];new java.security.SecureRandom().nextBytes(remoteKey);
+            remote = FramedSession.secure(connection(remoteSocket), peerId, name, remoteRoot,remoteKey,true, new FramedSession.Listener() {
+                public void onHello(Frame frame) {
+                    try {FramedSession wire=reference.get();remoteTransfers=new AttachmentTransferV2(new File(getTargetContext().getCacheDir(),"native-remote-attachments-"+peerId).toPath(),remoteRoot.fingerprint(),DeviceIdentity.fingerprint(wire.remotePublicKey()),wire.connectionGeneration(),false,new AttachmentTransferV2.Wire(){
+                        public boolean send(TransferPacket packet){return wire.sendTransfer(packet);}public void abort(){wire.close(UiText.of("attachmentFailed"));}
+                    },record->remoteFileStates.add(record));wire.approve();}catch(Exception failure){throw new IllegalStateException("Remote encrypted fixture failed",failure);}
+                }
+                public void onTransfer(TransferPacket packet){try{remoteTransfers.receive(packet,true);}catch(IOException failure){throw new java.io.UncheckedIOException(failure);}}
                 public void onReady() { ready.countDown(); }
                 public void onText(Frame frame) { reference.get().acknowledge(frame.id); }
                 public void onAck(String id) { receipts.add(id); }
                 public void onClosed(UiText reason) {}
             });
-            remoteTransfers=new AttachmentTransfer(new File(getTargetContext().getCacheDir(),"native-remote-attachments-"+peerId).toPath(),new AttachmentTransfer.Wire(){
-                public boolean send(Frame frame){return reference.get().sendAttachment(frame);}
-                public void abort(){reference.get().close(UiText.of("attachmentFailed"));}
-            },record->remoteFileStates.add(record),AttachmentInfo.CHUNK_SIZE,AttachmentInfo.MAX_SIZE);
             reference.set(remote); remote.start();
             onMain(() -> { controller.onConnection(Peer.LAN, connection(localSocket), true); return null; });
         }
@@ -371,6 +375,9 @@ public final class LocalizationInstrumentation extends Instrumentation {
         constructor.setAccessible(true);
         return constructor.newInstance(6, Peer.LAN, new Peer(Peer.LAN, "test", name, "192.168.1.2:1234", null, 1234, null, id), null, id, true);
     }
+    private FileAttachmentSource testFileSource(byte[] bytes)throws IOException {
+        java.nio.file.Path path=java.nio.file.Files.createTempFile(getTargetContext().getCacheDir().toPath(),"native-selected-",".bin");java.nio.file.Files.write(path,bytes);return new FileAttachmentSource(path);
+    }
     private AttachmentRecord remoteFileState(String state)throws Exception{
         long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(30);
         while(System.nanoTime()<deadline){AttachmentRecord record=remoteFileStates.poll(100,TimeUnit.MILLISECONDS);if(record!=null&&record.state.equals(state))return record;}
@@ -386,13 +393,13 @@ public final class LocalizationInstrumentation extends Instrumentation {
         check(onMain(()->{android.widget.Button button=field(activity,"sendButton");return button.getText().length()==0&&button.getWidth()==button.getHeight()&&button.getCompoundDrawables()[0]!=null;}),"Composer uses a circular Material send icon");
         Bitmap photo=Bitmap.createBitmap(400,200,Bitmap.Config.ARGB_8888);int[] pixels=new int[80000];java.util.Random random=new java.util.Random(73);for(int i=0;i<pixels.length;i++){int y=i/400;pixels[i]=0xff000000|((40+y/2+random.nextInt(8))<<16)|((90+y/2+random.nextInt(8))<<8)|(180-y/3+random.nextInt(8));}photo.setPixels(pixels,0,400,0,0,400,200);
         java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream();photo.compress(Bitmap.CompressFormat.PNG,100,bytes);photo.recycle();byte[] data=bytes.toByteArray();
-        String id=remoteTransfers.offer(()->new java.io.ByteArrayInputStream(data),"native-photo.png","image/png").get(10,TimeUnit.SECONDS);
+        String id=remoteTransfers.offer(testFileSource(data),"native-photo.png","image/png").get(10,TimeUnit.SECONDS);
         remoteFileState("delivered");
         await(()->onMain(()->controller.messages.stream().anyMatch(m->m.id.equals(id)&&m.attachment!=null&&m.attachment.state.equals("received"))),"Android persists received photo");
         check(onMain(()->controller.connected&&controller.error.isEmpty()),"Approved Android chat receives photos without another confirmation");
         AttachmentRecord received=onMain(()->controller.messages.stream().filter(m->m.id.equals(id)).findFirst().get().attachment);
         java.nio.file.Path file=controller.attachmentPath(peer,received.info).get(10,TimeUnit.SECONDS);
-        check(java.util.Arrays.equals(data,java.nio.file.Files.readAllBytes(file)),"Android preserves original photo bytes across signed chunks");
+        check(java.util.Arrays.equals(data,java.nio.file.Files.readAllBytes(file)),"Android preserves original photo bytes across encrypted chunks");
         await(()->onMain(()->{android.view.ViewGroup bubbles=field(activity,"bubbles");android.widget.ImageView image=bubbles.findViewWithTag("photo:"+id);return image!=null&&image.getDrawable() instanceof android.graphics.drawable.BitmapDrawable;}),"Received photo renders inside its chat bubble");
         check(onMain(()->{android.view.ViewGroup bubbles=field(activity,"bubbles");return bubbles.findViewWithTag("photo:"+id).performLongClick();}),"Photo press opens attachment actions on the image itself");
         check(onMain(()->{android.widget.PopupMenu menu=field(activity,"attachmentActions");boolean found=menu.getMenu().getItem(1).getTitle().toString().equals(AndroidText.get(activity,"attachmentSaveAs"));menu.dismiss();return found;}),"Photo long-press offers Save as");
@@ -404,14 +411,14 @@ public final class LocalizationInstrumentation extends Instrumentation {
             return null;
         });
         check(onMain(()->peer.equals(field(activity,"pendingAttachmentPeer"))),"Picker result waits for asynchronous service rebinding");
-        onMain(()->{setField(activity,"controller",controller);invoke(activity,"resumeAttachmentSelection",new Class<?>[0]);return null;});AttachmentRecord offer=remoteFileState("offered");remoteTransfers.accept(offer.info.id).get(10,TimeUnit.SECONDS);remoteFileState("received");
+        onMain(()->{setField(activity,"controller",controller);invoke(activity,"resumeAttachmentSelection",new Class<?>[0]);return null;});remoteFileState("offered");AttachmentRecord offer=remoteFileState("received");
         await(()->onMain(()->controller.messages.stream().anyMatch(m->m.id.equals(offer.info.id)&&m.outgoing&&m.attachment!=null&&m.attachment.state.equals("delivered"))),"Android sends content URI and records the save receipt");
         check(offer.info.hash.equals(received.info.hash),"Content URI source retains the original digest");
         java.nio.file.Path sent=controller.attachmentPath(peer,new AttachmentRecord(offer.info,true,"delivered",offer.info.size)).get(10,TimeUnit.SECONDS);
         check(java.util.Arrays.equals(data,java.nio.file.Files.readAllBytes(sent)),"Android keeps sent photo bytes for chat preview");
         await(()->onMain(()->{android.view.ViewGroup bubbles=field(activity,"bubbles");android.widget.ImageView image=bubbles.findViewWithTag("photo:"+offer.info.id);return image!=null&&image.getDrawable() instanceof android.graphics.drawable.BitmapDrawable;}),"Sent photo also renders in the chat timeline");
         screenshot("zh-Hans-photo-both-directions");
-        byte[] document="A document received automatically".getBytes(java.nio.charset.StandardCharsets.UTF_8);String documentId=remoteTransfers.offer(()->new java.io.ByteArrayInputStream(document),"note.txt","text/plain").get(10,TimeUnit.SECONDS);remoteFileState("delivered");
+        byte[] document="A document received automatically".getBytes(java.nio.charset.StandardCharsets.UTF_8);String documentId=remoteTransfers.offer(testFileSource(document),"note.txt","text/plain").get(10,TimeUnit.SECONDS);remoteFileState("delivered");
         await(()->onMain(()->controller.messages.stream().anyMatch(m->m.id.equals(documentId)&&m.attachment!=null&&m.attachment.state.equals("received"))),"Ordinary files also arrive without another confirmation");
         check(onMain(()->{android.view.ViewGroup bubbles=field(activity,"bubbles"),bubble=bubbles.findViewWithTag("attachment:"+documentId);return bubble!=null&&bubble.getChildAt(0).performLongClick();}),"File card press opens actions on its clickable content");
         check(onMain(()->{android.widget.PopupMenu menu=field(activity,"attachmentActions");boolean found=menu.getMenu().size()==2&&menu.getMenu().getItem(1).getTitle().toString().equals(AndroidText.get(activity,"attachmentSaveAs"));menu.dismiss();return found;}),"File long-press exposes both Open and Save as");

@@ -132,8 +132,8 @@ sh tools/check-source.sh
 Windows PowerShell：
 
 ```powershell
-.\tools\test-i18n.ps1
-.\tools\test-core.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\test-i18n.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\test-core.ps1
 ```
 
 这些检查不等同于 Android 完整编译或真实设备验收。完整步骤见 [设备测试说明](docs/device-test.md)。
