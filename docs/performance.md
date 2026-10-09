@@ -303,3 +303,20 @@ Linux 实际 GUI 的空闲 / 已认证仅连接各三轮，每轮 30 分钟；�
 RSS 首／末采样为 112.746 / 128.359 MiB；NMT committed 为 157,322 / 157,753 KiB，malloc 为 16,970 / 16,537 KiB，Java heap committed 都是 55,296 KiB。末尾 GC 后 used heap 为 13,406,515 字节，RSS 反而从 134,598,656 到 134,791,168 字节。驻留页面与 JVM 保留可能参与，但 NMT committed 与 RSS 的差值不是完整归因；只有一次末尾存活计数也不能证明没有泄漏。此诊断有额外开销，不混入前面的六轮无强制 GC 测量，Issue #9 继续开放。
 
 Windows 首轮长跑 [37919911551](https://github.com/GHOST-AKU/wozai/actions/runs/37919911551)在采样末尾因计时器返回相同时间戳而除零失败，没有可验收的完整报告。已修正短／长采样器的零间隔处理：不计算无意义的瞬时 CPU，保留前次 CPU 计数直到时间推进；使用确定性时钟回归复现旧实现失败并验证累计 CPU 没有丢失。失败轮次另存部分采样且明确 `verified_normal_shutdown=false`，不能当成成功轮次。修正后的 Windows 三轮空闲／三轮连接仍须由后续 CI 完整运行，最终状态记录在 #9。
+
+### 最终实现提交与 Windows 部分结果
+
+独立评审修复后的干净实现 `f1f819880e77417ffefe7929349f4e0752774998` 又完成三轮真实密集 10 GiB 加密传输：稳态 168.013 / 174.566 / 191.398 MiB/s，完整交付 167.604 / 174.483 / 191.243 MiB/s，三个完整内容 SHA 都是 `206cddc139ba254e61eddd2b4257dd5784e0494da137a5b469486d6ec19f6ea6`，使用 `-Xmx32m`、实际内容写入／force／rename／历史保存／回执。[全部原始样本](performance/2026-10-09-final-10g-three.json)标识编译类 SHA 和准备／首字节／保存时间。对照前述相同虚拟环境 raw 基线 R=661.593 MiB/s，门槛仍失败；没有只选择最快一轮，前述优化样本也保留。两批数值差异不能仅归因于这次异常路径修复，没有做配对因果实验。
+
+实现 f1f8198 的 Android、Windows、Linux 和固定 Noise CI 均成功；原签名 API26/34 × code7/code8→code9 四组合升级成功。APK 723,387 字节，相比原发布 code7 APK 650,188 字节增加 73,199 字节（11.26%），不能称新候选包更小，也不能将全部增量单独归因于 Noise。候选仍不是正式发布。
+
+Windows [长跑 37925360163](https://github.com/GHOST-AKU/wozai/actions/runs/37925360163)首 attempt 在先行双向压力测试 P95=749.284 ms 超过 500 ms 门槛而失败；同提交主 Windows 构建 P95=221.579 ms。一次对照 attempt 的先行检查为 196.721 ms，但六轮长跑中一轮 connected 在读取就绪 marker 时遇到 PermissionError；其他五轮完整运行并正常退出。因此 **整个 job 失败，只有三轮 idle 与两轮 connected 的部分证据，不能记六轮通过**。[原始五轮加失败记录 gzip](performance/2026-10-09-windows-memory-partial.json.gz)和[摘要](performance/2026-10-09-windows-memory-partial-summary.json)保留原 CI 来源；原汇总中断没有留下编译类 digest，该字段显式为空，不补造。
+
+| Windows 有效 30 分钟轮次 | 前后五分钟 RSS 中位数变化（MiB） | handles 首／末 | 线程首／末 |
+| --- | ---: | --- | --- |
+| Idle 1 / 2 / 3 | -34.902 / -52.895 / -51.484 | 521→509 / 527→515 / 527→515 | 37→31 / 37→31 / 37→31 |
+| Connected 2 / 3 | -54.020 / -48.980 | 605→591 / 583→569 | 50→42 / 50→42 |
+
+Windows 统计的是 handles，不冒充 Linux FD。used heap 与 young GC 状况见原始数据；这些轮次不证明所有负载长期无泄漏，也不能替代缺失的第三轮。marker 轮询现按原 45/70 秒截止时间重试暂时拒读，持续拒读仍失败并保留原因；新的汇总保留已完成轮次与失败、provenance，并以 `complete=false`／非零退出报告不完整测量。确定性回归覆盖瞬态拒读／半写 JSON、持续拒读及部分结果，旧实现 RED、新实现 GREEN；未放宽延迟或时长门槛。
+
+另在 f1f8198 生产路径上做了独立的 15 分钟 connected GUI 诊断，开头和末尾各一次完整 GC 类计数：[摘要](performance/2026-10-09-final-connected-diagnostic-summary.json)、[完整采样与快照 gzip](performance/2026-10-09-final-connected-diagnostic.json.gz)。存活类总字节 12,241,744→12,239,016（减少 2,728）；附加查询后的 used heap 增加 10,752 字节；NMT committed 153,500→153,582 KiB，heap committed 均为 51,200 KiB。两端 GC 后 RSS 增加 8.316 MiB，其中匿名驻留增加 8.281 MiB、文件驻留约 0.035 MiB。该样本不显示明显 Java 存活对象累计增长，匿名驻留的具体来源仍未确定；不能排除 NMT 未覆盖的 native 分配，也不是强制 GC 修复。它有诊断开销，不混入无强制 GC 的长跑，#9 保持开放。

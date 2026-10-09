@@ -1,0 +1,70 @@
+{
+  "source_commit": "f1f819880e77417ffefe7929349f4e0752774998",
+  "purpose": "One additional synthetic-profile actual connected GUI diagnostic. Full GC class counts only at start and end; NMT adds overhead. Not a 30min acceptance run or proof of no leak. No heap dump or key/content collection.",
+  "class_artifact_sha256": "25980efe25146af7ac6ce02b997f3442e100f677b7441ab9ceeece259381c01e",
+  "class_counts": [
+    {
+      "file": "live-classes-0.txt",
+      "total": "Total        178157       12241744"
+    },
+    {
+      "file": "live-classes-901.txt",
+      "total": "Total        178127       12239016"
+    }
+  ],
+  "nmt_edge_totals": [
+    {
+      "file": "native-0.txt",
+      "total": "Total: reserved=1745300KB, committed=153500KB"
+    },
+    {
+      "file": "native-901.txt",
+      "total": "Total: reserved=1743242KB, committed=153582KB"
+    }
+  ],
+  "snapshots": [
+    {
+      "elapsed_s": 0.0,
+      "before": {
+        "VmRSS_bytes": 127594496,
+        "RssAnon_bytes": 106385408,
+        "RssFile_bytes": 21139456,
+        "RssShmem_bytes": 69632
+      },
+      "after": {
+        "VmRSS_bytes": 126648320,
+        "RssAnon_bytes": 105279488,
+        "RssFile_bytes": 21299200,
+        "RssShmem_bytes": 69632
+      },
+      "heap": {
+        "used_heap_bytes": 13466726,
+        "young_gc": 4.0,
+        "full_gc": 1.0,
+        "gc_seconds": 0.063
+      }
+    },
+    {
+      "elapsed_s": 900.8545257200021,
+      "before": {
+        "VmRSS_bytes": 135036928,
+        "RssAnon_bytes": 113631232,
+        "RssFile_bytes": 21336064,
+        "RssShmem_bytes": 69632
+      },
+      "after": {
+        "VmRSS_bytes": 135368704,
+        "RssAnon_bytes": 113963008,
+        "RssFile_bytes": 21336064,
+        "RssShmem_bytes": 69632
+      },
+      "heap": {
+        "used_heap_bytes": 13477478,
+        "young_gc": 4.0,
+        "full_gc": 2.0,
+        "gc_seconds": 0.088
+      }
+    }
+  ],
+  "verified_normal_shutdown": true
+}

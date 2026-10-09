@@ -1,0 +1,210 @@
+{
+  "source_commit": "7bacb03aaebcd42a417c7fe831a37a631fe4c15c",
+  "source_head": "f1f819880e77417ffefe7929349f4e0752774998",
+  "ci_run": 37925360163,
+  "job": 113804894137,
+  "attempt": 2,
+  "platform": "Windows",
+  "environment_kind": "ci",
+  "class_artifact_sha256": null,
+  "limitations": "Combined provenance reconstructed from exact CI merge source; original aggregation failed, so no class digest was captured. Actual GUI, synthetic profiles, 5/6 normal 30min runs. One connected startup PermissionError. Used heap is not post-GC live heap. Not phone or complete Windows acceptance.",
+  "expected_runs": 6,
+  "complete": false,
+  "failed_runs": [
+    {
+      "phase": "connected",
+      "round": 1,
+      "samples": [],
+      "heap_samples": [],
+      "verified_normal_shutdown": false,
+      "failure": "[Errno 13] Permission denied: 'D:\\\\a\\\\_temp\\\\wozai-memory-connected-1-2g__zrmp\\\\phase.json'"
+    }
+  ],
+  "rounds": [
+    {
+      "phase": "connected",
+      "round": 2,
+      "duration_s": 1800.0,
+      "rss_change_edge_medians_bytes": -56643584,
+      "first_sample": {
+        "elapsed_s": 1.0,
+        "rss_bytes": 120324096,
+        "cpu_percent_one_core": 0.0,
+        "threads": 50,
+        "file_descriptors": null,
+        "os_handles": 605
+      },
+      "last_sample": {
+        "elapsed_s": 1800.0,
+        "rss_bytes": 23388160,
+        "cpu_percent_one_core": 0.0,
+        "threads": 42,
+        "file_descriptors": null,
+        "os_handles": 591
+      },
+      "first_heap": {
+        "elapsed_s": 0,
+        "used_heap_bytes": 18695680,
+        "young_gc": 3.0,
+        "full_gc": 0.0,
+        "gc_seconds": 0.024
+      },
+      "last_heap": {
+        "elapsed_s": 1800.0,
+        "used_heap_bytes": 22789529,
+        "young_gc": 4.0,
+        "full_gc": 0.0,
+        "gc_seconds": 0.03
+      },
+      "verified_normal_shutdown": true
+    },
+    {
+      "phase": "connected",
+      "round": 3,
+      "duration_s": 1800.0,
+      "rss_change_edge_medians_bytes": -51359744.0,
+      "first_sample": {
+        "elapsed_s": 1.016,
+        "rss_bytes": 118333440,
+        "cpu_percent_one_core": 0.0,
+        "threads": 50,
+        "file_descriptors": null,
+        "os_handles": 583
+      },
+      "last_sample": {
+        "elapsed_s": 1800.0,
+        "rss_bytes": 21397504,
+        "cpu_percent_one_core": 0.0,
+        "threads": 42,
+        "file_descriptors": null,
+        "os_handles": 569
+      },
+      "first_heap": {
+        "elapsed_s": 0,
+        "used_heap_bytes": 17537536,
+        "young_gc": 3.0,
+        "full_gc": 0.0,
+        "gc_seconds": 0.022
+      },
+      "last_heap": {
+        "elapsed_s": 1800.0,
+        "used_heap_bytes": 18479718,
+        "young_gc": 4.0,
+        "full_gc": 0.0,
+        "gc_seconds": 0.028
+      },
+      "verified_normal_shutdown": true
+    },
+    {
+      "phase": "idle",
+      "round": 1,
+      "duration_s": 1800.015,
+      "rss_change_edge_medians_bytes": -36597760,
+      "first_sample": {
+        "elapsed_s": 1.0,
+        "rss_bytes": 122638336,
+        "cpu_percent_one_core": 0.0,
+        "threads": 37,
+        "file_descriptors": null,
+        "os_handles": 521
+      },
+      "last_sample": {
+        "elapsed_s": 1800.015,
+        "rss_bytes": 19013632,
+        "cpu_percent_one_core": 0.0,
+        "threads": 31,
+        "file_descriptors": null,
+        "os_handles": 509
+      },
+      "first_heap": {
+        "elapsed_s": 0,
+        "used_heap_bytes": 26411008,
+        "young_gc": 2.0,
+        "full_gc": 0.0,
+        "gc_seconds": 0.043
+      },
+      "last_heap": {
+        "elapsed_s": 1800.0149999999999,
+        "used_heap_bytes": 14363648,
+        "young_gc": 3.0,
+        "full_gc": 0.0,
+        "gc_seconds": 0.049
+      },
+      "verified_normal_shutdown": true
+    },
+    {
+      "phase": "idle",
+      "round": 2,
+      "duration_s": 1800.0,
+      "rss_change_edge_medians_bytes": -55463936,
+      "first_sample": {
+        "elapsed_s": 1.0,
+        "rss_bytes": 124633088,
+        "cpu_percent_one_core": 0.0,
+        "threads": 37,
+        "file_descriptors": null,
+        "os_handles": 527
+      },
+      "last_sample": {
+        "elapsed_s": 1800.0,
+        "rss_bytes": 16977920,
+        "cpu_percent_one_core": 0.0,
+        "threads": 31,
+        "file_descriptors": null,
+        "os_handles": 515
+      },
+      "first_heap": {
+        "elapsed_s": 0,
+        "used_heap_bytes": 26194944,
+        "young_gc": 2.0,
+        "full_gc": 0.0,
+        "gc_seconds": 0.049
+      },
+      "last_heap": {
+        "elapsed_s": 1800.0,
+        "used_heap_bytes": 15543296,
+        "young_gc": 3.0,
+        "full_gc": 0.0,
+        "gc_seconds": 0.057
+      },
+      "verified_normal_shutdown": true
+    },
+    {
+      "phase": "idle",
+      "round": 3,
+      "duration_s": 1800.0,
+      "rss_change_edge_medians_bytes": -53985280,
+      "first_sample": {
+        "elapsed_s": 1.0,
+        "rss_bytes": 122220544,
+        "cpu_percent_one_core": 0.0,
+        "threads": 37,
+        "file_descriptors": null,
+        "os_handles": 527
+      },
+      "last_sample": {
+        "elapsed_s": 1800.0,
+        "rss_bytes": 17149952,
+        "cpu_percent_one_core": 0.0,
+        "threads": 31,
+        "file_descriptors": null,
+        "os_handles": 515
+      },
+      "first_heap": {
+        "elapsed_s": 0,
+        "used_heap_bytes": 25441280,
+        "young_gc": 2.0,
+        "full_gc": 0.0,
+        "gc_seconds": 0.048
+      },
+      "last_heap": {
+        "elapsed_s": 1800.0,
+        "used_heap_bytes": 32781312,
+        "young_gc": 2.0,
+        "full_gc": 0.0,
+        "gc_seconds": 0.048
+      },
+      "verified_normal_shutdown": true
+    }
+  ]
+}

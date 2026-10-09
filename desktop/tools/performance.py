@@ -21,6 +21,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def wait_json(path, processes, expected=None, timeout=45):
     end = time.monotonic() + timeout
+    last_failure = None
     while time.monotonic() < end:
         for process in processes:
             if process.poll() is not None:
@@ -29,10 +30,12 @@ def wait_json(path, processes, expected=None, timeout=45):
             value = json.loads(path.read_text(encoding="utf-8"))
             if expected is None or value.get("phase") == expected:
                 return value
-        except (FileNotFoundError, json.JSONDecodeError):
-            pass
+        except (FileNotFoundError, PermissionError, json.JSONDecodeError) as failure:
+            # A Windows writer/rename can briefly deny read sharing on a marker.
+            # Persistent denial still fails at the original readiness deadline.
+            last_failure = failure
         time.sleep(0.02)
-    raise RuntimeError(f"Timeout waiting for {path.name}; inspect benchmark logs")
+    raise RuntimeError(f"Timeout waiting for {path.name}; inspect benchmark logs") from last_failure
 
 
 class Tree:

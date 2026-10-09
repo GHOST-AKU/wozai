@@ -145,13 +145,23 @@ def main():
         digest.update(path.relative_to(ROOT).as_posix().encode() + b"\0" + path.read_bytes())
     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
     dirty = bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT, text=True).strip())
+    jobs = [(phase, index) for phase in ["idle", "connected"] for index in range(1, args.rounds + 1)]
+    reports, failures = [], []
     with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
-        futures = [executor.submit(one, args, phase, index) for phase in ["idle", "connected"] for index in range(1, args.rounds + 1)]
-        reports = [future.result() for future in futures]
+        futures = [executor.submit(one, args, phase, index) for phase, index in jobs]
+        for (phase, index), future in zip(jobs, futures):
+            try:
+                reports.append(future.result())
+            except Exception as failure:
+                failures.append({"phase": phase, "round": index, "failure": str(failure)})
     report = {"source_commit": commit + ("+dirty" if dirty else ""), "class_artifact_sha256": digest.hexdigest(), "environment_kind": "virtual",
               "platform": "Windows" if os.name == "nt" else "Linux",
-              "limitations": "Compiled desktop GUI in a virtual desktop (isolated Xvfb on Linux); all rounds run concurrently. jstat used heap is not post-GC live heap. No phone, physical network, thermal or release acceptance.", "rounds": reports}
+              "limitations": "Compiled desktop GUI in a virtual desktop (isolated Xvfb on Linux); all rounds run concurrently. jstat used heap is not post-GC live heap. No phone, physical network, thermal or release acceptance.",
+              "expected_runs": len(jobs), "complete": not failures, "failed_runs": failures, "rounds": reports}
     args.output.write_text(json.dumps(report, indent=2) + "\n")
+    if failures:
+        print(f"Incomplete measurement: {len(reports)}/{len(jobs)} normal runs; inspect {args.output}", flush=True)
+        raise SystemExit(1)
     print(f"Verified {len(reports)} independent client runs; report: {args.output}", flush=True)
 
 
