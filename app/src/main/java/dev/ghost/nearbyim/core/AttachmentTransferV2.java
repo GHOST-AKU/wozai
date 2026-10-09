@@ -55,6 +55,7 @@ public final class AttachmentTransferV2 implements AutoCloseable {
         String state="offered";
         long sent,written,verified,durable,lastCheckpointNs,lastCredit,lastCreditVerified,lastCreditDurable,lastCreditNs,lastNotice;
         long sampleNs,sampleBytes,bytesPerSecond;
+        long historyDurable=-1;String historyState;
         MessageDigest whole,block;
         TransferByteWindow window;
         Task(AttachmentInfo info,boolean outgoing,String generation,Path partial){this.info=info;this.outgoing=outgoing;this.generation=generation;this.partial=partial;}
@@ -328,7 +329,8 @@ public final class AttachmentTransferV2 implements AutoCloseable {
         if(incoming!=null){require(matches(incoming,packet)&&incoming.info.size==packet.totalSize);return;}
         Task task=new Task(saved.info(),false,key.sourceGeneration(),partial(key));task.key=key;task.reference=saved.sourceReference();task.written=task.verified=task.durable=saved.durableOffset();task.state="checking";incoming=task;notice(task,true);
         TransferCheckpointStore.PrefixResult prefix;
-        try{prefix=checkpoints.verifyPrefix(saved,task.partial,()->closed||task.canceled.get());}catch(IOException error){if(!closed&&!task.canceled.get())finish(task,"failed",true);return;}
+        checkingProgress(task,0,saved.durableOffset(),true);
+        try{prefix=checkpoints.verifyPrefix(saved,task.partial,()->closed||task.canceled.get(),bytes->checkingProgress(task,bytes,saved.durableOffset(),false));checkingProgress(task,prefix.offset(),saved.durableOffset(),true);}catch(IOException error){if(!closed&&!task.canceled.get())finish(task,"failed",true);return;}
         task.written=task.verified=task.durable=prefix.offset();task.lastCredit=task.lastCreditVerified=task.lastCreditDurable=prefix.offset();task.whole=prefix.whole();task.block=digest();
         task.reservation=storage.reserve(key,task.info.size,task.durable);task.output=FileChannel.open(task.partial,StandardOpenOption.WRITE,LinkOption.NOFOLLOW_LINKS);task.output.truncate(task.durable);task.output.position(task.durable);checkpoints.truncateIndex(key,task.durable);
         task.state="transferring";task.lastCreditNs=System.nanoTime();checkpoint(task,TransferCheckpoint.State.ACTIVE);startCredits();notice(task,true);
@@ -336,10 +338,11 @@ public final class AttachmentTransferV2 implements AutoCloseable {
     }
     private byte[] scanSource(Task task,long end,byte[] expectedHash)throws Exception {
         task.source.verifyUnchanged();task.whole=digest();task.block=digest();MessageDigest prefix=digest();
+        checkingProgress(task,0,end,true);
         task.input=openSource(task,0);long position=0;byte[] buffer=new byte[TransferLimits.DATA_BYTES];int empty=0;
         try(TransferCheckpointStore.IndexRebuild rebuilt=checkpoints.rebuild(task.key,end)) {
-            while(position<end){if(closed||task.canceled.get())throw new InterruptedIOException("Source verification canceled");int n=readSource(task,buffer,0,(int)Math.min(buffer.length,Math.min(end-position,TransferLimits.BLOCK_BYTES-position%TransferLimits.BLOCK_BYTES)));if(n<0)throw new EOFException("Source truncated");if(n==0){if(++empty>32)throw new SourceUnavailableException(new IOException("Source made no progress"));continue;}empty=0;task.whole.update(buffer,0,n);prefix.update(buffer,0,n);task.block.update(buffer,0,n);position+=n;if(position%TransferLimits.BLOCK_BYTES==0||position==task.info.size)rebuilt.append(position,task.block.digest());}
-            task.source.verifyUnchanged();if(closed||task.canceled.get())throw new InterruptedIOException("Source verification canceled");byte[] hash=prefix.digest();require(MessageDigest.isEqual(hash,expectedHash));rebuilt.commit();return hash;
+            while(position<end){if(closed||task.canceled.get())throw new InterruptedIOException("Source verification canceled");int n=readSource(task,buffer,0,(int)Math.min(buffer.length,Math.min(end-position,TransferLimits.BLOCK_BYTES-position%TransferLimits.BLOCK_BYTES)));if(n<0)throw new EOFException("Source truncated");if(n==0){if(++empty>32)throw new SourceUnavailableException(new IOException("Source made no progress"));continue;}empty=0;task.whole.update(buffer,0,n);prefix.update(buffer,0,n);task.block.update(buffer,0,n);position+=n;if(position%TransferLimits.BLOCK_BYTES==0||position==task.info.size)rebuilt.append(position,task.block.digest());checkingProgress(task,position,end,false);}
+            task.source.verifyUnchanged();if(closed||task.canceled.get())throw new InterruptedIOException("Source verification canceled");byte[] hash=prefix.digest();require(MessageDigest.isEqual(hash,expectedHash));rebuilt.commit();checkingProgress(task,end,end,true);return hash;
         }finally{closeResource(task.input);task.input=null;Arrays.fill(buffer,(byte)0);}
     }
     private void restoreSource(Task task,TransferPacket packet)throws Exception {
@@ -426,7 +429,13 @@ public final class AttachmentTransferV2 implements AutoCloseable {
                 task.sampleNs=now;task.sampleBytes=task.written;
                 long remaining=task.info.size-task.written,rate=task.bytesPerSecond;progress=new TransferProgress(rate,rate==0?-1:remaining/rate+(remaining%rate==0?0:1));
             }else{task.sampleNs=0;task.sampleBytes=task.written;task.bytesPerSecond=0;}
-            listener.progress(record,progress);listener.changed(record);task.lastNotice=now;
+            if(force||!task.state.equals(task.historyState)||task.durable!=task.historyDurable){listener.changed(record);task.historyState=task.state;task.historyDurable=task.durable;}
+            listener.progress(record,progress);task.lastNotice=System.nanoTime();
+        }
+    }
+    private void checkingProgress(Task task,long bytes,long total,boolean force)throws IOException {
+        long now=System.nanoTime();if(force||now-task.lastNotice>=250_000_000){
+            listener.progress(new AttachmentRecord(task.info,task.outgoing,task.state,task.written),new TransferProgress(0,-1,bytes,total));task.lastNotice=System.nanoTime();
         }
     }
     private static MessageDigest digest()throws NoSuchAlgorithmException{return MessageDigest.getInstance("SHA-256");}

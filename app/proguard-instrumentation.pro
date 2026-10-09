@@ -9,6 +9,9 @@
 -keep class dev.ghost.nearbyim.AndroidText { public *; }
 -keep class dev.ghost.nearbyim.ChatController { public *; }
 -keepclassmembers class dev.ghost.nearbyim.ChatController { java.util.concurrent.ThreadPoolExecutor fileSelection; }
+# Native feedback tests inspect the transient map without adding production hooks.
+-keepclassmembers class dev.ghost.nearbyim.ChatController { java.util.concurrent.ConcurrentHashMap transferProgress; }
+-keep class dev.ghost.nearbyim.ChatController$Feedback { *; }
 -keep class dev.ghost.nearbyim.ChatStore { public *; }
 -keep class dev.ghost.nearbyim.ChatStore$* { public *; }
 -keep class dev.ghost.nearbyim.core.DeviceIdentity { public *; }

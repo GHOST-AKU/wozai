@@ -66,6 +66,7 @@ public final class TransferCheckpointStore {
         if(Files.exists(path))try(FileChannel channel=FileChannel.open(path,StandardOpenOption.WRITE,LinkOption.NOFOLLOW_LINKS)){channel.truncate(((offset+TransferLimits.BLOCK_BYTES-1)/TransferLimits.BLOCK_BYTES)*INDEX_RECORD);channel.force(true);}
     }
     public record PrefixResult(MessageDigest whole,byte[] sha256,long offset){}
+    @FunctionalInterface public interface PrefixProgress {void checked(long bytes)throws IOException;}
     /** Rehash cannot replace the previous trusted index until its prefix hash is checked. */
     public IndexRebuild rebuild(TransferTaskKey key,long expectedEnd)throws IOException {TransferLimits.validateRange(TransferLimits.MAX_FILE_BYTES,expectedEnd,0);return new IndexRebuild(key,expectedEnd);}
     public final class IndexRebuild implements AutoCloseable {
@@ -79,6 +80,9 @@ public final class TransferCheckpointStore {
     }
     public PrefixResult verifyPrefix(TransferCheckpoint checkpoint,Path content)throws IOException {return verifyPrefix(checkpoint,content,()->false);}
     public PrefixResult verifyPrefix(TransferCheckpoint checkpoint,Path content,java.util.function.BooleanSupplier canceled)throws IOException {
+        return verifyPrefix(checkpoint,content,canceled,bytes->{});
+    }
+    public PrefixResult verifyPrefix(TransferCheckpoint checkpoint,Path content,java.util.function.BooleanSupplier canceled,PrefixProgress progress)throws IOException {
         if(Files.isSymbolicLink(content)||!Files.isRegularFile(content,LinkOption.NOFOLLOW_LINKS)||Files.size(content)<checkpoint.durableOffset())throw new IOException("Checkpoint content missing/truncated");
         MessageDigest whole=sha(),prefix=sha();long offset=0;
         Path index=entry(checkpoint.key(),".blocks");
@@ -90,6 +94,7 @@ public final class TransferCheckpointStore {
                 if(end!=expectedEnd||end>checkpoint.durableOffset())throw new IOException("Invalid checkpoint block boundary");MessageDigest block=sha();
                 while(offset<end){if(canceled.getAsBoolean())throw new InterruptedIOException("Prefix verification canceled");int n=input.read(buffer,0,(int)Math.min(buffer.length,end-offset));if(n<1)throw new EOFException("Truncated saved prefix");whole.update(buffer,0,n);prefix.update(buffer,0,n);block.update(buffer,0,n);offset+=n;}
                 if(!MessageDigest.isEqual(block.digest(),expected))throw new IOException("Saved prefix checksum mismatch");
+                progress.checked(offset);
             }
         }
         return new PrefixResult(whole,prefix.digest(),offset);

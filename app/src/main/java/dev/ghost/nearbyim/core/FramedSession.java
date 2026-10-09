@@ -171,4 +171,5 @@ public final class FramedSession {
     /** Available only after proof verification, including during onHello. */
     public String remotePublicKey() { return noise==null?channel.remotePublicKey():noise.remotePublicKey(); }
     public boolean isReady() { return greeted && approved && remoteReady && !closed.get(); }
+    public boolean endToEndEncrypted(){return isReady()&&noise!=null&&noise.verified();}
 }

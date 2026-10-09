@@ -28,6 +28,7 @@ public final class AttachmentStoreTests {
         Path retainedPhoto=null;AttachmentInfo sentPhoto=null;
         try(DesktopStore as=new DesktopStore(a);DesktopStore bs=new DesktopStore(b);DesktopClient ac=new DesktopClient(as,ai,ae);DesktopClient bc=new DesktopClient(bs,bi,be)){
             int port=bc.listen().get(10,TimeUnit.SECONDS).port();String endpoint=DesktopClient.endpoint(address,port);as.peer(new DesktopStore.Peer(bi.id(),"b",bi.signer().publicKey(),endpoint));bs.peer(new DesktopStore.Peer(ai.id(),"a",ai.signer().publicKey(),""));ac.connect(endpoint,bi.id()).get(10,TimeUnit.SECONDS);await(()->ae.ready()&&be.ready());
+            if(!ac.endToEndEncrypted(bi.id())||!bc.endToEndEncrypted(ai.id()))throw new AssertionError("Production file session does not report verified end-to-end encryption");
             byte[] data=new byte[32768*8+7];new Random(91).nextBytes(data);Path source=root.resolve("document.pdf");Files.write(source,data);
             String id=ac.sendAttachment(bi.id(),source).get(10,TimeUnit.SECONDS);await(()->record(as,bi.id(),id)!=null&&record(bs,ai.id(),id)!=null&&record(as,bi.id(),id).state.equals("delivered")&&record(bs,ai.id(),id).state.equals("received"));AttachmentRecord offered=record(bs,ai.id(),id);
             Path received=bc.attachmentPath(ai.id(),offered.info).get(10,TimeUnit.SECONDS);if(!Arrays.equals(data,Files.readAllBytes(received))||!received.toString().endsWith(".pdf"))throw new AssertionError("Desktop attachment bytes or extension changed");
@@ -50,7 +51,19 @@ public final class AttachmentStoreTests {
             await(()->record(as,bi.id(),resumeId).state.equals("delivered")&&record(bs,ai.id(),resumeId).state.equals("received"));
             Path resumed=bc.attachmentPath(ai.id(),record(bs,ai.id(),resumeId)).get(10,TimeUnit.SECONDS);
             if(Files.mismatch(large,resumed)!=-1)throw new AssertionError("Authenticated reconnect changed resumed content");
-            try(java.io.OutputStream out=Files.newOutputStream(large,StandardOpenOption.APPEND)){for(int n=64;n<256;n++)out.write(block);}
+            try(java.io.OutputStream out=Files.newOutputStream(large,StandardOpenOption.APPEND)){for(int n=64;n<512;n++)out.write(block);}
+            for(boolean senderInitiates:new boolean[]{true,false}) {
+                String sameGeneration=generation(ac),sameId=ac.sendAttachment(bi.id(),large).get(10,TimeUnit.SECONDS);
+                await(()->record(bs,ai.id(),sameId)!=null&&record(bs,ai.id(),sameId).transferred>=32L*1024*1024);
+                DesktopClient initiator=senderInitiates?ac:bc;String remote=senderInitiates?bi.id():ai.id();
+                initiator.attachmentAction(remote,sameId,senderInitiates,"pause").get(10,TimeUnit.SECONDS);
+                await(()->record(as,bi.id(),sameId).state.equals("paused")&&record(bs,ai.id(),sameId).state.equals("paused"));
+                long resumeBegin=System.nanoTime();initiator.attachmentAction(remote,sameId,senderInitiates,"resume").get(10,TimeUnit.SECONDS);
+                await(()->record(as,bi.id(),sameId).state.equals("delivered")&&record(bs,ai.id(),sameId).state.equals("received"));
+                if(!sameGeneration.equals(generation(ac))||Files.mismatch(large,bc.attachmentPath(ai.id(),record(bs,ai.id(),sameId)).get())!=-1)throw new AssertionError("Same-session resume changed generation or file bytes");
+                System.out.println("Production Noise same-session resume: 512 MiB, "+(senderInitiates?"sender":"receiver")+" initiated, complete in "+((System.nanoTime()-resumeBegin)/1e9)+"s (virtual LAN, not Android/Windows acceptance)");
+            }
+            try(var file=java.nio.channels.FileChannel.open(large,StandardOpenOption.WRITE)){file.truncate(256L*1024*1024);}
             String ab=ac.sendAttachment(bi.id(),large).get(10,TimeUnit.SECONDS),ba=bc.sendAttachment(ai.id(),large).get(10,TimeUnit.SECONDS);
             long[] ackNs=new long[20];int overlapping=0;
             for(int n=0;n<ackNs.length;n++) {
@@ -68,6 +81,8 @@ public final class AttachmentStoreTests {
             double cancelMs=(System.nanoTime()-cancelBegin)/1e6;
             await(()->record(as,bi.id(),canceled).state.equals("canceled")&&record(bs,ai.id(),canceled).state.equals("canceled"));
             if(cancelMs>1000||!Files.isRegularFile(large))throw new AssertionError("Cancellation latency or original-file ownership failed");
+            Field feedback=DesktopClient.class.getDeclaredField("transferProgress");feedback.setAccessible(true);
+            await(()->((Map<?,?>)feedback.get(ac)).isEmpty()&&((Map<?,?>)feedback.get(bc)).isEmpty());
             System.out.println("Real desktop duplex: 256 MiB each direction, "+overlapping+" overlapping saved text ACKs; P95="+p95+"ms; cancel="+cancelMs+"ms (virtual LAN, not phone/RFCOMM acceptance)");
             Path exported=root.resolve("exported.pdf");Files.copy(received,exported);bc.clear(ai.id()).get(10,TimeUnit.SECONDS);if(Files.exists(received)||!Files.exists(exported)||bs.peer(ai.id()).publicKey().isEmpty())throw new AssertionError("Clear damaged independent export or trust");
             boolean refused=false;try{ac.sendAttachment(UUID.randomUUID().toString(),source).get(10,TimeUnit.SECONDS);}catch(ExecutionException expected){refused=true;}if(!refused)throw new AssertionError("Wrong peer selector sent a file");

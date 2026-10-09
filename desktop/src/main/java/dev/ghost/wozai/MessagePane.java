@@ -89,6 +89,7 @@ final class MessagePane extends JPanel implements Scrollable {
                 else row.update(message, receipt,strings);
             }
             if(row.bubble.photoBubble!=(previewIds.contains(key)&&!row.bubble.previewFailed))row.bubble.attachment(message,strings);
+            else if(message.attachment()!=null&&message.attachment().active())row.bubble.attachment(message,strings);
             String receipt = row.bubble.receipt.getText();
             content.append(message.body()).append('\n').append(receipt).append('\n');
             desired.addAll(row.components);
@@ -125,9 +126,10 @@ final class MessagePane extends JPanel implements Scrollable {
             body.setVisible(!photoBubble||thumbnail.getIcon()==null);remove(body);remove(thumbnail);remove(attachmentIcon);if(!photoBubble)thumbnail.setIcon(null);
             footer.removeAll();AttachmentActions handler=actions;
             TransferProgress measurement=MessagePane.this.progress.apply(message);
+            if(record.state.equals("checking"))footer.add(new JLabel(measurement.checking()?strings.text("attachmentCheckingProgress",MessagePane.size(measurement.checkedBytes()),MessagePane.size(measurement.checkingTotalBytes()),measurement.checkingTotalBytes()==0?100:100*measurement.checkedBytes()/measurement.checkingTotalBytes()):strings.text("attachmentWaitingResume")));
             if(record.state.equals("transferring")&&measurement.bytesPerSecond()>0)footer.add(new JLabel(strings.text("attachmentSpeedEta",MessagePane.size(measurement.bytesPerSecond()),measurement.remainingSeconds())));
             if(record.active()&&!record.state.equals("offered")&&!record.state.equals("preparing")){
-                JProgressBar progress=new JProgressBar(0,100);int percent=record.info.size==0?0:(int)(100*record.transferred/record.info.size);progress.setValue(percent);progress.setIndeterminate(record.state.equals("checking")||record.state.equals("verifying"));progress.setStringPainted(true);progress.getAccessibleContext().setAccessibleName(strings.text("attachmentProgress",percent,state));footer.add(progress);
+                JProgressBar progress=new JProgressBar(0,100);int percent=record.state.equals("checking")&&measurement.checking()?(measurement.checkingTotalBytes()==0?100:(int)(100*measurement.checkedBytes()/measurement.checkingTotalBytes())):record.info.size==0?0:(int)(100*record.transferred/record.info.size);progress.setValue(percent);progress.setIndeterminate(record.state.equals("checking")&&!measurement.checking()||record.state.equals("verifying"));progress.setStringPainted(true);progress.getAccessibleContext().setAccessibleName(strings.text("attachmentProgress",percent,state));footer.add(progress);
             }
             JPanel buttons=new JPanel(new FlowLayout(FlowLayout.TRAILING,0,0));buttons.setOpaque(false);
             if(record.info.version==2&&(record.active()||record.resumable())){
@@ -142,6 +144,8 @@ final class MessagePane extends JPanel implements Scrollable {
             if(completed){
                 if(!open.equals("save")){JMenuItem view=new JMenuItem(strings.text("attachmentOpen"),AppTheme.icon(photo(record)?"photo":"description"));view.addActionListener(e->handler.action(message,open));menu.add(view);}
                 JMenuItem save=new JMenuItem(strings.text("attachmentSaveAs"),AppTheme.icon("file_download"));save.addActionListener(e->handler.action(message,"save"));menu.add(save);
+                JMenuItem location=new JMenuItem(strings.text("attachmentShowInFolder"),AppTheme.icon("folder_open"));location.addActionListener(e->handler.action(message,"folder"));menu.add(location);
+                JButton folder=new JButton(AppTheme.icon("folder_open"));folder.setPreferredSize(new Dimension(36,36));folder.setToolTipText(strings.text("attachmentShowInFolder"));folder.getAccessibleContext().setAccessibleName(strings.text("attachmentShowInFolder"));folder.addActionListener(e->handler.action(message,"folder"));buttons.add(folder);
             }
             for(JComponent target:new JComponent[]{this,body,thumbnail,receipt,attachmentIcon}){
                 target.setComponentPopupMenu(completed?menu:null);for(var listener:target.getMouseListeners())if(listener instanceof AttachmentClick)target.removeMouseListener(listener);

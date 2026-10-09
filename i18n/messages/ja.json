@@ -363,5 +363,9 @@
   "attachmentQuota": "添付ファイルの保存容量",
   "attachmentQuotaGiB": "{0,number} GiB",
   "attachmentQuotaInUse": "使用中と予約済みの容量を下回る上限は設定できません。",
-  "attachmentStateSourceUnavailable": "一時停止：元のファイルを読み込めません。アクセスを復旧して再開してください。"
+  "attachmentStateSourceUnavailable": "一時停止：元のファイルを読み込めません。アクセスを復旧して再開してください。",
+  "encryptedVia": "エンドツーエンド暗号化 · {0}",
+  "attachmentCheckingProgress": "再開データを確認中：{0} / {1} · {2}%",
+  "attachmentWaitingResume": "相手の再開確認を待っています…",
+  "attachmentShowInFolder": "保存先を開く"
 }

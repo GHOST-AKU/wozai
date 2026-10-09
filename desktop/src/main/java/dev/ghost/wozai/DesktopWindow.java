@@ -53,6 +53,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     private boolean updatingSelection, loadingDraft, shuttingDown;
     private long conversationGeneration;
     private List<DesktopStore.Message> renderedMessages;
+    private List<TransferProgress> renderedProgress = List.of();
     private JDialog requestDialog;
     private PhotoViewer photoViewer;
     private final Map<String,JDialog> informationDialogs = new HashMap<>();
@@ -326,7 +327,8 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         renderState(); renderMessages();
     }); }
     private void renderState() {
-        status.setText(state.transport().isEmpty() ? strings.text(state.phase()) : strings.text("connectionStatus", strings.text(state.transport()), strings.text(state.phase())));
+        boolean encrypted = state.peer()!=null && state.phase().equals("ready") && client.endToEndEncrypted(state.peer().id());
+        status.setText(encrypted ? strings.text("encryptedVia",strings.text(state.transport())) : state.transport().isEmpty() ? strings.text(state.phase()) : strings.text("connectionStatus", strings.text(state.transport()), strings.text(state.phase())));
         listenButton.setText(strings.text(state.listening() == null ? "listen" : "stopListen"));
         addresses.setText(state.listening() == null ? strings.text("notListening") : state.listening().endpoints().isEmpty() ? strings.text("noAddress") : String.join("\n", state.listening().endpoints()));
         DesktopStore.Peer peer = selectedPeer(); chatTitle.setText(peer == null ? strings.text("selectChat") : peer.name());
@@ -360,12 +362,21 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         String id=selected; long generation=conversationGeneration;
         client.messages(id).whenComplete((messages,error) -> SwingUtilities.invokeLater(() -> {
             if(error!=null) { notice("storageFailure"); return; } if(!id.equals(selected)||generation!=conversationGeneration)return;
-            if(messages.equals(renderedMessages))return;
-            JScrollPane scroll=(JScrollPane)SwingUtilities.getAncestorOfClass(JScrollPane.class,transcript); JScrollBar bar=scroll.getVerticalScrollBar();
-            boolean bottom=bar.getValue()+bar.getVisibleAmount()>=bar.getMaximum()-24; int position=bar.getValue(); renderedMessages=messages;
-            transcript.actions((message,action)->attachmentAction(id,message,action));transcript.progress(message->message.attachment()==null?TransferProgress.UNKNOWN:client.transferProgress(id,message.attachment()));transcript.scale(fontScale); transcript.render(messages,strings);
-            SwingUtilities.invokeLater(() -> { if(bottom)bar.setValue(bar.getMaximum()); else bar.setValue(position); });
+            renderTranscript(id,messages);
         }));
+    }
+    public void attachmentProgress(String peer) { SwingUtilities.invokeLater(() -> {
+        if(shuttingDown || !peer.equals(selected))return;
+        if(renderedMessages==null)renderMessages(); else renderTranscript(peer,renderedMessages);
+    }); }
+    private void renderTranscript(String peer,List<DesktopStore.Message> history) {
+        List<DesktopStore.Message> messages=client.liveMessages(peer,history);
+        List<TransferProgress> progress=messages.stream().map(message->message.attachment()==null?TransferProgress.UNKNOWN:client.transferProgress(peer,message.attachment())).toList();
+        if(messages.equals(renderedMessages)&&progress.equals(renderedProgress))return;
+        JScrollPane scroll=(JScrollPane)SwingUtilities.getAncestorOfClass(JScrollPane.class,transcript); JScrollBar bar=scroll.getVerticalScrollBar();
+        boolean bottom=bar.getValue()+bar.getVisibleAmount()>=bar.getMaximum()-24; int position=bar.getValue(); renderedMessages=messages; renderedProgress=progress;
+        transcript.actions((message,action)->attachmentAction(peer,message,action));transcript.progress(message->message.attachment()==null?TransferProgress.UNKNOWN:client.transferProgress(peer,message.attachment()));transcript.scale(fontScale);transcript.render(messages,strings);
+        SwingUtilities.invokeLater(()->{if(bottom)bar.setValue(bar.getMaximum());else bar.setValue(position);});
     }
     private void chooseAttachment(boolean photo){
         String peer=selected;if(peer==null)return;JFileChooser chooser=new JFileChooser();chooser.setDialogTitle(strings.text(photo?"sendPhoto":"sendFile"));
@@ -375,6 +386,15 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     private void attachmentAction(String peer,DesktopStore.Message message,String action){
         var record=message.attachment();if(record==null)return;
         if(action.equals("accept")||action.equals("reject")||action.equals("cancel")||action.equals("pause")||action.equals("resume")){handle(client.attachmentAction(peer,message.id(),message.outgoing(),action),"attachmentFailed");return;}
+        if(action.equals("folder")){
+            handle(client.attachmentPath(peer,record).thenAcceptAsync(path->{
+                try {
+                    Desktop desktop=Desktop.getDesktop();
+                    if(desktop.isSupported(Desktop.Action.BROWSE_FILE_DIR))desktop.browseFileDirectory(path.toFile());
+                    else desktop.open(path.getParent().toFile());
+                } catch(IOException e){throw new java.util.concurrent.CompletionException(e);}
+            },attachmentWorker),"attachmentFailed");return;
+        }
         if(action.equals("preview")){
             String key=peer+":"+message.id()+":"+message.outgoing();var cached=thumbnails.get(key);if(cached!=null){SwingUtilities.invokeLater(()->{if(peer.equals(selected))transcript.thumbnail(message.id(),message.outgoing(),cached);});return;}
             if(failedThumbnails.contains(key)){SwingUtilities.invokeLater(()->{if(peer.equals(selected))transcript.thumbnail(message.id(),message.outgoing(),null);});return;}

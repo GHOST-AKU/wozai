@@ -28,6 +28,7 @@
     <string name="app_settings" formatted="false">"應用程式設定"</string>
     <string name="appearance_section" formatted="false">"外觀"</string>
     <string name="attachment_accept" formatted="false">"接收"</string>
+    <string name="attachment_checking_progress" formatted="false">"驗證續傳資料：{0} / {1} · {2}%"</string>
     <string name="attachment_details" formatted="false">"{0} · {1,number} / {2,number} 位元組 · {3}"</string>
     <string name="attachment_failed" formatted="false">"檔案操作失敗，請檢查檔案授權及可用空間。"</string>
     <string name="attachment_hint" formatted="false">"單檔最大 1 GiB；內容未加密。"</string>
@@ -44,6 +45,7 @@
     <string name="attachment_reject" formatted="false">"拒絕"</string>
     <string name="attachment_resume" formatted="false">"繼續傳輸"</string>
     <string name="attachment_save_as" formatted="false">"另存新檔"</string>
+    <string name="attachment_show_in_folder" formatted="false">"開啟所在位置"</string>
     <string name="attachment_source_changed" formatted="false">"來源檔案已變更，請重新傳送。"</string>
     <string name="attachment_source_permission" formatted="false">"檔案讀取授權已失效，請重新選擇。"</string>
     <string name="attachment_source_unavailable" formatted="false">"無法讀取來源檔案，請重新選擇。"</string>
@@ -68,6 +70,7 @@
     <string name="attachment_too_large" formatted="false">"檔案超過單一檔案大小限制。"</string>
     <string name="attachment_unavailable" formatted="false">"檔案無法使用，可能已被刪除。"</string>
     <string name="attachment_upgrade_required" formatted="false">"檔案傳輸協定不相容，請更新雙方應用程式。"</string>
+    <string name="attachment_waiting_resume" formatted="false">"等待對方確認續傳…"</string>
     <string name="attachments" formatted="false">"附件"</string>
     <string name="back" formatted="false">"返回"</string>
     <string name="back_to_chats" formatted="false">"返回聊天列表"</string>
@@ -174,6 +177,7 @@
     <string name="earlier" formatted="false">"較早"</string>
     <string name="emoji" formatted="false">"表情"</string>
     <string name="empty_chat" formatted="false">"從左側選擇聊天，或在「附近」連線至一部裝置。"</string>
+    <string name="encrypted_via" formatted="false">"端對端加密 · {0}"</string>
     <string name="endpoint" formatted="false">"對方的 IP 位址與連接埠"</string>
     <string name="endpoint_hint" formatted="false">"例如 192.168.1.20:54321。請在對方的「我的連線」中查看。"</string>
     <string name="endpoint_required" formatted="false">"請輸入區域網路 IP 位址和連接埠。"</string>

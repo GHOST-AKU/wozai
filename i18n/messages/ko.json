@@ -363,5 +363,9 @@
   "attachmentQuota": "첨부 파일 저장 용량 한도",
   "attachmentQuotaGiB": "{0,number} GiB",
   "attachmentQuotaInUse": "새 한도는 사용 중인 공간과 예약된 공간을 포함해야 합니다.",
-  "attachmentStateSourceUnavailable": "일시 정지: 원본 파일을 읽을 수 없습니다. 접근 권한을 복구한 후 재개하세요."
+  "attachmentStateSourceUnavailable": "일시 정지: 원본 파일을 읽을 수 없습니다. 접근 권한을 복구한 후 재개하세요.",
+  "encryptedVia": "종단 간 암호화 · {0}",
+  "attachmentCheckingProgress": "재개 데이터 확인 중: {0} / {1} · {2}%",
+  "attachmentWaitingResume": "상대방의 재개 확인을 기다리는 중…",
+  "attachmentShowInFolder": "파일 위치 열기"
 }

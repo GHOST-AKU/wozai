@@ -28,6 +28,7 @@
     <string name="app_settings" formatted="false">"App settings"</string>
     <string name="appearance_section" formatted="false">"Appearance"</string>
     <string name="attachment_accept" formatted="false">"Accept"</string>
+    <string name="attachment_checking_progress" formatted="false">"Checking saved data: {0} / {1} · {2}%"</string>
     <string name="attachment_details" formatted="false">"{0} · {1,number} / {2,number} bytes · {3}"</string>
     <string name="attachment_failed" formatted="false">"File operation failed. Check file access and available space."</string>
     <string name="attachment_hint" formatted="false">"Up to 1 GiB per file. Contents are not encrypted."</string>
@@ -44,6 +45,7 @@
     <string name="attachment_reject" formatted="false">"Reject"</string>
     <string name="attachment_resume" formatted="false">"Resume transfer"</string>
     <string name="attachment_save_as" formatted="false">"Save as"</string>
+    <string name="attachment_show_in_folder" formatted="false">"Show in folder"</string>
     <string name="attachment_source_changed" formatted="false">"The source changed. Send it again."</string>
     <string name="attachment_source_permission" formatted="false">"File read permission is unavailable. Select the source again."</string>
     <string name="attachment_source_unavailable" formatted="false">"The source cannot be read. Select it again."</string>
@@ -68,6 +70,7 @@
     <string name="attachment_too_large" formatted="false">"This file exceeds the file size limit."</string>
     <string name="attachment_unavailable" formatted="false">"File unavailable. It may have been deleted."</string>
     <string name="attachment_upgrade_required" formatted="false">"Incompatible transfer protocol. Update the app on both devices."</string>
+    <string name="attachment_waiting_resume" formatted="false">"Waiting for the peer to confirm resume…"</string>
     <string name="attachments" formatted="false">"Attachments"</string>
     <string name="back" formatted="false">"Back"</string>
     <string name="back_to_chats" formatted="false">"Back to chats"</string>
@@ -174,6 +177,7 @@
     <string name="earlier" formatted="false">"Earlier"</string>
     <string name="emoji" formatted="false">"Emoji"</string>
     <string name="empty_chat" formatted="false">"Select a chat on the left, or connect to a device in Nearby."</string>
+    <string name="encrypted_via" formatted="false">"End-to-end encrypted · {0}"</string>
     <string name="endpoint" formatted="false">"Peer IP address and port"</string>
     <string name="endpoint_hint" formatted="false">"For example 192.168.1.20:54321. Read this from the other device."</string>
     <string name="endpoint_required" formatted="false">"Enter a local IP address and port."</string>

@@ -510,7 +510,8 @@ public final class MainActivity extends Activity {
         if (switched || chatAvatar == null) { chatAvatarBox.removeAllViews(); chatAvatar = avatar(peerId, peerName, 40); chatAvatarBox.addView(chatAvatar, new LinearLayout.LayoutParams(dp(40), dp(40))); }
         boolean ready = controller != null && controller.connected && Objects.equals(peerId, controller.connectedPeerId);
         boolean connecting = controller != null && outgoingRequest && (controller.connecting || controller.hasSession() && !controller.connected);
-        chatStatus.setText(ready ? controller.isPreparingAttachment()?t("attachmentStatePreparing"):t("connectedVia", modeName(controller.sessionMode)) : connecting ? t("connecting") : t("localHistoryDisconnected"));
+        String connectionLabel=ready?t(controller.endToEndEncrypted(peerId)?"encryptedVia":"connectedVia",modeName(controller.sessionMode)):connecting?t("connecting"):t("localHistoryDisconnected");
+        chatStatus.setText(ready&&controller.isPreparingAttachment()?connectionLabel+" · "+t("attachmentStatePreparing"):connectionLabel);
         reconnectRow.setVisibility(!ready && peerId != null ? View.VISIBLE : View.GONE);
         boolean trusted = controller != null && controller.isTrusted(peerId);
         reconnectButton.setVisibility(trusted ? View.VISIBLE : View.GONE); reconnectButton.setEnabled(controller != null);
@@ -519,6 +520,7 @@ public final class MainActivity extends Activity {
         composer.setEnabled(peerId != null);emojiButton.setEnabled(peerId!=null);attachmentToggle.setEnabled(controller!=null&&controller.canSendAttachment());fileButton.setEnabled(controller!=null&&controller.canSendAttachment());photoButton.setEnabled(controller!=null&&controller.canSendAttachment());if(switched)attachmentTray.setVisibility(View.GONE);updateSend();
         if (controller == null || renderedMessages == controller.messages && Objects.equals(renderedPeer, peerId)) return;
         boolean newPeer = !Objects.equals(renderedPeer, peerId), wasAtBottom = atBottom(); int previousScroll = messageScroll.getScrollY();
+        if(!newPeer&&updateLiveAttachmentViews(controller.messages)){renderedMessages=controller.messages;return;}
         String oldLast = renderedMessages == null || renderedMessages.isEmpty() ? null : renderedMessages.get(renderedMessages.size() - 1).id;
         String newLast = controller.messages.isEmpty() ? null : controller.messages.get(controller.messages.size() - 1).id;
         boolean appended = !newPeer && oldLast != null && newLast != null && !Objects.equals(oldLast, newLast);
@@ -549,8 +551,35 @@ public final class MainActivity extends Activity {
         });
     }
     private boolean atBottom() { return bubbles == null || bubbles.getHeight() - messageScroll.getHeight() - messageScroll.getScrollY() < dp(48); }
+    private boolean updateLiveAttachmentViews(List<ChatStore.Message> messages) {
+        if(renderedMessages==null||renderedMessages.size()!=messages.size())return false;
+        for(int i=0;i<messages.size();i++){
+            ChatStore.Message before=renderedMessages.get(i),after=messages.get(i);if(before==after)continue;
+            AttachmentRecord a=before.attachment,b=after.attachment;
+            if(a==null||b==null||!a.active()||!b.active()||a.info!=b.info||!a.state.equals(b.state)||a.outgoing!=b.outgoing||!before.state.equals(after.state))return false;
+            View row=bubbles.findViewWithTag("message:"+b.info.id+":"+b.outgoing);if(row==null||row.findViewWithTag("attachmentProgress")==null)return false;
+        }
+        for(ChatStore.Message message:messages){AttachmentRecord record=message.attachment;if(record==null||!record.active())continue;
+            View row=bubbles.findViewWithTag("message:"+record.info.id+":"+record.outgoing);if(row==null)continue;
+            TransferProgress measurement=controller.transferProgress(controller.selectedId,record);
+            TextView summary=row.findViewWithTag("attachmentSummary");
+            if(summary!=null){String bytes=android.text.format.Formatter.formatShortFileSize(this,record.info.size);if(record.transferred>0)bytes=android.text.format.Formatter.formatShortFileSize(this,record.transferred)+" / "+bytes;summary.setText(t("attachmentSummary",bytes,attachmentState(record)));}
+            TextView feedback=row.findViewWithTag("attachmentFeedback");if(feedback!=null){String text=attachmentFeedback(record,measurement);feedback.setText(text);feedback.setVisibility(text.isEmpty()?View.GONE:View.VISIBLE);}
+            ProgressBar progress=row.findViewWithTag("attachmentProgress");if(progress!=null)updateAttachmentProgress(progress,record,measurement);
+        }return true;
+    }
+    private String attachmentFeedback(AttachmentRecord record,TransferProgress measurement){
+        if(record.state.equals("checking"))return measurement.checking()?t("attachmentCheckingProgress",android.text.format.Formatter.formatShortFileSize(this,measurement.checkedBytes()),android.text.format.Formatter.formatShortFileSize(this,measurement.checkingTotalBytes()),measurement.checkingTotalBytes()==0?100:100*measurement.checkedBytes()/measurement.checkingTotalBytes()):t("attachmentWaitingResume");
+        return record.state.equals("transferring")&&measurement.bytesPerSecond()>0?t("attachmentSpeedEta",android.text.format.Formatter.formatShortFileSize(this,measurement.bytesPerSecond()),measurement.remainingSeconds()):"";
+    }
+    private void updateAttachmentProgress(ProgressBar progress,AttachmentRecord record,TransferProgress measurement){
+        boolean measuredChecking=record.state.equals("checking")&&measurement.checking();
+        int percent=measuredChecking?(measurement.checkingTotalBytes()==0?100:(int)(100*measurement.checkedBytes()/measurement.checkingTotalBytes())):record.info.size==0?0:(int)(100*record.transferred/record.info.size);
+        progress.setProgress(percent);progress.setIndeterminate(record.state.equals("preparing")||record.state.equals("verifying")||record.state.equals("checking")&&!measuredChecking);progress.setContentDescription(t("attachmentProgress",percent,attachmentState(record)));
+    }
     private void addBubble(ChatStore.Message message) {
         LinearLayout row = horizontal(); row.setGravity(message.outgoing ? Gravity.END : Gravity.START); row.setPadding(0, dp(4), 0, dp(4));
+        row.setTag("message:"+message.id+":"+message.outgoing);
         LinearLayout bubble = vertical(); bubble.setBackground(shape(message.outgoing ? tonal : surface, 18)); bubble.setPadding(dp(14), dp(10), dp(14), dp(10));
         AttachmentRecord attachment=message.attachment;
         if(attachment==null){TextView body=label(message.text,16,ink);body.setTag("messageBody");body.setTextIsSelectable(true);bubble.addView(body);}
@@ -571,14 +600,14 @@ public final class MainActivity extends Activity {
                 card.addView(symbol,new LinearLayout.LayoutParams(dp(36),dp(40)));LinearLayout description=vertical();description.setPadding(dp(10),0,0,0);
                 TextView name=label(attachment.info.name,14,ink);name.setTypeface(null,Typeface.BOLD);name.setMaxLines(2);name.setEllipsize(TextUtils.TruncateAt.END);name.setTag("messageBody");description.addView(name);
                 String bytes=android.text.format.Formatter.formatShortFileSize(this,attachment.info.size);if(attachment.active()&&attachment.transferred>0)bytes=android.text.format.Formatter.formatShortFileSize(this,attachment.transferred)+" / "+bytes;
-                TextView status=label(t("attachmentSummary",bytes,failedThumbnails.contains(previewKey)?t("photoUnavailable"):attachmentState(attachment)),12,muted);description.addView(status);card.addView(description,new LinearLayout.LayoutParams(0,-2,1));bubble.addView(card,new LinearLayout.LayoutParams(Math.min(dp(260),Math.max(dp(160),getResources().getDisplayMetrics().widthPixels-dp(80))),-2));
+                TextView status=label(t("attachmentSummary",bytes,failedThumbnails.contains(previewKey)?t("photoUnavailable"):attachmentState(attachment)),12,muted);status.setTag("attachmentSummary");description.addView(status);card.addView(description,new LinearLayout.LayoutParams(0,-2,1));bubble.addView(card,new LinearLayout.LayoutParams(Math.min(dp(260),Math.max(dp(160),getResources().getDisplayMetrics().widthPixels-dp(80))),-2));
                 if(photoAvailable(attachment)){card.setOnClickListener(v->openAttachment(peer,attachment));card.setOnLongClickListener(v->{attachmentMenu(card,peer,attachment);return true;});}
             }
             if(attachment.active()||attachment.resumable()){
                 TransferProgress measurement=controller==null?TransferProgress.UNKNOWN:controller.transferProgress(peer,attachment);
-                if(attachment.state.equals("transferring")&&measurement.bytesPerSecond()>0)bubble.addView(label(t("attachmentSpeedEta",android.text.format.Formatter.formatShortFileSize(this,measurement.bytesPerSecond()),measurement.remainingSeconds()),11,muted));
+                String feedback=attachmentFeedback(attachment,measurement);TextView measurementView=label(feedback,11,muted);measurementView.setTag("attachmentFeedback");measurementView.setVisibility(feedback.isEmpty()?View.GONE:View.VISIBLE);bubble.addView(measurementView);
                 LinearLayout progressRow=horizontal();progressRow.setGravity(Gravity.CENTER_VERTICAL);
-                ProgressBar progress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);int percent=attachment.info.size==0?0:(int)(100*attachment.transferred/attachment.info.size);progress.setMax(100);progress.setProgress(percent);progress.setIndeterminate(attachment.state.equals("preparing")||attachment.state.equals("verifying")||attachment.state.equals("checking"));progress.setProgressTintList(ColorStateList.valueOf(accent));progress.setContentDescription(t("attachmentProgress",percent,attachmentState(attachment)));progressRow.addView(progress,new LinearLayout.LayoutParams(0,dp(4),1));
+                ProgressBar progress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);progress.setTag("attachmentProgress");progress.setMax(100);updateAttachmentProgress(progress,attachment,measurement);progress.setProgressTintList(ColorStateList.valueOf(accent));progressRow.addView(progress,new LinearLayout.LayoutParams(0,dp(4),1));
                 if(attachment.info.version==2){boolean paused=attachment.resumable();Button toggle=iconButton(paused?R.drawable.outline_play_arrow_24:R.drawable.outline_pause_24,t(paused?"attachmentResume":"attachmentPause"),muted);toggle.setOnClickListener(v->{if(controller!=null)controller.attachmentAction(peer,message.id,message.outgoing,paused?"resume":"pause");});progressRow.addView(toggle,new LinearLayout.LayoutParams(dp(48),dp(48)));}
                 Button cancel=iconButton(R.drawable.outline_close_24,t("cancel"),muted);cancel.setOnClickListener(v->{if(controller!=null)controller.attachmentAction(peer,message.id,message.outgoing,"cancel");});progressRow.addView(cancel,new LinearLayout.LayoutParams(dp(48),dp(48)));bubble.addView(progressRow);
             }

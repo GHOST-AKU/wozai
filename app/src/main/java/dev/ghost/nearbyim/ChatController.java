@@ -49,7 +49,8 @@ public final class ChatController implements TransportListener {
     private final ContentResolver resolver;
     private final Context applicationContext;
     private volatile TransferStorageBudget attachmentStorage;
-    private final ConcurrentHashMap<String,TransferProgress> transferProgress=new ConcurrentHashMap<>();
+    private record Feedback(AttachmentRecord record,TransferProgress progress){}
+    private final ConcurrentHashMap<String,Feedback> transferProgress=new ConcurrentHashMap<>();
     private final ThreadPoolExecutor fileSelection=new ThreadPoolExecutor(1,1,0,TimeUnit.SECONDS,new ArrayBlockingQueue<>(2),r->{Thread t=new Thread(r,"attachment-document");t.setDaemon(true);return t;},new ThreadPoolExecutor.AbortPolicy());
     private final ConcurrentHashMap<AttachmentSource,Long> selectingSources=new ConcurrentHashMap<>();
     private final Set<StreamConnection> waitingForNoise=new HashSet<>();
@@ -322,7 +323,12 @@ public final class ChatController implements TransportListener {
                             catch(Exception failure){throw new IOException("Attachment metadata save failed",failure);}
                             main.post(()->{if(!destroyed)refresh();});
                         }
-                        public void progress(AttachmentRecord record,TransferProgress progress){if(active==wire)transferProgress.put(hello.id+":"+record.info.id+":"+record.outgoing,progress);}
+                        public void progress(AttachmentRecord record,TransferProgress progress){
+                            if(active!=wire)return;String key=hello.id+":"+record.info.id+":"+record.outgoing;
+                            if(!record.active()&&!record.resumable()){transferProgress.remove(key);return;}
+                            transferProgress.put(key,new Feedback(record,progress));
+                            main.post(()->{if(!destroyed&&active==wire){if(Objects.equals(selectedId,hello.id))messages=liveMessages(messages,hello.id);ChatController.this.changed();}});
+                        }
                     },attachmentStorage);
                     preparing.complete(new ClientAttachmentTransfers(directory,engine,sources));
                 }catch(Exception failure){preparing.completeExceptionally(failure);}
@@ -358,7 +364,16 @@ public final class ChatController implements TransportListener {
     public boolean canSend() { return !savingMessage && connected && active != null && active.isReady() && remoteHello != null && Objects.equals(selectedId, connectedPeerId); }
     public long attachmentSessionToken(){return attachmentToken;}
     public boolean canSendAttachment(){return canSend()&&transfers!=null&&active.attachmentsSupported();}
-    public TransferProgress transferProgress(String peer,AttachmentRecord record){return transferProgress.getOrDefault(peer+":"+record.info.id+":"+record.outgoing,TransferProgress.UNKNOWN);}
+    public TransferProgress transferProgress(String peer,AttachmentRecord record){Feedback value=transferProgress.get(peer+":"+record.info.id+":"+record.outgoing);return value==null?TransferProgress.UNKNOWN:value.progress();}
+    public boolean endToEndEncrypted(String peer){FramedSession wire=active;return connected&&Objects.equals(peer,connectedPeerId)&&wire!=null&&wire.endToEndEncrypted();}
+    private List<ChatStore.Message> liveMessages(List<ChatStore.Message> history,String peer){
+        List<ChatStore.Message> values=new ArrayList<>(history.size());
+        for(ChatStore.Message message:history){AttachmentRecord previous=message.attachment;Feedback value=previous==null?null:transferProgress.get(peer+":"+previous.info.id+":"+previous.outgoing);
+            if(value!=null&&previous.mayReplace(value.record())){AttachmentRecord record=value.record();String state=record.outgoing?(record.state.equals("delivered")?ChatStore.DELIVERED:record.active()?ChatStore.PENDING:ChatStore.UNKNOWN):message.state;
+                values.add(new ChatStore.Message(message.id,message.text,state,message.outgoing,message.time,record));
+            }else values.add(message);
+        }return values;
+    }
     public long attachmentQuota(){return attachmentStorage==null?TransferStorageBudget.DEFAULT_QUOTA:attachmentStorage.quota();}
     public boolean hasActiveAttachments(){return !selectingSources.isEmpty()||transfers!=null&&transfers.hasActive();}
     public boolean isPreparingAttachment(){return !selectingSources.isEmpty();}
@@ -450,7 +465,7 @@ public final class ChatController implements TransportListener {
             main.post(() -> {
                 if (destroyed) return; conversations = saved;
                 if (version == trust.version()) trustedDevices = devices;
-                if (Objects.equals(selection, selectedId)) messages = history;
+                if (Objects.equals(selection, selectedId)) messages = liveMessages(history,selection);
                 changed();
             });
         }, null);

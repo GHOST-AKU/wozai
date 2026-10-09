@@ -363,5 +363,9 @@
   "attachmentQuota": "附件空间配额",
   "attachmentQuotaGiB": "{0,number} GiB",
   "attachmentQuotaInUse": "新的配额不能小于已占用及预留空间。",
-  "attachmentStateSourceUnavailable": "已暂停：源文件暂时无法读取，恢复访问后可续传"
+  "attachmentStateSourceUnavailable": "已暂停：源文件暂时无法读取，恢复访问后可续传",
+  "encryptedVia": "端到端加密 · {0}",
+  "attachmentCheckingProgress": "校验续传数据：{0} / {1} · {2}%",
+  "attachmentWaitingResume": "等待对方确认续传…",
+  "attachmentShowInFolder": "打开所在位置"
 }

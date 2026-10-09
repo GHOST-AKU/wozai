@@ -363,5 +363,9 @@
   "attachmentQuota": "Attachment storage quota",
   "attachmentQuotaGiB": "{0,number} GiB",
   "attachmentQuotaInUse": "The new quota must cover stored and reserved space.",
-  "attachmentStateSourceUnavailable": "Paused: source temporarily unreadable. Restore access, then resume."
+  "attachmentStateSourceUnavailable": "Paused: source temporarily unreadable. Restore access, then resume.",
+  "encryptedVia": "End-to-end encrypted · {0}",
+  "attachmentCheckingProgress": "Checking saved data: {0} / {1} · {2}%",
+  "attachmentWaitingResume": "Waiting for the peer to confirm resume…",
+  "attachmentShowInFolder": "Show in folder"
 }

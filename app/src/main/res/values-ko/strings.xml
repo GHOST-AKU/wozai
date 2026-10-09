@@ -28,6 +28,7 @@
     <string name="app_settings" formatted="false">"앱 설정"</string>
     <string name="appearance_section" formatted="false">"화면 설정"</string>
     <string name="attachment_accept" formatted="false">"수락"</string>
+    <string name="attachment_checking_progress" formatted="false">"재개 데이터 확인 중: {0} / {1} · {2}%"</string>
     <string name="attachment_details" formatted="false">"{0} · {1,number} / {2,number} 바이트 · {3}"</string>
     <string name="attachment_failed" formatted="false">"파일 작업에 실패했습니다. 파일 접근 권한과 여유 공간을 확인하세요."</string>
     <string name="attachment_hint" formatted="false">"파일당 최대 1 GiB. 내용은 암호화되지 않습니다."</string>
@@ -44,6 +45,7 @@
     <string name="attachment_reject" formatted="false">"거절"</string>
     <string name="attachment_resume" formatted="false">"전송 재개"</string>
     <string name="attachment_save_as" formatted="false">"다른 이름으로 저장"</string>
+    <string name="attachment_show_in_folder" formatted="false">"파일 위치 열기"</string>
     <string name="attachment_source_changed" formatted="false">"원본 파일이 변경되었습니다. 다시 보내세요."</string>
     <string name="attachment_source_permission" formatted="false">"파일 읽기 권한이 없습니다. 파일을 다시 선택하세요."</string>
     <string name="attachment_source_unavailable" formatted="false">"원본 파일을 읽을 수 없습니다. 다시 선택하세요."</string>
@@ -68,6 +70,7 @@
     <string name="attachment_too_large" formatted="false">"파일 크기 제한을 초과했습니다."</string>
     <string name="attachment_unavailable" formatted="false">"파일을 사용할 수 없습니다. 삭제되었을 수 있습니다."</string>
     <string name="attachment_upgrade_required" formatted="false">"전송 프로토콜이 호환되지 않습니다. 양쪽 앱을 업데이트하세요."</string>
+    <string name="attachment_waiting_resume" formatted="false">"상대방의 재개 확인을 기다리는 중…"</string>
     <string name="attachments" formatted="false">"첨부 파일"</string>
     <string name="back" formatted="false">"뒤로"</string>
     <string name="back_to_chats" formatted="false">"채팅 목록으로 돌아가기"</string>
@@ -174,6 +177,7 @@
     <string name="earlier" formatted="false">"이전"</string>
     <string name="emoji" formatted="false">"이모지"</string>
     <string name="empty_chat" formatted="false">"왼쪽에서 채팅을 선택하거나 ‘근처’에서 기기에 연결하세요."</string>
+    <string name="encrypted_via" formatted="false">"종단 간 암호화 · {0}"</string>
     <string name="endpoint" formatted="false">"상대 기기의 IP 주소와 포트"</string>
     <string name="endpoint_hint" formatted="false">"예: 192.168.1.20:54321. 상대 기기에 표시된 주소를 확인하세요."</string>
     <string name="endpoint_required" formatted="false">"LAN IP 주소와 포트를 입력하세요."</string>

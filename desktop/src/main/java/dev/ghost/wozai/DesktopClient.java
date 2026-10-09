@@ -18,6 +18,7 @@ public final class DesktopClient implements AutoCloseable {
         void changed(State state);
         void request(Request request);
         void notice(UiText text);
+        default void attachmentProgress(String peer){}
     }
     private final DesktopStore store;
     private final DesktopIdentity.Identity identity;
@@ -26,7 +27,8 @@ public final class DesktopClient implements AutoCloseable {
     private final Listener listener;
     private final TrustPolicy policy = new TrustPolicy();
     private final TransferStorageBudget attachmentStorage;
-    private final ConcurrentHashMap<String,TransferProgress> transferProgress=new ConcurrentHashMap<>();
+    private record Feedback(AttachmentRecord record,TransferProgress progress){}
+    private final ConcurrentHashMap<String,Feedback> transferProgress=new ConcurrentHashMap<>();
     private final ExecutorService model = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS,
             new ArrayBlockingQueue<>(256), r -> daemon(r, "wozai-model"), new ThreadPoolExecutor.AbortPolicy());
     private volatile boolean closed;
@@ -180,7 +182,11 @@ public final class DesktopClient implements AutoCloseable {
                         public boolean send(TransferPacket packet){return wire.sendTransfer(packet);}public void abort(){wire.close(UiText.of("attachmentFailed"));}
                     },new AttachmentTransferV2.Listener(){
                         public void changed(AttachmentRecord record)throws IOException{store.attachment(peer.id(),record);event(()->publish());}
-                        public void progress(AttachmentRecord record,TransferProgress progress){if(current==Session.this)transferProgress.put(peer.id()+":"+record.info.id+":"+record.outgoing,progress);}
+                        public void progress(AttachmentRecord record,TransferProgress progress){
+                            if(current!=Session.this)return;String key=peer.id()+":"+record.info.id+":"+record.outgoing;
+                            if(!record.active()&&!record.resumable()){transferProgress.remove(key);return;}
+                            transferProgress.put(key,new Feedback(record,progress));listener.attachmentProgress(peer.id());
+                        }
                     },attachmentStorage);
                     transfers=new ClientAttachmentTransfers(directory,engine,sources);wire.approve();
                 }catch(Exception failure){DesktopClient.this.failure();}
@@ -266,11 +272,20 @@ public final class DesktopClient implements AutoCloseable {
     public CompletableFuture<java.nio.file.Path> attachmentPath(String peerId,AttachmentRecord record){return submit(()->{
         java.nio.file.Path file=store.attachmentFile(peerId,record.info,record.outgoing);if(!java.nio.file.Files.isRegularFile(file,java.nio.file.LinkOption.NOFOLLOW_LINKS))throw new LocalizedIOException(UiText.of("attachmentUnavailable"));return file;
     });}
-    public CompletableFuture<List<DesktopStore.Message>> messages(String id) { return submit(() -> store.messages(id)); }
+    public CompletableFuture<List<DesktopStore.Message>> messages(String id) { return submit(() -> liveMessages(id,store.messages(id))); }
     public CompletableFuture<String> draft(String id) { return submit(() -> store.draft(id)); }
     public CompletableFuture<Void> draft(String id, String text) { return submit(() -> { store.draft(id, text); return null; }); }
     public CompletableFuture<Void> setting(String key, String value) { return submit(() -> { store.setSetting(key, value); return null; }); }
-    public TransferProgress transferProgress(String peer,AttachmentRecord record){return transferProgress.getOrDefault(peer+":"+record.info.id+":"+record.outgoing,TransferProgress.UNKNOWN);}
+    public TransferProgress transferProgress(String peer,AttachmentRecord record){Feedback value=transferProgress.get(peer+":"+record.info.id+":"+record.outgoing);return value==null?TransferProgress.UNKNOWN:value.progress();}
+    public boolean endToEndEncrypted(String peer){Session session=current;return session!=null&&session.peer!=null&&session.peer.id().equals(peer)&&session.wire.endToEndEncrypted();}
+    public List<DesktopStore.Message> liveMessages(String peer,List<DesktopStore.Message> history){
+        List<DesktopStore.Message> values=new ArrayList<>(history.size());
+        for(DesktopStore.Message message:history){AttachmentRecord previous=message.attachment();Feedback value=previous==null?null:transferProgress.get(peer+":"+previous.info.id+":"+previous.outgoing);
+            if(value!=null&&previous.mayReplace(value.record())){AttachmentRecord record=value.record();String status=record.outgoing?(record.state.equals("delivered")?"delivered":record.active()?"pending":"unknown"):message.status();
+                values.add(new DesktopStore.Message(message.id(),message.body(),message.time(),message.outgoing(),status,message.senderTime(),record));
+            }else values.add(message);
+        }return values;
+    }
     public long attachmentQuota(){return attachmentStorage.quota();}
     public CompletableFuture<Void> attachmentQuota(long bytes){return submit(()->{try{attachmentStorage.quota(bytes);store.setSetting("attachmentQuota",Long.toString(bytes));return null;}catch(TransferStorageException error){throw new LocalizedIOException(UiText.of("attachmentQuotaInUse"),error);}});}
     public CompletableFuture<Void> revoke(String peerId) { final String id = DesktopStore.uuid(peerId); return submit(() -> {

@@ -36,6 +36,7 @@ public final class I18nResources {
             case "appSettings": return R.string.app_settings;
             case "appearanceSection": return R.string.appearance_section;
             case "attachmentAccept": return R.string.attachment_accept;
+            case "attachmentCheckingProgress": return R.string.attachment_checking_progress;
             case "attachmentDetails": return R.string.attachment_details;
             case "attachmentFailed": return R.string.attachment_failed;
             case "attachmentHint": return R.string.attachment_hint;
@@ -52,6 +53,7 @@ public final class I18nResources {
             case "attachmentReject": return R.string.attachment_reject;
             case "attachmentResume": return R.string.attachment_resume;
             case "attachmentSaveAs": return R.string.attachment_save_as;
+            case "attachmentShowInFolder": return R.string.attachment_show_in_folder;
             case "attachmentSourceChanged": return R.string.attachment_source_changed;
             case "attachmentSourcePermission": return R.string.attachment_source_permission;
             case "attachmentSourceUnavailable": return R.string.attachment_source_unavailable;
@@ -76,6 +78,7 @@ public final class I18nResources {
             case "attachmentTooLarge": return R.string.attachment_too_large;
             case "attachmentUnavailable": return R.string.attachment_unavailable;
             case "attachmentUpgradeRequired": return R.string.attachment_upgrade_required;
+            case "attachmentWaitingResume": return R.string.attachment_waiting_resume;
             case "attachments": return R.string.attachments;
             case "back": return R.string.back;
             case "backToChats": return R.string.back_to_chats;
@@ -182,6 +185,7 @@ public final class I18nResources {
             case "earlier": return R.string.earlier;
             case "emoji": return R.string.emoji;
             case "emptyChat": return R.string.empty_chat;
+            case "encryptedVia": return R.string.encrypted_via;
             case "endpoint": return R.string.endpoint;
             case "endpointHint": return R.string.endpoint_hint;
             case "endpointRequired": return R.string.endpoint_required;

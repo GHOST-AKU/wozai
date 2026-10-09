@@ -363,5 +363,9 @@
   "attachmentQuota": "附件空間配額",
   "attachmentQuotaGiB": "{0,number} GiB",
   "attachmentQuotaInUse": "新的配額不能小於已使用及預留空間。",
-  "attachmentStateSourceUnavailable": "已暫停：來源檔案暫時無法讀取，恢復存取後可續傳"
+  "attachmentStateSourceUnavailable": "已暫停：來源檔案暫時無法讀取，恢復存取後可續傳",
+  "encryptedVia": "端對端加密 · {0}",
+  "attachmentCheckingProgress": "驗證續傳資料：{0} / {1} · {2}%",
+  "attachmentWaitingResume": "等待對方確認續傳…",
+  "attachmentShowInFolder": "開啟所在位置"
 }

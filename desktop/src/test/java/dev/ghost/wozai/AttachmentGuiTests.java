@@ -35,13 +35,26 @@ public final class AttachmentGuiTests {
                 pane.render(List.of(new DesktopStore.Message(pending.id,pending.name,1,true,"pending",1,new AttachmentRecord(pending,true,"transferring",1024*1024))),strings);
                 JButton pause=components(pane).stream().filter(c->c instanceof JButton b&&strings.text("attachmentPause").equals(b.getToolTipText())).map(c->(JButton)c).findFirst().orElseThrow(()->new AssertionError("Active file has no pause control"));pause.doClick();check(actions.contains("true:pause"),"Pause control did not dispatch");
                 check(components(pane).stream().anyMatch(c->c instanceof JLabel label&&label.getText().contains("MiB/s")),"Transfer speed not visible");
+                List<DesktopStore.Message> same=List.of(new DesktopStore.Message(pending.id,pending.name,1,true,"pending",1,new AttachmentRecord(pending,true,"transferring",1024*1024)));
+                pane.progress(message->new TransferProgress(7L*1024*1024,1));pane.render(same,strings);
+                check(components(pane).stream().anyMatch(c->c instanceof JLabel label&&label.getText().contains("7.0 MiB/s")),"Cached message row ignores live-only speed changes");
+                pane.progress(message->new TransferProgress(9L*1024*1024,1));pane.render(same,strings);
+                check(components(pane).stream().anyMatch(c->c instanceof JLabel label&&label.getText().contains("9.0 MiB/s")),"Unchanged history hides fresh speed feedback");
+                List<DesktopStore.Message> checking=List.of(new DesktopStore.Message(pending.id,pending.name,1,true,"pending",1,new AttachmentRecord(pending,true,"checking",1024*1024)));
+                pane.progress(message->new TransferProgress(0,-1,1024*1024,4*1024*1024));pane.render(checking,strings);
+                check(components(pane).stream().anyMatch(c->c instanceof JProgressBar bar&&!bar.isIndeterminate()&&bar.getValue()==25),"Resume hash verification is not measurable");
+                pane.progress(message->new TransferProgress(0,-1,3*1024*1024,4*1024*1024));pane.render(checking,strings);
+                check(components(pane).stream().anyMatch(c->c instanceof JProgressBar bar&&bar.getValue()==75),"Unchanged history hides updated verification bytes");
+                pane.progress(message->TransferProgress.UNKNOWN);pane.render(checking,strings);
+                check(components(pane).stream().anyMatch(c->c instanceof JLabel label&&label.getText().equals(strings.text("attachmentWaitingResume"))),"Waiting peer is confused with local verification");
                 pane.progress(message->TransferProgress.UNKNOWN);
             }catch(java.io.IOException error){throw new AssertionError(error);}
             pane.render(List.of(message(info,false),message(info,true)),strings);
             check(actions.contains("false:preview")&&actions.contains("true:preview"),"Sent or received thumbnail not requested");
             pane.thumbnail(info.id,false,new BufferedImage(200,100,BufferedImage.TYPE_INT_RGB));pane.thumbnail(info.id,true,new BufferedImage(100,200,BufferedImage.TYPE_INT_RGB));
             List<JLabel> photos=components(pane).stream().filter(c->c instanceof JLabel l&&l.getIcon()!=null).map(c->(JLabel)c).toList();check(photos.size()==2,"Direction collision lost a photo");
-            for(JLabel photo:photos){photo.dispatchEvent(new MouseEvent(photo,MouseEvent.MOUSE_CLICKED,1,0,10,10,1,false,MouseEvent.BUTTON1));JPopupMenu menu=photo.getComponentPopupMenu();check(menu!=null&&menu.getComponentCount()==2,"Photo save menu missing");((JMenuItem)menu.getComponent(1)).doClick();}
+            for(JLabel photo:photos){photo.dispatchEvent(new MouseEvent(photo,MouseEvent.MOUSE_CLICKED,1,0,10,10,1,false,MouseEvent.BUTTON1));JPopupMenu menu=photo.getComponentPopupMenu();check(menu!=null&&menu.getComponentCount()>=2,"Photo save menu missing");((JMenuItem)menu.getComponent(1)).doClick();}
+            JButton folder=components(pane).stream().filter(c->c instanceof JButton b&&strings.text("attachmentShowInFolder").equals(b.getToolTipText())).map(c->(JButton)c).findFirst().orElseThrow(()->new AssertionError("Completed file has no visible location control"));folder.doClick();check(actions.stream().anyMatch(a->a.endsWith(":folder")),"File location control does not dispatch");
             check(actions.containsAll(List.of("false:view","true:view","false:save","true:save")),"Photo gesture did not invoke internal viewer/save");
             check(components(pane).stream().noneMatch(c->c instanceof JButton b&&("Open".equals(b.getText())||"Save as".equals(b.getText()))),"Large action buttons still occupy bubbles");
             pane.thumbnail(info.id,false,null);
@@ -52,7 +65,8 @@ public final class AttachmentGuiTests {
             try{
                 AttachmentInfo executable=new AttachmentInfo(UUID.randomUUID().toString(),"run.exe","application/octet-stream",0,"0".repeat(64),1);
                 pane.render(List.of(message(executable,false)),strings);JTextArea executableBody=components(pane).stream().filter(c->c instanceof JTextArea).map(c->(JTextArea)c).findFirst().orElseThrow();
-                check(executableBody.getComponentPopupMenu().getComponentCount()==1,"Executable still offers external Open");
+                check(executableBody.getComponentPopupMenu().getComponentCount()==2,"Executable save/location menu missing");
+                check(Arrays.stream(executableBody.getComponentPopupMenu().getComponents()).noneMatch(c->c instanceof JMenuItem item&&strings.text("attachmentOpen").equals(item.getText())),"Executable still offers external Open");
                 actions.clear();executableBody.dispatchEvent(new MouseEvent(executableBody,MouseEvent.MOUSE_CLICKED,1,0,10,10,1,false,MouseEvent.BUTTON1));check(actions.equals(List.of("false:save")),"Executable file gesture can launch a program");
                 var field=AppTheme.class.getDeclaredField("tintedIcons");field.setAccessible(true);Map<?,?> cache=(Map<?,?>)field.get(null);cache.clear();
                 JButton target=new JButton();Icon icon=AppTheme.icon("send");BufferedImage destination=new BufferedImage(24,24,BufferedImage.TYPE_INT_ARGB);Graphics2D graphics=destination.createGraphics();

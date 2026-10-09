@@ -28,6 +28,7 @@
     <string name="app_settings" formatted="false">"アプリの設定"</string>
     <string name="appearance_section" formatted="false">"表示"</string>
     <string name="attachment_accept" formatted="false">"受信"</string>
+    <string name="attachment_checking_progress" formatted="false">"再開データを確認中：{0} / {1} · {2}%"</string>
     <string name="attachment_details" formatted="false">"{0} · {1,number} / {2,number} バイト · {3}"</string>
     <string name="attachment_failed" formatted="false">"ファイル操作に失敗しました。アクセス権と空き容量を確認してください。"</string>
     <string name="attachment_hint" formatted="false">"1 ファイル最大 1 GiB。内容は暗号化されません。"</string>
@@ -44,6 +45,7 @@
     <string name="attachment_reject" formatted="false">"拒否"</string>
     <string name="attachment_resume" formatted="false">"転送を再開"</string>
     <string name="attachment_save_as" formatted="false">"名前を付けて保存"</string>
+    <string name="attachment_show_in_folder" formatted="false">"保存先を開く"</string>
     <string name="attachment_source_changed" formatted="false">"元のファイルが変更されました。もう一度送信してください。"</string>
     <string name="attachment_source_permission" formatted="false">"ファイルの読み取り権限がありません。もう一度選択してください。"</string>
     <string name="attachment_source_unavailable" formatted="false">"元のファイルを読み取れません。もう一度選択してください。"</string>
@@ -68,6 +70,7 @@
     <string name="attachment_too_large" formatted="false">"ファイルサイズの上限を超えています。"</string>
     <string name="attachment_unavailable" formatted="false">"ファイルを利用できません。削除された可能性があります。"</string>
     <string name="attachment_upgrade_required" formatted="false">"転送プロトコルが非対応です。両方のアプリを更新してください。"</string>
+    <string name="attachment_waiting_resume" formatted="false">"相手の再開確認を待っています…"</string>
     <string name="attachments" formatted="false">"添付"</string>
     <string name="back" formatted="false">"戻る"</string>
     <string name="back_to_chats" formatted="false">"チャット一覧に戻る"</string>
@@ -174,6 +177,7 @@
     <string name="earlier" formatted="false">"以前"</string>
     <string name="emoji" formatted="false">"絵文字"</string>
     <string name="empty_chat" formatted="false">"左側からチャットを選ぶか、「近く」でデバイスに接続してください。"</string>
+    <string name="encrypted_via" formatted="false">"エンドツーエンド暗号化 · {0}"</string>
     <string name="endpoint" formatted="false">"相手の IP アドレスとポート"</string>
     <string name="endpoint_hint" formatted="false">"例：192.168.1.20:54321。相手のデバイスに表示されているアドレスを確認してください。"</string>
     <string name="endpoint_required" formatted="false">"LAN の IP アドレスとポートを入力してください。"</string>

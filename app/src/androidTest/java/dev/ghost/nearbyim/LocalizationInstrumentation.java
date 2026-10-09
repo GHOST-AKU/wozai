@@ -20,6 +20,7 @@ import dev.ghost.nearbyim.core.AttachmentRecord;
 import dev.ghost.nearbyim.core.AttachmentTransfer;
 import dev.ghost.nearbyim.core.AttachmentTransferV2;
 import dev.ghost.nearbyim.core.TransferPacket;
+import dev.ghost.nearbyim.core.TransferProgress;
 import dev.ghost.nearbyim.core.FileAttachmentSource;
 import dev.ghost.nearbyim.core.Frame;
 import dev.ghost.nearbyim.core.FramedSession;
@@ -56,6 +57,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
     private MainActivity activity;
     private FramedSession remote;
     private volatile AttachmentTransferV2 remoteTransfers;
+    private volatile CountDownLatch resumePauseBlocked,resumePauseRelease;
     private final BlockingQueue<AttachmentRecord> remoteFileStates=new LinkedBlockingQueue<>();
     private ChatController liveController;
     private final AtomicReference<MainActivity> latestActivity = new AtomicReference<>();
@@ -188,7 +190,11 @@ public final class LocalizationInstrumentation extends Instrumentation {
                         public boolean send(TransferPacket packet){return wire.sendTransfer(packet);}public void abort(){wire.close(UiText.of("attachmentFailed"));}
                     },record->remoteFileStates.add(record));wire.approve();}catch(Exception failure){throw new IllegalStateException("Remote encrypted fixture failed",failure);}
                 }
-                public void onTransfer(TransferPacket packet){try{remoteTransfers.receive(packet,true);}catch(IOException failure){throw new java.io.UncheckedIOException(failure);}}
+                public void onTransfer(TransferPacket packet){try{
+                    CountDownLatch blocked=resumePauseBlocked,release=resumePauseRelease;
+                    if(packet.kind==TransferPacket.Kind.DATA&&packet.offset>=2L*1024*1024&&blocked!=null&&blocked.getCount()>0){blocked.countDown();if(!release.await(20,TimeUnit.SECONDS))throw new IOException("Synthetic pause barrier timed out");}
+                    remoteTransfers.receive(packet,true);
+                }catch(InterruptedException failure){Thread.currentThread().interrupt();throw new IllegalStateException(failure);}catch(IOException failure){throw new java.io.UncheckedIOException(failure);}}
                 public void onReady() { ready.countDown(); }
                 public void onText(Frame frame) { reference.get().acknowledge(frame.id); }
                 public void onAck(String id) { receipts.add(id); }
@@ -231,6 +237,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
             check(id.equals(receipts.poll(10, TimeUnit.SECONDS)), "Android saves and receipts timeline text " + i);
         }
         await(() -> onMain(() -> controller.messages.size() >= 35), "Saved timeline loads");
+        testLiveAttachmentFeedback(controller,peerId);
         Thread.sleep(150); waitForIdleSync();
         int scroll = onMain(() -> { ScrollView view = field(activity, "messageScroll"); view.scrollTo(0, 120); return view.getScrollY(); });
         check(scroll > 0, "Timeline is scrollable before recreation");
@@ -385,6 +392,8 @@ public final class LocalizationInstrumentation extends Instrumentation {
         throw new AssertionError("No remote file state "+state);
     }
     private void testFileTransfers(ChatController controller,String peer)throws Exception {
+        check(onMain(()->controller.endToEndEncrypted(peer)),"Ready Android production session reports authenticated end-to-end encryption");
+        check(onMain(()->((android.widget.TextView)field(activity,"chatStatus")).getText().toString().contains(AndroidText.get(activity,"encryptedVia",AndroidText.get(activity,"lan")))),"Chat header visibly identifies end-to-end encryption");
         check(onMain(()->((android.widget.Button)field(activity,"fileButton")).isEnabled()&&((android.widget.Button)field(activity,"photoButton")).isEnabled()),"Native file and photo selectors are enabled for the ready peer");
         check(onMain(()->((android.view.View)field(activity,"attachmentTray")).getVisibility()==android.view.View.GONE),"Composer attachment choices start collapsed");
         onMain(()->{((android.view.View)field(activity,"attachmentToggle")).performClick();return null;});
@@ -424,8 +433,52 @@ public final class LocalizationInstrumentation extends Instrumentation {
         check(onMain(()->{android.view.ViewGroup bubbles=field(activity,"bubbles"),bubble=bubbles.findViewWithTag("attachment:"+documentId);return bubble!=null&&bubble.getChildAt(0).performLongClick();}),"File card press opens actions on its clickable content");
         check(onMain(()->{android.widget.PopupMenu menu=field(activity,"attachmentActions");boolean found=menu.getMenu().size()==2&&menu.getMenu().getItem(1).getTitle().toString().equals(AndroidText.get(activity,"attachmentSaveAs"));menu.dismiss();return found;}),"File long-press exposes both Open and Save as");
         screenshot("zh-Hans-photo-and-file-chat");
+        testContentUriResume(controller,peer);
         testAttachmentQueueRejection(controller,peer,received,uri);
         long token=onMain(()->controller.attachmentSessionToken());onMain(()->{controller.sendAttachment(peer,token-1,uri);return null;});check(onMain(()->controller.error.key.equals("notConnected")),"Stale picker result cannot cross session generations");
+    }
+    private android.widget.Button attachmentButton(android.view.View view,String description){
+        if(view instanceof android.widget.Button button&&description.contentEquals(button.getContentDescription()==null?"":button.getContentDescription()))return button;
+        if(view instanceof android.view.ViewGroup group)for(int n=0;n<group.getChildCount();n++){android.widget.Button found=attachmentButton(group.getChildAt(n),description);if(found!=null)return found;}return null;
+    }
+    private void testContentUriResume(ChatController controller,String peer)throws Exception {
+        android.net.Uri uri=android.net.Uri.parse("content://dev.ghost.nearbyim.test.sources/file");getTargetContext().getContentResolver().call(uri,"large",null,null);
+        java.security.MessageDigest digest=java.security.MessageDigest.getInstance("SHA-256");
+        try(InputStream input=getTargetContext().getContentResolver().openInputStream(uri)){byte[] buffer=new byte[32768];int n;while((n=input.read(buffer))!=-1)digest.update(buffer,0,n);}
+        String expected=AttachmentInfo.hex(digest.digest()),generation=remote.connectionGeneration();
+        resumePauseRelease=new CountDownLatch(1);resumePauseBlocked=new CountDownLatch(1);
+        try {
+            onMain(()->{controller.sendAttachment(peer,controller.attachmentSessionToken(),uri);return null;});AttachmentRecord offer=remoteFileState("offered");String id=offer.info.id;
+            check(resumePauseBlocked.await(15,TimeUnit.SECONDS),"Real Android content URI reaches a nonempty pause prefix");
+            onMain(()->{controller.attachmentAction(peer,id,true,"pause");return null;});
+            await(()->onMain(()->controller.messages.stream().anyMatch(m->m.id.equals(id)&&m.outgoing&&m.attachment!=null&&m.attachment.resumable())),"Android pause becomes actionable without reconnecting");
+            resumePauseRelease.countDown();remoteFileState("paused");
+            check(onMain(()->{android.view.ViewGroup bubbles=field(activity,"bubbles");android.widget.Button button=attachmentButton(bubbles.findViewWithTag("attachment:"+id),AndroidText.get(activity,"attachmentResume"));return button!=null&&button.performClick();}),"Native Resume button starts content URI recovery");
+            AttachmentRecord completed=remoteFileState("received");
+            await(()->onMain(()->controller.messages.stream().anyMatch(m->m.id.equals(id)&&m.outgoing&&m.attachment!=null&&m.attachment.state.equals("delivered"))),"Android content URI resumes and saves the completion receipt");
+            check(generation.equals(remote.connectionGeneration())&&expected.equals(completed.info.hash),"Android Resume retains Noise generation and full content digest");
+        }finally{resumePauseRelease.countDown();resumePauseBlocked=null;resumePauseRelease=null;getTargetContext().getContentResolver().call(uri,"reset",null,null);}
+    }
+    private void testLiveAttachmentFeedback(ChatController controller,String peer)throws Exception {
+        Class<?> feedbackType=Class.forName("dev.ghost.nearbyim.ChatController$Feedback");
+        var constructor=feedbackType.getDeclaredConstructor(AttachmentRecord.class,TransferProgress.class);constructor.setAccessible(true);
+        java.util.Map<String,Object> feedback=field(controller,"transferProgress");
+        java.util.List<ChatStore.Message> history=onMain(()->controller.messages);
+        AttachmentInfo info=AttachmentInfo.v2(java.util.UUID.randomUUID().toString(),"checking.bin","application/octet-stream",4L*1024*1024,null,System.currentTimeMillis());String key=peer+":"+info.id+":false";
+        try {
+            android.view.View bubble=null;
+            for(int percent:new int[]{25,75}) {
+                AttachmentRecord record=new AttachmentRecord(info,false,"checking",1024*1024);
+                Object value=constructor.newInstance(record,new TransferProgress(0,-1,percent*info.size/100,info.size));
+                android.view.View previous=bubble;
+                bubble=onMain(()->{
+                    feedback.put(key,value);java.util.ArrayList<ChatStore.Message> messages=new java.util.ArrayList<>(history);messages.add(new ChatStore.Message(info.id,info.name,"received",false,info.time,record));controller.messages=messages;invoke(activity,"renderChat",new Class<?>[0]);
+                    android.view.ViewGroup bubbles=field(activity,"bubbles");android.view.View current=bubbles.findViewWithTag("attachment:"+info.id);android.widget.ProgressBar bar=current.findViewWithTag("attachmentProgress");
+                    check(bar!=null&&!bar.isIndeterminate()&&bar.getProgress()==percent,"Android resume verification displays changing checked bytes");
+                    if(previous!=null)check(previous==current,"Live file progress rebuilds the saved timeline");return current;
+                });
+            }
+        }finally{onMain(()->{feedback.remove(key);controller.messages=history;invoke(activity,"renderChat",new Class<?>[0]);return null;});}
     }
     private void rejectedAttachmentFuture(java.util.concurrent.CompletableFuture<?> future,String message)throws Exception {
         try{future.get(1,TimeUnit.SECONDS);throw new AssertionError(message+": unexpectedly succeeded");}
