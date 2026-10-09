@@ -275,3 +275,23 @@ java -Djava.awt.headless=true -cp 'build/icon-benchmark:desktop/build/classes:de
 [Android CI](https://github.com/GHOST-AKU/wozai/actions/runs/37195190726)全部通过，API 26／34 对实际 optimized preview **各 287 项原生检查**，新增检查覆盖八种 PNG 旋转／镜像的逐像素结果、过大 EXIF 拒绝和 APK 打开策略。[Windows／Linux CI](https://github.com/GHOST-AKU/wozai/actions/runs/37195192408)全部通过：原生构建、随包运行时、真实 GUI、mDNS、照片查看、四档缩放及 Windows 文字像素。核心图片／附件安全检查 **1,073 项**及 **48 MiB 文件在 32 MiB 最大堆下传输**通过。本地 Linux 完整打包／GUI／移动目录／身份重启检查亦通过，构建元数据干净且指向实现提交。
 
 本地曾在并行编译下触发连接／大文件测试超时，随后停止并行编译并串行完整复测通过，未修改超时阈值。微基准在串行复测结束后采集。本轮没有新的 Android CPU／RSS 测量，没有重新完成长期空闲／仅连接内存验收，Issue #9 保持开放。自动接收仍无累计对端配额；连续授权传输可消耗存储，现有单文件限制和剩余空间保护不是累计配额。#7 蓝牙真机、#8 原签名密钥仍阻碍对应验收；HEIC／AVIF 真机格式未验收，加密按既定顺序继续后置。进展与后续验收留在既有 Issues，不另建 TODO。
+
+
+## 0.3.2 候选：实际 10 GiB、NIM4 与长期连接（2026-10-09）
+
+本节为候选工程证据，正式版仍是 v0.3.1。源实现 `40d00e67e5359d111437cb19d988fd883a6d8908`；测试是 Linux x64 虚拟环境、单 JVM TCP loopback、两核 CPU 配额、Temurin 17.0.16，`-Xmx32m`。文件在 overlay 文件系统实际生成、顺序读写；未使用稀疏文件或虚拟流。每轮接收后完成完整 SHA-256、文件 force、原子 rename、记录 force，再确认保存回执。源读取与同步目标写入分别测量；这不能替代手机存储或无线链路。
+
+| 同环境三轮，各 10 GiB | 稳态 MiB/s | 完整交付 MiB/s | 结论 |
+| --- | --- | --- | --- |
+| 原始 TCP | 646.011 / 661.593 / 669.653 | 645.728 / 661.522 / 669.589 | 网络 payload 基线 |
+| NIM4 Noise，最终编码优化 | 156.248 / 183.153 / 187.228 | 155.881 / 183.072 / 187.114 | 三轮实际内容与回执均验证 |
+
+完整 SHA-256 均为 `206cddc139ba254e61eddd2b4257dd5784e0494da137a5b469486d6ec19f6ea6`。R=min(原始 TCP 三轮中位数、源顺序读、目标同步顺序写)=661.593 MiB/s。稳态中位数 / R=27.68%，最差 / R=23.62%，完整中位数 / R=27.67%：**未通过 ≥80% / ≥70% / ≥70% 的既定速度门槛，指标不下调**。这台两核虚拟机的加密与任务调度有明显开销；手机互传也尚无测量，不能以虚拟链路结果推定手机达标。
+
+JFR 发现文件包重复解析、临时 payload/Frame 数组和分离的小记录头写入。实现改为解码一次、保留全部结构校验、一次分配最终文件记录数组、记录头与密文合并写入；公开工厂仍复制调用方数据，解码得到独立数组。没有削弱 Noise、块/完整摘要或 force。第一轮优化三轮完整中位数为 141.246 MiB/s，最终编码版本为 183.072 MiB/s；运行顺序、JIT 与虚拟调度会影响比较，不作为手机性能提升比例。
+
+原始报告：[原始 TCP](performance/2026-10-09-task8-raw-10g-three.json)、[最终 Noise](performance/2026-10-09-task8-noise-final-10g-three.json)、[第一轮优化 Noise](performance/2026-10-09-task6-noise-10g-three.json)、[512 MiB 编码测量](performance/2026-10-09-task7-noise-serialized-512m.json)。最终 Noise 报告标注 `+dirty`，因为采样时修改了桌面内存测量脚本；实际编译 class 的 SHA-256 在报告中，传输生产源码与 `40d00e6` 一致。计时区分准备、首字节、稳态、落盘、完整确认和连接设置；JVM 最大堆是整进程上限，不能据此直接推定手机 RSS/PSS 或原生内存。
+
+Linux 实际 GUI 的空闲 / 已认证仅连接各三轮，每轮 30 分钟；源 `af0b8ad33fbb8e7dcbf9d72f0381f4648e198b59`，独立 Xvfb 与临时 profile，六轮并行、正常关闭，均不读取用户聊天或导出密钥。前后五分钟 RSS 中位数变化：空闲 +3.885/+5.131/+3.906 MiB，连接 +29.383/+25.391/+24.754 MiB。FD 保持 40 / 45；线程 30→29 / 44→43。连接 used heap 末尾比起点低（期间发生 young GC）；空闲没有再次 GC。**used heap 不是 post-GC 存活堆；连接 RSS 保留仍需追踪，不能宣称内存增长已全部解决。** [摘要](performance/2026-10-09-linux-memory-30min-summary.json)与[完整一秒采样报告 gzip](performance/2026-10-09-linux-memory-30min.json.gz)。实际两个 DesktopClient 同时各传 256 MiB，并在传输中交替发送 20 条文字；SQLite 保存回执 P95=44.977 ms、本地取消完成=4.591 ms，原文件保留，最终双向内容一致。该测量属于虚拟 Linux LAN，不代表 RFCOMM 或手机时延。Windows 同类 30 分钟 CI 测量已启用，结果和 Android 长期趋势继续记 Issue #9。
+
+真实 Android↔Android LAN / 热点双向 10 GiB、蜂窝并存绑定、纯 RFCOMM 基线与长跑、ARM 手机能耗/温升仍受设备不足阻碍，记录在 #7/#11/#15。原签名的候选 APK 和 code7/code8→code9 升级由 CI 独立验证，记录在 #8；正式发布是另外的动作，不修改 v0.3.1 资产。

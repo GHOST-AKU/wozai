@@ -49,6 +49,25 @@ public final class AttachmentStoreTests {
             await(()->record(as,bi.id(),resumeId).state.equals("delivered")&&record(bs,ai.id(),resumeId).state.equals("received"));
             Path resumed=bc.attachmentPath(ai.id(),record(bs,ai.id(),resumeId)).get(10,TimeUnit.SECONDS);
             if(Files.mismatch(large,resumed)!=-1)throw new AssertionError("Authenticated reconnect changed resumed content");
+            try(java.io.OutputStream out=Files.newOutputStream(large,StandardOpenOption.APPEND)){for(int n=64;n<256;n++)out.write(block);}
+            String ab=ac.sendAttachment(bi.id(),large).get(10,TimeUnit.SECONDS),ba=bc.sendAttachment(ai.id(),large).get(10,TimeUnit.SECONDS);
+            long[] ackNs=new long[20];int overlapping=0;
+            for(int n=0;n<ackNs.length;n++) {
+                DesktopClient sender=n%2==0?ac:bc;DesktopStore senderStore=n%2==0?as:bs;String peer=n%2==0?bi.id():ai.id();String text="latency-"+UUID.randomUUID();
+                if(record(as,bi.id(),ab).active()||record(bs,ai.id(),ba).active())overlapping++;
+                long begin=System.nanoTime();if(!sender.send(text).get(1,TimeUnit.SECONDS))throw new AssertionError("File traffic rejected a text probe");
+                await(()->senderStore.messages(peer).stream().anyMatch(m->m.body().equals(text)&&m.status().equals("delivered")));ackNs[n]=System.nanoTime()-begin;
+            }
+            Arrays.sort(ackNs);double p95=ackNs[18]/1e6;
+            if(overlapping<16||p95>500)throw new AssertionError("File/text overlap or LAN text save ACK failed: "+overlapping+" probes, P95="+p95+"ms");
+            await(()->record(as,bi.id(),ab).state.equals("delivered")&&record(bs,ai.id(),ba).state.equals("delivered"));
+            if(Files.mismatch(large,bc.attachmentPath(ai.id(),record(bs,ai.id(),ab)).get())!=-1||Files.mismatch(large,ac.attachmentPath(bi.id(),record(as,bi.id(),ba)).get())!=-1)throw new AssertionError("Duplex file content changed");
+            String canceled=ac.sendAttachment(bi.id(),large).get(10,TimeUnit.SECONDS);long cancelBegin=System.nanoTime();
+            ac.attachmentAction(bi.id(),canceled,true,"cancel").get(1,TimeUnit.SECONDS);
+            double cancelMs=(System.nanoTime()-cancelBegin)/1e6;
+            await(()->record(as,bi.id(),canceled).state.equals("canceled")&&record(bs,ai.id(),canceled).state.equals("canceled"));
+            if(cancelMs>1000||!Files.isRegularFile(large))throw new AssertionError("Cancellation latency or original-file ownership failed");
+            System.out.println("Real desktop duplex: 256 MiB each direction, "+overlapping+" overlapping saved text ACKs; P95="+p95+"ms; cancel="+cancelMs+"ms (virtual LAN, not phone/RFCOMM acceptance)");
             Path exported=root.resolve("exported.pdf");Files.copy(received,exported);bc.clear(ai.id()).get(10,TimeUnit.SECONDS);if(Files.exists(received)||!Files.exists(exported)||bs.peer(ai.id()).publicKey().isEmpty())throw new AssertionError("Clear damaged independent export or trust");
             boolean refused=false;try{ac.sendAttachment(UUID.randomUUID().toString(),source).get(10,TimeUnit.SECONDS);}catch(ExecutionException expected){refused=true;}if(!refused)throw new AssertionError("Wrong peer selector sent a file");
         }
