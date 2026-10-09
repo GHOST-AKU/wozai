@@ -16,5 +16,7 @@ try {
     & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentLargeFileTest
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.ImageSafetyTests
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentBenchmarkTests
     exit $LASTEXITCODE
 } finally { Pop-Location }
