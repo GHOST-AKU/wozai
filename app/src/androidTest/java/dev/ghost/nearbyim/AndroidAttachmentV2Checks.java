@@ -13,6 +13,8 @@ final class AndroidAttachmentV2Checks {
         Path root=Files.createTempDirectory(context.getCacheDir().toPath(),"native-v2-");AttachmentTransferV2[] peers=new AttachmentTransferV2[2];
         BlockingQueue<AttachmentRecord> saved=new LinkedBlockingQueue<>(),sent=new LinkedBlockingQueue<>();java.util.concurrent.atomic.AtomicReference<Throwable> failure=new java.util.concurrent.atomic.AtomicReference<>();
         try {
+            long platformBytes=new android.os.StatFs(root.toString()).getAvailableBytes(),portableBytes=root.toFile().getUsableSpace();
+            if(portableBytes<=0||Math.abs(platformBytes-portableBytes)>64L*1024*1024)throw new AssertionError("Portable free-space check differs from Android StatFs");
             for(int i=0;i<2;i++){final int side=i;peers[i]=new AttachmentTransferV2(root.resolve(i==0?"a":"b"),hex(i==0?'a':'b'),hex(i==0?'b':'a'),hex('c'),false,new AttachmentTransferV2.Wire(){
                 public boolean send(TransferPacket packet){try{ByteArrayOutputStream encoded=new ByteArrayOutputStream();TransferCodec.write(encoded,packet);peers[1-side].receive(TransferCodec.read(new ByteArrayInputStream(encoded.toByteArray())),true);return true;}catch(IOException error){failure.compareAndSet(null,error);return false;}}
                 public void abort(){}
@@ -25,7 +27,7 @@ final class AndroidAttachmentV2Checks {
             Path content=AttachmentTransfer.file(root.resolve("b"),received.info);if(!Arrays.equals(Files.readAllBytes(content),bytes))throw new AssertionError("Native V2 content changed");
             peers[0].shutdown().get(10,TimeUnit.SECONDS);peers[1].shutdown().get(10,TimeUnit.SECONDS);
             AttachmentTransfer.clean(root.resolve("b"),Collections.emptySet());if(!Files.exists(content))throw new AssertionError("Native cleanup removed durably committed content");
-            return 3;
+            return 4;
         }finally{for(AttachmentTransferV2 peer:peers)if(peer!=null)peer.shutdown().get(10,TimeUnit.SECONDS);try(var paths=Files.walk(root)){for(Path path:(Iterable<Path>)paths.sorted(Comparator.reverseOrder())::iterator)Files.deleteIfExists(path);}}
     }
     private static AttachmentRecord await(BlockingQueue<AttachmentRecord> records,String state,java.util.concurrent.atomic.AtomicReference<Throwable> failure)throws Exception {

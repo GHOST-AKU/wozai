@@ -20,11 +20,16 @@ public final class TransferStorageBudget {
         if(declared< -1||declared>TransferLimits.MAX_FILE_BYTES)throw new IOException("Invalid snapshot size");
         long stored=storedBytes(),reserved=reservedBytes(),available=quota-stored-reserved;
         if(available<0||declared>=0&&declared>available)throw new TransferStorageException(TransferStorageException.Reason.QUOTA);
-        long free=Files.getFileStore(root).getUsableSpace()-reserved;
+        long free=usableSpace()-reserved;
         long candidate=declared>=0?declared:Math.max(0,Math.min(TransferLimits.MAX_FILE_BYTES,Math.min(available,free-64L*1024*1024)));
         long margin=Math.max(64L*1024*1024,(candidate+99)/100);
         if(free<margin||declared>=0&&declared>free-margin)throw new TransferStorageException(TransferStorageException.Reason.FREE_SPACE);
         return declared>=0?declared:Math.min(candidate,free-margin);
+    }
+    // Android's NIO provider deliberately forbids getFileStore; File uses statvfs.
+    private long usableSpace()throws IOException {
+        try{return root.toFile().getUsableSpace();}
+        catch(SecurityException denied){throw new IOException("Cannot query attachment storage availability",denied);}
     }
     private long storedBytes()throws IOException {
         long total=0;try(var entries=Files.walk(root)) {
@@ -33,7 +38,7 @@ public final class TransferStorageBudget {
     }
     public synchronized Reservation reserve(TransferTaskKey key,long totalSize,long currentStoredBytes)throws IOException {
         TransferLimits.validateRange(totalSize,currentStoredBytes,0);if(key==null||reservations.containsKey(key))throw new IOException("Storage task already reserved or invalid");
-        long required=totalSize-currentStoredBytes,stored=storedBytes(),reserved=reservedBytes(),margin=Math.max(64L*1024*1024,(totalSize+99)/100),free=Files.getFileStore(root).getUsableSpace();
+        long required=totalSize-currentStoredBytes,stored=storedBytes(),reserved=reservedBytes(),margin=Math.max(64L*1024*1024,(totalSize+99)/100),free=usableSpace();
         if(stored>quota||reserved>quota-stored||required>quota-stored-reserved)throw new TransferStorageException(TransferStorageException.Reason.QUOTA);
         if(reserved>free||required>free-reserved||margin>free-reserved-required)throw new TransferStorageException(TransferStorageException.Reason.FREE_SPACE);
         Reservation result=new Reservation(key,totalSize,currentStoredBytes);reservations.put(key,result);return result;
