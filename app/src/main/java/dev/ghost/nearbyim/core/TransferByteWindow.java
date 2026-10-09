@@ -7,7 +7,11 @@ public final class TransferByteWindow {
     private final long maxBytes;
     private long windowBytes,sent,written;
     public TransferByteWindow(long initialBytes,long maxBytes)throws IOException {
+        this(initialBytes,maxBytes,0);
+    }
+    public TransferByteWindow(long initialBytes,long maxBytes,long offset)throws IOException {
         if(maxBytes<1||maxBytes>8L*1024*1024||initialBytes<0||initialBytes>maxBytes)throw new IOException("Invalid transfer window");
+        TransferLimits.validateRange(TransferLimits.MAX_FILE_BYTES,offset,0);sent=written=offset;
         this.maxBytes=maxBytes;windowBytes=initialBytes;
     }
     public synchronized boolean tryReserve(long offset,int length)throws IOException {

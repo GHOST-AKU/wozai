@@ -50,6 +50,14 @@ public final class AttachmentStoreTests {
             Object record=DesktopStore.Message.class.getMethod("attachment").invoke(store.messages(PEER).get(0));
             if(!((AttachmentRecord)record).state.equals("unknown"))throw new AssertionError("Unacknowledged send falsely completed after restart");
             store.clear(PEER);if(!store.messages(PEER).isEmpty())throw new AssertionError("History retained");
+            AttachmentInfo pending=AttachmentInfo.v2(ID,"large.bin","application/octet-stream",10L*1024*1024*1024,null,1);
+            store.attachment(PEER,new AttachmentRecord(pending,true,"transferring",4L*1024*1024*1024));
+        }
+        try(DesktopStore store=new DesktopStore(root)) {
+            AttachmentRecord pending=store.messages(PEER).get(0).attachment();if(!pending.state.equals("paused")||pending.transferred!=4L*1024*1024*1024)throw new AssertionError("V2 pending recovery changed");
+            store.attachment(PEER,new AttachmentRecord(pending.info,true,"checking",0));store.attachment(PEER,new AttachmentRecord(pending.info,true,"canceled",0));
+            try{store.attachment(PEER,new AttachmentRecord(pending.info,true,"checking",0));throw new AssertionError("Canceled attachment resumed");}catch(java.io.IOException expected){}
+            store.clear(PEER);
         }
         clientTransfer(root.resolve("pair"));
         System.out.println("AttachmentStoreTests passed");

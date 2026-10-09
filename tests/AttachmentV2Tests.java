@@ -11,26 +11,31 @@ public final class AttachmentV2Tests {
     private static int checks;
     static final String CONNECTION="c".repeat(64);
     static final class Pair implements AutoCloseable {
-        final Path root=Files.createTempDirectory("v2-pipeline-");
+        final Path root;
+        final boolean cleanup;
         final BlockingQueue<AttachmentRecord> aRecords=new LinkedBlockingQueue<>(),bRecords=new LinkedBlockingQueue<>();
         final AttachmentTransferV2 a,b;
-        volatile boolean holdCredit,corruptData,corruptEnd;
+        volatile boolean holdCredit,corruptData,corruptEnd,dropComplete,failSavedHistory;
+        volatile TransferPacket lastData,lastEnd;
         final AtomicLong dataBytes=new AtomicLong(),sourceReads=new AtomicLong(),firstReadCount=new AtomicLong(-1);
+        final AtomicInteger completeCount=new AtomicInteger();
         volatile TransferPacket heldCredit;
-        Pair()throws Exception {
+        Pair()throws Exception {this(Files.createTempDirectory("v2-pipeline-"),true,CONNECTION);}
+        Pair(Path root,boolean cleanup,String connection)throws Exception {
+            this.root=root;this.cleanup=cleanup;
             AttachmentTransferV2[] peers=new AttachmentTransferV2[2];
-            a=new AttachmentTransferV2(root.resolve("a"),"a".repeat(64),"b".repeat(64),CONNECTION,false,new AttachmentTransferV2.Wire(){
-                public boolean send(TransferPacket packet){try{if(packet.kind==TransferPacket.Kind.DATA){dataBytes.addAndGet(packet.data.length);firstReadCount.compareAndSet(-1,sourceReads.get());if(corruptData)packet.data[0]^=1;}if(corruptEnd&&packet.kind==TransferPacket.Kind.END)packet.hash[0]^=1;peers[1].receive(packet,true);return true;}catch(IOException e){return false;}}
+            a=new AttachmentTransferV2(root.resolve("a"),"a".repeat(64),"b".repeat(64),connection,false,new AttachmentTransferV2.Wire(){
+                public boolean send(TransferPacket packet){try{if(packet.kind==TransferPacket.Kind.DATA){lastData=packet;dataBytes.addAndGet(packet.data.length);firstReadCount.compareAndSet(-1,sourceReads.get());if(corruptData)packet.data[0]^=1;}if(packet.kind==TransferPacket.Kind.END)lastEnd=packet;if(corruptEnd&&packet.kind==TransferPacket.Kind.END)packet.hash[0]^=1;peers[1].receive(packet,true);return true;}catch(IOException e){return false;}}
                 public void abort(){}
             },aRecords::add);
-            b=new AttachmentTransferV2(root.resolve("b"),"b".repeat(64),"a".repeat(64),CONNECTION,false,new AttachmentTransferV2.Wire(){
-                public boolean send(TransferPacket packet){try{if(holdCredit&&packet.kind==TransferPacket.Kind.CREDIT){heldCredit=packet;return true;}peers[0].receive(packet,true);return true;}catch(IOException e){return false;}}
+            b=new AttachmentTransferV2(root.resolve("b"),"b".repeat(64),"a".repeat(64),connection,false,new AttachmentTransferV2.Wire(){
+                public boolean send(TransferPacket packet){try{if(packet.kind==TransferPacket.Kind.COMPLETE){completeCount.incrementAndGet();if(dropComplete)return true;}if(holdCredit&&packet.kind==TransferPacket.Kind.CREDIT){heldCredit=packet;return true;}peers[0].receive(packet,true);return true;}catch(IOException e){return false;}}
                 public void abort(){}
-            },bRecords::add);
+            },record->{if(failSavedHistory&&record.state.equals("received"))throw new IOException("Injected final history failure");bRecords.add(record);});
             peers[0]=a;peers[1]=b;
         }
         void releaseCredit()throws IOException{holdCredit=false;TransferPacket packet=heldCredit;if(packet!=null)a.receive(packet,true);}
-        public void close()throws Exception {a.shutdown().get(5,TimeUnit.SECONDS);b.shutdown().get(5,TimeUnit.SECONDS);try(var paths=Files.walk(root)){for(Path p:paths.sorted(Comparator.reverseOrder()).toList())Files.deleteIfExists(p);}}
+        public void close()throws Exception {a.shutdown().get(5,TimeUnit.SECONDS);b.shutdown().get(5,TimeUnit.SECONDS);if(cleanup)try(var paths=Files.walk(root)){for(Path p:paths.sorted(Comparator.reverseOrder()).toList())Files.deleteIfExists(p);}}
     }
     public static void main(String[] args)throws Exception {
         try(Pair p=new Pair()) {
@@ -93,7 +98,7 @@ public final class AttachmentV2Tests {
             p.corruptData=true;Path source=p.root.resolve("source.bin");Files.write(source,new byte[40_000]);
             p.a.offer(new FileAttachmentSource(source),"source.bin","application/octet-stream").get(3,TimeUnit.SECONDS);
             waitFor(p.bRecords,"failed");waitFor(p.aRecords,"failed");
-            try(var paths=Files.list(p.root.resolve("b"))){check(paths.findAny().isEmpty(),"Corrupted content retained");}
+            try(var paths=Files.list(p.root.resolve("b"))){check(paths.noneMatch(path->!path.getFileName().toString().equals(".tasks-v2")),"Corrupted content retained");}
         }
         try(Pair p=new Pair()) {
             p.holdCredit=true;Path source=p.root.resolve("source.bin");Files.write(source,new byte[2*TransferLimits.BLOCK_BYTES]);

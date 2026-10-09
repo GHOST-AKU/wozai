@@ -20,8 +20,7 @@ public final class TransferCheckpointStore {
         Path file=root.resolve(key.fileName()+suffix);if(Files.isSymbolicLink(file)||Files.exists(file,LinkOption.NOFOLLOW_LINKS)&&!Files.isRegularFile(file,LinkOption.NOFOLLOW_LINKS))throw new IOException("Unsafe checkpoint entry");return file;
     }
     public synchronized Optional<TransferCheckpoint> load(TransferTaskKey key)throws IOException {
-        Path file=entry(key,".checkpoint");if(!Files.exists(file))return Optional.empty();long length=Files.size(file);
-        if(length<36||length>MAX_CHECKPOINT)throw new IOException("Invalid checkpoint length");byte[] encoded=Files.readAllBytes(file);
+        Path file=entry(key,".checkpoint");if(!Files.exists(file))return Optional.empty();byte[] encoded=readCheckpoint(file);
         byte[] payload=Arrays.copyOf(encoded,encoded.length-32),checksum=Arrays.copyOfRange(encoded,encoded.length-32,encoded.length);
         if(!MessageDigest.isEqual(sha().digest(payload),checksum))throw new IOException("Checkpoint checksum mismatch");
         try {
@@ -67,7 +66,8 @@ public final class TransferCheckpointStore {
         if(Files.exists(path))try(FileChannel channel=FileChannel.open(path,StandardOpenOption.WRITE,LinkOption.NOFOLLOW_LINKS)){channel.truncate(((offset+TransferLimits.BLOCK_BYTES-1)/TransferLimits.BLOCK_BYTES)*INDEX_RECORD);channel.force(true);}
     }
     public record PrefixResult(MessageDigest whole,byte[] sha256,long offset){}
-    public synchronized PrefixResult verifyPrefix(TransferCheckpoint checkpoint,Path content)throws IOException {
+    public PrefixResult verifyPrefix(TransferCheckpoint checkpoint,Path content)throws IOException {return verifyPrefix(checkpoint,content,()->false);}
+    public PrefixResult verifyPrefix(TransferCheckpoint checkpoint,Path content,java.util.function.BooleanSupplier canceled)throws IOException {
         if(Files.isSymbolicLink(content)||!Files.isRegularFile(content,LinkOption.NOFOLLOW_LINKS)||Files.size(content)<checkpoint.durableOffset())throw new IOException("Checkpoint content missing/truncated");
         MessageDigest whole=sha(),prefix=sha();long offset=0;
         Path index=entry(checkpoint.key(),".blocks");
@@ -77,11 +77,29 @@ public final class TransferCheckpointStore {
             while(offset<checkpoint.durableOffset()) {
                 long end=blocks.readLong(),expectedEnd=Math.min(offset+TransferLimits.BLOCK_BYTES,checkpoint.info().size);byte[] expected=new byte[32];blocks.readFully(expected);
                 if(end!=expectedEnd||end>checkpoint.durableOffset())throw new IOException("Invalid checkpoint block boundary");MessageDigest block=sha();
-                while(offset<end){int n=input.read(buffer,0,(int)Math.min(buffer.length,end-offset));if(n<1)throw new EOFException("Truncated saved prefix");whole.update(buffer,0,n);prefix.update(buffer,0,n);block.update(buffer,0,n);offset+=n;}
+                while(offset<end){if(canceled.getAsBoolean())throw new InterruptedIOException("Prefix verification canceled");int n=input.read(buffer,0,(int)Math.min(buffer.length,end-offset));if(n<1)throw new EOFException("Truncated saved prefix");whole.update(buffer,0,n);prefix.update(buffer,0,n);block.update(buffer,0,n);offset+=n;}
                 if(!MessageDigest.isEqual(block.digest(),expected))throw new IOException("Saved prefix checksum mismatch");
             }
         }
         return new PrefixResult(whole,prefix.digest(),offset);
+    }
+    public synchronized List<TransferCheckpoint> list()throws IOException {
+        List<TransferCheckpoint> result=new ArrayList<>();
+        try(var paths=Files.list(root)) {
+            for(Path file:(Iterable<Path>)paths::iterator) {
+                String name=file.getFileName().toString();if(!name.endsWith(".checkpoint"))continue;
+                if(Files.isSymbolicLink(file)||!Files.isRegularFile(file,LinkOption.NOFOLLOW_LINKS)||Files.size(file)>MAX_CHECKPOINT)throw new IOException("Unsafe checkpoint entry");
+                byte[] bytes=readCheckpoint(file);
+                DataInputStream in=new DataInputStream(new ByteArrayInputStream(bytes));if(in.readInt()!=MAGIC)throw new IOException("Invalid checkpoint");
+                String local=in.readUTF(),remote=in.readUTF();int direction=in.readUnsignedByte();if(direction>=TransferTaskKey.Direction.values().length)throw new IOException("Invalid checkpoint direction");
+                try {TransferTaskKey key=new TransferTaskKey(local,remote,TransferTaskKey.Direction.values()[direction],in.readUTF(),in.readUTF());if(!name.equals(key.fileName()+".checkpoint"))throw new IOException("Checkpoint filename mismatch");result.add(load(key).orElseThrow());}
+                catch(IllegalArgumentException error){throw new IOException("Invalid checkpoint identity",error);}
+            }
+        }return result;
+    }
+    private byte[] readCheckpoint(Path file)throws IOException {
+        long length=Files.size(file);if(length<36||length>MAX_CHECKPOINT)throw new IOException("Invalid checkpoint length");byte[] bytes=new byte[(int)length];
+        try(DataInputStream input=new DataInputStream(Files.newInputStream(file,LinkOption.NOFOLLOW_LINKS))){input.readFully(bytes);if(input.read()!=-1)throw new IOException("Checkpoint grew while reading");}return bytes;
     }
     public synchronized void complete(TransferTaskKey key,long length,byte[] hash)throws IOException {
         TransferCheckpoint before=load(key).orElseThrow(()->new IOException("Unknown completed task"));if(length!=before.info().size||hash.length!=32)throw new IOException("Invalid completion");

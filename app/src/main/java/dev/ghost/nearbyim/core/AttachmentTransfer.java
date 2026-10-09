@@ -213,12 +213,31 @@ public final class AttachmentTransfer implements AutoCloseable {
         Path path=root.resolve((outgoing?"out-":"in-")+id+"."+suffix);if(Files.isSymbolicLink(path)||Files.exists(path,LinkOption.NOFOLLOW_LINKS)&&!Files.isRegularFile(path,LinkOption.NOFOLLOW_LINKS))throw new IOException("Unsafe attachment file");return path;
     }
     public static void clean(Path root,Set<String> received)throws IOException {
-        privateDirectory(root);try(java.util.stream.Stream<Path> entries=Files.list(root)){
-            for(Path path:(Iterable<Path>)entries::iterator){String name=path.getFileName().toString();if(!Files.isRegularFile(path,LinkOption.NOFOLLOW_LINKS)||Files.isSymbolicLink(path))throw new IOException("Unsafe attachment entry");
-                int prefix=name.startsWith("out-")?4:3;
-                if(name.matches("(in|out)-[0-9a-f-]{36}\\.part")||name.matches("(in|out)-[0-9a-f-]{36}\\.[a-z0-9]{1,16}")&&!received.contains(name.substring(prefix,prefix+36)))Files.delete(path);
+        privateDirectory(root);Set<String> durable=new HashSet<>();Path journal=root.resolve(".tasks-v2");
+        if(Files.exists(journal,LinkOption.NOFOLLOW_LINKS)) {
+            TransferCheckpointStore store=new TransferCheckpointStore(journal);
+            for(TransferCheckpoint value:store.list()) {
+                if(value.state()==TransferCheckpoint.State.CANCELED)continue;
+                if(value.state()!=TransferCheckpoint.State.COMPLETE&&System.currentTimeMillis()-value.updatedMillis()>7L*24*60*60*1000){store.cancel(value.key());continue;}
+                if(value.key().direction()==TransferTaskKey.Direction.RECEIVE) {
+                    if(value.state()!=TransferCheckpoint.State.COMPLETE)durable.add(value.key().fileName()+".part");
+                    if(value.info().hash!=null)durable.add(file(root,value.info()).getFileName().toString());
+                }
             }
         }
+        try(java.util.stream.Stream<Path> entries=Files.list(root)){
+            for(Path path:(Iterable<Path>)entries::iterator){String name=path.getFileName().toString();if(name.equals(".tasks-v2"))continue;if(!Files.isRegularFile(path,LinkOption.NOFOLLOW_LINKS)||Files.isSymbolicLink(path))throw new IOException("Unsafe attachment entry");
+                if(durable.contains(name))continue;
+                int prefix=name.startsWith("out-")?4:3;
+                if(name.matches("[0-9a-f]{64}\\.part")||name.matches("(in|out)-[0-9a-f-]{36}\\.part")||name.matches("(in|out)-[0-9a-f-]{36}\\.[a-z0-9]{1,16}")&&!received.contains(name.substring(prefix,prefix+36)))Files.delete(path);
+            }
+        }
+    }
+    /** Explicit history deletion/revocation differs from startup recovery. */
+    public static void clear(Path root)throws IOException {
+        privateDirectory(root);Path journal=root.resolve(".tasks-v2");
+        if(Files.exists(journal,LinkOption.NOFOLLOW_LINKS)){TransferCheckpointStore store=new TransferCheckpointStore(journal);for(TransferCheckpoint saved:store.list())if(saved.state()!=TransferCheckpoint.State.CANCELED)store.cancel(saved.key());}
+        try(var entries=Files.list(root)){for(Path file:(Iterable<Path>)entries::iterator){if(file.getFileName().toString().equals(".tasks-v2"))continue;if(Files.isSymbolicLink(file)||!Files.isRegularFile(file,LinkOption.NOFOLLOW_LINKS))throw new IOException("Unsafe attachment entry");Files.delete(file);}}
     }
     private static void privateDirectory(Path path)throws IOException {
         if(Files.isSymbolicLink(path)||Files.exists(path,LinkOption.NOFOLLOW_LINKS)&&!Files.isDirectory(path,LinkOption.NOFOLLOW_LINKS))throw new IOException("Unsafe attachment directory");

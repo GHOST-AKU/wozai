@@ -30,6 +30,7 @@ public final class FileAttachmentSource implements AttachmentSource {
     public String generation(){return generation;}
     public boolean seekable(){return true;}
     public Path path(){return file;}
+    public String persistentReference(){return file.toUri()+"\n"+original.size()+"\n"+original.lastModifiedTime()+"\n"+original.fileKey()+"\n"+changeTime;}
     public void verifyUnchanged() throws IOException {
         BasicFileAttributes now=Files.readAttributes(file,BasicFileAttributes.class,LinkOption.NOFOLLOW_LINKS);
         if(!now.isRegularFile()||now.isSymbolicLink()||now.size()!=original.size()||!Objects.equals(now.fileKey(),original.fileKey())
