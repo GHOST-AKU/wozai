@@ -20,6 +20,12 @@ final class AndroidAttachmentChecks {
             public SQLiteDatabase openOrCreateDatabase(String name,int mode,SQLiteDatabase.CursorFactory factory,DatabaseErrorHandler handler){return SQLiteDatabase.openOrCreateDatabase(getDatabasePath(name).getPath(),factory,handler);}
         };
         try {
+            Path source=root.resolve("native-source.bin");Files.write(source,new byte[]{1,2,3});
+            try(FileAttachmentSource input=new FileAttachmentSource(source);InputStream view=input.open(1)){
+                check(input.size()==3&&view.read()==2&&view.read()==3&&view.read()==-1,"Native positional source bounds changed");input.verifyUnchanged();
+            }
+            AttachmentInfo v2=AttachmentInfo.v2(UUID.randomUUID().toString(),"native.bin","application/octet-stream",TransferLimits.MAX_FILE_BYTES,null,1);
+            AttachmentRecord pending=new AttachmentRecord(v2,true,"offered",0);check(AttachmentRecord.decode(pending.encode()).equals(pending),"Native v2 history changed");
             Path sandbox=root.resolve("sandbox");
             try(AttachmentTransfer transfer=new AttachmentTransfer(sandbox,new AttachmentTransfer.Wire(){
                 public boolean send(Frame frame){return true;}
@@ -74,6 +80,6 @@ final class AndroidAttachmentChecks {
             check(ImageOrientation.read(new ByteArrayInputStream(oversized))==1,"Native oversized EXIF accepted");
             check(!new AttachmentInfo(UUID.randomUUID().toString(),"install.apk","application/vnd.android.package-archive",0,"0000000000000000000000000000000000000000000000000000000000000000",1).canOpenExternally(),"Android installer opened from received file");
         }finally{Files.deleteIfExists(file);Files.deleteIfExists(directory);}
-        return 75;
+        return 77;
     }
 }

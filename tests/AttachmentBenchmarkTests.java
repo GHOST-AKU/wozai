@@ -15,7 +15,11 @@ public final class AttachmentBenchmarkTests {
             check(json.contains("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),"Incorrect empty digest");
             for(String key:List.of("prepare_ns","first_byte_ns","transfer_ns","final_commit_ns","receipt_ns","source_read_mib_s","sync_write_mib_s","environment_kind"))
                 check(json.contains("\""+key+"\""),"Missing phase/baseline: "+key);
-            for(String mode:List.of("invalid","file-v2","noise-v4")) {
+            Path v2=root.resolve("v2.json");
+            AttachmentTransferBenchmark.main(new String[]{"--mode","file-v2","--size","0","--rounds","1","--output",v2.toString(),"--work-dir",root.resolve("data").toString()});
+            check(Files.readString(v2).contains("\"verified\":true"),"File v2 result was not verified");
+            check(Files.readString(v2).contains("\"file_store_type\""),"Filesystem identity missing");
+            for(String mode:List.of("invalid","noise-v4")) {
                 Path missing=root.resolve(mode+".json");
                 rejects(()->AttachmentTransferBenchmark.main(new String[]{"--mode",mode,"--size","0","--output",missing.toString()}));
                 check(!Files.exists(missing),"Unsupported mode published a report");

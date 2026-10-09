@@ -10,17 +10,34 @@ public final class AttachmentInfo {
     public static final int CHUNK_SIZE = 32768;
     public final String id, name, mime, hash;
     public final long size, time;
+    public final int version;
     public AttachmentInfo(String id, String name, String mime, long size, String hash, long time) throws IOException {
+        this(id,name,mime,size,hash,time,1);
+    }
+    public static AttachmentInfo v2(String id,String name,String mime,long size,String hash,long time)throws IOException {
+        return new AttachmentInfo(id,name,mime,size,hash,time,2);
+    }
+    private AttachmentInfo(String id,String name,String mime,long size,String hash,long time,int version)throws IOException {
         if (id == null || !id.matches("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}") || name == null || name.trim().isEmpty()
                 || name.codePointCount(0,name.length()) > 255 || encodeText(name).length > 1024
                 || name.codePoints().anyMatch(Character::isISOControl) || mime == null || !mime.matches("[A-Za-z0-9!#$&^_.+/-]{1,127}")
-                || size < 0 || size > MAX_SIZE || hash == null || !hash.matches("[0-9a-f]{64}") || time < 0) throw new IOException("Invalid attachment metadata");
-        this.id=id; String display=displayName(name); this.name=display.trim().isEmpty()?"attachment":display; this.mime=mime.toLowerCase(Locale.ROOT); this.size=size; this.hash=hash; this.time=time;
+                || size < 0 || size > (version==2?TransferLimits.MAX_FILE_BYTES:MAX_SIZE) || (hash==null?version!=2:!hash.matches("[0-9a-f]{64}")) || time < 0) throw new IOException("Invalid attachment metadata");
+        this.version=version;this.id=id; String display=displayName(name); this.name=display.trim().isEmpty()?"attachment":display; this.mime=mime.toLowerCase(Locale.ROOT); this.size=size; this.hash=hash; this.time=time;
     }
     public Frame offer() throws IOException {
+        if(version!=1)throw new IOException("Attachment v2 cannot use the legacy file offer");
         ByteArrayOutputStream bytes=new ByteArrayOutputStream(); DataOutputStream out=new DataOutputStream(bytes);
         text(out,name); text(out,mime); out.write(hex(hash));
         return new Frame(Frame.FILE_OFFER,id,"",time,size,bytes.toByteArray());
+    }
+    void writeV2(DataOutputStream out)throws IOException {
+        if(version!=2)throw new IOException("Expected v2 metadata");
+        text(out,id);text(out,name);text(out,mime);out.writeLong(size);out.writeLong(time);out.writeBoolean(hash!=null);if(hash!=null)out.write(hex(hash));
+    }
+    static AttachmentInfo readV2(DataInputStream in)throws IOException {
+        String id=text(in,36),name=text(in,1024),mime=text(in,127);long size=in.readLong(),time=in.readLong();int hasHash=in.readUnsignedByte();
+        if(hasHash>1)throw new IOException("Invalid digest presence");String hash=null;if(hasHash==1){byte[] bytes=new byte[32];in.readFully(bytes);hash=hex(bytes);}
+        return v2(id,name,mime,size,hash,time);
     }
     public static AttachmentInfo from(Frame frame) throws IOException {
         if(frame.type!=Frame.FILE_OFFER || frame.data.length>1200)throw new IOException("Invalid file offer");

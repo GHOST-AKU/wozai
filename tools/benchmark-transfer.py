@@ -18,6 +18,7 @@ def main():
     parser.add_argument("--rounds", type=int, default=3)
     parser.add_argument("--output", type=Path, default=ROOT / "build/transfer-benchmark.json")
     parser.add_argument("--environment-kind", choices=["virtual"], default="virtual")
+    parser.add_argument("--work-dir", type=Path, help="data directory; default system temporary directory may be tmpfs")
     args = parser.parse_args()
     classes = ROOT / "build/core-tests"
     classes.mkdir(parents=True, exist_ok=True)
@@ -31,10 +32,13 @@ def main():
         artifact.update(path.read_bytes())
     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
     dirty = bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT, text=True).strip())
-    subprocess.run(["java", "-Xmx32m", "-cp", str(classes), "dev.ghost.nearbyim.core.AttachmentTransferBenchmark",
+    command = ["java", "-Xmx32m", "-cp", str(classes), "dev.ghost.nearbyim.core.AttachmentTransferBenchmark",
                     "--mode", args.mode, "--size", str(args.size), "--rounds", str(args.rounds), "--output", str(args.output.resolve()),
                     "--environment-kind", args.environment_kind, "--source-commit", commit + ("+dirty" if dirty else ""),
-                    "--artifact-sha256", artifact.hexdigest()], check=True, cwd=ROOT)
+                    "--artifact-sha256", artifact.hexdigest()]
+    if args.work_dir is not None:
+        command += ["--work-dir", str(args.work_dir.resolve())]
+    subprocess.run(command, check=True, cwd=ROOT)
     report = json.loads(args.output.read_text())
     samples = report["rounds"]
     if len(samples) != args.rounds or not all(sample["verified"] and sample["size_bytes"] == args.size for sample in samples):

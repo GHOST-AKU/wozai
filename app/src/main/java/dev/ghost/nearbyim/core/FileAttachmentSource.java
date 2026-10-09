@@ -47,7 +47,7 @@ public final class FileAttachmentSource implements AttachmentSource {
             private boolean closed;
             public int read() throws IOException {byte[] one=new byte[1];int n=read(one,0,1);return n<0?-1:one[0]&255;}
             public int read(byte[] bytes,int start,int length) throws IOException {
-                Objects.checkFromIndexSize(start,length,bytes.length);
+                if(start<0||length<0||start>bytes.length-length)throw new IndexOutOfBoundsException();
                 if(closed||!channel.isOpen())throw new IOException("Attachment source closed");
                 if(length==0)return 0;if(position==size())return -1;
                 int n=channel.read(ByteBuffer.wrap(bytes,start,(int)Math.min(length,size()-position)),position);

@@ -11,3 +11,5 @@ java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentLargeFileTes
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.ImageSafetyTests
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentBenchmarkTests
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentSourceTests
+java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentV2ControlTests
+java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentV2Tests

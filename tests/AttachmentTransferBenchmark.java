@@ -34,13 +34,13 @@ public final class AttachmentTransferBenchmark {
 
     public static void main(String[] args) throws Exception {
         Map<String,String> options=new HashMap<>();
-        Set<String> keys=Set.of("mode","size","rounds","output","environment-kind","source-commit","artifact-sha256");
+        Set<String> keys=Set.of("mode","size","rounds","output","environment-kind","source-commit","artifact-sha256","work-dir");
         for(int i=0;i<args.length;i+=2) {
             if(!args[i].startsWith("--")||i+1==args.length||!keys.contains(args[i].substring(2))||options.put(args[i].substring(2),args[i+1])!=null)
                 throw new IllegalArgumentException("Unknown, missing or duplicate benchmark argument");
         }
         String mode=options.getOrDefault("mode","signed-v3");
-        if(!Set.of("raw-tcp","signed-v3").contains(mode))throw new IllegalArgumentException("Benchmark mode not implemented: "+mode);
+        if(!Set.of("raw-tcp","signed-v3","file-v2").contains(mode))throw new IllegalArgumentException("Benchmark mode not implemented: "+mode);
         long size=Long.parseLong(options.getOrDefault("size","50331648"));
         int rounds=Integer.parseInt(options.getOrDefault("rounds","3"));
         if(size<0||size>MAX_SIZE||mode.equals("signed-v3")&&size>AttachmentInfo.MAX_SIZE||rounds<1||rounds>20)
@@ -48,22 +48,26 @@ public final class AttachmentTransferBenchmark {
         String kind=options.getOrDefault("environment-kind","virtual");
         if(!kind.equals("virtual"))throw new IllegalArgumentException("This loopback runner only measures a virtual environment");
         Path destination=Path.of(options.getOrDefault("output","build/transfer-benchmark.json")).toAbsolutePath();
-        Path root=Files.createTempDirectory("wozai-transfer-benchmark-");
+        Path working=Path.of(options.getOrDefault("work-dir",System.getProperty("java.io.tmpdir"))).toAbsolutePath();Files.createDirectories(working);
+        long required=size*(mode.equals("signed-v3")?3:2)+64L*1024*1024;
+        if(Files.getFileStore(working).getUsableSpace()<required)throw new IOException("Benchmark work directory needs "+required+" free bytes; choose --work-dir");
+        Path root=Files.createTempDirectory(working,"wozai-transfer-benchmark-");
         try {
             Source source=generate(root.resolve("source.bin"),size);
             Map<String,Object> report=new LinkedHashMap<>();
             report.put("schema_version",1);report.put("environment_kind",kind);report.put("transport","TCP loopback, both endpoints in one JVM");
+            report.put("work_directory",working.toString());report.put("file_store_type",Files.getFileStore(root).type());
             report.put("source_commit",options.getOrDefault("source-commit","unknown"));report.put("artifact_sha256",options.getOrDefault("artifact-sha256","unknown"));
             report.put("artifact_kind","compiled-core-classes");report.put("os",System.getProperty("os.name")+" "+System.getProperty("os.arch"));
             report.put("java_version",System.getProperty("java.version"));report.put("max_heap_bytes",Runtime.getRuntime().maxMemory());
             report.put("source_generation_ns",source.generationNs);report.putAll(diskBaseline(root,source,size));
             List<Map<String,Object>> samples=new ArrayList<>();
             for(int i=0;i<rounds;i++) {
-                Round sample=mode.equals("raw-tcp")?raw(source,size):signed(root.resolve("round-"+i),source,size);
+                Round sample=switch(mode){case "raw-tcp"->raw(source,size);case "file-v2"->v2(root.resolve("round-"+i),source,size);default->signed(root.resolve("round-"+i),source,size);};
                 Map<String,Object> data=sample.report(size,mode,source.hash);data.put("round",i+1);samples.add(data);
             }
             report.put("rounds",samples);
-            report.put("limitations","Loopback/JIT/container results are not phone, radio, cross-client or 10 GiB acceptance. Source generation is reported separately; signed-v3 preparation is included in total. Raw mode does not save received content.");
+            report.put("limitations","Loopback/JIT/container results are not phone, radio, cross-client or 10 GiB acceptance. Source generation is reported separately; signed-v3 preparation is included in total. Raw mode does not save received content. file-v2 is a controlled plaintext test Wire, not an enabled client protocol or encryption acceptance.");
             publish(destination,json(report));
             System.out.println("Verified "+rounds+" "+mode+" rounds, "+size+" bytes each; report: "+destination);
         } finally {deleteTree(root);}
@@ -160,6 +164,46 @@ public final class AttachmentTransferBenchmark {
             Path path=AttachmentTransfer.file(b.root,received.info);requireDigest(source.hash,hashFile(path),size,Files.size(path));
             return timing;
         } finally {deleteTree(root);}
+    }
+    private static final class V2Endpoint implements AutoCloseable {
+        final Path root;final Round timing;final boolean sender;final Socket socket;
+        final CompletableFuture<AttachmentRecord> complete=new CompletableFuture<>();
+        final AttachmentTransferV2 transfer;
+        private final OutputStream output;
+        volatile boolean closed;
+        V2Endpoint(Path root,Round timing,boolean sender,Socket socket)throws Exception {
+            this.root=root;this.timing=timing;this.sender=sender;this.socket=socket;
+            output=new BufferedOutputStream(socket.getOutputStream(),64*1024);
+            transfer=new AttachmentTransferV2(root,(sender?"a":"b").repeat(64),(sender?"b":"a").repeat(64),"c".repeat(64),false,new AttachmentTransferV2.Wire(){
+                public boolean send(TransferPacket packet){synchronized(output){try{TransferCodec.write(output,packet);output.flush();return true;}catch(IOException error){return false;}}}
+                public void abort(){try{socket.close();}catch(IOException ignored){}}
+            },record->{
+                if(sender&&record.state.equals("offered"))timing.prepared=System.nanoTime();
+                if(!sender&&record.state.equals("verifying"))timing.commitStart=System.nanoTime();
+                if(!sender&&record.state.equals("received")) {
+                    try(FileOutputStream out=new FileOutputStream(root.resolve("received.record").toFile())){out.write(record.encode().getBytes(java.nio.charset.StandardCharsets.UTF_8));out.getChannel().force(true);}
+                    timing.committed=System.nanoTime();complete.complete(record);
+                }
+                if(sender&&record.state.equals("delivered")){timing.receipt=System.nanoTime();complete.complete(record);}
+                if(Set.of("failed","interrupted","canceled").contains(record.state))complete.completeExceptionally(new IOException("v2 transfer "+record.state));
+            });
+        }
+        void start(){Thread reader=new Thread(()->{
+            try {InputStream input=new BufferedInputStream(socket.getInputStream(),64*1024);
+                while(!closed){TransferPacket packet=TransferCodec.read(input);if(!sender&&packet.kind==TransferPacket.Kind.DATA&&timing.first==0)timing.first=System.nanoTime();if(!sender&&packet.kind==TransferPacket.Kind.END)timing.last=System.nanoTime();transfer.receive(packet,true);}
+            }catch(IOException error){if(!closed){complete.completeExceptionally(error);transfer.close();}}
+        },"benchmark-v2-reader");reader.setDaemon(true);reader.start();}
+        public void close()throws Exception {closed=true;socket.close();transfer.shutdown().get(5,TimeUnit.SECONDS);}
+    }
+    private static Round v2(Path root,Source source,long size)throws Exception {
+        Round timing=new Round();long setup=System.nanoTime();
+        try(ServerSocket server=new ServerSocket(0,1,InetAddress.getLoopbackAddress());Socket client=new Socket(InetAddress.getLoopbackAddress(),server.getLocalPort());Socket accepted=server.accept();
+            V2Endpoint a=new V2Endpoint(root.resolve("a"),timing,true,client);V2Endpoint b=new V2Endpoint(root.resolve("b"),timing,false,accepted)) {
+            a.start();b.start();timing.setup=System.nanoTime()-setup;timing.start=System.nanoTime();
+            a.transfer.offer(new FileAttachmentSource(source.path),"benchmark.bin","application/octet-stream").get(10,TimeUnit.SECONDS);
+            AttachmentRecord received=b.complete.get(TIMEOUT_SECONDS,TimeUnit.SECONDS);a.complete.get(TIMEOUT_SECONDS,TimeUnit.SECONDS);
+            Path file=AttachmentTransfer.file(b.root,received.info);requireDigest(source.hash,hashFile(file),size,Files.size(file));return timing;
+        }finally{deleteTree(root);}
     }
     static void requireDigest(byte[] expected,byte[] actual,long expectedSize,long actualSize) throws IOException {
         if(expected.length!=32||actual.length!=32||expectedSize!=actualSize||!MessageDigest.isEqual(expected,actual))throw new IOException("Unverified benchmark result: size/SHA-256 mismatch");
