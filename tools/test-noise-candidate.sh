@@ -6,7 +6,7 @@ from pathlib import Path
 import json,hashlib
 root=Path('tests/noise-candidate')
 expected=json.loads((root/'LOCAL_SHA256.json').read_text())
-actual={str(p.relative_to(root/'vendor')):hashlib.sha256(p.read_bytes()).hexdigest() for p in (root/'vendor').rglob('*.java')}
+actual={p.relative_to(root/'vendor').as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in (root/'vendor').rglob('*.java')}
 if actual!=expected: raise SystemExit('Noise candidate source pin mismatch')
 print('Noise candidate: 29 pinned upstream sources; explicit 3-file adapter/RFC 7748/DH validation patch')
 PY

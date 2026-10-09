@@ -8,7 +8,13 @@ adb install -r "${ANDROID_TEST_APK:-app/build/outputs/apk/androidTest/debug/app-
 adb shell am instrument -r -w dev.ghost.nearbyim.test/dev.ghost.nearbyim.LocalizationInstrumentation > build/android-i18n-device.txt
 cat build/android-i18n-device.txt
 adb logcat -d -v threadtime > build/android-i18n-logcat.txt || true
-rg -i 'NotificationService|enqueue rate|shedding|POST_NOTIFICATIONS|ForegroundService|AndroidRuntime|Notification diagnostic' build/android-i18n-logcat.txt || true
+python3 - <<'PY'
+from pathlib import Path
+import re
+pattern=re.compile(r'NotificationService|enqueue rate|shedding|POST_NOTIFICATIONS|ForegroundService|AndroidRuntime|Notification diagnostic',re.I)
+for line in Path('build/android-i18n-logcat.txt').read_text(errors='replace').splitlines():
+    if pattern.search(line):print(line)
+PY
 adb pull /sdcard/Android/data/dev.ghost.nearbyim/files/i18n build/android-i18n-screenshots || true
 python3 - <<'PY'
 from pathlib import Path
