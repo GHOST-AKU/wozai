@@ -231,7 +231,17 @@ public final class LocalizationInstrumentation extends Instrumentation {
         await(() -> onMain(() -> ((ScrollView) field(activity, "messageScroll")).getScrollY() == scroll), "Timeline scroll survives locale recreation");
         check(onMain(() -> controller.connected && peerId.equals(controller.connectedPeerId)), "Active signed session survives language change");
         NotificationManager notifications = (NotificationManager) service.getSystemService(Context.NOTIFICATION_SERVICE);
-        await(() -> notificationTitleMatches(notifications, "NearbyIM is running"), "Actually posted notification changes to English");
+        try {
+            await(() -> notificationTitleMatches(notifications, "NearbyIM is running"), "Actually posted notification changes to English");
+        } catch (AssertionError failure) {
+            Notification actual=posted(notifications);
+            System.out.println("Notification diagnostic: enabled="+notifications.areNotificationsEnabled()
+                    +", title="+(actual==null?"<missing>":actual.extras.getString(Notification.EXTRA_TITLE))
+                    +", language="+onMain(()->AppLanguage.selection(application))
+                    +", foreground="+onMain(()->field(service,"foreground"))
+                    +", needed="+onMain(()->controller.needsForeground()));
+            throw failure;
+        }
         Notification notification = posted(notifications);
         check(notification.extras.getString(Notification.EXTRA_TITLE).equals("NearbyIM is running"), "Foreground notification refreshes its language");
         check(notification.extras.getCharSequence(Notification.EXTRA_TEXT).toString().equals("Connected · LAN"), "Notification formats nested status in current language");

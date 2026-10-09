@@ -136,6 +136,7 @@ jobs:
           name: android-localization-api-${{ matrix.api-level }}
           path: |
             build/android-i18n-device.txt
+            build/android-i18n-logcat.txt
             build/android-i18n-screenshots/
           if-no-files-found: ignore
   signing-upgrade:
