@@ -50,9 +50,9 @@ android {
         }
     }
     testBuildType = providers.gradleProperty("testBuildType").orElse("debug").get()
-    // Candidate dependency gate only; none of these sources enter the app APK.
+    sourceSets.getByName("main").java.srcDir(rootProject.file("third_party/noise-java/src"))
+    // Public vectors and security checks are confined to the test APK.
     sourceSets.getByName("androidTest").java.srcDirs(
-        rootProject.file("tests/noise-candidate/vendor"),
         rootProject.file("tests/noise-candidate/src"))
     // Every language remains available while switching offline, including Play bundles.
     bundle { language { enableSplit = false } }

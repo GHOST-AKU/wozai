@@ -36,6 +36,15 @@ public final class DeviceIdentity {
         signer.initSign(privateKey); signer.update(message); return signer.sign();
     }
 
+    /** Verify a session proof using the same strict canonical P-256 identity rules. */
+    public static void verifyProof(byte[] publicKey,byte[] message,byte[] signature)throws GeneralSecurityException {
+        if(message==null||message.length>4096||signature==null||signature.length==0||signature.length>80)
+            throw new SignatureException("Invalid session proof size");
+        Signature verifier=Signature.getInstance("SHA256withECDSA");
+        verifier.initVerify(decodePublicKey(publicKey));verifier.update(message);
+        if(!verifier.verify(signature))throw new SignatureException("Session root proof does not verify");
+    }
+
     static PublicKey decodePublicKey(byte[] encoded) throws GeneralSecurityException {
         if (encoded == null || encoded.length == 0 || encoded.length > 256)
             throw new InvalidKeyException("Invalid public key size");

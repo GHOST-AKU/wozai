@@ -12,6 +12,10 @@
 -keep class dev.ghost.nearbyim.ChatStore { public *; }
 -keep class dev.ghost.nearbyim.ChatStore$* { public *; }
 -keep class dev.ghost.nearbyim.core.DeviceIdentity { public *; }
+# Security fixtures deliberately alter claims before root-proof verification.
+-keep class dev.ghost.nearbyim.noise.NoiseRecordChannel { *; }
+-keep class dev.ghost.nearbyim.noise.JcaAesGcmCipherState { *; }
+-keep class com.southernstorm.noise.protocol.** { public *; }
 -keep class dev.ghost.nearbyim.core.Frame { public *; }
 -keep class dev.ghost.nearbyim.core.FramedSession { public *; }
 -keep class dev.ghost.nearbyim.core.FramedSession$* { public *; }
@@ -22,6 +26,7 @@
 
 -keep class dev.ghost.nearbyim.core.Attachment* { public *; }
 -keep class dev.ghost.nearbyim.AndroidAttachmentSource { public *; }
+-keep class dev.ghost.nearbyim.AndroidNoiseIdentity { *; }
 -keep class dev.ghost.nearbyim.core.FileAttachmentSource { public *; }
 -keep class dev.ghost.nearbyim.core.TransferLimits { public *; }
 -keep class dev.ghost.nearbyim.core.Transfer* { public *; }

@@ -1,5 +1,5 @@
---- a/vendor/com/southernstorm/noise/protocol/Curve25519DHState.java
-+++ b/vendor/com/southernstorm/noise/protocol/Curve25519DHState.java
+--- a/src/com/southernstorm/noise/protocol/Curve25519DHState.java
++++ b/src/com/southernstorm/noise/protocol/Curve25519DHState.java
 @@ -139,7 +139,15 @@
  	public void calculate(byte[] sharedKey, int offset, DHState publicDH) {
  		if (!(publicDH instanceof Curve25519DHState))
@@ -17,8 +17,8 @@
  	}
  
  	@Override
---- a/vendor/com/southernstorm/noise/protocol/HandshakeState.java
-+++ b/vendor/com/southernstorm/noise/protocol/HandshakeState.java
+--- a/src/com/southernstorm/noise/protocol/HandshakeState.java
++++ b/src/com/southernstorm/noise/protocol/HandshakeState.java
 @@ -145,6 +145,10 @@
  	 * that is specified in the protocolName is not supported.
  	 */
@@ -50,8 +50,8 @@
  			symmetric.mixKey(shared, 0, len);
  		} finally {
  			Noise.destroy(shared);
---- a/vendor/com/southernstorm/noise/protocol/SymmetricState.java
-+++ b/vendor/com/southernstorm/noise/protocol/SymmetricState.java
+--- a/src/com/southernstorm/noise/protocol/SymmetricState.java
++++ b/src/com/southernstorm/noise/protocol/SymmetricState.java
 @@ -54,9 +54,14 @@
  	 * protocol name is not supported.
  	 */

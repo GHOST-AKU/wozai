@@ -22,6 +22,20 @@ Windows and Linux packaging include a linked Eclipse Temurin OpenJDK 17 runtime.
 
 The Linux Bluetooth bridge dynamically links the distribution's GLib/GIO libraries (LGPL-2.1-or-later, https://gitlab.gnome.org/GNOME/glib) and uses the system BlueZ D-Bus service (https://www.bluez.org/). These system libraries and bluetoothd are not included in the application package. The Linux native launcher and BlueZ bridge are application source; no BlueZ implementation source is copied into them.
 
+## Noise protocol implementation
+
+The sources under `third_party/noise-java/src` come from Southern Storm Software's
+MIT-licensed [rweather/noise-java](https://github.com/rweather/noise-java), pinned
+to commit `49377b6dfc6a1e75740bce2318118291a57c0d6e`. The complete license is in
+`licenses/noise-java-MIT.txt` and the Android APK's `assets/noise-java-MIT.txt`.
+Source manifests and the explicit three-file system-cipher/RFC 7748/DH validation
+patch are retained under `tests/noise-candidate/`. The first-party adapter uses
+the system AES/GCM implementation. This source provenance and compatibility
+testing do not constitute an independent cryptographic security audit.
+
+The test-only Cacophony vectors are public domain under their included Unlicense;
+they are not packaged into production applications.
+
 ## Google Material Icons
 
 The `app/src/main/res/drawable/outline_*_24.xml` vector icons are Material Icons Outlined assets from Google's official repository, retrieved on 2026-10-01 and 2026-10-04:

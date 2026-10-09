@@ -1,8 +1,10 @@
 # Noise library acceptance fixture
 
-This directory is test code. It does not change the clients' session protocol or
-add a production dependency. `sh tools/test-noise-candidate.sh` compiles against
-Java 8 APIs and runs with a 32 MiB heap.
+This directory contains public vectors, source pins and acceptance tests. The
+selected implementation is in `third_party/noise-java/src`; the system AEAD
+adapter and root-bound record channel are in the application's `noise` package.
+`sh tools/test-noise-candidate.sh` compiles these against Java 8 APIs and runs
+with a 32 MiB heap. Client factory wiring is a separate implementation step.
 
 The 29 MIT-licensed upstream sources are pinned to rweather/noise-java commit
 `49377b6dfc6a1e75740bce2318118291a57c0d6e`. `UPSTREAM_SHA256.json` records their
@@ -23,6 +25,9 @@ The test compares all handshake bytes, the transcript hash and transport bytes,
 and also crosses the JCA adapter with the unchanged upstream cipher in both
 roles. Other checks cover bad tags, replay, nonce exhaustion and destruction.
 
-These are library checks. Application identity binding, consent, record framing,
-Android/ARM performance, radio interoperability and production security review
-are separate acceptance requirements tracked in GitHub issue #15.
+Channel checks additionally cover root-proof forgery, static-key/claim binding,
+pin changes, limits, bad tags, replay, old-session records and concurrent close.
+API26/34 native tests and Linux ARM CPU measurements have CI evidence in issue
+#15. These checks do not prove client consent wiring, Android ARM performance,
+radio interoperability or production security audit; those requirements remain
+tracked in that issue.

@@ -4,6 +4,9 @@ on:
     branches: [main]
     paths:
       - 'tests/noise-candidate/**'
+      - 'third_party/noise-java/**'
+      - 'app/src/main/java/dev/ghost/nearbyim/noise/**'
+      - 'app/src/main/java/dev/ghost/nearbyim/core/DeviceIdentity.java'
       - 'tools/test-noise-candidate.sh'
       - '.github/workflows/noise-candidate.yml'
   workflow_dispatch:
