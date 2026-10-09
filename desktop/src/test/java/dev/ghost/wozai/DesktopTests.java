@@ -261,7 +261,7 @@ public final class DesktopTests {
                     }
                     // wait until Android receives HELLO before approving
                     long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
-                    while (!android.isReady() && System.nanoTime() < deadline) {
+                    while (ready.getCount()!=0 && System.nanoTime() < deadline) {
                         android.approve();
                         if (ready.await(20, TimeUnit.MILLISECONDS)) break;
                     }

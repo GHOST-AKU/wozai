@@ -465,20 +465,19 @@ public final class LocalizationInstrumentation extends Instrumentation {
         java.util.Map<String,Object> feedback=field(controller,"transferProgress");
         java.util.List<ChatStore.Message> history=onMain(()->controller.messages);
         AttachmentInfo info=AttachmentInfo.v2(java.util.UUID.randomUUID().toString(),"checking.bin","application/octet-stream",4L*1024*1024,null,System.currentTimeMillis());String key=peer+":"+info.id+":false";
-        try {
+        try {onMain(()->{
             android.view.View bubble=null;
             for(int percent:new int[]{25,75}) {
                 AttachmentRecord record=new AttachmentRecord(info,false,"checking",1024*1024);
                 Object value=constructor.newInstance(record,new TransferProgress(0,-1,percent*info.size/100,info.size));
                 android.view.View previous=bubble;
-                bubble=onMain(()->{
-                    feedback.put(key,value);java.util.ArrayList<ChatStore.Message> messages=new java.util.ArrayList<>(history);messages.add(new ChatStore.Message(info.id,info.name,"received",false,info.time,record));controller.messages=messages;invoke(activity,"renderChat",new Class<?>[0]);
-                    android.view.ViewGroup bubbles=field(activity,"bubbles");android.view.View current=bubbles.findViewWithTag("attachment:"+info.id);android.widget.ProgressBar bar=current.findViewWithTag("attachmentProgress");
-                    check(bar!=null&&!bar.isIndeterminate()&&bar.getProgress()==percent,"Android resume verification displays changing checked bytes");
-                    if(previous!=null)check(previous==current,"Live file progress rebuilds the saved timeline");return current;
-                });
+                feedback.put(key,value);java.util.ArrayList<ChatStore.Message> messages=new java.util.ArrayList<>(history);messages.add(new ChatStore.Message(info.id,info.name,"received",false,info.time,record));controller.messages=messages;invoke(activity,"renderChat",new Class<?>[0]);
+                android.view.ViewGroup bubbles=field(activity,"bubbles");bubble=bubbles.findViewWithTag("attachment:"+info.id);android.widget.ProgressBar bar=bubble.findViewWithTag("attachmentProgress");
+                check(bar!=null&&!bar.isIndeterminate()&&bar.getProgress()==percent,"Android resume verification displays changing checked bytes");
+                if(previous!=null)check(previous==bubble,"Live file progress rebuilds the saved timeline");
             }
-        }finally{onMain(()->{feedback.remove(key);controller.messages=history;invoke(activity,"renderChat",new Class<?>[0]);return null;});}
+            return null;
+        });}finally{onMain(()->{feedback.remove(key);controller.messages=history;invoke(activity,"renderChat",new Class<?>[0]);return null;});}
     }
     private void rejectedAttachmentFuture(java.util.concurrent.CompletableFuture<?> future,String message)throws Exception {
         try{future.get(1,TimeUnit.SECONDS);throw new AssertionError(message+": unexpectedly succeeded");}

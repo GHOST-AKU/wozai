@@ -193,11 +193,11 @@ public final class DesktopClient implements AutoCloseable {
             }));
         }
         public void onReady() { event(() -> {
-            if (current != this) return;
+            if (current != this || !wire.endToEndEncrypted()) return;
             if (!policy.ready(authorization)) { reject("canceled"); return; }
             try {
                 final String[] pin = {peer.publicKey()};
-                policy.persist(authorization, () -> pin[0] = wire.remotePublicKey());
+                policy.persist(authorization, () -> pin[0] = authorization.publicKey);
                 peer = new DesktopStore.Peer(peer.id(), peer.name(), pin[0], peer.endpoint());
                 store.peer(peer);
                 if(transfers==null||!transfers.v2())throw new IOException("File reader not prepared before approval");
