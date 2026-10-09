@@ -347,5 +347,20 @@
   "photoZoomHint": "Pinch to zoom · Double-tap to enlarge",
   "photoZoomIn": "Zoom in",
   "photoZoomOut": "Zoom out",
-  "photoDesktopZoomHint": "Mouse wheel to zoom · Drag to pan · Double-click to fit"
+  "photoDesktopZoomHint": "Mouse wheel to zoom · Drag to pan · Double-click to fit",
+  "attachmentStatePaused": "Paused",
+  "attachmentStateChecking": "Checking saved data",
+  "attachmentPause": "Pause transfer",
+  "attachmentResume": "Resume transfer",
+  "attachmentSpeedEta": "{0}/s · About {1,number} seconds left",
+  "attachmentHintV2": "Up to 10 GiB per file.",
+  "attachmentTooLarge": "This file exceeds the file size limit.",
+  "attachmentSourcePermission": "File read permission is unavailable. Select the source again.",
+  "attachmentSourceUnavailable": "The source cannot be read. Select it again.",
+  "attachmentSourceChanged": "The source changed. Send it again.",
+  "attachmentQuotaExceeded": "The attachment storage quota is insufficient.",
+  "attachmentStorageFull": "Available storage is insufficient.",
+  "attachmentQuota": "Attachment storage quota",
+  "attachmentQuotaGiB": "{0,number} GiB",
+  "attachmentQuotaInUse": "The new quota must cover stored and reserved space."
 }

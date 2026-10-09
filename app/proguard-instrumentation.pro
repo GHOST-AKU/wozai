@@ -21,6 +21,11 @@
 -keep class dev.ghost.nearbyim.transport.Peer { public *; }
 
 -keep class dev.ghost.nearbyim.core.Attachment* { public *; }
+-keep class dev.ghost.nearbyim.AndroidAttachmentSource { public *; }
+-keep class dev.ghost.nearbyim.core.FileAttachmentSource { public *; }
+-keep class dev.ghost.nearbyim.core.TransferLimits { public *; }
+-keep class dev.ghost.nearbyim.core.Transfer* { public *; }
+-keep class dev.ghost.nearbyim.core.Transfer*$* { public *; }
 -keep class dev.ghost.nearbyim.PhotoDecoder { public *; }
 -keep class dev.ghost.nearbyim.core.ImageOrientation { public *; }
 -keep class dev.ghost.nearbyim.PhotoActivity { *; }

@@ -41,11 +41,15 @@ public final class ChatController implements TransportListener {
     private final Hooks hooks;
     private Runnable observer, reconnectTimeout;
     private FramedSession active;
-    private AttachmentTransfer transfers;
+    private volatile ClientAttachmentTransfers transfers;
     private long attachmentToken;
     private CompletableFuture<Void> attachmentsStopped=CompletableFuture.completedFuture(null);
     private final ContentResolver resolver;
+    private final Context applicationContext;
+    private volatile TransferStorageBudget attachmentStorage;
+    private final ConcurrentHashMap<String,TransferProgress> transferProgress=new ConcurrentHashMap<>();
     private final ThreadPoolExecutor fileSelection=new ThreadPoolExecutor(1,1,0,TimeUnit.SECONDS,new ArrayBlockingQueue<>(2),r->{Thread t=new Thread(r,"attachment-document");t.setDaemon(true);return t;},new ThreadPoolExecutor.AbortPolicy());
+    private final ConcurrentHashMap<AttachmentSource,Long> selectingSources=new ConcurrentHashMap<>();
     private Frame remoteHello;
     private TrustPolicy.Authorization authorization;
     private int connectingMode;
@@ -53,7 +57,7 @@ public final class ChatController implements TransportListener {
     private boolean rememberOutgoing, destroyed;
 
     public ChatController(Context context, Hooks hooks) {
-        this.hooks = hooks; resolver=context.getApplicationContext().getContentResolver();preferences = context.getSharedPreferences("identity", Context.MODE_PRIVATE);
+        this.hooks = hooks;applicationContext=context.getApplicationContext();resolver=applicationContext.getContentResolver();preferences = context.getSharedPreferences("identity", Context.MODE_PRIVATE);
         String id = preferences.getString("id", null);
         boolean existingIdentity = id != null;
         if (id == null) { id = UUID.randomUUID().toString(); preferences.edit().putString("id", id).apply(); }
@@ -64,6 +68,7 @@ public final class ChatController implements TransportListener {
         catch (GeneralSecurityException | RuntimeException e) { error = UiText.of("identityUnavailableRestart"); }
         identity = loaded;
         store = new ChatStore(context); lan = new LanTransport(context, this); bluetooth = new BluetoothTransport(context, this);
+        try{attachmentStorage=new TransferStorageBudget(store.attachmentsRoot(),preferences.getLong("attachmentQuota",TransferStorageBudget.DEFAULT_QUOTA));}catch(IOException error){this.error=attachmentError(error);}
         db(store::recoverPending, null); refresh();
     }
     public void observe(Runnable observer) { this.observer = observer; if (observer != null) observer.run(); }
@@ -249,14 +254,14 @@ public final class ChatController implements TransportListener {
                 approvalId = null; approvalName = null; expectedPeerId = null; outgoingBluetoothAddress = null;
                 Frame hello = remoteHello; TrustPolicy.Authorization grant = authorization;
                 FramedSession wire=reference[0];
-                if(wire.attachmentsSupported())try{transfers=new AttachmentTransfer(store.attachmentDirectory(hello.id),new AttachmentTransfer.Wire(){
+                if(wire.attachmentsSupported())try{transfers=new ClientAttachmentTransfers(new AttachmentTransfer(store.attachmentDirectory(hello.id),new AttachmentTransfer.Wire(){
                     public boolean send(Frame frame){return wire.sendAttachment(frame);}
                     public void abort(){wire.close(UiText.of("attachmentFailed"));}
                 },record->{
                     try{storage.submit(()->store.attachment(hello.id,hello.body,record)).get(10,TimeUnit.SECONDS);}
                     catch(Exception e){throw new IOException("Attachment metadata save failed",e);}
                     main.post(()->{if(!destroyed)refresh();});
-                },wire.attachmentChunkSize(),wire.attachmentSizeLimit(),true);}
+                },wire.attachmentChunkSize(),wire.attachmentSizeLimit(),true));}
                 catch(IOException e){closeActive(UiText.of("attachmentFailed"));return;}
                 if (!incoming) {
                     if (!Objects.equals(selectedId, hello.id)) messages = new ArrayList<>();
@@ -268,7 +273,7 @@ public final class ChatController implements TransportListener {
                     store.touch(hello.id, hello.body);
                 }, ChatController.this::refresh);
             }); }
-            public void onAttachment(Frame frame){main.post(()->{if(active==reference[0]&&transfers!=null)transfers.receive(frame,true);});}
+            public void onAttachment(Frame frame){main.post(()->{if(active==reference[0]&&transfers!=null)transfers.receive(frame);});}
             public void onText(Frame frame) { main.post(() -> {
                 if (active != reference[0] || remoteHello == null || !reference[0].isReady()) return;
                 String id = remoteHello.id, name = remoteHello.body;
@@ -294,6 +299,8 @@ public final class ChatController implements TransportListener {
         if (active != session) return;
         String peerId = remoteHello == null ? null : remoteHello.id;
         if(transfers!=null){attachmentsStopped=CompletableFuture.allOf(attachmentsStopped,transfers.shutdown());transfers=null;}attachmentToken++;
+        selectingSources.forEach((source,token)->{if(token!=attachmentToken){selectingSources.remove(source);try{source.close();}catch(IOException ignored){}}});
+        transferProgress.clear();
         trust.cancel(authorization); authorization = null; active = null; remoteHello = null;
         connected = false; connectedPeerId = null; approvalId = null; approvalName = null;
         cancelOutgoing(); status = reason;
@@ -309,27 +316,37 @@ public final class ChatController implements TransportListener {
     public boolean canSend() { return !savingMessage && connected && active != null && active.isReady() && remoteHello != null && Objects.equals(selectedId, connectedPeerId); }
     public long attachmentSessionToken(){return attachmentToken;}
     public boolean canSendAttachment(){return canSend()&&transfers!=null&&active.attachmentsSupported();}
+    public TransferProgress transferProgress(String peer,AttachmentRecord record){return transferProgress.getOrDefault(peer+":"+record.info.id+":"+record.outgoing,TransferProgress.UNKNOWN);}
+    public long attachmentQuota(){return attachmentStorage==null?TransferStorageBudget.DEFAULT_QUOTA:attachmentStorage.quota();}
+    public boolean hasActiveAttachments(){return transfers!=null&&transfers.hasActive();}
+    public void pauseAttachments(){ClientAttachmentTransfers selected=transfers;if(selected!=null)selected.pauseAll().whenComplete((value,error)->{if(error!=null)main.post(()->fail(attachmentError(error)));});}
+    public void cancelAttachments(){ClientAttachmentTransfers selected=transfers;if(selected!=null)selected.cancelAll().whenComplete((value,error)->{if(error!=null)main.post(()->fail(attachmentError(error)));});}
+    public CompletableFuture<Void> attachmentQuota(long bytes){CompletableFuture<Void> future=new CompletableFuture<>();try{fileSelection.execute(()->{try{if(attachmentStorage==null)attachmentStorage=new TransferStorageBudget(store.attachmentsRoot(),bytes);else attachmentStorage.quota(bytes);preferences.edit().putLong("attachmentQuota",bytes).apply();future.complete(null);}catch(IOException error){future.completeExceptionally(new LocalizedIOException(UiText.of("attachmentQuotaInUse"),error));}});}catch(RejectedExecutionException error){future.completeExceptionally(error);}return future;}
     public void sendAttachment(String peer,long token,Uri uri){
         if(!canSendAttachment()||token!=attachmentToken||!Objects.equals(peer,connectedPeerId)){fail(UiText.of("notConnected"));return;}
         try{fileSelection.execute(()->{
             try{
-                String name=null;
-                try(Cursor cursor=resolver.query(uri,new String[]{OpenableColumns.DISPLAY_NAME},null,null,null)){if(cursor!=null&&cursor.moveToFirst())name=cursor.getString(0);}
-                if(name==null||name.trim().isEmpty())name="attachment";name=name.replaceAll("[\\p{Cntrl}]","_");
-                String mime=resolver.getType(uri);if(mime==null||!mime.matches("[A-Za-z0-9!#$&^_.+/-]{1,127}"))mime="application/octet-stream";
-                String fileName=name,contentType=mime;
+                AndroidAttachmentSource source=new AndroidAttachmentSource(applicationContext,uri);
+                selectingSources.put(source,token);
+                String fileName=source.name(),contentType=source.mime();
                 main.post(()->{
-                    if(destroyed)return;if(!canSendAttachment()||token!=attachmentToken||!Objects.equals(peer,connectedPeerId)){fail(UiText.of("notConnected"));return;}
-                    transfers.offer(()->{InputStream input=resolver.openInputStream(uri);if(input==null)throw new IOException("Document unavailable");return input;},fileName,contentType).whenComplete((id,e)->{if(e!=null)main.post(()->fail(UiText.of("attachmentFailed")));});
+                    selectingSources.remove(source);
+                    if(destroyed||!canSendAttachment()||token!=attachmentToken||!Objects.equals(peer,connectedPeerId)){try{source.close();}catch(IOException ignored){}discardSelection(source);if(!destroyed&&token==attachmentToken)fail(UiText.of("notConnected"));return;}
+                    transfers.offer(source,fileName,contentType).whenComplete((id,e)->{if(e!=null)main.post(()->{if(!destroyed&&token==attachmentToken)fail(attachmentError(e));});});
                 });
-            }catch(Exception e){main.post(()->{if(!destroyed)fail(UiText.of("attachmentFailed"));});}
+            }catch(Exception e){main.post(()->{if(!destroyed&&token==attachmentToken)fail(attachmentError(e));});}
         });}catch(RejectedExecutionException e){fail(UiText.of("attachmentFailed"));}
     }
+    private void discardSelection(AttachmentSource source){try{fileSelection.execute(()->{try{source.discard();}catch(IOException ignored){}});}catch(RejectedExecutionException stopped){}}
     public void attachmentAction(String peer,String id,boolean outgoing,String action){
         if(transfers==null||!Objects.equals(peer,connectedPeerId)){fail(UiText.of("notConnected"));return;}
-        CompletableFuture<Void> future=action.equals("accept")?transfers.accept(id):action.equals("reject")?transfers.reject(id):transfers.cancel(id,outgoing);
-        future.whenComplete((v,e)->{if(e!=null)main.post(()->{if(!destroyed)fail(UiText.of("attachmentFailed"));});});
+        ClientAttachmentTransfers selected=transfers;long token=attachmentToken;
+        try{fileSelection.execute(()->{try{if(selected!=transfers||token!=attachmentToken)throw new IOException("Attachment session changed");
+            CompletableFuture<Void> future=action.equals("resume")?selected.resume(id,outgoing):action.equals("pause")?selected.pause(id,outgoing):action.equals("accept")?selected.accept(id):action.equals("reject")?selected.reject(id):selected.cancel(id,outgoing);
+            future.whenComplete((v,e)->{if(e!=null)main.post(()->{if(!destroyed)fail(attachmentError(e));});});
+        }catch(Exception e){main.post(()->{if(!destroyed)fail(attachmentError(e));});}});}catch(RejectedExecutionException e){fail(UiText.of("attachmentFailed"));}
     }
+    private static UiText attachmentError(Throwable error){while(error instanceof CompletionException||error instanceof ExecutionException)error=error.getCause();if(error instanceof TransferStorageException)return UiText.of(((TransferStorageException)error).reason==TransferStorageException.Reason.QUOTA?"attachmentQuotaExceeded":"attachmentStorageFull");return error instanceof LocalizedIOException?((LocalizedIOException)error).text:UiText.of("attachmentFailed");}
     private CompletableFuture<Path> attachmentPath(java.util.function.Supplier<Path> lookup){
         try{return CompletableFuture.supplyAsync(lookup,fileSelection);}
         catch(RejectedExecutionException error){CompletableFuture<Path> failed=new CompletableFuture<>();failed.completeExceptionally(error);return failed;}

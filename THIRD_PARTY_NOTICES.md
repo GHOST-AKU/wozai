@@ -50,5 +50,9 @@ Licensed under Apache License, Version 2.0. The upstream license is retained at 
 | `outline_file_download_24.xml` | `file/file_download/materialiconsoutlined/black/res/drawable` |
 | `outline_zoom_in_24.xml` | `action/zoom_in/materialiconsoutlined/black/res/drawable` |
 | `outline_zoom_out_24.xml` | `action/zoom_out/materialiconsoutlined/black/res/drawable` |
+| `outline_pause_24.xml` | `av/pause/materialiconsoutlined/black/res/drawable` |
+| `outline_play_arrow_24.xml` | `av/play_arrow/materialiconsoutlined/black/res/drawable` |
 
-The Windows and Linux resources under `desktop/src/main/resources/dev/ghost/wozai/icons/` rasterize sixteen of these same Android vector paths for runtime tinting. The original Material Icons license is also included in the Windows and Linux packages. The shared app artwork is maintained at `desktop/assets/icons/master/icon-master-1024.png`; `desktop/assets/icons/windows/nearbyim.ico` contains the Windows launcher sizes.
+The two playback controls were retrieved on 2026-10-09 from pinned upstream commit `49d4db35df873165d6bd6ba09b063c7dafbac2f4` (SHA-256 of upstream pause XML: `464af7751d0f67a1c900ce4809a308c41fbe4c585543b31f3227b21f94893b2f`; play-arrow XML: `7f9fb25ab5d4328b3128d424c44ccf2541c74a2d1bac7fda6670cd0e40252196`).
+
+The Windows and Linux resources under `desktop/src/main/resources/dev/ghost/wozai/icons/` rasterize eighteen of these same Android vector paths for runtime tinting. The original Material Icons license is also included in the Windows and Linux packages. The shared app artwork is maintained at `desktop/assets/icons/master/icon-master-1024.png`; `desktop/assets/icons/windows/nearbyim.ico` contains the Windows launcher sizes.

@@ -58,6 +58,10 @@ public final class AttachmentResumeTests {
             }
             lostReceipt(root,false);lostReceipt(root,true);corruptRestart(root);duplicateEnd(root);sourceChange(root);canceledRestart(root);singleWriter(root);
             crashBoundary(root,false,0);crashBoundary(root,false,TransferLimits.BLOCK_BYTES);crashBoundary(root,true,2L*TransferLimits.BLOCK_BYTES+3);
+            ownedSource(root);
+            ownedPause(root);
+            pauseDuringPrefix(root);
+            receiptWithoutSource(root);
             AttachmentInfo pending=AttachmentInfo.v2(ID,"data.bin","application/octet-stream",10,null,1);
             AttachmentRecord paused=new AttachmentRecord(pending,true,"paused",7);
             check(paused.mayReplace(new AttachmentRecord(pending,true,"checking",0)),"Paused history cannot resume");
@@ -68,6 +72,62 @@ public final class AttachmentResumeTests {
         }finally{try(var paths=Files.walk(root)){for(Path path:paths.sorted(Comparator.reverseOrder()).toList())Files.deleteIfExists(path);}}
     }
     private static TransferTaskKey sender(String id,String generation){return new TransferTaskKey("a".repeat(64),"b".repeat(64),TransferTaskKey.Direction.SEND,id,generation);}
+    private static void ownedSource(Path root)throws Exception {
+        try(AttachmentV2Tests.Pair pair=new AttachmentV2Tests.Pair()) {
+            Path originals=pair.root.resolve("selected.bin"),snapshots=pair.root.resolve("a/.sources-v2");Files.write(originals,new byte[2*TransferLimits.BLOCK_BYTES]);Files.createDirectories(snapshots);
+            OwnedSnapshotSource owned;try(FileAttachmentSource selected=new FileAttachmentSource(originals)){owned=new OwnedSnapshotSource(AttachmentSourceSnapshot.create(selected,snapshots,3L*TransferLimits.BLOCK_BYTES),snapshots);}
+            Path copy=owned.path();pair.holdCredit=true;String id=pair.a.offer(owned,"data.bin","application/octet-stream").get();
+            AttachmentV2Tests.waitFor(pair.aRecords,"transferring");pair.a.cancel(id,true);AttachmentV2Tests.waitFor(pair.aRecords,"canceled");AttachmentV2Tests.waitFor(pair.bRecords,"canceled");
+            check(!Files.exists(copy),"Canceled transfer retained its private source snapshot");check(Files.exists(originals),"Cancellation deleted a user-selected original");
+        }
+    }
+    private static void ownedPause(Path root)throws Exception {
+        Path directory=root.resolve("owned-pause");Files.createDirectories(directory);Path original=directory.resolve("selected.bin");Files.write(original,new byte[2*TransferLimits.BLOCK_BYTES]);Path copies=directory.resolve("a/.sources-v2");String id;Path copy;
+        TransferStorageBudget budget=new TransferStorageBudget(directory.resolve("a"),32L*TransferLimits.BLOCK_BYTES);
+        try(AttachmentV2Tests.Pair pair=new AttachmentV2Tests.Pair(directory,false,AttachmentV2Tests.CONNECTION)) {
+            pair.holdCredit=true;FileAttachmentSource source=new FileAttachmentSource(original);
+            OwnedSnapshotSource owned=AttachmentSourceSnapshot.owned(source,copies,budget,sender(UUID.randomUUID().toString(),source.generation()));copy=owned.path();
+            id=pair.a.offer(owned,"data.bin","application/octet-stream").get();while(pair.dataBytes.get()<TransferLimits.BLOCK_BYTES)Thread.sleep(5);
+            pair.a.pause(id,true).get();AttachmentV2Tests.waitFor(pair.bRecords,"paused");check(Files.exists(copy),"Pause discarded a resumable source");
+        }
+        check(budget.reservedBytes()==0,"Snapshot preparation retained its temporary reservation");AttachmentTransfer.clean(directory.resolve("a"),Set.of());check(Files.exists(copy),"Startup cleanup deleted a referenced snapshot");
+        try(AttachmentV2Tests.Pair pair=new AttachmentV2Tests.Pair(directory,false,"d".repeat(64))) {
+            ClientAttachmentTransfers adapter=new ClientAttachmentTransfers(directory.resolve("a"),pair.a,value->OwnedSnapshotSource.restore(copies,value.sourceReference(),value.key().sourceGeneration()));
+            adapter.cancel(id,true).get();AttachmentV2Tests.waitFor(pair.bRecords,"canceled");check(!Files.exists(copy)&&Files.exists(original),"Canceling a paused task damaged ownership boundaries");
+        }
+    }
+    private static void pauseDuringPrefix(Path root)throws Exception {
+        Path directory=root.resolve("pause-prefix");Files.createDirectories(directory);Path file=directory.resolve("source.bin");Files.write(file,new byte[2*TransferLimits.BLOCK_BYTES+3]);String id,generation;
+        try(AttachmentV2Tests.Pair pair=new AttachmentV2Tests.Pair(directory,false,AttachmentV2Tests.CONNECTION)) {
+            pair.holdCredit=true;FileAttachmentSource source=new FileAttachmentSource(file);generation=source.generation();id=pair.a.offer(source,"data.bin","application/octet-stream").get();while(pair.dataBytes.get()<TransferLimits.BLOCK_BYTES)Thread.sleep(5);
+            pair.a.pause(id,true).get();AttachmentV2Tests.waitFor(pair.bRecords,"paused");
+        }
+        TransferTaskKey key=sender(id,generation);TransferCheckpointStore store=new TransferCheckpointStore(directory.resolve("a/.tasks-v2"));TransferCheckpoint old=store.load(key).orElseThrow();
+        store.checkpoint(new TransferCheckpoint(key,old.info(),old.sourceReference(),TransferLimits.BLOCK_BYTES,TransferLimits.BLOCK_BYTES,TransferLimits.BLOCK_BYTES,TransferCheckpoint.State.PAUSED,System.currentTimeMillis()));
+        java.util.concurrent.CountDownLatch entered=new java.util.concurrent.CountDownLatch(1),release=new java.util.concurrent.CountDownLatch(1);
+        try(AttachmentV2Tests.Pair pair=new AttachmentV2Tests.Pair(directory,false,"d".repeat(64))) {
+            FileAttachmentSource original=new FileAttachmentSource(file,generation);AttachmentSource blocked=new AttachmentSource(){
+                public long size(){return original.size();}public String generation(){return original.generation();}public boolean seekable(){return true;}public String persistentReference(){return original.persistentReference();}public void verifyUnchanged()throws IOException{original.verifyUnchanged();}
+                public InputStream open(long offset)throws IOException{return new FilterInputStream(original.open(offset)){public int read(byte[] bytes,int from,int count)throws IOException{entered.countDown();try{if(!release.await(3,java.util.concurrent.TimeUnit.SECONDS))throw new IOException("Prefix read did not cancel");}catch(InterruptedException error){throw new IOException(error);}throw new IOException("Canceled prefix read");}};}
+                public void close()throws IOException{release.countDown();original.close();}
+            };
+            pair.a.resume(key,blocked).get();check(entered.await(3,java.util.concurrent.TimeUnit.SECONDS),"Resume never verified the source prefix");pair.a.pause(id,true).get(3,java.util.concurrent.TimeUnit.SECONDS);AttachmentV2Tests.waitFor(pair.aRecords,"paused");
+        }
+        check(Files.size(directory.resolve("a/.tasks-v2").resolve(key.fileName()+".blocks"))>=40,"Canceled rehash destroyed the last committed source index");
+        try(AttachmentV2Tests.Pair pair=new AttachmentV2Tests.Pair(directory,false,"e".repeat(64))) {
+            pair.a.resume(key,new FileAttachmentSource(file,generation)).get();AttachmentV2Tests.waitFor(pair.aRecords,"delivered");check(pair.dataBytes.get()==TransferLimits.BLOCK_BYTES+3,"Canceled rehash prevented a safe retry");
+        }
+    }
+    private static void receiptWithoutSource(Path root)throws Exception {
+        Path directory=root.resolve("receipt-no-source");Files.createDirectories(directory);Path file=directory.resolve("source.bin");Files.write(file,new byte[TransferLimits.BLOCK_BYTES+3]);String id,generation;
+        try(AttachmentV2Tests.Pair pair=new AttachmentV2Tests.Pair(directory,false,AttachmentV2Tests.CONNECTION)) {
+            pair.dropComplete=true;FileAttachmentSource source=new FileAttachmentSource(file);generation=source.generation();id=pair.a.offer(source,"data.bin","application/octet-stream").get();AttachmentV2Tests.waitFor(pair.bRecords,"received");
+        }
+        Files.delete(file);
+        try(AttachmentV2Tests.Pair pair=new AttachmentV2Tests.Pair(directory,false,"d".repeat(64))) {
+            pair.a.resume(sender(id,generation),null).get();AttachmentV2Tests.waitFor(pair.aRecords,"delivered");check(pair.dataBytes.get()==0,"Lost receipt needed the original after verified delivery");
+        }
+    }
     private static void crashBoundary(Path root,boolean renamed,long durable)throws Exception {
         Path directory=root.resolve("crash-"+renamed+"-"+durable);Files.createDirectories(directory);Path source=directory.resolve("source.bin");byte[] bytes=new byte[2*TransferLimits.BLOCK_BYTES+3];new Random(8).nextBytes(bytes);Files.write(source,bytes);
         String generation=UUID.randomUUID().toString(),id=UUID.randomUUID().toString();TransferTaskKey send=sender(id,generation),receive=new TransferTaskKey("b".repeat(64),"a".repeat(64),TransferTaskKey.Direction.RECEIVE,id,generation);
@@ -76,6 +136,8 @@ public final class AttachmentResumeTests {
         try(FileAttachmentSource input=new FileAttachmentSource(source,generation)){a.checkpoint(new TransferCheckpoint(send,info,input.persistentReference(),0,0,0,TransferCheckpoint.State.ACTIVE,System.currentTimeMillis()));}
         Path content=directory.resolve("b").resolve(receive.fileName()+".part");Files.write(content,bytes);
         for(int start=0;start<bytes.length;start+=TransferLimits.BLOCK_BYTES){int end=Math.min(start+TransferLimits.BLOCK_BYTES,bytes.length);b.appendBlock(receive,end,MessageDigest.getInstance("SHA-256").digest(Arrays.copyOfRange(bytes,start,end)));}
+        // END persists the sender's final hash only after its complete block index is forced.
+        if(renamed)for(int start=0;start<bytes.length;start+=TransferLimits.BLOCK_BYTES){int end=Math.min(start+TransferLimits.BLOCK_BYTES,bytes.length);a.appendBlock(send,end,MessageDigest.getInstance("SHA-256").digest(Arrays.copyOfRange(bytes,start,end)));}
         try(java.nio.channels.FileChannel file=java.nio.channels.FileChannel.open(content,StandardOpenOption.WRITE)){file.force(true);}
         b.checkpoint(new TransferCheckpoint(receive,info,"",durable,durable,durable,TransferCheckpoint.State.ACTIVE,System.currentTimeMillis()));
         if(renamed)Files.move(content,AttachmentTransfer.file(directory.resolve("b"),info),StandardCopyOption.ATOMIC_MOVE);

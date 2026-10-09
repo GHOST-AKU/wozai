@@ -2,6 +2,7 @@ package dev.ghost.wozai;
 
 import javax.swing.*;
 import dev.ghost.nearbyim.core.AttachmentRecord;
+import dev.ghost.nearbyim.core.TransferProgress;
 import java.awt.*;
 import java.time.*;
 import java.util.Date;
@@ -13,6 +14,8 @@ final class MessagePane extends JPanel implements Scrollable {
     interface AttachmentActions {void action(DesktopStore.Message message,String action);}
     private AttachmentActions actions=(message,action)->{};
     void actions(AttachmentActions value){actions=value;}
+    private java.util.function.Function<DesktopStore.Message,TransferProgress> progress=message->TransferProgress.UNKNOWN;
+    void progress(java.util.function.Function<DesktopStore.Message,TransferProgress> value){progress=value;}
     void thumbnail(String id,boolean outgoing,java.awt.image.BufferedImage image){
         Key key=new Key(id,outgoing);MessageRow row=rows.get(key);
         if(row!=null&&row.message.attachment()!=null&&previewIds.contains(key)){
@@ -121,11 +124,17 @@ final class MessagePane extends JPanel implements Scrollable {
             bodyText=record.info.name+"\n"+strings.text("attachmentSummary",MessagePane.size(record.info.size),state);body.setText(bodyText);body.getAccessibleContext().setAccessibleName(bodyText);preferred=null;
             body.setVisible(!photoBubble||thumbnail.getIcon()==null);remove(body);remove(thumbnail);remove(attachmentIcon);if(!photoBubble)thumbnail.setIcon(null);
             footer.removeAll();AttachmentActions handler=actions;
+            TransferProgress measurement=MessagePane.this.progress.apply(message);
+            if(record.state.equals("transferring")&&measurement.bytesPerSecond()>0)footer.add(new JLabel(strings.text("attachmentSpeedEta",MessagePane.size(measurement.bytesPerSecond()),measurement.remainingSeconds())));
             if(record.active()&&!record.state.equals("offered")&&!record.state.equals("preparing")){
                 JProgressBar progress=new JProgressBar(0,100);int percent=record.info.size==0?0:(int)(100*record.transferred/record.info.size);progress.setValue(percent);progress.setStringPainted(true);progress.getAccessibleContext().setAccessibleName(strings.text("attachmentProgress",percent,state));footer.add(progress);
             }
             JPanel buttons=new JPanel(new FlowLayout(FlowLayout.TRAILING,0,0));buttons.setOpaque(false);
-            if(record.active()){
+            if(record.info.version==2&&(record.active()||record.resumable())){
+                String key=record.resumable()?"attachmentResume":"attachmentPause",action=record.resumable()?"resume":"pause";
+                JButton toggle=new JButton(AppTheme.icon(record.resumable()?"play_arrow":"pause"));toggle.setPreferredSize(new Dimension(36,36));toggle.setToolTipText(strings.text(key));toggle.getAccessibleContext().setAccessibleName(strings.text(key));toggle.addActionListener(e->handler.action(message,action));buttons.add(toggle);
+            }
+            if(record.active()||record.resumable()){
                 JButton cancel=new JButton(AppTheme.icon("close"));cancel.setPreferredSize(new Dimension(36,36));cancel.setToolTipText(strings.text("cancel"));cancel.getAccessibleContext().setAccessibleName(strings.text("cancel"));cancel.addActionListener(e->handler.action(message,"cancel"));buttons.add(cancel);
             }
             String open=record.info.mime.startsWith("image/")?"view":record.info.canOpenExternally()?"open":"save";

@@ -31,25 +31,40 @@
     <string name="attachment_details" formatted="false">"{0} · {1,number} / {2,number} バイト · {3}"</string>
     <string name="attachment_failed" formatted="false">"ファイル操作に失敗しました。アクセス権と空き容量を確認してください。"</string>
     <string name="attachment_hint" formatted="false">"1 ファイル最大 1 GiB。内容は暗号化されません。"</string>
+    <string name="attachment_hint_v2" formatted="false">"ファイルごとに最大 10 GiB。"</string>
     <string name="attachment_open" formatted="false">"開く"</string>
     <string name="attachment_overwrite" formatted="false">"ファイルが存在します。置き換えますか？"</string>
+    <string name="attachment_pause" formatted="false">"転送を一時停止"</string>
     <string name="attachment_photo_preview" formatted="false">"写真プレビュー：{0}"</string>
     <string name="attachment_progress" formatted="false">"転送状況：{0,number}%、{1}"</string>
+    <string name="attachment_quota" formatted="false">"添付ファイルの保存容量"</string>
+    <string name="attachment_quota_exceeded" formatted="false">"添付ファイルの保存容量の上限を超えます。"</string>
+    <string name="attachment_quota_gi_b" formatted="false">"{0,number} GiB"</string>
+    <string name="attachment_quota_in_use" formatted="false">"使用中と予約済みの容量を下回る上限は設定できません。"</string>
     <string name="attachment_reject" formatted="false">"拒否"</string>
+    <string name="attachment_resume" formatted="false">"転送を再開"</string>
     <string name="attachment_save_as" formatted="false">"名前を付けて保存"</string>
+    <string name="attachment_source_changed" formatted="false">"元のファイルが変更されました。もう一度送信してください。"</string>
+    <string name="attachment_source_permission" formatted="false">"ファイルの読み取り権限がありません。もう一度選択してください。"</string>
+    <string name="attachment_source_unavailable" formatted="false">"元のファイルを読み取れません。もう一度選択してください。"</string>
+    <string name="attachment_speed_eta" formatted="false">"{0}/秒 · 残り約 {1,number} 秒"</string>
     <string name="attachment_state_awaiting_receipt" formatted="false">"保存確認待ち"</string>
     <string name="attachment_state_canceled" formatted="false">"キャンセル済み"</string>
+    <string name="attachment_state_checking" formatted="false">"保存済みデータを確認中"</string>
     <string name="attachment_state_delivered" formatted="false">"送達済み"</string>
     <string name="attachment_state_failed" formatted="false">"転送失敗"</string>
     <string name="attachment_state_interrupted" formatted="false">"転送中断"</string>
     <string name="attachment_state_offered" formatted="false">"受信待ち"</string>
+    <string name="attachment_state_paused" formatted="false">"一時停止中"</string>
     <string name="attachment_state_preparing" formatted="false">"準備中"</string>
     <string name="attachment_state_received" formatted="false">"受信済み"</string>
     <string name="attachment_state_rejected" formatted="false">"拒否されました"</string>
     <string name="attachment_state_transferring" formatted="false">"転送中"</string>
     <string name="attachment_state_unknown" formatted="false">"結果不明（相手が保存済みの可能性あり）"</string>
     <string name="attachment_state_verifying" formatted="false">"検証・保存中"</string>
+    <string name="attachment_storage_full" formatted="false">"ストレージの空き容量が不足しています。"</string>
     <string name="attachment_summary" formatted="false">"{0} · {1}"</string>
+    <string name="attachment_too_large" formatted="false">"ファイルサイズの上限を超えています。"</string>
     <string name="attachment_unavailable" formatted="false">"ファイルを利用できません。削除された可能性があります。"</string>
     <string name="attachment_upgrade_required" formatted="false">"転送プロトコルが非対応です。両方のアプリを更新してください。"</string>
     <string name="attachments" formatted="false">"添付"</string>

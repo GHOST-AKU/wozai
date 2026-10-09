@@ -106,6 +106,7 @@ public final class ChatStore extends SQLiteOpenHelper {
         Files.createDirectories(attachments);Path directory=attachments.resolve(peer);if(Files.isSymbolicLink(directory))throw new IOException("Unsafe attachment directory");return directory;
     }
     public Path attachmentFile(String peer,AttachmentInfo info)throws IOException{return AttachmentTransfer.file(attachmentDirectory(peer),info);}
+    public Path attachmentsRoot(){return attachments;}
     public Path attachmentFile(String peer,AttachmentInfo info,boolean outgoing)throws IOException{return AttachmentTransfer.file(attachmentDirectory(peer),info,outgoing);}
     public void attachment(String peer,String name,AttachmentRecord record){
         SQLiteDatabase db=getWritableDatabase();db.beginTransaction();try{

@@ -27,6 +27,7 @@ import dev.ghost.nearbyim.i18n.UiText;
 import java.util.*;
 import dev.ghost.nearbyim.core.AttachmentInfo;
 import dev.ghost.nearbyim.core.AttachmentRecord;
+import dev.ghost.nearbyim.core.TransferProgress;
 import android.graphics.Bitmap;
 import java.nio.file.Path;
 
@@ -327,6 +328,7 @@ public final class MainActivity extends Activity {
         languageValue = label("", 14, muted); settingsContent.addView(settingsRow(t("language"), languageValue, this::chooseLanguage));
         settingsContent.addView(sectionHeading(t("trustedDevices"))); trustedList = vertical(); settingsContent.addView(trustedList);
         settingsContent.addView(sectionHeading(t("appSection"))); settingsContent.addView(settingsRow(t("appPermissions"), label(t("permissionsSummary"), 13, muted), this::appSettings));
+        settingsContent.addView(settingsRow(t("attachmentQuota"),null,()->{if(controller==null)return;long[] choices={16,32,64,128};String[] labels=new String[choices.length];int selected=1;for(int i=0;i<choices.length;i++){labels[i]=t("attachmentQuotaGiB",choices[i]);if(controller.attachmentQuota()==choices[i]*1024*1024*1024)selected=i;}new AlertDialog.Builder(this).setTitle(t("attachmentQuota")).setSingleChoiceItems(labels,selected,(dialog,index)->{controller.attachmentQuota(choices[index]*1024*1024*1024).whenComplete((value,error)->ui.post(()->{if(!isDestroyed()&&error!=null)toast(t("attachmentQuotaInUse"));}));dialog.dismiss();}).setNegativeButton(t("cancel"),null).show();}));
         settingsContent.addView(settingsRow(t("stopAll"), label(t("stopConnectionsSummary"), 13, muted), () -> {
             if (controller != null) new AlertDialog.Builder(this).setTitle(t("stopConnectionsTitle")).setMessage(t("stopConnectionsBody"))
                 .setPositiveButton(t("stop"), (d, w) -> { if (controller != null) controller.stopAll(); }).setNegativeButton(t("cancel"), null).show();
@@ -572,9 +574,12 @@ public final class MainActivity extends Activity {
                 TextView status=label(t("attachmentSummary",bytes,failedThumbnails.contains(previewKey)?t("photoUnavailable"):attachmentState(attachment)),12,muted);description.addView(status);card.addView(description,new LinearLayout.LayoutParams(0,-2,1));bubble.addView(card,new LinearLayout.LayoutParams(Math.min(dp(260),Math.max(dp(160),getResources().getDisplayMetrics().widthPixels-dp(80))),-2));
                 if(photoAvailable(attachment)){card.setOnClickListener(v->openAttachment(peer,attachment));card.setOnLongClickListener(v->{attachmentMenu(card,peer,attachment);return true;});}
             }
-            if(attachment.active()){
+            if(attachment.active()||attachment.resumable()){
+                TransferProgress measurement=controller==null?TransferProgress.UNKNOWN:controller.transferProgress(peer,attachment);
+                if(attachment.state.equals("transferring")&&measurement.bytesPerSecond()>0)bubble.addView(label(t("attachmentSpeedEta",android.text.format.Formatter.formatShortFileSize(this,measurement.bytesPerSecond()),measurement.remainingSeconds()),11,muted));
                 LinearLayout progressRow=horizontal();progressRow.setGravity(Gravity.CENTER_VERTICAL);
-                ProgressBar progress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);int percent=attachment.info.size==0?0:(int)(100*attachment.transferred/attachment.info.size);progress.setMax(100);progress.setProgress(percent);progress.setIndeterminate(attachment.state.equals("preparing")||attachment.state.equals("verifying"));progress.setProgressTintList(ColorStateList.valueOf(accent));progress.setContentDescription(t("attachmentProgress",percent,attachmentState(attachment)));progressRow.addView(progress,new LinearLayout.LayoutParams(0,dp(4),1));
+                ProgressBar progress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);int percent=attachment.info.size==0?0:(int)(100*attachment.transferred/attachment.info.size);progress.setMax(100);progress.setProgress(percent);progress.setIndeterminate(attachment.state.equals("preparing")||attachment.state.equals("verifying")||attachment.state.equals("checking"));progress.setProgressTintList(ColorStateList.valueOf(accent));progress.setContentDescription(t("attachmentProgress",percent,attachmentState(attachment)));progressRow.addView(progress,new LinearLayout.LayoutParams(0,dp(4),1));
+                if(attachment.info.version==2){boolean paused=attachment.resumable();Button toggle=iconButton(paused?R.drawable.outline_play_arrow_24:R.drawable.outline_pause_24,t(paused?"attachmentResume":"attachmentPause"),muted);toggle.setOnClickListener(v->{if(controller!=null)controller.attachmentAction(peer,message.id,message.outgoing,paused?"resume":"pause");});progressRow.addView(toggle,new LinearLayout.LayoutParams(dp(48),dp(48)));}
                 Button cancel=iconButton(R.drawable.outline_close_24,t("cancel"),muted);cancel.setOnClickListener(v->{if(controller!=null)controller.attachmentAction(peer,message.id,message.outgoing,"cancel");});progressRow.addView(cancel,new LinearLayout.LayoutParams(dp(48),dp(48)));bubble.addView(progressRow);
             }
             bubble.setOnLongClickListener(v->{attachmentMenu(bubble,peer,attachment);return true;});

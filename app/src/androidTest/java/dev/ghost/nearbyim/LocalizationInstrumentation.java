@@ -75,6 +75,8 @@ public final class LocalizationInstrumentation extends Instrumentation {
             onMain(() -> { application.registerActivityLifecycleCallbacks(lifecycle); AppLanguage.select(application, "en"); return null; });
             testNativeFormatting();
             checks+=AndroidAttachmentChecks.run(getTargetContext());
+            checks+=AndroidAttachmentSourceChecks.run(getTargetContext());
+            checks+=AndroidAttachmentV2Checks.run(getTargetContext());
             testRecreationWithLiveSession();
             results.putString("stream", "NearbyIM Android localization: " + checks + " checks passed\n");
         } catch (Throwable failure) {

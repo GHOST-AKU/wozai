@@ -347,5 +347,20 @@
   "photoZoomHint": "双指缩放 · 双击放大",
   "photoZoomIn": "放大照片",
   "photoZoomOut": "缩小照片",
-  "photoDesktopZoomHint": "滚轮缩放 · 拖动查看 · 双击适应窗口"
+  "photoDesktopZoomHint": "滚轮缩放 · 拖动查看 · 双击适应窗口",
+  "attachmentStatePaused": "已暂停",
+  "attachmentStateChecking": "检查续传数据",
+  "attachmentPause": "暂停传输",
+  "attachmentResume": "继续传输",
+  "attachmentSpeedEta": "{0}/秒 · 剩余约 {1,number} 秒",
+  "attachmentHintV2": "单文件最大 10 GiB。",
+  "attachmentTooLarge": "文件超过单文件大小限制。",
+  "attachmentSourcePermission": "文件读取授权已失效，请重新选择。",
+  "attachmentSourceUnavailable": "无法读取源文件，请重新选择。",
+  "attachmentSourceChanged": "源文件发生变化，请重新发送。",
+  "attachmentQuotaExceeded": "附件空间配额不足。",
+  "attachmentStorageFull": "可用存储空间不足。",
+  "attachmentQuota": "附件空间配额",
+  "attachmentQuotaGiB": "{0,number} GiB",
+  "attachmentQuotaInUse": "新的配额不能小于已占用及预留空间。"
 }

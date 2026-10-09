@@ -148,6 +148,7 @@ public final class DesktopStore implements AutoCloseable {
         if(Files.isSymbolicLink(directory))throw new IOException("Unsafe attachment directory");return directory;
     }
     public synchronized Path attachmentFile(String peer,AttachmentInfo info)throws IOException {return AttachmentTransfer.file(attachmentDirectory(peer),info);}
+    public synchronized Path attachmentsRoot()throws IOException {Path base=root.resolve("attachments");if(Files.isSymbolicLink(base))throw new IOException("Unsafe attachment root");Files.createDirectories(base);AtomicFiles.privatePermissions(base,true);return base;}
     public synchronized Path attachmentFile(String peer,AttachmentInfo info,boolean outgoing)throws IOException {return AttachmentTransfer.file(attachmentDirectory(peer),info,outgoing);}
     public synchronized void attachment(String peer,AttachmentRecord record)throws IOException {
         Path file=messageFile(peer,record.info.id,record.outgoing);Message previous=Files.exists(file)?readMessage(file):null;

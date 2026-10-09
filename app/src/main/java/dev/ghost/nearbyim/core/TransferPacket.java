@@ -2,13 +2,16 @@ package dev.ghost.nearbyim.core;
 
 import java.io.IOException;
 import java.util.Set;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.regex.Pattern;
 
 /** Direction is relative to the original file sender, not the current connection endpoint. */
 public final class TransferPacket {
     private static final Pattern UUID=Pattern.compile("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}");
     private static final Pattern CONNECTION=Pattern.compile("([0-9a-f]{64}|[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12})");
-    private static final Set<String> REASONS=Set.of("","canceled","failed","busy","paused","rejected","tooLarge");
+    private static final Set<String> REASONS=Collections.unmodifiableSet(new HashSet<>(Arrays.asList("","canceled","failed","busy","paused","rejected","tooLarge")));
     public enum Kind { OFFER, ACCEPT, DATA, BLOCK_HASH, CREDIT, END, COMPLETE, CANCEL, RESUME, STATUS, PAUSE }
     public final Kind kind;
     public final String transferId,sourceGeneration,connectionGeneration,reason;

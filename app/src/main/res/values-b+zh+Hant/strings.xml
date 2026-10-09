@@ -31,25 +31,40 @@
     <string name="attachment_details" formatted="false">"{0} · {1,number} / {2,number} 位元組 · {3}"</string>
     <string name="attachment_failed" formatted="false">"檔案操作失敗，請檢查檔案授權及可用空間。"</string>
     <string name="attachment_hint" formatted="false">"單檔最大 1 GiB；內容未加密。"</string>
+    <string name="attachment_hint_v2" formatted="false">"單一檔案最大 10 GiB。"</string>
     <string name="attachment_open" formatted="false">"開啟"</string>
     <string name="attachment_overwrite" formatted="false">"檔案已存在，是否取代？"</string>
+    <string name="attachment_pause" formatted="false">"暫停傳輸"</string>
     <string name="attachment_photo_preview" formatted="false">"照片預覽：{0}"</string>
     <string name="attachment_progress" formatted="false">"傳輸進度：{0,number}%；{1}"</string>
+    <string name="attachment_quota" formatted="false">"附件空間配額"</string>
+    <string name="attachment_quota_exceeded" formatted="false">"附件空間配額不足。"</string>
+    <string name="attachment_quota_gi_b" formatted="false">"{0,number} GiB"</string>
+    <string name="attachment_quota_in_use" formatted="false">"新的配額不能小於已使用及預留空間。"</string>
     <string name="attachment_reject" formatted="false">"拒絕"</string>
+    <string name="attachment_resume" formatted="false">"繼續傳輸"</string>
     <string name="attachment_save_as" formatted="false">"另存新檔"</string>
+    <string name="attachment_source_changed" formatted="false">"來源檔案已變更，請重新傳送。"</string>
+    <string name="attachment_source_permission" formatted="false">"檔案讀取授權已失效，請重新選擇。"</string>
+    <string name="attachment_source_unavailable" formatted="false">"無法讀取來源檔案，請重新選擇。"</string>
+    <string name="attachment_speed_eta" formatted="false">"{0}/秒 · 剩餘約 {1,number} 秒"</string>
     <string name="attachment_state_awaiting_receipt" formatted="false">"等待儲存回執"</string>
     <string name="attachment_state_canceled" formatted="false">"已取消"</string>
+    <string name="attachment_state_checking" formatted="false">"檢查續傳資料"</string>
     <string name="attachment_state_delivered" formatted="false">"已送達"</string>
     <string name="attachment_state_failed" formatted="false">"傳輸失敗"</string>
     <string name="attachment_state_interrupted" formatted="false">"傳輸中斷"</string>
     <string name="attachment_state_offered" formatted="false">"等待接收"</string>
+    <string name="attachment_state_paused" formatted="false">"已暫停"</string>
     <string name="attachment_state_preparing" formatted="false">"準備中"</string>
     <string name="attachment_state_received" formatted="false">"已接收"</string>
     <string name="attachment_state_rejected" formatted="false">"已拒絕"</string>
     <string name="attachment_state_transferring" formatted="false">"傳輸中"</string>
     <string name="attachment_state_unknown" formatted="false">"結果未知，對方可能已儲存"</string>
     <string name="attachment_state_verifying" formatted="false">"驗證及儲存中"</string>
+    <string name="attachment_storage_full" formatted="false">"可用儲存空間不足。"</string>
     <string name="attachment_summary" formatted="false">"{0} · {1}"</string>
+    <string name="attachment_too_large" formatted="false">"檔案超過單一檔案大小限制。"</string>
     <string name="attachment_unavailable" formatted="false">"檔案無法使用，可能已被刪除。"</string>
     <string name="attachment_upgrade_required" formatted="false">"檔案傳輸協定不相容，請更新雙方應用程式。"</string>
     <string name="attachments" formatted="false">"附件"</string>

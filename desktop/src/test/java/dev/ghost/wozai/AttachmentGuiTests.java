@@ -27,6 +27,16 @@ public final class AttachmentGuiTests {
         AttachmentInfo document=new AttachmentInfo(UUID.randomUUID().toString(),"report.pdf","application/pdf",2048,"0".repeat(64),1);
         SwingUtilities.invokeAndWait(()->{
             AppTheme.install(false);MessagePane pane=new MessagePane();pane.setSize(600,500);Strings strings=new Strings("en");List<String> actions=new ArrayList<>();pane.actions((message,action)->actions.add(message.outgoing()+":"+action));
+            try {
+                AttachmentInfo pending=AttachmentInfo.v2(UUID.randomUUID().toString(),"large.bin","application/octet-stream",TransferLimits.MAX_FILE_BYTES,null,1);
+                pane.render(List.of(new DesktopStore.Message(pending.id,pending.name,1,true,"unknown",1,new AttachmentRecord(pending,true,"paused",4L*1024*1024*1024))),strings);
+                JButton resume=components(pane).stream().filter(c->c instanceof JButton b&&strings.text("attachmentResume").equals(b.getToolTipText())).map(c->(JButton)c).findFirst().orElseThrow(()->new AssertionError("Paused file has no resume control"));resume.doClick();check(actions.contains("true:resume"),"Resume control did not dispatch");
+                pane.progress(message->new TransferProgress(2L*1024*1024,3));
+                pane.render(List.of(new DesktopStore.Message(pending.id,pending.name,1,true,"pending",1,new AttachmentRecord(pending,true,"transferring",1024*1024))),strings);
+                JButton pause=components(pane).stream().filter(c->c instanceof JButton b&&strings.text("attachmentPause").equals(b.getToolTipText())).map(c->(JButton)c).findFirst().orElseThrow(()->new AssertionError("Active file has no pause control"));pause.doClick();check(actions.contains("true:pause"),"Pause control did not dispatch");
+                check(components(pane).stream().anyMatch(c->c instanceof JLabel label&&label.getText().contains("MiB/s")),"Transfer speed not visible");
+                pane.progress(message->TransferProgress.UNKNOWN);
+            }catch(java.io.IOException error){throw new AssertionError(error);}
             pane.render(List.of(message(info,false),message(info,true)),strings);
             check(actions.contains("false:preview")&&actions.contains("true:preview"),"Sent or received thumbnail not requested");
             pane.thumbnail(info.id,false,new BufferedImage(200,100,BufferedImage.TYPE_INT_RGB));pane.thumbnail(info.id,true,new BufferedImage(100,200,BufferedImage.TYPE_INT_RGB));

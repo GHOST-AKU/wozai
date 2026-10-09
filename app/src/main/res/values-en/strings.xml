@@ -31,25 +31,40 @@
     <string name="attachment_details" formatted="false">"{0} · {1,number} / {2,number} bytes · {3}"</string>
     <string name="attachment_failed" formatted="false">"File operation failed. Check file access and available space."</string>
     <string name="attachment_hint" formatted="false">"Up to 1 GiB per file. Contents are not encrypted."</string>
+    <string name="attachment_hint_v2" formatted="false">"Up to 10 GiB per file."</string>
     <string name="attachment_open" formatted="false">"Open"</string>
     <string name="attachment_overwrite" formatted="false">"File exists. Replace it?"</string>
+    <string name="attachment_pause" formatted="false">"Pause transfer"</string>
     <string name="attachment_photo_preview" formatted="false">"Photo preview: {0}"</string>
     <string name="attachment_progress" formatted="false">"Transfer progress: {0,number}%; {1}"</string>
+    <string name="attachment_quota" formatted="false">"Attachment storage quota"</string>
+    <string name="attachment_quota_exceeded" formatted="false">"The attachment storage quota is insufficient."</string>
+    <string name="attachment_quota_gi_b" formatted="false">"{0,number} GiB"</string>
+    <string name="attachment_quota_in_use" formatted="false">"The new quota must cover stored and reserved space."</string>
     <string name="attachment_reject" formatted="false">"Reject"</string>
+    <string name="attachment_resume" formatted="false">"Resume transfer"</string>
     <string name="attachment_save_as" formatted="false">"Save as"</string>
+    <string name="attachment_source_changed" formatted="false">"The source changed. Send it again."</string>
+    <string name="attachment_source_permission" formatted="false">"File read permission is unavailable. Select the source again."</string>
+    <string name="attachment_source_unavailable" formatted="false">"The source cannot be read. Select it again."</string>
+    <string name="attachment_speed_eta" formatted="false">"{0}/s · About {1,number} seconds left"</string>
     <string name="attachment_state_awaiting_receipt" formatted="false">"Waiting for save receipt"</string>
     <string name="attachment_state_canceled" formatted="false">"Canceled"</string>
+    <string name="attachment_state_checking" formatted="false">"Checking saved data"</string>
     <string name="attachment_state_delivered" formatted="false">"Delivered"</string>
     <string name="attachment_state_failed" formatted="false">"Transfer failed"</string>
     <string name="attachment_state_interrupted" formatted="false">"Transfer interrupted"</string>
     <string name="attachment_state_offered" formatted="false">"Waiting for acceptance"</string>
+    <string name="attachment_state_paused" formatted="false">"Paused"</string>
     <string name="attachment_state_preparing" formatted="false">"Preparing"</string>
     <string name="attachment_state_received" formatted="false">"Received"</string>
     <string name="attachment_state_rejected" formatted="false">"Rejected"</string>
     <string name="attachment_state_transferring" formatted="false">"Transferring"</string>
     <string name="attachment_state_unknown" formatted="false">"Result unknown; the peer may have saved it"</string>
     <string name="attachment_state_verifying" formatted="false">"Verifying and saving"</string>
+    <string name="attachment_storage_full" formatted="false">"Available storage is insufficient."</string>
     <string name="attachment_summary" formatted="false">"{0} · {1}"</string>
+    <string name="attachment_too_large" formatted="false">"This file exceeds the file size limit."</string>
     <string name="attachment_unavailable" formatted="false">"File unavailable. It may have been deleted."</string>
     <string name="attachment_upgrade_required" formatted="false">"Incompatible transfer protocol. Update the app on both devices."</string>
     <string name="attachments" formatted="false">"Attachments"</string>

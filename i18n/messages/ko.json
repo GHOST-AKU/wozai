@@ -347,5 +347,20 @@
   "photoZoomHint": "두 손가락으로 확대/축소 · 두 번 탭하여 확대",
   "photoZoomIn": "사진 확대",
   "photoZoomOut": "사진 축소",
-  "photoDesktopZoomHint": "휠로 확대/축소 · 드래그로 이동 · 두 번 클릭해 창에 맞추기"
+  "photoDesktopZoomHint": "휠로 확대/축소 · 드래그로 이동 · 두 번 클릭해 창에 맞추기",
+  "attachmentStatePaused": "일시 중지됨",
+  "attachmentStateChecking": "저장된 데이터 확인 중",
+  "attachmentPause": "전송 일시 중지",
+  "attachmentResume": "전송 재개",
+  "attachmentSpeedEta": "{0}/초 · 약 {1,number}초 남음",
+  "attachmentHintV2": "파일당 최대 10 GiB.",
+  "attachmentTooLarge": "파일 크기 제한을 초과했습니다.",
+  "attachmentSourcePermission": "파일 읽기 권한이 없습니다. 파일을 다시 선택하세요.",
+  "attachmentSourceUnavailable": "원본 파일을 읽을 수 없습니다. 다시 선택하세요.",
+  "attachmentSourceChanged": "원본 파일이 변경되었습니다. 다시 보내세요.",
+  "attachmentQuotaExceeded": "첨부 파일 저장 용량 한도가 부족합니다.",
+  "attachmentStorageFull": "사용 가능한 저장 공간이 부족합니다.",
+  "attachmentQuota": "첨부 파일 저장 용량 한도",
+  "attachmentQuotaGiB": "{0,number} GiB",
+  "attachmentQuotaInUse": "새 한도는 사용 중인 공간과 예약된 공간을 포함해야 합니다."
 }

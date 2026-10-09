@@ -233,6 +233,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         content.add(settingRow("theme",themes,null));
         themes.addActionListener(e -> { if(translating)return; boolean dark=themes.getSelectedIndex()==1; if(dark==AppTheme.dark)return; AppTheme.install(dark); SwingUtilities.updateComponentTreeUI(this); styleNavigation(); AppTheme.refreshPrimary(getContentPane()); refreshThemeColors(); renderedMessages=null; renderMessages(); handle(client.setting("theme",dark?"dark":"light"),"storageFailure"); repaint(); });
         content.add(section("connectionsSection")); content.add(settingAction("trustedDevices",this::manageTrust));
+        content.add(settingAction("attachmentQuota",()->{long[] choices={16,32,64,128};String[] labels=new String[choices.length];String current="";for(int i=0;i<choices.length;i++){labels[i]=strings.text("attachmentQuotaGiB",choices[i]);if(client.attachmentQuota()==choices[i]*1024*1024*1024)current=labels[i];}Object result=JOptionPane.showInputDialog(this,strings.text("attachmentQuota"),strings.text("attachmentQuota"),JOptionPane.PLAIN_MESSAGE,null,labels,current);for(int i=0;i<labels.length;i++)if(labels[i].equals(result)){handle(client.attachmentQuota(choices[i]*1024*1024*1024),"attachmentQuotaInUse");break;}}));
         content.add(settingAction("stopAll", () -> { discovery.stop(); discovered.clear(); refreshNearby(); stopBluetoothScan(); handle(client.stopListening(),"error"); handle(client.stopBluetoothListening(),"error"); handle(client.disconnect(),"error"); }));
         content.add(section("dataLocation")); JTextArea data=new JTextArea(path.toString()); data.setEditable(false); data.setLineWrap(true); data.setWrapStyleWord(false); data.setOpaque(false); data.setBorder(BorderFactory.createEmptyBorder(0,4,0,4)); translations.add(() -> data.getAccessibleContext().setAccessibleName(strings.text("dataLocation"))); content.add(data);
         content.add(note("dataSummary")); content.add(settingAction("openData", () -> { try { Desktop.getDesktop().open(path.toFile()); } catch(Exception e) { notice("openDataFailed"); } }));
@@ -362,7 +363,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
             if(messages.equals(renderedMessages))return;
             JScrollPane scroll=(JScrollPane)SwingUtilities.getAncestorOfClass(JScrollPane.class,transcript); JScrollBar bar=scroll.getVerticalScrollBar();
             boolean bottom=bar.getValue()+bar.getVisibleAmount()>=bar.getMaximum()-24; int position=bar.getValue(); renderedMessages=messages;
-            transcript.actions((message,action)->attachmentAction(id,message,action));transcript.scale(fontScale); transcript.render(messages,strings);
+            transcript.actions((message,action)->attachmentAction(id,message,action));transcript.progress(message->message.attachment()==null?TransferProgress.UNKNOWN:client.transferProgress(id,message.attachment()));transcript.scale(fontScale); transcript.render(messages,strings);
             SwingUtilities.invokeLater(() -> { if(bottom)bar.setValue(bar.getMaximum()); else bar.setValue(position); });
         }));
     }
@@ -373,7 +374,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     }
     private void attachmentAction(String peer,DesktopStore.Message message,String action){
         var record=message.attachment();if(record==null)return;
-        if(action.equals("accept")||action.equals("reject")||action.equals("cancel")){handle(client.attachmentAction(peer,message.id(),message.outgoing(),action),"attachmentFailed");return;}
+        if(action.equals("accept")||action.equals("reject")||action.equals("cancel")||action.equals("pause")||action.equals("resume")){handle(client.attachmentAction(peer,message.id(),message.outgoing(),action),"attachmentFailed");return;}
         if(action.equals("preview")){
             String key=peer+":"+message.id()+":"+message.outgoing();var cached=thumbnails.get(key);if(cached!=null){SwingUtilities.invokeLater(()->{if(peer.equals(selected))transcript.thumbnail(message.id(),message.outgoing(),cached);});return;}
             if(failedThumbnails.contains(key)){SwingUtilities.invokeLater(()->{if(peer.equals(selected))transcript.thumbnail(message.id(),message.outgoing(),null);});return;}

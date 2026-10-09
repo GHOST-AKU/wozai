@@ -347,5 +347,20 @@
   "photoZoomHint": "ピンチで拡大・縮小 · ダブルタップで拡大",
   "photoZoomIn": "写真を拡大",
   "photoZoomOut": "写真を縮小",
-  "photoDesktopZoomHint": "ホイールで拡大・縮小 · ドラッグで移動 · ダブルクリックで全体表示"
+  "photoDesktopZoomHint": "ホイールで拡大・縮小 · ドラッグで移動 · ダブルクリックで全体表示",
+  "attachmentStatePaused": "一時停止中",
+  "attachmentStateChecking": "保存済みデータを確認中",
+  "attachmentPause": "転送を一時停止",
+  "attachmentResume": "転送を再開",
+  "attachmentSpeedEta": "{0}/秒 · 残り約 {1,number} 秒",
+  "attachmentHintV2": "ファイルごとに最大 10 GiB。",
+  "attachmentTooLarge": "ファイルサイズの上限を超えています。",
+  "attachmentSourcePermission": "ファイルの読み取り権限がありません。もう一度選択してください。",
+  "attachmentSourceUnavailable": "元のファイルを読み取れません。もう一度選択してください。",
+  "attachmentSourceChanged": "元のファイルが変更されました。もう一度送信してください。",
+  "attachmentQuotaExceeded": "添付ファイルの保存容量の上限を超えます。",
+  "attachmentStorageFull": "ストレージの空き容量が不足しています。",
+  "attachmentQuota": "添付ファイルの保存容量",
+  "attachmentQuotaGiB": "{0,number} GiB",
+  "attachmentQuotaInUse": "使用中と予約済みの容量を下回る上限は設定できません。"
 }

@@ -38,7 +38,9 @@ public final class AttachmentV2Tests {
         public void close()throws Exception {a.shutdown().get(5,TimeUnit.SECONDS);b.shutdown().get(5,TimeUnit.SECONDS);if(cleanup)try(var paths=Files.walk(root)){for(Path p:paths.sorted(Comparator.reverseOrder()).toList())Files.deleteIfExists(p);}}
     }
     public static void main(String[] args)throws Exception {
+        Set<Long> existingThreads=new HashSet<>();for(Thread thread:Thread.getAllStackTraces().keySet())existingThreads.add(thread.getId());
         try(Pair p=new Pair()) {
+            Thread.sleep(30);check(Thread.getAllStackTraces().keySet().stream().noneMatch(thread->!existingThreads.contains(thread.getId())&&thread.getName().startsWith("attachment-v2-")),"Idle session started file-transfer workers");
             Path source=p.root.resolve("source.bin");byte[] content=new byte[2*TransferLimits.BLOCK_BYTES+17];new Random(32).nextBytes(content);Files.write(source,content);
             FileAttachmentSource original=new FileAttachmentSource(source);
             AttachmentSource counted=new AttachmentSource(){

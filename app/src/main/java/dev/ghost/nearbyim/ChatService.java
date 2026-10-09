@@ -10,6 +10,7 @@ import android.os.*;
 
 public final class ChatService extends Service {
     public static final String START = "dev.ghost.nearbyim.START", STOP = "dev.ghost.nearbyim.STOP";
+    private static final String PAUSE="dev.ghost.nearbyim.PAUSE_TRANSFERS",CANCEL="dev.ghost.nearbyim.CANCEL_TRANSFERS";
     private static final String CHANNEL = "nearby-connection";
     private final LocalBinder binder = new LocalBinder();
     public ChatController controller;
@@ -36,6 +37,7 @@ public final class ChatService extends Service {
     public IBinder onBind(Intent intent) { return binder; }
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null && STOP.equals(intent.getAction())) { controller.stopAll(); stopForeground(STOP_FOREGROUND_REMOVE); foreground = false; stopSelf(); }
+        else if(intent!=null&&(PAUSE.equals(intent.getAction())||CANCEL.equals(intent.getAction()))){if(PAUSE.equals(intent.getAction()))controller.pauseAttachments();else controller.cancelAttachments();syncNotification();}
         else {
             Notification notification = notification();
             if (Build.VERSION.SDK_INT >= 29) startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE);
@@ -50,9 +52,14 @@ public final class ChatService extends Service {
         PendingIntent stop = PendingIntent.getService(this, 1, new Intent(this, ChatService.class).setAction(STOP), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         String text = controller != null && controller.approvalName != null ? AndroidText.get(this, "notificationRequest", controller.approvalName)
                 : controller != null && controller.connected ? AndroidText.get(this, controller.status) : AndroidText.get(this, "notificationReceiving");
-        return new Notification.Builder(AppLanguage.wrap(this), CHANNEL).setSmallIcon(R.drawable.ic_app).setContentTitle(AndroidText.get(this, "notificationTitle"))
-                .setContentText(text).setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true)
-                .addAction(new Notification.Action.Builder(null, AndroidText.get(this, "stopAll"), stop).build()).build();
+        Notification.Builder builder=new Notification.Builder(AppLanguage.wrap(this), CHANNEL).setSmallIcon(R.drawable.ic_app).setContentTitle(AndroidText.get(this, "notificationTitle"))
+                .setContentText(text).setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true);
+        if(controller!=null&&controller.hasActiveAttachments()) {
+            PendingIntent pause=PendingIntent.getService(this,2,new Intent(this,ChatService.class).setAction(PAUSE),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
+            PendingIntent cancel=PendingIntent.getService(this,3,new Intent(this,ChatService.class).setAction(CANCEL),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
+            builder.addAction(new Notification.Action.Builder(null,AndroidText.get(this,"attachmentPause"),pause).build()).addAction(new Notification.Action.Builder(null,AndroidText.get(this,"cancel"),cancel).build());
+        }
+        return builder.addAction(new Notification.Action.Builder(null,AndroidText.get(this,"stopAll"),stop).build()).build();
     }
     private void syncNotification() {
         if (controller == null || !foreground) return;

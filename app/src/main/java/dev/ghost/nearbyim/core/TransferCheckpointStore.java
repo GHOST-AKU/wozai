@@ -66,6 +66,17 @@ public final class TransferCheckpointStore {
         if(Files.exists(path))try(FileChannel channel=FileChannel.open(path,StandardOpenOption.WRITE,LinkOption.NOFOLLOW_LINKS)){channel.truncate(((offset+TransferLimits.BLOCK_BYTES-1)/TransferLimits.BLOCK_BYTES)*INDEX_RECORD);channel.force(true);}
     }
     public record PrefixResult(MessageDigest whole,byte[] sha256,long offset){}
+    /** Rehash cannot replace the previous trusted index until its prefix hash is checked. */
+    public IndexRebuild rebuild(TransferTaskKey key,long expectedEnd)throws IOException {TransferLimits.validateRange(TransferLimits.MAX_FILE_BYTES,expectedEnd,0);return new IndexRebuild(key,expectedEnd);}
+    public final class IndexRebuild implements AutoCloseable {
+        private final TransferTaskKey key;private final long expectedEnd;
+        private final Path temporary;private final FileOutputStream file;private final DataOutputStream output;
+        private long records,lastEnd;private boolean committed;
+        private IndexRebuild(TransferTaskKey key,long end)throws IOException {this.key=key;expectedEnd=end;temporary=Files.createTempFile(root,"index-",".tmp");permissions(temporary,"rw-------");file=new FileOutputStream(temporary.toFile());output=new DataOutputStream(file);}
+        public void append(long end,byte[] hash)throws IOException {if(committed||hash==null||hash.length!=32||end>expectedEnd||end<=records*TransferLimits.BLOCK_BYTES||end>(records+1)*TransferLimits.BLOCK_BYTES)throw new IOException("Invalid rebuilt block index");output.writeLong(end);output.write(hash);records++;lastEnd=end;}
+        public void commit()throws IOException {if(committed||lastEnd!=expectedEnd)throw new IOException("Incomplete rebuilt block index");output.flush();file.getChannel().force(true);output.close();Files.move(temporary,entry(key,".blocks"),StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING);committed=true;syncDirectory(root);}
+        public void close()throws IOException {try{output.close();}finally{Files.deleteIfExists(temporary);}}
+    }
     public PrefixResult verifyPrefix(TransferCheckpoint checkpoint,Path content)throws IOException {return verifyPrefix(checkpoint,content,()->false);}
     public PrefixResult verifyPrefix(TransferCheckpoint checkpoint,Path content,java.util.function.BooleanSupplier canceled)throws IOException {
         if(Files.isSymbolicLink(content)||!Files.isRegularFile(content,LinkOption.NOFOLLOW_LINKS)||Files.size(content)<checkpoint.durableOffset())throw new IOException("Checkpoint content missing/truncated");
@@ -92,7 +103,7 @@ public final class TransferCheckpointStore {
                 byte[] bytes=readCheckpoint(file);
                 DataInputStream in=new DataInputStream(new ByteArrayInputStream(bytes));if(in.readInt()!=MAGIC)throw new IOException("Invalid checkpoint");
                 String local=in.readUTF(),remote=in.readUTF();int direction=in.readUnsignedByte();if(direction>=TransferTaskKey.Direction.values().length)throw new IOException("Invalid checkpoint direction");
-                try {TransferTaskKey key=new TransferTaskKey(local,remote,TransferTaskKey.Direction.values()[direction],in.readUTF(),in.readUTF());if(!name.equals(key.fileName()+".checkpoint"))throw new IOException("Checkpoint filename mismatch");result.add(load(key).orElseThrow());}
+                try {TransferTaskKey key=new TransferTaskKey(local,remote,TransferTaskKey.Direction.values()[direction],in.readUTF(),in.readUTF());if(!name.equals(key.fileName()+".checkpoint"))throw new IOException("Checkpoint filename mismatch");result.add(load(key).orElseThrow(()->new IOException("Checkpoint disappeared")));}
                 catch(IllegalArgumentException error){throw new IOException("Invalid checkpoint identity",error);}
             }
         }return result;
