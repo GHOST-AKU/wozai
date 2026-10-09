@@ -24,5 +24,7 @@ try {
     & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentV2ControlTests
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentV2Tests
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentResumeTests
     exit $LASTEXITCODE
 } finally { Pop-Location }
