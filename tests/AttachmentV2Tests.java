@@ -60,6 +60,13 @@ public final class AttachmentV2Tests {
             check(waitFor(p.aRecords,"received").info.size==0,"Reverse empty transfer failed");waitFor(p.bRecords,"delivered");
         }
         try(Pair p=new Pair()) {
+            Path source=p.root.resolve("photo.jpg");byte[] original={1,2,3,4,5};Files.write(source,original);
+            p.a.offer(new FileAttachmentSource(source),"photo.jpg","image/jpeg").get(3,TimeUnit.SECONDS);
+            AttachmentRecord sent=waitFor(p.aRecords,"delivered");waitFor(p.bRecords,"received");
+            check(Files.isRegularFile(AttachmentTransfer.file(p.root.resolve("a"),sent.info,true)),"V2 discarded the sent photo preview");
+            check(Arrays.equals(Files.readAllBytes(AttachmentTransfer.file(p.root.resolve("a"),sent.info,true)),original)&&Files.exists(source),"Sent preview changed bytes or removed the original");
+        }
+        try(Pair p=new Pair()) {
             CountDownLatch entered=new CountDownLatch(1),release=new CountDownLatch(1);
             AttachmentSource blocked=new AttachmentSource(){
                 public long size(){return 0;}public String generation(){return UUID.randomUUID().toString();}public boolean seekable(){return true;}

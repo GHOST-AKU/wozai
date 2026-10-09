@@ -12,7 +12,7 @@ import java.util.concurrent.atomic.*;
 
 /** Sequential file pipeline. This layer requires an authenticated, consented Wire. */
 public final class AttachmentTransferV2 implements AutoCloseable {
-    public interface Wire {boolean send(TransferPacket packet);void abort();}
+    public interface Wire {boolean send(TransferPacket packet);void abort();default void abort(Throwable failure){abort();}}
     public interface Listener {void changed(AttachmentRecord record)throws IOException;default void progress(AttachmentRecord record,TransferProgress progress){}}
     public interface SourceResolver {AttachmentSource open(TransferCheckpoint checkpoint)throws IOException;}
     private interface Work {void run()throws Exception;}
@@ -90,12 +90,17 @@ public final class AttachmentTransferV2 implements AutoCloseable {
     private static Thread daemon(Runnable action,String name){Thread thread=new Thread(action,name);thread.setDaemon(true);return thread;}
     private boolean post(Work work) {
         if(closed)return false;
-        try{actor.execute(()->{if(closed)return;try{work.run();}catch(Exception error){abort();}});return true;}
-        catch(RejectedExecutionException error){abort();return false;}
+        try{actor.execute(()->{if(closed)return;try{work.run();}catch(Exception error){abort(error);}});return true;}
+        catch(RejectedExecutionException error){abort(error);return false;}
     }
     private <T> CompletableFuture<T> track(CompletableFuture<T> future){operations.add(future);future.whenComplete((value,error)->operations.remove(future));return future;}
     private CompletableFuture<Void> command(Work work){CompletableFuture<Void> future=track(new CompletableFuture<>());if(!post(()->{try{work.run();future.complete(null);}catch(Exception error){future.completeExceptionally(error);throw error;}}))future.completeExceptionally(new IOException("Attachment session closed"));return future;}
     public void sourceResolver(SourceResolver value){sourceResolver=Objects.requireNonNull(value);}
+    /** May perform bounded disk I/O; call on the platform file executor before offer. */
+    public AttachmentSource prepareSource(AttachmentSource source)throws IOException {
+        if(source.seekable()&&source.size()>=0)return source;
+        return AttachmentSourceSnapshot.owned(source,root.resolve(".sources-v2"),storage,taskKey(UUID.randomUUID().toString(),source.generation(),true));
+    }
     /** Ownership of source passes to this task, including rejected/failed offers. */
     public CompletableFuture<String> offer(AttachmentSource source,String name,String mime) {
         CompletableFuture<String> result=track(new CompletableFuture<>());
@@ -127,7 +132,7 @@ public final class AttachmentTransferV2 implements AutoCloseable {
             try {
                 if(closed)return;
                 try{handle(packet);}catch(IOException error){Task task=packet.fromSender?incoming:outgoing;if(task==null||!task.canceled.get())throw error;}
-            }catch(Exception error){abort();}
+            }catch(Exception error){abort(error);}
             finally{queued.addAndGet(-charge);}
         });}catch(RejectedExecutionException error){queued.addAndGet(-charge);abort();throw new IOException("Attachment receive queue full",error);}
     }
@@ -346,10 +351,42 @@ public final class AttachmentTransferV2 implements AutoCloseable {
     public CompletableFuture<Void> cancelAll() {
         for(Task task:new Task[]{outgoing,incoming})if(task!=null){task.canceled.set(true);closeTaskIO(task);}
         return command(()->{if(outgoing!=null)finish(outgoing,"canceled",true);if(incoming!=null)finish(incoming,"canceled",true);
-            for(TransferCheckpoint saved:checkpoints.list())if(saved.key().localRoot().equals(localRoot)&&saved.key().remoteRoot().equals(remoteRoot)&&saved.state()!=TransferCheckpoint.State.COMPLETE&&saved.state()!=TransferCheckpoint.State.CANCELED)cancelSaved(saved.info().id,saved.key().direction()==TransferTaskKey.Direction.SEND,true);});
+            for(AttachmentRecord record:cancelPending(root))listener.changed(record);});
+    }
+    /** Invoke on this engine's actor, or while no V2 writer owns the peer directory. */
+    public static List<AttachmentRecord> cancelPending(Path root)throws IOException {
+        if(Files.isSymbolicLink(root))throw new IOException("Unsafe attachment directory");
+        TransferCheckpointStore journal=new TransferCheckpointStore(root.resolve(".tasks-v2"));List<AttachmentRecord> canceled=new ArrayList<>();
+        for(TransferCheckpoint saved:journal.list())if(saved.state()!=TransferCheckpoint.State.COMPLETE&&saved.state()!=TransferCheckpoint.State.CANCELED){
+            journal.cancel(saved.key());Files.deleteIfExists(root.resolve(saved.key().fileName()+".part"));
+            if(saved.sourceReference().startsWith("snapshot:\n"))OwnedSnapshotSource.discardSaved(root.resolve(".sources-v2"),saved.sourceReference());
+            canceled.add(new AttachmentRecord(saved.info(),saved.key().direction()==TransferTaskKey.Direction.SEND,"canceled",saved.writtenOffset()));
+        }return canceled;
     }
     private void discardSavedSource(TransferCheckpoint saved)throws IOException {if(saved.sourceReference().startsWith("snapshot:\n"))OwnedSnapshotSource.discardSaved(root.resolve(".sources-v2"),saved.sourceReference());}
+    private void retainPhoto(Task task)throws IOException {
+        if(task.source==null||!task.info.mime.startsWith("image/"))return;
+        Path destination=AttachmentTransfer.file(root,task.info,true);if(Files.exists(destination,LinkOption.NOFOLLOW_LINKS))return;
+        task.source.verifyUnchanged();
+        if(task.source instanceof OwnedSnapshotSource) {
+            OwnedSnapshotSource source=(OwnedSnapshotSource)task.source;
+            source.close();Files.move(source.path(),destination,StandardCopyOption.ATOMIC_MOVE);TransferCheckpointStore.syncDirectory(root);TransferCheckpointStore.syncDirectory(root.resolve(".sources-v2"));return;
+        }
+        TransferTaskKey cacheKey=taskKey(UUID.randomUUID().toString(),task.generation,true);
+        Path temporary=root.resolve("photo-"+cacheKey.transferId()+".part");boolean saved=false;
+        try(TransferStorageBudget.Reservation reservation=storage.reserve(cacheKey,task.info.size,0)) {
+            task.input=task.source.open(0);MessageDigest hash;
+            try{hash=digest();}catch(NoSuchAlgorithmException error){throw new IOException(error);}
+            try(InputStream input=task.input;FileChannel file=FileChannel.open(temporary,StandardOpenOption.CREATE_NEW,StandardOpenOption.WRITE,LinkOption.NOFOLLOW_LINKS)) {
+                permissions(temporary,"rw-------");byte[] bytes=new byte[TransferLimits.DATA_BYTES];long copied=0;int empty=0;
+                try{while(copied<task.info.size){if(closed||task.canceled.get())throw new InterruptedIOException("Photo retention canceled");int n=input.read(bytes,0,(int)Math.min(bytes.length,task.info.size-copied));if(n<0)throw new EOFException("Photo source truncated");if(n==0){if(++empty>32)throw new IOException("Photo source made no progress");continue;}empty=0;hash.update(bytes,0,n);ByteBuffer buffer=ByteBuffer.wrap(bytes,0,n);while(buffer.hasRemaining())file.write(buffer);copied+=n;reservation.written(copied);}task.source.verifyUnchanged();require(task.info.hash.equals(AttachmentInfo.hex(hash.digest())));file.force(true);}finally{Arrays.fill(bytes,(byte)0);}
+            }finally{task.input=null;}
+            Files.move(temporary,destination,StandardCopyOption.ATOMIC_MOVE);saved=true;TransferCheckpointStore.syncDirectory(root);
+        }finally{if(!saved)Files.deleteIfExists(temporary);}
+    }
     private void finish(Task task,String state,boolean notifyPeer)throws IOException {
+        // Preview retention is optional and cannot revoke an authenticated delivery receipt.
+        if(state.equals("delivered"))try{retainPhoto(task);}catch(IOException ignored){}
         task.canceled.set(true);closeTaskIO(task);if(task.partial!=null)Files.deleteIfExists(task.partial);
         closeResource(task.reservation);
         if(!state.equals("delivered")){if(!checkpoints.load(task.key).isPresent())checkpoint(task,TransferCheckpoint.State.ACTIVE);checkpoints.cancel(task.key);}
@@ -376,7 +413,8 @@ public final class AttachmentTransferV2 implements AutoCloseable {
     }
     private static MessageDigest digest()throws NoSuchAlgorithmException{return MessageDigest.getInstance("SHA-256");}
     private static void require(boolean valid)throws IOException{if(!valid)throw new IOException("Invalid attachment sequence");}
-    private void abort(){wire.abort();close();}
+    private void abort(){abort(new IOException("Attachment pipeline aborted"));}
+    private void abort(Throwable failure){try{wire.abort(failure);}finally{close();}}
     private static void closeResource(AutoCloseable value){if(value!=null)try{value.close();}catch(Exception ignored){}}
     private static void closeTaskIO(Task task){closeResource(task.input);closeResource(task.output);closeResource(task.source);}
     private static void permissions(Path path,String permissions)throws IOException{if(Files.getFileAttributeView(path,PosixFileAttributeView.class,LinkOption.NOFOLLOW_LINKS)!=null)Files.setPosixFilePermissions(path,PosixFilePermissions.fromString(permissions));}

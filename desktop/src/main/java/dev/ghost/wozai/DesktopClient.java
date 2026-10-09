@@ -42,7 +42,7 @@ public final class DesktopClient implements AutoCloseable {
     public DesktopClient(DesktopStore store, DesktopIdentity.Identity identity, Listener listener) throws IOException {
         this.store = store; this.identity = identity; this.listener = listener;
         store.nickname();
-        long quota=TransferStorageBudget.DEFAULT_QUOTA;try{quota=Long.parseLong(store.setting("attachmentQuota",Long.toString(quota)));}catch(NumberFormatException invalid){}attachmentStorage=new TransferStorageBudget(store.attachmentsRoot(),quota);
+        long quota=TransferStorageBudget.DEFAULT_QUOTA;try{quota=Long.parseLong(store.setting("attachmentQuota",Long.toString(quota)));}catch(NumberFormatException invalid){}if(quota<0)quota=TransferStorageBudget.DEFAULT_QUOTA;attachmentStorage=new TransferStorageBudget(store.attachmentsRoot(),quota);
     }
     private <T> CompletableFuture<T> submit(Callable<T> task) {
         CompletableFuture<T> result = new CompletableFuture<>();
@@ -170,7 +170,7 @@ public final class DesktopClient implements AutoCloseable {
                 policy.persist(authorization, () -> pin[0] = wire.remotePublicKey());
                 peer = new DesktopStore.Peer(peer.id(), peer.name(), pin[0], peer.endpoint());
                 store.peer(peer);
-                if(wire.attachmentsSupported())transfers=new ClientAttachmentTransfers(new AttachmentTransfer(store.attachmentDirectory(peer.id()),new AttachmentTransfer.Wire(){
+                if(wire.attachmentsSupported())transfers=new ClientAttachmentTransfers(store.attachmentDirectory(peer.id()),new AttachmentTransfer(store.attachmentDirectory(peer.id()),new AttachmentTransfer.Wire(){
                     public boolean send(Frame frame){return wire.sendAttachment(frame);}
                     public void abort(){wire.close(UiText.of("attachmentFailed"));}
                 },record->{store.attachment(peer.id(),record);event(()->publish());},wire.attachmentChunkSize(),wire.attachmentSizeLimit(),true));
@@ -253,6 +253,8 @@ public final class DesktopClient implements AutoCloseable {
     public CompletableFuture<Void> attachmentQuota(long bytes){return submit(()->{try{attachmentStorage.quota(bytes);store.setSetting("attachmentQuota",Long.toString(bytes));return null;}catch(TransferStorageException error){throw new LocalizedIOException(UiText.of("attachmentQuotaInUse"),error);}});}
     public CompletableFuture<Void> revoke(String peerId) { final String id = DesktopStore.uuid(peerId); return submit(() -> {
         policy.revoke(id); store.revoke(id);
+        if(current!=null&&current.peer!=null&&current.peer.id().equals(id)&&current.transfers!=null)for(AttachmentRecord record:current.transfers.revokePending().get(5,TimeUnit.SECONDS))store.attachment(id,record);
+        else for(AttachmentRecord record:AttachmentTransferV2.cancelPending(store.attachmentDirectory(id)))store.attachment(id,record);
         if (id.equals(connectingPeer) || current != null && (id.equals(current.expectedId) || current.peer != null && current.peer.id().equals(id))) disconnectNow();
         publish(); return null;
     }); }

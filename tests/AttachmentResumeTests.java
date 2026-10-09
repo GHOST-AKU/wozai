@@ -62,6 +62,7 @@ public final class AttachmentResumeTests {
             ownedPause(root);
             pauseDuringPrefix(root);
             receiptWithoutSource(root);
+            revokedPending(root);
             AttachmentInfo pending=AttachmentInfo.v2(ID,"data.bin","application/octet-stream",10,null,1);
             AttachmentRecord paused=new AttachmentRecord(pending,true,"paused",7);
             check(paused.mayReplace(new AttachmentRecord(pending,true,"checking",0)),"Paused history cannot resume");
@@ -117,6 +118,19 @@ public final class AttachmentResumeTests {
         try(AttachmentV2Tests.Pair pair=new AttachmentV2Tests.Pair(directory,false,"e".repeat(64))) {
             pair.a.resume(key,new FileAttachmentSource(file,generation)).get();AttachmentV2Tests.waitFor(pair.aRecords,"delivered");check(pair.dataBytes.get()==TransferLimits.BLOCK_BYTES+3,"Canceled rehash prevented a safe retry");
         }
+    }
+    private static void revokedPending(Path root)throws Exception {
+        Path directory=root.resolve("revoked");Files.createDirectories(directory);String id=UUID.randomUUID().toString();
+        TransferTaskKey pending=sender(id,GEN);AttachmentInfo info=AttachmentInfo.v2(id,"pending.bin","application/octet-stream",TransferLimits.BLOCK_BYTES,null,1);
+        TransferCheckpointStore journal=new TransferCheckpointStore(directory.resolve(".tasks-v2"));
+        journal.checkpoint(new TransferCheckpoint(pending,info,"",0,0,0,TransferCheckpoint.State.PAUSED,System.currentTimeMillis()));
+        Path partial=directory.resolve(pending.fileName()+".part");Files.write(partial,new byte[]{1});
+        String doneId=UUID.randomUUID().toString();AttachmentInfo done=AttachmentInfo.v2(doneId,"done.bin","application/octet-stream",0,AttachmentInfo.hex(MessageDigest.getInstance("SHA-256").digest()),1);
+        TransferTaskKey completed=sender(doneId,GEN);journal.checkpoint(new TransferCheckpoint(completed,done,"",0,0,0,TransferCheckpoint.State.COMPLETE,System.currentTimeMillis()));Path content=AttachmentTransfer.file(directory,done,true);Files.createFile(content);
+        List<AttachmentRecord> canceled=AttachmentTransferV2.cancelPending(directory);
+        check(canceled.size()==1&&canceled.get(0).state.equals("canceled"),"Revocation did not terminate pending history");
+        check(journal.load(pending).orElseThrow().state()==TransferCheckpoint.State.CANCELED&&!Files.exists(partial),"Revocation retained a resumable task");
+        check(journal.load(completed).orElseThrow().state()==TransferCheckpoint.State.COMPLETE&&Files.exists(content),"Revocation deleted completed content");
     }
     private static void receiptWithoutSource(Path root)throws Exception {
         Path directory=root.resolve("receipt-no-source");Files.createDirectories(directory);Path file=directory.resolve("source.bin");Files.write(file,new byte[TransferLimits.BLOCK_BYTES+3]);String id,generation;

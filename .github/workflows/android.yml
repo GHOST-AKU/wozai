@@ -1,5 +1,7 @@
 name: Build 我在 Android previews
 on:
+  pull_request:
+    branches: [main]
   workflow_dispatch:
     inputs:
       signed-upgrade-input-run:

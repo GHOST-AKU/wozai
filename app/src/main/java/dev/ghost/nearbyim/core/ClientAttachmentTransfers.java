@@ -8,9 +8,11 @@ public final class ClientAttachmentTransfers {
     private final AttachmentTransferV2 streaming;
     private final Path root;
     private final AttachmentTransferV2.SourceResolver sources;
-    public ClientAttachmentTransfers(AttachmentTransfer legacy){this.legacy=legacy;streaming=null;root=null;sources=null;}
+    public ClientAttachmentTransfers(AttachmentTransfer legacy){this(null,legacy);}
+    public ClientAttachmentTransfers(Path root,AttachmentTransfer legacy){this.legacy=legacy;streaming=null;this.root=root;sources=null;}
     public ClientAttachmentTransfers(Path root,AttachmentTransferV2 streaming,AttachmentTransferV2.SourceResolver sources){this.root=root;this.streaming=streaming;this.sources=sources;legacy=null;streaming.sourceResolver(sources);}
     public boolean v2(){return streaming!=null;}
+    public AttachmentSource prepareSource(AttachmentSource source)throws IOException {return streaming==null?source:streaming.prepareSource(source);}
     public boolean hasActive(){return streaming!=null&&streaming.hasActive();}
     public CompletableFuture<Void> pauseAll(){return streaming==null?failed(new IOException("Pause requires V2")):streaming.pauseAll();}
     public CompletableFuture<String> offer(AttachmentSource source,String name,String mime) {
@@ -31,6 +33,10 @@ public final class ClientAttachmentTransfers {
     }
     public CompletableFuture<Void> cancel(String id,boolean outgoing){return streaming==null?legacy.cancel(id,outgoing):streaming.cancel(id,outgoing);}
     public CompletableFuture<Void> cancelAll(){return streaming==null?legacy.cancelAll():streaming.cancelAll();}
+    public CompletableFuture<java.util.List<AttachmentRecord>> revokePending(){
+        if(streaming!=null)return streaming.cancelAll().thenApply(value->java.util.Collections.emptyList());
+        return legacy.cancelAll().thenApply(value->{try{return root==null?java.util.Collections.emptyList():AttachmentTransferV2.cancelPending(root);}catch(IOException error){throw new CompletionException(error);}});
+    }
     public CompletableFuture<Void> accept(String id){return legacy==null?failed(new IOException("V2 auto-receives approved files")):legacy.accept(id);}
     public CompletableFuture<Void> reject(String id){return legacy==null?streaming.cancel(id,false):legacy.reject(id);}
     public CompletableFuture<Void> shutdown(){return streaming==null?legacy.shutdown():streaming.shutdown();}

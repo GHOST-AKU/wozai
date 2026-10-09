@@ -185,7 +185,9 @@ public final class ChatController implements TransportListener {
             if (active != null) closeActive(UiText.of("trustRevokedCanceled"));
             else { cancelOutgoing(); status = UiText.of("trustRevokedCanceled"); }
         }
-        db(() -> store.revokeTrust(peerId), this::refresh); changed();
+        ClientAttachmentTransfers pending=remoteHello!=null&&peerId.equals(remoteHello.id)?transfers:null;
+        if(pending!=null)pending.revokePending().whenComplete((records,failure)->main.post(()->{if(!destroyed){if(failure!=null)fail(attachmentError(failure));else db(()->{for(AttachmentRecord record:records)store.attachment(peerId,peerId,record);},this::refresh);}}));
+        db(() -> {store.revokeTrust(peerId);if(pending==null)try{for(AttachmentRecord record:AttachmentTransferV2.cancelPending(store.attachmentDirectory(peerId)))store.attachment(peerId,peerId,record);}catch(IOException failure){throw new IllegalStateException(failure);}}, this::refresh); changed();
     }
     public void onPeer(Peer peer) {
         if (destroyed) return;
@@ -254,7 +256,7 @@ public final class ChatController implements TransportListener {
                 approvalId = null; approvalName = null; expectedPeerId = null; outgoingBluetoothAddress = null;
                 Frame hello = remoteHello; TrustPolicy.Authorization grant = authorization;
                 FramedSession wire=reference[0];
-                if(wire.attachmentsSupported())try{transfers=new ClientAttachmentTransfers(new AttachmentTransfer(store.attachmentDirectory(hello.id),new AttachmentTransfer.Wire(){
+                if(wire.attachmentsSupported())try{transfers=new ClientAttachmentTransfers(store.attachmentDirectory(hello.id),new AttachmentTransfer(store.attachmentDirectory(hello.id),new AttachmentTransfer.Wire(){
                     public boolean send(Frame frame){return wire.sendAttachment(frame);}
                     public void abort(){wire.close(UiText.of("attachmentFailed"));}
                 },record->{
@@ -324,17 +326,21 @@ public final class ChatController implements TransportListener {
     public CompletableFuture<Void> attachmentQuota(long bytes){CompletableFuture<Void> future=new CompletableFuture<>();try{fileSelection.execute(()->{try{if(attachmentStorage==null)attachmentStorage=new TransferStorageBudget(store.attachmentsRoot(),bytes);else attachmentStorage.quota(bytes);preferences.edit().putLong("attachmentQuota",bytes).apply();future.complete(null);}catch(IOException error){future.completeExceptionally(new LocalizedIOException(UiText.of("attachmentQuotaInUse"),error));}});}catch(RejectedExecutionException error){future.completeExceptionally(error);}return future;}
     public void sendAttachment(String peer,long token,Uri uri){
         if(!canSendAttachment()||token!=attachmentToken||!Objects.equals(peer,connectedPeerId)){fail(UiText.of("notConnected"));return;}
+        ClientAttachmentTransfers selected=transfers;
         try{fileSelection.execute(()->{
+            AndroidAttachmentSource original=null;
             try{
-                AndroidAttachmentSource source=new AndroidAttachmentSource(applicationContext,uri);
-                selectingSources.put(source,token);
-                String fileName=source.name(),contentType=source.mime();
+                original=new AndroidAttachmentSource(applicationContext,uri);
+                selectingSources.put(original,token);
+                String fileName=original.name(),contentType=original.mime();
+                AttachmentSource source=selected.prepareSource(original);
+                selectingSources.remove(original);selectingSources.put(source,token);
                 main.post(()->{
                     selectingSources.remove(source);
                     if(destroyed||!canSendAttachment()||token!=attachmentToken||!Objects.equals(peer,connectedPeerId)){try{source.close();}catch(IOException ignored){}discardSelection(source);if(!destroyed&&token==attachmentToken)fail(UiText.of("notConnected"));return;}
-                    transfers.offer(source,fileName,contentType).whenComplete((id,e)->{if(e!=null)main.post(()->{if(!destroyed&&token==attachmentToken)fail(attachmentError(e));});});
+                    selected.offer(source,fileName,contentType).whenComplete((id,e)->{if(e!=null)main.post(()->{if(!destroyed&&token==attachmentToken)fail(attachmentError(e));});});
                 });
-            }catch(Exception e){main.post(()->{if(!destroyed&&token==attachmentToken)fail(attachmentError(e));});}
+            }catch(Exception e){if(original!=null){selectingSources.remove(original);try{original.discard();}catch(IOException ignored){}}main.post(()->{if(!destroyed&&token==attachmentToken)fail(attachmentError(e));});}
         });}catch(RejectedExecutionException e){fail(UiText.of("attachmentFailed"));}
     }
     private void discardSelection(AttachmentSource source){try{fileSelection.execute(()->{try{source.discard();}catch(IOException ignored){}});}catch(RejectedExecutionException stopped){}}
