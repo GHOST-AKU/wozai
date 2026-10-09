@@ -1,0 +1,70 @@
+--- a/vendor/com/southernstorm/noise/protocol/Curve25519DHState.java
++++ b/vendor/com/southernstorm/noise/protocol/Curve25519DHState.java
+@@ -139,7 +139,15 @@
+ 	public void calculate(byte[] sharedKey, int offset, DHState publicDH) {
+ 		if (!(publicDH instanceof Curve25519DHState))
+ 			throw new IllegalArgumentException("Incompatible DH algorithms");
+-		Curve25519.eval(sharedKey, offset, privateKey, ((Curve25519DHState)publicDH).publicKey);
++		// RFC 7748 section 5: mask the input's top bit without changing
++		// the original public-key bytes included in the Noise transcript.
++		byte[] coordinate = ((Curve25519DHState)publicDH).publicKey.clone();
++		try {
++			coordinate[31] &= 0x7F;
++			Curve25519.eval(sharedKey, offset, privateKey, coordinate);
++		} finally {
++			Noise.destroy(coordinate);
++		}
+ 	}
+ 
+ 	@Override
+--- a/vendor/com/southernstorm/noise/protocol/HandshakeState.java
++++ b/vendor/com/southernstorm/noise/protocol/HandshakeState.java
+@@ -145,6 +145,10 @@
+ 	 * that is specified in the protocolName is not supported.
+ 	 */
+ 	public HandshakeState(String protocolName, int role) throws NoSuchAlgorithmException
++	{ this(protocolName, role, null); }
++
++	/** Local adapter injection; no global provider switch and no change to the pattern. */
++	public HandshakeState(String protocolName, int role, CipherState providedCipher) throws NoSuchAlgorithmException
+ 	{
+ 		// Parse the protocol name into its components.
+ 		String[] components = protocolName.split("_");
+@@ -186,7 +190,7 @@
+ 			throw new IllegalArgumentException("Role must be initiator or responder");
+ 
+ 		// Initialize this object.  This will also create the cipher and hash objects.
+-		symmetric = new SymmetricState(protocolName, cipher, hash);
++		symmetric = new SymmetricState(protocolName, cipher, hash, providedCipher);
+ 		isInitiator = (role == INITIATOR);
+ 		action = NO_ACTION;
+ 		requirements = extraReqs | computeRequirements(flags, prefix, role, false);
+@@ -725,6 +729,10 @@
+ 		byte[] shared = new byte [len];
+ 		try {
+ 			local.calculate(shared, 0, remote);
++			// Noise DH must reject all-zero results, including nonzero low-order encodings.
++			int contributed = 0;
++			for (int index = 0; index < len; ++index) contributed |= shared[index];
++			if (contributed == 0) throw new IllegalStateException("Invalid remote DH contribution");
+ 			symmetric.mixKey(shared, 0, len);
+ 		} finally {
+ 			Noise.destroy(shared);
+--- a/vendor/com/southernstorm/noise/protocol/SymmetricState.java
++++ b/vendor/com/southernstorm/noise/protocol/SymmetricState.java
+@@ -54,9 +54,14 @@
+ 	 * protocol name is not supported.
+ 	 */
+ 	public SymmetricState(String protocolName, String cipherName, String hashName) throws NoSuchAlgorithmException
++	{ this(protocolName, cipherName, hashName, null); }
++
++	/** Explicit per-handshake adapter; suite must still match the protocol name. */
++	public SymmetricState(String protocolName, String cipherName, String hashName, CipherState providedCipher) throws NoSuchAlgorithmException
+ 	{
+ 		name = protocolName;
+-		cipher = Noise.createCipher(cipherName);
++		cipher = providedCipher == null ? Noise.createCipher(cipherName) : providedCipher;
++		if (!cipherName.equals(cipher.getCipherName())) throw new NoSuchAlgorithmException("Cipher adapter does not match suite");
+ 		hash = Noise.createHash(hashName);
+ 		int hashLength = hash.getDigestLength();
+ 		ck = new byte [hashLength];

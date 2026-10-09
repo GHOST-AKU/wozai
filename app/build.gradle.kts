@@ -50,6 +50,10 @@ android {
         }
     }
     testBuildType = providers.gradleProperty("testBuildType").orElse("debug").get()
+    // Candidate dependency gate only; none of these sources enter the app APK.
+    sourceSets.getByName("androidTest").java.srcDirs(
+        rootProject.file("tests/noise-candidate/vendor"),
+        rootProject.file("tests/noise-candidate/src"))
     // Every language remains available while switching offline, including Play bundles.
     bundle { language { enableSplit = false } }
 }

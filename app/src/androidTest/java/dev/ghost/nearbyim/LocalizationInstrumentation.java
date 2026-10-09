@@ -77,6 +77,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
             checks+=AndroidAttachmentChecks.run(getTargetContext());
             checks+=AndroidAttachmentSourceChecks.run(getTargetContext());
             checks+=AndroidAttachmentV2Checks.run(getTargetContext());
+            checks+=dev.ghost.nearbyim.noise.NoiseLibraryChecks.run();
             testRecreationWithLiveSession();
             results.putString("stream", "NearbyIM Android localization: " + checks + " checks passed\n");
         } catch (Throwable failure) {

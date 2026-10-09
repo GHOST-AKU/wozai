@@ -36,6 +36,7 @@ jobs:
         run: |
           sh tools/test-i18n.sh
           sh tools/test-core.sh
+          sh tools/test-noise-candidate.sh
           sh tools/test-trust.sh
           sh tools/check-source.sh
       - name: Build and lint
