@@ -166,6 +166,7 @@
     <string name="device_info_trusted" formatted="false">"已記住這部裝置，下次可直接連線。\n\n信任基於裝置金鑰，不認證真實姓名。取消信任不會刪除聊天記錄。\n\n裝置身分\n{0}"</string>
     <string name="device_info_untrusted" formatted="false">"尚未記住這部裝置，下次需要確認。\n\n信任基於裝置金鑰，不認證真實姓名。取消信任不會刪除聊天記錄。\n\n裝置身分\n{0}"</string>
     <string name="device_section" formatted="false">"這部裝置"</string>
+    <string name="diagnostics_copied" formatted="false">"傳輸診斷已複製"</string>
     <string name="direct" formatted="false">"透過 IP 位址連線"</string>
     <string name="disconnect" formatted="false">"斷開連線"</string>
     <string name="disconnect_and_connect" formatted="false">"結束並連線"</string>
@@ -349,6 +350,7 @@
     <string name="system_language" formatted="false">"跟隨系統"</string>
     <string name="theme" formatted="false">"主題"</string>
     <string name="today" formatted="false">"今天"</string>
+    <string name="transfer_diagnostics" formatted="false">"複製傳輸診斷"</string>
     <string name="trust_hint" formatted="false">"信任繫結裝置公鑰，區域網路和藍牙共用。取消信任會斷開該裝置，聊天記錄仍保留。"</string>
     <string name="trust_revoked_canceled" formatted="false">"信任已取消，連線嘗試已停止"</string>
     <string name="trust_revoked_reconnect" formatted="false">"信任已取消，請重新連線並同意"</string>

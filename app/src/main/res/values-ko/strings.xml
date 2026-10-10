@@ -166,6 +166,7 @@
     <string name="device_info_trusted" formatted="false">"이 기기를 기억했습니다. 다음에 다시 연결할 수 있습니다.\n\n신뢰는 기기 키를 기반으로 하며 실명을 인증하지 않습니다. 신뢰를 해제해도 채팅 기록은 유지됩니다.\n\n기기 식별 정보\n{0}"</string>
     <string name="device_info_untrusted" formatted="false">"아직 이 기기를 기억하지 않았습니다. 다음 연결에는 다시 허용해야 합니다.\n\n신뢰는 기기 키를 기반으로 하며 실명을 인증하지 않습니다. 신뢰를 해제해도 채팅 기록은 유지됩니다.\n\n기기 식별 정보\n{0}"</string>
     <string name="device_section" formatted="false">"이 기기"</string>
+    <string name="diagnostics_copied" formatted="false">"전송 진단이 복사되었습니다"</string>
     <string name="direct" formatted="false">"IP 주소로 연결"</string>
     <string name="disconnect" formatted="false">"연결 해제"</string>
     <string name="disconnect_and_connect" formatted="false">"연결 해제 후 연결"</string>
@@ -349,6 +350,7 @@
     <string name="system_language" formatted="false">"시스템 설정 따르기"</string>
     <string name="theme" formatted="false">"테마"</string>
     <string name="today" formatted="false">"오늘"</string>
+    <string name="transfer_diagnostics" formatted="false">"전송 진단 복사"</string>
     <string name="trust_hint" formatted="false">"신뢰는 기기의 공개 키에 연결되며 LAN과 블루투스에서 공유됩니다. 신뢰를 해제하면 해당 기기와의 연결이 끊어지지만 채팅 기록은 유지됩니다."</string>
     <string name="trust_revoked_canceled" formatted="false">"신뢰를 해제하고 연결 시도를 중지했습니다."</string>
     <string name="trust_revoked_reconnect" formatted="false">"신뢰를 해제했습니다. 다시 연결하고 요청을 허용하세요."</string>

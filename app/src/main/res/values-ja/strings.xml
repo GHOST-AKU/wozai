@@ -166,6 +166,7 @@
     <string name="device_info_trusted" formatted="false">"このデバイスは登録済みで、次回から再接続できます。\n\n信頼はデバイスの鍵に基づき、本名を確認するものではありません。信頼を解除してもチャット履歴は保持されます。\n\nデバイス識別情報\n{0}"</string>
     <string name="device_info_untrusted" formatted="false">"このデバイスは未登録です。次回の接続には承認が必要です。\n\n信頼はデバイスの鍵に基づき、本名を確認するものではありません。信頼を解除してもチャット履歴は保持されます。\n\nデバイス識別情報\n{0}"</string>
     <string name="device_section" formatted="false">"このデバイス"</string>
+    <string name="diagnostics_copied" formatted="false">"転送診断をコピーしました"</string>
     <string name="direct" formatted="false">"IP アドレスで接続"</string>
     <string name="disconnect" formatted="false">"切断"</string>
     <string name="disconnect_and_connect" formatted="false">"切断して接続"</string>
@@ -349,6 +350,7 @@
     <string name="system_language" formatted="false">"システムに合わせる"</string>
     <string name="theme" formatted="false">"テーマ"</string>
     <string name="today" formatted="false">"今日"</string>
+    <string name="transfer_diagnostics" formatted="false">"転送診断をコピー"</string>
     <string name="trust_hint" formatted="false">"信頼はデバイスの公開鍵に基づき、LAN と Bluetooth で共有されます。信頼を解除すると切断されますが、チャット履歴は保持されます。"</string>
     <string name="trust_revoked_canceled" formatted="false">"信頼を解除し、接続試行を停止しました。"</string>
     <string name="trust_revoked_reconnect" formatted="false">"信頼を解除しました。再接続してリクエストを承認してください。"</string>

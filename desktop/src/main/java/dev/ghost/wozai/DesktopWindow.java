@@ -138,6 +138,8 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         translations.add(() -> { clear.setText(strings.text("clear")); revoke.setText(strings.text("revoke")); menu.applyComponentOrientation(orientation()); });
         clear.addActionListener(e -> { if (selected != null && confirm("clearConfirm")) handle(client.clear(selected), "storageFailure"); });
         revoke.addActionListener(e -> { if (selected != null && confirm("revokeConfirm")) handle(client.revoke(selected), "storageFailure"); });
+        JMenuItem diagnostics=new JMenuItem();translations.add(()->diagnostics.setText(strings.text("transferDiagnostics")));
+        diagnostics.addActionListener(e->{if(selected==null)return;try{Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new java.awt.datatransfer.StringSelection(client.transferDiagnostics(selected)),null);notice("diagnosticsCopied");}catch(RuntimeException unavailable){notice("error");}});menu.add(diagnostics);
         JMenuItem disconnect=new JMenuItem(); translations.add(() -> disconnect.setText(strings.text("disconnect"))); disconnect.addActionListener(e -> handle(client.disconnect(),"error")); menu.add(disconnect); menu.addSeparator(); menu.add(clear); menu.add(revoke);
         JButton more = new JButton(AppTheme.icon("more_vert")); more.setPreferredSize(new Dimension(44,44)); translations.add(() -> { more.setToolTipText(strings.text("more")); more.getAccessibleContext().setAccessibleName(strings.text("more")); });
         more.addActionListener(e -> menu.show(more, 0, more.getHeight())); actions.add(more);

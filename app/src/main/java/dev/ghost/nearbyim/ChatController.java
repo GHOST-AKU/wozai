@@ -363,6 +363,10 @@ public final class ChatController implements TransportListener {
     public void disconnect() { closeActive(UiText.of("connectionEnded")); cancelOutgoing(); status = UiText.of("connectionEnded"); changed(); }
     public boolean canSend() { return !savingMessage && connected && active != null && active.isReady() && remoteHello != null && Objects.equals(selectedId, connectedPeerId); }
     public long attachmentSessionToken(){return attachmentToken;}
+    public String transferDiagnostics(){
+        FramedSession wire=active;ClientAttachmentTransfers files=transfers;
+        return "diagnostics_schema=1\nendpoint=android\nversion="+LanguageRegistry.VERSION+"\ntransport="+(sessionMode==Peer.BLUETOOTH?"bluetooth":"lan")+"\n"+(wire==null?"active_session=false\n":wire.diagnostics())+(files==null?"":files.diagnostics());
+    }
     public boolean canSendAttachment(){return canSend()&&transfers!=null&&active.attachmentsSupported();}
     public TransferProgress transferProgress(String peer,AttachmentRecord record){Feedback value=transferProgress.get(peer+":"+record.info.id+":"+record.outgoing);return value==null?TransferProgress.UNKNOWN:value.progress();}
     public boolean endToEndEncrypted(String peer){FramedSession wire=active;return connected&&Objects.equals(peer,connectedPeerId)&&wire!=null&&wire.endToEndEncrypted();}

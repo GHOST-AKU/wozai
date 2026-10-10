@@ -166,6 +166,7 @@
     <string name="device_info_trusted" formatted="false">"This device is remembered and can reconnect next time.\n\nTrust is based on the device key, not a verified real name. Revoking trust keeps chat history.\n\nDevice identity\n{0}"</string>
     <string name="device_info_untrusted" formatted="false">"This device is not remembered. The next connection will require approval.\n\nTrust is based on the device key, not a verified real name. Revoking trust keeps chat history.\n\nDevice identity\n{0}"</string>
     <string name="device_section" formatted="false">"This device"</string>
+    <string name="diagnostics_copied" formatted="false">"Transfer diagnostics copied"</string>
     <string name="direct" formatted="false">"Connect by IP address"</string>
     <string name="disconnect" formatted="false">"Disconnect"</string>
     <string name="disconnect_and_connect" formatted="false">"Disconnect and connect"</string>
@@ -349,6 +350,7 @@
     <string name="system_language" formatted="false">"Follow system"</string>
     <string name="theme" formatted="false">"Theme"</string>
     <string name="today" formatted="false">"Today"</string>
+    <string name="transfer_diagnostics" formatted="false">"Copy transfer diagnostics"</string>
     <string name="trust_hint" formatted="false">"Trust pins a device public key across LAN and Bluetooth. Revoking trust disconnects that device and keeps chat history."</string>
     <string name="trust_revoked_canceled" formatted="false">"Trust revoked. The connection attempt was stopped."</string>
     <string name="trust_revoked_reconnect" formatted="false">"Trust revoked. Connect again and approve the request."</string>

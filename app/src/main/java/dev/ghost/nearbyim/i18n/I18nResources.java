@@ -174,6 +174,7 @@ public final class I18nResources {
             case "deviceInfoTrusted": return R.string.device_info_trusted;
             case "deviceInfoUntrusted": return R.string.device_info_untrusted;
             case "deviceSection": return R.string.device_section;
+            case "diagnosticsCopied": return R.string.diagnostics_copied;
             case "direct": return R.string.direct;
             case "disconnect": return R.string.disconnect;
             case "disconnectAndConnect": return R.string.disconnect_and_connect;
@@ -357,6 +358,7 @@ public final class I18nResources {
             case "systemLanguage": return R.string.system_language;
             case "theme": return R.string.theme;
             case "today": return R.string.today;
+            case "transferDiagnostics": return R.string.transfer_diagnostics;
             case "trustHint": return R.string.trust_hint;
             case "trustRevokedCanceled": return R.string.trust_revoked_canceled;
             case "trustRevokedReconnect": return R.string.trust_revoked_reconnect;

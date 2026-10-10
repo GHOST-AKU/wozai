@@ -4,6 +4,7 @@ import java.nio.file.*;
 import java.util.concurrent.*;
 /** Platform bridge. V2 is selected only by an authenticated session's capability. */
 public final class ClientAttachmentTransfers {
+    private final TransferDiagnostics metrics=new TransferDiagnostics();
     private final AttachmentTransfer legacy;
     private final AttachmentTransferV2 streaming;
     private final Path root;
@@ -11,6 +12,7 @@ public final class ClientAttachmentTransfers {
     public ClientAttachmentTransfers(AttachmentTransfer legacy){this(null,legacy);}
     public ClientAttachmentTransfers(Path root,AttachmentTransfer legacy){this.legacy=legacy;streaming=null;this.root=root;sources=null;}
     public ClientAttachmentTransfers(Path root,AttachmentTransferV2 streaming,AttachmentTransferV2.SourceResolver sources){this.root=root;this.streaming=streaming;this.sources=sources;legacy=null;streaming.sourceResolver(sources);}
+    public String diagnostics(){return metrics.snapshot()+(streaming==null?"attachment_v2=false\n":streaming.diagnostics());}
     public boolean v2(){return streaming!=null;}
     public AttachmentSource prepareSource(AttachmentSource source)throws IOException {return streaming==null?source:streaming.prepareSource(source);}
     public boolean hasActive(){return streaming!=null&&streaming.hasActive();}
@@ -28,7 +30,7 @@ public final class ClientAttachmentTransfers {
     public CompletableFuture<Void> resume(String id,boolean outgoing)throws IOException {
         if(streaming==null)return failed(new IOException("Resume requires V2"));
         TransferCheckpoint checkpoint=new TransferCheckpointStore(root.resolve(".tasks-v2")).list().stream().filter(value->streaming.owns(value.key())&&value.info().id.equals(id)&&(value.key().direction()==TransferTaskKey.Direction.SEND)==outgoing).findFirst().orElseThrow(()->new IOException("Missing attachment task"));
-        AttachmentSource source=null;if(outgoing)try{source=sources.open(checkpoint);}catch(IOException error){if(checkpoint.info().hash==null)throw error;}
+        AttachmentSource source=null;if(outgoing){long began=metrics.begin(TransferDiagnostics.Stage.SOURCE_OPEN);try{source=sources.open(checkpoint);}catch(IOException error){if(checkpoint.info().hash==null)throw error;}finally{metrics.end(TransferDiagnostics.Stage.SOURCE_OPEN,began,0);}}
         return streaming.resume(checkpoint.key(),source).thenApply(value->null);
     }
     public CompletableFuture<Void> cancel(String id,boolean outgoing){return streaming==null?legacy.cancel(id,outgoing):streaming.cancel(id,outgoing);}

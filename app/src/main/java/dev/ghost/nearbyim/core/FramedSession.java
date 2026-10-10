@@ -13,6 +13,7 @@ public final class FramedSession {
         default void onTransfer(TransferPacket packet) { throw new IllegalStateException("Encrypted attachments unavailable"); }
         void onHello(Frame hello); void onReady(); void onText(Frame frame); void onAck(String id); void onClosed(UiText reason);
     }
+    private final TransferDiagnostics metrics=new TransferDiagnostics();
     private final StreamConnection connection;
     private final Listener listener;
     private final AuthenticatedChannel channel;
@@ -157,7 +158,8 @@ public final class FramedSession {
     }
     private boolean enqueue(Write operation,int retainedBytes,boolean file) {
         if (closed.get()) return false;
-        if(writer.submit(()->{if(!closed.get())operation.run();},retainedBytes,file))return true;
+        long enqueued=System.nanoTime();
+        if(writer.submit(()->{metrics.record(TransferDiagnostics.Stage.WRITER_QUEUE,System.nanoTime()-enqueued,retainedBytes);if(!closed.get())operation.run();},retainedBytes,file))return true;
         close(UiText.of("messageQueueFull"));return false;
     }
     public void close(UiText reason) {
@@ -171,5 +173,6 @@ public final class FramedSession {
     /** Available only after proof verification, including during onHello. */
     public String remotePublicKey() { return noise==null?channel.remotePublicKey():noise.remotePublicKey(); }
     public boolean isReady() { return greeted && approved && remoteReady && !closed.get(); }
+    public String diagnostics(){return "protocol="+(noise==null?"NIM3":"NIM4")+"\nend_to_end_encrypted="+endToEndEncrypted()+"\nwriter_pending_bytes="+writer.pendingBytes()+"\n"+metrics.snapshot()+(noise==null?"":noise.diagnostics());}
     public boolean endToEndEncrypted(){return isReady()&&noise!=null&&noise.verified();}
 }

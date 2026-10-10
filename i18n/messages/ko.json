@@ -367,5 +367,7 @@
   "encryptedVia": "종단 간 암호화 · {0}",
   "attachmentCheckingProgress": "재개 데이터 확인 중: {0} / {1} · {2}%",
   "attachmentWaitingResume": "상대방의 재개 확인을 기다리는 중…",
-  "attachmentShowInFolder": "파일 위치 열기"
+  "attachmentShowInFolder": "파일 위치 열기",
+  "transferDiagnostics": "전송 진단 복사",
+  "diagnosticsCopied": "전송 진단이 복사되었습니다"
 }

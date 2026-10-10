@@ -3,6 +3,7 @@ package dev.ghost.wozai;
 import dev.ghost.nearbyim.core.*;
 import dev.ghost.nearbyim.storage.TrustPolicy;
 import dev.ghost.nearbyim.i18n.UiText;
+import dev.ghost.nearbyim.i18n.LanguageRegistry;
 import dev.ghost.nearbyim.i18n.LocalizedIOException;
 import java.io.*;
 import java.net.*;
@@ -276,6 +277,11 @@ public final class DesktopClient implements AutoCloseable {
     public CompletableFuture<String> draft(String id) { return submit(() -> store.draft(id)); }
     public CompletableFuture<Void> draft(String id, String text) { return submit(() -> { store.draft(id, text); return null; }); }
     public CompletableFuture<Void> setting(String key, String value) { return submit(() -> { store.setSetting(key, value); return null; }); }
+    public String transferDiagnostics(String peerId){
+        Session session=current;if(session==null||session.peer==null||!session.peer.id().equals(peerId))return "diagnostics_schema=1\nendpoint=desktop\nactive_session=false\n";
+        ClientAttachmentTransfers files=session.transfers;
+        return "diagnostics_schema=1\nendpoint=desktop\nversion="+LanguageRegistry.VERSION+"\ntransport="+session.transport+"\n"+session.wire.diagnostics()+(files==null?"":files.diagnostics());
+    }
     public TransferProgress transferProgress(String peer,AttachmentRecord record){Feedback value=transferProgress.get(peer+":"+record.info.id+":"+record.outgoing);return value==null?TransferProgress.UNKNOWN:value.progress();}
     public boolean endToEndEncrypted(String peer){Session session=current;return session!=null&&session.peer!=null&&session.peer.id().equals(peer)&&session.wire.endToEndEncrypted();}
     public List<DesktopStore.Message> liveMessages(String peer,List<DesktopStore.Message> history){

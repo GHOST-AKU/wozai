@@ -15,7 +15,7 @@ public final class NoiseChannelChecks {
     private static void rejects(Action action)throws Exception {try{action.run();}catch(IOException expected){checks++;return;}throw new AssertionError("Invalid channel operation accepted");}
     public static synchronized int run()throws Exception {
         checks=0;
-        bidirectional();invalidPin();forgedRoot();mismatchedStatic();invalidClaim();badTag();replay();oldSession();oversize();legacy();truncation();closeDuringHandshake();
+        bidirectional();bulkRecordReads();fragmentedRecords();invalidPin();forgedRoot();mismatchedStatic();invalidClaim();badTag();replay();oldSession();oversize();legacy();truncation();closeDuringHandshake();
         return checks;
     }
     public static void main(String[] args)throws Exception {System.out.println("NIM4 candidate: "+run()+" root-binding/record checks passed (not client/radio acceptance)");}
@@ -31,6 +31,30 @@ public final class NoiseChannelChecks {
             byte[] record=h.aOutput.since(before);check(indexOf(record,secret)<0,"Plaintext was written to the socket");
             byte[] large=new byte[48*1024];new Random(32).nextBytes(large);h.b.write(large);check(Arrays.equals(h.a.read(),large),"Reverse maximum record changed");
             rejects(()->h.a.write(new byte[48*1024+1]));h.a.close();rejects(()->h.a.write(secret));
+        }
+    }
+    /** A socket read may have nontrivial platform cost; never parse record headers byte by byte. */
+    private static void bulkRecordReads()throws Exception {
+        try(Harness h=new Harness(null)) {
+            h.start();byte[] plain=new byte[32768];new Random(311).nextBytes(plain);
+            int before=h.aOutput.size();h.a.write(plain);byte[] encoded=h.aOutput.since(before);
+            h.bInput.inject(encoded);h.bInput.scalarReads=h.bInput.bulkReads=0;h.bInput.delayMs=2;
+            long begin=System.nanoTime();check(Arrays.equals(h.b.read(),plain),"Batched header read changed encrypted content");
+            System.out.println("Controlled 2 ms read-call cost, 32 KiB Noise record: scalar="+h.bInput.scalarReads+", bulk="+h.bInput.bulkReads+", ms="+(System.nanoTime()-begin)/1e6+" (not phone throughput)");
+            check(h.bInput.scalarReads==0,"Noise record header performs one socket read per byte: "+h.bInput.scalarReads);
+            check(h.bInput.bulkReads<=3,"Complete injected record needs excessive read calls: "+h.bInput.bulkReads);
+            String diagnostic;
+            try{diagnostic=(String)NoiseRecordChannel.class.getMethod("diagnostics").invoke(h.b);}
+            catch(NoSuchMethodException missing){throw new AssertionError("Encrypted socket read has no stage timing report",missing);}
+            check(diagnostic.contains("socket_read")&&diagnostic.contains("decrypt"),"Encrypted read report missing socket/decrypt stages");
+            check(!diagnostic.contains(h.aRoot.publicKey())&&!diagnostic.contains(h.aId),"Timing report leaked device identity");
+        }
+    }
+    private static void fragmentedRecords()throws Exception {
+        for(int fragment:new int[]{1,3,7})try(Harness h=new Harness(null)) {
+            h.start();byte[] plain=new byte[193];new Random(fragment).nextBytes(plain);int before=h.aOutput.size();h.a.write(plain);
+            h.bInput.inject(h.aOutput.since(before));h.bInput.fragment=fragment;
+            check(Arrays.equals(h.b.read(),plain),"Partial header/payload reads corrupted Noise record: "+fragment);
         }
     }
     private static void invalidPin()throws Exception {
@@ -124,10 +148,11 @@ public final class NoiseChannelChecks {
         synchronized int size(){return copy.size();}synchronized byte[] since(int position){return Arrays.copyOfRange(copy.toByteArray(),position,copy.size());}
     }
     private static final class InjectedInput extends InputStream {
-        final InputStream delegate;byte[] injected=new byte[0];int offset;
+        final InputStream delegate;byte[] injected=new byte[0];int offset,scalarReads,bulkReads,delayMs,fragment=Integer.MAX_VALUE;
+        private void pause()throws IOException{if(delayMs>0)try{Thread.sleep(delayMs);}catch(InterruptedException e){Thread.currentThread().interrupt();throw new InterruptedIOException();}}
         InjectedInput(InputStream delegate){this.delegate=delegate;}
         synchronized void inject(byte[] bytes){injected=bytes;offset=0;}
-        public synchronized int read()throws IOException{return offset<injected.length?injected[offset++]&255:delegate.read();}
-        public synchronized int read(byte[] bytes,int start,int size)throws IOException {if(offset>=injected.length)return delegate.read(bytes,start,size);int n=Math.min(size,injected.length-offset);System.arraycopy(injected,offset,bytes,start,n);offset+=n;return n;}
+        public synchronized int read()throws IOException{scalarReads++;pause();return offset<injected.length?injected[offset++]&255:delegate.read();}
+        public synchronized int read(byte[] bytes,int start,int size)throws IOException {bulkReads++;pause();size=Math.min(size,fragment);if(offset>=injected.length)return delegate.read(bytes,start,size);int n=Math.min(size,injected.length-offset);System.arraycopy(injected,offset,bytes,start,n);offset+=n;return n;}
     }
 }

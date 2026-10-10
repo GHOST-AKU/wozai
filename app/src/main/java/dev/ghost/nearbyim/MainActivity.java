@@ -822,12 +822,14 @@ public final class MainActivity extends Activity {
         menu.getMenu().add(0, 1, 0, t("deviceInfo"));
         if (controller != null && controller.hasSession()) menu.getMenu().add(0, 2, 1, t("disconnect"));
         menu.getMenu().add(0, 3, 2, t("clearConversation"));
+        if(controller!=null&&controller.hasSession())menu.getMenu().add(0,4,3,t("transferDiagnostics"));
         menu.setOnMenuItemClickListener(item -> {
             if (controller == null) return true;
             switch (item.getItemId()) {
                 case 1: deviceInfo(controller.selectedId, controller.selectedName); break;
                 case 2: controller.disconnect(); break;
                 case 3: clearConversation(); break;
+                case 4: ((ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText(t("transferDiagnostics"),controller.transferDiagnostics()));toast(t("diagnosticsCopied"));break;
             }
             return true;
         }); menu.show();

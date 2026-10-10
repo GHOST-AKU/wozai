@@ -37,6 +37,13 @@ public final class AttachmentFeedbackTests {
             if(!Arrays.equals(bytes,Files.readAllBytes(AttachmentTransfer.file(root.resolve("b"),saved.info))))throw new AssertionError("Content changed");
             if(!saved.info.hash.equals(AttachmentInfo.hex(MessageDigest.getInstance("SHA-256").digest(bytes)))||!saved.info.hash.equals(ack.info.hash))throw new AssertionError("Saved receipt digest mismatch");
             if(live.stream().noneMatch(r->r.state.equals("transferring")))throw new AssertionError("UI lost live transfer feedback");
+            String diagnostic;
+            try{diagnostic=(String)AttachmentTransferV2.class.getMethod("diagnostics").invoke(peers[1]);}
+            catch(NoSuchMethodException missing){throw new AssertionError("Real slow-storage transfer has no stage timing report",missing);}
+            if(!diagnostic.contains("history_save")||!diagnostic.contains("file_write"))throw new AssertionError("Transfer report missing measured stages");
+            if(diagnostic.contains("payload.bin")||diagnostic.contains(root.toString())||diagnostic.contains(saved.info.id))throw new AssertionError("Diagnostic report leaked filename/path/transfer identity");
+            java.util.regex.Matcher history=java.util.regex.Pattern.compile("history_save: count=(\\d+), bytes=(\\d+), total_ms=([0-9.]+)").matcher(diagnostic);
+            if(!history.find()||Double.parseDouble(history.group(3))<290)throw new AssertionError("Injected 300 ms save was not measured: "+diagnostic);
             System.out.println("Slow-storage feedback: progress avoids per-packet durable-history writes; final content/history receipt verified");
         }finally{
             for(AttachmentTransferV2 peer:peers)if(peer!=null)peer.shutdown().get(5,TimeUnit.SECONDS);

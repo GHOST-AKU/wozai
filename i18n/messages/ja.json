@@ -367,5 +367,7 @@
   "encryptedVia": "エンドツーエンド暗号化 · {0}",
   "attachmentCheckingProgress": "再開データを確認中：{0} / {1} · {2}%",
   "attachmentWaitingResume": "相手の再開確認を待っています…",
-  "attachmentShowInFolder": "保存先を開く"
+  "attachmentShowInFolder": "保存先を開く",
+  "transferDiagnostics": "転送診断をコピー",
+  "diagnosticsCopied": "転送診断をコピーしました"
 }

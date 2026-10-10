@@ -367,5 +367,7 @@
   "encryptedVia": "端到端加密 · {0}",
   "attachmentCheckingProgress": "校验续传数据：{0} / {1} · {2}%",
   "attachmentWaitingResume": "等待对方确认续传…",
-  "attachmentShowInFolder": "打开所在位置"
+  "attachmentShowInFolder": "打开所在位置",
+  "transferDiagnostics": "复制传输诊断",
+  "diagnosticsCopied": "传输诊断已复制"
 }

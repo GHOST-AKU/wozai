@@ -9,6 +9,7 @@ import java.security.*;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
+import static dev.ghost.nearbyim.core.TransferDiagnostics.Stage.*;
 
 /** Sequential file pipeline. This layer requires an authenticated, consented Wire. */
 public final class AttachmentTransferV2 implements AutoCloseable {
@@ -17,6 +18,7 @@ public final class AttachmentTransferV2 implements AutoCloseable {
     public interface SourceResolver {AttachmentSource open(TransferCheckpoint checkpoint)throws IOException;}
     private interface Work {void run()throws Exception;}
     private static final long QUEUE_BUDGET=9L*1024*1024;
+    private final TransferDiagnostics metrics=new TransferDiagnostics();
     private final Path root;
     private final TransferCheckpointStore checkpoints;
     private final TransferStorageBudget storage;
@@ -55,7 +57,7 @@ public final class AttachmentTransferV2 implements AutoCloseable {
         String state="offered";
         long sent,written,verified,durable,lastCheckpointNs,lastCredit,lastCreditVerified,lastCreditDurable,lastCreditNs,lastNotice;
         long sampleNs,sampleBytes,bytesPerSecond;
-        long historyDurable=-1;String historyState;
+        long historyDurable=-1,creditWaitNs;String historyState;
         MessageDigest whole,block;
         TransferByteWindow window;
         Task(AttachmentInfo info,boolean outgoing,String generation,Path partial){this.info=info;this.outgoing=outgoing;this.generation=generation;this.partial=partial;}
@@ -132,7 +134,9 @@ public final class AttachmentTransferV2 implements AutoCloseable {
             Task task=packet.fromSender?incoming:outgoing;
             if(matches(task,packet)){task.canceled.set(true);closeTaskIO(task);}
         }
+        long enqueued=System.nanoTime();
         try {actor.execute(()->{
+            metrics.record(RECEIVE_QUEUE,System.nanoTime()-enqueued,packet.kind==TransferPacket.Kind.DATA?packet.data.length:0);
             try {
                 if(closed)return;
                 try{handle(packet);}catch(IOException error){Task task=packet.fromSender?incoming:outgoing;if(task==null||!task.canceled.get())throw error;}
@@ -184,6 +188,7 @@ public final class AttachmentTransferV2 implements AutoCloseable {
                 if(task.outgoing&&task.state.equals("checking"))break;
                 require(task.outgoing&&(task.state.equals("transferring")||task.state.equals("awaitingReceipt")));
                 require(packet.verifiedOffset>=task.verified&&packet.durableOffset>=task.durable);
+                endCreditWait(task);
                 task.window.acknowledge(packet.offset,packet.windowBytes);task.written=packet.offset;task.verified=packet.verifiedOffset;
                 if(packet.durableOffset>task.durable){task.durable=packet.durableOffset;checkpoint(task,TransferCheckpoint.State.ACTIVE);}
                 notice(task,false);if(task.state.equals("transferring"))pump(task);break;
@@ -193,11 +198,11 @@ public final class AttachmentTransferV2 implements AutoCloseable {
             case DATA:
                 require(!task.outgoing&&task.state.equals("transferring")&&packet.offset==task.written&&packet.data.length<=TransferLimits.BLOCK_BYTES-(task.written-task.verified)
                         &&packet.data.length<=initialWindow-(task.written-task.lastCredit));
-                ByteBuffer data=ByteBuffer.wrap(packet.data);while(data.hasRemaining())task.output.write(data);
-                task.whole.update(packet.data);task.block.update(packet.data);task.written+=packet.data.length;task.reservation.written(task.written);notice(task,false);credit(task,false);break;
+                long writeBegin=metrics.begin(FILE_WRITE);try{ByteBuffer data=ByteBuffer.wrap(packet.data);while(data.hasRemaining())task.output.write(data);}finally{metrics.end(FILE_WRITE,writeBegin,packet.data.length);}
+                long hashBegin=metrics.begin(HASH);try{task.whole.update(packet.data);task.block.update(packet.data);}finally{metrics.end(HASH,hashBegin,packet.data.length);}task.written+=packet.data.length;task.reservation.written(task.written);notice(task,false);credit(task,false);break;
             case BLOCK_HASH:
                 require(!task.outgoing&&packet.offset==task.written&&task.written>task.verified&&(task.written-task.verified==TransferLimits.BLOCK_BYTES||task.written==task.info.size));
-                if(!MessageDigest.isEqual(task.block.digest(),packet.hash)){finish(task,"failed",true);return;}task.verified=task.written;checkpoints.appendBlock(task.key,task.verified,packet.hash);checkpointIncoming(task,false,TransferCheckpoint.State.ACTIVE);break;
+                if(!MessageDigest.isEqual(task.block.digest(),packet.hash)){finish(task,"failed",true);return;}task.verified=task.written;appendBlock(task,task.verified,packet.hash);checkpointIncoming(task,false,TransferCheckpoint.State.ACTIVE);break;
             case END:
                 require(!task.outgoing&&task.written==task.info.size&&task.verified==task.info.size);
                 if(!MessageDigest.isEqual(task.whole.digest(),packet.hash)){finish(task,"failed",true);return;}
@@ -218,15 +223,15 @@ public final class AttachmentTransferV2 implements AutoCloseable {
         try {
             while(!task.canceled.get()&&task.sent<task.info.size) {
                 int length=(int)Math.min(TransferLimits.DATA_BYTES,Math.min(task.info.size-task.sent,TransferLimits.BLOCK_BYTES-task.sent%TransferLimits.BLOCK_BYTES));
-                if(task.window.availableBytes()<length)return;
+                if(task.window.availableBytes()<length){if(task.creditWaitNs==0)task.creditWaitNs=metrics.begin(CREDIT_WAIT);return;}
                 try(TransferBufferPool.Lease lease=buffers.acquire()) {
                     byte[] bytes=lease.bytes();int offset=0,emptyReads=0;
                     while(offset<length){int n=readSource(task,bytes,offset,length-offset);if(n<0)throw new EOFException("Attachment source truncated");if(n==0){if(++emptyReads>32)throw new SourceUnavailableException(new IOException("Source repeatedly returned no data"));continue;}emptyReads=0;offset+=n;}
                     if(task.canceled.get())return;
-                    require(task.window.tryReserve(task.sent,length));task.whole.update(bytes,0,length);task.block.update(bytes,0,length);
+                    require(task.window.tryReserve(task.sent,length));long hashBegin=metrics.begin(HASH);try{task.whole.update(bytes,0,length);task.block.update(bytes,0,length);}finally{metrics.end(HASH,hashBegin,length);}
                     send(TransferPacket.data(task.info.id,task.generation,connection,task.info.size,task.sent,length==bytes.length?bytes:Arrays.copyOf(bytes,length)));task.sent+=length;
                 }
-                if(task.sent%TransferLimits.BLOCK_BYTES==0||task.sent==task.info.size){byte[] hash=task.block.digest();checkpoints.appendBlock(task.key,task.sent,hash);send(control(task,TransferPacket.Kind.BLOCK_HASH,true,task.sent,0,hash,""));}
+                if(task.sent%TransferLimits.BLOCK_BYTES==0||task.sent==task.info.size){byte[] hash=task.block.digest();appendBlock(task,task.sent,hash);send(control(task,TransferPacket.Kind.BLOCK_HASH,true,task.sent,0,hash,""));}
             }
             if(!task.canceled.get()&&task.sent==task.info.size) {
                 task.source.verifyUnchanged();byte[] hash=task.whole.digest();task.info=AttachmentInfo.v2(task.info.id,task.info.name,task.info.mime,task.info.size,AttachmentInfo.hex(hash),task.info.time);
@@ -235,8 +240,13 @@ public final class AttachmentTransferV2 implements AutoCloseable {
         }catch(IOException error){if(!task.canceled.get()){if(error instanceof SourceUnavailableException)pauseUnavailable(task);else finish(task,"failed",true);}}
     }
     private static final class SourceUnavailableException extends IOException {SourceUnavailableException(IOException cause){super("Attachment source temporarily unavailable",cause);}}
-    private static int readSource(Task task,byte[] bytes,int offset,int length)throws IOException {
-        try{return task.input.read(bytes,offset,length);}catch(IOException failure){throw new SourceUnavailableException(failure);}
+    private int readSource(Task task,byte[] bytes,int offset,int length)throws IOException {
+        long began=metrics.begin(SOURCE_READ);int n=0;
+        try{n=task.input.read(bytes,offset,length);return n;}catch(IOException failure){throw new SourceUnavailableException(failure);}
+        finally{metrics.end(SOURCE_READ,began,Math.max(0,n));}
+    }
+    private void appendBlock(Task task,long end,byte[] hash)throws IOException {
+        long began=metrics.begin(BLOCK_INDEX);try{checkpoints.appendBlock(task.key,end,hash);}finally{metrics.end(BLOCK_INDEX,began,40);}
     }
     private static InputStream openSource(Task task,long offset)throws IOException {try{return task.source.open(offset);}catch(IOException failure){throw new SourceUnavailableException(failure);}}
     private void pauseUnavailable(Task task)throws IOException {task.state="sourceUnavailable";pauseTask(task,true);}
@@ -250,12 +260,14 @@ public final class AttachmentTransferV2 implements AutoCloseable {
     private TransferTaskKey taskKey(String id,String generation,boolean sent){return new TransferTaskKey(localRoot,remoteRoot,sent?TransferTaskKey.Direction.SEND:TransferTaskKey.Direction.RECEIVE,id,generation);}
     private Path partial(TransferTaskKey key){return root.resolve(key.fileName()+".part");}
     private void checkpoint(Task task,TransferCheckpoint.State state)throws IOException {
-        checkpoints.checkpoint(new TransferCheckpoint(task.key,task.info,task.reference,task.written,task.verified,task.durable,state,System.currentTimeMillis()));task.lastCheckpointNs=System.nanoTime();
+        long began=metrics.begin(CHECKPOINT);try{checkpoints.checkpoint(new TransferCheckpoint(task.key,task.info,task.reference,task.written,task.verified,task.durable,state,System.currentTimeMillis()));task.lastCheckpointNs=System.nanoTime();}finally{metrics.end(CHECKPOINT,began,0);}
     }
     private void checkpointIncoming(Task task,boolean force,TransferCheckpoint.State state)throws IOException {
         long now=System.nanoTime();if(!force&&(task.verified==task.durable||task.verified-task.durable<CHECKPOINT_BYTES&&now-task.lastCheckpointNs<2_000_000_000L))return;
-        if(task.output!=null&&task.output.isOpen())task.output.force(true);
-        else try(FileChannel content=FileChannel.open(task.partial,StandardOpenOption.WRITE,LinkOption.NOFOLLOW_LINKS)){content.force(true);}
+        long began=metrics.begin(CONTENT_FORCE);try{
+            if(task.output!=null&&task.output.isOpen())task.output.force(true);
+            else try(FileChannel content=FileChannel.open(task.partial,StandardOpenOption.WRITE,LinkOption.NOFOLLOW_LINKS)){content.force(true);}
+        }finally{metrics.end(CONTENT_FORCE,began,0);}
         task.durable=task.verified;checkpoint(task,state);
     }
     private void requireRoom(TransferTaskKey.Direction direction)throws IOException {
@@ -273,7 +285,9 @@ public final class AttachmentTransferV2 implements AutoCloseable {
     }
     public boolean hasActive(){return outgoing!=null||incoming!=null;}
     public CompletableFuture<Void> pauseAll(){Task send=outgoing,receive=incoming;return CompletableFuture.allOf(send==null?CompletableFuture.completedFuture(null):pause(send.info.id,true),receive==null?CompletableFuture.completedFuture(null):pause(receive.info.id,false));}
+    private void endCreditWait(Task task){if(task.creditWaitNs!=0){metrics.end(CREDIT_WAIT,task.creditWaitNs,0);task.creditWaitNs=0;}}
     private void pauseTask(Task task,boolean notifyPeer)throws IOException {
+        endCreditWait(task);
         task.canceled.set(true);closeTaskIO(task);
         TransferCheckpoint saved=checkpoints.load(task.key).orElse(null);
         if(saved!=null&&(saved.state()==TransferCheckpoint.State.COMPLETE||saved.state()==TransferCheckpoint.State.CANCELED)){closeResource(task.reservation);return;}
@@ -406,6 +420,7 @@ public final class AttachmentTransferV2 implements AutoCloseable {
         }finally{if(!saved)Files.deleteIfExists(temporary);}
     }
     private void finish(Task task,String state,boolean notifyPeer)throws IOException {
+        endCreditWait(task);
         // Preview retention is optional and cannot revoke an authenticated delivery receipt.
         if(state.equals("delivered"))try{retainPhoto(task);}catch(IOException ignored){}
         task.canceled.set(true);closeTaskIO(task);if(task.partial!=null)Files.deleteIfExists(task.partial);
@@ -429,7 +444,7 @@ public final class AttachmentTransferV2 implements AutoCloseable {
                 task.sampleNs=now;task.sampleBytes=task.written;
                 long remaining=task.info.size-task.written,rate=task.bytesPerSecond;progress=new TransferProgress(rate,rate==0?-1:remaining/rate+(remaining%rate==0?0:1));
             }else{task.sampleNs=0;task.sampleBytes=task.written;task.bytesPerSecond=0;}
-            if(force||!task.state.equals(task.historyState)||task.durable!=task.historyDurable){listener.changed(record);task.historyState=task.state;task.historyDurable=task.durable;}
+            if(force||!task.state.equals(task.historyState)||task.durable!=task.historyDurable){long began=metrics.begin(HISTORY_SAVE);try{listener.changed(record);task.historyState=task.state;task.historyDurable=task.durable;}finally{metrics.end(HISTORY_SAVE,began,0);}}
             listener.progress(record,progress);task.lastNotice=System.nanoTime();
         }
     }
@@ -445,6 +460,17 @@ public final class AttachmentTransferV2 implements AutoCloseable {
     private static void closeResource(AutoCloseable value){if(value!=null)try{value.close();}catch(Exception ignored){}}
     private static void closeTaskIO(Task task){closeResource(task.input);closeResource(task.output);closeResource(task.source);}
     private static void permissions(Path path,String permissions)throws IOException{if(Files.getFileAttributeView(path,PosixFileAttributeView.class,LinkOption.NOFOLLOW_LINKS)!=null)Files.setPosixFilePermissions(path,PosixFilePermissions.fromString(permissions));}
+    public String diagnostics() {
+        StringBuilder report=new StringBuilder("pipeline_queue_bytes="+queuedBytes()+"\n");
+        for(Task task:new Task[]{outgoing,incoming})if(task!=null){
+            report.append(task.outgoing?"send":"receive").append(": state=").append(task.state)
+                .append(", total=").append(task.info.size).append(", sent=").append(task.sent)
+                .append(", written=").append(task.written).append(", durable=").append(task.durable);
+            if(task.window!=null)report.append(", in_flight=").append(task.window.inFlightBytes()).append(", available=").append(task.window.availableBytes());
+            report.append('\n');
+        }
+        return report.append(metrics.snapshot()).toString();
+    }
     public long queuedBytes(){return Math.max(0,queued.get());}
     public long retainedBufferBytes(){return buffers.retainedBytes();}
     public CompletableFuture<Void> shutdown(){close();return terminated;}

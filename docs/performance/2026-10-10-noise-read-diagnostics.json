@@ -1,0 +1,44 @@
+{
+  "baseline": {
+    "class_sha256": "549503c3e5a0c94c3f3b537548a76504419ae8a302b1ed4dede95d5131b8a4de",
+    "class_count": 95,
+    "steady_mib_s": [
+      74.27525487748103,
+      120.24101119556634,
+      135.5545050963927
+    ],
+    "total_mib_s": [
+      70.80170986140378,
+      118.75202706173147,
+      133.7741898687709
+    ],
+    "verified": true
+  },
+  "instrumented": {
+    "class_sha256": "9fbd19336d1b4a6942ed6494346a0fc4151b20fde07d346b971f168504510b9c",
+    "class_count": 97,
+    "steady_mib_s": [
+      71.84895908677386,
+      118.60283354743099,
+      134.9606364608233
+    ],
+    "total_mib_s": [
+      68.21414295896675,
+      116.3826060407056,
+      133.12482269697688
+    ],
+    "verified": true
+  },
+  "controlled_header_read": {
+    "read_call_delay_ms": 2,
+    "baseline_scalar_reads": 10,
+    "baseline_bulk_reads": 1,
+    "baseline_ms": 25.47986,
+    "batched_scalar_reads": 0,
+    "batched_bulk_reads": 3,
+    "instrumented_ms": 8.671722,
+    "rounds_per_variant": 1,
+    "claim": "Controlled complete-record read-call overhead only; not phone throughput or identification of physical bottleneck"
+  },
+  "limitations": "Sequential batches on virtual TCP loopback with 32 MiB heap; JIT and host variation; not paired repeated trials or phone/Windows LAN acceptance. No raw R or 10 GiB speed gate acceptance."
+}

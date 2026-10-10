@@ -13,7 +13,7 @@ print('Noise candidate: 29 pinned upstream sources; explicit 3-file adapter/RFC 
 PY
 mkdir -p build/noise-candidate
 find tests/noise-candidate third_party/noise-java/src app/src/main/java/dev/ghost/nearbyim/noise -name '*.java' > build/noise-candidate/sources.txt
-printf '%s\n' app/src/main/java/dev/ghost/nearbyim/core/DeviceIdentity.java app/src/main/java/dev/ghost/nearbyim/core/Frame.java app/src/main/java/dev/ghost/nearbyim/core/StreamConnection.java app/src/main/java/dev/ghost/nearbyim/core/UnsupportedProtocolException.java >> build/noise-candidate/sources.txt
+printf '%s\n' app/src/main/java/dev/ghost/nearbyim/core/TransferDiagnostics.java app/src/main/java/dev/ghost/nearbyim/core/DeviceIdentity.java app/src/main/java/dev/ghost/nearbyim/core/Frame.java app/src/main/java/dev/ghost/nearbyim/core/StreamConnection.java app/src/main/java/dev/ghost/nearbyim/core/UnsupportedProtocolException.java >> build/noise-candidate/sources.txt
 javac --release 8 -encoding UTF-8 -d build/noise-candidate @build/noise-candidate/sources.txt
 java -Xmx32m -cp build/noise-candidate dev.ghost.nearbyim.noise.NoiseLibraryChecks
 java -Xmx32m -cp build/noise-candidate dev.ghost.nearbyim.noise.NoiseChannelChecks

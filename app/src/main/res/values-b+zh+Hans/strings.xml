@@ -166,6 +166,7 @@
     <string name="device_info_trusted" formatted="false">"已记住这部设备，下次可直接连接。\n\n信任基于设备密钥，不认证真实姓名。取消信任不会删除聊天记录。\n\n设备身份\n{0}"</string>
     <string name="device_info_untrusted" formatted="false">"尚未记住这部设备，下次需要确认。\n\n信任基于设备密钥，不认证真实姓名。取消信任不会删除聊天记录。\n\n设备身份\n{0}"</string>
     <string name="device_section" formatted="false">"这部设备"</string>
+    <string name="diagnostics_copied" formatted="false">"传输诊断已复制"</string>
     <string name="direct" formatted="false">"通过 IP 地址连接"</string>
     <string name="disconnect" formatted="false">"断开连接"</string>
     <string name="disconnect_and_connect" formatted="false">"结束并连接"</string>
@@ -349,6 +350,7 @@
     <string name="system_language" formatted="false">"跟随系统"</string>
     <string name="theme" formatted="false">"主题"</string>
     <string name="today" formatted="false">"今天"</string>
+    <string name="transfer_diagnostics" formatted="false">"复制传输诊断"</string>
     <string name="trust_hint" formatted="false">"信任绑定设备公钥，局域网和蓝牙共用。取消信任会断开该设备，聊天记录仍保留。"</string>
     <string name="trust_revoked_canceled" formatted="false">"信任已取消，连接尝试已停止"</string>
     <string name="trust_revoked_reconnect" formatted="false">"信任已取消，请重新连接并同意"</string>

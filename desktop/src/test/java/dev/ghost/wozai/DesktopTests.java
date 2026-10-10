@@ -266,6 +266,11 @@ public final class DesktopTests {
                         if (ready.await(20, TimeUnit.MILLISECONDS)) break;
                     }
                     check(ready.getCount() == 0, "Android and desktop did not become ready");
+                    long diagnosticDeadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(3);
+                    while(!client.endToEndEncrypted(PEER)&&System.nanoTime()<diagnosticDeadline)Thread.sleep(10);
+                    String diagnostic=client.transferDiagnostics(PEER);
+                    check(diagnostic.contains("end_to_end_encrypted=true")&&diagnostic.contains("protocol=NIM4"),"Actual desktop diagnostic reports the verified Noise session");
+                    check(!diagnostic.contains(PEER)&&!diagnostic.contains(path.toString()),"Desktop timing report leaks peer/private path");
                     if (round == 1) check(requests.isEmpty(), "Trusted reconnect asked again");
                     String incoming = UUID.randomUUID().toString();
                     check(android.send(new Frame(Frame.TEXT, incoming, "手机 → Windows 🙂", 1234)), "Android send rejected");

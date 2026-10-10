@@ -434,6 +434,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
         check(onMain(()->{android.widget.PopupMenu menu=field(activity,"attachmentActions");boolean found=menu.getMenu().size()==2&&menu.getMenu().getItem(1).getTitle().toString().equals(AndroidText.get(activity,"attachmentSaveAs"));menu.dismiss();return found;}),"File long-press exposes both Open and Save as");
         screenshot("zh-Hans-photo-and-file-chat");
         testContentUriResume(controller,peer);
+        testTransferDiagnostics(controller,peer);
         testAttachmentQueueRejection(controller,peer,received,uri);
         long token=onMain(()->controller.attachmentSessionToken());onMain(()->{controller.sendAttachment(peer,token-1,uri);return null;});check(onMain(()->controller.error.key.equals("notConnected")),"Stale picker result cannot cross session generations");
     }
@@ -458,6 +459,17 @@ public final class LocalizationInstrumentation extends Instrumentation {
             await(()->onMain(()->controller.messages.stream().anyMatch(m->m.id.equals(id)&&m.outgoing&&m.attachment!=null&&m.attachment.state.equals("delivered"))),"Android content URI resumes and saves the completion receipt");
             check(generation.equals(remote.connectionGeneration())&&expected.equals(completed.info.hash),"Android Resume retains Noise generation and full content digest");
         }finally{resumePauseRelease.countDown();resumePauseBlocked=null;resumePauseRelease=null;getTargetContext().getContentResolver().call(uri,"reset",null,null);}
+    }
+    private void testTransferDiagnostics(ChatController controller,String peer)throws Exception {
+        onMain(()->{android.view.ViewGroup page=field(activity,"chatPage");android.widget.Button more=attachmentButton(page,AndroidText.get(activity,"more"));if(more==null||!more.performClick())throw new AssertionError("Chat overflow button unavailable");return null;});
+        java.util.concurrent.atomic.AtomicReference<android.view.accessibility.AccessibilityNodeInfo> target=new java.util.concurrent.atomic.AtomicReference<>();
+        await(()->{android.view.accessibility.AccessibilityNodeInfo root=getUiAutomation().getRootInActiveWindow();if(root==null)return false;java.util.List<android.view.accessibility.AccessibilityNodeInfo> nodes=root.findAccessibilityNodeInfosByText(AndroidText.get(activity,"transferDiagnostics"));if(nodes.isEmpty())return false;target.set(nodes.get(0));return true;},"Native chat menu offers copy transfer diagnostics");
+        android.view.accessibility.AccessibilityNodeInfo choice=target.get();boolean clicked=false;
+        for(android.view.accessibility.AccessibilityNodeInfo node=choice;node!=null&&!clicked;node=node.getParent())clicked=node.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK);
+        check(clicked,"Native diagnostics menu dispatches copy action");waitForIdleSync();
+        String report=onMain(()->{android.content.ClipboardManager clipboard=(android.content.ClipboardManager)activity.getSystemService(Context.CLIPBOARD_SERVICE);android.content.ClipData data=clipboard.getPrimaryClip();return data==null?"":data.getItemAt(0).coerceToText(activity).toString();});
+        check(report.contains("endpoint=android")&&report.contains("end_to_end_encrypted=true")&&report.contains("source_read")&&report.contains("socket_write"),"Native clipboard contains actual source and encrypted socket timing");
+        check(!report.contains(peer)&&!report.contains("native-photo.png")&&!report.contains("content://")&&!report.contains(getTargetContext().getFilesDir().toString()),"Clipboard diagnostic excludes peer, filename, URI and private path");
     }
     private void testLiveAttachmentFeedback(ChatController controller,String peer)throws Exception {
         Class<?> feedbackType=Class.forName("dev.ghost.nearbyim.ChatController$Feedback");

@@ -8,6 +8,7 @@ import java.nio.charset.*;
 import java.security.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import static dev.ghost.nearbyim.core.TransferDiagnostics.Stage.*;
 
 /** Authenticated NIM4 records over a TCP or RFCOMM byte stream. */
 public final class NoiseRecordChannel implements AutoCloseable {
@@ -16,6 +17,7 @@ public final class NoiseRecordChannel implements AutoCloseable {
     private static final byte[] ROOT_DOMAIN="wozai-root-proof-v4\0".getBytes(StandardCharsets.US_ASCII),GENERATION_DOMAIN="wozai-connection-v4\0".getBytes(StandardCharsets.US_ASCII);
     private static final int MAGIC=0x4e494d34,VERSION=4,HANDSHAKE=1,ROOT_PROOF=2,RECORD=3,MAX_PLAIN=48*1024;
     private static final long MAX_FILE=10_737_418_240L;
+    private final TransferDiagnostics metrics=new TransferDiagnostics();
     private final StreamConnection connection;
     private final boolean initiator;
     private final DeviceIdentity identity;
@@ -73,6 +75,7 @@ public final class NoiseRecordChannel implements AutoCloseable {
     public boolean verified(){return verified&&!closed.get();}
     public Frame remoteHello(){return verified()?remoteHello:null;}
     public String remotePublicKey(){return verified()?remoteRoot:null;}
+    public String diagnostics(){return metrics.snapshot();}
     public String connectionGeneration(){return verified()?generation:null;}
     public void write(byte[] plaintext)throws IOException {
         synchronized(writeLock){if(!verified())throw new IOException("Unauthenticated write");if(plaintext==null||plaintext.length>MAX_PLAIN)throw new IOException("Record too large");
@@ -93,19 +96,26 @@ public final class NoiseRecordChannel implements AutoCloseable {
     private static byte[] proof(byte[] binding,int role)throws IOException {ByteArrayOutputStream bytes=new ByteArrayOutputStream();bytes.write(binding);bytes.write(role);return bytes.toByteArray();}
     private void sendEncrypted(int kind,byte[] plaintext)throws GeneralSecurityException,IOException {
         ensureOpen();int size=plaintext.length+16;byte[] header=aad(kind,size),record=new byte[header.length+size];System.arraycopy(header,0,record,0,header.length);
-        int n=pair.getSender().encryptWithAd(header,plaintext,0,record,header.length,plaintext.length);
-        if(n!=size)throw new IOException("Invalid encrypted size");output.write(record);output.flush();
+        long began=metrics.begin(ENCRYPT);int n;try{n=pair.getSender().encryptWithAd(header,plaintext,0,record,header.length,plaintext.length);}finally{metrics.end(ENCRYPT,began,plaintext.length);}
+        if(n!=size)throw new IOException("Invalid encrypted size");began=metrics.begin(SOCKET_WRITE);try{output.write(record);output.flush();}finally{metrics.end(SOCKET_WRITE,began,record.length);}
     }
     private byte[] readEncrypted(int kind,int maximum)throws GeneralSecurityException,IOException {
         byte[] ciphertext=readEnvelope(kind,maximum+16);if(ciphertext.length<16)throw new IOException("Truncated encrypted record");byte[] plaintext=new byte[ciphertext.length-16];
-        int n=pair.getReceiver().decryptWithAd(aad(kind,ciphertext.length),ciphertext,0,plaintext,0,ciphertext.length);if(n!=plaintext.length)throw new IOException("Invalid clear size");return plaintext;
+        long began=metrics.begin(DECRYPT);int n;try{n=pair.getReceiver().decryptWithAd(aad(kind,ciphertext.length),ciphertext,0,plaintext,0,ciphertext.length);}finally{metrics.end(DECRYPT,began,ciphertext.length);}
+        if(n!=plaintext.length)throw new IOException("Invalid clear size");return plaintext;
     }
     private static byte[] aad(int kind,int size)throws IOException {ByteArrayOutputStream bytes=new ByteArrayOutputStream();DataOutputStream out=new DataOutputStream(bytes);out.writeInt(size+6);out.writeInt(MAGIC);out.writeByte(VERSION);out.writeByte(kind);return bytes.toByteArray();}
     private void writeEnvelope(int kind,byte[] bytes)throws IOException {ensureOpen();DataOutputStream out=new DataOutputStream(output);out.write(aad(kind,bytes.length));out.write(bytes);out.flush();}
     private byte[] readEnvelope(int kind,int maximum)throws IOException {
-        ensureOpen();DataInputStream in=new DataInputStream(input);int size=in.readInt();if(size<6||size>maximum+6)throw new IOException("Invalid NIM4 envelope length");
-        if(in.readInt()!=MAGIC||in.readUnsignedByte()!=VERSION||in.readUnsignedByte()!=kind)throw new UnsupportedProtocolException();
-        byte[] bytes=new byte[size-6];in.readFully(bytes);return bytes;
+        ensureOpen();DataInputStream in=new DataInputStream(input);
+        // DataInputStream.readInt/readUnsignedByte issue scalar reads on an unbuffered socket.
+        // Read the length separately so an invalid length is rejected before waiting for the rest.
+        byte[] header=new byte[10];long began=metrics.begin(SOCKET_HEADER);int size;try{in.readFully(header,0,4);size=ByteBuffer.wrap(header).getInt();
+            if(size<6||size>maximum+6)throw new IOException("Invalid NIM4 envelope length");
+            in.readFully(header,4,6);
+        }finally{metrics.end(SOCKET_HEADER,began,10);}
+        if(ByteBuffer.wrap(header,4,4).getInt()!=MAGIC||(header[8]&255)!=VERSION||(header[9]&255)!=kind)throw new UnsupportedProtocolException();
+        byte[] bytes=new byte[size-6];began=metrics.begin(SOCKET_READ);try{in.readFully(bytes);}finally{metrics.end(SOCKET_READ,began,bytes.length);}return bytes;
     }
     private Claim parseClaim(byte[] bytes)throws IOException {
         DataInputStream in=new DataInputStream(new ByteArrayInputStream(bytes));if(in.readUnsignedByte()!=VERSION||in.readUnsignedByte()!=(initiator?1:0))throw new IOException("Invalid peer role");
