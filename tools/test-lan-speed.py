@@ -27,11 +27,14 @@ def check(condition, name):
     checks.append(name)
 
 def request(method, path, body=None, headers=None):
+    started = time.monotonic()
     conn = http.client.HTTPConnection('127.0.0.1', url.port, timeout=30)
     try:
         conn.request(method, path, body=body, headers=headers or {})
         response = conn.getresponse()
         data = response.read()
+        if len(data) == size or (body is not None and len(body) == size):
+            print(f'Raw {method} complete: {time.monotonic() - started:.3f}s', flush=True)
         return response.status, data, dict(response.getheaders())
     finally:
         conn.close()
@@ -41,7 +44,11 @@ def raw(data):
         client.sendall(data)
         result = bytearray()
         while True:
-            part = client.recv(8192)
+            try:
+                part = client.recv(8192)
+            except ConnectionResetError:
+                # Windows may reset a rejected request with unread header bytes.
+                return bytes(result)
             if not part:
                 return bytes(result)
             result.extend(part)
@@ -87,6 +94,11 @@ try:
                         f'Content-Length: {size}\r\n\r\n').encode() + b'partial')
     code, _, _ = request('GET', url.path)
     check(code == 200, 'server recovers after interrupted upload')
+    with socket.create_connection(('127.0.0.1', url.port), timeout=30):
+        started = time.monotonic()
+        code, _, _ = request('GET', url.path)
+        check(code == 200 and time.monotonic() - started < 2,
+              'idle browser preconnection does not stall a real request')
     from playwright.sync_api import sync_playwright
     with sync_playwright() as p:
         launch = {'headless': True}

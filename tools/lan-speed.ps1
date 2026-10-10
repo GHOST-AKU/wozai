@@ -76,83 +76,105 @@ buttons[0].onclick=()=>run('down');buttons[1].onclick=()=>run('up');
 </script></html>
 '@
 $page = [System.Text.Encoding]::UTF8.GetBytes($html)
-function Write-Headers($Stream, [int]$Code, [string]$Type, [long]$Length) {
-    $reason = if ($Code -eq 200) { 'OK' } else { 'Bad Request' }
-    $headers = "HTTP/1.1 $Code $reason`r`nContent-Type: $Type`r`nContent-Length: $Length`r`nCache-Control: no-store`r`nConnection: close`r`nX-Content-Type-Options: nosniff`r`n`r`n"
-    $bytes = [System.Text.Encoding]::ASCII.GetBytes($headers)
-    $Stream.Write($bytes, 0, $bytes.Length)
+# Concurrent handling avoids a browser's idle preconnection blocking a test.
+if (!("WozaiLanBaseline" -as [type])) { Add-Type -TypeDefinition @'
+using System;
+using System.Collections.Concurrent;
+using System.Globalization;
+using System.IO;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
+using System.Threading;
+public sealed class WozaiLanBaseline : IDisposable {
+    readonly TcpListener listener;
+    readonly byte[] page, block;
+    readonly string prefix;
+    readonly SemaphoreSlim slots = new SemaphoreSlim(4);
+    readonly ConcurrentDictionary<TcpClient, byte> active = new ConcurrentDictionary<TcpClient, byte>();
+    const int Size = 64 * 1024 * 1024;
+    public string Url { get; private set; }
+    public WozaiLanBaseline(string address, int port, string token, byte[] html, byte[] random) {
+        var ip = IPAddress.Parse(address);
+        page = html; block = random; prefix = "/" + token;
+        listener = new TcpListener(ip, port); listener.Start(4);
+        Url = "http://" + address + ":" + ((IPEndPoint)listener.LocalEndpoint).Port + prefix + "/";
+    }
+    static bool Local(IPAddress ip) {
+        var a = ip.GetAddressBytes();
+        return a.Length == 4 && (a[0] == 127 || a[0] == 10 ||
+            (a[0] == 172 && a[1] >= 16 && a[1] <= 31) || (a[0] == 192 && a[1] == 168));
+    }
+    public bool Tick() {
+        if (!listener.Pending()) return false;
+        var client = listener.AcceptTcpClient();
+        if (!Local(((IPEndPoint)client.Client.RemoteEndPoint).Address) || !slots.Wait(0)) { client.Close(); return true; }
+        active.TryAdd(client, 0);
+        ThreadPool.QueueUserWorkItem(delegate(object ignored) {
+            try { Serve(client); }
+            catch { try { Headers(client.GetStream(), 400, "text/plain", 0); } catch { } }
+            finally { byte ignoredValue; active.TryRemove(client, out ignoredValue); client.Close(); slots.Release(); }
+        });
+        return true;
+    }
+    static void Headers(Stream stream, int code, string type, int length) {
+        var value = "HTTP/1.1 " + code + (code == 200 ? " OK" : " Bad Request") +
+            "\r\nContent-Type: " + type + "\r\nContent-Length: " + length +
+            "\r\nCache-Control: no-store\r\nConnection: close\r\nX-Content-Type-Options: nosniff\r\n\r\n";
+        var bytes = Encoding.ASCII.GetBytes(value); stream.Write(bytes, 0, bytes.Length);
+    }
+    void Serve(TcpClient client) {
+        client.NoDelay = true;
+        var stream = client.GetStream(); stream.ReadTimeout = 15000; stream.WriteTimeout = 15000;
+        string[] lines;
+        using (var header = new MemoryStream()) {
+            while (true) {
+                int b = stream.ReadByte(); if (b < 0) throw new IOException("Incomplete headers");
+                header.WriteByte((byte)b); if (header.Length > 8192) throw new IOException("Header limit");
+                var bytes = header.GetBuffer(); int n = (int)header.Length;
+                if (n >= 4 && bytes[n-4] == 13 && bytes[n-3] == 10 && bytes[n-2] == 13 && bytes[n-1] == 10) break;
+            }
+            lines = Encoding.ASCII.GetString(header.ToArray()).Split(new string[] { "\r\n" }, StringSplitOptions.None);
+        }
+        var request = lines[0].Split(' ');
+        if (request.Length != 3 || request[2] != "HTTP/1.1") throw new IOException("Invalid request");
+        long length = -1; bool seen = false;
+        for (int i = 1; i < lines.Length; i++) {
+            if (lines[i].StartsWith("Content-Length:", StringComparison.OrdinalIgnoreCase)) {
+                if (seen || !long.TryParse(lines[i].Substring(15).Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out length))
+                    throw new IOException("Invalid length");
+                seen = true;
+            }
+            if (lines[i].StartsWith("Transfer-Encoding:", StringComparison.OrdinalIgnoreCase)) throw new IOException("Unsupported encoding");
+        }
+        if (request[0] == "GET" && request[1] == prefix + "/") {
+            Headers(stream, 200, "text/html; charset=utf-8", page.Length); stream.Write(page, 0, page.Length);
+        } else if (request[0] == "GET" && request[1] == prefix + "/download") {
+            Headers(stream, 200, "application/octet-stream", Size);
+            for (int sent = 0; sent < Size; sent += block.Length) stream.Write(block, 0, block.Length);
+        } else if (request[0] == "POST" && request[1] == prefix + "/upload" && length == Size) {
+            var buffer = new byte[128 * 1024]; int received = 0;
+            while (received < Size) {
+                int n = stream.Read(buffer, 0, Math.Min(buffer.Length, Size - received));
+                if (n <= 0) throw new IOException("Incomplete upload"); received += n;
+            }
+            var json = Encoding.ASCII.GetBytes("{\"bytes\":" + received + "}");
+            Headers(stream, 200, "application/json", json.Length); stream.Write(json, 0, json.Length);
+        } else Headers(stream, 400, "text/plain", 0);
+    }
+    public void Dispose() {
+        listener.Stop(); foreach (var client in active.Keys) client.Close();
+    }
 }
-$listener = New-Object System.Net.Sockets.TcpListener($ip, $Port)
-$listener.Start(4)
-$actualPort = $listener.LocalEndpoint.Port
+'@ }
+$server = New-Object WozaiLanBaseline($ListenAddress, $Port, $token, $page, $block)
 $expires = [DateTime]::UtcNow.AddMinutes(20)
 $requests = 0
-Write-Host "Open this address in your phone browser: http://${ListenAddress}:${actualPort}${prefix}/"
+Write-Host ("Open this address in your phone browser: " + $server.Url)
 Write-Host 'Random data only. Close this window or press Ctrl+C when finished. Expires in 20 minutes.'
 try {
     while ([DateTime]::UtcNow -lt $expires -and ($MaxRequests -eq 0 -or $requests -lt $MaxRequests)) {
-        if (!$listener.Pending()) { Start-Sleep -Milliseconds 50; continue }
-        $client = $listener.AcceptTcpClient()
-        $requests++
-        try {
-            if (!(Test-LocalAddress $client.Client.RemoteEndPoint.Address)) { continue }
-            $client.NoDelay = $true
-            $stream = $client.GetStream()
-            $stream.ReadTimeout = 15000
-            $stream.WriteTimeout = 15000
-            $header = New-Object System.Collections.Generic.List[byte]
-            while ($true) {
-                $b = $stream.ReadByte()
-                if ($b -lt 0) { throw 'Incomplete HTTP headers.' }
-                $header.Add([byte]$b)
-                $n = $header.Count
-                if ($n -gt 8192) { throw 'HTTP headers too large.' }
-                if ($n -ge 4 -and $header[$n-4] -eq 13 -and $header[$n-3] -eq 10 -and $header[$n-2] -eq 13 -and $header[$n-1] -eq 10) { break }
-            }
-            $lines = [System.Text.Encoding]::ASCII.GetString($header.ToArray()) -split "`r`n"
-            $request = $lines[0] -split ' '
-            if ($request.Count -ne 3 -or $request[2] -ne 'HTTP/1.1') { throw 'Invalid request.' }
-            $method = $request[0]; $path = $request[1]
-            $length = -1L; $lengthSeen = $false
-            foreach ($line in $lines | Select-Object -Skip 1) {
-                if ($line -match '^Content-Length:\s*(\d+)\s*$') {
-                    if ($lengthSeen) { throw 'Duplicate Content-Length.' }
-                    $length = [long]$Matches[1]; $lengthSeen = $true
-                }
-                elseif ($line -match '^Transfer-Encoding:') { throw 'Chunked requests are unsupported.' }
-            }
-            if ($method -eq 'GET' -and $path -eq "$prefix/") {
-                Write-Headers $stream 200 'text/html; charset=utf-8' $page.Length
-                $stream.Write($page, 0, $page.Length)
-            }
-            elseif ($method -eq 'GET' -and $path -eq "$prefix/download") {
-                Write-Headers $stream 200 'application/octet-stream' $size
-                $watch = [System.Diagnostics.Stopwatch]::StartNew()
-                for ($sent = 0; $sent -lt $size; $sent += $block.Length) { $stream.Write($block, 0, $block.Length) }
-                $watch.Stop()
-                Write-Host 'Download bytes queued; use the PHONE result for completed-transfer speed.'
-            }
-            elseif ($method -eq 'POST' -and $path -eq "$prefix/upload" -and $length -eq $size) {
-                $watch = [System.Diagnostics.Stopwatch]::StartNew()
-                $received = 0L
-                while ($received -lt $size) {
-                    $n = $stream.Read($block, 0, [int][Math]::Min($block.Length, $size - $received))
-                    if ($n -le 0) { throw 'Incomplete upload.' }
-                    $received += $n
-                }
-                $watch.Stop()
-                $json = [System.Text.Encoding]::UTF8.GetBytes('{"bytes":' + $received + '}')
-                Write-Headers $stream 200 'application/json' $json.Length
-                $stream.Write($json, 0, $json.Length)
-                Write-Host 'Upload fully received; use the PHONE result for completed-transfer speed.'
-            }
-            else { Write-Headers $stream 400 'text/plain' 0 }
-        }
-        catch {
-            Write-Host ('Request stopped: ' + $_.Exception.Message)
-            try { Write-Headers $stream 400 'text/plain' 0 } catch { }
-        }
-        finally { $client.Close() }
+        if ($server.Tick()) { $requests++ } else { Start-Sleep -Milliseconds 20 }
     }
 }
-finally { $listener.Stop() }
+finally { $server.Dispose() }
