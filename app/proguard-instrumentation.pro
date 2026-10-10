@@ -9,9 +9,16 @@
 -keep class dev.ghost.nearbyim.AndroidText { public *; }
 -keep class dev.ghost.nearbyim.ChatController { public *; }
 -keepclassmembers class dev.ghost.nearbyim.ChatController { java.util.concurrent.ThreadPoolExecutor fileSelection; }
+# Native feedback tests inspect the transient map without adding production hooks.
+-keepclassmembers class dev.ghost.nearbyim.ChatController { java.util.concurrent.ConcurrentHashMap transferProgress; }
+-keep class dev.ghost.nearbyim.ChatController$Feedback { *; }
 -keep class dev.ghost.nearbyim.ChatStore { public *; }
 -keep class dev.ghost.nearbyim.ChatStore$* { public *; }
 -keep class dev.ghost.nearbyim.core.DeviceIdentity { public *; }
+# Security fixtures deliberately alter claims before root-proof verification.
+-keep class dev.ghost.nearbyim.noise.NoiseRecordChannel { *; }
+-keep class dev.ghost.nearbyim.noise.JcaAesGcmCipherState { *; }
+-keep class com.southernstorm.noise.protocol.** { public *; }
 -keep class dev.ghost.nearbyim.core.Frame { public *; }
 -keep class dev.ghost.nearbyim.core.FramedSession { public *; }
 -keep class dev.ghost.nearbyim.core.FramedSession$* { public *; }
@@ -19,8 +26,21 @@
 -keep class dev.ghost.nearbyim.i18n.UiText { public *; }
 -keep class dev.ghost.nearbyim.i18n.I18nResources { public *; }
 -keep class dev.ghost.nearbyim.transport.Peer { public *; }
+# Controlled route/order fixtures call these package entry points from the test APK.
+-keep class dev.ghost.nearbyim.transport.LanTransport {
+    static int networkScore(...);
+    static int routeScore(...);
+    static void bindAndConnect(...);
+}
+-keep interface dev.ghost.nearbyim.transport.LanTransport$SocketBinding { *; }
 
 -keep class dev.ghost.nearbyim.core.Attachment* { public *; }
+-keep class dev.ghost.nearbyim.AndroidAttachmentSource { public *; }
+-keep class dev.ghost.nearbyim.AndroidNoiseIdentity { *; }
+-keep class dev.ghost.nearbyim.core.FileAttachmentSource { public *; }
+-keep class dev.ghost.nearbyim.core.TransferLimits { public *; }
+-keep class dev.ghost.nearbyim.core.Transfer* { public *; }
+-keep class dev.ghost.nearbyim.core.Transfer*$* { public *; }
 -keep class dev.ghost.nearbyim.PhotoDecoder { public *; }
 -keep class dev.ghost.nearbyim.core.ImageOrientation { public *; }
 -keep class dev.ghost.nearbyim.PhotoActivity { *; }

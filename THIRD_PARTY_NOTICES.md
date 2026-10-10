@@ -22,6 +22,20 @@ Windows and Linux packaging include a linked Eclipse Temurin OpenJDK 17 runtime.
 
 The Linux Bluetooth bridge dynamically links the distribution's GLib/GIO libraries (LGPL-2.1-or-later, https://gitlab.gnome.org/GNOME/glib) and uses the system BlueZ D-Bus service (https://www.bluez.org/). These system libraries and bluetoothd are not included in the application package. The Linux native launcher and BlueZ bridge are application source; no BlueZ implementation source is copied into them.
 
+## Noise protocol implementation
+
+The sources under `third_party/noise-java/src` come from Southern Storm Software's
+MIT-licensed [rweather/noise-java](https://github.com/rweather/noise-java), pinned
+to commit `49377b6dfc6a1e75740bce2318118291a57c0d6e`. The complete license is in
+`licenses/noise-java-MIT.txt` and the Android APK's `assets/noise-java-MIT.txt`.
+Source manifests and the explicit three-file system-cipher/RFC 7748/DH validation
+patch are retained under `tests/noise-candidate/`. The first-party adapter uses
+the system AES/GCM implementation. This source provenance and compatibility
+testing do not constitute an independent cryptographic security audit.
+
+The test-only Cacophony vectors are public domain under their included Unlicense;
+they are not packaged into production applications.
+
 ## Google Material Icons
 
 The `app/src/main/res/drawable/outline_*_24.xml` vector icons are Material Icons Outlined assets from Google's official repository, retrieved on 2026-10-01 and 2026-10-04:
@@ -50,5 +64,11 @@ Licensed under Apache License, Version 2.0. The upstream license is retained at 
 | `outline_file_download_24.xml` | `file/file_download/materialiconsoutlined/black/res/drawable` |
 | `outline_zoom_in_24.xml` | `action/zoom_in/materialiconsoutlined/black/res/drawable` |
 | `outline_zoom_out_24.xml` | `action/zoom_out/materialiconsoutlined/black/res/drawable` |
+| `outline_pause_24.xml` | `av/pause/materialiconsoutlined/black/res/drawable` |
+| `outline_play_arrow_24.xml` | `av/play_arrow/materialiconsoutlined/black/res/drawable` |
 
-The Windows and Linux resources under `desktop/src/main/resources/dev/ghost/wozai/icons/` rasterize sixteen of these same Android vector paths for runtime tinting. The original Material Icons license is also included in the Windows and Linux packages. The shared app artwork is maintained at `desktop/assets/icons/master/icon-master-1024.png`; `desktop/assets/icons/windows/nearbyim.ico` contains the Windows launcher sizes.
+The two playback controls were retrieved on 2026-10-09 from pinned upstream commit `49d4db35df873165d6bd6ba09b063c7dafbac2f4` (SHA-256 of upstream pause XML: `464af7751d0f67a1c900ce4809a308c41fbe4c585543b31f3227b21f94893b2f`; play-arrow XML: `7f9fb25ab5d4328b3128d424c44ccf2541c74a2d1bac7fda6670cd0e40252196`).
+
+The Windows and Linux resources under `desktop/src/main/resources/dev/ghost/wozai/icons/` rasterize eighteen of these same Android vector paths for runtime tinting. The original Material Icons license is also included in the Windows and Linux packages. The shared app artwork is maintained at `desktop/assets/icons/master/icon-master-1024.png`; `desktop/assets/icons/windows/nearbyim.ico` contains the Windows launcher sizes.
+
+The desktop file-location control also uses Google's outlined `folder_open` icon, retained at `desktop/assets/material/folder_open.svg` and rasterized without path changes to `icons/folder_open.png`. Retrieved on 2026-10-09 from `https://github.com/google/material-design-icons/blob/49d4db35df873165d6bd6ba09b063c7dafbac2f4/src/file/folder_open/materialiconsoutlined/24px.svg`; upstream SVG SHA-256: `d8f67d1736489be02387aed93d6952bf4f40312899d526ed8d70d91a20ee6b53`. The same Apache 2.0 license applies.

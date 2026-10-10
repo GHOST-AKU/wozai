@@ -8,7 +8,7 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 
-/** Run by the native private-bus fixture: JNI descriptors feed the real signed chat/store pipeline. */
+/** Run by the native private-bus fixture: JNI descriptors feed the real encrypted chat/store pipeline. */
 public final class LinuxBluetoothWireTests {
     private static int passed;
     private static void check(boolean value, String message) { if (!value) throw new AssertionError(message); passed++; }
@@ -45,7 +45,7 @@ public final class LinuxBluetoothWireTests {
                 check(consent != null && consent.publicKey().equals(senderId.signer().publicKey()), "Incoming Bluetooth skipped authenticated consent");
                 check(receiveStore.peer(senderId.id()) == null, "System pairing created app trust before consent");
                 receiver.approve(consent, true).get(3, TimeUnit.SECONDS);
-                await(() -> incoming.ready() && outgoing.ready(), "BlueZ descriptors did not establish NIM3");
+                await(() -> incoming.ready() && outgoing.ready(), "BlueZ descriptors did not establish encrypted NIM4");
                 check(incoming.state.get().transport().equals("bluetooth") && outgoing.state.get().transport().equals("bluetooth"), "Bluetooth route was not retained");
                 check(receiveStore.peer(senderId.id()).publicKey().equals(senderId.signer().publicKey()), "Persistent trust lost verified key");
                 check(sender.send("Linux → Android 协议 🙂\n日本語 한국어").get(3, TimeUnit.SECONDS), "Native Bluetooth send rejected");
@@ -68,7 +68,7 @@ public final class LinuxBluetoothWireTests {
                 await(() -> incoming.idle() && outgoing.idle(), "Revoking trust did not close native Bluetooth");
                 check(receiveStore.peer(senderId.id()).publicKey().isEmpty() && receiveStore.messages(senderId.id()).size() == 3, "Revoke deleted history or preserved trust");
             }
-            System.out.println("LinuxBluetoothWireTests: " + passed + " checks passed (BlueZ D-Bus double, real JNI Unix descriptors, NIM3, persistence, file chunks, ACK, reconnect and revoke; no physical radio)");
+            System.out.println("LinuxBluetoothWireTests: " + passed + " checks passed (BlueZ D-Bus double, real JNI Unix descriptors, encrypted NIM4, persistence, file chunks, ACK, reconnect and revoke; no physical radio)");
         } finally {
             try (var paths = Files.walk(root)) { for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) Files.deleteIfExists(path); }
         }

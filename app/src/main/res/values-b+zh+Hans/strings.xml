@@ -14,12 +14,12 @@
     <string name="android_bluetooth_search_not_started" formatted="false">"搜索没有启动，可尝试已配对设备；Android 11 及以前需打开系统定位"</string>
     <string name="android_bluetooth_unavailable" formatted="false">"这部设备不支持蓝牙，可切换局域网。"</string>
     <string name="android_composer" formatted="false">"说点什么…"</string>
-    <string name="android_direct_body" formatted="false">"输入对方显示的完整地址和端口。局域网消息以明文传输，请使用可信网络。"</string>
-    <string name="android_help_body" formatted="false">"局域网：双方连接同一个 Wi-Fi 或热点，开启接收后搜索，也可输入完整 IP 地址和端口。局域网文字以明文传输，请使用可信网络。\n\n蓝牙：对方开启接收并允许被发现后搜索，首次连接按系统提示配对。已记住设备可通过历史直接连接，对方仍需开启蓝牙和接收服务。\n\n首次聊天可选择记住设备或仅本次。记住后验证同一设备身份再直接连接；可在设置中取消信任。\n\n待确认表示尚未收到保存回执，已送达表示对方已保存，未确认表示结果未知，不能表示已读。\n\n聊天记录保存在本机。草稿在会话切换和界面重建时保留，停止应用后不保证保留。系统结束应用后需要重新开启接收。"</string>
+    <string name="android_direct_body" formatted="false">"输入对方显示的完整地址和端口。"</string>
+    <string name="android_help_body" formatted="false">"局域网：双方连接同一个 Wi-Fi 或热点，开启接收后搜索，也可输入完整 IP 地址和端口。聊天与文件传输使用端到端加密。本机聊天记录和附件不加密。\n\n蓝牙：对方开启接收并允许被发现后搜索，首次连接按系统提示配对。已记住设备可通过历史直接连接，对方仍需开启蓝牙和接收服务。\n\n首次聊天可选择记住设备或仅本次。记住后验证同一设备身份再直接连接；可在设置中取消信任。\n\n待确认表示尚未收到保存回执，已送达表示对方已保存，未确认表示结果未知，不能表示已读。\n\n聊天记录保存在本机。草稿在会话切换和界面重建时保留，停止应用后不保证保留。系统结束应用后需要重新开启接收。"</string>
     <string name="android_identity_changed" formatted="false">"此设备的身份密钥已变化。如确认需要重新认识，请先在设置中取消该设备信任，再重新连接"</string>
-    <string name="android_lan_hint" formatted="false">"两部设备连接同一 Wi-Fi，或加入同一个热点。局域网消息以明文传输，请使用可信网络。"</string>
+    <string name="android_lan_hint" formatted="false">"两部设备连接同一 Wi-Fi，或加入同一个热点。"</string>
     <string name="android_request_body" formatted="false">"{0}连接。记住后，下次可以直接连接。可在设备信息中取消信任。\n\n昵称由对方填写，设备信任不认证真实姓名。"</string>
-    <string name="android_request_lan_body" formatted="false">"{0}连接。记住后，下次可以直接连接。可在设备信息中取消信任。\n\n昵称由对方填写，设备信任不认证真实姓名。局域网消息以明文传输，请使用可信网络。"</string>
+    <string name="android_request_lan_body" formatted="false">"{0}连接。记住后，下次可以直接连接。可在设备信息中取消信任。\n\n昵称由对方填写，设备信任不认证真实姓名。聊天与文件传输使用端到端加密。本机聊天记录和附件不加密。"</string>
     <string name="android_storage_failure" formatted="false">"本地记录读写失败，请重试；若问题持续，请报告错误"</string>
     <string name="android_storage_stopped" formatted="false">"本地记录保存失败，连接已停止"</string>
     <string name="app" formatted="false">"我在"</string>
@@ -28,30 +28,49 @@
     <string name="app_settings" formatted="false">"应用设置"</string>
     <string name="appearance_section" formatted="false">"外观"</string>
     <string name="attachment_accept" formatted="false">"接收"</string>
+    <string name="attachment_checking_progress" formatted="false">"校验续传数据：{0} / {1} · {2}%"</string>
     <string name="attachment_details" formatted="false">"{0} · {1,number} / {2,number} 字节 · {3}"</string>
     <string name="attachment_failed" formatted="false">"文件操作失败，请检查文件授权和可用空间。"</string>
     <string name="attachment_hint" formatted="false">"单文件最大 1 GiB；内容未加密。"</string>
+    <string name="attachment_hint_v2" formatted="false">"单文件最大 10 GiB。"</string>
     <string name="attachment_open" formatted="false">"打开"</string>
     <string name="attachment_overwrite" formatted="false">"文件已存在，是否替换？"</string>
+    <string name="attachment_pause" formatted="false">"暂停传输"</string>
     <string name="attachment_photo_preview" formatted="false">"照片预览：{0}"</string>
     <string name="attachment_progress" formatted="false">"传输进度：{0,number}%；{1}"</string>
+    <string name="attachment_quota" formatted="false">"附件空间配额"</string>
+    <string name="attachment_quota_exceeded" formatted="false">"附件空间配额不足。"</string>
+    <string name="attachment_quota_gi_b" formatted="false">"{0,number} GiB"</string>
+    <string name="attachment_quota_in_use" formatted="false">"新的配额不能小于已占用及预留空间。"</string>
     <string name="attachment_reject" formatted="false">"拒绝"</string>
+    <string name="attachment_resume" formatted="false">"继续传输"</string>
     <string name="attachment_save_as" formatted="false">"另存为"</string>
+    <string name="attachment_show_in_folder" formatted="false">"打开所在位置"</string>
+    <string name="attachment_source_changed" formatted="false">"源文件发生变化，请重新发送。"</string>
+    <string name="attachment_source_permission" formatted="false">"文件读取授权已失效，请重新选择。"</string>
+    <string name="attachment_source_unavailable" formatted="false">"无法读取源文件，请重新选择。"</string>
+    <string name="attachment_speed_eta" formatted="false">"{0}/秒 · 剩余约 {1,number} 秒"</string>
     <string name="attachment_state_awaiting_receipt" formatted="false">"等待保存回执"</string>
     <string name="attachment_state_canceled" formatted="false">"已取消"</string>
+    <string name="attachment_state_checking" formatted="false">"检查续传数据"</string>
     <string name="attachment_state_delivered" formatted="false">"已送达"</string>
     <string name="attachment_state_failed" formatted="false">"传输失败"</string>
     <string name="attachment_state_interrupted" formatted="false">"传输中断"</string>
     <string name="attachment_state_offered" formatted="false">"等待接收"</string>
+    <string name="attachment_state_paused" formatted="false">"已暂停"</string>
     <string name="attachment_state_preparing" formatted="false">"准备中"</string>
     <string name="attachment_state_received" formatted="false">"已接收"</string>
     <string name="attachment_state_rejected" formatted="false">"已拒绝"</string>
+    <string name="attachment_state_source_unavailable" formatted="false">"已暂停：源文件暂时无法读取，恢复访问后可续传"</string>
     <string name="attachment_state_transferring" formatted="false">"传输中"</string>
     <string name="attachment_state_unknown" formatted="false">"结果未知，对方可能已保存"</string>
     <string name="attachment_state_verifying" formatted="false">"校验并保存中"</string>
+    <string name="attachment_storage_full" formatted="false">"可用存储空间不足。"</string>
     <string name="attachment_summary" formatted="false">"{0} · {1}"</string>
+    <string name="attachment_too_large" formatted="false">"文件超过单文件大小限制。"</string>
     <string name="attachment_unavailable" formatted="false">"文件不可用，可能已被删除。"</string>
     <string name="attachment_upgrade_required" formatted="false">"文件传输协议不兼容，请升级双方应用。"</string>
+    <string name="attachment_waiting_resume" formatted="false">"等待对方确认续传…"</string>
     <string name="attachments" formatted="false">"附件"</string>
     <string name="back" formatted="false">"返回"</string>
     <string name="back_to_chats" formatted="false">"返回聊天列表"</string>
@@ -147,6 +166,7 @@
     <string name="device_info_trusted" formatted="false">"已记住这部设备，下次可直接连接。\n\n信任基于设备密钥，不认证真实姓名。取消信任不会删除聊天记录。\n\n设备身份\n{0}"</string>
     <string name="device_info_untrusted" formatted="false">"尚未记住这部设备，下次需要确认。\n\n信任基于设备密钥，不认证真实姓名。取消信任不会删除聊天记录。\n\n设备身份\n{0}"</string>
     <string name="device_section" formatted="false">"这部设备"</string>
+    <string name="diagnostics_copied" formatted="false">"传输诊断已复制"</string>
     <string name="direct" formatted="false">"通过 IP 地址连接"</string>
     <string name="disconnect" formatted="false">"断开连接"</string>
     <string name="disconnect_and_connect" formatted="false">"结束并连接"</string>
@@ -158,6 +178,7 @@
     <string name="earlier" formatted="false">"较早"</string>
     <string name="emoji" formatted="false">"表情"</string>
     <string name="empty_chat" formatted="false">"从左侧选择聊天，或在“附近”连接一台设备。"</string>
+    <string name="encrypted_via" formatted="false">"端到端加密 · {0}"</string>
     <string name="endpoint" formatted="false">"对方的 IP 地址与端口"</string>
     <string name="endpoint_hint" formatted="false">"例如 192.168.1.20:54321。请在对方的“我的连接”中查看。"</string>
     <string name="endpoint_required" formatted="false">"请输入局域网 IP 地址和端口。"</string>
@@ -174,8 +195,8 @@
     <string name="handshake" formatted="false">"正在验证设备…"</string>
     <string name="handshake_timeout" formatted="false">"对方没有响应握手，请重新连接。"</string>
     <string name="help" formatted="false">"使用说明"</string>
-    <string name="help_body_linux" formatted="false">"局域网：双方连接同一个 Wi-Fi 或热点，开启接收后搜索，也可输入完整 IP 地址和端口。局域网文字以明文传输，请使用可信网络。\n\n蓝牙：开启适配器和 BlueZ 系统服务。双方开启接收，被搜索的一方允许被发现。首次配对需要运行桌面系统的配对代理，可在系统蓝牙设置中配对。列表显示已配对及搜索到的设备，记住的设备可从历史重连。停止接收不会中断已建立的聊天。\n\n首次聊天可选择记住设备或仅本次。系统配对不等于应用内信任。重连验证同一公钥；可在设置中取消信任。\n\n待确认表示尚未收到保存回执，已送达表示对方已保存，未确认表示结果未知，均不表示已读。\n\n记录与草稿保存在本机，重启后保留。退出后需要重新开启接收。数据位于 XDG_DATA_HOME/wozai，默认 ~/.local/share/wozai，与软件安装位置无关。设备私钥没有额外加密，使用仅当前用户可访问的文件权限保护。删除数据会删除记录和设备信任。"</string>
-    <string name="help_body_windows" formatted="false">"局域网：双方连接同一个 Wi-Fi 或热点，开启接收后搜索，也可输入完整 IP 地址和端口。局域网文字以明文传输，请使用可信网络。\n\n蓝牙：对方开启接收并允许被发现后搜索，首次连接按系统提示配对。Windows 可通过“Windows 蓝牙设置”完成配对。已记住设备可通过历史直接连接，对方仍需开启蓝牙和接收服务。\n\n首次聊天可选择记住设备或仅本次。记住后验证同一设备身份再直接连接；可在设置中取消信任。\n\n待确认表示尚未收到保存回执，已送达表示对方已保存，未确认表示结果未知，不能表示已读。\n\n聊天记录保存在本机。Windows 端的草稿会保存，切换会话或重启后仍可恢复。退出后需要重新开启接收。\n\n便携版数据放在软件旁的 data 文件夹，旧版资料迁移后原件保留。设备私钥由当前 Windows 用户保护，复制到另一用户或电脑不会自动解锁身份。删除 data 会删除记录和设备信任。"</string>
+    <string name="help_body_linux" formatted="false">"局域网：双方连接同一个 Wi-Fi 或热点，开启接收后搜索，也可输入完整 IP 地址和端口。聊天与文件传输使用端到端加密。本机聊天记录和附件不加密。\n\n蓝牙：开启适配器和 BlueZ 系统服务。双方开启接收，被搜索的一方允许被发现。首次配对需要运行桌面系统的配对代理，可在系统蓝牙设置中配对。列表显示已配对及搜索到的设备，记住的设备可从历史重连。停止接收不会中断已建立的聊天。\n\n首次聊天可选择记住设备或仅本次。系统配对不等于应用内信任。重连验证同一公钥；可在设置中取消信任。\n\n待确认表示尚未收到保存回执，已送达表示对方已保存，未确认表示结果未知，均不表示已读。\n\n记录与草稿保存在本机，重启后保留。退出后需要重新开启接收。数据位于 XDG_DATA_HOME/wozai，默认 ~/.local/share/wozai，与软件安装位置无关。设备私钥没有额外加密，使用仅当前用户可访问的文件权限保护。删除数据会删除记录和设备信任。"</string>
+    <string name="help_body_windows" formatted="false">"局域网：双方连接同一个 Wi-Fi 或热点，开启接收后搜索，也可输入完整 IP 地址和端口。聊天与文件传输使用端到端加密。本机聊天记录和附件不加密。\n\n蓝牙：对方开启接收并允许被发现后搜索，首次连接按系统提示配对。Windows 可通过“Windows 蓝牙设置”完成配对。已记住设备可通过历史直接连接，对方仍需开启蓝牙和接收服务。\n\n首次聊天可选择记住设备或仅本次。记住后验证同一设备身份再直接连接；可在设置中取消信任。\n\n待确认表示尚未收到保存回执，已送达表示对方已保存，未确认表示结果未知，不能表示已读。\n\n聊天记录保存在本机。Windows 端的草稿会保存，切换会话或重启后仍可恢复。退出后需要重新开启接收。\n\n便携版数据放在软件旁的 data 文件夹，旧版资料迁移后原件保留。设备私钥由当前 Windows 用户保护，复制到另一用户或电脑不会自动解锁身份。删除 data 会删除记录和设备信任。"</string>
     <string name="history_trust_retained" formatted="false">"本机聊天记录和信任会保留。"</string>
     <string name="identity_changed" formatted="false">"设备身份与历史记录不符，已拒绝连接。请先确认对方是否重装了应用。"</string>
     <string name="identity_changed_rejected" formatted="false">"设备身份已变化，连接已拒绝"</string>
@@ -265,7 +286,7 @@
     <string name="photo_zoom_out" formatted="false">"缩小照片"</string>
     <string name="please_wait_connecting" formatted="false">"正在连接，请稍候"</string>
     <string name="portable_hint" formatted="false">"便携版默认将数据保存在软件旁的 data 文件夹。旧版数据会复制迁移并保留原件。设备身份仍由当前 Windows 用户保护，复制到另一用户或电脑不会自动解锁身份。"</string>
-    <string name="privacy" formatted="false">"无需账号或远程服务器。聊天记录保存在本机。局域网文字仍是明文；身份签名不提供内容加密。"</string>
+    <string name="privacy" formatted="false">"无需账号或远程服务器。聊天与文件传输使用端到端加密，本机记录和附件不加密。首次连接请当面核对设备身份。"</string>
     <string name="quit" formatted="false">"退出"</string>
     <string name="ready" formatted="false">"已连接"</string>
     <string name="received" formatted="false">"已收到"</string>
@@ -329,6 +350,7 @@
     <string name="system_language" formatted="false">"跟随系统"</string>
     <string name="theme" formatted="false">"主题"</string>
     <string name="today" formatted="false">"今天"</string>
+    <string name="transfer_diagnostics" formatted="false">"复制传输诊断"</string>
     <string name="trust_hint" formatted="false">"信任绑定设备公钥，局域网和蓝牙共用。取消信任会断开该设备，聊天记录仍保留。"</string>
     <string name="trust_revoked_canceled" formatted="false">"信任已取消，连接尝试已停止"</string>
     <string name="trust_revoked_reconnect" formatted="false">"信任已取消，请重新连接并同意"</string>

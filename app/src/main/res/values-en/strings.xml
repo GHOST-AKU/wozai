@@ -14,12 +14,12 @@
     <string name="android_bluetooth_search_not_started" formatted="false">"Search did not start. Try a paired device. Android 11 and earlier also require system location to be on."</string>
     <string name="android_bluetooth_unavailable" formatted="false">"This device does not support Bluetooth. Use LAN instead."</string>
     <string name="android_composer" formatted="false">"Write a message…"</string>
-    <string name="android_direct_body" formatted="false">"Enter the complete address and port shown on the other device. LAN messages are sent in plaintext, so use a trusted network."</string>
-    <string name="android_help_body" formatted="false">"LAN: Connect both devices to the same Wi-Fi or hotspot. Enable reception and search, or enter the complete IP address and port. LAN text is sent in plaintext, so use a trusted network.\n\nBluetooth: Search after the other device enables reception and discovery. Follow system pairing prompts on the first connection. Remembered devices can reconnect from chat history while Bluetooth and reception remain enabled on the other device.\n\nFor the first chat, remember the device or allow this time only. Reconnection verifies the same device identity. Revoke trust in Settings.\n\nPending means no storage receipt has arrived. Delivered means the other device saved the message. Unconfirmed means the result is unknown. These states do not mean read.\n\nHistory stays on this device. Drafts are kept when switching chats or rebuilding the interface, but may be lost when the app stops. Enable reception again after the system stops the app."</string>
+    <string name="android_direct_body" formatted="false">"Enter the complete address and port shown on the other device."</string>
+    <string name="android_help_body" formatted="false">"LAN: Connect both devices to the same Wi-Fi or hotspot. Enable reception and search, or enter the complete IP address and port. Chat and file transfers are end-to-end encrypted. Local history and attachments are not encrypted.\n\nBluetooth: Search after the other device enables reception and discovery. Follow system pairing prompts on the first connection. Remembered devices can reconnect from chat history while Bluetooth and reception remain enabled on the other device.\n\nFor the first chat, remember the device or allow this time only. Reconnection verifies the same device identity. Revoke trust in Settings.\n\nPending means no storage receipt has arrived. Delivered means the other device saved the message. Unconfirmed means the result is unknown. These states do not mean read.\n\nHistory stays on this device. Drafts are kept when switching chats or rebuilding the interface, but may be lost when the app stops. Enable reception again after the system stops the app."</string>
     <string name="android_identity_changed" formatted="false">"This device identity key has changed. If you want to establish trust again, revoke its trust in Settings and reconnect."</string>
-    <string name="android_lan_hint" formatted="false">"Connect both devices to the same Wi-Fi or hotspot. LAN messages are sent in plaintext, so use a trusted network."</string>
+    <string name="android_lan_hint" formatted="false">"Connect both devices to the same Wi-Fi or hotspot."</string>
     <string name="android_request_body" formatted="false">"Connection over {0}. Remember this device to reconnect next time. You can revoke trust in Device information.\n\nThe other person chooses their nickname. Device trust does not verify their real name."</string>
-    <string name="android_request_lan_body" formatted="false">"Connection over {0}. Remember this device to reconnect next time. You can revoke trust in Device information.\n\nThe other person chooses their nickname. Device trust does not verify their real name. LAN messages are sent in plaintext, so use a trusted network."</string>
+    <string name="android_request_lan_body" formatted="false">"Connection over {0}. Remember this device to reconnect next time. You can revoke trust in Device information.\n\nThe other person chooses their nickname. Device trust does not verify their real name. Chat and file transfers are end-to-end encrypted. Local history and attachments are not encrypted."</string>
     <string name="android_storage_failure" formatted="false">"Local data could not be read or saved. Try again; if the problem persists, report the error."</string>
     <string name="android_storage_stopped" formatted="false">"Local data could not be saved. The connection was stopped."</string>
     <string name="app" formatted="false">"NearbyIM"</string>
@@ -28,30 +28,49 @@
     <string name="app_settings" formatted="false">"App settings"</string>
     <string name="appearance_section" formatted="false">"Appearance"</string>
     <string name="attachment_accept" formatted="false">"Accept"</string>
+    <string name="attachment_checking_progress" formatted="false">"Checking saved data: {0} / {1} · {2}%"</string>
     <string name="attachment_details" formatted="false">"{0} · {1,number} / {2,number} bytes · {3}"</string>
     <string name="attachment_failed" formatted="false">"File operation failed. Check file access and available space."</string>
     <string name="attachment_hint" formatted="false">"Up to 1 GiB per file. Contents are not encrypted."</string>
+    <string name="attachment_hint_v2" formatted="false">"Up to 10 GiB per file."</string>
     <string name="attachment_open" formatted="false">"Open"</string>
     <string name="attachment_overwrite" formatted="false">"File exists. Replace it?"</string>
+    <string name="attachment_pause" formatted="false">"Pause transfer"</string>
     <string name="attachment_photo_preview" formatted="false">"Photo preview: {0}"</string>
     <string name="attachment_progress" formatted="false">"Transfer progress: {0,number}%; {1}"</string>
+    <string name="attachment_quota" formatted="false">"Attachment storage quota"</string>
+    <string name="attachment_quota_exceeded" formatted="false">"The attachment storage quota is insufficient."</string>
+    <string name="attachment_quota_gi_b" formatted="false">"{0,number} GiB"</string>
+    <string name="attachment_quota_in_use" formatted="false">"The new quota must cover stored and reserved space."</string>
     <string name="attachment_reject" formatted="false">"Reject"</string>
+    <string name="attachment_resume" formatted="false">"Resume transfer"</string>
     <string name="attachment_save_as" formatted="false">"Save as"</string>
+    <string name="attachment_show_in_folder" formatted="false">"Show in folder"</string>
+    <string name="attachment_source_changed" formatted="false">"The source changed. Send it again."</string>
+    <string name="attachment_source_permission" formatted="false">"File read permission is unavailable. Select the source again."</string>
+    <string name="attachment_source_unavailable" formatted="false">"The source cannot be read. Select it again."</string>
+    <string name="attachment_speed_eta" formatted="false">"{0}/s · About {1,number} seconds left"</string>
     <string name="attachment_state_awaiting_receipt" formatted="false">"Waiting for save receipt"</string>
     <string name="attachment_state_canceled" formatted="false">"Canceled"</string>
+    <string name="attachment_state_checking" formatted="false">"Checking saved data"</string>
     <string name="attachment_state_delivered" formatted="false">"Delivered"</string>
     <string name="attachment_state_failed" formatted="false">"Transfer failed"</string>
     <string name="attachment_state_interrupted" formatted="false">"Transfer interrupted"</string>
     <string name="attachment_state_offered" formatted="false">"Waiting for acceptance"</string>
+    <string name="attachment_state_paused" formatted="false">"Paused"</string>
     <string name="attachment_state_preparing" formatted="false">"Preparing"</string>
     <string name="attachment_state_received" formatted="false">"Received"</string>
     <string name="attachment_state_rejected" formatted="false">"Rejected"</string>
+    <string name="attachment_state_source_unavailable" formatted="false">"Paused: source temporarily unreadable. Restore access, then resume."</string>
     <string name="attachment_state_transferring" formatted="false">"Transferring"</string>
     <string name="attachment_state_unknown" formatted="false">"Result unknown; the peer may have saved it"</string>
     <string name="attachment_state_verifying" formatted="false">"Verifying and saving"</string>
+    <string name="attachment_storage_full" formatted="false">"Available storage is insufficient."</string>
     <string name="attachment_summary" formatted="false">"{0} · {1}"</string>
+    <string name="attachment_too_large" formatted="false">"This file exceeds the file size limit."</string>
     <string name="attachment_unavailable" formatted="false">"File unavailable. It may have been deleted."</string>
     <string name="attachment_upgrade_required" formatted="false">"Incompatible transfer protocol. Update the app on both devices."</string>
+    <string name="attachment_waiting_resume" formatted="false">"Waiting for the peer to confirm resume…"</string>
     <string name="attachments" formatted="false">"Attachments"</string>
     <string name="back" formatted="false">"Back"</string>
     <string name="back_to_chats" formatted="false">"Back to chats"</string>
@@ -147,6 +166,7 @@
     <string name="device_info_trusted" formatted="false">"This device is remembered and can reconnect next time.\n\nTrust is based on the device key, not a verified real name. Revoking trust keeps chat history.\n\nDevice identity\n{0}"</string>
     <string name="device_info_untrusted" formatted="false">"This device is not remembered. The next connection will require approval.\n\nTrust is based on the device key, not a verified real name. Revoking trust keeps chat history.\n\nDevice identity\n{0}"</string>
     <string name="device_section" formatted="false">"This device"</string>
+    <string name="diagnostics_copied" formatted="false">"Transfer diagnostics copied"</string>
     <string name="direct" formatted="false">"Connect by IP address"</string>
     <string name="disconnect" formatted="false">"Disconnect"</string>
     <string name="disconnect_and_connect" formatted="false">"Disconnect and connect"</string>
@@ -158,6 +178,7 @@
     <string name="earlier" formatted="false">"Earlier"</string>
     <string name="emoji" formatted="false">"Emoji"</string>
     <string name="empty_chat" formatted="false">"Select a chat on the left, or connect to a device in Nearby."</string>
+    <string name="encrypted_via" formatted="false">"End-to-end encrypted · {0}"</string>
     <string name="endpoint" formatted="false">"Peer IP address and port"</string>
     <string name="endpoint_hint" formatted="false">"For example 192.168.1.20:54321. Read this from the other device."</string>
     <string name="endpoint_required" formatted="false">"Enter a local IP address and port."</string>
@@ -174,8 +195,8 @@
     <string name="handshake" formatted="false">"Verifying device…"</string>
     <string name="handshake_timeout" formatted="false">"The other device did not respond to verification. Connect again."</string>
     <string name="help" formatted="false">"How to use"</string>
-    <string name="help_body_linux" formatted="false">"LAN: Join the same Wi-Fi or hotspot. Enable reception and search, or enter the complete IP address and port. LAN text is plaintext; use a trusted network.\n\nBluetooth: Enable the adapter and the BlueZ system service. Enable reception on both devices and discoverability on the device being searched. Use system Bluetooth settings for pairing; a running desktop pairing agent is required for new devices. Paired devices and nearby search results appear in the list. Remembered devices can reconnect from history. Stopping reception keeps an established chat open.\n\nApprove and remember a device or allow this time only. System pairing alone does not grant app trust. Reconnection verifies the same public key. Revoke trust in Settings.\n\nPending means no storage receipt yet; delivered means the other device saved the message; unconfirmed means the result is unknown. None means read.\n\nHistory and drafts survive restarts. Enable reception again after quitting. Data is stored in XDG_DATA_HOME/wozai, or ~/.local/share/wozai by default, independently of the application folder. Private keys are stored without additional encryption and protected by owner-only file permissions. Deleting data removes history and device trust."</string>
-    <string name="help_body_windows" formatted="false">"LAN: Join the same Wi-Fi or hotspot on both devices. Enable reception and search, or enter the full IP address and port. LAN text is plaintext; use a trusted network.\n\nBluetooth: Enable reception and discoverability on the other device. Follow system pairing prompts on the first connection, using Windows Bluetooth settings if needed. Remembered devices can reconnect from chat history while Bluetooth and reception remain enabled.\n\nFor the first chat, approve and remember the device or allow this time only. Reconnection verifies the same device identity. Revoke trust in Settings.\n\nPending means no storage receipt yet. Delivered means the other device saved the message. Unconfirmed means the result is unknown. These states do not mean read.\n\nHistory stays on this computer. Windows drafts survive conversation changes and restarts. Enable reception again after quitting.\n\nPortable data lives in the data folder beside the app. Migration retains original files. Private identity is protected by the current Windows user and cannot automatically unlock on another user or computer. Deleting data removes history and device trust."</string>
+    <string name="help_body_linux" formatted="false">"LAN: Join the same Wi-Fi or hotspot. Enable reception and search, or enter the complete IP address and port. Chat and file transfers are end-to-end encrypted. Local history and attachments are not encrypted.\n\nBluetooth: Enable the adapter and the BlueZ system service. Enable reception on both devices and discoverability on the device being searched. Use system Bluetooth settings for pairing; a running desktop pairing agent is required for new devices. Paired devices and nearby search results appear in the list. Remembered devices can reconnect from history. Stopping reception keeps an established chat open.\n\nApprove and remember a device or allow this time only. System pairing alone does not grant app trust. Reconnection verifies the same public key. Revoke trust in Settings.\n\nPending means no storage receipt yet; delivered means the other device saved the message; unconfirmed means the result is unknown. None means read.\n\nHistory and drafts survive restarts. Enable reception again after quitting. Data is stored in XDG_DATA_HOME/wozai, or ~/.local/share/wozai by default, independently of the application folder. Private keys are stored without additional encryption and protected by owner-only file permissions. Deleting data removes history and device trust."</string>
+    <string name="help_body_windows" formatted="false">"LAN: Join the same Wi-Fi or hotspot on both devices. Enable reception and search, or enter the full IP address and port. Chat and file transfers are end-to-end encrypted. Local history and attachments are not encrypted.\n\nBluetooth: Enable reception and discoverability on the other device. Follow system pairing prompts on the first connection, using Windows Bluetooth settings if needed. Remembered devices can reconnect from chat history while Bluetooth and reception remain enabled.\n\nFor the first chat, approve and remember the device or allow this time only. Reconnection verifies the same device identity. Revoke trust in Settings.\n\nPending means no storage receipt yet. Delivered means the other device saved the message. Unconfirmed means the result is unknown. These states do not mean read.\n\nHistory stays on this computer. Windows drafts survive conversation changes and restarts. Enable reception again after quitting.\n\nPortable data lives in the data folder beside the app. Migration retains original files. Private identity is protected by the current Windows user and cannot automatically unlock on another user or computer. Deleting data removes history and device trust."</string>
     <string name="history_trust_retained" formatted="false">"Chat history and device trust will be retained on this device."</string>
     <string name="identity_changed" formatted="false">"This device identity differs from your history. Connection refused. Check whether the peer reinstalled the app."</string>
     <string name="identity_changed_rejected" formatted="false">"Device identity changed. Connection refused."</string>
@@ -265,7 +286,7 @@
     <string name="photo_zoom_out" formatted="false">"Zoom out"</string>
     <string name="please_wait_connecting" formatted="false">"Connecting. Please wait."</string>
     <string name="portable_hint" formatted="false">"Portable builds keep data in the data folder beside the app. Legacy data is copied and retained. Identity is protected by the current Windows user; another user or computer cannot automatically unlock it."</string>
-    <string name="privacy" formatted="false">"No account or remote server. History stays on this computer. LAN text is still plaintext; identity signatures do not encrypt content."</string>
+    <string name="privacy" formatted="false">"No account or remote server. Chat and file transfers are end-to-end encrypted; local history and attachments are not encrypted. Confirm the device identity in person on the first connection."</string>
     <string name="quit" formatted="false">"Quit"</string>
     <string name="ready" formatted="false">"Connected"</string>
     <string name="received" formatted="false">"Received"</string>
@@ -329,6 +350,7 @@
     <string name="system_language" formatted="false">"Follow system"</string>
     <string name="theme" formatted="false">"Theme"</string>
     <string name="today" formatted="false">"Today"</string>
+    <string name="transfer_diagnostics" formatted="false">"Copy transfer diagnostics"</string>
     <string name="trust_hint" formatted="false">"Trust pins a device public key across LAN and Bluetooth. Revoking trust disconnects that device and keeps chat history."</string>
     <string name="trust_revoked_canceled" formatted="false">"Trust revoked. The connection attempt was stopped."</string>
     <string name="trust_revoked_reconnect" formatted="false">"Trust revoked. Connect again and approve the request."</string>

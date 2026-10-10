@@ -42,7 +42,7 @@ public final class Protocol {
         validate(frame); return frame;
     }
 
-    private static void validate(Frame frame) throws IOException {
+    static void validate(Frame frame) throws IOException {
         if (frame == null || frame.id == null || frame.body == null || frame.timestamp < 0) throw new IOException("Invalid frame");
         if(frame.type<Frame.FILE_OFFER && (frame.offset!=0||frame.data.length!=0))throw new IOException("Unexpected binary payload");
         switch (frame.type) {

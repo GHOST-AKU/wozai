@@ -148,10 +148,11 @@ public final class DesktopStore implements AutoCloseable {
         if(Files.isSymbolicLink(directory))throw new IOException("Unsafe attachment directory");return directory;
     }
     public synchronized Path attachmentFile(String peer,AttachmentInfo info)throws IOException {return AttachmentTransfer.file(attachmentDirectory(peer),info);}
+    public synchronized Path attachmentsRoot()throws IOException {Path base=root.resolve("attachments");if(Files.isSymbolicLink(base))throw new IOException("Unsafe attachment root");Files.createDirectories(base);AtomicFiles.privatePermissions(base,true);return base;}
     public synchronized Path attachmentFile(String peer,AttachmentInfo info,boolean outgoing)throws IOException {return AttachmentTransfer.file(attachmentDirectory(peer),info,outgoing);}
     public synchronized void attachment(String peer,AttachmentRecord record)throws IOException {
         Path file=messageFile(peer,record.info.id,record.outgoing);Message previous=Files.exists(file)?readMessage(file):null;
-        if(previous!=null&&(previous.attachment()==null||!previous.attachment().active()&&!previous.attachment().equals(record)))throw new IOException("Conflicting attachment ID");
+        if(previous!=null&&(previous.attachment()==null||!previous.attachment().mayReplace(record)))throw new IOException("Conflicting attachment ID");
         String state=record.outgoing?(record.state.equals("delivered")?"delivered":record.active()?"pending":"unknown"):"received";
         writeMessage(file,new Message(record.info.id,record.info.name,previous==null?System.currentTimeMillis():previous.time(),record.outgoing,state,record.info.time,record));
     }
@@ -165,7 +166,7 @@ public final class DesktopStore implements AutoCloseable {
         Path contents=attachmentDirectory(peer);if(Files.exists(contents))AttachmentTransfer.clean(contents,received);
     }
     public synchronized void clear(String id) throws IOException {
-        Path contents=attachmentDirectory(id);if(Files.exists(contents))AttachmentTransfer.clean(contents,Set.of());
+        Path contents=attachmentDirectory(id);if(Files.exists(contents))AttachmentTransfer.clear(contents);
         Path path = messagesPath(id); if (!Files.exists(path)) return;
         try (var files = Files.list(path)) { for (Path file : files.toList()) Files.delete(file); }
     }

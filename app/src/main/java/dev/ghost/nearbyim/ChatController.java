@@ -37,15 +37,23 @@ public final class ChatController implements TransportListener {
     private final LanTransport lan;
     private final BluetoothTransport bluetooth;
     private final DeviceIdentity identity;
+    private final CompletableFuture<byte[]> noiseIdentity=new CompletableFuture<>();
     private final TrustPolicy trust = new TrustPolicy();
     private final Hooks hooks;
     private Runnable observer, reconnectTimeout;
-    private FramedSession active;
-    private AttachmentTransfer transfers;
+    private volatile FramedSession active;
+    private volatile ClientAttachmentTransfers transfers;
     private long attachmentToken;
     private CompletableFuture<Void> attachmentsStopped=CompletableFuture.completedFuture(null);
+    private CompletableFuture<ClientAttachmentTransfers> attachmentsPreparing;
     private final ContentResolver resolver;
+    private final Context applicationContext;
+    private volatile TransferStorageBudget attachmentStorage;
+    private record Feedback(AttachmentRecord record,TransferProgress progress){}
+    private final ConcurrentHashMap<String,Feedback> transferProgress=new ConcurrentHashMap<>();
     private final ThreadPoolExecutor fileSelection=new ThreadPoolExecutor(1,1,0,TimeUnit.SECONDS,new ArrayBlockingQueue<>(2),r->{Thread t=new Thread(r,"attachment-document");t.setDaemon(true);return t;},new ThreadPoolExecutor.AbortPolicy());
+    private final ConcurrentHashMap<AttachmentSource,Long> selectingSources=new ConcurrentHashMap<>();
+    private final Set<StreamConnection> waitingForNoise=new HashSet<>();
     private Frame remoteHello;
     private TrustPolicy.Authorization authorization;
     private int connectingMode;
@@ -53,7 +61,7 @@ public final class ChatController implements TransportListener {
     private boolean rememberOutgoing, destroyed;
 
     public ChatController(Context context, Hooks hooks) {
-        this.hooks = hooks; resolver=context.getApplicationContext().getContentResolver();preferences = context.getSharedPreferences("identity", Context.MODE_PRIVATE);
+        this.hooks = hooks;applicationContext=context.getApplicationContext();resolver=applicationContext.getContentResolver();preferences = context.getSharedPreferences("identity", Context.MODE_PRIVATE);
         String id = preferences.getString("id", null);
         boolean existingIdentity = id != null;
         if (id == null) { id = UUID.randomUUID().toString(); preferences.edit().putString("id", id).apply(); }
@@ -63,7 +71,10 @@ public final class ChatController implements TransportListener {
         try { loaded = AndroidIdentity.load(); }
         catch (GeneralSecurityException | RuntimeException e) { error = UiText.of("identityUnavailableRestart"); }
         identity = loaded;
+        if(identity!=null)storage.execute(()->{try{noiseIdentity.complete(AndroidNoiseIdentity.load(applicationContext,identity));}catch(Exception failure){noiseIdentity.completeExceptionally(failure);main.post(()->{if(!destroyed)fail(UiText.of("identityUnavailableRestart"));});}});
+        else noiseIdentity.completeExceptionally(new IOException("Device identity unavailable"));
         store = new ChatStore(context); lan = new LanTransport(context, this); bluetooth = new BluetoothTransport(context, this);
+        try{attachmentStorage=new TransferStorageBudget(store.attachmentsRoot(),preferences.getLong("attachmentQuota",TransferStorageBudget.DEFAULT_QUOTA));}catch(IOException error){this.error=attachmentError(error);}
         db(store::recoverPending, null); refresh();
     }
     public void observe(Runnable observer) { this.observer = observer; if (observer != null) observer.run(); }
@@ -164,6 +175,7 @@ public final class ChatController implements TransportListener {
     }
     private void cancelOutgoing() {
         clearReconnectWait(); lan.cancelConnect(); bluetooth.cancelConnect();
+        for(StreamConnection connection:waitingForNoise)close(connection);waitingForNoise.clear();
         connecting = false; expectedPeerId = null; outgoingBluetoothAddress = null; rememberOutgoing = false;
     }
     public void revokeTrust(String peerId) {
@@ -171,16 +183,17 @@ public final class ChatController implements TransportListener {
         trust.revoke(peerId);
         trustedDevices = new ArrayList<>(trustedDevices);
         trustedDevices.removeIf(device -> device.id.equals(peerId));
-        // Keep an established current chat, but cancel authorization still in flight.
         if (remoteHello != null && peerId.equals(remoteHello.id)) {
             trust.cancel(authorization);
-            if (!connected) closeActive(UiText.of("trustRevokedReconnect"));
+            closeActive(UiText.of("trustRevokedReconnect"));
         }
         if (connecting && peerId.equals(expectedPeerId)) {
             if (active != null) closeActive(UiText.of("trustRevokedCanceled"));
             else { cancelOutgoing(); status = UiText.of("trustRevokedCanceled"); }
         }
-        db(() -> store.revokeTrust(peerId), this::refresh); changed();
+        db(()->store.revokeTrust(peerId),this::refresh);
+        attachmentsStopped=attachmentsStopped.handle((value,failure)->null).thenRunAsync(()->{try{for(AttachmentRecord record:AttachmentTransferV2.cancelPending(store.attachmentDirectory(peerId)))store.attachment(peerId,peerId,record);AndroidAttachmentSource.releaseUnusedGrants(applicationContext);}catch(IOException failure){throw new CompletionException(failure);}},storage);
+        attachmentsStopped.whenComplete((value,failure)->main.post(()->{if(!destroyed){if(failure!=null)fail(attachmentError(failure));refresh();}}));changed();
     }
     public void onPeer(Peer peer) {
         if (destroyed) return;
@@ -212,6 +225,10 @@ public final class ChatController implements TransportListener {
     public void onConnection(int mode, StreamConnection connection, boolean incoming, String bluetoothAddress) {
         if (destroyed || identity == null || !running(mode) || active != null || (incoming && connecting)
                 || (!incoming && (!connecting || connectingMode != mode))) { close(connection); return; }
+        if(!noiseIdentity.isDone()){if(waitingForNoise.add(connection))noiseIdentity.whenComplete((key,failure)->main.post(()->{if(waitingForNoise.remove(connection))onConnection(mode,connection,incoming,bluetoothAddress);}));return;}
+        final byte[] staticKey;
+        try{staticKey=noiseIdentity.getNow(null);if(staticKey==null)throw new CompletionException(new IOException("Noise identity unavailable"));}
+        catch(CompletionException failure){close(connection);cancelOutgoing();fail(UiText.of("identityUnavailableRestart"));return;}
         final String expected = incoming ? null : expectedPeerId;
         final long attemptRevision = expected == null ? -1 : trust.peerRevision(expected);
         final boolean remember = !incoming && rememberOutgoing;
@@ -220,7 +237,7 @@ public final class ChatController implements TransportListener {
         sessionMode = mode; remoteHello = null; authorization = null;
         status = UiText.of("handshake"); error = UiText.EMPTY;
         final FramedSession[] reference = new FramedSession[1];
-        reference[0] = new FramedSession(connection, localId, nickname, identity, new FramedSession.Listener() {
+        try{reference[0] = FramedSession.secure(connection, localId, nickname, identity,staticKey,!incoming,new FramedSession.Listener() {
             public void onHello(Frame hello) { main.post(() -> {
                 if (active != reference[0]) return;
                 String publicKey = reference[0].remotePublicKey();
@@ -237,7 +254,7 @@ public final class ChatController implements TransportListener {
                         closeActive(UiText.of("identityChangedRejected"));
                         fail(UiText.of("androidIdentityChanged"));
                     } else if (authorization.decision == TrustPolicy.Decision.APPROVE) {
-                        status = incoming ? UiText.of("completingConnection") : UiText.of("waitingPeerConsent"); reference[0].approve(); changed();
+                        status = incoming ? UiText.of("completingConnection") : UiText.of("waitingPeerConsent"); approveWithFiles(reference[0]); changed();
                     } else {
                         approvalId = UUID.randomUUID().toString(); approvalName = hello.body; status = UiText.of("consent"); changed();
                     }
@@ -249,15 +266,7 @@ public final class ChatController implements TransportListener {
                 approvalId = null; approvalName = null; expectedPeerId = null; outgoingBluetoothAddress = null;
                 Frame hello = remoteHello; TrustPolicy.Authorization grant = authorization;
                 FramedSession wire=reference[0];
-                if(wire.attachmentsSupported())try{transfers=new AttachmentTransfer(store.attachmentDirectory(hello.id),new AttachmentTransfer.Wire(){
-                    public boolean send(Frame frame){return wire.sendAttachment(frame);}
-                    public void abort(){wire.close(UiText.of("attachmentFailed"));}
-                },record->{
-                    try{storage.submit(()->store.attachment(hello.id,hello.body,record)).get(10,TimeUnit.SECONDS);}
-                    catch(Exception e){throw new IOException("Attachment metadata save failed",e);}
-                    main.post(()->{if(!destroyed)refresh();});
-                },wire.attachmentChunkSize(),wire.attachmentSizeLimit(),true);}
-                catch(IOException e){closeActive(UiText.of("attachmentFailed"));return;}
+                if(transfers==null||!transfers.v2()){closeActive(UiText.of("attachmentFailed"));return;}
                 if (!incoming) {
                     if (!Objects.equals(selectedId, hello.id)) messages = new ArrayList<>();
                     selectedId = hello.id; selectedName = hello.body;
@@ -268,7 +277,8 @@ public final class ChatController implements TransportListener {
                     store.touch(hello.id, hello.body);
                 }, ChatController.this::refresh);
             }); }
-            public void onAttachment(Frame frame){main.post(()->{if(active==reference[0]&&transfers!=null)transfers.receive(frame,true);});}
+            public void onAttachment(Frame frame){main.post(()->{if(active==reference[0]&&transfers!=null)transfers.receive(frame);});}
+            public void onTransfer(TransferPacket packet){ClientAttachmentTransfers target=transfers;if(active!=reference[0]||target==null)return;try{target.receive(packet);}catch(IOException failure){reference[0].close(UiText.of("attachmentFailed"));}}
             public void onText(Frame frame) { main.post(() -> {
                 if (active != reference[0] || remoteHello == null || !reference[0].isReady()) return;
                 String id = remoteHello.id, name = remoteHello.body;
@@ -279,7 +289,7 @@ public final class ChatController implements TransportListener {
                 String peerId = remoteHello.id; db(() -> store.delivered(peerId, id), ChatController.this::refresh);
             }); }
             public void onClosed(UiText reason) { main.post(() -> releaseSession(reference[0], reason)); }
-        });
+        });}catch(IOException failure){close(connection);cancelOutgoing();status=UiText.of("connectionUnavailable");fail(UiText.of("identityUnavailableRestart"));return;}
         attachmentToken++;active = reference[0]; active.start(); changed();
     }
     public void approve(String token) { approve(token, true); }
@@ -287,13 +297,58 @@ public final class ChatController implements TransportListener {
         if (active == null || approvalId == null || !Objects.equals(token, approvalId) || remoteHello == null) return;
         if (!trust.approve(authorization, remember)) return;
         approvalId = null; approvalName = null; status = UiText.of("waitingBothReady");
-        active.approve(); changed();
+        approveWithFiles(active); changed();
+    }
+    /** Prepare the file reader before READY can allow the peer to send DATA. */
+    private void approveWithFiles(FramedSession wire) {
+        if(active!=wire||remoteHello==null||attachmentsPreparing!=null)return;
+        Frame hello=remoteHello;TrustPolicy.Authorization grant=authorization;long revision=trust.peerRevision(hello.id);boolean rfcomm=sessionMode==Peer.BLUETOOTH;
+        CompletableFuture<Void> previousStopped=attachmentsStopped.handle((value,failure)->null);
+        CompletableFuture<ClientAttachmentTransfers> preparing=new CompletableFuture<>();attachmentsPreparing=preparing;
+        previousStopped.whenComplete((ignored,stopFailure)->{
+            if(stopFailure!=null){preparing.completeExceptionally(stopFailure);return;}
+            try{fileSelection.execute(()->{
+                try {
+                    if(active!=wire||destroyed)throw new IOException("Session changed during preparation");
+                    Path directory=store.attachmentDirectory(hello.id);String localRoot=identity.fingerprint(),remoteRoot=DeviceIdentity.fingerprint(wire.remotePublicKey());
+                    AttachmentTransferV2.SourceResolver sources=checkpoint->{String saved=checkpoint.sourceReference();
+                        if(saved.startsWith("snapshot:\n"))return OwnedSnapshotSource.restore(directory.resolve(".sources-v2"),saved,checkpoint.key().sourceGeneration());
+                        AndroidAttachmentSource source=new AndroidAttachmentSource(applicationContext,Uri.parse(saved.split("\n",2)[0]),checkpoint.key().sourceGeneration());
+                        if(!saved.equals(source.persistentReference())){source.close();source.discard();throw new LocalizedIOException(UiText.of("attachmentSourceChanged"));}return source;};
+                    AttachmentTransferV2 engine=new AttachmentTransferV2(directory,localRoot,remoteRoot,wire.connectionGeneration(),rfcomm,new AttachmentTransferV2.Wire(){
+                        public boolean send(TransferPacket packet){return wire.sendTransfer(packet);}public void abort(){wire.close(UiText.of("attachmentFailed"));}
+                    },new AttachmentTransferV2.Listener(){
+                        public void changed(AttachmentRecord record)throws IOException {
+                            try{storage.submit(()->store.attachment(hello.id,hello.body,record)).get(10,TimeUnit.SECONDS);}
+                            catch(Exception failure){throw new IOException("Attachment metadata save failed",failure);}
+                            main.post(()->{if(!destroyed)refresh();});
+                        }
+                        public void progress(AttachmentRecord record,TransferProgress progress){
+                            if(active!=wire)return;String key=hello.id+":"+record.info.id+":"+record.outgoing;
+                            if(!record.active()&&!record.resumable()){transferProgress.remove(key);return;}
+                            transferProgress.put(key,new Feedback(record,progress));
+                            main.post(()->{if(!destroyed&&active==wire){if(Objects.equals(selectedId,hello.id))messages=liveMessages(messages,hello.id);ChatController.this.changed();}});
+                        }
+                    },attachmentStorage);
+                    preparing.complete(new ClientAttachmentTransfers(directory,engine,sources));
+                }catch(Exception failure){preparing.completeExceptionally(failure);}
+            });}catch(RejectedExecutionException failure){preparing.completeExceptionally(failure);}
+        });
+        preparing.whenComplete((prepared,failure)->main.post(()->{
+            if(active!=wire||destroyed||authorization!=grant||trust.peerRevision(hello.id)!=revision){if(prepared!=null)prepared.shutdown();return;}
+            if(failure!=null){closeActive(UiText.of("attachmentFailed"));fail(attachmentError(failure));return;}
+            transfers=prepared;wire.approve();changed();
+        }));
     }
     public void reject(String token) { if (active != null && approvalId != null && Objects.equals(token, approvalId)) closeActive(UiText.of("connectionRejected")); }
     private void releaseSession(FramedSession session, UiText reason) {
         if (active != session) return;
         String peerId = remoteHello == null ? null : remoteHello.id;
-        if(transfers!=null){attachmentsStopped=CompletableFuture.allOf(attachmentsStopped,transfers.shutdown());transfers=null;}attachmentToken++;
+        if(transfers!=null){recordAttachmentShutdown(transfers.shutdown());transfers=null;}attachmentToken++;
+        if(attachmentsPreparing!=null){CompletableFuture<ClientAttachmentTransfers> pending=attachmentsPreparing;attachmentsPreparing=null;
+            recordAttachmentShutdown(pending.handle((created,failure)->created==null?CompletableFuture.<Void>completedFuture(null):created.shutdown()).thenCompose(value->value));}
+        selectingSources.forEach((source,token)->{if(token!=attachmentToken){selectingSources.remove(source);try{source.close();}catch(IOException ignored){}}});
+        transferProgress.clear();
         trust.cancel(authorization); authorization = null; active = null; remoteHello = null;
         connected = false; connectedPeerId = null; approvalId = null; approvalName = null;
         cancelOutgoing(); status = reason;
@@ -308,28 +363,62 @@ public final class ChatController implements TransportListener {
     public void disconnect() { closeActive(UiText.of("connectionEnded")); cancelOutgoing(); status = UiText.of("connectionEnded"); changed(); }
     public boolean canSend() { return !savingMessage && connected && active != null && active.isReady() && remoteHello != null && Objects.equals(selectedId, connectedPeerId); }
     public long attachmentSessionToken(){return attachmentToken;}
+    public String transferDiagnostics(){
+        FramedSession wire=active;ClientAttachmentTransfers files=transfers;
+        return "diagnostics_schema=1\nendpoint=android\nversion="+LanguageRegistry.VERSION+"\ntransport="+(sessionMode==Peer.BLUETOOTH?"bluetooth":"lan")+"\n"+(wire==null?"active_session=false\n":wire.diagnostics())+(files==null?"":files.diagnostics());
+    }
     public boolean canSendAttachment(){return canSend()&&transfers!=null&&active.attachmentsSupported();}
+    public TransferProgress transferProgress(String peer,AttachmentRecord record){Feedback value=transferProgress.get(peer+":"+record.info.id+":"+record.outgoing);return value==null?TransferProgress.UNKNOWN:value.progress();}
+    public boolean endToEndEncrypted(String peer){FramedSession wire=active;return connected&&Objects.equals(peer,connectedPeerId)&&wire!=null&&wire.endToEndEncrypted();}
+    private List<ChatStore.Message> liveMessages(List<ChatStore.Message> history,String peer){
+        List<ChatStore.Message> values=new ArrayList<>(history.size());
+        for(ChatStore.Message message:history){AttachmentRecord previous=message.attachment;Feedback value=previous==null?null:transferProgress.get(peer+":"+previous.info.id+":"+previous.outgoing);
+            if(value!=null&&previous.mayReplace(value.record())){AttachmentRecord record=value.record();String state=record.outgoing?(record.state.equals("delivered")?ChatStore.DELIVERED:record.active()?ChatStore.PENDING:ChatStore.UNKNOWN):message.state;
+                values.add(new ChatStore.Message(message.id,message.text,state,message.outgoing,message.time,record));
+            }else values.add(message);
+        }return values;
+    }
+    public long attachmentQuota(){return attachmentStorage==null?TransferStorageBudget.DEFAULT_QUOTA:attachmentStorage.quota();}
+    public boolean hasActiveAttachments(){return !selectingSources.isEmpty()||transfers!=null&&transfers.hasActive();}
+    public boolean isPreparingAttachment(){return !selectingSources.isEmpty();}
+    private void recordAttachmentShutdown(CompletableFuture<Void> stopped){
+        // Completion is the writer-resource barrier; persistence errors remain reported separately.
+        CompletableFuture<Void> reported=stopped.handle((value,failure)->{if(failure!=null)main.post(()->{if(!destroyed)fail(attachmentError(failure));});return null;});
+        attachmentsStopped=CompletableFuture.allOf(attachmentsStopped.handle((value,failure)->null),reported);
+    }
+    public void pauseAttachments(){ClientAttachmentTransfers selected=transfers;if(selected!=null)selected.pauseAll().whenComplete((value,error)->{if(error!=null)main.post(()->fail(attachmentError(error)));});}
+    public void cancelAttachments(){attachmentToken++;selectingSources.forEach((source,token)->{selectingSources.remove(source);try{source.close();}catch(IOException ignored){}discardSelection(source);});ClientAttachmentTransfers selected=transfers;if(selected!=null)selected.cancelAll().whenComplete((value,error)->{if(error!=null)main.post(()->fail(attachmentError(error)));});changed();}
+    public CompletableFuture<Void> attachmentQuota(long bytes){CompletableFuture<Void> future=new CompletableFuture<>();try{fileSelection.execute(()->{try{if(attachmentStorage==null)attachmentStorage=new TransferStorageBudget(store.attachmentsRoot(),bytes);else attachmentStorage.quota(bytes);preferences.edit().putLong("attachmentQuota",bytes).apply();future.complete(null);}catch(IOException error){future.completeExceptionally(new LocalizedIOException(UiText.of("attachmentQuotaInUse"),error));}});}catch(RejectedExecutionException error){future.completeExceptionally(error);}return future;}
     public void sendAttachment(String peer,long token,Uri uri){
         if(!canSendAttachment()||token!=attachmentToken||!Objects.equals(peer,connectedPeerId)){fail(UiText.of("notConnected"));return;}
+        ClientAttachmentTransfers selected=transfers;
         try{fileSelection.execute(()->{
+            AndroidAttachmentSource original=null;
             try{
-                String name=null;
-                try(Cursor cursor=resolver.query(uri,new String[]{OpenableColumns.DISPLAY_NAME},null,null,null)){if(cursor!=null&&cursor.moveToFirst())name=cursor.getString(0);}
-                if(name==null||name.trim().isEmpty())name="attachment";name=name.replaceAll("[\\p{Cntrl}]","_");
-                String mime=resolver.getType(uri);if(mime==null||!mime.matches("[A-Za-z0-9!#$&^_.+/-]{1,127}"))mime="application/octet-stream";
-                String fileName=name,contentType=mime;
+                original=new AndroidAttachmentSource(applicationContext,uri);
+                selectingSources.put(original,token);
+                main.post(this::changed);
+                String fileName=original.name(),contentType=original.mime();
+                AttachmentSource source=selected.prepareSource(original);
+                selectingSources.remove(original);selectingSources.put(source,token);
                 main.post(()->{
-                    if(destroyed)return;if(!canSendAttachment()||token!=attachmentToken||!Objects.equals(peer,connectedPeerId)){fail(UiText.of("notConnected"));return;}
-                    transfers.offer(()->{InputStream input=resolver.openInputStream(uri);if(input==null)throw new IOException("Document unavailable");return input;},fileName,contentType).whenComplete((id,e)->{if(e!=null)main.post(()->fail(UiText.of("attachmentFailed")));});
+                    selectingSources.remove(source);
+                    if(destroyed||!canSendAttachment()||token!=attachmentToken||!Objects.equals(peer,connectedPeerId)){try{source.close();}catch(IOException ignored){}discardSelection(source);if(!destroyed&&token==attachmentToken)fail(UiText.of("notConnected"));return;}
+                    changed();selected.offer(source,fileName,contentType).whenComplete((id,e)->{if(e!=null)main.post(()->{if(!destroyed&&token==attachmentToken)fail(attachmentError(e));});});
                 });
-            }catch(Exception e){main.post(()->{if(!destroyed)fail(UiText.of("attachmentFailed"));});}
+            }catch(Exception e){if(original!=null){selectingSources.remove(original);try{original.discard();}catch(IOException ignored){}}main.post(()->{changed();if(!destroyed&&token==attachmentToken)fail(attachmentError(e));});}
         });}catch(RejectedExecutionException e){fail(UiText.of("attachmentFailed"));}
     }
+    private void discardSelection(AttachmentSource source){try{fileSelection.execute(()->{try{source.discard();}catch(IOException ignored){}});}catch(RejectedExecutionException stopped){}}
     public void attachmentAction(String peer,String id,boolean outgoing,String action){
         if(transfers==null||!Objects.equals(peer,connectedPeerId)){fail(UiText.of("notConnected"));return;}
-        CompletableFuture<Void> future=action.equals("accept")?transfers.accept(id):action.equals("reject")?transfers.reject(id):transfers.cancel(id,outgoing);
-        future.whenComplete((v,e)->{if(e!=null)main.post(()->{if(!destroyed)fail(UiText.of("attachmentFailed"));});});
+        ClientAttachmentTransfers selected=transfers;long token=attachmentToken;
+        try{fileSelection.execute(()->{try{if(selected!=transfers||token!=attachmentToken)throw new IOException("Attachment session changed");
+            CompletableFuture<Void> future=action.equals("resume")?selected.resume(id,outgoing):action.equals("pause")?selected.pause(id,outgoing):action.equals("accept")?selected.accept(id):action.equals("reject")?selected.reject(id):selected.cancel(id,outgoing);
+            future.whenComplete((v,e)->{if(e!=null)main.post(()->{if(!destroyed)fail(attachmentError(e));});});
+        }catch(Exception e){main.post(()->{if(!destroyed)fail(attachmentError(e));});}});}catch(RejectedExecutionException e){fail(UiText.of("attachmentFailed"));}
     }
+    private static UiText attachmentError(Throwable error){while(error instanceof CompletionException||error instanceof ExecutionException)error=error.getCause();if(error instanceof TransferStorageException)return UiText.of(((TransferStorageException)error).reason==TransferStorageException.Reason.QUOTA?"attachmentQuotaExceeded":"attachmentStorageFull");return error instanceof LocalizedIOException?((LocalizedIOException)error).text:UiText.of("attachmentFailed");}
     private CompletableFuture<Path> attachmentPath(java.util.function.Supplier<Path> lookup){
         try{return CompletableFuture.supplyAsync(lookup,fileSelection);}
         catch(RejectedExecutionException error){CompletableFuture<Path> failed=new CompletableFuture<>();failed.completeExceptionally(error);return failed;}
@@ -368,7 +457,9 @@ public final class ChatController implements TransportListener {
         if (!Objects.equals(selectedId, conversation.id)) messages = new ArrayList<>();
         selectedId = conversation.id; selectedName = conversation.name; refresh(); changed();
     }
-    public void clearConversation() { if(selectedId!=null){String id=selectedId;if(transfers!=null&&Objects.equals(id,connectedPeerId))transfers.cancelAll().whenComplete((v,e)->main.post(()->{if(!destroyed){if(e==null)db(()->store.clear(id),this::refresh);else fail(UiText.of("attachmentFailed"));}}));else db(()->store.clear(id),this::refresh);} }
+    public void clearConversation() {if(selectedId==null)return;String id=selectedId;if(remoteHello!=null&&Objects.equals(id,remoteHello.id))closeActive(UiText.of("connectionEnded"));
+        attachmentsStopped=attachmentsStopped.handle((value,failure)->null).thenRunAsync(()->{store.clear(id);try{AndroidAttachmentSource.releaseUnusedGrants(applicationContext);}catch(IOException failure){throw new CompletionException(failure);}},storage);
+        attachmentsStopped.whenComplete((value,failure)->main.post(()->{if(!destroyed){if(failure!=null)fail(attachmentError(failure));refresh();}}));}
     private void refresh() {
         String selection = selectedId; long version = trust.version();
         db(() -> {
@@ -378,7 +469,7 @@ public final class ChatController implements TransportListener {
             main.post(() -> {
                 if (destroyed) return; conversations = saved;
                 if (version == trust.version()) trustedDevices = devices;
-                if (Objects.equals(selection, selectedId)) messages = history;
+                if (Objects.equals(selection, selectedId)) messages = liveMessages(history,selection);
                 changed();
             });
         }, null);
@@ -396,6 +487,7 @@ public final class ChatController implements TransportListener {
     private void fail(UiText message) { error = message; changed(); }
     public void destroy() {
         if (destroyed) return; stopAll(); destroyed = true; observer = null; lan.destroy(); bluetooth.destroy();
+        noiseIdentity.thenAccept(key->Arrays.fill(key,(byte)0));
         fileSelection.shutdownNow();attachmentsStopped.whenComplete((v,e)->{storage.execute(store::close);storage.shutdown();});
     }
 }

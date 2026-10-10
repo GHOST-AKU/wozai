@@ -51,7 +51,7 @@ public final class DesktopIdentity {
             throw new LocalizedIOException(UiText.of("identityLoadFailed", file.toString()), e);
         }
     }
-    private static byte[] dpapi(byte[] bytes, boolean protect) throws IOException {
+    static byte[] dpapi(byte[] bytes, boolean protect) throws IOException {
         String command = "$ErrorActionPreference='Stop'; Add-Type -AssemblyName System.Security; "
                 + "$b=[Convert]::FromBase64String([Console]::In.ReadToEnd()); "
                 + "$r=[Security.Cryptography.ProtectedData]::" + (protect ? "Protect" : "Unprotect")

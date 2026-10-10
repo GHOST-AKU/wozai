@@ -10,7 +10,7 @@ root = Path(__file__).resolve().parents[2]
 output = root / 'desktop/src/main/resources/dev/ghost/wozai/icons'
 output.mkdir(parents=True, exist_ok=True)
 android = '{http://schemas.android.com/apk/res/android}'
-for name in ('chat_bubble', 'wifi_tethering', 'settings', 'search', 'bluetooth', 'add', 'more_vert', 'attach_file', 'send', 'emoji_emotions', 'photo', 'description', 'file_download', 'zoom_in', 'zoom_out', 'close'):
+for name in ('chat_bubble', 'wifi_tethering', 'settings', 'search', 'bluetooth', 'add', 'more_vert', 'attach_file', 'send', 'emoji_emotions', 'photo', 'description', 'file_download', 'zoom_in', 'zoom_out', 'close', 'pause', 'play_arrow'):
     vector = ET.parse(root / f'app/src/main/res/drawable/outline_{name}_24.xml').getroot()
     paths = ''.join('<path fill="#ffffff" d="' + path.attrib[android + 'pathData'] + '"/>' for path in vector)
     svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">' + paths + '</svg>'

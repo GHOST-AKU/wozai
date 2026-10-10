@@ -1,0 +1,18 @@
+{
+  "noise_java_repository": "https://github.com/rweather/noise-java",
+  "noise_java_commit": "49377b6dfc6a1e75740bce2318118291a57c0d6e",
+  "noise_java_license": "MIT",
+  "patch": "cipher-injection.patch",
+  "production_dependency": true,
+  "vectors_repository": "https://github.com/centromere/cacophony",
+  "vectors_commit": "8ee9d41e34a1a596cfa3ab12aa4069ff87dc1247",
+  "vectors_path": "vectors/cacophony.txt",
+  "vectors_sha256": "3bde7c09a6f349ee11c825c50fcc02649f8f02a47c857a459206b357f9386cae",
+  "selected_protocol": "Noise_XX_25519_AESGCM_SHA256",
+  "x25519_vectors": "https://www.rfc-editor.org/rfc/rfc7748#section-5.2",
+  "source_root": "third_party/noise-java/src",
+  "compatibility_evidence": [
+    "https://github.com/GHOST-AKU/wozai/actions/runs/37902032215",
+    "https://github.com/GHOST-AKU/wozai/actions/runs/37902032442"
+  ]
+}

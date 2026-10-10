@@ -21,6 +21,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def wait_json(path, processes, expected=None, timeout=45):
     end = time.monotonic() + timeout
+    last_failure = None
     while time.monotonic() < end:
         for process in processes:
             if process.poll() is not None:
@@ -29,10 +30,12 @@ def wait_json(path, processes, expected=None, timeout=45):
             value = json.loads(path.read_text(encoding="utf-8"))
             if expected is None or value.get("phase") == expected:
                 return value
-        except (FileNotFoundError, json.JSONDecodeError):
-            pass
+        except (FileNotFoundError, PermissionError, json.JSONDecodeError) as failure:
+            # A Windows writer/rename can briefly deny read sharing on a marker.
+            # Persistent denial still fails at the original readiness deadline.
+            last_failure = failure
         time.sleep(0.02)
-    raise RuntimeError(f"Timeout waiting for {path.name}; inspect benchmark logs")
+    raise RuntimeError(f"Timeout waiting for {path.name}; inspect benchmark logs") from last_failure
 
 
 class Tree:
@@ -75,10 +78,15 @@ def sample(tree, settle, seconds):
     _, previous = tree.reading()
     start = previous_time = time.monotonic()
     points, consumed = [], 0.0
-    while time.monotonic() - start < seconds:
-        time.sleep(min(0.2, max(0, seconds - (time.monotonic() - start))))
+    while True:
+        remaining = start + seconds - time.monotonic()
+        if remaining <= 0:
+            break
+        time.sleep(min(0.2, remaining))
         rss, cpu = tree.reading()
         now = time.monotonic()
+        if now <= previous_time:
+            continue
         delta = sum(max(0, value - previous.get(identity, 0)) for identity, value in cpu.items())
         consumed += delta
         points.append({"elapsed_s": round(now - start, 4), "rss_bytes": rss,

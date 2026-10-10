@@ -1,5 +1,7 @@
 name: Build NearbyIM Linux client
 on:
+  pull_request:
+    branches: [main]
   workflow_dispatch:
     inputs:
       performance-baseline:

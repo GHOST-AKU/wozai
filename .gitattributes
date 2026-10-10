@@ -2,3 +2,6 @@
 app/src/main/res/mipmap-anydpi-v26/ic_launcher*.xml text eol=lf
 app/src/main/res/mipmap-anydpi-v33/ic_launcher*.xml text eol=lf
 app/src/main/res/values/icon_colors.xml text eol=lf
+# Dependency hashes cover exact upstream bytes on all runner platforms.
+tests/noise-candidate/** text eol=lf
+third_party/noise-java/** text eol=lf

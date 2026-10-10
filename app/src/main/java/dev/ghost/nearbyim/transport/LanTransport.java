@@ -129,19 +129,64 @@ public final class LanTransport {
         }); } catch (RuntimeException e) { resolving = false; resolveNext(run, scan); }
     }
     public void connect(InetAddress host, int port) {
+        connect(host,port,null);
+    }
+    public void connect(InetAddress host,int port,Network selectedNetwork) {
         if (host == null || !LocalEndpoint.isLocal(host) || port < 1 || port > 65535) { listener.onConnectFailed(Peer.LAN, UiText.of("invalidEndpoint")); return; }
         final int run = epoch.get(), attempt = connectEpoch.incrementAndGet();
         worker.execute(() -> {
             Socket socket = new Socket(); synchronized (lock) { if (run != epoch.get() || attempt != connectEpoch.get()) { close(socket); return; } pending.add(socket); }
+            BoundConnection bound=null;
             try {
-                socket.connect(new InetSocketAddress(host, port), 8000); socket.setTcpNoDelay(true); socket.setKeepAlive(true);
+                ConnectivityManager manager=(ConnectivityManager)context.getSystemService(Context.CONNECTIVITY_SERVICE);
+                Network network=selectedNetwork==null?selectNetwork(manager,host):selectedNetwork;
+                if(network!=null&&(manager==null||networkScore(manager.getNetworkCapabilities(network),manager.getLinkProperties(network),host)<0))throw new IOException("Selected network is not a local LAN route");
+                bound=new BoundConnection(socket,network,manager);
+                bindAndConnect(socket,new InetSocketAddress(host,port),network==null?null:network::bindSocket);
+                socket.setTcpNoDelay(true); socket.setKeepAlive(true);BoundConnection connected=bound;
                 synchronized (lock) { pending.remove(socket); }
-                main.post(() -> { if (epoch.get() == run && connectEpoch.get() == attempt) listener.onConnection(Peer.LAN, wrap(socket), false); else close(socket); });
+                main.post(() -> { if (epoch.get() == run && connectEpoch.get() == attempt) listener.onConnection(Peer.LAN, connected, false); else close(connected); });
             } catch (IOException | RuntimeException e) {
-                synchronized (lock) { pending.remove(socket); } close(socket);
+                synchronized (lock) { pending.remove(socket); } if(bound!=null)close(bound);else close(socket);
                 main.post(() -> { if (epoch.get() == run && connectEpoch.get() == attempt) listener.onConnectFailed(Peer.LAN, UiText.of("connectFailed")); });
             }
         });
+    }
+    interface SocketBinding {void bind(Socket socket)throws IOException;}
+    static void bindAndConnect(Socket socket,InetSocketAddress endpoint,SocketBinding binding)throws IOException {
+        try{if(binding!=null)binding.bind(socket);socket.connect(endpoint,8000);}
+        catch(IOException|RuntimeException failure){close(socket);throw failure;}
+    }
+    static int networkScore(NetworkCapabilities capabilities,LinkProperties properties,InetAddress host) {
+        if(capabilities==null||properties==null)return -1;List<IpPrefix> routes=new ArrayList<>();for(RouteInfo route:properties.getRoutes())routes.add(route.getDestination());
+        return routeScore(capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI),capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET),capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN),routes,host);
+    }
+    static int routeScore(boolean wifi,boolean ethernet,boolean vpn,List<IpPrefix> routes,InetAddress host) {
+        if(host==null||host.isLoopbackAddress()||vpn||!(wifi||ethernet))return -1;
+        int prefix=-1;for(IpPrefix route:routes)if(route.contains(host))prefix=Math.max(prefix,route.getPrefixLength());return prefix;
+    }
+    private static Network selectNetwork(ConnectivityManager manager,InetAddress host) {
+        if(manager==null||host.isLoopbackAddress())return null;Network selected=null;int best=-1;
+        for(Network network:manager.getAllNetworks()){int score=networkScore(manager.getNetworkCapabilities(network),manager.getLinkProperties(network),host);if(score>best){selected=network;best=score;}}
+        // Hotspot hosts may expose no Network object. Keep the kernel's local route as a manual fallback.
+        return selected;
+    }
+    private static final class BoundConnection implements StreamConnection,Closeable {
+        private final Socket socket;private final ConnectivityManager manager;private final Network network;
+        private final java.util.concurrent.atomic.AtomicBoolean closed=new java.util.concurrent.atomic.AtomicBoolean();
+        private final ConnectivityManager.NetworkCallback callback;
+        BoundConnection(Socket socket,Network network,ConnectivityManager manager) {
+            this.socket=socket;this.network=network;this.manager=manager;
+            callback=network==null?null:new ConnectivityManager.NetworkCallback(){public void onLost(Network lost){if(BoundConnection.this.network.equals(lost))LanTransport.close(BoundConnection.this);}};
+            if(callback!=null)manager.registerNetworkCallback(new NetworkRequest.Builder().removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED).removeCapability(NetworkCapabilities.NET_CAPABILITY_TRUSTED).removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN).addTransportType(NetworkCapabilities.TRANSPORT_WIFI).addTransportType(NetworkCapabilities.TRANSPORT_ETHERNET).build(),callback);
+        }
+        public InputStream input()throws IOException{return socket.getInputStream();}
+        public OutputStream output()throws IOException{return socket.getOutputStream();}
+        public String label(){return "LAN · "+socket.getInetAddress().getHostAddress();}
+        public void close()throws IOException {
+            if(!closed.compareAndSet(false,true))return;
+            try{socket.close();}finally{if(callback!=null)try{manager.unregisterNetworkCallback(callback);}catch(RuntimeException ignored){}}
+        }
     }
     public static String endpoint(InetAddress host, int port) { String ip = host.getHostAddress(); return (ip.contains(":") ? "[" + ip + "]" : ip) + ":" + port; }
     private UiText addresses(int port) {

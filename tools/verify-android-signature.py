@@ -16,6 +16,7 @@ parser.add_argument("apk", type=Path)
 mode = parser.add_mutually_exclusive_group()
 mode.add_argument("--test-apk", action="store_true")
 mode.add_argument("--baseline", action="store_true")
+mode.add_argument("--maintenance", action="store_true", help="Verify the fixed 0.3.1/code8 maintenance source")
 mode.add_argument("--wrong-signer", action="store_true")
 parser.add_argument("--source-commit")
 parser.add_argument("--output", type=Path)
@@ -38,8 +39,8 @@ if args.test_apk:
 if not args.test_apk:
     badging = subprocess.check_output([str(sdk / "aapt2"), "dump", "badging", str(args.apk)], text=True)
     package = badging.splitlines()[0]
-    version = pin["baseline_version_name"] if args.baseline else json.loads((root / "i18n/config.json").read_text())["appVersion"]
-    code = pin["baseline_version_code"] if args.baseline else int(re.search(
+    version = pin["baseline_version_name"] if args.baseline or args.maintenance else json.loads((root / "i18n/config.json").read_text())["appVersion"]
+    code = 8 if args.maintenance else pin["baseline_version_code"] if args.baseline else int(re.search(
         r"versionCode\s*=\s*(\d+)", (root / "app/build.gradle.kts").read_text()).group(1))
     if (f"name='{pin['application_id']}'" not in package or f"versionCode='{code}'" not in package
             or f"versionName='{version}'" not in package or (not args.wrong_signer and "application-debuggable" in badging)):
@@ -47,6 +48,8 @@ if not args.test_apk:
     if args.baseline and digest != pin["baseline_apk_sha256"]:
         raise SystemExit("Baseline does not match the published 0.3.1 APK")
     if args.source_commit:
+        if args.maintenance and args.source_commit != "c0855151a2012954f1b34a88eb9b8ca0b4c8355a":
+            raise SystemExit("Maintenance source must match the fixed code8 revision")
         with zipfile.ZipFile(args.apk) as archive:
             metadata = archive.read("META-INF/version-control-info.textproto").decode()
         if f'revision: "{args.source_commit}"' not in metadata:

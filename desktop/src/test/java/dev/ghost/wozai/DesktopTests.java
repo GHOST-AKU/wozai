@@ -11,7 +11,7 @@ import java.security.spec.*;
 import java.util.*;
 import java.util.concurrent.*;
 
-/** Tests desktop persistence and actual NIM2 sockets, without a display or Android SDK. */
+/** Tests desktop persistence and actual encrypted NIM4 sockets, without a display or Android SDK. */
 public final class DesktopTests {
     private static int passed;
     private static final String PEER = "12345678-1234-1234-1234-123456789abc";
@@ -53,7 +53,7 @@ public final class DesktopTests {
                 check(state != null, "Outgoing socket did not begin authentication");
                 client.revoke(PEER).get(2, TimeUnit.SECONDS);
                 CountDownLatch closed = new CountDownLatch(1);
-                FramedSession remote = new FramedSession(socket(accepted), PEER, "Phone", remoteIdentity, new FramedSession.Listener() {
+                FramedSession remote = FramedSession.secure(socket(accepted), PEER, "Phone", remoteIdentity, TestNoise.key(), false, new FramedSession.Listener() {
                     public void onHello(Frame frame) { }
                     public void onReady() { }
                     public void onText(Frame frame) { }
@@ -128,7 +128,7 @@ public final class DesktopTests {
             int port = client.listen().get(3, TimeUnit.SECONDS).port();
             for (int round = 0; round < 3; round++) {
                 CountDownLatch ready = new CountDownLatch(1), closed = new CountDownLatch(1), hello = new CountDownLatch(1);
-                FramedSession remote = new FramedSession(socket(new Socket(address, port)), PEER, "Phone", remoteIdentity, new FramedSession.Listener() {
+                FramedSession remote = FramedSession.secure(socket(new Socket(address, port)), PEER, "Phone", remoteIdentity, TestNoise.key(), true, new FramedSession.Listener() {
                     public void onHello(Frame frame) { hello.countDown(); }
                     public void onReady() { ready.countDown(); }
                     public void onText(Frame frame) { }
@@ -236,7 +236,7 @@ public final class DesktopTests {
             for (int round = 0; round < 3; round++) {
                 CountDownLatch ready = new CountDownLatch(1), closed = new CountDownLatch(1);
                 var key = round == 2 ? DeviceIdentity.generate() : androidIdentity;
-                FramedSession android = new FramedSession(socket(new Socket(address, port)), PEER, "安卓", key, new FramedSession.Listener() {
+                FramedSession android = FramedSession.secure(socket(new Socket(address, port)), PEER, "安卓", key, TestNoise.key(), true, new FramedSession.Listener() {
                     public void onHello(Frame hello) { }
                     public void onReady() { ready.countDown(); }
                     public void onText(Frame frame) { remoteText.add(frame); }
@@ -261,11 +261,16 @@ public final class DesktopTests {
                     }
                     // wait until Android receives HELLO before approving
                     long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
-                    while (!android.isReady() && System.nanoTime() < deadline) {
+                    while (ready.getCount()!=0 && System.nanoTime() < deadline) {
                         android.approve();
                         if (ready.await(20, TimeUnit.MILLISECONDS)) break;
                     }
                     check(ready.getCount() == 0, "Android and desktop did not become ready");
+                    long diagnosticDeadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(3);
+                    while(!client.endToEndEncrypted(PEER)&&System.nanoTime()<diagnosticDeadline)Thread.sleep(10);
+                    String diagnostic=client.transferDiagnostics(PEER);
+                    check(diagnostic.contains("end_to_end_encrypted=true")&&diagnostic.contains("protocol=NIM4"),"Actual desktop diagnostic reports the verified Noise session");
+                    check(!diagnostic.contains(PEER)&&!diagnostic.contains(path.toString()),"Desktop timing report leaks peer/private path");
                     if (round == 1) check(requests.isEmpty(), "Trusted reconnect asked again");
                     String incoming = UUID.randomUUID().toString();
                     check(android.send(new Frame(Frame.TEXT, incoming, "手机 → Windows 🙂", 1234)), "Android send rejected");

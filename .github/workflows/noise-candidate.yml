@@ -1,0 +1,39 @@
+name: Check pinned Noise candidate
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tests/noise-candidate/**'
+      - 'third_party/noise-java/**'
+      - 'app/src/main/java/dev/ghost/nearbyim/noise/**'
+      - 'app/src/main/java/dev/ghost/nearbyim/core/DeviceIdentity.java'
+      - 'app/src/main/java/dev/ghost/nearbyim/core/TransferDiagnostics.java'
+      - 'tools/test-noise-candidate.sh'
+      - '.github/workflows/noise-candidate.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  library:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Verify pins, vectors and negative checks
+        shell: bash
+        run: sh tools/test-noise-candidate.sh
+      - name: Measure library on the runner CPU
+        shell: bash
+        run: java -Xmx32m -cp build/noise-candidate dev.ghost.nearbyim.noise.NoiseBenchmark | tee build/noise-candidate/measurement.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: noise-library-${{ matrix.os }}
+          path: build/noise-candidate/measurement.txt
+          if-no-files-found: error

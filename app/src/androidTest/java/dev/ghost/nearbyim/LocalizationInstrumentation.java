@@ -18,6 +18,10 @@ import dev.ghost.nearbyim.core.DeviceIdentity;
 import dev.ghost.nearbyim.core.AttachmentInfo;
 import dev.ghost.nearbyim.core.AttachmentRecord;
 import dev.ghost.nearbyim.core.AttachmentTransfer;
+import dev.ghost.nearbyim.core.AttachmentTransferV2;
+import dev.ghost.nearbyim.core.TransferPacket;
+import dev.ghost.nearbyim.core.TransferProgress;
+import dev.ghost.nearbyim.core.FileAttachmentSource;
 import dev.ghost.nearbyim.core.Frame;
 import dev.ghost.nearbyim.core.FramedSession;
 import dev.ghost.nearbyim.core.StreamConnection;
@@ -52,7 +56,8 @@ public final class LocalizationInstrumentation extends Instrumentation {
     private String originalLanguage;
     private MainActivity activity;
     private FramedSession remote;
-    private AttachmentTransfer remoteTransfers;
+    private volatile AttachmentTransferV2 remoteTransfers;
+    private volatile CountDownLatch resumePauseBlocked,resumePauseRelease;
     private final BlockingQueue<AttachmentRecord> remoteFileStates=new LinkedBlockingQueue<>();
     private ChatController liveController;
     private final AtomicReference<MainActivity> latestActivity = new AtomicReference<>();
@@ -75,14 +80,20 @@ public final class LocalizationInstrumentation extends Instrumentation {
             onMain(() -> { application.registerActivityLifecycleCallbacks(lifecycle); AppLanguage.select(application, "en"); return null; });
             testNativeFormatting();
             checks+=AndroidAttachmentChecks.run(getTargetContext());
+            checks+=AndroidAttachmentSourceChecks.run(getTargetContext());
+            checks+=AndroidAttachmentV2Checks.run(getTargetContext());
+            checks+=dev.ghost.nearbyim.noise.NoiseLibraryChecks.run();
+            checks+=dev.ghost.nearbyim.noise.NoiseChannelChecks.run();
+            checks+=AndroidNoiseIdentityChecks.run(getTargetContext());
+            checks+=dev.ghost.nearbyim.transport.AndroidLanNetworkChecks.run();
             testRecreationWithLiveSession();
             results.putString("stream", "NearbyIM Android localization: " + checks + " checks passed\n");
         } catch (Throwable failure) {
             code = Activity.RESULT_CANCELED; StringWriter trace = new StringWriter(); failure.printStackTrace(new PrintWriter(trace));
             results.putString("stream", trace.toString());
         } finally {
-            if(remoteTransfers!=null)remoteTransfers.close();
             if (remote != null) remote.close(UiText.of("connectionEnded"));
+            if(remoteTransfers!=null)try{remoteTransfers.shutdown().get(10,TimeUnit.SECONDS);}catch(Exception failure){code=Activity.RESULT_CANCELED;results.putString("stream",results.getString("stream","")+"Remote file cleanup failed: "+failure.getClass().getSimpleName()+"\n");}
             try {
                 onMain(() -> {
                     if (liveController != null) liveController.stopAll();
@@ -172,18 +183,23 @@ public final class LocalizationInstrumentation extends Instrumentation {
         try (ServerSocket socketServer = new ServerSocket(0, 1, InetAddress.getLoopbackAddress())) {
             Socket remoteSocket = new Socket(InetAddress.getLoopbackAddress(), socketServer.getLocalPort());
             Socket localSocket = socketServer.accept();
-            remote = new FramedSession(connection(remoteSocket), peerId, name, DeviceIdentity.generate(), new FramedSession.Listener() {
-                public void onHello(Frame frame) { reference.get().approve(); }
-                public void onAttachment(Frame frame){remoteTransfers.receive(frame);}
+            DeviceIdentity remoteRoot=DeviceIdentity.generate();byte[] remoteKey=new byte[32];new java.security.SecureRandom().nextBytes(remoteKey);
+            remote = FramedSession.secure(connection(remoteSocket), peerId, name, remoteRoot,remoteKey,true, new FramedSession.Listener() {
+                public void onHello(Frame frame) {
+                    try {FramedSession wire=reference.get();remoteTransfers=new AttachmentTransferV2(new File(getTargetContext().getCacheDir(),"native-remote-attachments-"+peerId).toPath(),remoteRoot.fingerprint(),DeviceIdentity.fingerprint(wire.remotePublicKey()),wire.connectionGeneration(),false,new AttachmentTransferV2.Wire(){
+                        public boolean send(TransferPacket packet){return wire.sendTransfer(packet);}public void abort(){wire.close(UiText.of("attachmentFailed"));}
+                    },record->remoteFileStates.add(record));wire.approve();}catch(Exception failure){throw new IllegalStateException("Remote encrypted fixture failed",failure);}
+                }
+                public void onTransfer(TransferPacket packet){try{
+                    CountDownLatch blocked=resumePauseBlocked,release=resumePauseRelease;
+                    if(packet.kind==TransferPacket.Kind.DATA&&packet.offset>=2L*1024*1024&&blocked!=null&&blocked.getCount()>0){blocked.countDown();if(!release.await(20,TimeUnit.SECONDS))throw new IOException("Synthetic pause barrier timed out");}
+                    remoteTransfers.receive(packet,true);
+                }catch(InterruptedException failure){Thread.currentThread().interrupt();throw new IllegalStateException(failure);}catch(IOException failure){throw new java.io.UncheckedIOException(failure);}}
                 public void onReady() { ready.countDown(); }
                 public void onText(Frame frame) { reference.get().acknowledge(frame.id); }
                 public void onAck(String id) { receipts.add(id); }
                 public void onClosed(UiText reason) {}
             });
-            remoteTransfers=new AttachmentTransfer(new File(getTargetContext().getCacheDir(),"native-remote-attachments-"+peerId).toPath(),new AttachmentTransfer.Wire(){
-                public boolean send(Frame frame){return reference.get().sendAttachment(frame);}
-                public void abort(){reference.get().close(UiText.of("attachmentFailed"));}
-            },record->remoteFileStates.add(record),AttachmentInfo.CHUNK_SIZE,AttachmentInfo.MAX_SIZE);
             reference.set(remote); remote.start();
             onMain(() -> { controller.onConnection(Peer.LAN, connection(localSocket), true); return null; });
         }
@@ -221,6 +237,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
             check(id.equals(receipts.poll(10, TimeUnit.SECONDS)), "Android saves and receipts timeline text " + i);
         }
         await(() -> onMain(() -> controller.messages.size() >= 35), "Saved timeline loads");
+        testLiveAttachmentFeedback(controller,peerId);
         Thread.sleep(150); waitForIdleSync();
         int scroll = onMain(() -> { ScrollView view = field(activity, "messageScroll"); view.scrollTo(0, 120); return view.getScrollY(); });
         check(scroll > 0, "Timeline is scrollable before recreation");
@@ -229,7 +246,17 @@ public final class LocalizationInstrumentation extends Instrumentation {
         await(() -> onMain(() -> ((ScrollView) field(activity, "messageScroll")).getScrollY() == scroll), "Timeline scroll survives locale recreation");
         check(onMain(() -> controller.connected && peerId.equals(controller.connectedPeerId)), "Active signed session survives language change");
         NotificationManager notifications = (NotificationManager) service.getSystemService(Context.NOTIFICATION_SERVICE);
-        await(() -> notificationTitleMatches(notifications, "NearbyIM is running"), "Actually posted notification changes to English");
+        try {
+            await(() -> notificationTitleMatches(notifications, "NearbyIM is running"), "Actually posted notification changes to English");
+        } catch (AssertionError failure) {
+            Notification actual=posted(notifications);
+            System.out.println("Notification diagnostic: enabled="+notifications.areNotificationsEnabled()
+                    +", title="+(actual==null?"<missing>":actual.extras.getString(Notification.EXTRA_TITLE))
+                    +", language="+onMain(()->AppLanguage.selection(application))
+                    +", foreground="+onMain(()->field(service,"foreground"))
+                    +", needed="+onMain(()->controller.needsForeground()));
+            throw failure;
+        }
         Notification notification = posted(notifications);
         check(notification.extras.getString(Notification.EXTRA_TITLE).equals("NearbyIM is running"), "Foreground notification refreshes its language");
         check(notification.extras.getCharSequence(Notification.EXTRA_TEXT).toString().equals("Connected · LAN"), "Notification formats nested status in current language");
@@ -356,12 +383,17 @@ public final class LocalizationInstrumentation extends Instrumentation {
         constructor.setAccessible(true);
         return constructor.newInstance(6, Peer.LAN, new Peer(Peer.LAN, "test", name, "192.168.1.2:1234", null, 1234, null, id), null, id, true);
     }
+    private FileAttachmentSource testFileSource(byte[] bytes)throws IOException {
+        java.nio.file.Path path=java.nio.file.Files.createTempFile(getTargetContext().getCacheDir().toPath(),"native-selected-",".bin");java.nio.file.Files.write(path,bytes);return new FileAttachmentSource(path);
+    }
     private AttachmentRecord remoteFileState(String state)throws Exception{
         long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(30);
         while(System.nanoTime()<deadline){AttachmentRecord record=remoteFileStates.poll(100,TimeUnit.MILLISECONDS);if(record!=null&&record.state.equals(state))return record;}
         throw new AssertionError("No remote file state "+state);
     }
     private void testFileTransfers(ChatController controller,String peer)throws Exception {
+        check(onMain(()->controller.endToEndEncrypted(peer)),"Ready Android production session reports authenticated end-to-end encryption");
+        check(onMain(()->((android.widget.TextView)field(activity,"chatStatus")).getText().toString().contains(AndroidText.get(activity,"encryptedVia",AndroidText.get(activity,"lan")))),"Chat header visibly identifies end-to-end encryption");
         check(onMain(()->((android.widget.Button)field(activity,"fileButton")).isEnabled()&&((android.widget.Button)field(activity,"photoButton")).isEnabled()),"Native file and photo selectors are enabled for the ready peer");
         check(onMain(()->((android.view.View)field(activity,"attachmentTray")).getVisibility()==android.view.View.GONE),"Composer attachment choices start collapsed");
         onMain(()->{((android.view.View)field(activity,"attachmentToggle")).performClick();return null;});
@@ -371,13 +403,13 @@ public final class LocalizationInstrumentation extends Instrumentation {
         check(onMain(()->{android.widget.Button button=field(activity,"sendButton");return button.getText().length()==0&&button.getWidth()==button.getHeight()&&button.getCompoundDrawables()[0]!=null;}),"Composer uses a circular Material send icon");
         Bitmap photo=Bitmap.createBitmap(400,200,Bitmap.Config.ARGB_8888);int[] pixels=new int[80000];java.util.Random random=new java.util.Random(73);for(int i=0;i<pixels.length;i++){int y=i/400;pixels[i]=0xff000000|((40+y/2+random.nextInt(8))<<16)|((90+y/2+random.nextInt(8))<<8)|(180-y/3+random.nextInt(8));}photo.setPixels(pixels,0,400,0,0,400,200);
         java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream();photo.compress(Bitmap.CompressFormat.PNG,100,bytes);photo.recycle();byte[] data=bytes.toByteArray();
-        String id=remoteTransfers.offer(()->new java.io.ByteArrayInputStream(data),"native-photo.png","image/png").get(10,TimeUnit.SECONDS);
+        String id=remoteTransfers.offer(testFileSource(data),"native-photo.png","image/png").get(10,TimeUnit.SECONDS);
         remoteFileState("delivered");
         await(()->onMain(()->controller.messages.stream().anyMatch(m->m.id.equals(id)&&m.attachment!=null&&m.attachment.state.equals("received"))),"Android persists received photo");
         check(onMain(()->controller.connected&&controller.error.isEmpty()),"Approved Android chat receives photos without another confirmation");
         AttachmentRecord received=onMain(()->controller.messages.stream().filter(m->m.id.equals(id)).findFirst().get().attachment);
         java.nio.file.Path file=controller.attachmentPath(peer,received.info).get(10,TimeUnit.SECONDS);
-        check(java.util.Arrays.equals(data,java.nio.file.Files.readAllBytes(file)),"Android preserves original photo bytes across signed chunks");
+        check(java.util.Arrays.equals(data,java.nio.file.Files.readAllBytes(file)),"Android preserves original photo bytes across encrypted chunks");
         await(()->onMain(()->{android.view.ViewGroup bubbles=field(activity,"bubbles");android.widget.ImageView image=bubbles.findViewWithTag("photo:"+id);return image!=null&&image.getDrawable() instanceof android.graphics.drawable.BitmapDrawable;}),"Received photo renders inside its chat bubble");
         check(onMain(()->{android.view.ViewGroup bubbles=field(activity,"bubbles");return bubbles.findViewWithTag("photo:"+id).performLongClick();}),"Photo press opens attachment actions on the image itself");
         check(onMain(()->{android.widget.PopupMenu menu=field(activity,"attachmentActions");boolean found=menu.getMenu().getItem(1).getTitle().toString().equals(AndroidText.get(activity,"attachmentSaveAs"));menu.dismiss();return found;}),"Photo long-press offers Save as");
@@ -389,20 +421,75 @@ public final class LocalizationInstrumentation extends Instrumentation {
             return null;
         });
         check(onMain(()->peer.equals(field(activity,"pendingAttachmentPeer"))),"Picker result waits for asynchronous service rebinding");
-        onMain(()->{setField(activity,"controller",controller);invoke(activity,"resumeAttachmentSelection",new Class<?>[0]);return null;});AttachmentRecord offer=remoteFileState("offered");remoteTransfers.accept(offer.info.id).get(10,TimeUnit.SECONDS);remoteFileState("received");
+        onMain(()->{setField(activity,"controller",controller);invoke(activity,"resumeAttachmentSelection",new Class<?>[0]);return null;});remoteFileState("offered");AttachmentRecord offer=remoteFileState("received");
         await(()->onMain(()->controller.messages.stream().anyMatch(m->m.id.equals(offer.info.id)&&m.outgoing&&m.attachment!=null&&m.attachment.state.equals("delivered"))),"Android sends content URI and records the save receipt");
         check(offer.info.hash.equals(received.info.hash),"Content URI source retains the original digest");
         java.nio.file.Path sent=controller.attachmentPath(peer,new AttachmentRecord(offer.info,true,"delivered",offer.info.size)).get(10,TimeUnit.SECONDS);
         check(java.util.Arrays.equals(data,java.nio.file.Files.readAllBytes(sent)),"Android keeps sent photo bytes for chat preview");
         await(()->onMain(()->{android.view.ViewGroup bubbles=field(activity,"bubbles");android.widget.ImageView image=bubbles.findViewWithTag("photo:"+offer.info.id);return image!=null&&image.getDrawable() instanceof android.graphics.drawable.BitmapDrawable;}),"Sent photo also renders in the chat timeline");
         screenshot("zh-Hans-photo-both-directions");
-        byte[] document="A document received automatically".getBytes(java.nio.charset.StandardCharsets.UTF_8);String documentId=remoteTransfers.offer(()->new java.io.ByteArrayInputStream(document),"note.txt","text/plain").get(10,TimeUnit.SECONDS);remoteFileState("delivered");
+        byte[] document="A document received automatically".getBytes(java.nio.charset.StandardCharsets.UTF_8);String documentId=remoteTransfers.offer(testFileSource(document),"note.txt","text/plain").get(10,TimeUnit.SECONDS);remoteFileState("delivered");
         await(()->onMain(()->controller.messages.stream().anyMatch(m->m.id.equals(documentId)&&m.attachment!=null&&m.attachment.state.equals("received"))),"Ordinary files also arrive without another confirmation");
         check(onMain(()->{android.view.ViewGroup bubbles=field(activity,"bubbles"),bubble=bubbles.findViewWithTag("attachment:"+documentId);return bubble!=null&&bubble.getChildAt(0).performLongClick();}),"File card press opens actions on its clickable content");
         check(onMain(()->{android.widget.PopupMenu menu=field(activity,"attachmentActions");boolean found=menu.getMenu().size()==2&&menu.getMenu().getItem(1).getTitle().toString().equals(AndroidText.get(activity,"attachmentSaveAs"));menu.dismiss();return found;}),"File long-press exposes both Open and Save as");
         screenshot("zh-Hans-photo-and-file-chat");
+        testContentUriResume(controller,peer);
+        testTransferDiagnostics(controller,peer);
         testAttachmentQueueRejection(controller,peer,received,uri);
         long token=onMain(()->controller.attachmentSessionToken());onMain(()->{controller.sendAttachment(peer,token-1,uri);return null;});check(onMain(()->controller.error.key.equals("notConnected")),"Stale picker result cannot cross session generations");
+    }
+    private android.widget.Button attachmentButton(android.view.View view,String description){
+        if(view instanceof android.widget.Button button&&description.contentEquals(button.getContentDescription()==null?"":button.getContentDescription()))return button;
+        if(view instanceof android.view.ViewGroup group)for(int n=0;n<group.getChildCount();n++){android.widget.Button found=attachmentButton(group.getChildAt(n),description);if(found!=null)return found;}return null;
+    }
+    private void testContentUriResume(ChatController controller,String peer)throws Exception {
+        android.net.Uri uri=android.net.Uri.parse("content://dev.ghost.nearbyim.test.sources/file");getTargetContext().getContentResolver().call(uri,"large",null,null);
+        java.security.MessageDigest digest=java.security.MessageDigest.getInstance("SHA-256");
+        try(InputStream input=getTargetContext().getContentResolver().openInputStream(uri)){byte[] buffer=new byte[32768];int n;while((n=input.read(buffer))!=-1)digest.update(buffer,0,n);}
+        String expected=AttachmentInfo.hex(digest.digest()),generation=remote.connectionGeneration();
+        resumePauseRelease=new CountDownLatch(1);resumePauseBlocked=new CountDownLatch(1);
+        try {
+            onMain(()->{controller.sendAttachment(peer,controller.attachmentSessionToken(),uri);return null;});AttachmentRecord offer=remoteFileState("offered");String id=offer.info.id;
+            check(resumePauseBlocked.await(15,TimeUnit.SECONDS),"Real Android content URI reaches a nonempty pause prefix");
+            onMain(()->{controller.attachmentAction(peer,id,true,"pause");return null;});
+            await(()->onMain(()->controller.messages.stream().anyMatch(m->m.id.equals(id)&&m.outgoing&&m.attachment!=null&&m.attachment.resumable())),"Android pause becomes actionable without reconnecting");
+            resumePauseRelease.countDown();remoteFileState("paused");
+            check(onMain(()->{android.view.ViewGroup bubbles=field(activity,"bubbles");android.widget.Button button=attachmentButton(bubbles.findViewWithTag("attachment:"+id),AndroidText.get(activity,"attachmentResume"));return button!=null&&button.performClick();}),"Native Resume button starts content URI recovery");
+            AttachmentRecord completed=remoteFileState("received");
+            await(()->onMain(()->controller.messages.stream().anyMatch(m->m.id.equals(id)&&m.outgoing&&m.attachment!=null&&m.attachment.state.equals("delivered"))),"Android content URI resumes and saves the completion receipt");
+            check(generation.equals(remote.connectionGeneration())&&expected.equals(completed.info.hash),"Android Resume retains Noise generation and full content digest");
+        }finally{resumePauseRelease.countDown();resumePauseBlocked=null;resumePauseRelease=null;getTargetContext().getContentResolver().call(uri,"reset",null,null);}
+    }
+    private void testTransferDiagnostics(ChatController controller,String peer)throws Exception {
+        onMain(()->{android.view.ViewGroup page=field(activity,"chatPage");android.widget.Button more=attachmentButton(page,AndroidText.get(activity,"more"));if(more==null||!more.performClick())throw new AssertionError("Chat overflow button unavailable");return null;});
+        java.util.concurrent.atomic.AtomicReference<android.view.accessibility.AccessibilityNodeInfo> target=new java.util.concurrent.atomic.AtomicReference<>();
+        await(()->{android.view.accessibility.AccessibilityNodeInfo root=getUiAutomation().getRootInActiveWindow();if(root==null)return false;java.util.List<android.view.accessibility.AccessibilityNodeInfo> nodes=root.findAccessibilityNodeInfosByText(AndroidText.get(activity,"transferDiagnostics"));if(nodes.isEmpty())return false;target.set(nodes.get(0));return true;},"Native chat menu offers copy transfer diagnostics");
+        android.view.accessibility.AccessibilityNodeInfo choice=target.get();boolean clicked=false;
+        for(android.view.accessibility.AccessibilityNodeInfo node=choice;node!=null&&!clicked;node=node.getParent())clicked=node.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK);
+        check(clicked,"Native diagnostics menu dispatches copy action");waitForIdleSync();
+        String report=onMain(()->{android.content.ClipboardManager clipboard=(android.content.ClipboardManager)activity.getSystemService(Context.CLIPBOARD_SERVICE);android.content.ClipData data=clipboard.getPrimaryClip();return data==null?"":data.getItemAt(0).coerceToText(activity).toString();});
+        check(report.contains("endpoint=android")&&report.contains("end_to_end_encrypted=true")&&report.contains("source_read")&&report.contains("socket_write"),"Native clipboard contains actual source and encrypted socket timing");
+        check(!report.contains(peer)&&!report.contains("native-photo.png")&&!report.contains("content://")&&!report.contains(getTargetContext().getFilesDir().toString()),"Clipboard diagnostic excludes peer, filename, URI and private path");
+    }
+    private void testLiveAttachmentFeedback(ChatController controller,String peer)throws Exception {
+        Class<?> feedbackType=Class.forName("dev.ghost.nearbyim.ChatController$Feedback");
+        var constructor=feedbackType.getDeclaredConstructor(AttachmentRecord.class,TransferProgress.class);constructor.setAccessible(true);
+        java.util.Map<String,Object> feedback=field(controller,"transferProgress");
+        java.util.List<ChatStore.Message> history=onMain(()->controller.messages);
+        AttachmentInfo info=AttachmentInfo.v2(java.util.UUID.randomUUID().toString(),"checking.bin","application/octet-stream",4L*1024*1024,null,System.currentTimeMillis());String key=peer+":"+info.id+":false";
+        try {onMain(()->{
+            android.view.View bubble=null;
+            for(int percent:new int[]{25,75}) {
+                AttachmentRecord record=new AttachmentRecord(info,false,"checking",1024*1024);
+                Object value=constructor.newInstance(record,new TransferProgress(0,-1,percent*info.size/100,info.size));
+                android.view.View previous=bubble;
+                feedback.put(key,value);java.util.ArrayList<ChatStore.Message> messages=new java.util.ArrayList<>(history);messages.add(new ChatStore.Message(info.id,info.name,"received",false,info.time,record));controller.messages=messages;invoke(activity,"renderChat",new Class<?>[0]);
+                android.view.ViewGroup bubbles=field(activity,"bubbles");bubble=bubbles.findViewWithTag("attachment:"+info.id);android.widget.ProgressBar bar=bubble.findViewWithTag("attachmentProgress");
+                check(bar!=null&&!bar.isIndeterminate()&&bar.getProgress()==percent,"Android resume verification displays changing checked bytes");
+                if(previous!=null)check(previous==bubble,"Live file progress rebuilds the saved timeline");
+            }
+            return null;
+        });}finally{onMain(()->{feedback.remove(key);controller.messages=history;invoke(activity,"renderChat",new Class<?>[0]);return null;});}
     }
     private void rejectedAttachmentFuture(java.util.concurrent.CompletableFuture<?> future,String message)throws Exception {
         try{future.get(1,TimeUnit.SECONDS);throw new AssertionError(message+": unexpectedly succeeded");}

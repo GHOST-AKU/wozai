@@ -55,7 +55,7 @@ public final class GuiTests {
     }; }
     public static void main(String[] args) throws Exception {
         Path root = Files.createTempDirectory("wozai-gui-test");
-        DesktopWindow window = null; FramedSession remote = null;AttachmentTransfer phoneTransfer=null;
+        DesktopWindow window = null; FramedSession remote = null;AttachmentTransferV2 phoneTransfer=null;
         String id = UUID.randomUUID().toString();
         Locale originalDisplayLocale = Locale.getDefault(Locale.Category.DISPLAY);
         try (DesktopStore store = new DesktopStore(root)) {
@@ -91,12 +91,13 @@ public final class GuiTests {
             catch (IllegalArgumentException e) { throw new AssertionError("Displayed address is not connectable: " + address, e); }
             CountDownLatch hello = new CountDownLatch(1), ready = new CountDownLatch(1);
             BlockingQueue<Frame> text = new LinkedBlockingQueue<>();
-            java.util.concurrent.atomic.AtomicReference<AttachmentTransfer> transferRef=new java.util.concurrent.atomic.AtomicReference<>();
-            remote = new FramedSession(socket(new Socket(endpoint.address, endpoint.port)), id, "Phone", DeviceIdentity.generate(), new FramedSession.Listener() {
+            java.util.concurrent.atomic.AtomicReference<AttachmentTransferV2> transferRef=new java.util.concurrent.atomic.AtomicReference<>();
+            DeviceIdentity phoneRoot=DeviceIdentity.generate();
+            remote = FramedSession.secure(socket(new Socket(endpoint.address, endpoint.port)), id, "Phone", phoneRoot,TestNoise.key(),true, new FramedSession.Listener() {
                 public void onHello(Frame frame) { hello.countDown(); }
                 public void onReady() { ready.countDown(); }
                 public void onText(Frame frame) { text.add(frame); }
-                public void onAttachment(Frame frame){transferRef.get().receive(frame,true);}
+                public void onTransfer(TransferPacket packet){try{transferRef.get().receive(packet,true);}catch(IOException failure){throw new java.io.UncheckedIOException(failure);}}
                 public void onAck(String id) { }
                 public void onClosed(UiText reason) { }
             });
@@ -107,9 +108,9 @@ public final class GuiTests {
             edt(() -> { language(languages, "zh-Hans"); return null; });
             await(() -> consent.isVisible() && consent.getTitle().equals("聊天请求") && button(consent, "同意并记住").isEnabled(), "Language change lost pending consent");
             edt(() -> { language(languages, "en"); button(consent, "Approve and remember").doClick(); return null; });
-            if (!hello.await(3, TimeUnit.SECONDS)) throw new AssertionError("No phone HELLO"); remote.approve();
+            if (!hello.await(3, TimeUnit.SECONDS)) throw new AssertionError("No phone HELLO");
+            phoneTransfer=new AttachmentTransferV2(root.resolve("phone-attachments"),phoneRoot.fingerprint(),DeviceIdentity.fingerprint(phone.remotePublicKey()),phone.connectionGeneration(),false,new AttachmentTransferV2.Wire(){public boolean send(TransferPacket packet){return phone.sendTransfer(packet);}public void abort(){phone.close(UiText.EMPTY);}},record->{});transferRef.set(phoneTransfer);remote.approve();
             if (!ready.await(3, TimeUnit.SECONDS)) throw new AssertionError("GUI consent did not connect");
-            phoneTransfer=new AttachmentTransfer(root.resolve("phone-attachments"),new AttachmentTransfer.Wire(){public boolean send(Frame frame){return phone.sendAttachment(frame);}public void abort(){phone.close(UiText.EMPTY);}},record->{},phone.attachmentChunkSize(),phone.attachmentSizeLimit(),true);transferRef.set(phoneTransfer);
             await(() -> button(w, "Send").isEnabled(), "Ready chat composer disabled");
             if (!edt(() -> UIManager.getLookAndFeel() instanceof com.formdev.flatlaf.FlatLaf)) throw new AssertionError("Android visual theme not installed");
             edt(() -> { ((JTabbedPane) components(w).stream().filter(c -> c instanceof JTabbedPane).findFirst().orElseThrow()).setSelectedIndex(0); area(w, "Type a message").setText("Windows → Phone 🙂"); button(w, "Send").doClick(); return null; });
@@ -128,7 +129,7 @@ public final class GuiTests {
             Path photo=root.resolve("chat-photo.png");java.awt.image.BufferedImage pixels=new java.awt.image.BufferedImage(800,600,java.awt.image.BufferedImage.TYPE_INT_RGB);Graphics2D paint=pixels.createGraphics();paint.setPaint(new GradientPaint(0,0,new Color(80,185,210),0,600,new Color(240,224,159)));paint.fillRect(0,0,800,600);paint.setColor(new Color(25,100,80));paint.fillOval(-120,340,800,550);paint.dispose();ImageIO.write(pixels,"png",photo.toFile());
             JScrollPane photoScroll=edt(()->(JScrollPane)SwingUtilities.getAncestorOfClass(JScrollPane.class,components(w).stream().filter(c->c instanceof MessagePane).findFirst().orElseThrow()));
             edt(()->{photoScroll.getVerticalScrollBar().setValue(photoScroll.getVerticalScrollBar().getMaximum());return null;});
-            String photoId=phoneTransfer.offer(()->Files.newInputStream(photo),"chat-photo.png","image/png").get(5,TimeUnit.SECONDS);
+            String photoId=phoneTransfer.offer(new FileAttachmentSource(photo),"chat-photo.png","image/png").get(5,TimeUnit.SECONDS);
             await(()->components(w).stream().anyMatch(c->c instanceof JLabel l&&l.getIcon() instanceof ImageIcon&&l.getAccessibleContext().getAccessibleName()!=null&&l.getAccessibleContext().getAccessibleName().contains("chat-photo.png")),"Automatic photo reception did not produce a bubble");
             await(()->{JScrollBar bar=photoScroll.getVerticalScrollBar();return bar.getValue()+bar.getVisibleAmount()>=bar.getMaximum()-24;},"Thumbnail growth moved chat away from newest message");
             edt(()->{JLabel preview=components(w).stream().filter(c->c instanceof JLabel l&&l.getIcon() instanceof ImageIcon&&l.getAccessibleContext().getAccessibleName()!=null&&l.getAccessibleContext().getAccessibleName().contains("chat-photo.png")).map(c->(JLabel)c).findFirst().orElseThrow();preview.dispatchEvent(new java.awt.event.MouseEvent(preview,java.awt.event.MouseEvent.MOUSE_CLICKED,1,0,10,10,1,false,java.awt.event.MouseEvent.BUTTON1));return null;});
@@ -138,7 +139,7 @@ public final class GuiTests {
             if(args.length>0){Rectangle bounds=edt(viewer::getBounds);ImageIO.write(new Robot().createScreenCapture(bounds),"png",Path.of(args[0].replace(".png","-photo.png")).toFile());}
             edt(()->{button(viewer,"Close").doClick();return null;});
             if(!Arrays.equals(Files.readAllBytes(photo),Files.readAllBytes(store.attachmentFile(id,store.messages(id).stream().filter(m->m.id().equals(photoId)).findFirst().orElseThrow().attachment().info))))throw new AssertionError("Photo preview changed transferred bytes");
-            Path document=root.resolve("report.pdf");Files.write(document,new byte[24576]);String documentId=phoneTransfer.offer(()->Files.newInputStream(document),"report.pdf","application/pdf").get(5,TimeUnit.SECONDS);
+            Path document=root.resolve("report.pdf");Files.write(document,new byte[24576]);String documentId=phoneTransfer.offer(new FileAttachmentSource(document),"report.pdf","application/pdf").get(5,TimeUnit.SECONDS);
             await(()->components(w).stream().anyMatch(c->c instanceof JTextArea a&&a.getText().contains("report.pdf")&&a.getText().contains("24.0 KiB")&&a.getText().contains("Received")),"Compact file card not rendered");
             edt(()->{photoScroll.getVerticalScrollBar().setValue(photoScroll.getVerticalScrollBar().getMaximum());area(w,"Type a message").setText("收到文件和照片 🙂");return null;});
             new Robot().waitForIdle();
@@ -193,7 +194,7 @@ public final class GuiTests {
             System.out.println("GuiTests: consent, messaging, receipts, live and system translation, open dialogs, search/selection/scroll preservation, nickname search, light/dark theme, text scaling, startup preference, draft and exit passed");
         } finally {
             Locale.setDefault(Locale.Category.DISPLAY, originalDisplayLocale);
-            if(phoneTransfer!=null)phoneTransfer.close();
+            if(phoneTransfer!=null)phoneTransfer.shutdown().get(10,TimeUnit.SECONDS);
             if (remote != null) remote.close(UiText.EMPTY);
             DesktopWindow w = window; if (w != null) edt(() -> { if (w.isDisplayable()) w.dispatchEvent(new WindowEvent(w, WindowEvent.WINDOW_CLOSING)); return null; });
         }

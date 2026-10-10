@@ -14,12 +14,12 @@
     <string name="android_bluetooth_search_not_started" formatted="false">"検索を開始できませんでした。ペアリング済みのデバイスを試してください。Android 11 以前ではシステムの位置情報も有効にする必要があります。"</string>
     <string name="android_bluetooth_unavailable" formatted="false">"このデバイスは Bluetooth に対応していません。LAN を使用してください。"</string>
     <string name="android_composer" formatted="false">"メッセージを入力…"</string>
-    <string name="android_direct_body" formatted="false">"相手に表示されているアドレスとポートをすべて入力してください。LAN のメッセージは平文で送信されるため、信頼できるネットワークを使用してください。"</string>
-    <string name="android_help_body" formatted="false">"LAN：両方のデバイスを同じ Wi-Fi またはアクセスポイントに接続してください。受信を有効にして検索するか、IP アドレスとポートを入力します。LAN のメッセージは平文で送信されるため、信頼できるネットワークを使用してください。\n\nBluetooth：相手が受信と検出を有効にしてから検索してください。初回の接続では、システムの指示に従ってペアリングします。登録済みのデバイスは、相手が Bluetooth と受信を有効にしていれば、履歴から再接続できます。\n\n初回のチャットでは、デバイスを登録するか、今回のみ許可できます。再接続時は同じデバイス識別情報か確認します。設定で信頼を解除できます。\n\n「確認待ち」は保存確認がまだ届いていない状態、「配信済み」は相手が保存した状態、「未確認」は結果が不明な状態です。いずれも既読を意味しません。\n\n履歴はこのデバイスに保存されます。チャットの切り替えや画面の再作成では下書きを保持しますが、アプリ停止後は失われる場合があります。システムがアプリを停止した場合は、受信を再び有効にしてください。"</string>
+    <string name="android_direct_body" formatted="false">"相手に表示されているアドレスとポートをすべて入力してください。"</string>
+    <string name="android_help_body" formatted="false">"LAN：両方のデバイスを同じ Wi-Fi またはアクセスポイントに接続してください。受信を有効にして検索するか、IP アドレスとポートを入力します。チャットとファイル転送はエンドツーエンドで暗号化されます。このデバイスの履歴と添付ファイルは暗号化されません。\n\nBluetooth：相手が受信と検出を有効にしてから検索してください。初回の接続では、システムの指示に従ってペアリングします。登録済みのデバイスは、相手が Bluetooth と受信を有効にしていれば、履歴から再接続できます。\n\n初回のチャットでは、デバイスを登録するか、今回のみ許可できます。再接続時は同じデバイス識別情報か確認します。設定で信頼を解除できます。\n\n「確認待ち」は保存確認がまだ届いていない状態、「配信済み」は相手が保存した状態、「未確認」は結果が不明な状態です。いずれも既読を意味しません。\n\n履歴はこのデバイスに保存されます。チャットの切り替えや画面の再作成では下書きを保持しますが、アプリ停止後は失われる場合があります。システムがアプリを停止した場合は、受信を再び有効にしてください。"</string>
     <string name="android_identity_changed" formatted="false">"このデバイスの識別鍵が変わっています。再び信頼する場合は、設定で信頼を解除してから再接続してください。"</string>
-    <string name="android_lan_hint" formatted="false">"両方のデバイスを同じ Wi-Fi またはアクセスポイントに接続してください。LAN のメッセージは平文で送信されるため、信頼できるネットワークを使用してください。"</string>
+    <string name="android_lan_hint" formatted="false">"両方のデバイスを同じ Wi-Fi またはアクセスポイントに接続してください。"</string>
     <string name="android_request_body" formatted="false">"{0} で接続します。デバイスを登録すると次回から再接続できます。デバイス情報で信頼を解除できます。\n\nニックネームは相手が入力したものです。デバイスの信頼は本名の確認を意味しません。"</string>
-    <string name="android_request_lan_body" formatted="false">"{0} で接続します。デバイスを登録すると次回から再接続できます。デバイス情報で信頼を解除できます。\n\nニックネームは相手が入力したものです。デバイスの信頼は本名の確認を意味しません。LAN のメッセージは平文で送信されるため、信頼できるネットワークを使用してください。"</string>
+    <string name="android_request_lan_body" formatted="false">"{0} で接続します。デバイスを登録すると次回から再接続できます。デバイス情報で信頼を解除できます。\n\nニックネームは相手が入力したものです。デバイスの信頼は本名の確認を意味しません。チャットとファイル転送はエンドツーエンドで暗号化されます。このデバイスの履歴と添付ファイルは暗号化されません。"</string>
     <string name="android_storage_failure" formatted="false">"ローカルデータを読み書きできません。再試行し、問題が続く場合はエラーを報告してください。"</string>
     <string name="android_storage_stopped" formatted="false">"ローカルデータを保存できず、接続を停止しました。"</string>
     <string name="app" formatted="false">"NearbyIM"</string>
@@ -28,30 +28,49 @@
     <string name="app_settings" formatted="false">"アプリの設定"</string>
     <string name="appearance_section" formatted="false">"表示"</string>
     <string name="attachment_accept" formatted="false">"受信"</string>
+    <string name="attachment_checking_progress" formatted="false">"再開データを確認中：{0} / {1} · {2}%"</string>
     <string name="attachment_details" formatted="false">"{0} · {1,number} / {2,number} バイト · {3}"</string>
     <string name="attachment_failed" formatted="false">"ファイル操作に失敗しました。アクセス権と空き容量を確認してください。"</string>
     <string name="attachment_hint" formatted="false">"1 ファイル最大 1 GiB。内容は暗号化されません。"</string>
+    <string name="attachment_hint_v2" formatted="false">"ファイルごとに最大 10 GiB。"</string>
     <string name="attachment_open" formatted="false">"開く"</string>
     <string name="attachment_overwrite" formatted="false">"ファイルが存在します。置き換えますか？"</string>
+    <string name="attachment_pause" formatted="false">"転送を一時停止"</string>
     <string name="attachment_photo_preview" formatted="false">"写真プレビュー：{0}"</string>
     <string name="attachment_progress" formatted="false">"転送状況：{0,number}%、{1}"</string>
+    <string name="attachment_quota" formatted="false">"添付ファイルの保存容量"</string>
+    <string name="attachment_quota_exceeded" formatted="false">"添付ファイルの保存容量の上限を超えます。"</string>
+    <string name="attachment_quota_gi_b" formatted="false">"{0,number} GiB"</string>
+    <string name="attachment_quota_in_use" formatted="false">"使用中と予約済みの容量を下回る上限は設定できません。"</string>
     <string name="attachment_reject" formatted="false">"拒否"</string>
+    <string name="attachment_resume" formatted="false">"転送を再開"</string>
     <string name="attachment_save_as" formatted="false">"名前を付けて保存"</string>
+    <string name="attachment_show_in_folder" formatted="false">"保存先を開く"</string>
+    <string name="attachment_source_changed" formatted="false">"元のファイルが変更されました。もう一度送信してください。"</string>
+    <string name="attachment_source_permission" formatted="false">"ファイルの読み取り権限がありません。もう一度選択してください。"</string>
+    <string name="attachment_source_unavailable" formatted="false">"元のファイルを読み取れません。もう一度選択してください。"</string>
+    <string name="attachment_speed_eta" formatted="false">"{0}/秒 · 残り約 {1,number} 秒"</string>
     <string name="attachment_state_awaiting_receipt" formatted="false">"保存確認待ち"</string>
     <string name="attachment_state_canceled" formatted="false">"キャンセル済み"</string>
+    <string name="attachment_state_checking" formatted="false">"保存済みデータを確認中"</string>
     <string name="attachment_state_delivered" formatted="false">"送達済み"</string>
     <string name="attachment_state_failed" formatted="false">"転送失敗"</string>
     <string name="attachment_state_interrupted" formatted="false">"転送中断"</string>
     <string name="attachment_state_offered" formatted="false">"受信待ち"</string>
+    <string name="attachment_state_paused" formatted="false">"一時停止中"</string>
     <string name="attachment_state_preparing" formatted="false">"準備中"</string>
     <string name="attachment_state_received" formatted="false">"受信済み"</string>
     <string name="attachment_state_rejected" formatted="false">"拒否されました"</string>
+    <string name="attachment_state_source_unavailable" formatted="false">"一時停止：元のファイルを読み込めません。アクセスを復旧して再開してください。"</string>
     <string name="attachment_state_transferring" formatted="false">"転送中"</string>
     <string name="attachment_state_unknown" formatted="false">"結果不明（相手が保存済みの可能性あり）"</string>
     <string name="attachment_state_verifying" formatted="false">"検証・保存中"</string>
+    <string name="attachment_storage_full" formatted="false">"ストレージの空き容量が不足しています。"</string>
     <string name="attachment_summary" formatted="false">"{0} · {1}"</string>
+    <string name="attachment_too_large" formatted="false">"ファイルサイズの上限を超えています。"</string>
     <string name="attachment_unavailable" formatted="false">"ファイルを利用できません。削除された可能性があります。"</string>
     <string name="attachment_upgrade_required" formatted="false">"転送プロトコルが非対応です。両方のアプリを更新してください。"</string>
+    <string name="attachment_waiting_resume" formatted="false">"相手の再開確認を待っています…"</string>
     <string name="attachments" formatted="false">"添付"</string>
     <string name="back" formatted="false">"戻る"</string>
     <string name="back_to_chats" formatted="false">"チャット一覧に戻る"</string>
@@ -147,6 +166,7 @@
     <string name="device_info_trusted" formatted="false">"このデバイスは登録済みで、次回から再接続できます。\n\n信頼はデバイスの鍵に基づき、本名を確認するものではありません。信頼を解除してもチャット履歴は保持されます。\n\nデバイス識別情報\n{0}"</string>
     <string name="device_info_untrusted" formatted="false">"このデバイスは未登録です。次回の接続には承認が必要です。\n\n信頼はデバイスの鍵に基づき、本名を確認するものではありません。信頼を解除してもチャット履歴は保持されます。\n\nデバイス識別情報\n{0}"</string>
     <string name="device_section" formatted="false">"このデバイス"</string>
+    <string name="diagnostics_copied" formatted="false">"転送診断をコピーしました"</string>
     <string name="direct" formatted="false">"IP アドレスで接続"</string>
     <string name="disconnect" formatted="false">"切断"</string>
     <string name="disconnect_and_connect" formatted="false">"切断して接続"</string>
@@ -158,6 +178,7 @@
     <string name="earlier" formatted="false">"以前"</string>
     <string name="emoji" formatted="false">"絵文字"</string>
     <string name="empty_chat" formatted="false">"左側からチャットを選ぶか、「近く」でデバイスに接続してください。"</string>
+    <string name="encrypted_via" formatted="false">"エンドツーエンド暗号化 · {0}"</string>
     <string name="endpoint" formatted="false">"相手の IP アドレスとポート"</string>
     <string name="endpoint_hint" formatted="false">"例：192.168.1.20:54321。相手のデバイスに表示されているアドレスを確認してください。"</string>
     <string name="endpoint_required" formatted="false">"LAN の IP アドレスとポートを入力してください。"</string>
@@ -174,8 +195,8 @@
     <string name="handshake" formatted="false">"デバイスを確認中…"</string>
     <string name="handshake_timeout" formatted="false">"相手がデバイス確認に応答しませんでした。再接続してください。"</string>
     <string name="help" formatted="false">"使い方"</string>
-    <string name="help_body_linux" formatted="false">"LAN：両方のデバイスを同じ Wi-Fi またはアクセスポイントに接続してください。受信を有効にして検索するか、IP アドレスとポートを入力します。LAN のメッセージは平文で送信されるため、信頼できるネットワークを使用してください。\n\nBluetooth：アダプターと BlueZ システムサービスを有効にしてください。両方で受信を有効にし、検索される側を検出可能にします。初回のペアリングにはデスクトップのペアリングエージェントが必要です。システム設定でペアリングできます。登録済みのデバイスと検索結果を一覧に表示します。登録したデバイスは履歴から再接続できます。受信の停止は接続済みのチャットを切断しません。\n\n初回のチャットでは、デバイスを登録するか、今回のみ許可できます。システムのペアリングだけではアプリの信頼は付与されません。再接続時は同じ公開鍵を確認します。設定で信頼を解除できます。\n\n「確認待ち」は保存確認がまだ届いていない状態、「配信済み」は相手が保存した状態、「未確認」は結果が不明な状態です。いずれも既読を意味しません。\n\n履歴と下書きは再起動後も保持されます。終了後は受信を再び有効にしてください。データは XDG_DATA_HOME/wozai、既定では ~/.local/share/wozai に保存され、アプリの場所に依存しません。秘密鍵は追加の暗号化をせず、所有者だけがアクセスできるファイル権限で保護します。データを削除すると履歴と信頼も削除されます。"</string>
-    <string name="help_body_windows" formatted="false">"LAN：両方のデバイスを同じ Wi-Fi またはアクセスポイントに接続してください。受信を有効にして検索するか、IP アドレスとポートを入力します。LAN のメッセージは平文で送信されるため、信頼できるネットワークを使用してください。\n\nBluetooth：相手が受信と検出を有効にしてから検索してください。初回の接続では、システムの指示に従ってペアリングします。必要に応じて Windows の Bluetooth 設定を開いてください。登録済みのデバイスは、相手が Bluetooth と受信を有効にしていれば、履歴から再接続できます。\n\n初回のチャットでは、デバイスを登録するか、今回のみ許可できます。再接続時は同じデバイス識別情報か確認します。設定で信頼を解除できます。\n\n「確認待ち」は保存確認がまだ届いていない状態、「配信済み」は相手が保存した状態、「未確認」は結果が不明な状態です。いずれも既読を意味しません。\n\n履歴はこのパソコンに保存されます。Windows の下書きはチャットを切り替えたり再起動したりしても復元できます。終了後は受信を再び有効にしてください。\n\nポータブル版のデータはアプリと同じ場所の data フォルダーにあります。移行後も元のファイルを保持します。秘密鍵は現在の Windows ユーザーで保護され、別のユーザーやパソコンでは自動的に解除できません。data を削除すると、履歴とデバイスの信頼も削除されます。"</string>
+    <string name="help_body_linux" formatted="false">"LAN：両方のデバイスを同じ Wi-Fi またはアクセスポイントに接続してください。受信を有効にして検索するか、IP アドレスとポートを入力します。チャットとファイル転送はエンドツーエンドで暗号化されます。このデバイスの履歴と添付ファイルは暗号化されません。\n\nBluetooth：アダプターと BlueZ システムサービスを有効にしてください。両方で受信を有効にし、検索される側を検出可能にします。初回のペアリングにはデスクトップのペアリングエージェントが必要です。システム設定でペアリングできます。登録済みのデバイスと検索結果を一覧に表示します。登録したデバイスは履歴から再接続できます。受信の停止は接続済みのチャットを切断しません。\n\n初回のチャットでは、デバイスを登録するか、今回のみ許可できます。システムのペアリングだけではアプリの信頼は付与されません。再接続時は同じ公開鍵を確認します。設定で信頼を解除できます。\n\n「確認待ち」は保存確認がまだ届いていない状態、「配信済み」は相手が保存した状態、「未確認」は結果が不明な状態です。いずれも既読を意味しません。\n\n履歴と下書きは再起動後も保持されます。終了後は受信を再び有効にしてください。データは XDG_DATA_HOME/wozai、既定では ~/.local/share/wozai に保存され、アプリの場所に依存しません。秘密鍵は追加の暗号化をせず、所有者だけがアクセスできるファイル権限で保護します。データを削除すると履歴と信頼も削除されます。"</string>
+    <string name="help_body_windows" formatted="false">"LAN：両方のデバイスを同じ Wi-Fi またはアクセスポイントに接続してください。受信を有効にして検索するか、IP アドレスとポートを入力します。チャットとファイル転送はエンドツーエンドで暗号化されます。このデバイスの履歴と添付ファイルは暗号化されません。\n\nBluetooth：相手が受信と検出を有効にしてから検索してください。初回の接続では、システムの指示に従ってペアリングします。必要に応じて Windows の Bluetooth 設定を開いてください。登録済みのデバイスは、相手が Bluetooth と受信を有効にしていれば、履歴から再接続できます。\n\n初回のチャットでは、デバイスを登録するか、今回のみ許可できます。再接続時は同じデバイス識別情報か確認します。設定で信頼を解除できます。\n\n「確認待ち」は保存確認がまだ届いていない状態、「配信済み」は相手が保存した状態、「未確認」は結果が不明な状態です。いずれも既読を意味しません。\n\n履歴はこのパソコンに保存されます。Windows の下書きはチャットを切り替えたり再起動したりしても復元できます。終了後は受信を再び有効にしてください。\n\nポータブル版のデータはアプリと同じ場所の data フォルダーにあります。移行後も元のファイルを保持します。秘密鍵は現在の Windows ユーザーで保護され、別のユーザーやパソコンでは自動的に解除できません。data を削除すると、履歴とデバイスの信頼も削除されます。"</string>
     <string name="history_trust_retained" formatted="false">"このデバイスのチャット履歴と信頼は保持されます。"</string>
     <string name="identity_changed" formatted="false">"デバイスの識別情報が履歴と異なるため、接続を拒否しました。相手がアプリを再インストールしたか確認してください。"</string>
     <string name="identity_changed_rejected" formatted="false">"デバイスの識別情報が変わったため、接続を拒否しました。"</string>
@@ -265,7 +286,7 @@
     <string name="photo_zoom_out" formatted="false">"写真を縮小"</string>
     <string name="please_wait_connecting" formatted="false">"接続中です。お待ちください。"</string>
     <string name="portable_hint" formatted="false">"ポータブル版はアプリと同じ場所の data フォルダーに保存します。旧データはコピーして移行し、元のファイルも保持します。識別情報は現在の Windows ユーザーで保護され、別のユーザーやパソコンでは自動的に解除できません。"</string>
-    <string name="privacy" formatted="false">"アカウントやリモートサーバーは不要です。履歴はこのパソコンに保存されます。LAN のメッセージは平文です。識別情報の署名は内容を暗号化しません。"</string>
+    <string name="privacy" formatted="false">"アカウントやリモートサーバーは不要です。チャットとファイル転送はエンドツーエンドで暗号化されますが、このデバイスの履歴と添付ファイルは暗号化されません。初回の接続時は相手のデバイス識別情報を直接確認してください。"</string>
     <string name="quit" formatted="false">"終了"</string>
     <string name="ready" formatted="false">"接続済み"</string>
     <string name="received" formatted="false">"受信済み"</string>
@@ -329,6 +350,7 @@
     <string name="system_language" formatted="false">"システムに合わせる"</string>
     <string name="theme" formatted="false">"テーマ"</string>
     <string name="today" formatted="false">"今日"</string>
+    <string name="transfer_diagnostics" formatted="false">"転送診断をコピー"</string>
     <string name="trust_hint" formatted="false">"信頼はデバイスの公開鍵に基づき、LAN と Bluetooth で共有されます。信頼を解除すると切断されますが、チャット履歴は保持されます。"</string>
     <string name="trust_revoked_canceled" formatted="false">"信頼を解除し、接続試行を停止しました。"</string>
     <string name="trust_revoked_reconnect" formatted="false">"信頼を解除しました。再接続してリクエストを承認してください。"</string>

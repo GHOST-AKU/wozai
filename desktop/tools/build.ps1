@@ -42,6 +42,8 @@ Copy-Item build/native/Release/wozai_bluetooth.dll build/lib/ -Force
 $bluetoothLibrary = '-Dwozai.bluetooth.library=' + (Resolve-Path build/lib/wozai_bluetooth.dll).Path
 $sources = @((Get-ChildItem src/main/java -Recurse -Filter '*.java').FullName)
 $sources += (Get-ChildItem ../app/src/main/java/dev/ghost/nearbyim/core -Filter '*.java').FullName
+$sources += (Get-ChildItem ../app/src/main/java/dev/ghost/nearbyim/noise -Recurse -Filter '*.java').FullName
+$sources += (Get-ChildItem ../third_party/noise-java/src -Recurse -Filter '*.java').FullName
 $sources += (Get-ChildItem ../app/src/main/java/dev/ghost/nearbyim/i18n -Filter '*.java' | Where-Object Name -ne 'I18nResources.java').FullName
 $sources += (Resolve-Path ../app/src/main/java/dev/ghost/nearbyim/storage/TrustPolicy.java).Path
 # Java argument files must not start with a UTF-8 BOM (Windows PowerShell 5 adds one).
@@ -59,7 +61,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Build metadata failed' }
 Invoke-JavaTool jar @('--create', '--file', 'build/lib/nearbyim-desktop.jar', '--main-class', 'dev.ghost.wozai.Main', '-C', 'build/classes', '.')
 $tests = (Get-ChildItem src/test/java -Recurse -Filter '*.java').FullName
 Invoke-JavaTool javac (@('--release', '17', '-encoding', 'UTF-8', '-cp', 'build/classes;build/lib/*', '-d', 'build/tests') + $tests)
-foreach ($test in @('DesktopTests', 'ReviewRegressionTests', 'DataLocationTests', 'BluetoothTests', 'TransportTests', 'StringsTests', 'FontTests', 'MessagePaneTests', 'AttachmentStoreTests', 'AttachmentGuiTests', 'AppIconTests')) {
+foreach ($test in @('DesktopTests', 'ReadyCloseTests', 'ReviewRegressionTests', 'DataLocationTests', 'NoiseIdentityTests', 'BluetoothTests', 'TransportTests', 'StringsTests', 'FontTests', 'MessagePaneTests', 'AttachmentStoreTests', 'AttachmentGuiTests', 'AppIconTests')) {
     Invoke-JavaTool java @($bluetoothLibrary, '-cp', 'build/classes;build/tests;build/lib/*', "dev.ghost.wozai.$test")
 }
 if ($Package) {

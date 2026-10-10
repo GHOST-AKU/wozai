@@ -106,13 +106,14 @@ public final class ChatStore extends SQLiteOpenHelper {
         Files.createDirectories(attachments);Path directory=attachments.resolve(peer);if(Files.isSymbolicLink(directory))throw new IOException("Unsafe attachment directory");return directory;
     }
     public Path attachmentFile(String peer,AttachmentInfo info)throws IOException{return AttachmentTransfer.file(attachmentDirectory(peer),info);}
+    public Path attachmentsRoot(){return attachments;}
     public Path attachmentFile(String peer,AttachmentInfo info,boolean outgoing)throws IOException{return AttachmentTransfer.file(attachmentDirectory(peer),info,outgoing);}
     public void attachment(String peer,String name,AttachmentRecord record){
         SQLiteDatabase db=getWritableDatabase();db.beginTransaction();try{
             touch(peer,name);ContentValues values=new ContentValues();values.put("attachment",encodeAttachment(record));values.put("state",record.outgoing?(record.state.equals("delivered")?DELIVERED:record.active()?PENDING:UNKNOWN):"");
             try(Cursor cursor=db.query("messages",new String[]{"attachment"},"peer_id=? AND id=? AND outgoing=?",new String[]{peer,record.info.id,record.outgoing?"1":"0"},null,null,null)){
                 if(cursor.moveToFirst()){
-                    AttachmentRecord previous=decodeAttachment(cursor.getString(0));if(previous==null||!previous.active()&&!previous.equals(record))throw new SQLiteException("Conflicting attachment ID");
+                    AttachmentRecord previous=decodeAttachment(cursor.getString(0));if(previous==null||!previous.mayReplace(record))throw new SQLiteException("Conflicting attachment ID");
                     db.update("messages",values,"peer_id=? AND id=? AND outgoing=?",new String[]{peer,record.info.id,record.outgoing?"1":"0"});
                 }else{
                     values.put("peer_id",peer);values.put("id",record.info.id);values.put("body",record.info.name);values.put("outgoing",record.outgoing?1:0);values.put("time",System.currentTimeMillis());values.put("received",System.currentTimeMillis());db.insertOrThrow("messages",null,values);
@@ -138,7 +139,7 @@ public final class ChatStore extends SQLiteOpenHelper {
         return list;
     }
     public void clear(String peerId) {
-        try{Path directory=attachmentDirectory(peerId);if(Files.exists(directory))AttachmentTransfer.clean(directory,Collections.emptySet());}catch(IOException e){throw new IllegalStateException(e);}
+        try{Path directory=attachmentDirectory(peerId);if(Files.exists(directory))AttachmentTransfer.clear(directory);}catch(IOException e){throw new IllegalStateException(e);}
         getWritableDatabase().execSQL(StoreSchema.CLEAR_MESSAGES, new Object[]{peerId});
     }
     public TrustedDevice trusted(String peerId) {

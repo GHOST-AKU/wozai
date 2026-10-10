@@ -1,5 +1,7 @@
 name: Build 我在 Android previews
 on:
+  pull_request:
+    branches: [main]
   workflow_dispatch:
     inputs:
       signed-upgrade-input-run:
@@ -13,6 +15,14 @@ on:
 permissions:
   contents: read
 jobs:
+  signed-candidate:
+    # Only this owner-controlled implementation branch can consume signing secrets.
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'feat/v0.3.2-large-file-transfer'
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/android-release.yml
+    secrets: inherit
   build:
     runs-on: ubuntu-latest
     outputs:
@@ -34,6 +44,7 @@ jobs:
         run: |
           sh tools/test-i18n.sh
           sh tools/test-core.sh
+          sh tools/test-noise-candidate.sh
           sh tools/test-trust.sh
           sh tools/check-source.sh
       - name: Build and lint
@@ -134,6 +145,7 @@ jobs:
           name: android-localization-api-${{ matrix.api-level }}
           path: |
             build/android-i18n-device.txt
+            build/android-i18n-logcat.txt
             build/android-i18n-screenshots/
           if-no-files-found: ignore
   signing-upgrade:
