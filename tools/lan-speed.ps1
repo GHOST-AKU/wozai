@@ -47,6 +47,7 @@ async function run(kind){
   if(kind==='up'){
    status('正在准备测试数据…');payload=new Uint8Array(size);const seed=new Uint8Array(65536);crypto.getRandomValues(seed);
    for(let i=0;i<size;i+=seed.length)payload.set(seed,i);
+   payload=new Blob([payload],{type:'application/octet-stream'});
   }
   status('正在测速…');const start=performance.now();let bytes=0;
   timer=setInterval(()=>status((kind==='down'?'电脑 → 手机':'手机 → 电脑')+'：'+(bytes/1048576).toFixed(1)+' / 64 MiB'),400);

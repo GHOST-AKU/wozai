@@ -7,8 +7,11 @@ from pathlib import Path
 import re
 import socket
 import subprocess
+import sys
 import time
 from urllib.parse import urlsplit
+
+sys.stdout.reconfigure(encoding='utf-8')
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--powershell', default='powershell.exe')
@@ -16,8 +19,9 @@ parser.add_argument('--browser-channel', default='')
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[1]
 size = 64 * 1024 * 1024
-command = [args.powershell, '-NoLogo', '-NoProfile', '-NonInteractive', '-File',
-           str(root / 'tools/lan-speed.ps1'), '-ListenAddress', '127.0.0.1']
+source = (root / 'tools/lan-speed.ps1').read_text(encoding='utf-8-sig')
+command = [args.powershell, '-NoLogo', '-NoProfile', '-NonInteractive', '-Command',
+           '& {\n' + source + '\n} -ListenAddress 127.0.0.1']
 process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                            text=True, encoding='utf-8', errors='replace')
 checks = []
