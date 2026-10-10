@@ -27,6 +27,8 @@ try {
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentV2Tests
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentCheckpointLatencyTests
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentFeedbackTests
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentResumeTests
