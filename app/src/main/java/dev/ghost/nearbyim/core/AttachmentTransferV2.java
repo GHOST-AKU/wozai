@@ -58,6 +58,7 @@ public final class AttachmentTransferV2 implements AutoCloseable {
         long sent,written,verified,durable,lastCheckpointNs,lastCredit,lastCreditVerified,lastCreditDurable,lastCreditNs,lastNotice;
         long sampleNs,sampleBytes,bytesPerSecond;
         long historyDurable=-1,creditWaitNs;String historyState;
+        long forcedWritten=-1,checkpointDelayNs=2_000_000_000L;
         MessageDigest whole,block;
         TransferByteWindow window;
         Task(AttachmentInfo info,boolean outgoing,String generation,Path partial){this.info=info;this.outgoing=outgoing;this.generation=generation;this.partial=partial;}
@@ -263,11 +264,19 @@ public final class AttachmentTransferV2 implements AutoCloseable {
         long began=metrics.begin(CHECKPOINT);try{checkpoints.checkpoint(new TransferCheckpoint(task.key,task.info,task.reference,task.written,task.verified,task.durable,state,System.currentTimeMillis()));task.lastCheckpointNs=System.nanoTime();}finally{metrics.end(CHECKPOINT,began,0);}
     }
     private void checkpointIncoming(Task task,boolean force,TransferCheckpoint.State state)throws IOException {
-        long now=System.nanoTime();if(!force&&(task.verified==task.durable||task.verified-task.durable<CHECKPOINT_BYTES&&now-task.lastCheckpointNs<2_000_000_000L))return;
-        long began=metrics.begin(CONTENT_FORCE);try{
-            if(task.output!=null&&task.output.isOpen())task.output.force(true);
-            else try(FileChannel content=FileChannel.open(task.partial,StandardOpenOption.WRITE,LinkOption.NOFOLLOW_LINKS)){content.force(true);}
-        }finally{metrics.end(CONTENT_FORCE,began,0);}
+        long now=System.nanoTime();if(!force&&(task.verified==task.durable||task.verified-task.durable<CHECKPOINT_BYTES&&now-task.lastCheckpointNs<task.checkpointDelayNs))return;
+        // Content already forced at the last block boundary need not be forced again at END.
+        // Checkpoint/index persistence and the final saved receipt still follow below.
+        if(task.forcedWritten!=task.written) {
+            long began=metrics.begin(CONTENT_FORCE);try{
+                if(task.output!=null&&task.output.isOpen())task.output.force(true);
+                else try(FileChannel content=FileChannel.open(task.partial,StandardOpenOption.WRITE,LinkOption.NOFOLLOW_LINKS)){content.force(true);}
+                task.forcedWritten=task.written;
+                long elapsed=System.nanoTime()-began;
+                // Slow disks coalesce time-based commits; the 32 MiB byte trigger always wins.
+                task.checkpointDelayNs=Math.max(2_000_000_000L,Math.min(30_000_000_000L,elapsed>7_500_000_000L?30_000_000_000L:elapsed*4));
+            }finally{metrics.end(CONTENT_FORCE,began,0);}
+        }
         task.durable=task.verified;checkpoint(task,state);
     }
     private void requireRoom(TransferTaskKey.Direction direction)throws IOException {
@@ -465,7 +474,8 @@ public final class AttachmentTransferV2 implements AutoCloseable {
         for(Task task:new Task[]{outgoing,incoming})if(task!=null){
             report.append(task.outgoing?"send":"receive").append(": state=").append(task.state)
                 .append(", total=").append(task.info.size).append(", sent=").append(task.sent)
-                .append(", written=").append(task.written).append(", durable=").append(task.durable);
+                .append(", written=").append(task.written).append(", durable=").append(task.durable)
+                .append(", checkpoint_delay_ms=").append(task.checkpointDelayNs/1_000_000L);
             if(task.window!=null)report.append(", in_flight=").append(task.window.inFlightBytes()).append(", available=").append(task.window.availableBytes());
             report.append('\n');
         }
