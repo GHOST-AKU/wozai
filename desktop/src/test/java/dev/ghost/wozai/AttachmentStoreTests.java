@@ -9,14 +9,15 @@ import java.net.*;
 import dev.ghost.nearbyim.i18n.UiText;
 public final class AttachmentStoreTests {
     static final String PEER="12345678-1234-1234-1234-123456789abc",ID="12345678-1234-1234-1234-123456789abd";
+    static volatile Runnable timeoutEvidence=()->{};
     static final class Events implements DesktopClient.Listener {
         final AtomicReference<DesktopClient.State> state=new AtomicReference<>();
         public void changed(DesktopClient.State value){state.set(value);}
         public void request(DesktopClient.Request request){throw new AssertionError("Pinned peer asked for consent");}
-        public void notice(UiText text){}
+        volatile String noticeKey="";public void notice(UiText text){noticeKey=text.key;}
         boolean ready(){return state.get()!=null&&state.get().phase().equals("ready");}
     }
-    static void await(java.util.concurrent.Callable<Boolean> condition)throws Exception{long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(20);while(System.nanoTime()<deadline){if(condition.call())return;Thread.sleep(10);}throw new AssertionError("Desktop attachment timed out");}
+    static void await(java.util.concurrent.Callable<Boolean> condition)throws Exception{long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(20);while(System.nanoTime()<deadline){if(condition.call())return;Thread.sleep(10);}timeoutEvidence.run();throw new AssertionError("Desktop attachment timed out");}
     static AttachmentRecord record(DesktopStore store,String peer,String id)throws Exception{return store.messages(peer).stream().filter(m->m.id().equals(id)).findFirst().map(DesktopStore.Message::attachment).orElse(null);}
     static String generation(DesktopClient client)throws Exception {
         Field current=DesktopClient.class.getDeclaredField("current");current.setAccessible(true);Object session=current.get(client);
@@ -27,6 +28,11 @@ public final class AttachmentStoreTests {
         InetAddress address=Collections.list(NetworkInterface.getNetworkInterfaces()).stream().flatMap(i->Collections.list(i.getInetAddresses()).stream()).filter(i->i instanceof Inet4Address&&LocalEndpoint.isLocal(i)).findFirst().orElseThrow();
         Path retainedPhoto=null;AttachmentInfo sentPhoto=null;
         try(DesktopStore as=new DesktopStore(a);DesktopStore bs=new DesktopStore(b);DesktopClient ac=new DesktopClient(as,ai,ae);DesktopClient bc=new DesktopClient(bs,bi,be)){
+            timeoutEvidence=()->{
+                System.err.println("A notice="+ae.noticeKey+"\n"+ac.transferDiagnostics(bi.id()));
+                System.err.println("B notice="+be.noticeKey+"\n"+bc.transferDiagnostics(ai.id()));
+                try{for(DesktopStore store:new DesktopStore[]{as,bs})for(DesktopStore.Message message:store.messages(store==as?bi.id():ai.id()))if(message.attachment()!=null){AttachmentRecord r=message.attachment();System.err.println((store==as?"A":"B")+" attachment outgoing="+r.outgoing+", state="+r.state+", transferred="+r.transferred+", total="+r.info.size);}}catch(Exception ignored){}
+            };
             int port=bc.listen().get(10,TimeUnit.SECONDS).port();String endpoint=DesktopClient.endpoint(address,port);as.peer(new DesktopStore.Peer(bi.id(),"b",bi.signer().publicKey(),endpoint));bs.peer(new DesktopStore.Peer(ai.id(),"a",ai.signer().publicKey(),""));ac.connect(endpoint,bi.id()).get(10,TimeUnit.SECONDS);await(()->ae.ready()&&be.ready());
             if(!ac.endToEndEncrypted(bi.id())||!bc.endToEndEncrypted(ai.id()))throw new AssertionError("Production file session does not report verified end-to-end encryption");
             byte[] data=new byte[32768*8+7];new Random(91).nextBytes(data);Path source=root.resolve("document.pdf");Files.write(source,data);
@@ -87,6 +93,7 @@ public final class AttachmentStoreTests {
             Path exported=root.resolve("exported.pdf");Files.copy(received,exported);bc.clear(ai.id()).get(10,TimeUnit.SECONDS);if(Files.exists(received)||!Files.exists(exported)||bs.peer(ai.id()).publicKey().isEmpty())throw new AssertionError("Clear damaged independent export or trust");
             boolean refused=false;try{ac.sendAttachment(UUID.randomUUID().toString(),source).get(10,TimeUnit.SECONDS);}catch(ExecutionException expected){refused=true;}if(!refused)throw new AssertionError("Wrong peer selector sent a file");
         }
+        timeoutEvidence=()->{};
         try(DesktopStore restarted=new DesktopStore(a)){if(!Files.exists(restarted.attachmentFile(bi.id(),sentPhoto,true)))throw new AssertionError("Restart removed delivered photo");restarted.clear(bi.id());if(Files.exists(retainedPhoto))throw new AssertionError("Clear retained sent photo bytes");}
     }
     public static void main(String[] args)throws Exception {

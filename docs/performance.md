@@ -349,3 +349,8 @@ Windows JDK 的未缓冲 DataInputStream 原先在每个 Noise 包头触发 10 �
 [旧批全部数据](performance/2026-10-10-noise-read-baseline-256m-three.json)、[新批全部数据](performance/2026-10-10-noise-read-instrumented-256m-three.json)、[编译类摘要与受控读取样本](performance/2026-10-10-noise-read-diagnostics.json)。实际手机速度、恢复等待、Linux RSS 原因与物理蓝牙/热稳定性阻碍继续记录在 #11/#9/#15；PR #18 仍为 draft。
 
 追加一轮真实密集 10 GiB、-Xmx32m 的当前编译类验证：完整内容 SHA-256 `206cddc139ba254e61eddd2b4257dd5784e0494da137a5b469486d6ec19f6ea6` 正确，稳态 174.858 MiB/s、完整交付 174.286 MiB/s。[完整样本](performance/2026-10-10-noise-read-instrumented-10g-one.json)。仅证明这一轮全容量传输/落盘/回执与有限堆完成，没有重跑当前源码三轮 raw R 与速度验收，也不外推到手机。
+
+
+当前 c655892 CI 的 Android 构建、API 26/34（含实际菜单点击/剪贴板）及四条原签名升级通过，Noise 三平台通过；Linux 38023943605 在 64 MiB 暂停后的双端 paused 等待超时（AttachmentStoreTests:45），Windows 38023943872 在第二次 512 MiB 接收端恢复后的完整交付等待超时（:62）。保留两次失败，不将本地通过记作 CI 通过。该测试随后加入超时两端状态、阶段耗时与不含文件/身份的附件状态输出；没有放宽 20 秒等待或 500 ms/1 s 门槛。生产代码未因这些超时再修改，主因仍待数据确认。
+
+本地追加三轮实际 DesktopClient/Noise/SQLite 回归均完成同连接 512 MiB：发送端 4.652/5.754/4.480 s，接收端 3.282/3.800/3.287 s，双向各256 MiB的20条重叠保存文字回执 P95 34.967/36.607/42.666 ms，取消5.580/5.018/4.276 ms。仅作为复现尝试，不说明 CI 失败或用户等待已解决。
