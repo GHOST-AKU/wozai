@@ -420,6 +420,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
         check(onMain(()->!((android.widget.Button)field(activity,"verificationMark")).isEnabled()),"Verified identity disables repeated manual marking");
         screenshot("zh-Hans-identity-verified");
         onMain(()->{dialog.dismiss();return null;});
+        check(onMain(()->field(activity,"verificationDialog")==null&&field(activity,"verificationMark")==null&&field(activity,"verificationSnapshot")==null),"Closing Android verification releases its page and identity snapshot");
     }
     private static void collectVerificationViews(android.view.View view,java.util.List<android.view.View> result){result.add(view);if(view instanceof android.view.ViewGroup group)for(int i=0;i<group.getChildCount();i++)collectVerificationViews(group.getChildAt(i),result);}
     private void testFileTransfers(ChatController controller,String peer)throws Exception {
