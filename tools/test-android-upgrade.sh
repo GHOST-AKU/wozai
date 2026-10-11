@@ -46,7 +46,11 @@ PY
 }
 instrument() {
     echo "Upgrade check: $3 ($1, code $2)"
-    timeout 180 adb shell am instrument -r -w -e phase "$1" -e version_code "$2" dev.ghost.nearbyim.test/dev.ghost.nearbyim.SigningUpgradeInstrumentation > "build/upgrade-evidence/$3.txt"
+    expected_schema=4
+    if [ "$2" = "$code" ]; then
+        expected_schema=$(python3 -c 'import re; from pathlib import Path; print(re.search(r"VERSION = (\d+)", Path("app/src/main/java/dev/ghost/nearbyim/storage/StoreSchema.java").read_text()).group(1))')
+    fi
+    timeout 180 adb shell am instrument -r -w -e phase "$1" -e version_code "$2" -e schema_version "$expected_schema" dev.ghost.nearbyim.test/dev.ghost.nearbyim.SigningUpgradeInstrumentation > "build/upgrade-evidence/$3.txt"
     cat "build/upgrade-evidence/$3.txt"
     python3 - "$3" <<'PY'
 from pathlib import Path

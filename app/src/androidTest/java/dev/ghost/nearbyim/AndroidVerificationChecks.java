@@ -15,6 +15,7 @@ final class AndroidVerificationChecks {
         File directory=new File(context.getCacheDir(),"verification-db-"+UUID.randomUUID());
         if(!directory.mkdir())throw new IOException("Fixture directory unavailable");
         Context isolated=new ContextWrapper(context){
+            public File getDatabasePath(String name){return new File(directory,name);}
             public File getFilesDir(){return directory;}
             public SQLiteDatabase openOrCreateDatabase(String name,int mode,SQLiteDatabase.CursorFactory factory){return SQLiteDatabase.openOrCreateDatabase(new File(directory,name),factory);}
             public SQLiteDatabase openOrCreateDatabase(String name,int mode,SQLiteDatabase.CursorFactory factory,DatabaseErrorHandler error){return SQLiteDatabase.openOrCreateDatabase(new File(directory,name).getPath(),factory,error);}
