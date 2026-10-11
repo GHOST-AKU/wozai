@@ -56,6 +56,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     private List<TransferProgress> renderedProgress = List.of();
     private JDialog requestDialog;
     private PhotoViewer photoViewer;
+    private SecurityDialog securityDialog;
     private final Map<String,JDialog> informationDialogs = new HashMap<>();
     private DesktopClient.Request pendingRequest;
     private JTextArea requestDescription;
@@ -134,6 +135,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.TRAILING, 8, 0));
         actions.add(button("reconnect", this::reconnect));
         JPopupMenu menu = new JPopupMenu();
+        JMenuItem verify=new JMenuItem();verify.setIcon(AppTheme.icon("lock"));translations.add(()->verify.setText(strings.text("verifyIdentity")));verify.addActionListener(e->openVerification());menu.add(verify);
         JMenuItem clear = new JMenuItem(), revoke = new JMenuItem();
         translations.add(() -> { clear.setText(strings.text("clear")); revoke.setText(strings.text("revoke")); menu.applyComponentOrientation(orientation()); });
         clear.addActionListener(e -> { if (selected != null && confirm("clearConfirm")) handle(client.clear(selected), "storageFailure"); });
@@ -230,11 +232,11 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         JComboBox<String> sizes=new JComboBox<>();
         translations.add(() -> { sizes.setModel(new DefaultComboBoxModel<>(new String[]{strings.text("normal"),strings.text("large"),strings.text("largest")})); sizes.setSelectedIndex(fontScale==1?0:fontScale==1.25f?1:2); });
         content.add(settingRow("fontSize",sizes,null));
-        sizes.addActionListener(e -> { if(translating||sizes.getSelectedIndex()<0)return; fontScale=new float[]{1,1.25f,1.5f}[sizes.getSelectedIndex()]; scaleFonts(getContentPane(),fontScale); transcript.scale(fontScale); renderedMessages=null; renderMessages(); handle(client.setting("textSize",Integer.toString(sizes.getSelectedIndex())),"storageFailure"); });
+        sizes.addActionListener(e -> { if(translating||sizes.getSelectedIndex()<0)return; fontScale=new float[]{1,1.25f,1.5f}[sizes.getSelectedIndex()]; scaleFonts(getContentPane(),fontScale); if(securityDialog!=null)scaleFonts(securityDialog.getContentPane(),fontScale); transcript.scale(fontScale); renderedMessages=null; renderMessages(); handle(client.setting("textSize",Integer.toString(sizes.getSelectedIndex())),"storageFailure"); });
         fontScale=new float[]{1,1.25f,1.5f}[Math.max(0,Math.min(2,Integer.parseInt(store.setting("textSize","0"))))];
         JComboBox<String> themes=new JComboBox<>(); translations.add(() -> { themes.setModel(new DefaultComboBoxModel<>(new String[]{strings.text("lightTheme"),strings.text("darkTheme")})); themes.setSelectedIndex(AppTheme.dark?1:0); });
         content.add(settingRow("theme",themes,null));
-        themes.addActionListener(e -> { if(translating)return; boolean dark=themes.getSelectedIndex()==1; if(dark==AppTheme.dark)return; AppTheme.install(dark); SwingUtilities.updateComponentTreeUI(this); styleNavigation(); AppTheme.refreshPrimary(getContentPane()); refreshThemeColors(); renderedMessages=null; renderMessages(); handle(client.setting("theme",dark?"dark":"light"),"storageFailure"); repaint(); });
+        themes.addActionListener(e -> { if(translating)return; boolean dark=themes.getSelectedIndex()==1; if(dark==AppTheme.dark)return; AppTheme.install(dark); SwingUtilities.updateComponentTreeUI(this); styleNavigation(); AppTheme.refreshPrimary(getContentPane()); refreshThemeColors(); if(securityDialog!=null)securityDialog.refreshTheme(); renderedMessages=null; renderMessages(); handle(client.setting("theme",dark?"dark":"light"),"storageFailure"); repaint(); });
         content.add(section("connectionsSection")); content.add(settingAction("trustedDevices",this::manageTrust));
         content.add(settingAction("attachmentQuota",()->{long[] choices={16,32,64,128};String[] labels=new String[choices.length];String current="";for(int i=0;i<choices.length;i++){labels[i]=strings.text("attachmentQuotaGiB",choices[i]);if(client.attachmentQuota()==choices[i]*1024*1024*1024)current=labels[i];}Object result=JOptionPane.showInputDialog(this,strings.text("attachmentQuota"),strings.text("attachmentQuota"),JOptionPane.PLAIN_MESSAGE,null,labels,current);for(int i=0;i<labels.length;i++)if(labels[i].equals(result)){handle(client.attachmentQuota(choices[i]*1024*1024*1024),"attachmentQuotaInUse");break;}}));
         content.add(settingAction("stopAll", () -> { discovery.stop(); discovered.clear(); refreshNearby(); stopBluetoothScan(); handle(client.stopListening(),"error"); handle(client.stopBluetoothListening(),"error"); handle(client.disconnect(),"error"); }));
@@ -331,6 +333,8 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     private void renderState() {
         boolean encrypted = state.peer()!=null && state.phase().equals("ready") && client.endToEndEncrypted(state.peer().id());
         status.setText(encrypted ? strings.text("encryptedVia",strings.text(state.transport())) : state.transport().isEmpty() ? strings.text(state.phase()) : strings.text("connectionStatus", strings.text(state.transport()), strings.text(state.phase())));
+        if(encrypted)status.setText(status.getText()+" · "+strings.text(client.identityVerified(state.peer().id())?"identityVerified":"identityUnverified"));
+        if(securityDialog!=null&&securityDialog.isDisplayable())securityDialog.refresh();
         listenButton.setText(strings.text(state.listening() == null ? "listen" : "stopListen"));
         addresses.setText(state.listening() == null ? strings.text("notListening") : state.listening().endpoints().isEmpty() ? strings.text("noAddress") : String.join("\n", state.listening().endpoints()));
         DesktopStore.Peer peer = selectedPeer(); chatTitle.setText(peer == null ? strings.text("selectChat") : peer.name());
@@ -339,6 +343,18 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         composer.setEnabled(selected != null); refreshBluetoothText();
     }
     private DesktopStore.Peer selectedPeer() { if (state != null) for (var peer : state.history()) if (peer.id().equals(selected)) return peer; return null; }
+    private void openVerification(){
+        DesktopStore.Peer peer=selectedPeer();if(peer==null)return;long revision=conversationGeneration;
+        client.verification(peer.id()).whenComplete((snapshot,error)->SwingUtilities.invokeLater(()->{
+            if(shuttingDown||revision!=conversationGeneration||!peer.id().equals(selected))return;
+            if(error!=null){notice("error");return;}if(snapshot==null){notice("verificationConnectFirst");return;}
+            if(securityDialog!=null)securityDialog.dispose();
+            SecurityDialog dialog=new SecurityDialog(this,client,snapshot,strings,peer.name());securityDialog=dialog;
+            dialogTranslations.put(dialog,List.of(dialog::translate));
+            dialog.addWindowListener(new WindowAdapter(){public void windowClosed(WindowEvent e){dialogTranslations.remove(dialog);if(securityDialog==dialog)securityDialog=null;}});
+            scaleFonts(dialog.getContentPane(),fontScale);dialog.setVisible(true);
+        }));
+    }
     private void select(DesktopStore.Peer peer) {
         saveDraft(); draftTimer.stop(); selected = peer == null ? null : peer.id(); conversationGeneration++; renderedMessages = null;
         loadingDraft = true; composer.setText(""); loadingDraft = false;

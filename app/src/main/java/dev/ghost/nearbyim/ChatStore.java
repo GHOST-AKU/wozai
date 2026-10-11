@@ -49,6 +49,7 @@ public final class ChatStore extends SQLiteOpenHelper {
         db.execSQL(StoreSchema.CREATE_MESSAGES);
         db.execSQL(StoreSchema.CREATE_MESSAGE_INDEX);
         db.execSQL(StoreSchema.CREATE_TRUST);
+        db.execSQL(StoreSchema.CREATE_VERIFICATION);
     }
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
         for (String statement : StoreSchema.upgradeStatements(oldVersion, newVersion)) db.execSQL(statement);
@@ -172,7 +173,23 @@ public final class ChatStore extends SQLiteOpenHelper {
         } finally { db.endTransaction(); }
     }
     public void revokeTrust(String peerId) {
-        getWritableDatabase().execSQL(StoreSchema.REVOKE_TRUST, new Object[]{peerId});
+        SQLiteDatabase db=getWritableDatabase();db.beginTransaction();try{clearVerification(peerId);db.execSQL(StoreSchema.REVOKE_TRUST,new Object[]{peerId});db.setTransactionSuccessful();}finally{db.endTransaction();}
     }
+    public boolean isVerified(String peerId,String localRoot,String remoteRoot){
+        TrustedDevice pin=trusted(peerId);if(pin==null||!remoteRoot.equals(pin.publicKey))return false;
+        try(Cursor rows=getReadableDatabase().query("verified_identities",new String[]{"local_key","public_key"},"peer_id=?",new String[]{peerId},null,null,null)){
+            return rows.moveToFirst()&&localRoot.equals(rows.getString(0))&&remoteRoot.equals(rows.getString(1));
+        }
+    }
+    public void markVerified(String peerId,String localRoot,String remoteRoot){
+        try{new SafetyCode(localRoot,remoteRoot);}catch(java.security.GeneralSecurityException invalid){throw new IllegalArgumentException("Invalid verification identity",invalid);}
+        SQLiteDatabase db=getWritableDatabase();db.beginTransaction();try{
+            TrustedDevice pin=trusted(peerId);if(pin==null||!remoteRoot.equals(pin.publicKey))throw new SQLiteException("Verification identity changed");
+            ContentValues values=new ContentValues();values.put("peer_id",peerId);values.put("local_key",localRoot);values.put("public_key",remoteRoot);values.put("verified_at",System.currentTimeMillis());
+            if(db.insertWithOnConflict("verified_identities",null,values,SQLiteDatabase.CONFLICT_REPLACE)<0)throw new SQLiteException("Verification save failed");db.setTransactionSuccessful();
+        }finally{db.endTransaction();}
+    }
+    public void clearVerification(String peerId){getWritableDatabase().delete("verified_identities","peer_id=?",new String[]{peerId});}
+    public void invalidateLocalVerifications(String localRoot){getWritableDatabase().delete("verified_identities","local_key<>?",new String[]{localRoot});}
 
 }

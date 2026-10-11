@@ -15,6 +15,9 @@
 -keep class dev.ghost.nearbyim.ChatStore { public *; }
 -keep class dev.ghost.nearbyim.ChatStore$* { public *; }
 -keep class dev.ghost.nearbyim.core.DeviceIdentity { public *; }
+-keep class dev.ghost.nearbyim.core.IdentityVerification { public *; }
+-keep class dev.ghost.nearbyim.core.SafetyCode { public *; }
+-keep class dev.ghost.nearbyim.verification.QrCodes { public *; }
 # Security fixtures deliberately alter claims before root-proof verification.
 -keep class dev.ghost.nearbyim.noise.NoiseRecordChannel { *; }
 -keep class dev.ghost.nearbyim.noise.JcaAesGcmCipherState { *; }

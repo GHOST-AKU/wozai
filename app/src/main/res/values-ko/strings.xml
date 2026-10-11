@@ -179,6 +179,7 @@
     <string name="emoji" formatted="false">"이모지"</string>
     <string name="empty_chat" formatted="false">"왼쪽에서 채팅을 선택하거나 ‘근처’에서 기기에 연결하세요."</string>
     <string name="encrypted_via" formatted="false">"종단 간 암호화 · {0}"</string>
+    <string name="encryption_active" formatted="false">"연결이 종단 간 암호화됨"</string>
     <string name="endpoint" formatted="false">"상대 기기의 IP 주소와 포트"</string>
     <string name="endpoint_hint" formatted="false">"예: 192.168.1.20:54321. 상대 기기에 표시된 주소를 확인하세요."</string>
     <string name="endpoint_required" formatted="false">"LAN IP 주소와 포트를 입력하세요."</string>
@@ -206,7 +207,9 @@
     <string name="identity_protection_timeout" formatted="false">"Windows 기기 식별 정보 보호 작업 시간이 초과되었습니다. 다시 시도하세요. 기존 식별 정보는 교체하지 않습니다."</string>
     <string name="identity_unavailable" formatted="false">"이 기기의 식별 키를 사용할 수 없어 연결이 비활성화되었습니다."</string>
     <string name="identity_unavailable_restart" formatted="false">"이 기기의 식별 키를 사용할 수 없습니다. 앱을 다시 시작한 후 연결해 보세요."</string>
+    <string name="identity_unverified" formatted="false">"신원 미확인"</string>
     <string name="identity_verification_failed" formatted="false">"기기 식별 정보 확인에 실패하여 이 연결을 허용하지 않았습니다."</string>
+    <string name="identity_verified" formatted="false">"신원 확인됨"</string>
     <string name="idle" formatted="false">"연결 안 됨"</string>
     <string name="initial_status" formatted="false">"연결 방식을 선택하고 근처 사람을 찾아보세요"</string>
     <string name="invalid_endpoint" formatted="false">"192.168.1.20:54321 또는 [fd00::1]:54321 형식으로 입력하세요."</string>
@@ -362,6 +365,26 @@
     <string name="unnamed_device" formatted="false">"이름 없는 기기"</string>
     <string name="unpaired_address" formatted="false">"페어링 안 됨 · {0}"</string>
     <string name="unsupported_bluetooth" formatted="false">"이 기기는 블루투스를 지원하지 않습니다. LAN을 사용하세요."</string>
+    <string name="verification_camera_permission" formatted="false">"스캔에는 카메라 권한이 필요합니다. 이미지 선택이나 수동 비교도 가능합니다."</string>
+    <string name="verification_camera_unavailable" formatted="false">"카메라를 사용할 수 없습니다. 이미지 선택이나 수동 비교를 이용하세요."</string>
+    <string name="verification_confirm" formatted="false">"두 기기의 전체 코드를 모든 그룹별로 비교했나요? 확인하면 이 기기의 신원을 기억합니다."</string>
+    <string name="verification_connect_first" formatted="false">"먼저 상대와 암호화 연결을 설정하세요."</string>
+    <string name="verification_connection_changed" formatted="false">"연결이 변경되었습니다. 확인 페이지를 다시 여세요."</string>
+    <string name="verification_copy" formatted="false">"보안 코드 복사"</string>
+    <string name="verification_copy_done" formatted="false">"보안 코드 복사됨"</string>
+    <string name="verification_done" formatted="false">"신원 확인 완료"</string>
+    <string name="verification_explain" formatted="false">"상대 기기의 전체 보안 코드를 비교하거나 직접 만나 QR 코드를 스캔하세요. 떨어져 있다면 다른 신뢰할 수 있는 수단으로 비교하세요. 이 채팅에서만 코드를 교환하면 신원을 확인할 수 없습니다."</string>
+    <string name="verification_image" formatted="false">"이미지에서 읽기"</string>
+    <string name="verification_local_only" formatted="false">"확인 결과는 이 기기에만 저장되며 양쪽 신원에 연결됩니다. 신원이 변경되거나 신뢰를 취소하면 다시 확인해야 합니다."</string>
+    <string name="verification_mark" formatted="false">"전체 코드가 일치함을 확인했어요"</string>
+    <string name="verification_mismatch" formatted="false">"보안 코드가 다릅니다. 확인하기 전에 올바른 기기인지 확인하세요."</string>
+    <string name="verification_qr_image" formatted="false">"신원 확인용 QR 코드"</string>
+    <string name="verification_read_failed" formatted="false">"QR 코드를 찾지 못했습니다. 다른 이미지나 수동 비교를 이용하세요."</string>
+    <string name="verification_reading" formatted="false">"QR 코드 읽는 중…"</string>
+    <string name="verification_save_qr" formatted="false">"QR 코드 저장"</string>
+    <string name="verification_scan" formatted="false">"QR 코드 스캔"</string>
+    <string name="verification_title" formatted="false">"보안 코드 확인"</string>
+    <string name="verify_identity" formatted="false">"신원 확인"</string>
     <string name="version_android" formatted="false">"Android 버전 · {0}"</string>
     <string name="version_linux" formatted="false">"Linux 미리 보기 버전 · {0}"</string>
     <string name="version_windows" formatted="false">"Windows 미리 보기 버전 · {0}"</string>

@@ -85,6 +85,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
             checks+=dev.ghost.nearbyim.noise.NoiseLibraryChecks.run();
             checks+=dev.ghost.nearbyim.noise.NoiseChannelChecks.run();
             checks+=AndroidNoiseIdentityChecks.run(getTargetContext());
+            checks+=AndroidVerificationChecks.run(getTargetContext());
             checks+=dev.ghost.nearbyim.transport.AndroidLanNetworkChecks.run();
             testRecreationWithLiveSession();
             results.putString("stream", "NearbyIM Android localization: " + checks + " checks passed\n");
@@ -180,10 +181,11 @@ public final class LocalizationInstrumentation extends Instrumentation {
         BlockingQueue<String> receipts = new LinkedBlockingQueue<>();
         CountDownLatch ready = new CountDownLatch(1);
         AtomicReference<FramedSession> reference = new AtomicReference<>();
+        DeviceIdentity remoteRoot=DeviceIdentity.generate();
         try (ServerSocket socketServer = new ServerSocket(0, 1, InetAddress.getLoopbackAddress())) {
             Socket remoteSocket = new Socket(InetAddress.getLoopbackAddress(), socketServer.getLocalPort());
             Socket localSocket = socketServer.accept();
-            DeviceIdentity remoteRoot=DeviceIdentity.generate();byte[] remoteKey=new byte[32];new java.security.SecureRandom().nextBytes(remoteKey);
+            byte[] remoteKey=new byte[32];new java.security.SecureRandom().nextBytes(remoteKey);
             remote = FramedSession.secure(connection(remoteSocket), peerId, name, remoteRoot,remoteKey,true, new FramedSession.Listener() {
                 public void onHello(Frame frame) {
                     try {FramedSession wire=reference.get();remoteTransfers=new AttachmentTransferV2(new File(getTargetContext().getCacheDir(),"native-remote-attachments-"+peerId).toPath(),remoteRoot.fingerprint(),DeviceIdentity.fingerprint(wire.remotePublicKey()),wire.connectionGeneration(),false,new AttachmentTransferV2.Wire(){
@@ -230,6 +232,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
         check(ready.await(10, TimeUnit.SECONDS), "Live peer receives consent after locale recreation");
         await(() -> onMain(() -> controller.connected), "Controller remains connected");
         check(onMain(() -> controller.error.key.isEmpty()), "Chat consent does not report a false storage failure");
+        testIdentityVerification(controller,peerId,remoteRoot.publicKey());
         testFileTransfers(controller,peerId);
         for (int i = 0; i < 35; i++) {
             String id = UUID.randomUUID().toString();
@@ -391,6 +394,34 @@ public final class LocalizationInstrumentation extends Instrumentation {
         while(System.nanoTime()<deadline){AttachmentRecord record=remoteFileStates.poll(100,TimeUnit.MILLISECONDS);if(record!=null&&record.state.equals(state))return record;}
         throw new AssertionError("No remote file state "+state);
     }
+    private void testIdentityVerification(ChatController controller,String peer,String remoteRoot)throws Exception {
+        dev.ghost.nearbyim.core.IdentityVerification initial=onMain(()->controller.verification(peer));
+        check(initial!=null&&!initial.verified,"Actual encrypted Android consent does not auto-verify identity");
+        dev.ghost.nearbyim.core.SafetyCode other=new dev.ghost.nearbyim.core.SafetyCode(remoteRoot,remote.remotePublicKey());
+        check(initial.code.hex().equals(other.hex()),"Actual Android and peer root identities produce the same full safety code");
+        int cameraPermission=getTargetContext().checkSelfPermission(android.Manifest.permission.CAMERA);
+        onMain(()->{invoke(activity,"openVerification",new Class<?>[]{});return null;});
+        android.app.Dialog dialog=onMain(()->field(activity,"verificationDialog"));
+        check(dialog!=null&&onMain(dialog::isShowing),"Native Android identity verification page opens");
+        check(cameraPermission==getTargetContext().checkSelfPermission(android.Manifest.permission.CAMERA),"Viewing a safety code does not request camera permission");
+        await(()->onMain(()->{
+            java.util.ArrayList<android.view.View> views=new java.util.ArrayList<>();collectVerificationViews(dialog.getWindow().getDecorView(),views);
+            for(android.view.View view:views)if(view instanceof android.widget.ImageView image&&image.getDrawable() instanceof android.graphics.drawable.BitmapDrawable bitmap){
+                Bitmap qr=bitmap.getBitmap();int w=qr.getWidth(),h=qr.getHeight();int[] pixels=new int[w*h];qr.getPixels(pixels,0,w,0,0,w,h);
+                if(initial.code.qrPayload().equals(dev.ghost.nearbyim.verification.QrCodes.decode(pixels,w,h)))return true;
+            }return false;
+        }),"Native page displays a decodable identity QR");
+        screenshot("zh-Hans-identity-unverified");
+        onMain(()->{invoke(activity,"saveVerification",new Class<?>[]{dev.ghost.nearbyim.core.IdentityVerification.class,String.class},initial,"WOZAI-ID1:"+"0".repeat(64));return null;});
+        check(onMain(()->!controller.identityVerified(peer)),"Wrong scanned code does not mark Android identity verified");
+        check(onMain(()->((android.widget.TextView)field(activity,"verificationNotice")).getText().toString().equals(AndroidText.get(activity,"verificationMismatch"))),"Wrong QR has visible native mismatch feedback");
+        onMain(()->{invoke(activity,"saveVerification",new Class<?>[]{dev.ghost.nearbyim.core.IdentityVerification.class,String.class},initial,other.qrPayload());return null;});
+        await(()->onMain(()->controller.identityVerified(peer)),"Matching opposite endpoint code marks the exact Android roots verified");
+        check(onMain(()->!((android.widget.Button)field(activity,"verificationMark")).isEnabled()),"Verified identity disables repeated manual marking");
+        screenshot("zh-Hans-identity-verified");
+        onMain(()->{dialog.dismiss();return null;});
+    }
+    private static void collectVerificationViews(android.view.View view,java.util.List<android.view.View> result){result.add(view);if(view instanceof android.view.ViewGroup group)for(int i=0;i<group.getChildCount();i++)collectVerificationViews(group.getChildAt(i),result);}
     private void testFileTransfers(ChatController controller,String peer)throws Exception {
         check(onMain(()->controller.endToEndEncrypted(peer)),"Ready Android production session reports authenticated end-to-end encryption");
         check(onMain(()->((android.widget.TextView)field(activity,"chatStatus")).getText().toString().contains(AndroidText.get(activity,"encryptedVia",AndroidText.get(activity,"lan")))),"Chat header visibly identifies end-to-end encryption");

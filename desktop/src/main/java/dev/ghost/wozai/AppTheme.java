@@ -91,7 +91,7 @@ final class AppTheme {
             Color color=c.isEnabled()?c.getForeground():muted;
             BufferedImage tinted=tintedIcons.computeIfAbsent(new TintKey(name,color.getRGB()),key->{
                 BufferedImage image=new BufferedImage(96,96,BufferedImage.TYPE_INT_ARGB);Graphics2D t=image.createGraphics();
-                try{t.drawImage(source,0,0,null);t.setComposite(AlphaComposite.SrcIn);t.setColor(color);t.fillRect(0,0,96,96);}finally{t.dispose();}
+                try{t.drawImage(source,0,0,96,96,null);t.setComposite(AlphaComposite.SrcIn);t.setColor(color);t.fillRect(0,0,96,96);}finally{t.dispose();}
                 return image;
             });
             Graphics2D p=(Graphics2D)g.create(); p.setRenderingHint(RenderingHints.KEY_INTERPOLATION,RenderingHints.VALUE_INTERPOLATION_BICUBIC); p.drawImage(tinted,x,y,24,24,null); p.dispose();

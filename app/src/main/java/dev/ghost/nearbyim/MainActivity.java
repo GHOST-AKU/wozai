@@ -26,6 +26,7 @@ import dev.ghost.nearbyim.i18n.LanguageRegistry;
 import dev.ghost.nearbyim.i18n.UiText;
 import java.util.*;
 import dev.ghost.nearbyim.core.AttachmentInfo;
+import dev.ghost.nearbyim.core.IdentityVerification;
 import dev.ghost.nearbyim.core.AttachmentRecord;
 import dev.ghost.nearbyim.core.TransferProgress;
 import android.graphics.Bitmap;
@@ -49,6 +50,12 @@ public final class MainActivity extends Activity {
     private LinearLayout attachmentTray;
     private Button attachmentToggle,emojiButton;
     private PopupMenu attachmentActions;
+    private android.app.Dialog verificationDialog;
+    private IdentityVerification verificationSnapshot,pendingVerification;
+    private TextView verificationConnection,verificationIdentity,verificationNotice;
+    private Button verificationMark,verificationScan,verificationImage,verificationExport;
+    private boolean verificationBusy;
+    private String pendingVerificationCode;
     private String pendingAttachmentPeer,pendingExportPeer,pendingExportRecord;
     private long pendingAttachmentToken;
     private Uri selectedAttachmentUri,selectedExportUri;
@@ -102,7 +109,7 @@ public final class MainActivity extends Activity {
             service = ((ChatService.LocalBinder) binder).service(); controller = service.controller;
             if (controller.selectedId == null && restoredSelectedId != null)
                 controller.selectConversation(new ChatStore.Conversation(restoredSelectedId, restoredSelectedName, 0));
-            controller.observe(MainActivity.this::render); resumePending(); resumeAttachmentSelection();
+            controller.observe(MainActivity.this::render); resumePending(); resumeAttachmentSelection();resumeVerificationResult();
         }
         public void onServiceDisconnected(ComponentName name) { service = null; controller = null; render(); }
     };
@@ -154,7 +161,7 @@ public final class MainActivity extends Activity {
         if (approvalDialog != null) { approvalDialog.setOnCancelListener(null); approvalDialog.dismiss(); approvalDialog = null; shownApproval = null; }
         super.onStop();
     }
-    protected void onDestroy(){imageWorker.shutdownNow();thumbnails.clear();super.onDestroy();}
+    protected void onDestroy(){if(verificationDialog!=null)verificationDialog.dismiss();imageWorker.shutdownNow();thumbnails.clear();super.onDestroy();}
     protected void onSaveInstanceState(Bundle state) {
         state.putString("pendingAttachmentPeer",pendingAttachmentPeer);state.putLong("pendingAttachmentToken",pendingAttachmentToken);state.putString("pendingExportPeer",pendingExportPeer);state.putString("pendingExportRecord",pendingExportRecord);
         state.putString("selectedAttachmentUri",selectedAttachmentUri==null?null:selectedAttachmentUri.toString());state.putString("selectedExportUri",selectedExportUri==null?null:selectedExportUri.toString());
@@ -378,6 +385,7 @@ public final class MainActivity extends Activity {
     }
     private void render() {
         if (root == null) return;
+        updateVerificationDialog();
         header.setVisibility(detail ? View.GONE : View.VISIBLE); bottomNav.setVisibility(detail ? View.GONE : View.VISIBLE);
         View divider = root.findViewWithTag("navDivider"); if (divider != null) divider.setVisibility(detail ? View.GONE : View.VISIBLE);
         homePage.setVisibility(!detail && page == 0 ? View.VISIBLE : View.GONE); nearbyPage.setVisibility(!detail && page == 1 ? View.VISIBLE : View.GONE);
@@ -511,6 +519,7 @@ public final class MainActivity extends Activity {
         boolean ready = controller != null && controller.connected && Objects.equals(peerId, controller.connectedPeerId);
         boolean connecting = controller != null && outgoingRequest && (controller.connecting || controller.hasSession() && !controller.connected);
         String connectionLabel=ready?t(controller.endToEndEncrypted(peerId)?"encryptedVia":"connectedVia",modeName(controller.sessionMode)):connecting?t("connecting"):t("localHistoryDisconnected");
+        if(ready&&controller.endToEndEncrypted(peerId))connectionLabel+=" · "+t(controller.identityVerified(peerId)?"identityVerified":"identityUnverified");
         chatStatus.setText(ready&&controller.isPreparingAttachment()?connectionLabel+" · "+t("attachmentStatePreparing"):connectionLabel);
         reconnectRow.setVisibility(!ready && peerId != null ? View.VISIBLE : View.GONE);
         boolean trusted = controller != null && controller.isTrusted(peerId);
@@ -780,6 +789,16 @@ public final class MainActivity extends Activity {
     }
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if(requestCode==955){verificationBusy=false;if(resultCode==RESULT_OK&&data!=null){pendingVerificationCode=data.getStringExtra("code");resumeVerificationResult();}else pendingVerification=null;updateVerificationDialog();return;}
+        if(requestCode==956){
+            IdentityVerification expected=pendingVerification;pendingVerification=null;
+            if(resultCode==RESULT_OK&&data!=null&&data.getData()!=null&&expected!=null){android.net.Uri uri=data.getData();verificationBusy=true;updateVerificationDialog();
+                verificationWork(()->{String decoded=null;try{Bitmap image=PhotoDecoder.decode(getContentResolver(),uri,1024);if(image!=null){int w=image.getWidth(),h=image.getHeight();int[] pixels=new int[w*h];image.getPixels(pixels,0,w,0,0,w,h);decoded=dev.ghost.nearbyim.verification.QrCodes.decode(pixels,w,h);image.recycle();}}catch(Exception invalid){}
+                    String scanned=decoded;ui.post(()->{verificationBusy=false;if(scanned==null){if(verificationNotice!=null)verificationNotice.setText(t("verificationReadFailed"));updateVerificationDialog();}else{pendingVerification=expected;pendingVerificationCode=scanned;resumeVerificationResult();}});
+                });
+            }else{verificationBusy=false;updateVerificationDialog();}return;
+        }
+        if(requestCode==957){IdentityVerification expected=pendingVerification;pendingVerification=null;verificationBusy=false;updateVerificationDialog();if(resultCode==RESULT_OK&&data!=null&&data.getData()!=null&&expected!=null){Uri uri=data.getData();verificationWork(()->{try{Bitmap qr=verificationBitmap(expected);try(java.io.OutputStream output=getContentResolver().openOutputStream(uri,"wt")){if(output==null||!qr.compress(Bitmap.CompressFormat.PNG,100,output))throw new java.io.IOException("QR export failed");}finally{qr.recycle();}}catch(Exception error){ui.post(()->{if(!isDestroyed())toast(t("verificationReadFailed"));});}});}return;}
         if(requestCode==20){
             selectedAttachmentUri=resultCode==RESULT_OK&&data!=null?data.getData():null;
             if(selectedAttachmentUri==null)pendingAttachmentPeer=null;
@@ -819,6 +838,7 @@ public final class MainActivity extends Activity {
     }
     private void chatMenu(View anchor) {
         PopupMenu menu = new PopupMenu(this, anchor);
+        menu.getMenu().add(0,5,0,t("verifyIdentity"));
         menu.getMenu().add(0, 1, 0, t("deviceInfo"));
         if (controller != null && controller.hasSession()) menu.getMenu().add(0, 2, 1, t("disconnect"));
         menu.getMenu().add(0, 3, 2, t("clearConversation"));
@@ -830,11 +850,57 @@ public final class MainActivity extends Activity {
                 case 2: controller.disconnect(); break;
                 case 3: clearConversation(); break;
                 case 4: ((ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText(t("transferDiagnostics"),controller.transferDiagnostics()));toast(t("diagnosticsCopied"));break;
+                case 5: openVerification();break;
             }
             return true;
         }); menu.show();
     }
 
+    private Bitmap verificationBitmap(IdentityVerification snapshot){
+        int edge=512;boolean[] cells=dev.ghost.nearbyim.verification.QrCodes.encode(snapshot.code.qrPayload(),edge);int[] pixels=new int[cells.length];for(int i=0;i<pixels.length;i++)pixels[i]=cells[i]?Color.BLACK:Color.WHITE;
+        return Bitmap.createBitmap(pixels,edge,edge,Bitmap.Config.ARGB_8888);
+    }
+    private void verificationWork(Runnable action){
+        try{imageWorker.execute(action);}catch(java.util.concurrent.RejectedExecutionException busy){verificationBusy=false;if(verificationNotice!=null)verificationNotice.setText(t("verificationReadFailed"));updateVerificationDialog();}
+    }
+    private Button verificationAction(String key,int icon,Runnable action){Button button=button(t(key),false);android.graphics.drawable.Drawable drawable=getDrawable(icon);if(drawable!=null){drawable=drawable.mutate();drawable.setTint(ink);drawable.setBounds(0,0,dp(22),dp(22));button.setCompoundDrawables(drawable,null,null,null);button.setCompoundDrawablePadding(dp(10));}button.setOnClickListener(v->action.run());return button;}
+    private void openVerification(){
+        if(controller==null)return;IdentityVerification expected=controller.verification(controller.selectedId);
+        if(expected==null){toast(t("verificationConnectFirst"));return;}
+        if(verificationDialog!=null)verificationDialog.dismiss();verificationSnapshot=expected;verificationBusy=false;
+        android.app.Dialog dialog=new android.app.Dialog(this);verificationDialog=dialog;dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setBackgroundColor(background);LinearLayout centered=vertical();centered.setGravity(Gravity.CENTER_HORIZONTAL);LinearLayout body=vertical();body.setPadding(dp(20),dp(16),dp(20),dp(24));
+        int width=Math.min(dp(640),getResources().getDisplayMetrics().widthPixels);centered.addView(body,new LinearLayout.LayoutParams(width,-2));scroll.addView(centered);
+        LinearLayout toolbar=horizontal();toolbar.setGravity(Gravity.CENTER_VERTICAL);Button back=iconButton(R.drawable.outline_arrow_back_24,t("close"),ink);back.setOnClickListener(v->dialog.dismiss());toolbar.addView(back,new LinearLayout.LayoutParams(dp(48),dp(48)));toolbar.addView(label(t("verificationTitle"),20,ink),new LinearLayout.LayoutParams(0,-2,1));body.addView(toolbar);
+        TextView name=label(safe(controller.selectedName),18,ink);name.setTypeface(null,Typeface.BOLD);body.addView(name);
+        verificationConnection=label(t("encryptionActive"),13,accent);verificationConnection.setCompoundDrawablePadding(dp(6));verificationConnection.setCompoundDrawablesWithIntrinsicBounds(R.drawable.outline_lock_24,0,0,0);verificationConnection.setCompoundDrawableTintList(ColorStateList.valueOf(accent));body.addView(verificationConnection);
+        verificationIdentity=label(t(expected.verified?"identityVerified":"identityUnverified"),14,muted);body.addView(verificationIdentity);
+        LinearLayout card=vertical();card.setGravity(Gravity.CENTER_HORIZONTAL);card.setPadding(dp(18),dp(20),dp(18),dp(20));card.setBackground(shape(tonal,24));LinearLayout.LayoutParams cardParams=new LinearLayout.LayoutParams(-1,-2);cardParams.topMargin=dp(20);cardParams.bottomMargin=dp(16);body.addView(card,cardParams);
+        ImageView qr=new ImageView(this);qr.setContentDescription(t("verificationQrImage"));qr.setBackgroundColor(Color.WHITE);qr.setScaleType(ImageView.ScaleType.FIT_CENTER);int edge=Math.max(dp(128),Math.min(dp(260),width-dp(80)));card.addView(qr,new LinearLayout.LayoutParams(edge,edge));
+        verificationWork(()->{Bitmap bitmap=verificationBitmap(expected);ui.post(()->{if(verificationDialog==dialog&&dialog.isShowing())qr.setImageBitmap(bitmap);else bitmap.recycle();});});
+        TextView code=label(expected.code.display(),17,ink);code.setTypeface(Typeface.MONOSPACE);code.setTextIsSelectable(true);code.setGravity(Gravity.CENTER);code.setPadding(0,dp(20),0,dp(20));card.addView(code,new LinearLayout.LayoutParams(-1,-2));
+        verificationMark=button(t("verificationMark"),true);verificationMark.setOnClickListener(v->new AlertDialog.Builder(this).setTitle(t("verifyIdentity")).setMessage(t("verificationConfirm")).setPositiveButton(t("verificationMark"),(d,w)->saveVerification(expected,null)).setNegativeButton(t("cancel"),null).show());card.addView(verificationMark,new LinearLayout.LayoutParams(-1,-2));
+        verificationScan=verificationAction("verificationScan",R.drawable.outline_qr_code_scanner_24,()->{pendingVerification=expected;verificationBusy=true;updateVerificationDialog();startActivityForResult(new Intent(this,QrScanActivity.class),955);});body.addView(verificationScan,new LinearLayout.LayoutParams(-1,-2));
+        verificationImage=verificationAction("verificationImage",R.drawable.outline_photo_24,()->new AlertDialog.Builder(this).setTitle(t("verificationImage")).setMessage(t("verificationExplain")).setPositiveButton(t("gotIt"),(d,w)->{pendingVerification=expected;verificationBusy=true;updateVerificationDialog();Intent pick=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("image/*").addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(pick,956);}).setNegativeButton(t("cancel"),null).show());body.addView(verificationImage,new LinearLayout.LayoutParams(-1,-2));
+        Button copy=iconButton(R.drawable.outline_content_copy_24,t("verificationCopy"),ink);copy.setOnClickListener(v->{((ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText(t("verificationTitle"),expected.code.display()));toast(t("verificationCopyDone"));});toolbar.addView(copy,new LinearLayout.LayoutParams(dp(44),dp(48)));
+        verificationExport=iconButton(R.drawable.outline_file_download_24,t("verificationSaveQr"),ink);verificationExport.setOnClickListener(v->{pendingVerification=expected;verificationBusy=true;updateVerificationDialog();startActivityForResult(new Intent(Intent.ACTION_CREATE_DOCUMENT).setType("image/png").addCategory(Intent.CATEGORY_OPENABLE).putExtra(Intent.EXTRA_TITLE,"wozai-safety-code.png"),957);});toolbar.addView(verificationExport,new LinearLayout.LayoutParams(dp(44),dp(48)));
+        verificationNotice=label("",14,muted);body.addView(verificationNotice);body.addView(label(t("verificationExplain"),14,muted));body.addView(label(t("verificationLocalOnly"),13,muted));
+        dialog.setContentView(scroll);dialog.setOnDismissListener(d->{qr.setImageDrawable(null);if(verificationDialog==dialog){verificationDialog=null;verificationSnapshot=null;verificationNotice=null;}});dialog.show();dialog.getWindow().setLayout(-1,-1);dialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(background));updateVerificationDialog();
+    }
+    private void updateVerificationDialog(){
+        if(verificationDialog==null||verificationSnapshot==null||verificationMark==null)return;boolean current=controller!=null&&controller.verificationCurrent(verificationSnapshot),verified=current&&controller.identityVerified(verificationSnapshot.peerId);
+        verificationConnection.setText(t(current?"encryptionActive":"verificationConnectionChanged"));verificationIdentity.setText(t(verified?"identityVerified":"identityUnverified"));verificationMark.setEnabled(current&&!verificationBusy&&!verified);verificationScan.setEnabled(current&&!verificationBusy);verificationImage.setEnabled(current&&!verificationBusy);if(verificationExport!=null)verificationExport.setEnabled(!verificationBusy);
+    }
+    private void saveVerification(IdentityVerification expected,String scanned){
+        if(isDestroyed())return;
+        if(verificationDialog==null||verificationSnapshot==null||!expected.sameIdentity(verificationSnapshot)||controller==null||!controller.verificationCurrent(expected)){toast(t("verificationConnectionChanged"));updateVerificationDialog();return;}
+        if(scanned!=null&&!expected.code.matchesQr(scanned)){verificationNotice.setText(t("verificationMismatch"));return;}
+        verificationBusy=true;updateVerificationDialog();controller.verifyIdentity(expected,scanned,ok->{if(isDestroyed()||!expected.sameIdentity(verificationSnapshot))return;verificationBusy=false;if(verificationNotice!=null)verificationNotice.setText(t(ok?"verificationDone":"verificationConnectionChanged"));updateVerificationDialog();});
+    }
+    private void resumeVerificationResult(){
+        if(controller==null||pendingVerificationCode==null)return;IdentityVerification expected=pendingVerification;String scanned=pendingVerificationCode;pendingVerification=null;pendingVerificationCode=null;verificationBusy=false;
+        if(expected==null){toast(t("verificationConnectionChanged"));return;}saveVerification(expected,scanned);
+    }
     private void clearConversation() {
         if (controller == null || controller.selectedId == null) return; String selected = controller.selectedId;
         new AlertDialog.Builder(this).setTitle(t("clearAndroidTitle", safe(controller.selectedName))).setMessage(t("clearHistoryWarning"))

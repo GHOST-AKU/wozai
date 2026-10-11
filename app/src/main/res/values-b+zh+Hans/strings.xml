@@ -179,6 +179,7 @@
     <string name="emoji" formatted="false">"表情"</string>
     <string name="empty_chat" formatted="false">"从左侧选择聊天，或在“附近”连接一台设备。"</string>
     <string name="encrypted_via" formatted="false">"端到端加密 · {0}"</string>
+    <string name="encryption_active" formatted="false">"连接已端到端加密"</string>
     <string name="endpoint" formatted="false">"对方的 IP 地址与端口"</string>
     <string name="endpoint_hint" formatted="false">"例如 192.168.1.20:54321。请在对方的“我的连接”中查看。"</string>
     <string name="endpoint_required" formatted="false">"请输入局域网 IP 地址和端口。"</string>
@@ -206,7 +207,9 @@
     <string name="identity_protection_timeout" formatted="false">"Windows 设备身份保护操作超时。请稍后重试。原有身份不会被替换。"</string>
     <string name="identity_unavailable" formatted="false">"本机身份密钥不可用，暂时无法连接"</string>
     <string name="identity_unavailable_restart" formatted="false">"本机身份密钥不可用，暂时无法连接，请重启应用后重试"</string>
+    <string name="identity_unverified" formatted="false">"身份尚未核验"</string>
     <string name="identity_verification_failed" formatted="false">"设备身份验证不符，未授权此连接"</string>
+    <string name="identity_verified" formatted="false">"身份已核验"</string>
     <string name="idle" formatted="false">"未连接"</string>
     <string name="initial_status" formatted="false">"选择连接方式，找到身边的人"</string>
     <string name="invalid_endpoint" formatted="false">"地址格式示例：192.168.1.20:54321 或 [fd00::1]:54321。"</string>
@@ -362,6 +365,26 @@
     <string name="unnamed_device" formatted="false">"未命名设备"</string>
     <string name="unpaired_address" formatted="false">"未配对 · {0}"</string>
     <string name="unsupported_bluetooth" formatted="false">"这部设备不支持蓝牙，可使用局域网"</string>
+    <string name="verification_camera_permission" formatted="false">"扫描需要相机权限，也可以选择图片或手动核对。"</string>
+    <string name="verification_camera_unavailable" formatted="false">"相机无法使用，请选择图片或手动核对。"</string>
+    <string name="verification_confirm" formatted="false">"确认已逐组核对双方完整安全码一致？核验后会记住这个设备身份。"</string>
+    <string name="verification_connect_first" formatted="false">"请先与对方建立加密连接，再核验身份。"</string>
+    <string name="verification_connection_changed" formatted="false">"连接已变化，请重新打开核验页面。"</string>
+    <string name="verification_copy" formatted="false">"复制安全码"</string>
+    <string name="verification_copy_done" formatted="false">"安全码已复制"</string>
+    <string name="verification_done" formatted="false">"身份核验成功"</string>
+    <string name="verification_explain" formatted="false">"核对对方设备上的完整安全码，或当面扫描对方的二维码。不在身边时，请通过另一条已信任的渠道核对；仅在当前聊天中互发安全码不能确认身份。"</string>
+    <string name="verification_image" formatted="false">"从图片读取"</string>
+    <string name="verification_local_only" formatted="false">"核验结果仅保存在这台设备，绑定双方身份。更换身份或撤销信任后需要重新核验。"</string>
+    <string name="verification_mark" formatted="false">"我已核对一致"</string>
+    <string name="verification_mismatch" formatted="false">"安全码不匹配。请确认核对的是正确设备，暂勿标记为已核验。"</string>
+    <string name="verification_qr_image" formatted="false">"身份核验二维码"</string>
+    <string name="verification_read_failed" formatted="false">"未找到可用的二维码，请重新选择图片或手动核对。"</string>
+    <string name="verification_reading" formatted="false">"正在读取二维码…"</string>
+    <string name="verification_save_qr" formatted="false">"保存二维码"</string>
+    <string name="verification_scan" formatted="false">"扫描二维码"</string>
+    <string name="verification_title" formatted="false">"验证安全码"</string>
+    <string name="verify_identity" formatted="false">"验证身份"</string>
     <string name="version_android" formatted="false">"安卓版 · {0}"</string>
     <string name="version_linux" formatted="false">"Linux 预览版 · {0}"</string>
     <string name="version_windows" formatted="false">"Windows 预览版 · {0}"</string>

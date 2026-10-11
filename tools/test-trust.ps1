@@ -6,5 +6,7 @@ $sources = @(Get-ChildItem app/src/main/java/dev/ghost/nearbyim/storage/*.java, 
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 & java -cp build/trust-tests dev.ghost.nearbyim.storage.TrustPolicyTests
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+& java -cp build/trust-tests dev.ghost.nearbyim.storage.VerificationPolicyTests
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 & python tests/trust/store_tests.py build/trust-tests
 exit $LASTEXITCODE

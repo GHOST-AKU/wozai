@@ -30,6 +30,7 @@ public final class ChatController implements TransportListener {
     public List<ChatStore.Message> messages = new ArrayList<>();
     public List<ChatStore.Conversation> conversations = new ArrayList<>();
     public List<ChatStore.TrustedDevice> trustedDevices = new ArrayList<>();
+    private Map<String,String> verifiedRoots=new HashMap<>();
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService storage = Executors.newSingleThreadExecutor();
     private final SharedPreferences preferences;
@@ -57,7 +58,7 @@ public final class ChatController implements TransportListener {
     private Frame remoteHello;
     private TrustPolicy.Authorization authorization;
     private int connectingMode;
-    private String expectedPeerId, outgoingBluetoothAddress, lanReconnectId;
+    private String expectedPeerId, outgoingBluetoothAddress, lanReconnectId,activeBluetoothAddress;
     private boolean rememberOutgoing, destroyed;
 
     public ChatController(Context context, Hooks hooks) {
@@ -74,6 +75,7 @@ public final class ChatController implements TransportListener {
         if(identity!=null)storage.execute(()->{try{noiseIdentity.complete(AndroidNoiseIdentity.load(applicationContext,identity));}catch(Exception failure){noiseIdentity.completeExceptionally(failure);main.post(()->{if(!destroyed)fail(UiText.of("identityUnavailableRestart"));});}});
         else noiseIdentity.completeExceptionally(new IOException("Device identity unavailable"));
         store = new ChatStore(context); lan = new LanTransport(context, this); bluetooth = new BluetoothTransport(context, this);
+        if(identity!=null)db(()->store.invalidateLocalVerifications(identity.publicKey()),null);
         try{attachmentStorage=new TransferStorageBudget(store.attachmentsRoot(),preferences.getLong("attachmentQuota",TransferStorageBudget.DEFAULT_QUOTA));}catch(IOException error){this.error=attachmentError(error);}
         db(store::recoverPending, null); refresh();
     }
@@ -181,6 +183,7 @@ public final class ChatController implements TransportListener {
     public void revokeTrust(String peerId) {
         if (peerId == null) return;
         trust.revoke(peerId);
+        verifiedRoots.remove(peerId);
         trustedDevices = new ArrayList<>(trustedDevices);
         trustedDevices.removeIf(device -> device.id.equals(peerId));
         if (remoteHello != null && peerId.equals(remoteHello.id)) {
@@ -234,7 +237,7 @@ public final class ChatController implements TransportListener {
         final boolean remember = !incoming && rememberOutgoing;
         final String socketAddress = bluetoothAddress != null ? bluetoothAddress : incoming ? null : outgoingBluetoothAddress;
         clearReconnectWait(); connecting = true; connectingMode = mode; connected = false; connectedPeerId = null;
-        sessionMode = mode; remoteHello = null; authorization = null;
+        sessionMode = mode; remoteHello = null; authorization = null;activeBluetoothAddress=socketAddress;
         status = UiText.of("handshake"); error = UiText.EMPTY;
         final FramedSession[] reference = new FramedSession[1];
         try{reference[0] = FramedSession.secure(connection, localId, nickname, identity,staticKey,!incoming,new FramedSession.Listener() {
@@ -251,6 +254,7 @@ public final class ChatController implements TransportListener {
                     if (active != reference[0] || revision != trust.peerRevision(hello.id)) return;
                     authorization = trust.begin(hello.id, publicKey, pin[0] == null ? null : pin[0].publicKey, !incoming, remember);
                     if (authorization.decision == TrustPolicy.Decision.IDENTITY_CHANGED) {
+                        verifiedRoots.remove(hello.id);db(()->store.clearVerification(hello.id),null);
                         closeActive(UiText.of("identityChangedRejected"));
                         fail(UiText.of("androidIdentityChanged"));
                     } else if (authorization.decision == TrustPolicy.Decision.APPROVE) {
@@ -370,6 +374,31 @@ public final class ChatController implements TransportListener {
     public boolean canSendAttachment(){return canSend()&&transfers!=null&&active.attachmentsSupported();}
     public TransferProgress transferProgress(String peer,AttachmentRecord record){Feedback value=transferProgress.get(peer+":"+record.info.id+":"+record.outgoing);return value==null?TransferProgress.UNKNOWN:value.progress();}
     public boolean endToEndEncrypted(String peer){FramedSession wire=active;return connected&&Objects.equals(peer,connectedPeerId)&&wire!=null&&wire.endToEndEncrypted();}
+    public boolean identityVerified(String peer){return endToEndEncrypted(peer)&&authorization!=null&&authorization.publicKey.equals(verifiedRoots.get(peer));}
+    public IdentityVerification verification(String peer){
+        if(!endToEndEncrypted(peer)||!trust.canVerify(authorization))return null;
+        try{return new IdentityVerification(peer,identity.publicKey(),authorization.publicKey,active.connectionGeneration(),identityVerified(peer));}
+        catch(GeneralSecurityException invalid){fail(UiText.of("identityVerificationFailed"));return null;}
+    }
+    public boolean verificationCurrent(IdentityVerification expected){
+        return expected!=null&&endToEndEncrypted(expected.peerId)&&trust.canVerify(authorization)&&expected.localRoot.equals(identity.publicKey())&&expected.remoteRoot.equals(authorization.publicKey)&&expected.generation.equals(active.connectionGeneration());
+    }
+    public void verifyIdentity(IdentityVerification expected,String scanned,java.util.function.Consumer<Boolean> completion){
+        if(!verificationCurrent(expected)||scanned!=null&&!expected.code.matchesQr(scanned)){completion.accept(false);return;}
+        FramedSession wire=active;TrustPolicy.Authorization grant=authorization;String name=remoteHello.body,address=activeBluetoothAddress;int mode=sessionMode;
+        storage.execute(()->{
+            boolean saved=false;UiText failure=null;
+            try{saved=trust.verify(grant,()->{
+                if(active!=wire||!wire.endToEndEncrypted())throw new CancellationException("Verification session closed");
+                store.remember(expected.peerId,name,expected.remoteRoot,mode,address);store.markVerified(expected.peerId,expected.localRoot,expected.remoteRoot);
+            });}
+            catch(CancellationException canceled){}catch(RuntimeException error){failure=UiText.of("storageFailure");}
+            boolean result=saved;UiText problem=failure;main.post(()->{
+                if(destroyed)return;boolean current=result&&verificationCurrent(expected);if(current)verifiedRoots.put(expected.peerId,expected.remoteRoot);
+                if(problem!=null)fail(problem);completion.accept(current);changed();refresh();
+            });
+        });
+    }
     private List<ChatStore.Message> liveMessages(List<ChatStore.Message> history,String peer){
         List<ChatStore.Message> values=new ArrayList<>(history.size());
         for(ChatStore.Message message:history){AttachmentRecord previous=message.attachment;Feedback value=previous==null?null:transferProgress.get(peer+":"+previous.info.id+":"+previous.outgoing);
@@ -465,10 +494,11 @@ public final class ChatController implements TransportListener {
         db(() -> {
             List<ChatStore.Conversation> saved = store.conversations();
             List<ChatStore.TrustedDevice> devices = store.trustedDevices();
+            Map<String,String> checked=new HashMap<>();if(identity!=null)for(ChatStore.TrustedDevice device:devices)if(store.isVerified(device.id,identity.publicKey(),device.publicKey))checked.put(device.id,device.publicKey);
             List<ChatStore.Message> history = selection == null ? new ArrayList<>() : store.messages(selection);
             main.post(() -> {
                 if (destroyed) return; conversations = saved;
-                if (version == trust.version()) trustedDevices = devices;
+                if (version == trust.version()) {trustedDevices = devices;verifiedRoots=checked;}
                 if (Objects.equals(selection, selectedId)) messages = liveMessages(history,selection);
                 changed();
             });

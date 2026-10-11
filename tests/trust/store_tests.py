@@ -12,8 +12,19 @@ CREATE_CONVERSATIONS, CREATE_MESSAGES, CREATE_INDEX, CREATE_TRUST, CONVERSATIONS
 LEGACY_MESSAGES=CREATE_MESSAGES.replace(' attachment TEXT,','')
 
 class AttachmentMigrationTests(unittest.TestCase):
+    def test_v4_upgrade_preserves_history_and_trust_without_granting_manual_verification(self):
+        self.assertEqual(5, version, 'manual verification requires a lossless schema migration')
+        db=sqlite3.connect(':memory:')
+        for statement in (CREATE_CONVERSATIONS, CREATE_MESSAGES, CREATE_INDEX, CREATE_TRUST): db.execute(statement)
+        db.execute('INSERT INTO conversations VALUES (?,?,?)', ('peer','Old friend',12))
+        db.execute(REMEMBER, ('peer','pinned-root','Old friend',40,1,None))
+        before=db.execute('SELECT * FROM trusted_devices').fetchall()
+        output=subprocess.check_output(['java','-cp',classpath,'dev.ghost.nearbyim.storage.SchemaExport','4','5'],text=True)
+        for line in output.splitlines(): db.execute(base64.b64decode(line).decode())
+        self.assertEqual(before,db.execute('SELECT * FROM trusted_devices').fetchall())
+        self.assertEqual(0,db.execute('SELECT COUNT(*) FROM verified_identities').fetchone()[0])
     def test_v3_to_v4_preserves_text_and_adds_nullable_attachment_metadata(self):
-        self.assertEqual(4, version, 'attachments need a lossless schema migration')
+        self.assertGreaterEqual(version, 4, 'attachments need a lossless schema migration')
         db=sqlite3.connect(':memory:')
         db.execute("CREATE TABLE messages (peer_id TEXT NOT NULL,id TEXT NOT NULL,body TEXT NOT NULL,outgoing INTEGER NOT NULL,state TEXT NOT NULL,time INTEGER NOT NULL,received INTEGER NOT NULL,PRIMARY KEY(peer_id,id,outgoing))")
         db.execute('INSERT INTO messages VALUES (?,?,?,?,?,?,?)',('peer','id','old text',1,'delivered',1,2))
@@ -23,7 +34,7 @@ class AttachmentMigrationTests(unittest.TestCase):
 
 class StoreTests(unittest.TestCase):
     def test_schema_supports_language_independent_status_upgrade(self):
-        self.assertEqual(4, version, "attachment schema includes earlier language-independent status migration")
+        self.assertGreaterEqual(version, 4, "attachment schema includes earlier language-independent status migration")
 
     def setUp(self):
         self.db = sqlite3.connect(':memory:')

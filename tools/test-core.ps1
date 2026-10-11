@@ -40,5 +40,7 @@ try {
     & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.FairRecordWriterTests
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.SecureSessionTests
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.SafetyCodeTests
     exit $LASTEXITCODE
 } finally { Pop-Location }

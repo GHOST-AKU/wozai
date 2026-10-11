@@ -179,6 +179,7 @@
     <string name="emoji" formatted="false">"絵文字"</string>
     <string name="empty_chat" formatted="false">"左側からチャットを選ぶか、「近く」でデバイスに接続してください。"</string>
     <string name="encrypted_via" formatted="false">"エンドツーエンド暗号化 · {0}"</string>
+    <string name="encryption_active" formatted="false">"接続はエンドツーエンド暗号化されています"</string>
     <string name="endpoint" formatted="false">"相手の IP アドレスとポート"</string>
     <string name="endpoint_hint" formatted="false">"例：192.168.1.20:54321。相手のデバイスに表示されているアドレスを確認してください。"</string>
     <string name="endpoint_required" formatted="false">"LAN の IP アドレスとポートを入力してください。"</string>
@@ -206,7 +207,9 @@
     <string name="identity_protection_timeout" formatted="false">"Windows のデバイス識別情報の保護処理がタイムアウトしました。再試行してください。既存の識別情報は置き換えません。"</string>
     <string name="identity_unavailable" formatted="false">"このデバイスの識別鍵を利用できません。接続は無効です。"</string>
     <string name="identity_unavailable_restart" formatted="false">"このデバイスの識別鍵を利用できません。アプリを再起動して再接続してください。"</string>
+    <string name="identity_unverified" formatted="false">"本人確認未完了"</string>
     <string name="identity_verification_failed" formatted="false">"デバイスの識別情報を確認できず、この接続は承認されませんでした。"</string>
+    <string name="identity_verified" formatted="false">"本人確認済み"</string>
     <string name="idle" formatted="false">"未接続"</string>
     <string name="initial_status" formatted="false">"接続方式を選んで、近くの人を探しましょう"</string>
     <string name="invalid_endpoint" formatted="false">"192.168.1.20:54321 または [fd00::1]:54321 の形式で入力してください。"</string>
@@ -362,6 +365,26 @@
     <string name="unnamed_device" formatted="false">"名前のないデバイス"</string>
     <string name="unpaired_address" formatted="false">"未ペアリング · {0}"</string>
     <string name="unsupported_bluetooth" formatted="false">"このデバイスは Bluetooth に対応していません。LAN を使用してください。"</string>
+    <string name="verification_camera_permission" formatted="false">"読み取りにはカメラの許可が必要です。画像の選択や手動比較もできます。"</string>
+    <string name="verification_camera_unavailable" formatted="false">"カメラを使用できません。画像の選択や手動比較をお試しください。"</string>
+    <string name="verification_confirm" formatted="false">"両方の端末でコードの全グループを比較しましたか？確認すると、この端末の身元を記憶します。"</string>
+    <string name="verification_connect_first" formatted="false">"先に相手と暗号化接続を確立してください。"</string>
+    <string name="verification_connection_changed" formatted="false">"接続が変わりました。確認画面を開き直してください。"</string>
+    <string name="verification_copy" formatted="false">"コードをコピー"</string>
+    <string name="verification_copy_done" formatted="false">"コードをコピーしました"</string>
+    <string name="verification_done" formatted="false">"本人確認が完了しました"</string>
+    <string name="verification_explain" formatted="false">"相手の端末の完全なコードを比較するか、対面で QR コードを読み取ってください。離れている場合は別の信頼できる手段で比較してください。このチャット内だけでコードを交換しても本人確認にはなりません。"</string>
+    <string name="verification_image" formatted="false">"画像から読み取る"</string>
+    <string name="verification_local_only" formatted="false">"確認結果はこの端末にのみ保存され、双方の身元に結び付きます。身元の変更や信頼の取り消し後は再確認が必要です。"</string>
+    <string name="verification_mark" formatted="false">"完全なコードが一致しました"</string>
+    <string name="verification_mismatch" formatted="false">"コードが一致しません。確認前に相手の端末が正しいか確かめてください。"</string>
+    <string name="verification_qr_image" formatted="false">"本人確認用 QR コード"</string>
+    <string name="verification_read_failed" formatted="false">"QR コードが見つかりません。別の画像か手動比較をお試しください。"</string>
+    <string name="verification_reading" formatted="false">"QR コードを読み取り中…"</string>
+    <string name="verification_save_qr" formatted="false">"QR コードを保存"</string>
+    <string name="verification_scan" formatted="false">"QR コードを読み取る"</string>
+    <string name="verification_title" formatted="false">"セキュリティコードを確認"</string>
+    <string name="verify_identity" formatted="false">"本人確認"</string>
     <string name="version_android" formatted="false">"Android 版 · {0}"</string>
     <string name="version_linux" formatted="false">"Linux プレビュー版 · {0}"</string>
     <string name="version_windows" formatted="false">"Windows プレビュー版 · {0}"</string>

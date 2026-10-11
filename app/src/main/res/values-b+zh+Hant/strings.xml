@@ -179,6 +179,7 @@
     <string name="emoji" formatted="false">"表情"</string>
     <string name="empty_chat" formatted="false">"從左側選擇聊天，或在「附近」連線至一部裝置。"</string>
     <string name="encrypted_via" formatted="false">"端對端加密 · {0}"</string>
+    <string name="encryption_active" formatted="false">"連線已端對端加密"</string>
     <string name="endpoint" formatted="false">"對方的 IP 位址與連接埠"</string>
     <string name="endpoint_hint" formatted="false">"例如 192.168.1.20:54321。請在對方的「我的連線」中查看。"</string>
     <string name="endpoint_required" formatted="false">"請輸入區域網路 IP 位址和連接埠。"</string>
@@ -206,7 +207,9 @@
     <string name="identity_protection_timeout" formatted="false">"Windows 裝置身分保護操作逾時。請稍後重試。原有身分不會被替換。"</string>
     <string name="identity_unavailable" formatted="false">"本機身分金鑰不可用，暫時無法連線"</string>
     <string name="identity_unavailable_restart" formatted="false">"本機身分金鑰不可用，暫時無法連線，請重新啟動應用程式後重試"</string>
+    <string name="identity_unverified" formatted="false">"身分尚未核驗"</string>
     <string name="identity_verification_failed" formatted="false">"裝置身分驗證不符，未授權此連線"</string>
+    <string name="identity_verified" formatted="false">"身分已核驗"</string>
     <string name="idle" formatted="false">"未連線"</string>
     <string name="initial_status" formatted="false">"選擇連線方式，找到身邊的人"</string>
     <string name="invalid_endpoint" formatted="false">"位址格式示例：192.168.1.20:54321 或 [fd00::1]:54321。"</string>
@@ -362,6 +365,26 @@
     <string name="unnamed_device" formatted="false">"未命名裝置"</string>
     <string name="unpaired_address" formatted="false">"未配對 · {0}"</string>
     <string name="unsupported_bluetooth" formatted="false">"這部裝置不支援藍牙，可使用區域網路"</string>
+    <string name="verification_camera_permission" formatted="false">"掃描需要相機權限，也可選擇圖片或手動核對。"</string>
+    <string name="verification_camera_unavailable" formatted="false">"相機無法使用，請選擇圖片或手動核對。"</string>
+    <string name="verification_confirm" formatted="false">"確認已逐組核對雙方完整安全碼一致？核驗後會記住此裝置身分。"</string>
+    <string name="verification_connect_first" formatted="false">"請先與對方建立加密連線，再核驗身分。"</string>
+    <string name="verification_connection_changed" formatted="false">"連線已變更，請重新開啟核驗頁面。"</string>
+    <string name="verification_copy" formatted="false">"複製安全碼"</string>
+    <string name="verification_copy_done" formatted="false">"安全碼已複製"</string>
+    <string name="verification_done" formatted="false">"身分核驗成功"</string>
+    <string name="verification_explain" formatted="false">"核對對方裝置上的完整安全碼，或當面掃描對方的 QR 碼。不在身邊時，請透過另一條已信任的管道核對；僅在目前聊天中互傳安全碼不能確認身分。"</string>
+    <string name="verification_image" formatted="false">"從圖片讀取"</string>
+    <string name="verification_local_only" formatted="false">"核驗結果僅儲存在此裝置，綁定雙方身分。變更身分或撤銷信任後須重新核驗。"</string>
+    <string name="verification_mark" formatted="false">"我已核對一致"</string>
+    <string name="verification_mismatch" formatted="false">"安全碼不符。請確認核對的是正確裝置，暫勿標記為已核驗。"</string>
+    <string name="verification_qr_image" formatted="false">"身分核驗 QR 碼"</string>
+    <string name="verification_read_failed" formatted="false">"未找到可用的 QR 碼，請另選圖片或手動核對。"</string>
+    <string name="verification_reading" formatted="false">"正在讀取 QR 碼…"</string>
+    <string name="verification_save_qr" formatted="false">"儲存 QR 碼"</string>
+    <string name="verification_scan" formatted="false">"掃描 QR 碼"</string>
+    <string name="verification_title" formatted="false">"驗證安全碼"</string>
+    <string name="verify_identity" formatted="false">"驗證身分"</string>
     <string name="version_android" formatted="false">"Android 版 · {0}"</string>
     <string name="version_linux" formatted="false">"Linux 預覽版 · {0}"</string>
     <string name="version_windows" formatted="false">"Windows 預覽版 · {0}"</string>

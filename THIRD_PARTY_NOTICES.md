@@ -72,3 +72,8 @@ The two playback controls were retrieved on 2026-10-09 from pinned upstream comm
 The Windows and Linux resources under `desktop/src/main/resources/dev/ghost/wozai/icons/` rasterize eighteen of these same Android vector paths for runtime tinting. The original Material Icons license is also included in the Windows and Linux packages. The shared app artwork is maintained at `desktop/assets/icons/master/icon-master-1024.png`; `desktop/assets/icons/windows/nearbyim.ico` contains the Windows launcher sizes.
 
 The desktop file-location control also uses Google's outlined `folder_open` icon, retained at `desktop/assets/material/folder_open.svg` and rasterized without path changes to `icons/folder_open.png`. Retrieved on 2026-10-09 from `https://github.com/google/material-design-icons/blob/49d4db35df873165d6bd6ba09b063c7dafbac2f4/src/file/folder_open/materialiconsoutlined/24px.svg`; upstream SVG SHA-256: `d8f67d1736489be02387aed93d6952bf4f40312899d526ed8d70d91a20ee6b53`. The same Apache 2.0 license applies.
+# 身份核验二维码
+
+ZXing core 3.5.3（Apache-2.0），仅用于离线二维码生成与读取。桌面与 Android 固定同一版本，JAR SHA-256 固定在 desktop/dependencies.txt，并在构建时检查；Android 由 R8 裁剪。许可证随客户端分发于 licenses/zxing-Apache-2.0.txt／Android assets。没有加入网络、分析或云端扫码服务。
+
+核验页新增的 lock、qr_code_scanner、content_copy 使用 Google Material Icons Outlined（Apache-2.0）。来源和原始文件摘要见 docs/licenses/material-verification-icons-sources.txt，许可沿用 docs/licenses/material-icons-LICENSE.txt。

@@ -60,12 +60,16 @@ jobs:
         run: |
           & 'desktop/build/package/NearbyIM/runtime/bin/java.exe' -cp 'desktop/build/package/NearbyIM/app/*;desktop/build/tests' dev.ghost.wozai.GuiTests desktop/build/gui-bundled-runtime.png
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & 'desktop/build/package/NearbyIM/runtime/bin/java.exe' -cp 'desktop/build/package/NearbyIM/app/*;desktop/build/tests' dev.ghost.wozai.VerificationGuiTests desktop/build/gui-verification-windows-bundled
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Exercise native GUI and mDNS
         shell: pwsh
         run: |
           & "$env:JAVA_HOME/bin/java.exe" "-Dwozai.bluetooth.library=$((Resolve-Path desktop/build/lib/wozai_bluetooth.dll).Path)" -cp 'desktop/build/classes;desktop/build/tests;desktop/build/lib/*' dev.ghost.wozai.DiscoveryTests
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & "$env:JAVA_HOME/bin/java.exe" "-Dwozai.bluetooth.library=$((Resolve-Path desktop/build/lib/wozai_bluetooth.dll).Path)" -cp 'desktop/build/classes;desktop/build/tests;desktop/build/lib/*' dev.ghost.wozai.GuiTests desktop/build/gui-windows.png
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "$env:JAVA_HOME/bin/java.exe" -cp 'desktop/build/classes;desktop/build/tests;desktop/build/lib/*' dev.ghost.wozai.VerificationGuiTests desktop/build/gui-verification-windows
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & "$env:JAVA_HOME/bin/java.exe" "-Dwozai.bluetooth.library=$((Resolve-Path desktop/build/lib/wozai_bluetooth.dll).Path)" -cp 'desktop/build/classes;desktop/build/tests;desktop/build/lib/*' dev.ghost.wozai.LayoutTests desktop/build/gui-settings-windows.png
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

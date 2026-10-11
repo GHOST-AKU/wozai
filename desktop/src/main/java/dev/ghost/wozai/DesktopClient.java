@@ -46,6 +46,7 @@ public final class DesktopClient implements AutoCloseable {
     private static Thread daemon(Runnable r, String name) { Thread t = new Thread(r, name); t.setDaemon(true); return t; }
     public DesktopClient(DesktopStore store, DesktopIdentity.Identity identity, Listener listener) throws IOException {
         this.store = store; this.identity = identity; this.listener = listener;
+        store.invalidateLocalVerifications(identity.signer().publicKey());
         store.nickname();
         long quota=TransferStorageBudget.DEFAULT_QUOTA;try{quota=Long.parseLong(store.setting("attachmentQuota",Long.toString(quota)));}catch(NumberFormatException invalid){}if(quota<0)quota=TransferStorageBudget.DEFAULT_QUOTA;attachmentStorage=new TransferStorageBudget(store.attachmentsRoot(),quota);
         noiseIdentity=DesktopNoiseIdentity.load(store.attachmentsRoot().getParent().resolve("noise-static-v4.properties"),identity.signer());
@@ -147,6 +148,7 @@ public final class DesktopClient implements AutoCloseable {
         TrustPolicy.Authorization authorization;
         volatile ClientAttachmentTransfers transfers;
         boolean preparing;
+        volatile boolean identityVerified;
         Session(StreamConnection connection, boolean incoming, String expectedId, String target, long trustVersion) throws IOException {
             this.incoming = incoming; this.expectedId = expectedId; this.target = target; this.trustVersion = trustVersion; this.transport = connection.label().equals("Bluetooth") ? "bluetooth" : "lan";
             String nickname = store.nickname();
@@ -163,7 +165,7 @@ public final class DesktopClient implements AutoCloseable {
                 String pin = saved == null || saved.publicKey().isEmpty() ? null : saved.publicKey();
                 authorization = policy.begin(peerId, wire.remotePublicKey(), pin, !incoming, true);
                 peer = new DesktopStore.Peer(peerId, hello.body, pin == null ? "" : pin, target.isEmpty() && saved != null ? saved.endpoint() : target);
-                if (authorization.decision == TrustPolicy.Decision.IDENTITY_CHANGED) { reject("identityChanged"); return; }
+                if (authorization.decision == TrustPolicy.Decision.IDENTITY_CHANGED) { store.clearVerification(peerId);reject("identityChanged"); return; }
                 phase = "consent"; publish();
                 if (authorization.decision == TrustPolicy.Decision.APPROVE) approveAfterFiles();
                 else listener.request(new Request(token, peer, wire.remotePublicKey()));
@@ -202,6 +204,7 @@ public final class DesktopClient implements AutoCloseable {
                 peer = new DesktopStore.Peer(peer.id(), peer.name(), pin[0], peer.endpoint());
                 store.peer(peer);
                 if(transfers==null||!transfers.v2())throw new IOException("File reader not prepared before approval");
+                identityVerified=store.isVerified(peer.id(),identity.signer().publicKey(),authorization.publicKey);
                 phase = "ready"; publish();
             } catch (IOException e) { failure(); }
         }); }
@@ -284,6 +287,29 @@ public final class DesktopClient implements AutoCloseable {
     }
     public TransferProgress transferProgress(String peer,AttachmentRecord record){Feedback value=transferProgress.get(peer+":"+record.info.id+":"+record.outgoing);return value==null?TransferProgress.UNKNOWN:value.progress();}
     public boolean endToEndEncrypted(String peer){Session session=current;return session!=null&&session.peer!=null&&session.peer.id().equals(peer)&&session.wire.endToEndEncrypted();}
+    public boolean identityVerified(String peer){Session session=current;return endToEndEncrypted(peer)&&session!=null&&session.identityVerified;}
+    public boolean verificationCurrent(IdentityVerification expected){
+        Session session=current;return expected!=null&&session!=null&&session.peer!=null&&policy.canVerify(session.authorization)&&session.wire.endToEndEncrypted()&&expected.peerId.equals(session.peer.id())&&expected.localRoot.equals(identity.signer().publicKey())&&expected.remoteRoot.equals(session.authorization.publicKey)&&expected.generation.equals(session.wire.connectionGeneration());
+    }
+    public CompletableFuture<IdentityVerification> verification(String peer){return submit(()->verificationNow(peer));}
+    private IdentityVerification verificationNow(String peer)throws Exception {
+        Session session=current;if(session==null||session.peer==null||!session.peer.id().equals(peer)||!phase.equals("ready")||!session.wire.endToEndEncrypted()||!policy.canVerify(session.authorization))return null;
+        String local=identity.signer().publicKey(),remote=session.authorization.publicKey;
+        return new IdentityVerification(peer,local,remote,session.wire.connectionGeneration(),store.isVerified(peer,local,remote));
+    }
+    public CompletableFuture<Boolean> verifyIdentity(IdentityVerification expected,String scanned){return submit(()->{
+        if(expected==null||!expected.sameIdentity(verificationNow(expected.peerId))||scanned!=null&&!expected.code.matchesQr(scanned))return false;
+        Session session=current;DesktopStore.Peer saved=store.peer(expected.peerId);
+        if(saved!=null&&!saved.publicKey().isEmpty()&&!saved.publicKey().equals(expected.remoteRoot))return false;
+        boolean persisted=policy.verify(session.authorization,()->{
+            if(!session.wire.endToEndEncrypted())throw new CancellationException("Verification session closed");
+            try{
+                session.peer=new DesktopStore.Peer(session.peer.id(),session.peer.name(),expected.remoteRoot,session.peer.endpoint());
+                store.peer(session.peer);store.markVerified(expected.peerId,expected.localRoot,expected.remoteRoot);
+            }catch(IOException failure){throw new UncheckedIOException(failure);}
+        });
+        if(persisted){session.identityVerified=true;publish();}return persisted;
+    });}
     public List<DesktopStore.Message> liveMessages(String peer,List<DesktopStore.Message> history){
         List<DesktopStore.Message> values=new ArrayList<>(history.size());
         for(DesktopStore.Message message:history){AttachmentRecord previous=message.attachment();Feedback value=previous==null?null:transferProgress.get(peer+":"+previous.info.id+":"+previous.outgoing);

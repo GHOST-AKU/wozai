@@ -179,6 +179,7 @@
     <string name="emoji" formatted="false">"Emoji"</string>
     <string name="empty_chat" formatted="false">"Select a chat on the left, or connect to a device in Nearby."</string>
     <string name="encrypted_via" formatted="false">"End-to-end encrypted · {0}"</string>
+    <string name="encryption_active" formatted="false">"Connection is end-to-end encrypted"</string>
     <string name="endpoint" formatted="false">"Peer IP address and port"</string>
     <string name="endpoint_hint" formatted="false">"For example 192.168.1.20:54321. Read this from the other device."</string>
     <string name="endpoint_required" formatted="false">"Enter a local IP address and port."</string>
@@ -206,7 +207,9 @@
     <string name="identity_protection_timeout" formatted="false">"Windows device identity protection timed out. Try again. The existing identity will not be replaced."</string>
     <string name="identity_unavailable" formatted="false">"The identity key on this device is unavailable. Connections are disabled."</string>
     <string name="identity_unavailable_restart" formatted="false">"The identity key on this device is unavailable. Restart the app and try connecting again."</string>
+    <string name="identity_unverified" formatted="false">"Identity not verified"</string>
     <string name="identity_verification_failed" formatted="false">"Device identity verification failed. This connection was not authorized."</string>
+    <string name="identity_verified" formatted="false">"Identity verified"</string>
     <string name="idle" formatted="false">"Disconnected"</string>
     <string name="initial_status" formatted="false">"Choose a connection method to find people nearby"</string>
     <string name="invalid_endpoint" formatted="false">"Use an address such as 192.168.1.20:54321 or [fd00::1]:54321."</string>
@@ -362,6 +365,26 @@
     <string name="unnamed_device" formatted="false">"Unnamed device"</string>
     <string name="unpaired_address" formatted="false">"Not paired · {0}"</string>
     <string name="unsupported_bluetooth" formatted="false">"This device does not support Bluetooth. Use LAN instead."</string>
+    <string name="verification_camera_permission" formatted="false">"Scanning requires camera permission. You can also choose an image or compare manually."</string>
+    <string name="verification_camera_unavailable" formatted="false">"Camera unavailable. Choose an image or compare manually."</string>
+    <string name="verification_confirm" formatted="false">"Have you compared every group of the complete code on both devices? Verification will remember this device identity."</string>
+    <string name="verification_connect_first" formatted="false">"Establish an encrypted connection with the other device first."</string>
+    <string name="verification_connection_changed" formatted="false">"The connection changed. Reopen the verification page."</string>
+    <string name="verification_copy" formatted="false">"Copy safety code"</string>
+    <string name="verification_copy_done" formatted="false">"Safety code copied"</string>
+    <string name="verification_done" formatted="false">"Identity verified"</string>
+    <string name="verification_explain" formatted="false">"Compare the complete safety code on the other device, or scan its QR code in person. When apart, compare through another trusted channel; exchanging codes only in this chat does not confirm identity."</string>
+    <string name="verification_image" formatted="false">"Read from image"</string>
+    <string name="verification_local_only" formatted="false">"Verification is stored only on this device and binds both identities. Identity changes or revocation require verification again."</string>
+    <string name="verification_mark" formatted="false">"I compared the complete code"</string>
+    <string name="verification_mismatch" formatted="false">"Safety codes do not match. Check that this is the intended device before verifying."</string>
+    <string name="verification_qr_image" formatted="false">"Identity verification QR code"</string>
+    <string name="verification_read_failed" formatted="false">"No usable QR code found. Choose another image or compare manually."</string>
+    <string name="verification_reading" formatted="false">"Reading QR code…"</string>
+    <string name="verification_save_qr" formatted="false">"Save QR code"</string>
+    <string name="verification_scan" formatted="false">"Scan QR code"</string>
+    <string name="verification_title" formatted="false">"Verify safety code"</string>
+    <string name="verify_identity" formatted="false">"Verify identity"</string>
     <string name="version_android" formatted="false">"Android · {0}"</string>
     <string name="version_linux" formatted="false">"Linux preview · {0}"</string>
     <string name="version_windows" formatted="false">"Windows preview · {0}"</string>

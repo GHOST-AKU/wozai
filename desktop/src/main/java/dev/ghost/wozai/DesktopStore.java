@@ -63,8 +63,25 @@ public final class DesktopStore implements AutoCloseable {
         return new Peer(id, AtomicFiles.required(v, "name"), v.getProperty("key", ""), v.getProperty("endpoint", ""));
     }
     public synchronized void peer(Peer peer) throws IOException {
-        Properties v = new Properties(); v.setProperty("name", peer.name()); v.setProperty("key", peer.publicKey()); v.setProperty("endpoint", peer.endpoint());
+        Properties v = AtomicFiles.read(peerFile(peer.id()));
+        if(!peer.publicKey().equals(v.getProperty("key","")))clearVerification(v);
+        v.setProperty("name", peer.name()); v.setProperty("key", peer.publicKey()); v.setProperty("endpoint", peer.endpoint());
         AtomicFiles.write(peerFile(peer.id()), v);
+    }
+    private static void clearVerification(Properties values){values.remove("verifiedLocal");values.remove("verifiedRemote");values.remove("verifiedAt");}
+    public synchronized boolean isVerified(String id,String localRoot,String remoteRoot)throws IOException {
+        Properties values=AtomicFiles.read(peerFile(id));
+        return remoteRoot.equals(values.getProperty("key"))&&localRoot.equals(values.getProperty("verifiedLocal"))&&remoteRoot.equals(values.getProperty("verifiedRemote"))&&values.containsKey("verifiedAt");
+    }
+    public synchronized void markVerified(String id,String localRoot,String remoteRoot)throws IOException {
+        try{new dev.ghost.nearbyim.core.SafetyCode(localRoot,remoteRoot);}catch(java.security.GeneralSecurityException invalid){throw new IOException("Invalid verification identity",invalid);}
+        Properties values=AtomicFiles.read(peerFile(id));
+        if(!remoteRoot.equals(values.getProperty("key")))throw new IOException("Verification identity changed");
+        values.setProperty("verifiedLocal",localRoot);values.setProperty("verifiedRemote",remoteRoot);values.setProperty("verifiedAt",Long.toString(System.currentTimeMillis()));AtomicFiles.write(peerFile(id),values);
+    }
+    public synchronized void clearVerification(String id)throws IOException {Properties values=AtomicFiles.read(peerFile(id));if(values.containsKey("verifiedAt")){clearVerification(values);AtomicFiles.write(peerFile(id),values);}}
+    public synchronized void invalidateLocalVerifications(String localRoot)throws IOException {
+        for(Peer peer:peers()){Properties values=AtomicFiles.read(peerFile(peer.id()));if(values.containsKey("verifiedAt")&&!localRoot.equals(values.getProperty("verifiedLocal"))){clearVerification(values);AtomicFiles.write(peerFile(peer.id()),values);}}
     }
     public synchronized List<Peer> peers() throws IOException {
         Path path = root.resolve("peers"); if (!Files.exists(path)) return List.of();
