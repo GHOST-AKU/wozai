@@ -791,10 +791,10 @@ public final class MainActivity extends Activity {
         super.onActivityResult(requestCode, resultCode, data);
         if(requestCode==955){verificationBusy=false;if(resultCode==RESULT_OK&&data!=null){pendingVerificationCode=data.getStringExtra("code");resumeVerificationResult();}else pendingVerification=null;updateVerificationDialog();return;}
         if(requestCode==956){
-            IdentityVerification expected=pendingVerification;pendingVerification=null;
+            IdentityVerification expected=pendingVerification;android.app.Dialog expectedPage=verificationDialog;pendingVerification=null;
             if(resultCode==RESULT_OK&&data!=null&&data.getData()!=null&&expected!=null){android.net.Uri uri=data.getData();verificationBusy=true;updateVerificationDialog();
                 verificationWork(()->{String decoded=null;try{Bitmap image=PhotoDecoder.decode(getContentResolver(),uri,1024);if(image!=null){int w=image.getWidth(),h=image.getHeight();int[] pixels=new int[w*h];image.getPixels(pixels,0,w,0,0,w,h);decoded=dev.ghost.nearbyim.verification.QrCodes.decode(pixels,w,h);image.recycle();}}catch(Exception invalid){}
-                    String scanned=decoded;ui.post(()->{verificationBusy=false;if(scanned==null){if(verificationNotice!=null)verificationNotice.setText(t("verificationReadFailed"));updateVerificationDialog();}else{pendingVerification=expected;pendingVerificationCode=scanned;resumeVerificationResult();}});
+                    String scanned=decoded;ui.post(()->verificationImageResult(expectedPage,expected,scanned));
                 });
             }else{verificationBusy=false;updateVerificationDialog();}return;
         }
@@ -895,7 +895,13 @@ public final class MainActivity extends Activity {
         if(isDestroyed())return;
         if(verificationDialog==null||verificationSnapshot==null||!expected.sameIdentity(verificationSnapshot)||controller==null||!controller.verificationCurrent(expected)){toast(t("verificationConnectionChanged"));updateVerificationDialog();return;}
         if(scanned!=null&&!expected.code.matchesQr(scanned)){verificationNotice.setText(t("verificationMismatch"));return;}
-        verificationBusy=true;updateVerificationDialog();controller.verifyIdentity(expected,scanned,ok->{if(isDestroyed()||!expected.sameIdentity(verificationSnapshot))return;verificationBusy=false;if(verificationNotice!=null)verificationNotice.setText(t(ok?"verificationDone":"verificationConnectionChanged"));updateVerificationDialog();});
+        android.app.Dialog expectedPage=verificationDialog;verificationBusy=true;updateVerificationDialog();controller.verifyIdentity(expected,scanned,ok->{if(isDestroyed()||verificationDialog!=expectedPage||!expected.sameIdentity(verificationSnapshot))return;verificationBusy=false;if(verificationNotice!=null)verificationNotice.setText(t(ok?"verificationDone":"verificationConnectionChanged"));updateVerificationDialog();});
+    }
+    private void verificationImageResult(android.app.Dialog expectedPage,IdentityVerification expected,String scanned){
+        if(isDestroyed()||expectedPage==null||verificationDialog!=expectedPage||!expected.sameIdentity(verificationSnapshot))return;
+        verificationBusy=false;
+        if(scanned==null){if(verificationNotice!=null)verificationNotice.setText(t("verificationReadFailed"));updateVerificationDialog();}
+        else{pendingVerification=expected;pendingVerificationCode=scanned;resumeVerificationResult();}
     }
     private void resumeVerificationResult(){
         if(controller==null||pendingVerificationCode==null)return;IdentityVerification expected=pendingVerification;String scanned=pendingVerificationCode;pendingVerification=null;pendingVerificationCode=null;verificationBusy=false;

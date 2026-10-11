@@ -415,11 +415,13 @@ public final class LocalizationInstrumentation extends Instrumentation {
         onMain(()->{invoke(activity,"saveVerification",new Class<?>[]{dev.ghost.nearbyim.core.IdentityVerification.class,String.class},initial,"WOZAI-ID1:"+"0".repeat(64));return null;});
         check(onMain(()->!controller.identityVerified(peer)),"Wrong scanned code does not mark Android identity verified");
         check(onMain(()->((android.widget.TextView)field(activity,"verificationNotice")).getText().toString().equals(AndroidText.get(activity,"verificationMismatch"))),"Wrong QR has visible native mismatch feedback");
+        onMain(()->{dialog.dismiss();invoke(activity,"openVerification",new Class<?>[]{});invoke(activity,"verificationImageResult",new Class<?>[]{android.app.Dialog.class,dev.ghost.nearbyim.core.IdentityVerification.class,String.class},dialog,initial,other.qrPayload());return null;});
+        check(onMain(()->!controller.identityVerified(peer)),"An old page image result cannot verify a newly reopened page with the same identity");
         onMain(()->{invoke(activity,"saveVerification",new Class<?>[]{dev.ghost.nearbyim.core.IdentityVerification.class,String.class},initial,other.qrPayload());return null;});
         await(()->onMain(()->controller.identityVerified(peer)),"Matching opposite endpoint code marks the exact Android roots verified");
         check(onMain(()->!((android.widget.Button)field(activity,"verificationMark")).isEnabled()),"Verified identity disables repeated manual marking");
         screenshot("zh-Hans-identity-verified");
-        onMain(()->{dialog.dismiss();return null;});
+        onMain(()->{((android.app.Dialog)field(activity,"verificationDialog")).dismiss();return null;});
         check(onMain(()->field(activity,"verificationDialog")==null&&field(activity,"verificationMark")==null&&field(activity,"verificationSnapshot")==null),"Closing Android verification releases its page and identity snapshot");
     }
     private static void collectVerificationViews(android.view.View view,java.util.List<android.view.View> result){result.add(view);if(view instanceof android.view.ViewGroup group)for(int i=0;i<group.getChildCount();i++)collectVerificationViews(group.getChildAt(i),result);}
