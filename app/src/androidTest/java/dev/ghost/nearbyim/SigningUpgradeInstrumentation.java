@@ -114,7 +114,7 @@ public final class SigningUpgradeInstrumentation extends Instrumentation {
         byte[] proof = sign(keys); verifier.initVerify(keys.getCertificate(DEVICE_ALIAS)); verifier.update(PROBE);
         check(verifier.verify(proof), "Preserved private-key handle still signs");
         try (SQLiteDatabase database = database(context)) {
-            check(database.getVersion() == 4, "Database schema preserved");
+            check(database.getVersion() == dev.ghost.nearbyim.storage.StoreSchema.VERSION, "Database schema upgraded while preserving data");
             try (Cursor cursor = database.rawQuery("SELECT body,state FROM messages WHERE peer_id=? AND id=?", new String[]{saved.getString("peer"), saved.getString("message")})) {
                 check(cursor.moveToFirst() && BODY.equals(cursor.getString(0)) && "delivered".equals(cursor.getString(1)) && !cursor.moveToNext(), "Exact message and delivery state preserved");
             }

@@ -23,6 +23,32 @@ public final class AttachmentStoreTests {
         Field current=DesktopClient.class.getDeclaredField("current");current.setAccessible(true);Object session=current.get(client);
         Field wire=session.getClass().getDeclaredField("wire");wire.setAccessible(true);return ((FramedSession)wire.get(session)).connectionGeneration();
     }
+    /** Hold a real file read at 8 MiB so pause cannot race with complete delivery.
+     * The production source reference stays identical; reconnect uses the real resolver. */
+    static final class PauseSource implements AttachmentSource {
+        final FileAttachmentSource file;
+        final CountDownLatch reached=new CountDownLatch(1),released=new CountDownLatch(1);
+        PauseSource(Path path)throws java.io.IOException {file=new FileAttachmentSource(path);}
+        public long size(){return file.size();}public String generation(){return file.generation();}
+        public boolean seekable(){return true;}public String persistentReference(){return file.persistentReference();}
+        public void verifyUnchanged()throws java.io.IOException {file.verifyUnchanged();}
+        public java.io.InputStream open(long offset)throws java.io.IOException {
+            return new java.io.FilterInputStream(file.open(offset)){
+                long position=offset;
+                public int read(byte[] bytes,int begin,int count)throws java.io.IOException {
+                    if(position>=8L*1024*1024){reached.countDown();try{if(!released.await(15,TimeUnit.SECONDS))throw new java.io.IOException("Pause fixture barrier timed out");}catch(InterruptedException interrupted){Thread.currentThread().interrupt();throw new java.io.InterruptedIOException();}}
+                    int n=super.read(bytes,begin,count);if(n>0)position+=n;return n;
+                }
+                public void close()throws java.io.IOException {released.countDown();super.close();}
+            };
+        }
+        public void close()throws java.io.IOException {released.countDown();file.close();}
+    }
+    static String offerPaused(DesktopClient client,PauseSource source)throws Exception {
+        Field current=DesktopClient.class.getDeclaredField("current");current.setAccessible(true);Object session=current.get(client);
+        Field files=session.getClass().getDeclaredField("transfers");files.setAccessible(true);
+        return ((ClientAttachmentTransfers)files.get(session)).offer(source,"resume.bin","application/octet-stream").get(10,TimeUnit.SECONDS);
+    }
     static void clientTransfer(Path root)throws Exception {
         Path a=root.resolve("a"),b=root.resolve("b");Files.createDirectories(a);Files.createDirectories(b);var ai=DesktopIdentity.load(a.resolve("identity.properties"));var bi=DesktopIdentity.load(b.resolve("identity.properties"));Events ae=new Events(),be=new Events();
         InetAddress address=Collections.list(NetworkInterface.getNetworkInterfaces()).stream().flatMap(i->Collections.list(i.getInetAddresses()).stream()).filter(i->i instanceof Inet4Address&&LocalEndpoint.isLocal(i)).findFirst().orElseThrow();
@@ -45,8 +71,9 @@ public final class AttachmentStoreTests {
             // Exercise the real factory, storage and reconnect path, including a fresh Noise transcript.
             Path large=root.resolve("resume.bin");byte[] block=new byte[1024*1024];new Random(123).nextBytes(block);
             try(java.io.OutputStream out=Files.newOutputStream(large)){for(int n=0;n<64;n++)out.write(block);}
-            String oldGeneration=generation(ac),resumeId=ac.sendAttachment(bi.id(),large).get(10,TimeUnit.SECONDS);
-            await(()->record(bs,ai.id(),resumeId)!=null&&record(bs,ai.id(),resumeId).transferred>=1024*1024);
+            PauseSource pauseSource=new PauseSource(large);
+            String oldGeneration=generation(ac),resumeId=offerPaused(ac,pauseSource);
+            if(!pauseSource.reached.await(10,TimeUnit.SECONDS))throw new AssertionError("Pause fixture never reached its real file barrier");
             ac.attachmentAction(bi.id(),resumeId,true,"pause").get(10,TimeUnit.SECONDS);
             await(()->record(as,bi.id(),resumeId).state.equals("paused")&&record(bs,ai.id(),resumeId).state.equals("paused"));
             ac.disconnect().get(10,TimeUnit.SECONDS);await(()->!ae.ready()&&!be.ready());
@@ -75,7 +102,9 @@ public final class AttachmentStoreTests {
             for(int n=0;n<ackNs.length;n++) {
                 DesktopClient sender=n%2==0?ac:bc;DesktopStore senderStore=n%2==0?as:bs;String peer=n%2==0?bi.id():ai.id();String text="latency-"+UUID.randomUUID();
                 if(record(as,bi.id(),ab).active()||record(bs,ai.id(),ba).active())overlapping++;
-                long begin=System.nanoTime();if(!sender.send(text).get(1,TimeUnit.SECONDS))throw new AssertionError("File traffic rejected a text probe");
+                long begin=System.nanoTime();
+                try{if(!sender.send(text).get(1,TimeUnit.SECONDS))throw new AssertionError("File traffic rejected a text probe");}
+                catch(TimeoutException timeout){timeoutEvidence.run();Thread.getAllStackTraces().forEach((thread,stack)->{if(thread.getName().contains("wozai")||thread.getName().contains("attachment")){System.err.println("Timeout thread "+thread.getName()+" state="+thread.getState());for(StackTraceElement frame:stack)System.err.println("  "+frame);}});throw timeout;}
                 await(()->senderStore.messages(peer).stream().anyMatch(m->m.body().equals(text)&&m.status().equals("delivered")));ackNs[n]=System.nanoTime()-begin;
             }
             Arrays.sort(ackNs);double p95=ackNs[18]/1e6;
