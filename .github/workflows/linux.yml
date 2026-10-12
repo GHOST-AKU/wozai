@@ -70,6 +70,7 @@ jobs:
           name: linux-preview-verification
           path: |
             desktop/build/gui-linux*.png
+            desktop/build/gui-attachments-linux*.png
             desktop/build/linux-package*.png
             desktop/build/linux-package*.txt
           if-no-files-found: ignore

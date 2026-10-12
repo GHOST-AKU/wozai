@@ -147,6 +147,7 @@ jobs:
             build/android-i18n-device.txt
             build/android-i18n-logcat.txt
             build/android-i18n-screenshots/
+            build/android-attachment-screenshots/
           if-no-files-found: ignore
   signing-upgrade:
     if: inputs['signed-upgrade-input-run'] != ''

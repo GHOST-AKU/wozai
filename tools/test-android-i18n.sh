@@ -16,6 +16,7 @@ for line in Path('build/android-i18n-logcat.txt').read_text(errors='replace').sp
     if pattern.search(line):print(line)
 PY
 adb pull /sdcard/Android/data/dev.ghost.nearbyim/files/i18n build/android-i18n-screenshots || true
+adb pull /sdcard/Android/data/dev.ghost.nearbyim/files/native-screens build/android-attachment-screenshots || true
 python3 - <<'PY'
 from pathlib import Path
 text = Path('build/android-i18n-device.txt').read_text()

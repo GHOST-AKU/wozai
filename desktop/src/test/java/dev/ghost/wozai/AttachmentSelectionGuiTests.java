@@ -18,6 +18,7 @@ public final class AttachmentSelectionGuiTests {
         try{SwingUtilities.invokeAndWait(()->{try{
             AppTheme.install(false);Strings s=new Strings("en");
             JDialog page=(JDialog)production.getDeclaredConstructor(Window.class,Strings.class,List.class,Consumer.class).newInstance(null,s,List.of(a,b,c),(Consumer<List<Path>>)sent::set);page.setVisible(true);
+            Path screenshot=Path.of("desktop/build/gui-attachments-"+(System.getProperty("os.name").toLowerCase(Locale.ROOT).contains("win")?"windows":"linux")+".png");Files.createDirectories(screenshot.getParent());var image=new java.awt.image.BufferedImage(page.getWidth(),page.getHeight(),java.awt.image.BufferedImage.TYPE_INT_RGB);Graphics2D graphics=image.createGraphics();try{page.printAll(graphics);}finally{graphics.dispose();}javax.imageio.ImageIO.write(image,"png",screenshot.toFile());
             JList<?> list=all(page).stream().filter(v->v instanceof JList<?>).map(v->(JList<?>)v).findFirst().orElseThrow();list.setSelectedIndex(2);button(page,s,"attachmentMoveUp").doClick();list.setSelectedIndex(0);button(page,s,"attachmentRemove").doClick();button(page,s,"send").doClick();
             if(!List.of(c,b).equals(sent.get()))throw new AssertionError("Native preview sent the wrong selection/order");
             page.dispose();

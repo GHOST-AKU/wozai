@@ -36,7 +36,7 @@ final class AndroidGalleryExportChecks {
             }
             if(!Files.exists(image)||!received.state.equals("received"))throw new AssertionError("Export failure/status changed private receipt ownership");
             return 9+uiChecks;
-        }finally{if(exported!=null)base.getContentResolver().delete(exported,null,null);try(var files=Files.walk(root)){for(Path file:files.sorted(Comparator.reverseOrder()).toList())Files.deleteIfExists(file);}}
+        }finally{if(exported!=null)base.getContentResolver().delete(exported,null,null);try(var files=Files.walk(root)){for(Path file:files.sorted(Comparator.reverseOrder()).collect(java.util.stream.Collectors.toList()))Files.deleteIfExists(file);}}
     }
     private static void grant(Instrumentation test,Context target,String permission)throws IOException {try(var descriptor=test.getUiAutomation().executeShellCommand("pm grant "+target.getPackageName()+" "+permission);var input=new android.os.ParcelFileDescriptor.AutoCloseInputStream(descriptor)){byte[] buffer=new byte[1024];while(input.read(buffer)>0){}}}
 }

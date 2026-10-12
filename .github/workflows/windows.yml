@@ -116,6 +116,7 @@ jobs:
           name: windows-preview-verification
           path: |
             desktop/build/gui-windows*.png
+            desktop/build/gui-attachments-windows*.png
             desktop/build/gui-settings*.png
             desktop/build/package-window.png
             desktop/build/gui-bundled-runtime*.png

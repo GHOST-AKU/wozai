@@ -16,10 +16,11 @@ public final class AttachmentRecord {
     public boolean active(){return Arrays.asList("queued","preparing","offered","transferring","verifying","checking","awaitingReceipt").contains(state);}
     public boolean resumable(){return info.version==2&&Arrays.asList("paused","sourceUnavailable","interrupted","unknown").contains(state);}
     public boolean mayReplace(AttachmentRecord next) {
-        boolean preparing=outgoing&&(state.equals("preparing")||state.equals("queued"))&&transferred==0&&info.size==0&&next!=null&&(next.state.equals("offered")||next.state.equals("queued"));
+        boolean unoffered=outgoing&&info.hash==null&&transferred==0;
+        boolean preparing=outgoing&&(state.equals("preparing")||state.equals("queued")||unoffered&&resumable())&&transferred==0&&info.size==0&&next!=null&&(next.state.equals("offered")||next.state.equals("queued"));
         if(next==null||outgoing!=next.outgoing||info.version!=next.info.version||!info.id.equals(next.info.id)||!info.name.equals(next.info.name)||!info.mime.equals(next.info.mime)
                 ||!preparing&&info.size!=next.info.size||info.time!=next.info.time||!preparing&&info.hash!=null&&!info.hash.equals(next.info.hash))return false;
-        return equals(next)||active()||resumable()&&Arrays.asList("checking","transferring","verifying","awaitingReceipt","received","delivered","paused","sourceUnavailable","canceled","failed","rejected").contains(next.state);
+        return equals(next)||active()||resumable()&&(unoffered&&Arrays.asList("queued","preparing").contains(next.state)||Arrays.asList("checking","transferring","verifying","awaitingReceipt","received","delivered","paused","sourceUnavailable","canceled","failed","rejected").contains(next.state));
     }
     public AttachmentRecord recovered()throws IOException {return active()?new AttachmentRecord(info,outgoing,info.version==2?"paused":state.equals("awaitingReceipt")?"unknown":"interrupted",transferred):this;}
     public String encode()throws IOException {

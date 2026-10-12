@@ -132,16 +132,21 @@ public final class AttachmentBatchQueue implements AutoCloseable {
     public CompletableFuture<Void> cancel(String id){if(snapshot.stream().anyMatch(item->item.info().id.equals(id)&&!item.terminal()))cancelRequests.add(id);if(id.equals(active)){AttachmentSource source=preparing;if(source!=null)try{source.close();}catch(IOException ignored){}}return command(()->{
         int i=index(id);if(i<0)return null;Item item=items.get(i);if(item.terminal())return null;
         if(id.equals(active)){return engine.cancel(id,true);}
-        state(new Item(item.batchId(),item.info(),item.selection(),"canceled",item.transferred()));return CompletableFuture.<Void>completedFuture(null);
+        state(new Item(item.batchId(),item.info(),item.selection(),"canceled",item.transferred()));return cancelStored(item);
     }).thenCompose(value->value==null?CompletableFuture.completedFuture(null):value);}
     public CompletableFuture<Void> cancelAll(){paused=true;for(Item item:snapshot)if(!item.terminal())cancelRequests.add(item.info().id);AttachmentSource source=preparing;if(source!=null)try{source.close();}catch(IOException ignored){}return command(()->{
-        for(Item item:List.copyOf(items))if(!item.terminal()&&!item.info().id.equals(active))state(new Item(item.batchId(),item.info(),item.selection(),"canceled",item.transferred()));return active;
-    }).thenCompose(id->id==null?CompletableFuture.completedFuture(null):engine.cancel(id,true));}
+        CompletableFuture<Void> done=CompletableFuture.completedFuture(null);for(Item item:List.copyOf(items))if(!item.terminal()){
+            boolean running=item.info().id.equals(active);if(!running)state(new Item(item.batchId(),item.info(),item.selection(),"canceled",item.transferred()));
+            done=done.thenCompose(ignored->running?engine.cancel(item.info().id,true):cancelStored(item));
+        }return done;
+    }).thenCompose(done->done);}
+    private CompletableFuture<Void> cancelStored(Item item){return engine.cancel(item.info().id,true).thenRun(()->{discardSnapshot(item);try{listener.finished(new AttachmentRecord(item.info(),true,"canceled",item.transferred()));}catch(IOException error){throw new CompletionException(error);}});}
+    private void discardSnapshot(Item item){if(item.selection().reference().startsWith("snapshot:\n"))try{OwnedSnapshotSource.discardSaved(root.resolve(".sources-v2"),item.selection().reference());}catch(IOException error){throw new CompletionException(error);}}
     public synchronized CompletableFuture<Void> shutdown(){
         if(shutdownFuture!=null)return shutdownFuture;
         paused=true;AttachmentSource source=preparing;if(source!=null)try{source.close();}catch(IOException ignored){}
-        CompletableFuture<Void> done=command(()->{persist();return null;}).thenCompose(ignored->engine.shutdown());
-        shutdownFuture=done.whenComplete((value,error)->{closed=true;actor.shutdown();});return shutdownFuture;
+        CompletableFuture<Void> done=command(()->{persist();return null;}).thenCompose(ignored->engine.shutdown()).thenCompose(ignored->command(()->{closed=true;actor.shutdown();return null;}));
+        shutdownFuture=done.whenComplete((value,error)->{if(error!=null){closed=true;actor.shutdown();}});return shutdownFuture;
     }
     public void close()throws IOException {try{shutdown().get(10,TimeUnit.SECONDS);}catch(Exception e){throw new IOException("Batch shutdown failed",e);}}
     public static List<String> pendingReferences(Path root)throws IOException {return AttachmentBatchStore.references(root);}
