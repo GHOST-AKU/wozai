@@ -54,6 +54,7 @@ public final class AttachmentBatchTests {
                 sender.resumeBatch().get(3,TimeUnit.SECONDS);AttachmentRecord second=waitForId(pair.bRecords,secondId);
                 check(Arrays.equals(Files.readAllBytes(AttachmentTransfer.file(restored.resolve("b"),second.info)),new byte[]{42}),"Restart failed to deliver the preserved second item");
                 AttachmentV2Tests.waitFor(pair.aRecords,"delivered");
+                sender.shutdown().get(3,TimeUnit.SECONDS);
                 AttachmentTransferV2.cancelPending(restored.resolve("a"));
             }
         }finally{try(var paths=Files.walk(restored)){for(Path path:paths.sorted(Comparator.reverseOrder()).toList())Files.deleteIfExists(path);}}
