@@ -10,17 +10,29 @@ import java.util.*;
 public final class QrCodes {
     private QrCodes(){}
     public static boolean[] encode(String payload,int size){
-        if(payload==null||!payload.matches("WOZAI-ID1:[0-9a-f]{64}")||size<128||size>1024)throw new IllegalArgumentException("Invalid verification QR");
+        if(size<128||size>1024)throw new IllegalArgumentException("Invalid verification QR");
+        return pixels(matrix(payload,size));
+    }
+    /** Minimal square symbol including its quiet zone, for integer-pixel native painting. */
+    public static boolean[] modules(String payload){return pixels(matrix(payload,0));}
+    private static BitMatrix matrix(String payload,int size){
+        if(payload==null||!payload.matches("WOZAI-ID1:[0-9a-f]{64}"))throw new IllegalArgumentException("Invalid verification QR");
         try{
-            BitMatrix matrix=new QRCodeWriter().encode(payload,BarcodeFormat.QR_CODE,size,size,Collections.singletonMap(EncodeHintType.ERROR_CORRECTION,ErrorCorrectionLevel.M));
-            boolean[] cells=new boolean[size*size];for(int y=0;y<size;y++)for(int x=0;x<size;x++)cells[y*size+x]=matrix.get(x,y);return cells;
+            return new QRCodeWriter().encode(payload,BarcodeFormat.QR_CODE,size,size,Collections.singletonMap(EncodeHintType.ERROR_CORRECTION,ErrorCorrectionLevel.M));
         }catch(WriterException failure){throw new IllegalArgumentException("Unable to encode verification QR",failure);}
     }
+    private static boolean[] pixels(BitMatrix matrix){int size=matrix.getWidth();boolean[] cells=new boolean[size*size];for(int y=0;y<size;y++)for(int x=0;x<size;x++)cells[y*size+x]=matrix.get(x,y);return cells;}
     private static void bounds(int width,int height,int length){if(width<=0||height<=0||width>2048||height>2048||(long)width*height>length)throw new IllegalArgumentException("Invalid QR image dimensions");}
     public static String decode(int[] pixels,int width,int height){bounds(width,height,pixels.length);return read(new RGBLuminanceSource(width,height,pixels));}
     public static String decodeLuma(byte[] pixels,int width,int height){bounds(width,height,pixels.length);return read(new PlanarYUVLuminanceSource(pixels,width,height,0,0,width,height,false));}
     private static String read(LuminanceSource source){
-        try{String text=new QRCodeReader().decode(new BinaryBitmap(new HybridBinarizer(source))).getText();return text.length()<=128?text:null;}
-        catch(ReaderException notFound){return null;}
+        BinaryBitmap bitmap=new BinaryBitmap(new HybridBinarizer(source));
+        try{return text(new QRCodeReader().decode(bitmap));}
+        catch(ReaderException notFound){
+            // Flat exported/rendered codes can contain data patterns that confuse the perspective detector.
+            try{return text(new QRCodeReader().decode(bitmap,Collections.singletonMap(DecodeHintType.PURE_BARCODE,Boolean.TRUE)));}
+            catch(ReaderException unreadable){return null;}
+        }
     }
+    private static String text(Result result){String text=result.getText();return text.length()<=128?text:null;}
 }

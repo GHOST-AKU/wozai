@@ -34,6 +34,17 @@ public final class VerificationGuiTests {
     private static void screenshot(SecurityDialog dialog,String file)throws Exception {edt(()->{((JScrollPane)dialog.getContentPane()).getViewport().setViewPosition(new Point(0,0));BufferedImage image=new BufferedImage(dialog.getWidth(),dialog.getHeight(),BufferedImage.TYPE_INT_RGB);Graphics2D graphics=image.createGraphics();dialog.paint(graphics);graphics.dispose();ImageIO.write(image,"PNG",Path.of(file).toFile());return null;});}
     private static void scale(Component component){if(component.getFont()!=null)component.setFont(component.getFont().deriveFont(component.getFont().getSize2D()*1.5f));if(component instanceof Container parent)for(Component child:parent.getComponents())scale(child);}
     private static void qr(Path file,String payload)throws Exception {int edge=512;boolean[] bits=QrCodes.encode(payload,edge);BufferedImage image=new BufferedImage(edge,edge,BufferedImage.TYPE_INT_RGB);for(int y=0;y<edge;y++)for(int x=0;x<edge;x++)image.setRGB(x,y,bits[y*edge+x]?0xff000000:0xffffffff);ImageIO.write(image,"PNG",file.toFile());}
+    private static void paintedQrVectors(SecurityDialog dialog)throws Exception {
+        edt(()->{JLabel label=field(dialog,"qr");Dimension before=label.getSize();BufferedImage original=field(dialog,"qrImage");Field imageField=SecurityDialog.class.getDeclaredField("qrImage");imageField.setAccessible(true);Field cells=null;try{cells=SecurityDialog.class.getDeclaredField("qrCells");cells.setAccessible(true);}catch(NoSuchFieldException oldRenderer){}Object originalCells=cells==null?null:cells.get(dialog);
+            try{java.util.Random random=new java.util.Random(42);for(int sample=0;sample<64;sample++){
+                byte[] digest=new byte[32];random.nextBytes(digest);String payload="WOZAI-ID1:"+java.util.HexFormat.of().formatHex(digest);boolean[] encoded=QrCodes.encode(payload,512);BufferedImage source=new BufferedImage(512,512,BufferedImage.TYPE_INT_RGB);for(int y=0;y<512;y++)for(int x=0;x<512;x++)source.setRGB(x,y,encoded[y*512+x]?0xff000000:0xffffffff);imageField.set(dialog,source);
+                if(cells!=null)cells.set(dialog,QrCodes.class.getMethod("modules",String.class).invoke(null,payload));
+                for(int edge:new int[]{128,240,320}){label.setSize(530,edge);BufferedImage shown=new BufferedImage(530,edge,BufferedImage.TYPE_INT_RGB);Graphics2D graphics=shown.createGraphics();try{graphics.setColor(AppTheme.surface);graphics.fillRect(0,0,530,edge);label.paint(graphics);}finally{graphics.dispose();}
+                    check(payload.equals(QrCodes.decode(shown.getRGB(0,0,530,edge,null,0,530),530,edge)),"Native QR painting failed at seeded sample "+sample+", edge "+edge);
+                }
+            }}finally{imageField.set(dialog,original);if(cells!=null)cells.set(dialog,originalCells);label.setSize(before);}return null;
+        });
+    }
     public static void main(String[] args)throws Exception {
         if(GraphicsEnvironment.isHeadless())throw new AssertionError("A native display is required");
         Path root=Files.createTempDirectory("verification-gui-");Path pa=root.resolve("a"),pb=root.resolve("b");Files.createDirectories(pa);Files.createDirectories(pb);
@@ -48,8 +59,9 @@ public final class VerificationGuiTests {
             await(()->edt(()->field(dialog,"qrImage")!=null),"Public QR generated off EDT");
             check(edt(()->((JLabel)field(dialog,"connection")).getText().equals(strings.text("encryptionActive"))),"Actual encryption and human verification shown separately");
             check(edt(()->((JLabel)field(dialog,"identity")).getText().equals(strings.text("identityUnverified"))),"Ready is not automatically verified");
-            BufferedImage shown=edt(()->{JLabel qr=field(dialog,"qr");BufferedImage image=new BufferedImage(qr.getWidth(),qr.getHeight(),BufferedImage.TYPE_INT_RGB);Graphics2D graphics=image.createGraphics();qr.paint(graphics);graphics.dispose();return image;});
+            BufferedImage shown=edt(()->{JLabel qr=field(dialog,"qr");BufferedImage image=new BufferedImage(qr.getWidth(),qr.getHeight(),BufferedImage.TYPE_INT_RGB);Graphics2D graphics=image.createGraphics();graphics.setColor(AppTheme.surface);graphics.fillRect(0,0,image.getWidth(),image.getHeight());qr.paint(graphics);graphics.dispose();return image;});
             check(snapshot.code.qrPayload().equals(QrCodes.decode(shown.getRGB(0,0,shown.getWidth(),shown.getHeight(),null,0,shown.getWidth()),shown.getWidth(),shown.getHeight())),"Painted production QR can be decoded");
+            paintedQrVectors(dialog);
             screenshot(dialog,prefix+"-light.png");
             Path blank=root.resolve("blank.png");ImageIO.write(new BufferedImage(512,512,BufferedImage.TYPE_INT_RGB),"PNG",blank.toFile());read(dialog,blank);
             await(()->edt(()->!((Boolean)field(dialog,"pending"))),"Blank image finishes");check(!a.identityVerified(ib.id()),"Unreadable image cannot take manual confirmation path");

@@ -26,6 +26,7 @@ final class SecurityDialog extends JDialog {
     private final JTextArea code, explanation, localOnly;
     private final JLabel qr;
     private BufferedImage qrImage;
+    private boolean[] qrCells;
     private String noticeKey = "";
     private boolean pending;
 
@@ -50,9 +51,10 @@ final class SecurityDialog extends JDialog {
         AppTheme.SurfacePanel card = new AppTheme.SurfacePanel(new BorderLayout(0, 16));
         card.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         qr = new JLabel() { protected void paintComponent(Graphics g) {
-            super.paintComponent(g); if (qrImage == null) return;
-            int edge = Math.min(Math.min(getWidth(), getHeight()), 320);
-            g.drawImage(qrImage, (getWidth()-edge)/2, (getHeight()-edge)/2, edge, edge, null);
+            super.paintComponent(g); if (qrCells == null) return;
+            int width=(int)Math.sqrt(qrCells.length),scale=Math.min(Math.min(getWidth(),getHeight()),320)/width;if(scale<1)return;
+            int edge=width*scale,left=(getWidth()-edge)/2,top=(getHeight()-edge)/2;Color previous=g.getColor();g.setColor(Color.WHITE);g.fillRect(left,top,edge,edge);g.setColor(Color.BLACK);
+            for(int y=0;y<width;y++)for(int x=0;x<width;x++)if(qrCells[y*width+x])g.fillRect(left+x*scale,top+y*scale,scale,scale);g.setColor(previous);
         }};
         qr.setPreferredSize(new Dimension(240, 240)); qr.setMinimumSize(new Dimension(128, 128));
         card.add(qr, BorderLayout.NORTH);
@@ -81,7 +83,8 @@ final class SecurityDialog extends JDialog {
         translate();
         submit(() -> {
             BufferedImage generated = image(snapshot, 512);
-            SwingUtilities.invokeLater(() -> { if (worker.isShutdown()) return; qrImage = generated; qr.repaint(); });
+            boolean[] cells=QrCodes.modules(snapshot.code.qrPayload());
+            SwingUtilities.invokeLater(() -> { if (worker.isShutdown()) return; qrImage = generated;qrCells=cells; qr.repaint(); });
         });
     }
 
@@ -163,7 +166,7 @@ final class SecurityDialog extends JDialog {
         try { worker.execute(action); }
         catch (RejectedExecutionException stopped) { pending=false; notice("verificationReadFailed"); refresh(); }
     }
-    public void dispose() { worker.shutdownNow(); qrImage=null; super.dispose(); }
+    public void dispose() { worker.shutdownNow(); qrImage=null;qrCells=null; super.dispose(); }
     private static final class VerificationContent extends JPanel implements Scrollable {
         public Dimension getPreferredScrollableViewportSize(){return getPreferredSize();}
         public int getScrollableUnitIncrement(Rectangle visible,int orientation,int direction){return 24;}

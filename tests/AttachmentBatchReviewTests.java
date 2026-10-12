@@ -12,6 +12,7 @@ public final class AttachmentBatchReviewTests {
         if(filter.equals("all")||filter.equals("cancel")){cancelRecovered(false);cancelRecovered(true);cancelUnOfferedSnapshot();}
         if(filter.equals("all")||filter.equals("prepare")){pausePreparation();restartQueuedHistory();}
         if(filter.equals("all")||filter.equals("shutdown"))shutdownDrainsQueueWriter();
+        if((filter.equals("all")||filter.equals("alias"))&&!System.getProperty("os.name").toLowerCase(Locale.ROOT).contains("win"))snapshotRootAlias();
         System.out.println("AttachmentBatchReviewTests: recovered cancellation, snapshot disposal and preparation/restart history");
     }
     private static void cancelRecovered(boolean all)throws Exception {
@@ -28,6 +29,7 @@ public final class AttachmentBatchReviewTests {
                 check(checkpoint.state()==TransferCheckpoint.State.CANCELED,"Recovered "+(all?"cancel-all":"cancel")+" left resumable checkpoint: "+checkpoint.state());
                 check(sender.batchItems().get(0).state().equals("canceled"),"Recovered batch remained runnable");
                 check(finished.get()==1,"Cancellation did not release platform source ownership after checkpoint cancellation");
+                var queueField=ClientAttachmentTransfers.class.getDeclaredField("batch");queueField.setAccessible(true);Object queue=queueField.get(sender);var requests=AttachmentBatchQueue.class.getDeclaredField("cancelRequests");requests.setAccessible(true);check(((Set<?>)requests.get(queue)).isEmpty(),"Terminal cancellation retained unbounded request identifiers");
             }
         }finally{remove(root);}
     }
@@ -74,6 +76,14 @@ public final class AttachmentBatchReviewTests {
             try{check(queued.await(3,TimeUnit.SECONDS),"No final queue writer at engine shutdown");Thread.sleep(100);check(!stopping.isDone(),"Shutdown completed while the batch actor still owned pending writes");}
             finally{release.countDown();stopping.get(3,TimeUnit.SECONDS);}
         }
+    }
+    private static void snapshotRootAlias()throws Exception{
+        Path root=Files.createTempDirectory("snapshot-root-alias-");Path real=root.resolve("real"),alias=root.resolve("alias"),directory=real.resolve(".sources-v2");Files.createDirectories(directory);Files.createSymbolicLink(alias,real);
+        try{Path original=alias.resolve(".sources-v2/owned.source");Files.write(original,new byte[]{2});String reference;
+            try(OwnedSnapshotSource source=new OwnedSnapshotSource(new FileAttachmentSource(original),alias.resolve(".sources-v2"))){reference=source.persistentReference();}
+            try(OwnedSnapshotSource restored=OwnedSnapshotSource.restore(directory,reference,UUID.randomUUID().toString())){check(restored.size()==1,"Alias restore lost bytes");}
+            OwnedSnapshotSource.discardSaved(directory,reference);check(!Files.exists(original),"OS root alias prevented owned snapshot disposal");
+        }finally{Files.delete(alias);remove(root);}
     }
     private static void save(Map<String,AttachmentRecord> history,AttachmentRecord record)throws IOException{AttachmentRecord previous=history.get(record.info.id);if(previous!=null&&!previous.mayReplace(record))throw new IOException("Rejected production history transition: "+previous.state+" -> "+record.state);history.put(record.info.id,record);}
     private static void check(boolean value,String message){if(!value)throw new AssertionError(message);}

@@ -140,7 +140,7 @@ public final class AttachmentBatchQueue implements AutoCloseable {
             done=done.thenCompose(ignored->running?engine.cancel(item.info().id,true):cancelStored(item));
         }return done;
     }).thenCompose(done->done);}
-    private CompletableFuture<Void> cancelStored(Item item){return engine.cancel(item.info().id,true).thenRun(()->{discardSnapshot(item);try{listener.finished(new AttachmentRecord(item.info(),true,"canceled",item.transferred()));}catch(IOException error){throw new CompletionException(error);}});}
+    private CompletableFuture<Void> cancelStored(Item item){return engine.cancel(item.info().id,true).thenRun(()->{try{discardSnapshot(item);listener.finished(new AttachmentRecord(item.info(),true,"canceled",item.transferred()));}catch(IOException error){throw new CompletionException(error);}finally{cancelRequests.remove(item.info().id);}});}
     private void discardSnapshot(Item item){if(item.selection().reference().startsWith("snapshot:\n"))try{OwnedSnapshotSource.discardSaved(root.resolve(".sources-v2"),item.selection().reference());}catch(IOException error){throw new CompletionException(error);}}
     public synchronized CompletableFuture<Void> shutdown(){
         if(shutdownFuture!=null)return shutdownFuture;
