@@ -48,3 +48,15 @@
 -keep class dev.ghost.nearbyim.core.ImageOrientation { public *; }
 -keep class dev.ghost.nearbyim.PhotoActivity { *; }
 -keep class dev.ghost.nearbyim.PhotoActivity$* { *; }
+
+# Native selection and publication contracts are called from the test APK.
+-keep class dev.ghost.nearbyim.AttachmentSelection { *; }
+-keep class dev.ghost.nearbyim.GalleryPublisher { *; }
+-keep class dev.ghost.nearbyim.GalleryPublisher$* { *; }
+-keep class dev.ghost.nearbyim.core.PhotoExportStore { *; }
+-keep class dev.ghost.nearbyim.core.PhotoExportStore$* { *; }
+
+-keep class dev.ghost.nearbyim.GalleryActivity { *; }
+-keep class dev.ghost.nearbyim.GalleryActivity$* { *; }
+-keep class dev.ghost.nearbyim.AttachmentSelectionActivity { *; }
+-keep class dev.ghost.nearbyim.AttachmentSelectionActivity$* { *; }

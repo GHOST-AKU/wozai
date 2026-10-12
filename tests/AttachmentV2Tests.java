@@ -15,6 +15,7 @@ public final class AttachmentV2Tests {
         final boolean cleanup;
         final BlockingQueue<AttachmentRecord> aRecords=new LinkedBlockingQueue<>(),bRecords=new LinkedBlockingQueue<>();
         final AttachmentTransferV2 a,b;
+        volatile boolean holdReverseData;final AtomicInteger reverseHeld=new AtomicInteger();
         volatile boolean holdCredit,corruptData,corruptEnd,dropComplete,failSavedHistory;
         volatile TransferPacket lastData,lastEnd;
         final AtomicLong dataBytes=new AtomicLong(),sourceReads=new AtomicLong(),firstReadCount=new AtomicLong(-1);
@@ -29,7 +30,7 @@ public final class AttachmentV2Tests {
                 public void abort(){}
             },aRecords::add);
             b=new AttachmentTransferV2(root.resolve("b"),"b".repeat(64),"a".repeat(64),connection,false,new AttachmentTransferV2.Wire(){
-                public boolean send(TransferPacket packet){try{if(packet.kind==TransferPacket.Kind.COMPLETE){completeCount.incrementAndGet();if(dropComplete)return true;}if(holdCredit&&packet.kind==TransferPacket.Kind.CREDIT){heldCredit=packet;return true;}peers[0].receive(packet,true);return true;}catch(IOException e){return false;}}
+                public boolean send(TransferPacket packet){try{if(holdReverseData&&(packet.kind==TransferPacket.Kind.DATA||packet.kind==TransferPacket.Kind.BLOCK_HASH||packet.kind==TransferPacket.Kind.END)){reverseHeld.incrementAndGet();return true;}if(packet.kind==TransferPacket.Kind.COMPLETE){completeCount.incrementAndGet();if(dropComplete)return true;}if(holdCredit&&packet.kind==TransferPacket.Kind.CREDIT){heldCredit=packet;return true;}peers[0].receive(packet,true);return true;}catch(IOException e){return false;}}
                 public void abort(){}
             },record->{if(failSavedHistory&&record.state.equals("received"))throw new IOException("Injected final history failure");bRecords.add(record);});
             peers[0]=a;peers[1]=b;

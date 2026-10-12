@@ -16,6 +16,8 @@ import java.util.*;
 /** Read-only SAF source. Positional reads respect an AssetFileDescriptor's subrange. */
 public final class AndroidAttachmentSource implements AttachmentSource {
     private static final Map<String,Integer> OPEN=new HashMap<>();
+    static void retainSelections(List<Uri> uris){synchronized(OPEN){for(Uri uri:uris)OPEN.put(uri.toString(),OPEN.getOrDefault(uri.toString(),0)+1);}}
+    static void releaseSelections(List<Uri> uris){synchronized(OPEN){for(Uri uri:uris){int left=OPEN.getOrDefault(uri.toString(),1)-1;if(left<=0)OPEN.remove(uri.toString());else OPEN.put(uri.toString(),left);}}}
     private final ContentResolver resolver;
     private final Path attachments;
     private final AssetFileDescriptor asset;
@@ -91,8 +93,9 @@ public final class AndroidAttachmentSource implements AttachmentSource {
         synchronized(OPEN){if(OPEN.containsKey(uri.toString()))return;}
         if(Files.isSymbolicLink(attachments))throw new IOException("Unsafe attachment directory");
         if(Files.exists(attachments,LinkOption.NOFOLLOW_LINKS))try(var directories=Files.list(attachments)){for(Path peer:(Iterable<Path>)directories::iterator){
-            if(Files.isSymbolicLink(peer)||!Files.isDirectory(peer,LinkOption.NOFOLLOW_LINKS))throw new IOException("Unsafe attachment directory");Path journal=peer.resolve(".tasks-v2");if(!Files.exists(journal,LinkOption.NOFOLLOW_LINKS))continue;
+            if(Files.isSymbolicLink(peer)||!Files.isDirectory(peer,LinkOption.NOFOLLOW_LINKS))throw new IOException("Unsafe attachment directory");Path journal=peer.resolve(".tasks-v2");if(Files.exists(journal,LinkOption.NOFOLLOW_LINKS))
             for(TransferCheckpoint saved:new TransferCheckpointStore(journal).list())if(saved.state()!=TransferCheckpoint.State.COMPLETE&&saved.state()!=TransferCheckpoint.State.CANCELED&&saved.sourceReference().startsWith(uri+"\n"))return;
+            for(String reference:AttachmentBatchQueue.pendingReferences(peer))if(reference.startsWith(uri+"\n")||reference.equals(uri.toString()))return;
         }}
         synchronized(OPEN){if(OPEN.containsKey(uri.toString()))return;try{resolver.releasePersistableUriPermission(uri,Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(SecurityException absent){}}
     }

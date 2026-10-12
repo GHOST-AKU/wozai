@@ -28,23 +28,33 @@
     <string name="app_settings" formatted="false">"앱 설정"</string>
     <string name="appearance_section" formatted="false">"화면 설정"</string>
     <string name="attachment_accept" formatted="false">"수락"</string>
+    <string name="attachment_batch_cancel" formatted="false">"전송 대기열 취소"</string>
+    <string name="attachment_batch_limit" formatted="false">"한 번에 최대 {0}개의 파일을 선택할 수 있습니다."</string>
+    <string name="attachment_batch_pause" formatted="false">"전송 대기열 일시 중지"</string>
+    <string name="attachment_batch_resume" formatted="false">"전송 대기열 계속"</string>
     <string name="attachment_checking_progress" formatted="false">"재개 데이터 확인 중: {0} / {1} · {2}%"</string>
     <string name="attachment_details" formatted="false">"{0} · {1,number} / {2,number} 바이트 · {3}"</string>
     <string name="attachment_failed" formatted="false">"파일 작업에 실패했습니다. 파일 접근 권한과 여유 공간을 확인하세요."</string>
     <string name="attachment_hint" formatted="false">"파일당 최대 1 GiB. 내용은 암호화되지 않습니다."</string>
     <string name="attachment_hint_v2" formatted="false">"파일당 최대 10 GiB."</string>
+    <string name="attachment_move_down" formatted="false">"아래로 이동"</string>
+    <string name="attachment_move_up" formatted="false">"위로 이동"</string>
     <string name="attachment_open" formatted="false">"열기"</string>
     <string name="attachment_overwrite" formatted="false">"파일이 이미 있습니다. 바꾸시겠습니까?"</string>
     <string name="attachment_pause" formatted="false">"전송 일시 중지"</string>
     <string name="attachment_photo_preview" formatted="false">"사진 미리보기: {0}"</string>
+    <string name="attachment_preview" formatted="false">"전송 전 미리 보기"</string>
     <string name="attachment_progress" formatted="false">"전송 진행률: {0,number}%; {1}"</string>
     <string name="attachment_quota" formatted="false">"첨부 파일 저장 용량 한도"</string>
     <string name="attachment_quota_exceeded" formatted="false">"첨부 파일 저장 용량 한도가 부족합니다."</string>
     <string name="attachment_quota_gi_b" formatted="false">"{0,number} GiB"</string>
     <string name="attachment_quota_in_use" formatted="false">"새 한도는 사용 중인 공간과 예약된 공간을 포함해야 합니다."</string>
     <string name="attachment_reject" formatted="false">"거절"</string>
+    <string name="attachment_remove" formatted="false">"제거"</string>
     <string name="attachment_resume" formatted="false">"전송 재개"</string>
     <string name="attachment_save_as" formatted="false">"다른 이름으로 저장"</string>
+    <string name="attachment_saved_file_missing" formatted="false">"저장된 파일이 이동되었거나 삭제되었습니다."</string>
+    <string name="attachment_selection_count" formatted="false">"{0}개 선택됨"</string>
     <string name="attachment_show_in_folder" formatted="false">"파일 위치 열기"</string>
     <string name="attachment_source_changed" formatted="false">"원본 파일이 변경되었습니다. 다시 보내세요."</string>
     <string name="attachment_source_permission" formatted="false">"파일 읽기 권한이 없습니다. 파일을 다시 선택하세요."</string>
@@ -59,6 +69,7 @@
     <string name="attachment_state_offered" formatted="false">"수락 대기 중"</string>
     <string name="attachment_state_paused" formatted="false">"일시 중지됨"</string>
     <string name="attachment_state_preparing" formatted="false">"준비 중"</string>
+    <string name="attachment_state_queued" formatted="false">"대기 중"</string>
     <string name="attachment_state_received" formatted="false">"수신 완료"</string>
     <string name="attachment_state_rejected" formatted="false">"거절됨"</string>
     <string name="attachment_state_source_unavailable" formatted="false">"일시 정지: 원본 파일을 읽을 수 없습니다. 접근 권한을 복구한 후 재개하세요."</string>
@@ -69,6 +80,7 @@
     <string name="attachment_summary" formatted="false">"{0} · {1}"</string>
     <string name="attachment_too_large" formatted="false">"파일 크기 제한을 초과했습니다."</string>
     <string name="attachment_unavailable" formatted="false">"파일을 사용할 수 없습니다. 삭제되었을 수 있습니다."</string>
+    <string name="attachment_unknown_size" formatted="false">"크기 확인 중"</string>
     <string name="attachment_upgrade_required" formatted="false">"전송 프로토콜이 호환되지 않습니다. 양쪽 앱을 업데이트하세요."</string>
     <string name="attachment_waiting_resume" formatted="false">"상대방의 재개 확인을 기다리는 중…"</string>
     <string name="attachments" formatted="false">"첨부 파일"</string>
@@ -192,6 +204,17 @@
     <string name="first_message_hint" formatted="false">"연결한 후 첫인사를 보내 보세요."</string>
     <string name="font_load_failed" formatted="false">"앱 글꼴을 불러오지 못했습니다. NearbyIM을 다시 설치하세요. 기존 데이터는 유지되었습니다."</string>
     <string name="font_size" formatted="false">"글자 크기"</string>
+    <string name="gallery_access" formatted="false">"사진 접근 허용"</string>
+    <string name="gallery_auto_save" formatted="false">"받은 사진을 앨범에 자동 저장"</string>
+    <string name="gallery_empty" formatted="false">"접근 가능한 사진이 없습니다"</string>
+    <string name="gallery_more" formatted="false">"사진 더 불러오기"</string>
+    <string name="gallery_permission" formatted="false">"앨범을 표시하려면 사진 접근을 허용해 주세요."</string>
+    <string name="gallery_save" formatted="false">"앨범에 저장"</string>
+    <string name="gallery_save_failed" formatted="false">"앨범 저장에 실패했습니다. 원본은 채팅에 남아 있으며 다시 시도할 수 있습니다."</string>
+    <string name="gallery_save_permission" formatted="false">"앨범에 저장하려면 저장소 권한이 필요합니다. 파일은 수신되었습니다."</string>
+    <string name="gallery_saved" formatted="false">"앨범에 저장됨"</string>
+    <string name="gallery_saving" formatted="false">"앨범에 저장 중…"</string>
+    <string name="gallery_title" formatted="false">"사진 선택"</string>
     <string name="got_it" formatted="false">"알겠습니다"</string>
     <string name="handshake" formatted="false">"기기 확인 중…"</string>
     <string name="handshake_timeout" formatted="false">"상대 기기가 확인 요청에 응답하지 않았습니다. 다시 연결하세요."</string>

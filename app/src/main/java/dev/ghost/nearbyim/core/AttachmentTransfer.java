@@ -229,8 +229,12 @@ public final class AttachmentTransfer implements AutoCloseable {
                 }
             }
         }
+        for(String reference:AttachmentBatchQueue.pendingReferences(root))if(reference.startsWith("snapshot:\n")){
+            try{Path source=Paths.get(java.net.URI.create(reference.substring(10).split("\n",2)[0]));if(!source.getParent().equals(root.toAbsolutePath().normalize().resolve(".sources-v2")))throw new IOException("Unsafe batch snapshot reference");sources.add(source.getFileName().toString());}
+            catch(IllegalArgumentException invalid){throw new IOException("Invalid batch snapshot reference",invalid);}
+        }
         try(java.util.stream.Stream<Path> entries=Files.list(root)){
-            for(Path path:(Iterable<Path>)entries::iterator){String name=path.getFileName().toString();if(name.equals(".tasks-v2"))continue;if(name.equals(".sources-v2")){cleanSources(path,sources);continue;}if(!Files.isRegularFile(path,LinkOption.NOFOLLOW_LINKS)||Files.isSymbolicLink(path))throw new IOException("Unsafe attachment entry");
+            for(Path path:(Iterable<Path>)entries::iterator){String name=path.getFileName().toString();if(name.equals(".tasks-v2")||name.equals(".batch-v1"))continue;if(name.equals(".sources-v2")){cleanSources(path,sources);continue;}if(!Files.isRegularFile(path,LinkOption.NOFOLLOW_LINKS)||Files.isSymbolicLink(path))throw new IOException("Unsafe attachment entry");
                 if(durable.contains(name))continue;
                 int prefix=name.startsWith("out-")?4:3;
                 if(name.matches("[0-9a-f]{64}\\.part")||name.matches("(in|out)-[0-9a-f-]{36}\\.part")||name.matches("(in|out)-[0-9a-f-]{36}\\.[a-z0-9]{1,16}")&&!received.contains(name.substring(prefix,prefix+36)))Files.delete(path);
@@ -240,6 +244,7 @@ public final class AttachmentTransfer implements AutoCloseable {
     /** Explicit history deletion/revocation differs from startup recovery. */
     public static void clear(Path root)throws IOException {
         privateDirectory(root);Path journal=root.resolve(".tasks-v2");
+        AttachmentBatchStore.clear(root);
         if(Files.exists(journal,LinkOption.NOFOLLOW_LINKS)){TransferCheckpointStore store=new TransferCheckpointStore(journal);for(TransferCheckpoint saved:store.list())if(saved.state()!=TransferCheckpoint.State.CANCELED)store.cancel(saved.key());}
         try(var entries=Files.list(root)){for(Path file:(Iterable<Path>)entries::iterator){if(file.getFileName().toString().equals(".tasks-v2"))continue;if(file.getFileName().toString().equals(".sources-v2")){cleanSources(file,Collections.emptySet());continue;}if(Files.isSymbolicLink(file)||!Files.isRegularFile(file,LinkOption.NOFOLLOW_LINKS))throw new IOException("Unsafe attachment entry");Files.delete(file);}}
     }

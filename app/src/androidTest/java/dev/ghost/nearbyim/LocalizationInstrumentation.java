@@ -42,6 +42,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.UUID;
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -81,6 +82,8 @@ public final class LocalizationInstrumentation extends Instrumentation {
             testNativeFormatting();
             checks+=AndroidAttachmentChecks.run(getTargetContext());
             checks+=AndroidAttachmentSourceChecks.run(getTargetContext());
+            checks+=AndroidAttachmentExperienceChecks.run(getTargetContext());
+            checks+=AndroidGalleryExportChecks.run(this);
             checks+=AndroidAttachmentV2Checks.run(getTargetContext());
             checks+=dev.ghost.nearbyim.noise.NoiseLibraryChecks.run();
             checks+=dev.ghost.nearbyim.noise.NoiseChannelChecks.run();
@@ -451,7 +454,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
         android.net.Uri uri=new android.net.Uri.Builder().scheme("content").authority(getTargetContext().getPackageName()+".attachments").appendPath(peer).appendPath(file.getFileName().toString()).appendQueryParameter("name",received.info.name).appendQueryParameter("mime",received.info.mime).build();
         onMain(()->{
             setField(activity,"pendingAttachmentPeer",peer);setField(activity,"pendingAttachmentToken",controller.attachmentSessionToken());setField(activity,"controller",null);
-            activity.onActivityResult(20,Activity.RESULT_OK,new Intent().setData(uri));
+            activity.onActivityResult(22,Activity.RESULT_OK,new Intent().setData(uri));
             return null;
         });
         check(onMain(()->peer.equals(field(activity,"pendingAttachmentPeer"))),"Picker result waits for asynchronous service rebinding");
@@ -470,6 +473,9 @@ public final class LocalizationInstrumentation extends Instrumentation {
         testContentUriResume(controller,peer);
         testTransferDiagnostics(controller,peer);
         testAttachmentQueueRejection(controller,peer,received,uri);
+        android.net.Uri another=uri.buildUpon().appendQueryParameter("selection","second").build();onMain(()->{controller.sendAttachments(peer,controller.attachmentSessionToken(),List.of(uri,another));return null;});
+        AttachmentRecord firstBatch=remoteFileState("received"),secondBatch=remoteFileState("received");check(!firstBatch.info.id.equals(secondBatch.info.id)&&firstBatch.info.hash.equals(received.info.hash)&&secondBatch.info.hash.equals(received.info.hash),"Android batches two URI originals through encrypted transfer tasks");
+        await(()->onMain(()->controller.messages.stream().filter(m->m.outgoing&&m.attachment!=null&&m.attachment.state.equals("delivered")&&(m.id.equals(firstBatch.info.id)||m.id.equals(secondBatch.info.id))).count()==2),"Android batch completes both saved receipts");
         long token=onMain(()->controller.attachmentSessionToken());onMain(()->{controller.sendAttachment(peer,token-1,uri);return null;});check(onMain(()->controller.error.key.equals("notConnected")),"Stale picker result cannot cross session generations");
     }
     private android.widget.Button attachmentButton(android.view.View view,String description){

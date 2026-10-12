@@ -28,23 +28,33 @@
     <string name="app_settings" formatted="false">"應用程式設定"</string>
     <string name="appearance_section" formatted="false">"外觀"</string>
     <string name="attachment_accept" formatted="false">"接收"</string>
+    <string name="attachment_batch_cancel" formatted="false">"取消全部待傳檔案"</string>
+    <string name="attachment_batch_limit" formatted="false">"每批最多選擇 {0} 個檔案。"</string>
+    <string name="attachment_batch_pause" formatted="false">"暫停全部待傳檔案"</string>
+    <string name="attachment_batch_resume" formatted="false">"繼續待傳檔案"</string>
     <string name="attachment_checking_progress" formatted="false">"驗證續傳資料：{0} / {1} · {2}%"</string>
     <string name="attachment_details" formatted="false">"{0} · {1,number} / {2,number} 位元組 · {3}"</string>
     <string name="attachment_failed" formatted="false">"檔案操作失敗，請檢查檔案授權及可用空間。"</string>
     <string name="attachment_hint" formatted="false">"單檔最大 1 GiB；內容未加密。"</string>
     <string name="attachment_hint_v2" formatted="false">"單一檔案最大 10 GiB。"</string>
+    <string name="attachment_move_down" formatted="false">"下移"</string>
+    <string name="attachment_move_up" formatted="false">"上移"</string>
     <string name="attachment_open" formatted="false">"開啟"</string>
     <string name="attachment_overwrite" formatted="false">"檔案已存在，是否取代？"</string>
     <string name="attachment_pause" formatted="false">"暫停傳輸"</string>
     <string name="attachment_photo_preview" formatted="false">"照片預覽：{0}"</string>
+    <string name="attachment_preview" formatted="false">"傳送前預覽"</string>
     <string name="attachment_progress" formatted="false">"傳輸進度：{0,number}%；{1}"</string>
     <string name="attachment_quota" formatted="false">"附件空間配額"</string>
     <string name="attachment_quota_exceeded" formatted="false">"附件空間配額不足。"</string>
     <string name="attachment_quota_gi_b" formatted="false">"{0,number} GiB"</string>
     <string name="attachment_quota_in_use" formatted="false">"新的配額不能小於已使用及預留空間。"</string>
     <string name="attachment_reject" formatted="false">"拒絕"</string>
+    <string name="attachment_remove" formatted="false">"移除"</string>
     <string name="attachment_resume" formatted="false">"繼續傳輸"</string>
     <string name="attachment_save_as" formatted="false">"另存新檔"</string>
+    <string name="attachment_saved_file_missing" formatted="false">"儲存的檔案已被移動或刪除。"</string>
+    <string name="attachment_selection_count" formatted="false">"已選 {0} 項"</string>
     <string name="attachment_show_in_folder" formatted="false">"開啟所在位置"</string>
     <string name="attachment_source_changed" formatted="false">"來源檔案已變更，請重新傳送。"</string>
     <string name="attachment_source_permission" formatted="false">"檔案讀取授權已失效，請重新選擇。"</string>
@@ -59,6 +69,7 @@
     <string name="attachment_state_offered" formatted="false">"等待接收"</string>
     <string name="attachment_state_paused" formatted="false">"已暫停"</string>
     <string name="attachment_state_preparing" formatted="false">"準備中"</string>
+    <string name="attachment_state_queued" formatted="false">"排隊中"</string>
     <string name="attachment_state_received" formatted="false">"已接收"</string>
     <string name="attachment_state_rejected" formatted="false">"已拒絕"</string>
     <string name="attachment_state_source_unavailable" formatted="false">"已暫停：來源檔案暫時無法讀取，恢復存取後可續傳"</string>
@@ -69,6 +80,7 @@
     <string name="attachment_summary" formatted="false">"{0} · {1}"</string>
     <string name="attachment_too_large" formatted="false">"檔案超過單一檔案大小限制。"</string>
     <string name="attachment_unavailable" formatted="false">"檔案無法使用，可能已被刪除。"</string>
+    <string name="attachment_unknown_size" formatted="false">"大小待確認"</string>
     <string name="attachment_upgrade_required" formatted="false">"檔案傳輸協定不相容，請更新雙方應用程式。"</string>
     <string name="attachment_waiting_resume" formatted="false">"等待對方確認續傳…"</string>
     <string name="attachments" formatted="false">"附件"</string>
@@ -192,6 +204,17 @@
     <string name="first_message_hint" formatted="false">"連線後，傳送你的第一句問候。"</string>
     <string name="font_load_failed" formatted="false">"無法載入程式字型。請重新安裝 NearbyIM。原有資料已保留。"</string>
     <string name="font_size" formatted="false">"文字大小"</string>
+    <string name="gallery_access" formatted="false">"允許存取照片"</string>
+    <string name="gallery_auto_save" formatted="false">"自動將收到的照片儲存至相簿"</string>
+    <string name="gallery_empty" formatted="false">"沒有可存取的照片"</string>
+    <string name="gallery_more" formatted="false">"載入更多照片"</string>
+    <string name="gallery_permission" formatted="false">"請允許存取照片，以顯示相簿中的圖片。"</string>
+    <string name="gallery_save" formatted="false">"儲存至相簿"</string>
+    <string name="gallery_save_failed" formatted="false">"相簿儲存失敗，原件仍在聊天中，可重試。"</string>
+    <string name="gallery_save_permission" formatted="false">"儲存至相簿需要儲存空間權限；檔案已接收。"</string>
+    <string name="gallery_saved" formatted="false">"已儲存至相簿"</string>
+    <string name="gallery_saving" formatted="false">"正在儲存至相簿…"</string>
+    <string name="gallery_title" formatted="false">"選擇照片"</string>
     <string name="got_it" formatted="false">"知道了"</string>
     <string name="handshake" formatted="false">"正在驗證裝置…"</string>
     <string name="handshake_timeout" formatted="false">"對方沒有回應握手，請重新連線。"</string>

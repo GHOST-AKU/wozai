@@ -5,6 +5,7 @@ if [ -n "${JAVA_HOME:-}" ]; then PATH="$JAVA_HOME/bin:$PATH"; export PATH; fi
 if [ -z "${DISPLAY:-}" ]; then echo 'Use an X11 desktop or xvfb-run.' >&2; exit 1; fi
 library="-Dwozai.bluetooth.library=$(pwd)/desktop/build/lib/libwozai_bluetooth.so"
 classes='desktop/build/classes:desktop/build/tests:desktop/build/lib/*'
+java "$library" -cp "$classes" dev.ghost.wozai.AttachmentSelectionGuiTests
 java "$library" -cp "$classes" dev.ghost.wozai.DiscoveryTests
 java "$library" -cp "$classes" dev.ghost.wozai.GuiTests desktop/build/gui-linux.png
 java "$library" -cp "$classes" dev.ghost.wozai.VerificationGuiTests desktop/build/gui-linux-verification

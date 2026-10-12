@@ -145,7 +145,7 @@ final class MessagePane extends JPanel implements Scrollable {
                 if(!open.equals("save")){JMenuItem view=new JMenuItem(strings.text("attachmentOpen"),AppTheme.icon(photo(record)?"photo":"description"));view.addActionListener(e->handler.action(message,open));menu.add(view);}
                 JMenuItem save=new JMenuItem(strings.text("attachmentSaveAs"),AppTheme.icon("file_download"));save.addActionListener(e->handler.action(message,"save"));menu.add(save);
                 JMenuItem location=new JMenuItem(strings.text("attachmentShowInFolder"),AppTheme.icon("folder_open"));location.addActionListener(e->handler.action(message,"folder"));menu.add(location);
-                JButton folder=new JButton(AppTheme.icon("folder_open"));folder.setPreferredSize(new Dimension(36,36));folder.setToolTipText(strings.text("attachmentShowInFolder"));folder.getAccessibleContext().setAccessibleName(strings.text("attachmentShowInFolder"));folder.addActionListener(e->handler.action(message,"folder"));buttons.add(folder);
+                JButton folder=new JButton(strings.text("attachmentShowInFolder"),AppTheme.icon("folder_open"));folder.setToolTipText(strings.text("attachmentShowInFolder"));folder.getAccessibleContext().setAccessibleName(strings.text("attachmentShowInFolder"));folder.addActionListener(e->handler.action(message,"folder"));buttons.add(folder);
             }
             for(JComponent target:new JComponent[]{this,body,thumbnail,receipt,attachmentIcon}){
                 target.setComponentPopupMenu(completed?menu:null);for(var listener:target.getMouseListeners())if(listener instanceof AttachmentClick)target.removeMouseListener(listener);

@@ -27,6 +27,7 @@ public final class AttachmentTransferV2 implements AutoCloseable {
     private final String localRoot,remoteRoot,connection;
     private final Wire wire;
     private final Listener listener;
+    private volatile java.util.function.Consumer<AttachmentRecord> taskObserver=record->{};
     private final long initialWindow,maxWindow,creditBatch,creditDelayNs;
     private final TransferBufferPool buffers;
     private final AtomicLong queued=new AtomicLong();
@@ -103,6 +104,8 @@ public final class AttachmentTransferV2 implements AutoCloseable {
     private CompletableFuture<Void> command(Work work){CompletableFuture<Void> future=track(new CompletableFuture<>());if(!post(()->{try{work.run();future.complete(null);}catch(Exception error){future.completeExceptionally(error);throw error;}}))future.completeExceptionally(new IOException("Attachment session closed"));return future;}
     public void sourceResolver(SourceResolver value){sourceResolver=Objects.requireNonNull(value);}
     public boolean owns(TransferTaskKey key){return key!=null&&key.localRoot().equals(localRoot)&&key.remoteRoot().equals(remoteRoot);}
+    public TransferTaskKey taskIdentity(String id,String generation){return taskKey(id,generation,true);}
+    public void taskObserver(java.util.function.Consumer<AttachmentRecord> observer){taskObserver=Objects.requireNonNull(observer);}
     /** May perform bounded disk I/O; call on the platform file executor before offer. */
     public AttachmentSource prepareSource(AttachmentSource source)throws IOException {
         if(source.seekable()&&source.size()>=0)return source;
@@ -110,8 +113,12 @@ public final class AttachmentTransferV2 implements AutoCloseable {
     }
     /** Ownership of source passes to this task, including rejected/failed offers. */
     public CompletableFuture<String> offer(AttachmentSource source,String name,String mime) {
+        return offer(source,name,mime,UUID.randomUUID().toString(),System.currentTimeMillis());
+    }
+    /** Preassigned IDs join the persistent batch journal to the protocol checkpoint. */
+    public CompletableFuture<String> offer(AttachmentSource source,String name,String mime,String id,long time) {
         CompletableFuture<String> result=track(new CompletableFuture<>());
-        preparing.put(result,source);result.whenComplete((id,error)->preparing.remove(result));
+        preparing.put(result,source);result.whenComplete((createdId,error)->preparing.remove(result));
         if(!post(()->{
             Task task=null;
             try {
@@ -119,7 +126,7 @@ public final class AttachmentTransferV2 implements AutoCloseable {
                 if(outgoing!=null)throw new IOException("Attachment busy");
                 requireRoom(TransferTaskKey.Direction.SEND);
                 if(!source.seekable()||source.size()<0)throw new IOException("Attachment source requires a bounded snapshot");
-                source.verifyUnchanged();AttachmentInfo info=AttachmentInfo.v2(UUID.randomUUID().toString(),name,mime,source.size(),null,System.currentTimeMillis());
+                source.verifyUnchanged();AttachmentInfo info=AttachmentInfo.v2(id,name,mime,source.size(),null,time);
                 task=new Task(info,true,source.generation(),null);task.source=source;task.key=taskKey(info.id,task.generation,true);task.reference=source.persistentReference();outgoing=task;
                 checkpoint(task,TransferCheckpoint.State.ACTIVE);notice(task,true);
                 send(TransferPacket.offer(info,task.generation,connection));result.complete(info.id);
@@ -211,7 +218,7 @@ public final class AttachmentTransferV2 implements AutoCloseable {
                 task.state="verifying";notice(task,true);checkpointIncoming(task,true,TransferCheckpoint.State.ACTIVE);task.output.close();task.output=null;
                 Path destination=AttachmentTransfer.file(root,task.info);if(Files.exists(destination,LinkOption.NOFOLLOW_LINKS))throw new IOException("Attachment destination exists");
                 Files.move(task.partial,destination,StandardCopyOption.ATOMIC_MOVE);TransferCheckpointStore.syncDirectory(root);checkpoints.complete(task.key,task.info.size,packet.hash);task.state="received";
-                notice(task,true);closeResource(task.reservation);remember(task);incoming=null;stopCredits();send(control(packet,TransferPacket.Kind.COMPLETE,false,task.info.size,0,packet.hash,""));break;
+                closeResource(task.reservation);remember(task);incoming=null;stopCredits();notice(task,true);send(control(packet,TransferPacket.Kind.COMPLETE,false,task.info.size,0,packet.hash,""));break;
             case COMPLETE:
                 require(task.outgoing&&(task.state.equals("awaitingReceipt")||task.state.equals("checking")));
                 if(task.state.equals("checking")&&task.info.hash==null)verifyCompletedSource(task,packet.hash);
@@ -387,7 +394,7 @@ public final class AttachmentTransferV2 implements AutoCloseable {
     private void cancelSaved(String id,boolean sent,boolean notifyPeer)throws IOException {
         for(TransferCheckpoint saved:checkpoints.list())if(saved.key().equals(taskKey(id,saved.key().sourceGeneration(),sent))&&saved.state()!=TransferCheckpoint.State.CANCELED&&saved.state()!=TransferCheckpoint.State.COMPLETE) {
             checkpoints.cancel(saved.key());if(!sent)Files.deleteIfExists(partial(saved.key()));discardSavedSource(saved);
-            listener.changed(new AttachmentRecord(saved.info(),sent,"canceled",saved.writtenOffset()));
+            AttachmentRecord canceled=new AttachmentRecord(saved.info(),sent,"canceled",saved.writtenOffset());listener.changed(canceled);taskObserver.accept(canceled);
             if(notifyPeer)send(TransferPacket.control(TransferPacket.Kind.CANCEL,id,saved.key().sourceGeneration(),connection,sent,saved.info().size,0,0,null,"canceled"));
         }
     }
@@ -404,7 +411,9 @@ public final class AttachmentTransferV2 implements AutoCloseable {
             journal.cancel(saved.key());Files.deleteIfExists(root.resolve(saved.key().fileName()+".part"));
             if(saved.sourceReference().startsWith("snapshot:\n"))OwnedSnapshotSource.discardSaved(root.resolve(".sources-v2"),saved.sourceReference());
             canceled.add(new AttachmentRecord(saved.info(),saved.key().direction()==TransferTaskKey.Direction.SEND,"canceled",saved.writtenOffset()));
-        }return canceled;
+        }
+        for(AttachmentRecord queued:AttachmentBatchStore.cancelPending(root))if(canceled.stream().noneMatch(record->record.info.id.equals(queued.info.id)&&record.outgoing))canceled.add(queued);
+        return canceled;
     }
     private void discardSavedSource(TransferCheckpoint saved)throws IOException {if(saved.sourceReference().startsWith("snapshot:\n"))OwnedSnapshotSource.discardSaved(root.resolve(".sources-v2"),saved.sourceReference());}
     private void retainPhoto(Task task)throws IOException {
@@ -436,7 +445,7 @@ public final class AttachmentTransferV2 implements AutoCloseable {
         closeResource(task.reservation);
         if(!state.equals("delivered")){if(!checkpoints.load(task.key).isPresent())checkpoint(task,TransferCheckpoint.State.ACTIVE);checkpoints.cancel(task.key);}
         if(task.source!=null)task.source.discard();
-        task.state=state;notice(task,true);remember(task);if(task==outgoing)outgoing=null;if(task==incoming){incoming=null;stopCredits();}
+        task.state=state;remember(task);if(task==outgoing)outgoing=null;if(task==incoming){incoming=null;stopCredits();}notice(task,true);
         if(notifyPeer)send(control(task,TransferPacket.Kind.CANCEL,task.outgoing,0,0,null,state.equals("canceled")?"canceled":"failed"));
     }
     private void remember(Task task){ended.put(key(task.info.id,task.generation,!task.outgoing),new Ended(initialWindow));while(ended.size()>32)ended.remove(ended.keySet().iterator().next());}
@@ -454,7 +463,7 @@ public final class AttachmentTransferV2 implements AutoCloseable {
                 long remaining=task.info.size-task.written,rate=task.bytesPerSecond;progress=new TransferProgress(rate,rate==0?-1:remaining/rate+(remaining%rate==0?0:1));
             }else{task.sampleNs=0;task.sampleBytes=task.written;task.bytesPerSecond=0;}
             if(force||!task.state.equals(task.historyState)||task.durable!=task.historyDurable){long began=metrics.begin(HISTORY_SAVE);try{listener.changed(record);task.historyState=task.state;task.historyDurable=task.durable;}finally{metrics.end(HISTORY_SAVE,began,0);}}
-            listener.progress(record,progress);task.lastNotice=System.nanoTime();
+            listener.progress(record,progress);taskObserver.accept(record);task.lastNotice=System.nanoTime();
         }
     }
     private void checkingProgress(Task task,long bytes,long total,boolean force)throws IOException {

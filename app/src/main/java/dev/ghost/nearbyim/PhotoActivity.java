@@ -12,7 +12,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.view.*;
 import android.widget.*;
-import dev.ghost.nearbyim.core.AttachmentInfo;
+import dev.ghost.nearbyim.core.*;
 import java.io.*;
 import java.util.concurrent.*;
 
@@ -22,6 +22,7 @@ public final class PhotoActivity extends Activity {
     private Uri photo;
     private ZoomImage image;
     private TextView notice;
+    private View saveAction;
     protected void attachBaseContext(Context context){super.attachBaseContext(AppLanguage.wrap(context));}
     public void onCreate(Bundle state){
         super.onCreate(state);photo=getIntent().getData();
@@ -35,7 +36,7 @@ public final class PhotoActivity extends Activity {
         LinearLayout toolbar=new LinearLayout(this);toolbar.setGravity(Gravity.CENTER_VERTICAL);
         toolbar.addView(action(R.drawable.outline_arrow_back_24,text("backToChats"),this::finish),new LinearLayout.LayoutParams(dp(48),dp(56)));
         TextView title=new TextView(this);title.setText(photo.getQueryParameter("name"));title.setTextColor(Color.WHITE);title.setTextSize(15);title.setSingleLine(true);title.setEllipsize(android.text.TextUtils.TruncateAt.END);toolbar.addView(title,new LinearLayout.LayoutParams(0,-2,1));
-        toolbar.addView(action(R.drawable.outline_file_download_24,text("attachmentSaveAs"),this::save),new LinearLayout.LayoutParams(dp(48),dp(56)));root.addView(toolbar);
+        saveAction=action(R.drawable.outline_file_download_24,text("gallerySave"),this::saveMenu);toolbar.addView(saveAction,new LinearLayout.LayoutParams(dp(48),dp(56)));root.addView(toolbar);
         FrameLayout canvas=new FrameLayout(this);image=new ZoomImage(this);image.setContentDescription(text("attachmentPhotoPreview",photo.getQueryParameter("name")));canvas.addView(image,new FrameLayout.LayoutParams(-1,-1));
         notice=new TextView(this);notice.setText(text("photoLoading"));notice.setTextColor(0xffbbbbbb);notice.setGravity(Gravity.CENTER);canvas.addView(notice,new FrameLayout.LayoutParams(-1,-1));root.addView(canvas,new LinearLayout.LayoutParams(-1,0,1));
         LinearLayout footer=new LinearLayout(this);footer.setGravity(Gravity.CENTER_VERTICAL);
@@ -51,6 +52,17 @@ public final class PhotoActivity extends Activity {
             catch(IOException|RuntimeException|OutOfMemoryError e){runOnUiThread(()->{if(!isDestroyed())notice.setText(text("photoUnavailable"));});}
         });
     }
+    private void saveMenu(){PopupMenu menu=new PopupMenu(this,saveAction);menu.getMenu().add(0,1,0,text("gallerySave"));menu.getMenu().add(0,2,1,text("attachmentSaveAs"));menu.setOnMenuItemClickListener(item->{if(item.getItemId()==1)gallerySave();else save();return true;});menu.show();}
+    private void gallerySave(){
+        if(android.os.Build.VERSION.SDK_INT<=28&&checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)!=android.content.pm.PackageManager.PERMISSION_GRANTED){requestPermissions(new String[]{android.Manifest.permission.WRITE_EXTERNAL_STORAGE},2);return;}
+        try{
+            String peer=getIntent().getStringExtra("peer"),encoded=getIntent().getStringExtra("record");if(peer==null||!peer.matches("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}")||encoded==null)throw new IOException("Missing completed photo");AttachmentRecord record=AttachmentRecord.decode(encoded);
+            java.nio.file.Path original=AttachmentTransfer.file(getFilesDir().toPath().resolve("attachments").resolve(peer),record.info,record.outgoing);
+            if(!photo.getPathSegments().equals(java.util.List.of(peer,original.getFileName().toString())))throw new IOException("Photo identity mismatch");
+            GalleryPublisher.get(this).export(peer,record,original,true).whenComplete((value,error)->runOnUiThread(()->{if(!isDestroyed())Toast.makeText(this,text(error==null?"gallerySaved":"gallerySaveFailed"),Toast.LENGTH_SHORT).show();}));
+        }catch(IOException|RuntimeException failure){Toast.makeText(this,text("gallerySaveFailed"),Toast.LENGTH_SHORT).show();}
+    }
+    public void onRequestPermissionsResult(int request,String[] permissions,int[] result){super.onRequestPermissionsResult(request,permissions,result);if(request==2){if(checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)==android.content.pm.PackageManager.PERMISSION_GRANTED)gallerySave();else Toast.makeText(this,text("gallerySavePermission"),Toast.LENGTH_SHORT).show();}}
     private void save(){
         String name=photo.getQueryParameter("name");if(name==null)name=photo.getLastPathSegment();
         Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType(getContentResolver().getType(photo));intent.putExtra(Intent.EXTRA_TITLE,AttachmentInfo.safeName(name==null?"attachment":name));

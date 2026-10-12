@@ -28,23 +28,33 @@
     <string name="app_settings" formatted="false">"アプリの設定"</string>
     <string name="appearance_section" formatted="false">"表示"</string>
     <string name="attachment_accept" formatted="false">"受信"</string>
+    <string name="attachment_batch_cancel" formatted="false">"送信をすべてキャンセル"</string>
+    <string name="attachment_batch_limit" formatted="false">"一度に選択できるファイルは最大 {0} 個です。"</string>
+    <string name="attachment_batch_pause" formatted="false">"送信をすべて一時停止"</string>
+    <string name="attachment_batch_resume" formatted="false">"送信を再開"</string>
     <string name="attachment_checking_progress" formatted="false">"再開データを確認中：{0} / {1} · {2}%"</string>
     <string name="attachment_details" formatted="false">"{0} · {1,number} / {2,number} バイト · {3}"</string>
     <string name="attachment_failed" formatted="false">"ファイル操作に失敗しました。アクセス権と空き容量を確認してください。"</string>
     <string name="attachment_hint" formatted="false">"1 ファイル最大 1 GiB。内容は暗号化されません。"</string>
     <string name="attachment_hint_v2" formatted="false">"ファイルごとに最大 10 GiB。"</string>
+    <string name="attachment_move_down" formatted="false">"下へ"</string>
+    <string name="attachment_move_up" formatted="false">"上へ"</string>
     <string name="attachment_open" formatted="false">"開く"</string>
     <string name="attachment_overwrite" formatted="false">"ファイルが存在します。置き換えますか？"</string>
     <string name="attachment_pause" formatted="false">"転送を一時停止"</string>
     <string name="attachment_photo_preview" formatted="false">"写真プレビュー：{0}"</string>
+    <string name="attachment_preview" formatted="false">"送信前プレビュー"</string>
     <string name="attachment_progress" formatted="false">"転送状況：{0,number}%、{1}"</string>
     <string name="attachment_quota" formatted="false">"添付ファイルの保存容量"</string>
     <string name="attachment_quota_exceeded" formatted="false">"添付ファイルの保存容量の上限を超えます。"</string>
     <string name="attachment_quota_gi_b" formatted="false">"{0,number} GiB"</string>
     <string name="attachment_quota_in_use" formatted="false">"使用中と予約済みの容量を下回る上限は設定できません。"</string>
     <string name="attachment_reject" formatted="false">"拒否"</string>
+    <string name="attachment_remove" formatted="false">"削除"</string>
     <string name="attachment_resume" formatted="false">"転送を再開"</string>
     <string name="attachment_save_as" formatted="false">"名前を付けて保存"</string>
+    <string name="attachment_saved_file_missing" formatted="false">"保存したファイルは移動または削除されています。"</string>
+    <string name="attachment_selection_count" formatted="false">"{0} 件を選択"</string>
     <string name="attachment_show_in_folder" formatted="false">"保存先を開く"</string>
     <string name="attachment_source_changed" formatted="false">"元のファイルが変更されました。もう一度送信してください。"</string>
     <string name="attachment_source_permission" formatted="false">"ファイルの読み取り権限がありません。もう一度選択してください。"</string>
@@ -59,6 +69,7 @@
     <string name="attachment_state_offered" formatted="false">"受信待ち"</string>
     <string name="attachment_state_paused" formatted="false">"一時停止中"</string>
     <string name="attachment_state_preparing" formatted="false">"準備中"</string>
+    <string name="attachment_state_queued" formatted="false">"送信待ち"</string>
     <string name="attachment_state_received" formatted="false">"受信済み"</string>
     <string name="attachment_state_rejected" formatted="false">"拒否されました"</string>
     <string name="attachment_state_source_unavailable" formatted="false">"一時停止：元のファイルを読み込めません。アクセスを復旧して再開してください。"</string>
@@ -69,6 +80,7 @@
     <string name="attachment_summary" formatted="false">"{0} · {1}"</string>
     <string name="attachment_too_large" formatted="false">"ファイルサイズの上限を超えています。"</string>
     <string name="attachment_unavailable" formatted="false">"ファイルを利用できません。削除された可能性があります。"</string>
+    <string name="attachment_unknown_size" formatted="false">"サイズ確認中"</string>
     <string name="attachment_upgrade_required" formatted="false">"転送プロトコルが非対応です。両方のアプリを更新してください。"</string>
     <string name="attachment_waiting_resume" formatted="false">"相手の再開確認を待っています…"</string>
     <string name="attachments" formatted="false">"添付"</string>
@@ -192,6 +204,17 @@
     <string name="first_message_hint" formatted="false">"接続して、最初のあいさつを送ってみましょう。"</string>
     <string name="font_load_failed" formatted="false">"アプリのフォントを読み込めませんでした。NearbyIM を再インストールしてください。既存データは保持されています。"</string>
     <string name="font_size" formatted="false">"文字サイズ"</string>
+    <string name="gallery_access" formatted="false">"写真へのアクセスを許可"</string>
+    <string name="gallery_auto_save" formatted="false">"受信した写真をアルバムに自動保存"</string>
+    <string name="gallery_empty" formatted="false">"アクセスできる写真がありません"</string>
+    <string name="gallery_more" formatted="false">"写真をさらに読み込む"</string>
+    <string name="gallery_permission" formatted="false">"アルバムを表示するには写真へのアクセスを許可してください。"</string>
+    <string name="gallery_save" formatted="false">"アルバムに保存"</string>
+    <string name="gallery_save_failed" formatted="false">"アルバムに保存できませんでした。チャットの元データは残っています。再試行できます。"</string>
+    <string name="gallery_save_permission" formatted="false">"アルバムへの保存にはストレージ権限が必要です。ファイルは受信済みです。"</string>
+    <string name="gallery_saved" formatted="false">"アルバムに保存済み"</string>
+    <string name="gallery_saving" formatted="false">"アルバムに保存中…"</string>
+    <string name="gallery_title" formatted="false">"写真を選択"</string>
     <string name="got_it" formatted="false">"了解"</string>
     <string name="handshake" formatted="false">"デバイスを確認中…"</string>
     <string name="handshake_timeout" formatted="false">"相手がデバイス確認に応答しませんでした。再接続してください。"</string>

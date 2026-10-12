@@ -325,6 +325,7 @@ public final class ChatController implements TransportListener {
                         public void changed(AttachmentRecord record)throws IOException {
                             try{storage.submit(()->store.attachment(hello.id,hello.body,record)).get(10,TimeUnit.SECONDS);}
                             catch(Exception failure){throw new IOException("Attachment metadata save failed",failure);}
+                            if(!record.outgoing&&record.state.equals("received")&&record.info.mime.startsWith("image/"))try{GalleryPublisher.get(applicationContext).export(hello.id,record,AttachmentTransfer.file(directory,record.info,false),false);}catch(IOException exportFailure){main.post(()->{if(!destroyed)fail(UiText.of("gallerySaveFailed"));});}
                             main.post(()->{if(!destroyed)refresh();});
                         }
                         public void progress(AttachmentRecord record,TransferProgress progress){
@@ -334,7 +335,17 @@ public final class ChatController implements TransportListener {
                             main.post(()->{if(!destroyed&&active==wire){if(Objects.equals(selectedId,hello.id))messages=liveMessages(messages,hello.id);ChatController.this.changed();}});
                         }
                     },attachmentStorage);
-                    preparing.complete(new ClientAttachmentTransfers(directory,engine,sources));
+                    ClientAttachmentTransfers files=new ClientAttachmentTransfers(directory,engine,sources,selected->{
+                        if(selected.reference().startsWith("snapshot:\n"))return OwnedSnapshotSource.restore(directory.resolve(".sources-v2"),selected.reference(),selected.generation());
+                        AndroidAttachmentSource source=new AndroidAttachmentSource(applicationContext,Uri.parse(selected.reference().split("\n",2)[0]),selected.generation());
+                        if(selected.exact()&&!selected.reference().equals(source.persistentReference())){source.close();throw new LocalizedIOException(UiText.of("attachmentSourceChanged"));}return source;
+                    });
+                    files.batchListener(new AttachmentBatchQueue.Listener(){
+                        public void changed(AttachmentRecord record)throws IOException {try{storage.submit(()->store.attachment(hello.id,hello.body,record)).get(10,TimeUnit.SECONDS);}catch(Exception failure){throw new IOException("Batch history save failed",failure);}main.post(()->{if(!destroyed)refresh();});releaseUnusedSources();}
+                        public void finished(AttachmentRecord record){releaseUnusedSources();}
+                        private void releaseUnusedSources(){try{fileSelection.execute(()->{try{AndroidAttachmentSource.releaseUnusedGrants(applicationContext);}catch(IOException ignored){}});}catch(RejectedExecutionException stopped){}}
+                    });
+                    preparing.complete(files);
                 }catch(Exception failure){preparing.completeExceptionally(failure);}
             });}catch(RejectedExecutionException failure){preparing.completeExceptionally(failure);}
         });
@@ -418,6 +429,25 @@ public final class ChatController implements TransportListener {
     public void pauseAttachments(){ClientAttachmentTransfers selected=transfers;if(selected!=null)selected.pauseAll().whenComplete((value,error)->{if(error!=null)main.post(()->fail(attachmentError(error)));});}
     public void cancelAttachments(){attachmentToken++;selectingSources.forEach((source,token)->{selectingSources.remove(source);try{source.close();}catch(IOException ignored){}discardSelection(source);});ClientAttachmentTransfers selected=transfers;if(selected!=null)selected.cancelAll().whenComplete((value,error)->{if(error!=null)main.post(()->fail(attachmentError(error)));});changed();}
     public CompletableFuture<Void> attachmentQuota(long bytes){CompletableFuture<Void> future=new CompletableFuture<>();try{fileSelection.execute(()->{try{if(attachmentStorage==null)attachmentStorage=new TransferStorageBudget(store.attachmentsRoot(),bytes);else attachmentStorage.quota(bytes);preferences.edit().putLong("attachmentQuota",bytes).apply();future.complete(null);}catch(IOException error){future.completeExceptionally(new LocalizedIOException(UiText.of("attachmentQuotaInUse"),error));}});}catch(RejectedExecutionException error){future.completeExceptionally(error);}return future;}
+    public void pauseSendQueue(){ClientAttachmentTransfers selected=transfers;if(selected!=null)selected.pauseBatch().whenComplete((value,error)->{if(error!=null)main.post(()->fail(attachmentError(error)));});}
+    public void cancelSendQueue(){attachmentToken++;ClientAttachmentTransfers selected=transfers;if(selected!=null)selected.cancelBatch().whenComplete((value,error)->{if(error!=null)main.post(()->fail(attachmentError(error)));});changed();}
+    public void resumeAttachments(){ClientAttachmentTransfers selected=transfers;if(selected!=null)selected.resumeBatch().whenComplete((value,error)->{if(error!=null)main.post(()->fail(attachmentError(error)));});}
+    public void sendAttachments(String peer,long token,List<Uri> selectedUris){
+        List<Uri> uris=List.copyOf(selectedUris);if(uris.isEmpty()||uris.size()>AttachmentBatchQueue.MAX_PENDING){fail(UiText.of("attachmentBatchLimit",AttachmentBatchQueue.MAX_PENDING));return;}
+        if(!canSendAttachment()||token!=attachmentToken||!Objects.equals(peer,connectedPeerId)){fail(UiText.of("notConnected"));return;}ClientAttachmentTransfers selected=transfers;
+        AndroidAttachmentSource.retainSelections(uris);
+        try{fileSelection.execute(()->{try{
+            List<AttachmentBatchQueue.Selection> descriptions=new ArrayList<>();
+            for(Uri uri:uris){if(destroyed||token!=attachmentToken)throw new IOException("Attachment session changed");
+                try(AndroidAttachmentSource source=new AndroidAttachmentSource(applicationContext,uri)){descriptions.add(AttachmentBatchQueue.describe(source,source.name(),source.mime()));}
+                catch(IOException unavailable){descriptions.add(new AttachmentBatchQueue.Selection(uri.toString(),UUID.randomUUID().toString(),"attachment","application/octet-stream",-1,false));}
+            }
+            main.post(()->{if(destroyed||selected!=transfers||!canSendAttachment()||token!=attachmentToken||!Objects.equals(peer,connectedPeerId)){releaseSelections(uris);if(!destroyed)fail(UiText.of("notConnected"));return;}
+                selected.enqueue(descriptions).whenComplete((batch,error)->{releaseSelections(uris);if(error!=null)main.post(()->{if(!destroyed)fail(attachmentError(error));});});
+            });
+        }catch(Exception failure){releaseSelections(uris);main.post(()->{if(!destroyed)fail(attachmentError(failure));});}});}catch(RejectedExecutionException full){releaseSelections(uris);fail(UiText.of("attachmentFailed"));}
+    }
+    private void releaseSelections(List<Uri> uris){AndroidAttachmentSource.releaseSelections(uris);try{fileSelection.execute(()->{try{AndroidAttachmentSource.releaseUnusedGrants(applicationContext);}catch(IOException ignored){}});}catch(RejectedExecutionException stopped){}}
     public void sendAttachment(String peer,long token,Uri uri){
         if(!canSendAttachment()||token!=attachmentToken||!Objects.equals(peer,connectedPeerId)){fail(UiText.of("notConnected"));return;}
         ClientAttachmentTransfers selected=transfers;
@@ -487,7 +517,7 @@ public final class ChatController implements TransportListener {
         selectedId = conversation.id; selectedName = conversation.name; refresh(); changed();
     }
     public void clearConversation() {if(selectedId==null)return;String id=selectedId;if(remoteHello!=null&&Objects.equals(id,remoteHello.id))closeActive(UiText.of("connectionEnded"));
-        attachmentsStopped=attachmentsStopped.handle((value,failure)->null).thenRunAsync(()->{store.clear(id);try{AndroidAttachmentSource.releaseUnusedGrants(applicationContext);}catch(IOException failure){throw new CompletionException(failure);}},storage);
+        attachmentsStopped=attachmentsStopped.handle((value,failure)->null).thenRunAsync(()->{try{GalleryPublisher.get(applicationContext).clearPeer(id).get(30,TimeUnit.SECONDS);}catch(Exception failure){throw new CompletionException(failure);}store.clear(id);try{AndroidAttachmentSource.releaseUnusedGrants(applicationContext);}catch(IOException failure){throw new CompletionException(failure);}},storage);
         attachmentsStopped.whenComplete((value,failure)->main.post(()->{if(!destroyed){if(failure!=null)fail(attachmentError(failure));refresh();}}));}
     private void refresh() {
         String selection = selectedId; long version = trust.version();

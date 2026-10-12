@@ -173,6 +173,17 @@ public final class DesktopStore implements AutoCloseable {
         String state=record.outgoing?(record.state.equals("delivered")?"delivered":record.active()?"pending":"unknown"):"received";
         writeMessage(file,new Message(record.info.id,record.info.name,previous==null?System.currentTimeMillis():previous.time(),record.outgoing,state,record.info.time,record));
     }
+    private Path locationFile(String peer,AttachmentRecord record){return root.resolve("locations").resolve(uuid(peer)).resolve((record.outgoing?"out-":"in-")+uuid(record.info.id)+".properties");}
+    public synchronized void exportLocation(String peer,AttachmentRecord record,Path destination)throws IOException {
+        if(!record.state.equals("received")&&!record.state.equals("delivered"))throw new IOException("Attachment is not complete");
+        Properties values=new Properties();values.setProperty("path",destination.toAbsolutePath().normalize().toString());values.setProperty("hash",record.info.hash);
+        AtomicFiles.write(locationFile(peer,record),values);
+    }
+    public synchronized Path exportLocation(String peer,AttachmentRecord record)throws IOException {
+        Path file=locationFile(peer,record);if(!Files.exists(file))return null;Properties values=AtomicFiles.read(file);
+        if(!Objects.equals(record.info.hash,values.getProperty("hash")))throw new IOException("Export does not match completed attachment");
+        String value=AtomicFiles.required(values,"path");if(value.length()>8192)throw new IOException("Invalid export path");return Path.of(value).toAbsolutePath().normalize();
+    }
     private void recoverAttachments(String peer)throws IOException {
         Set<String> received=new HashSet<>();Path directory=messagesPath(peer);
         if(Files.exists(directory))try(var files=Files.list(directory)){for(Path file:files.filter(f->f.toString().endsWith(".properties")).toList()){
@@ -184,6 +195,7 @@ public final class DesktopStore implements AutoCloseable {
     }
     public synchronized void clear(String id) throws IOException {
         Path contents=attachmentDirectory(id);if(Files.exists(contents))AttachmentTransfer.clear(contents);
+        Path locations=root.resolve("locations").resolve(uuid(id));if(Files.exists(locations,LinkOption.NOFOLLOW_LINKS)){if(Files.isSymbolicLink(locations))throw new IOException("Unsafe export metadata");try(var files=Files.list(locations)){for(Path file:files.toList())Files.delete(file);}Files.delete(locations);}
         Path path = messagesPath(id); if (!Files.exists(path)) return;
         try (var files = Files.list(path)) { for (Path file : files.toList()) Files.delete(file); }
     }

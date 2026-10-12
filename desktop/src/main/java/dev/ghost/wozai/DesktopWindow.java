@@ -142,6 +142,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         revoke.addActionListener(e -> { if (selected != null && confirm("revokeConfirm")) handle(client.revoke(selected), "storageFailure"); });
         JMenuItem diagnostics=new JMenuItem();translations.add(()->diagnostics.setText(strings.text("transferDiagnostics")));
         diagnostics.addActionListener(e->{if(selected==null)return;try{Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new java.awt.datatransfer.StringSelection(client.transferDiagnostics(selected)),null);notice("diagnosticsCopied");}catch(RuntimeException unavailable){notice("error");}});menu.add(diagnostics);
+        for(String action:List.of("pause","resume","cancel")){String key=action.equals("pause")?"attachmentBatchPause":action.equals("resume")?"attachmentBatchResume":"attachmentBatchCancel";JMenuItem item=new JMenuItem();translations.add(()->item.setText(strings.text(key)));item.addActionListener(e->{if(selected!=null)handle(client.batchAction(selected,action),"attachmentFailed");});menu.add(item);}
         JMenuItem disconnect=new JMenuItem(); translations.add(() -> disconnect.setText(strings.text("disconnect"))); disconnect.addActionListener(e -> handle(client.disconnect(),"error")); menu.add(disconnect); menu.addSeparator(); menu.add(clear); menu.add(revoke);
         JButton more = new JButton(AppTheme.icon("more_vert")); more.setPreferredSize(new Dimension(44,44)); translations.add(() -> { more.setToolTipText(strings.text("more")); more.getAccessibleContext().setAccessibleName(strings.text("more")); });
         more.addActionListener(e -> menu.show(more, 0, more.getHeight())); actions.add(more);
@@ -397,15 +398,23 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         SwingUtilities.invokeLater(()->{if(bottom)bar.setValue(bar.getMaximum());else bar.setValue(position);});
     }
     private void chooseAttachment(boolean photo){
-        String peer=selected;if(peer==null)return;JFileChooser chooser=new JFileChooser();chooser.setDialogTitle(strings.text(photo?"sendPhoto":"sendFile"));
-        if(photo){chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(strings.text("sendPhoto"),"jpg","jpeg","png","gif","webp","bmp","heic","heif","avif"));chooser.setAcceptAllFileFilterUsed(false);}
-        if(chooser.showOpenDialog(this)==JFileChooser.APPROVE_OPTION)handle(client.sendAttachment(peer,chooser.getSelectedFile().toPath()),"attachmentFailed");
+        String peer=selected;if(peer==null)return;
+        client.verification(peer).whenComplete((expected,error)->SwingUtilities.invokeLater(()->{
+            if(shuttingDown||expected==null||error!=null||!peer.equals(selected)){notice("notConnected");return;}
+            JFileChooser chooser=new JFileChooser();chooser.setMultiSelectionEnabled(true);chooser.setDialogTitle(strings.text(photo?"sendPhoto":"sendFile"));
+            if(photo){chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(strings.text("sendPhoto"),"jpg","jpeg","png","gif","webp","bmp","heic","heif","avif"));chooser.setAcceptAllFileFilterUsed(false);}
+            if(chooser.showOpenDialog(this)!=JFileChooser.APPROVE_OPTION)return;
+            List<Path> paths=Arrays.stream(chooser.getSelectedFiles()).map(java.io.File::toPath).toList();
+            if(paths.size()>AttachmentBatchQueue.MAX_PENDING){notice(UiText.of("attachmentBatchLimit",AttachmentBatchQueue.MAX_PENDING));return;}
+            if(!paths.isEmpty())new AttachmentSelectionDialog(this,strings,paths,result->handle(client.sendAttachments(expected,result),"attachmentFailed")).setVisible(true);
+        }));
     }
+
     private void attachmentAction(String peer,DesktopStore.Message message,String action){
         var record=message.attachment();if(record==null)return;
         if(action.equals("accept")||action.equals("reject")||action.equals("cancel")||action.equals("pause")||action.equals("resume")){handle(client.attachmentAction(peer,message.id(),message.outgoing(),action),"attachmentFailed");return;}
         if(action.equals("folder")){
-            handle(client.attachmentPath(peer,record).thenAcceptAsync(path->{
+            handle(client.attachmentLocation(peer,record).thenAcceptAsync(path->{
                 try {
                     Desktop desktop=Desktop.getDesktop();
                     if(desktop.isSupported(Desktop.Action.BROWSE_FILE_DIR))desktop.browseFileDirectory(path.toFile());
@@ -430,7 +439,8 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         Path destination=null;
         if(action.equals("save")){JFileChooser chooser=new JFileChooser();chooser.setSelectedFile(new java.io.File(AttachmentInfo.safeName(record.info.name)));if(chooser.showSaveDialog(this)!=JFileChooser.APPROVE_OPTION)return;destination=chooser.getSelectedFile().toPath();if(Files.exists(destination)&&JOptionPane.showConfirmDialog(this,strings.text("attachmentOverwrite"),strings.text("attachmentSaveAs"),JOptionPane.YES_NO_OPTION)!=JOptionPane.YES_OPTION)return;}
         Path target=destination;
-        handle(client.attachmentPath(peer,record).thenAcceptAsync(path->{try{if(target!=null)Files.copy(path,target,StandardCopyOption.REPLACE_EXISTING);else Desktop.getDesktop().open(path.toFile());}catch(IOException e){throw new java.util.concurrent.CompletionException(e);}},attachmentWorker),"attachmentFailed");
+        if(target!=null){handle(client.exportAttachment(peer,record,target),"attachmentFailed");return;}
+        handle(client.attachmentPath(peer,record).thenAcceptAsync(path->{try{Desktop.getDesktop().open(path.toFile());}catch(IOException e){throw new java.util.concurrent.CompletionException(e);}},attachmentWorker),"attachmentFailed");
     }
     private void sendMessage() {
         if (!send.isEnabled()) { notice("notConnected"); return; }

@@ -14,6 +14,9 @@ java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentBenchmarkTes
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentSourceTests
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentV2ControlTests
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentV2Tests
+java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentTerminalTests
+java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentBatchTests
+java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.PhotoExportStoreTests
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentCheckpointLatencyTests
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentFeedbackTests
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentResumeTests
