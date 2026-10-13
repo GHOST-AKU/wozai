@@ -258,6 +258,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
         }
         await(() -> onMain(() -> controller.messages.size() >= 35), "Saved timeline loads");
         testLiveAttachmentFeedback(controller,peerId);
+        testBatchRefreshResponsiveness(controller,peerId);
         Thread.sleep(150); waitForIdleSync();
         int scroll = onMain(() -> { ScrollView view = field(activity, "messageScroll"); view.scrollTo(0, 120); return view.getScrollY(); });
         check(scroll > 0, "Timeline is scrollable before recreation");
@@ -607,6 +608,58 @@ public final class LocalizationInstrumentation extends Instrumentation {
             }
             return null;
         });}finally{onMain(()->{feedback.remove(key);controller.messages=history;invoke(activity,"renderChat",new Class<?>[0]);return null;});}
+    }
+    private void testBatchRefreshResponsiveness(ChatController controller,String peer)throws Exception {
+        java.util.List<String> failures=new ArrayList<>();
+        java.util.List<ChatStore.Message> saved=onMain(()->controller.messages);
+        onMain(()->{
+            try {
+                ArrayList<ChatStore.Message> timeline=new ArrayList<>();
+                long time=System.currentTimeMillis();
+                for(int i=0;i<80;i++)timeline.add(new ChatStore.Message(UUID.randomUUID().toString(),"Existing text "+i,ChatStore.DELIVERED,true,time+i));
+                for(int i=0;i<20;i++){
+                    AttachmentInfo info=AttachmentInfo.v2(UUID.randomUUID().toString(),"batch-"+i+".bin","application/octet-stream",16L*1024*1024,null,time+80+i);
+                    timeline.add(new ChatStore.Message(info.id,info.name,ChatStore.PENDING,true,info.time,new AttachmentRecord(info,true,"queued",0)));
+                }
+                controller.messages=timeline;invoke(activity,"renderChat",new Class<?>[0]);
+                android.view.ViewGroup bubbles=field(activity,"bubbles");
+                int replaced=0;String[] states={"preparing","offered","transferring","paused","checking","transferring","awaitingReceipt","delivered"};
+                for(String state:states){
+                    android.view.View before=bubbles.findViewWithTag("message:"+timeline.get(0).id+":true");
+                    ArrayList<ChatStore.Message> next=new ArrayList<>();
+                    for(int i=0;i<timeline.size();i++){
+                        ChatStore.Message message=timeline.get(i);AttachmentRecord record=message.attachment;
+                        if(record!=null)record=AttachmentRecord.decode(record.encode()); // SQLite reload produces new value objects.
+                        if(i==80)record=new AttachmentRecord(record.info,true,state,state.equals("delivered")?record.info.size:1024*1024);
+                        next.add(new ChatStore.Message(message.id,message.text,i==80?(state.equals("delivered")?ChatStore.DELIVERED:record.active()?ChatStore.PENDING:ChatStore.UNKNOWN):message.state,message.outgoing,message.time,record));
+                    }
+                    controller.messages=next;invoke(activity,"renderChat",new Class<?>[0]);
+                    if(before!=bubbles.findViewWithTag("message:"+timeline.get(0).id+":true"))replaced++;
+                    android.view.View row=bubbles.findViewWithTag("message:"+next.get(80).id+":true");
+                    check(row!=null&&((android.widget.TextView)row.findViewWithTag("messageMeta")).getText().toString().contains(AndroidText.get(activity,next.get(80).attachment.stateKey())),"Changed batch row shows its current state: "+state);
+                    timeline=next;
+                }
+                if(replaced!=0)failures.add("unrelated saved rows rebuilt "+replaced+"/"+states.length+" times during one file's states");
+            }finally{controller.messages=saved;invoke(activity,"renderChat",new Class<?>[0]);}
+            return null;
+        });
+        java.util.concurrent.ExecutorService storage=field(controller,"storage");
+        storage.submit(()->{}).get(10,TimeUnit.SECONDS);waitForIdleSync();
+        CountDownLatch started=new CountDownLatch(1),release=new CountDownLatch(1);
+        java.util.concurrent.atomic.AtomicInteger snapshots=new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.atomic.AtomicReference<java.util.List<ChatStore.Message>> last=new java.util.concurrent.atomic.AtomicReference<>(onMain(()->controller.messages));
+        Runnable observer=onMain(()->field(controller,"observer"));
+        storage.execute(()->{started.countDown();try{release.await(10,TimeUnit.SECONDS);}catch(InterruptedException error){Thread.currentThread().interrupt();}});
+        check(started.await(10,TimeUnit.SECONDS),"Storage gate starts before durable-state notification burst");
+        try {
+            onMain(()->{controller.observe(()->{if(last.getAndSet(controller.messages)!=controller.messages)snapshots.incrementAndGet();if(observer!=null)observer.run();});snapshots.set(0);for(int i=0;i<100;i++)invoke(controller,"refresh",new Class<?>[0]);return null;});
+            release.countDown();
+            for(int i=0;i<4;i++){storage.submit(()->{}).get(10,TimeUnit.SECONDS);waitForIdleSync();}
+            if(snapshots.get()>2)failures.add("100 simultaneous durable-state requests published "+snapshots.get()+" full history snapshots");
+            ChatStore store=field(controller,"store");java.util.List<ChatStore.Message> expected=storage.submit(()->store.messages(peer)).get(10,TimeUnit.SECONDS);
+            check(onMain(()->controller.messages.stream().map(m->m.id).collect(java.util.stream.Collectors.toList()).equals(expected.stream().map(m->m.id).collect(java.util.stream.Collectors.toList()))),"Coalesced history still publishes all latest saved records");
+        }finally{release.countDown();onMain(()->{controller.observe(observer);return null;});}
+        check(failures.isEmpty(),"Batch transfer UI responsiveness: "+String.join("; ",failures));
     }
     private void rejectedAttachmentFuture(java.util.concurrent.CompletableFuture<?> future,String message)throws Exception {
         try{future.get(1,TimeUnit.SECONDS);throw new AssertionError(message+": unexpectedly succeeded");}
