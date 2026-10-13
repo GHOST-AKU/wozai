@@ -45,16 +45,14 @@ public final class AvatarActivity extends Activity {
         ink = dark ? 0xfff1f5f3 : 0xff17211c; muted = dark ? 0xff9aa8ad : 0xff58675f; accent = dark ? 0xff82d8ba : 0xff246b4e;
     }
     private void build() {
-        LinearLayout root = vertical(); root.setPadding(dp(16), dp(8), dp(16), dp(16)); root.setBackgroundColor(background);
+        LinearLayout root = vertical(); root.setPadding(dp(16), dp(8), dp(16), dp(16)); root.setBackgroundColor(background);boolean light = background == 0xfffafcfa;
         root.setOnApplyWindowInsetsListener((view, insets) -> {
-            if (Build.VERSION.SDK_INT >= 30) { Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout()); view.setPadding(dp(16) + bars.left, dp(8) + bars.top, dp(16) + bars.right, dp(16) + bars.bottom); }
+            if (Build.VERSION.SDK_INT >= 30) { Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout()); view.setPadding(dp(16) + bars.left, dp(8) + bars.top, dp(16) + bars.right, dp(16) + bars.bottom);WindowInsetsController controller=view.getWindowInsetsController();if(controller!=null)controller.setSystemBarsAppearance(light ? WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS : 0, WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS); }
             else view.setPadding(dp(16) + insets.getSystemWindowInsetLeft(), dp(8) + insets.getSystemWindowInsetTop(), dp(16) + insets.getSystemWindowInsetRight(), dp(16) + insets.getSystemWindowInsetBottom()); return insets;
         });
         if (Build.VERSION.SDK_INT >= 30) getWindow().setDecorFitsSystemWindows(false);
         getWindow().setStatusBarColor(background); getWindow().setNavigationBarColor(background);
-        boolean light = background == 0xfffafcfa;
-        if (Build.VERSION.SDK_INT >= 30 && getWindow().getInsetsController() != null) getWindow().getInsetsController().setSystemBarsAppearance(light ? WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS : 0, WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS);
-        else getWindow().getDecorView().setSystemUiVisibility(light ? View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR : 0);
+        if (Build.VERSION.SDK_INT < 30) getWindow().getDecorView().setSystemUiVisibility(light ? View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR : 0);
         LinearLayout toolbar = horizontal(); TextView title = label(text("avatarTitle"), 22, ink); title.setTypeface(null, android.graphics.Typeface.BOLD); toolbar.addView(title, new LinearLayout.LayoutParams(0, -2, 1)); toolbar.addView(button("cancel", this::cancel)); root.addView(toolbar);
         ScrollView scroll = new ScrollView(this); scroll.setFillViewport(true); LinearLayout body = vertical(); scroll.addView(body); root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
         TextView hint = label(text("avatarVisibilityHint"), 14, muted); body.addView(hint);

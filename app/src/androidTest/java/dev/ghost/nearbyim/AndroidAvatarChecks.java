@@ -90,6 +90,11 @@ public final class AndroidAvatarChecks {
         try {
             editor=instrumentation.startActivitySync(new Intent(context,AvatarActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));Activity current=editor;
             await(()->onMain(instrumentation,()->(boolean)field(current,"ready")),"Avatar editor did not load identity on background thread");checks++;
+            if(android.os.Build.VERSION.SDK_INT>=30){
+                int mask=WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS|WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
+                boolean light=(context.getResources().getConfiguration().uiMode&android.content.res.Configuration.UI_MODE_NIGHT_MASK)!=android.content.res.Configuration.UI_MODE_NIGHT_YES;
+                await(()->onMain(instrumentation,()->{WindowInsetsController bars=current.getWindow().getDecorView().getWindowInsetsController();return bars!=null&&(bars.getSystemBarsAppearance()&mask)==(light?mask:0);}),"Attached avatar editor did not apply matching system-bar appearance");checks++;
+            }
             Uri slow=Uri.parse("content://dev.ghost.nearbyim.test.avatars/slow/red"),fast=Uri.parse("content://dev.ghost.nearbyim.test.avatars/fast/blue");context.getContentResolver().call(slow,"hold",null,null);
             onMain(instrumentation,()->{invoke(current,"onActivityResult",new Class<?>[]{int.class,int.class,Intent.class},1,Activity.RESULT_OK,new Intent().setData(slow));return null;});
             await(()->context.getContentResolver().call(slow,"started",null,null).getBoolean("started"),"Slow avatar provider was not entered before replacing selection");checks++;
