@@ -51,7 +51,16 @@
     <string name="attachment_quota_in_use" formatted="false">"The new quota must cover stored and reserved space."</string>
     <string name="attachment_reject" formatted="false">"Reject"</string>
     <string name="attachment_remove" formatted="false">"Remove"</string>
+    <string name="attachment_reselect" formatted="false">"Select again"</string>
     <string name="attachment_resume" formatted="false">"Resume transfer"</string>
+    <string name="attachment_retried" formatted="false">"Retried"</string>
+    <string name="attachment_retry" formatted="false">"Retry"</string>
+    <string name="attachment_retry_batch" formatted="false">"Retry failed files in this batch"</string>
+    <string name="attachment_retry_none" formatted="false">"No failed files remain to retry in this batch."</string>
+    <string name="attachment_retry_partial" formatted="false">"{0} files added to the retry queue; {1} files need to be selected again."</string>
+    <string name="attachment_retry_queued" formatted="false">"Added to the retry queue."</string>
+    <string name="attachment_retry_select_again" formatted="false">"The original file cannot be read. Select it again to retry."</string>
+    <string name="attachment_retrying" formatted="false">"Retrying…"</string>
     <string name="attachment_save_as" formatted="false">"Save as"</string>
     <string name="attachment_saved_file_missing" formatted="false">"The saved file has been moved or deleted."</string>
     <string name="attachment_selection_count" formatted="false">"{0} selected"</string>

@@ -51,7 +51,16 @@
     <string name="attachment_quota_in_use" formatted="false">"新的配額不能小於已使用及預留空間。"</string>
     <string name="attachment_reject" formatted="false">"拒絕"</string>
     <string name="attachment_remove" formatted="false">"移除"</string>
+    <string name="attachment_reselect" formatted="false">"重新選擇"</string>
     <string name="attachment_resume" formatted="false">"繼續傳輸"</string>
+    <string name="attachment_retried" formatted="false">"已重發"</string>
+    <string name="attachment_retry" formatted="false">"重發"</string>
+    <string name="attachment_retry_batch" formatted="false">"重發本批失敗項"</string>
+    <string name="attachment_retry_none" formatted="false">"本批已沒有需要重發的失敗檔案。"</string>
+    <string name="attachment_retry_partial" formatted="false">"{0} 個檔案已加入重發佇列，{1} 個檔案需重新選擇。"</string>
+    <string name="attachment_retry_queued" formatted="false">"已加入重發佇列。"</string>
+    <string name="attachment_retry_select_again" formatted="false">"原檔案無法讀取，請重新選擇後重發。"</string>
+    <string name="attachment_retrying" formatted="false">"正在重發…"</string>
     <string name="attachment_save_as" formatted="false">"另存新檔"</string>
     <string name="attachment_saved_file_missing" formatted="false">"儲存的檔案已被移動或刪除。"</string>
     <string name="attachment_selection_count" formatted="false">"已選 {0} 項"</string>

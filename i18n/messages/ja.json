@@ -415,5 +415,14 @@
   "gallerySaving": "アルバムに保存中…",
   "gallerySaveFailed": "アルバムに保存できませんでした。チャットの元データは残っています。再試行できます。",
   "gallerySavePermission": "アルバムへの保存にはストレージ権限が必要です。ファイルは受信済みです。",
-  "galleryAutoSave": "受信した写真をアルバムに自動保存"
+  "galleryAutoSave": "受信した写真をアルバムに自動保存",
+  "attachmentRetry": "再送",
+  "attachmentRetryBatch": "この一括送信で失敗したファイルを再送",
+  "attachmentRetrying": "再送中…",
+  "attachmentRetried": "再送済み",
+  "attachmentRetryQueued": "再送キューに追加しました。",
+  "attachmentRetrySelectAgain": "元のファイルを読み取れません。再選択して再送してください。",
+  "attachmentRetryPartial": "{0} 個のファイルを再送キューに追加しました。{1} 個のファイルは再選択が必要です。",
+  "attachmentRetryNone": "この一括送信に再送が必要なファイルはありません。",
+  "attachmentReselect": "再選択"
 }

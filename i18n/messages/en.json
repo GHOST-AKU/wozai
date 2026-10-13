@@ -415,5 +415,14 @@
   "gallerySaving": "Saving to gallery…",
   "gallerySaveFailed": "Gallery save failed. The original remains in chat; retry when ready.",
   "gallerySavePermission": "Storage permission is needed to save to your gallery. The file was received.",
-  "galleryAutoSave": "Save received photos to gallery automatically"
+  "galleryAutoSave": "Save received photos to gallery automatically",
+  "attachmentRetry": "Retry",
+  "attachmentRetryBatch": "Retry failed files in this batch",
+  "attachmentRetrying": "Retrying…",
+  "attachmentRetried": "Retried",
+  "attachmentRetryQueued": "Added to the retry queue.",
+  "attachmentRetrySelectAgain": "The original file cannot be read. Select it again to retry.",
+  "attachmentRetryPartial": "{0} files added to the retry queue; {1} files need to be selected again.",
+  "attachmentRetryNone": "No failed files remain to retry in this batch.",
+  "attachmentReselect": "Select again"
 }

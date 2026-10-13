@@ -415,5 +415,14 @@
   "gallerySaving": "正在儲存至相簿…",
   "gallerySaveFailed": "相簿儲存失敗，原件仍在聊天中，可重試。",
   "gallerySavePermission": "儲存至相簿需要儲存空間權限；檔案已接收。",
-  "galleryAutoSave": "自動將收到的照片儲存至相簿"
+  "galleryAutoSave": "自動將收到的照片儲存至相簿",
+  "attachmentRetry": "重發",
+  "attachmentRetryBatch": "重發本批失敗項",
+  "attachmentRetrying": "正在重發…",
+  "attachmentRetried": "已重發",
+  "attachmentRetryQueued": "已加入重發佇列。",
+  "attachmentRetrySelectAgain": "原檔案無法讀取，請重新選擇後重發。",
+  "attachmentRetryPartial": "{0} 個檔案已加入重發佇列，{1} 個檔案需重新選擇。",
+  "attachmentRetryNone": "本批已沒有需要重發的失敗檔案。",
+  "attachmentReselect": "重新選擇"
 }

@@ -59,7 +59,16 @@ public final class I18nResources {
             case "attachmentQuotaInUse": return R.string.attachment_quota_in_use;
             case "attachmentReject": return R.string.attachment_reject;
             case "attachmentRemove": return R.string.attachment_remove;
+            case "attachmentReselect": return R.string.attachment_reselect;
             case "attachmentResume": return R.string.attachment_resume;
+            case "attachmentRetried": return R.string.attachment_retried;
+            case "attachmentRetry": return R.string.attachment_retry;
+            case "attachmentRetryBatch": return R.string.attachment_retry_batch;
+            case "attachmentRetryNone": return R.string.attachment_retry_none;
+            case "attachmentRetryPartial": return R.string.attachment_retry_partial;
+            case "attachmentRetryQueued": return R.string.attachment_retry_queued;
+            case "attachmentRetrySelectAgain": return R.string.attachment_retry_select_again;
+            case "attachmentRetrying": return R.string.attachment_retrying;
             case "attachmentSaveAs": return R.string.attachment_save_as;
             case "attachmentSavedFileMissing": return R.string.attachment_saved_file_missing;
             case "attachmentSelectionCount": return R.string.attachment_selection_count;

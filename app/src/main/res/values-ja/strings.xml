@@ -51,7 +51,16 @@
     <string name="attachment_quota_in_use" formatted="false">"使用中と予約済みの容量を下回る上限は設定できません。"</string>
     <string name="attachment_reject" formatted="false">"拒否"</string>
     <string name="attachment_remove" formatted="false">"削除"</string>
+    <string name="attachment_reselect" formatted="false">"再選択"</string>
     <string name="attachment_resume" formatted="false">"転送を再開"</string>
+    <string name="attachment_retried" formatted="false">"再送済み"</string>
+    <string name="attachment_retry" formatted="false">"再送"</string>
+    <string name="attachment_retry_batch" formatted="false">"この一括送信で失敗したファイルを再送"</string>
+    <string name="attachment_retry_none" formatted="false">"この一括送信に再送が必要なファイルはありません。"</string>
+    <string name="attachment_retry_partial" formatted="false">"{0} 個のファイルを再送キューに追加しました。{1} 個のファイルは再選択が必要です。"</string>
+    <string name="attachment_retry_queued" formatted="false">"再送キューに追加しました。"</string>
+    <string name="attachment_retry_select_again" formatted="false">"元のファイルを読み取れません。再選択して再送してください。"</string>
+    <string name="attachment_retrying" formatted="false">"再送中…"</string>
     <string name="attachment_save_as" formatted="false">"名前を付けて保存"</string>
     <string name="attachment_saved_file_missing" formatted="false">"保存したファイルは移動または削除されています。"</string>
     <string name="attachment_selection_count" formatted="false">"{0} 件を選択"</string>

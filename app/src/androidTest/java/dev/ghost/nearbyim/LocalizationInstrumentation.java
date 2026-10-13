@@ -478,6 +478,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
         AttachmentRecord firstBatch=remoteFileState("received"),secondBatch=remoteFileState("received");check(!firstBatch.info.id.equals(secondBatch.info.id)&&firstBatch.info.hash.equals(received.info.hash)&&secondBatch.info.hash.equals(received.info.hash),"Android batches two URI originals through encrypted transfer tasks");
         await(()->onMain(()->controller.messages.stream().filter(m->m.outgoing&&m.attachment!=null&&m.attachment.state.equals("delivered")&&(m.id.equals(firstBatch.info.id)||m.id.equals(secondBatch.info.id))).count()==2),"Android batch completes both saved receipts");
         testReopenedProviderBatch(controller,peer);
+        testFailedAttachmentRetry(controller,peer);
         long token=onMain(()->controller.attachmentSessionToken());onMain(()->{controller.sendAttachment(peer,token-1,uri);return null;});check(onMain(()->controller.error.key.equals("notConnected")),"Stale picker result cannot cross session generations");
     }
     private void testReopenedProviderBatch(ChatController controller,String peer)throws Exception {
@@ -497,6 +498,51 @@ public final class LocalizationInstrumentation extends Instrumentation {
         if(view instanceof android.widget.Button button&&description.contentEquals(button.getContentDescription()==null?"":button.getContentDescription()))return button;
         if(view instanceof android.view.ViewGroup group)for(int n=0;n<group.getChildCount();n++){android.widget.Button found=attachmentButton(group.getChildAt(n),description);if(found!=null)return found;}return null;
     }
+    private void testFailedAttachmentRetry(ChatController controller,String peer)throws Exception {
+        android.net.Uri base=android.net.Uri.parse("content://dev.ghost.nearbyim.test.sources"),retry=base.buildUpon().path("/retry").build(),denied=base.buildUpon().path("/denied").build(),replacement=base.buildUpon().path("/file").build();
+        getTargetContext().getContentResolver().call(base,"reset",null,null);getTargetContext().getContentResolver().call(base,"retry-deny",null,null);
+        Set<String> previous=onMain(()->controller.messages.stream().map(m->m.id).collect(java.util.stream.Collectors.toSet()));
+        try{
+            onMain(()->{controller.sendAttachments(peer,controller.attachmentSessionToken(),List.of(retry,denied));return null;});
+            await(()->onMain(()->controller.messages.stream().filter(m->m.outgoing&&!previous.contains(m.id)&&m.attachment!=null&&m.attachment.state.equals("failed")).count()==2),"Revoked provider batch retains both failed history rows");
+            List<ChatStore.Message> failed=onMain(()->controller.messages.stream().filter(m->m.outgoing&&!previous.contains(m.id)&&m.attachment!=null).collect(java.util.stream.Collectors.toList()));
+            String readableId=failed.get(0).id,deniedId=failed.get(1).id;
+            check(onMain(()->{android.view.ViewGroup bubbles=field(activity,"bubbles");return attachmentButton(bubbles.findViewWithTag("attachment:"+readableId),AndroidText.get(activity,"attachmentRetry"))!=null;}),"Failed outgoing bubble exposes Retry instead of Resume");
+            onMain(()->{controller.sendAttachments(peer,controller.attachmentSessionToken(),List.of(retry));return null;});
+            await(()->onMain(()->controller.messages.stream().filter(m->m.outgoing&&!previous.contains(m.id)&&m.attachment!=null&&m.attachment.state.equals("failed")).count()==3),"Separate provider batch reaches a failed history row");
+            String otherBatchId=onMain(()->controller.messages.stream().filter(m->m.outgoing&&!previous.contains(m.id)&&m.attachment!=null&&!m.id.equals(readableId)&&!m.id.equals(deniedId)).findFirst().get().id);
+            getTargetContext().getContentResolver().call(base,"retry-allow",null,null);
+            check(onMain(()->{android.view.ViewGroup bubbles=field(activity,"bubbles");return bubbles.findViewWithTag("attachment:"+readableId).performLongClick();}),"Failed file card opens its retry actions");
+            check(onMain(()->{android.widget.PopupMenu menu=field(activity,"attachmentActions");for(int i=0;i<menu.getMenu().size();i++){android.view.MenuItem item=menu.getMenu().getItem(i);if(item.getTitle().toString().equals(AndroidText.get(activity,"attachmentRetryBatch")))return menu.getMenu().performIdentifierAction(item.getItemId(),0);}return false;}),"Failed file popup dispatches this batch's failed-item retry");
+            AttachmentRecord queued=remoteFileState("received");
+            await(()->onMain(()->controller.messages.stream().anyMatch(m->m.id.equals(queued.info.id)&&m.outgoing&&m.attachment!=null&&m.attachment.state.equals("delivered"))),"Readable failed item creates a distinct delivered retry task");
+            check(!queued.info.id.equals(readableId)&&!queued.info.id.equals(deniedId)&&!queued.info.id.equals(otherBatchId),"Retry uses a new transfer ID");
+            check(onMain(()->controller.messages.stream().filter(m->m.outgoing&&(m.id.equals(readableId)||m.id.equals(deniedId)||m.id.equals(otherBatchId))&&m.attachment.state.equals("failed")).count()==3),"Retry retains failed history and leaves the other batch untouched");
+            String retriedId=onMain(()->{android.view.ViewGroup bubbles=field(activity,"bubbles");for(String candidate:List.of(readableId,deniedId)){android.widget.Button button=attachmentButton(bubbles.findViewWithTag("attachment:"+candidate),AndroidText.get(activity,"attachmentRetried"));if(button!=null&&!button.isEnabled())return candidate;}return null;});
+            check(retriedId!=null,"Retry parent displays a disabled Retried status");String reselectId=retriedId.equals(readableId)?deniedId:readableId;
+            check(onMain(()->LocalizationInstrumentation.<java.util.concurrent.CompletableFuture<String>>invoke(controller,"retryAttachment",new Class<?>[]{String.class,long.class,String.class},peer,controller.attachmentSessionToken(),retriedId)).get(10,TimeUnit.SECONDS).equals(queued.info.id),"Repeated retry reuses the admitted child instead of creating another task");
+            onMain(()->{setField(activity,"pendingRetryPeer",peer);setField(activity,"pendingRetryId",reselectId);setField(activity,"pendingRetryToken",controller.attachmentSessionToken());setField(activity,"pendingRetrySession",invoke(controller,"attachmentSelectionSession",new Class<?>[]{String.class},peer));setField(activity,"controller",null);activity.onActivityResult(24,Activity.RESULT_OK,new Intent().setData(replacement));return null;});
+            check(onMain(()->reselectId.equals(field(activity,"pendingRetryId"))&&replacement.equals(field(activity,"selectedRetryUri"))),"Retry replacement waits for asynchronous service rebinding with its failed parent");
+            Bundle staged=new Bundle();onMain(()->{activity.onSaveInstanceState(staged);return null;});
+            check(reselectId.equals(staged.getString("pendingRetryId"))&&replacement.toString().equals(staged.getString("selectedRetryUri"))&&staged.getString("pendingRetrySession")!=null,"Retry replacement, parent and authenticated session survive saved activity state");
+            MainActivity beforeRotation=activity;resumed.clear();onMain(()->{setField(activity,"controller",controller);beforeRotation.recreate();return null;});
+            long rotationDeadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(12);MainActivity rotated=null;while(System.nanoTime()<rotationDeadline&&rotated==null){MainActivity candidate=resumed.poll(1,TimeUnit.SECONDS);if(candidate!=null&&candidate!=beforeRotation)rotated=candidate;}
+            check(rotated!=null,"Retry picker recreation produces a restored activity");activity=rotated;await(()->onMain(()->field(activity,"controller")==controller),"Retry picker recreation rebinds the surviving transfer controller");AttachmentRecord rebound=remoteFileState("received");
+            check(!rebound.info.id.equals(reselectId)&&java.util.Arrays.equals(java.nio.file.Files.readAllBytes(AttachmentTransfer.file(new File(getTargetContext().getCacheDir(),"native-remote-attachments-"+peer).toPath(),rebound.info)),new byte[]{0,1,2,3,4,5,6,7}),"Reselected retry preserves original bytes under a new child ID");
+            onMain(()->{setField(activity,"pendingRetryPeer",peer);setField(activity,"pendingRetryId",otherBatchId);setField(activity,"pendingRetryToken",controller.attachmentSessionToken()-1);setField(activity,"pendingRetrySession",invoke(controller,"attachmentSelectionSession",new Class<?>[]{String.class},peer));activity.onActivityResult(24,Activity.RESULT_OK,new Intent().setData(replacement));return null;});
+            check(onMain(()->controller.error.key.equals("notConnected")),"Stale retry picker cannot enter a new session generation");
+            String currentSession=onMain(()->invoke(controller,"attachmentSelectionSession",new Class<?>[]{String.class},peer));
+            rejectedRetry(onMain(()->retryReplacement(controller,peer,controller.attachmentSessionToken(),currentSession+"stale",otherBatchId,replacement)),"Changed identity/session snapshot cannot reuse a picker result");
+            rejectedRetry(onMain(()->retryReplacement(controller,java.util.UUID.randomUUID().toString(),controller.attachmentSessionToken(),currentSession,otherBatchId,replacement)),"Retry replacement cannot cross peers");
+            rejectedRetry(onMain(()->retryReplacement(controller,peer,controller.attachmentSessionToken(),currentSession,java.util.UUID.randomUUID().toString(),replacement)),"Unknown UUID retry cannot bypass stored failed-history validation");
+            rejectedRetry(onMain(()->retryReplacement(controller,peer,controller.attachmentSessionToken(),currentSession,queued.info.id,replacement)),"Delivered outgoing history cannot be rebound as a failed retry");
+            onMain(()->{controller.error=UiText.EMPTY;return null;});
+        }finally{getTargetContext().getContentResolver().call(base,"retry-allow",null,null);}
+    }
+    private void rejectedRetry(java.util.concurrent.CompletableFuture<?> future,String message)throws Exception {
+        try{future.get(10,TimeUnit.SECONDS);throw new AssertionError(message+": unexpectedly admitted");}catch(java.util.concurrent.ExecutionException expected){check(true,message);}
+    }
+    private java.util.concurrent.CompletableFuture<?> retryReplacement(ChatController controller,String peer,long token,String session,String id,android.net.Uri uri)throws Exception {return invoke(controller,"retryAttachmentWithSelection",new Class<?>[]{String.class,long.class,String.class,String.class,android.net.Uri.class},peer,token,session,id,uri);}
     private void testContentUriResume(ChatController controller,String peer)throws Exception {
         android.net.Uri uri=android.net.Uri.parse("content://dev.ghost.nearbyim.test.sources/file");getTargetContext().getContentResolver().call(uri,"large",null,null);
         java.security.MessageDigest digest=java.security.MessageDigest.getInstance("SHA-256");

@@ -415,5 +415,14 @@
   "gallerySaving": "正在保存到相册…",
   "gallerySaveFailed": "相册保存失败，原件仍在聊天中，可重试。",
   "gallerySavePermission": "保存到相册需要存储权限；文件已接收。",
-  "galleryAutoSave": "自动将收到的照片保存到相册"
+  "galleryAutoSave": "自动将收到的照片保存到相册",
+  "attachmentRetry": "重发",
+  "attachmentRetryBatch": "重发本批失败项",
+  "attachmentRetrying": "正在重发…",
+  "attachmentRetried": "已重发",
+  "attachmentRetryQueued": "已加入重发队列。",
+  "attachmentRetrySelectAgain": "原文件无法读取，请重新选择后重发。",
+  "attachmentRetryPartial": "{0} 个文件已加入重发队列，{1} 个文件需重新选择。",
+  "attachmentRetryNone": "本批已没有需要重发的失败文件。",
+  "attachmentReselect": "重新选择"
 }
