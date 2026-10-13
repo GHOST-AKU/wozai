@@ -22,6 +22,8 @@ public final class QrScanActivity extends Activity implements SurfaceHolder.Call
     private FrameLayout holder;
     private TextView status;
     private Camera camera;
+    private QrCameraFocus cameraFocus;
+    private final Handler focusHandler=new Handler(Looper.getMainLooper());
     private boolean resumed;
     private long lastFrame;
     private final AtomicBoolean decoding=new AtomicBoolean();
@@ -32,7 +34,7 @@ public final class QrScanActivity extends Activity implements SurfaceHolder.Call
         root.setOnApplyWindowInsetsListener((v,insets)->{if(Build.VERSION.SDK_INT>=30){android.graphics.Insets bars=insets.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.displayCutout());v.setPadding(bars.left,bars.top,bars.right,bars.bottom);}else v.setPadding(insets.getSystemWindowInsetLeft(),insets.getSystemWindowInsetTop(),insets.getSystemWindowInsetRight(),insets.getSystemWindowInsetBottom());return insets;});
         LinearLayout toolbar=new LinearLayout(this);toolbar.setGravity(Gravity.CENTER_VERTICAL);ImageButton back=new ImageButton(this);back.setImageResource(R.drawable.outline_arrow_back_24);back.setImageTintList(android.content.res.ColorStateList.valueOf(Color.WHITE));back.setBackgroundColor(Color.TRANSPARENT);back.setContentDescription(text("close"));back.setOnClickListener(v->finish());toolbar.addView(back,new LinearLayout.LayoutParams(dp(48),dp(56)));
         TextView title=new TextView(this);title.setText(text("verificationScan"));title.setTextColor(Color.WHITE);title.setTextSize(20);toolbar.addView(title);root.addView(toolbar);
-        holder=new FrameLayout(this);preview=new SurfaceView(this);preview.getHolder().addCallback(this);holder.addView(preview,new FrameLayout.LayoutParams(-1,-1));root.addView(holder,new LinearLayout.LayoutParams(-1,0,1));
+        holder=new FrameLayout(this);preview=new SurfaceView(this);preview.getHolder().addCallback(this);preview.setOnClickListener(v->{if(cameraFocus!=null)cameraFocus.focusNow();});holder.addView(preview,new FrameLayout.LayoutParams(-1,-1));root.addView(holder,new LinearLayout.LayoutParams(-1,0,1));
         status=new TextView(this);status.setText(text("verificationExplain"));status.setTextSize(14);status.setTextColor(Color.WHITE);status.setPadding(dp(20),dp(16),dp(20),dp(24));root.addView(status);setContentView(root);
         if(checkSelfPermission(Manifest.permission.CAMERA)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.CAMERA},1);
     }
@@ -51,6 +53,16 @@ public final class QrScanActivity extends Activity implements SurfaceHolder.Call
             Camera.CameraInfo chosen=new Camera.CameraInfo();Camera.getCameraInfo(selected,chosen);Camera opened=Camera.open(selected);camera=opened;Camera.Parameters parameters=opened.getParameters();Camera.Size size=parameters.getPreviewSize();
             List<Camera.Size> sizes=parameters.getSupportedPreviewSizes();if(sizes!=null){size=null;for(Camera.Size candidate:sizes)if(candidate.width<=1024&&candidate.height<=768&&(size==null||candidate.width*candidate.height>size.width*size.height))size=candidate;}
             if(size==null||size.width>2048||size.height>2048)throw new IllegalStateException("No bounded preview");parameters.setPreviewSize(size.width,size.height);parameters.setPreviewFormat(ImageFormat.NV21);opened.setParameters(parameters);
+            QrCameraFocus focus=new QrCameraFocus(new QrCameraFocus.Device(){
+                public List<String> supportedModes(){return opened.getParameters().getSupportedFocusModes();}
+                public String currentMode(){return opened.getParameters().getFocusMode();}
+                public void setMode(String mode){Camera.Parameters focusParameters=opened.getParameters();focusParameters.setFocusMode(mode);opened.setParameters(focusParameters);}
+                public void autoFocus(Runnable completed){opened.autoFocus((success,source)->completed.run());}
+                public void cancelAutoFocus(){opened.cancelAutoFocus();}
+            },new QrCameraFocus.Scheduler(){
+                public void postDelayed(Runnable task,long delayMillis){focusHandler.postDelayed(task,delayMillis);}
+                public void remove(Runnable task){focusHandler.removeCallbacks(task);}
+            });cameraFocus=focus;focus.configure();
             int degrees=getWindowManager().getDefaultDisplay().getRotation()*90;int rotation=chosen.facing==Camera.CameraInfo.CAMERA_FACING_FRONT?(360-(chosen.orientation+degrees)%360)%360:(chosen.orientation-degrees+360)%360;opened.setDisplayOrientation(rotation);
             int width=size.width,height=size.height;boolean swap=rotation%180!=0;float ratio=swap?(float)height/width:(float)width/height;holder.post(()->{if(camera==opened){int availableW=holder.getWidth(),availableH=holder.getHeight();int w=Math.min(availableW,Math.round(availableH*ratio));preview.setLayoutParams(new FrameLayout.LayoutParams(w,Math.round(w/ratio),Gravity.CENTER));}});
             opened.setPreviewDisplay(preview.getHolder());opened.setPreviewCallbackWithBuffer((data,source)->{
@@ -60,10 +72,10 @@ public final class QrScanActivity extends Activity implements SurfaceHolder.Call
                 }
                 if(camera==source&&data!=null)try{source.addCallbackBuffer(data);}catch(RuntimeException stopped){}
             });
-            int bytes=width*height*3/2;opened.addCallbackBuffer(new byte[bytes]);opened.addCallbackBuffer(new byte[bytes]);opened.startPreview();
+            int bytes=width*height*3/2;opened.addCallbackBuffer(new byte[bytes]);opened.addCallbackBuffer(new byte[bytes]);opened.startPreview();focus.start();
         }catch(Exception unavailable){stopCamera();status.setText(text("verificationCameraUnavailable"));}
     }
-    private void stopCamera(){Camera previous=camera;camera=null;if(previous!=null){try{previous.setPreviewCallbackWithBuffer(null);previous.stopPreview();}catch(RuntimeException ignored){}try{previous.release();}catch(RuntimeException ignored){}}}
+    private void stopCamera(){QrCameraFocus previousFocus=cameraFocus;cameraFocus=null;if(previousFocus!=null)previousFocus.stop();Camera previous=camera;camera=null;if(previous!=null){try{previous.setPreviewCallbackWithBuffer(null);previous.stopPreview();}catch(RuntimeException ignored){}try{previous.release();}catch(RuntimeException ignored){}}}
     private int dp(int value){return Math.round(value*getResources().getDisplayMetrics().density);}
     private String text(String key){return AndroidText.get(this,key);}
 }

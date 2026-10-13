@@ -26,3 +26,4 @@ java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.ProtocolV4Tests
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.FairRecordWriterTests
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.SecureSessionTests
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.SafetyCodeTests
+sh tools/test-qr-camera-focus.sh

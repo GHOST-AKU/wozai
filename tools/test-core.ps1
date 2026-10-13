@@ -50,5 +50,9 @@ try {
     & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.SecureSessionTests
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.SafetyCodeTests
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    & java -m jdk.compiler/com.sun.tools.javac.Main -encoding UTF-8 -d build/core-tests app/src/main/java/dev/ghost/nearbyim/QrCameraFocus.java tests/camera/QrCameraFocusTests.java
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    & java -cp build/core-tests dev.ghost.nearbyim.QrCameraFocusTests
     exit $LASTEXITCODE
 } finally { Pop-Location }
