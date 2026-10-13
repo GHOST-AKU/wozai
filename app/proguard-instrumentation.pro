@@ -13,6 +13,7 @@
 -keepclassmembers class dev.ghost.nearbyim.ChatController { java.util.concurrent.ConcurrentHashMap transferProgress; }
 -keepclassmembers class dev.ghost.nearbyim.ChatController {
     java.util.concurrent.ExecutorService storage;
+    dev.ghost.nearbyim.ChatStore store;
     java.lang.Runnable observer;
     void refresh();
 }
