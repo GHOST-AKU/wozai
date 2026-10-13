@@ -20,6 +20,7 @@
 -keep class dev.ghost.nearbyim.ChatController$Feedback { *; }
 -keep class dev.ghost.nearbyim.ChatStore { public *; }
 -keep class dev.ghost.nearbyim.ChatStore$* { public *; }
+-keepclassmembers class dev.ghost.nearbyim.ChatStore$Message { <init>(...); }
 -keep class dev.ghost.nearbyim.core.DeviceIdentity { public *; }
 -keep class dev.ghost.nearbyim.core.IdentityVerification { public *; }
 -keep class dev.ghost.nearbyim.core.SafetyCode { public *; }
