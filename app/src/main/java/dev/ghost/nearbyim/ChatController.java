@@ -439,7 +439,12 @@ public final class ChatController implements TransportListener {
         try{fileSelection.execute(()->{try{
             List<AttachmentBatchQueue.Selection> descriptions=new ArrayList<>();
             for(Uri uri:uris){if(destroyed||token!=attachmentToken)throw new IOException("Attachment session changed");
-                try(AndroidAttachmentSource source=new AndroidAttachmentSource(applicationContext,uri)){descriptions.add(AttachmentBatchQueue.describe(source,source.name(),source.mime()));}
+                try(AndroidAttachmentSource source=new AndroidAttachmentSource(applicationContext,uri)){
+                    // A provider can materialize the same document in a new inode on every open.
+                    // Queue the URI and metadata; pin the live descriptor when this item's turn starts.
+                    // Offered tasks still persist the full source reference for change/resume checks.
+                    descriptions.add(new AttachmentBatchQueue.Selection(uri.toString(),source.generation(),source.name(),source.mime(),source.size(),false));
+                }
                 catch(IOException unavailable){descriptions.add(new AttachmentBatchQueue.Selection(uri.toString(),UUID.randomUUID().toString(),"attachment","application/octet-stream",-1,false));}
             }
             main.post(()->{if(destroyed||selected!=transfers||!canSendAttachment()||token!=attachmentToken||!Objects.equals(peer,connectedPeerId)){releaseSelections(uris);if(!destroyed)fail(UiText.of("notConnected"));return;}
