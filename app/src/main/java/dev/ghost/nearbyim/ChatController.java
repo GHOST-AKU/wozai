@@ -509,11 +509,11 @@ public final class ChatController implements TransportListener {
     private <T> CompletableFuture<T> rejectedAttachmentRetry(UiText message){fail(message);CompletableFuture<T> failed=new CompletableFuture<>();failed.completeExceptionally(new LocalizedIOException(message));return failed;}
     @FunctionalInterface private interface AttachmentRetryOperation<T>{CompletableFuture<T> run()throws IOException;}
     @SuppressWarnings("unchecked")
-    private <T> CompletableFuture<T> queueAttachmentRetry(AttachmentRetrySession session,String request,List<String> ids,AttachmentRetryOperation<T> operation,java.util.function.Function<T,UiText> feedback){
+    private <T> CompletableFuture<T> queueAttachmentRetry(AttachmentRetrySession session,String request,List<String> ids,AttachmentRetryOperation<T> operation){
         CompletableFuture<?> previous=attachmentRetryRequests.get(request);if(previous!=null)return (CompletableFuture<T>)previous;
         CompletableFuture<T> result=new CompletableFuture<>();attachmentRetryRequests.put(request,result);
         for(String id:ids)retryingAttachments.merge(session.peer()+":"+session.token()+":"+id,1,Integer::sum);
-        attachmentRetryRevision++;error=UiText.EMPTY;status=UiText.of("attachmentRetrying");changed();
+        attachmentRetryRevision++;error=UiText.EMPTY;changed();
         CompletableFuture<T> admitted;
         try{admitted=CompletableFuture.runAsync(()->{for(String id:ids)requireFailedAttachment(session.peer(),id);},storage).thenComposeAsync(value->{
             if(!attachmentRetryCurrent(session))throw new CompletionException(new LocalizedIOException(UiText.of("notConnected")));
@@ -523,20 +523,20 @@ public final class ChatController implements TransportListener {
             attachmentRetryRequests.remove(request,result);
             for(String id:ids){String key=session.peer()+":"+session.token()+":"+id;retryingAttachments.computeIfPresent(key,(ignored,count)->count==1?null:count-1);}
             attachmentRetryRevision++;
-            if(attachmentRetryCurrent(session)){if(failure!=null)error=attachmentError(failure);else status=feedback.apply(value);}
+            if(attachmentRetryCurrent(session)&&failure!=null)error=attachmentError(failure);
             changed();if(!attachmentRetryCurrent(session))result.completeExceptionally(new LocalizedIOException(UiText.of("notConnected")));else if(failure==null)result.complete(value);else result.completeExceptionally(failure);
         }));return result;
     }
     public CompletableFuture<String> retryAttachment(String peer,long token,String id){
         AttachmentRetrySession session=attachmentRetrySession(peer,token,null);if(session==null)return rejectedAttachmentRetry(UiText.of("notConnected"));
-        return queueAttachmentRetry(session,"single:"+peer+":"+token+":"+id,List.of(id),()->session.files().retry(id,()->attachmentRetryCurrent(session)),value->UiText.of("attachmentRetryQueued"));
+        return queueAttachmentRetry(session,"single:"+peer+":"+token+":"+id,List.of(id),()->session.files().retry(id,()->attachmentRetryCurrent(session)));
     }
     public CompletableFuture<AttachmentBatchQueue.RetryBatchResult> retryFailedAttachmentBatch(String peer,long token,String id){
         AttachmentRetrySession session=attachmentRetrySession(peer,token,null);if(session==null)return rejectedAttachmentRetry(UiText.of("notConnected"));
         List<AttachmentBatchQueue.Item> items=session.files().batchItems();String batch=items.stream().filter(item->item.info().id.equals(id)).map(AttachmentBatchQueue.Item::batchId).findFirst().orElse(null);
         if(batch==null)return rejectedAttachmentRetry(UiText.of("attachmentRetrySelectAgain"));
         List<String> ids=new ArrayList<>();ids.add(id);for(AttachmentBatchQueue.Item item:items)if(item.batchId().equals(batch)&&item.state().equals("failed")&&!item.info().id.equals(id)&&session.files().retryState(item.info().id)!=AttachmentBatchQueue.RetryState.RETRIED)ids.add(item.info().id);
-        return queueAttachmentRetry(session,"batch:"+peer+":"+token+":"+batch,ids,()->session.files().retryFailedBatch(id,()->attachmentRetryCurrent(session)),ChatController::attachmentRetryBatchFeedback);
+        return queueAttachmentRetry(session,"batch:"+peer+":"+token+":"+batch,ids,()->session.files().retryFailedBatch(id,()->attachmentRetryCurrent(session)));
     }
     public static UiText attachmentRetryBatchFeedback(AttachmentBatchQueue.RetryBatchResult result){
         if(!result.unavailableIds().isEmpty())return UiText.of("attachmentRetryPartial",result.queuedIds().size(),result.unavailableIds().size());
@@ -552,7 +552,7 @@ public final class ChatController implements TransportListener {
             catch(IOException unavailable){if(unavailable instanceof LocalizedIOException&&((LocalizedIOException)unavailable).text.key.equals("attachmentTooLarge"))throw unavailable;throw new LocalizedIOException(UiText.of("attachmentRetrySelectAgain"),unavailable);}
             if(!attachmentRetryCurrent(session))throw new LocalizedIOException(UiText.of("notConnected"));
             return session.files().retryWithSelection(id,replacement,()->attachmentRetryCurrent(session));
-        },value->UiText.of("attachmentRetryQueued"));result.whenComplete((value,failure)->releaseSelections(uris));return result;
+        });result.whenComplete((value,failure)->releaseSelections(uris));return result;
     }
     public static boolean attachmentRetryNeedsSelection(Throwable failure){
         while((failure instanceof CompletionException||failure instanceof ExecutionException)&&failure.getCause()!=null)failure=failure.getCause();
