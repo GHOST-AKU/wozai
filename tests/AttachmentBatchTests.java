@@ -21,7 +21,7 @@ public final class AttachmentBatchTests {
                 check(sender.batchItems().get(1).state().equals("queued"),"Second file advanced before the first saved receipt");
                 check(pair.completeCount.get()==1,"Batch sent the second file before authentic completion");
                 sender.pauseAll().get(3,TimeUnit.SECONDS);
-                check(sender.batchItems().get(1).state().equals("queued"),"Pausing the batch started its next file");
+                check(sender.batchItems().get(1).record().resumable(),"Pausing the batch must expose Continue without starting its next file");
                 pair.dropComplete=false;
                 sender.resumeBatch().get(3,TimeUnit.SECONDS);
                 AttachmentRecord delivered=AttachmentV2Tests.waitFor(pair.aRecords,"delivered");

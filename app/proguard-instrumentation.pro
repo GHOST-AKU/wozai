@@ -38,6 +38,7 @@
 -keep interface dev.ghost.nearbyim.transport.LanTransport$SocketBinding { *; }
 
 -keep class dev.ghost.nearbyim.core.Attachment* { public *; }
+-keep class dev.ghost.nearbyim.core.ClientAttachmentTransfers { public *; }
 -keep class dev.ghost.nearbyim.AndroidAttachmentSource { public *; }
 -keep class dev.ghost.nearbyim.AndroidNoiseIdentity { *; }
 -keep class dev.ghost.nearbyim.core.FileAttachmentSource { public *; }

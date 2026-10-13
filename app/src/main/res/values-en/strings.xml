@@ -407,6 +407,11 @@
     <string name="verification_copy_done" formatted="false">"Safety code copied"</string>
     <string name="verification_done" formatted="false">"Identity verified"</string>
     <string name="verification_explain" formatted="false">"Compare the complete safety code on the other device, or scan its QR code in person. When apart, compare through another trusted channel; exchanging codes only in this chat does not confirm identity."</string>
+    <string name="verification_focus_failed" formatted="false">"Focus failed. Try moving slightly farther away."</string>
+    <string name="verification_focus_hint" formatted="false">"Tap the QR code to focus, or use Refocus."</string>
+    <string name="verification_focus_locked" formatted="false">"Focus acquired"</string>
+    <string name="verification_focus_unavailable" formatted="false">"This camera cannot adjust focus."</string>
+    <string name="verification_focusing" formatted="false">"Focusing…"</string>
     <string name="verification_image" formatted="false">"Read from image"</string>
     <string name="verification_local_only" formatted="false">"Verification is stored only on this device and binds both identities. Identity changes or revocation require verification again."</string>
     <string name="verification_mark" formatted="false">"I compared the complete code"</string>
@@ -414,6 +419,7 @@
     <string name="verification_qr_image" formatted="false">"Identity verification QR code"</string>
     <string name="verification_read_failed" formatted="false">"No usable QR code found. Choose another image or compare manually."</string>
     <string name="verification_reading" formatted="false">"Reading QR code…"</string>
+    <string name="verification_refocus" formatted="false">"Refocus"</string>
     <string name="verification_save_qr" formatted="false">"Save QR code"</string>
     <string name="verification_scan" formatted="false">"Scan QR code"</string>
     <string name="verification_title" formatted="false">"Verify safety code"</string>

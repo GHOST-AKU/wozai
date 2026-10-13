@@ -43,17 +43,19 @@ public final class AttachmentBatchQueue implements AutoCloseable {
     private CompletableFuture<Void> shutdownFuture;
     private volatile String active;
     private final Set<String> cancelRequests=ConcurrentHashMap.newKeySet();
+    private final Set<String> resumeRequests=ConcurrentHashMap.newKeySet();
     AttachmentBatchQueue(Path root,AttachmentTransferV2 engine,SourceResolver sources)throws IOException {
         this.root=root;this.engine=engine;this.sources=sources;
         TransferTaskKey identity=engine.taskIdentity(UUID.randomUUID().toString(),UUID.randomUUID().toString());
         store=new AttachmentBatchStore(root,identity.localRoot(),identity.remoteRoot());var saved=store.read();
-        paused=saved.paused();
+        // A previous session's shutdown pauses its existing records, not future user selections.
+        paused=false;
         for(Item item:saved.items()){
             if(!item.terminal()){
                 TransferCheckpoint checkpoint=new TransferCheckpointStore(root.resolve(".tasks-v2")).load(engine.taskIdentity(item.info().id,item.selection().generation())).orElse(null);
                 if(checkpoint!=null&&checkpoint.state()==TransferCheckpoint.State.COMPLETE)item=new Item(item.batchId(),checkpoint.info(),item.selection(),"delivered",checkpoint.info().size,item.origin(),item.retryOf());
                 else if(checkpoint!=null&&checkpoint.state()==TransferCheckpoint.State.CANCELED)item=new Item(item.batchId(),checkpoint.info(),item.selection(),"canceled",checkpoint.writtenOffset(),item.origin(),item.retryOf());
-                else{paused=true;if(checkpoint!=null)item=new Item(item.batchId(),checkpoint.info(),new Selection(checkpoint.sourceReference(),checkpoint.key().sourceGeneration(),checkpoint.info().name,checkpoint.info().mime,checkpoint.info().size,true),"paused",checkpoint.writtenOffset(),item.origin(),item.retryOf());else if(!item.state().equals("queued"))item=new Item(item.batchId(),item.info(),item.selection(),"paused",item.transferred(),item.origin(),item.retryOf());}
+                else{if(checkpoint!=null)item=new Item(item.batchId(),checkpoint.info(),new Selection(checkpoint.sourceReference(),checkpoint.key().sourceGeneration(),checkpoint.info().name,checkpoint.info().mime,checkpoint.info().size,true),"paused",checkpoint.writtenOffset(),item.origin(),item.retryOf());else item=new Item(item.batchId(),item.info(),item.selection(),"paused",item.transferred(),item.origin(),item.retryOf());}
             }
             items.add(item);
         }
@@ -149,7 +151,7 @@ public final class AttachmentBatchQueue implements AutoCloseable {
             List<Item> before=List.copyOf(items);
             while(items.size()+selected.size()>AttachmentBatchStore.MAX_ITEMS){int i=0;while(i<items.size()&&!items.get(i).terminal())i++;if(i==items.size())throw new IOException("Batch history bound exceeded");items.remove(i);}
             String batch=UUID.randomUUID().toString();long time=System.currentTimeMillis();List<Item> added=new ArrayList<>();
-            for(Selection s:selected)added.add(new Item(batch,AttachmentInfo.v2(UUID.randomUUID().toString(),s.name(),s.mime(),Math.max(0,s.size()),null,time),s,"queued",0));
+            for(Selection s:selected)added.add(new Item(batch,AttachmentInfo.v2(UUID.randomUUID().toString(),s.name(),s.mime(),Math.max(0,s.size()),null,time),s,paused?"paused":"queued",0));
             items.addAll(added);try{persist();}catch(IOException error){items.clear();items.addAll(before);snapshot=List.copyOf(items);throw error;}for(Item item:added)listener.changed(item.record());later(this::pump);return batch;
         });
     }
@@ -162,9 +164,10 @@ public final class AttachmentBatchQueue implements AutoCloseable {
     private void persist()throws IOException {store.write(paused,items);snapshot=List.copyOf(items);}
     private int index(String id){for(int i=0;i<items.size();i++)if(items.get(i).info().id.equals(id))return i;return -1;}
     private void state(Item next)throws IOException {int i=index(next.info().id);if(i<0)return;items.set(i,next);persist();listener.changed(next.record());}
+    private static boolean resumableState(String state){return Set.of("paused","sourceUnavailable","interrupted","unknown").contains(state);}
     private void pump() {
         if(closed||paused||active!=null)return;
-        Item item=items.stream().filter(e->!e.terminal()).findFirst().orElse(null);if(item==null)return;
+        Item item=items.stream().filter(e->!e.terminal()&&(!resumableState(e.state())||resumeRequests.contains(e.info().id))).findFirst().orElse(null);if(item==null)return;
         active=item.info().id;
         try {
             TransferCheckpoint checkpoint=new TransferCheckpointStore(root.resolve(".tasks-v2")).load(engine.taskIdentity(item.info().id,item.selection().generation())).orElse(null);
@@ -191,7 +194,7 @@ public final class AttachmentBatchQueue implements AutoCloseable {
     }
     private void fail(Item item,Throwable error,String status){
         active=null;int i=index(item.info().id);if(i>=0)item=items.get(i);try{state(new Item(item.batchId(),item.info(),item.selection(),status,item.transferred(),item.origin(),item.retryOf()));}catch(IOException storageFailure){paused=true;}
-        cancelRequests.remove(item.info().id);if(!paused&&!closed)pump();
+        cancelRequests.remove(item.info().id);resumeRequests.remove(item.info().id);if(!paused&&!closed)pump();
     }
     private void observe(AttachmentRecord record){if(!record.outgoing)return;later(()->{
         int i=index(record.info.id);if(i<0)return;Item previous=items.get(i);if(previous.terminal())return;
@@ -199,13 +202,14 @@ public final class AttachmentBatchQueue implements AutoCloseable {
         try{
             // Core already persisted its own event before this observer. Only journal queue state here.
             items.set(i,next);if(!previous.state().equals(next.state())||next.terminal())persist();else snapshot=List.copyOf(items);
-            if(record.state.equals("delivered")||record.state.equals("failed")||record.state.equals("canceled")||record.state.equals("rejected")){listener.finished(record);cancelRequests.remove(record.info.id);if(record.info.id.equals(active))active=null;pump();}
+            if(resumableState(record.state))resumeRequests.remove(record.info.id);
+            if(next.terminal()){listener.finished(record);cancelRequests.remove(record.info.id);resumeRequests.remove(record.info.id);if(record.info.id.equals(active))active=null;pump();}
         }catch(IOException failure){paused=true;}
     });}
     public CompletableFuture<Void> pauseAll(){paused=true;AttachmentSource source=preparing;if(source!=null)try{source.close();}catch(IOException ignored){}
-        return command(()->{persist();return active;}).thenCompose(id->id==null?CompletableFuture.completedFuture(null):engine.pause(id,true));
+        return command(()->{resumeRequests.clear();for(Item item:List.copyOf(items))if(!item.terminal()&&!item.info().id.equals(active)&&!item.state().equals("paused"))state(new Item(item.batchId(),item.info(),item.selection(),"paused",item.transferred(),item.origin(),item.retryOf()));persist();return active;}).thenCompose(id->id==null?CompletableFuture.completedFuture(null):engine.pause(id,true));
     }
-    public CompletableFuture<Void> resumeAll(){return command(()->{paused=false;active=null;persist();later(this::pump);return null;});}
+    public CompletableFuture<Void> resumeAll(){return command(()->{boolean wasPaused=paused;paused=false;for(Item item:items)if(!item.terminal()&&resumableState(item.state()))resumeRequests.add(item.info().id);if(wasPaused||active!=null&&resumeRequests.contains(active))active=null;persist();later(this::pump);return null;});}
     public CompletableFuture<Void> cancel(String id){if(snapshot.stream().anyMatch(item->item.info().id.equals(id)&&!item.terminal()))cancelRequests.add(id);if(id.equals(active)){AttachmentSource source=preparing;if(source!=null)try{source.close();}catch(IOException ignored){}}return command(()->{
         int i=index(id);if(i<0)return null;Item item=items.get(i);if(item.terminal())return null;
         if(id.equals(active)){return engine.cancel(id,true);}
@@ -217,7 +221,7 @@ public final class AttachmentBatchQueue implements AutoCloseable {
             done=done.thenCompose(ignored->running?engine.cancel(item.info().id,true):cancelStored(item));
         }return done;
     }).thenCompose(done->done);}
-    private CompletableFuture<Void> cancelStored(Item item){return engine.cancel(item.info().id,true).thenRun(()->{try{discardSnapshot(item);listener.finished(new AttachmentRecord(item.info(),true,"canceled",item.transferred()));}catch(IOException error){throw new CompletionException(error);}finally{cancelRequests.remove(item.info().id);}});}
+    private CompletableFuture<Void> cancelStored(Item item){resumeRequests.remove(item.info().id);return engine.cancel(item.info().id,true).thenRun(()->{try{discardSnapshot(item);listener.finished(new AttachmentRecord(item.info(),true,"canceled",item.transferred()));}catch(IOException error){throw new CompletionException(error);}finally{cancelRequests.remove(item.info().id);}});}
     private void discardSnapshot(Item item){if(item.selection().reference().startsWith("snapshot:\n"))try{OwnedSnapshotSource.discardSaved(root.resolve(".sources-v2"),item.selection().reference());}catch(IOException error){throw new CompletionException(error);}}
     public synchronized CompletableFuture<Void> shutdown(){
         if(shutdownFuture!=null)return shutdownFuture;

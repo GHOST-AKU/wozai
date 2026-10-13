@@ -425,5 +425,11 @@
   "attachmentRetryPartial": "{0} files added to the retry queue; {1} files need to be selected again.",
   "attachmentRetryNone": "No failed files remain to retry in this batch.",
   "attachmentReselect": "Select again",
-  "attachmentRetryIneligible": "Retry unavailable"
+  "attachmentRetryIneligible": "Retry unavailable",
+  "verificationRefocus": "Refocus",
+  "verificationFocusHint": "Tap the QR code to focus, or use Refocus.",
+  "verificationFocusing": "Focusing…",
+  "verificationFocusLocked": "Focus acquired",
+  "verificationFocusFailed": "Focus failed. Try moving slightly farther away.",
+  "verificationFocusUnavailable": "This camera cannot adjust focus."
 }

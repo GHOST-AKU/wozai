@@ -407,6 +407,11 @@
     <string name="verification_copy_done" formatted="false">"コードをコピーしました"</string>
     <string name="verification_done" formatted="false">"本人確認が完了しました"</string>
     <string name="verification_explain" formatted="false">"相手の端末の完全なコードを比較するか、対面で QR コードを読み取ってください。離れている場合は別の信頼できる手段で比較してください。このチャット内だけでコードを交換しても本人確認にはなりません。"</string>
+    <string name="verification_focus_failed" formatted="false">"ピントが合いません。少し離して再試行してください。"</string>
+    <string name="verification_focus_hint" formatted="false">"QRコードをタップするか、再フォーカスを押してください。"</string>
+    <string name="verification_focus_locked" formatted="false">"ピントが合いました"</string>
+    <string name="verification_focus_unavailable" formatted="false">"このカメラはフォーカスを調整できません。"</string>
+    <string name="verification_focusing" formatted="false">"フォーカス中…"</string>
     <string name="verification_image" formatted="false">"画像から読み取る"</string>
     <string name="verification_local_only" formatted="false">"確認結果はこの端末にのみ保存され、双方の身元に結び付きます。身元の変更や信頼の取り消し後は再確認が必要です。"</string>
     <string name="verification_mark" formatted="false">"完全なコードが一致しました"</string>
@@ -414,6 +419,7 @@
     <string name="verification_qr_image" formatted="false">"本人確認用 QR コード"</string>
     <string name="verification_read_failed" formatted="false">"QR コードが見つかりません。別の画像か手動比較をお試しください。"</string>
     <string name="verification_reading" formatted="false">"QR コードを読み取り中…"</string>
+    <string name="verification_refocus" formatted="false">"再フォーカス"</string>
     <string name="verification_save_qr" formatted="false">"QR コードを保存"</string>
     <string name="verification_scan" formatted="false">"QR コードを読み取る"</string>
     <string name="verification_title" formatted="false">"セキュリティコードを確認"</string>

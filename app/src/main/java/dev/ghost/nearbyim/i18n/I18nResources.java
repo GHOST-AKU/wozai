@@ -415,6 +415,11 @@ public final class I18nResources {
             case "verificationCopyDone": return R.string.verification_copy_done;
             case "verificationDone": return R.string.verification_done;
             case "verificationExplain": return R.string.verification_explain;
+            case "verificationFocusFailed": return R.string.verification_focus_failed;
+            case "verificationFocusHint": return R.string.verification_focus_hint;
+            case "verificationFocusLocked": return R.string.verification_focus_locked;
+            case "verificationFocusUnavailable": return R.string.verification_focus_unavailable;
+            case "verificationFocusing": return R.string.verification_focusing;
             case "verificationImage": return R.string.verification_image;
             case "verificationLocalOnly": return R.string.verification_local_only;
             case "verificationMark": return R.string.verification_mark;
@@ -422,6 +427,7 @@ public final class I18nResources {
             case "verificationQrImage": return R.string.verification_qr_image;
             case "verificationReadFailed": return R.string.verification_read_failed;
             case "verificationReading": return R.string.verification_reading;
+            case "verificationRefocus": return R.string.verification_refocus;
             case "verificationSaveQr": return R.string.verification_save_qr;
             case "verificationScan": return R.string.verification_scan;
             case "verificationTitle": return R.string.verification_title;

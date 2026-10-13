@@ -425,5 +425,11 @@
   "attachmentRetryPartial": "{0} 個のファイルを再送キューに追加しました。{1} 個のファイルは再選択が必要です。",
   "attachmentRetryNone": "この一括送信に再送が必要なファイルはありません。",
   "attachmentReselect": "再選択",
-  "attachmentRetryIneligible": "再送できません"
+  "attachmentRetryIneligible": "再送できません",
+  "verificationRefocus": "再フォーカス",
+  "verificationFocusHint": "QRコードをタップするか、再フォーカスを押してください。",
+  "verificationFocusing": "フォーカス中…",
+  "verificationFocusLocked": "ピントが合いました",
+  "verificationFocusFailed": "ピントが合いません。少し離して再試行してください。",
+  "verificationFocusUnavailable": "このカメラはフォーカスを調整できません。"
 }

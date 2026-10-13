@@ -407,6 +407,11 @@
     <string name="verification_copy_done" formatted="false">"安全碼已複製"</string>
     <string name="verification_done" formatted="false">"身分核驗成功"</string>
     <string name="verification_explain" formatted="false">"核對對方裝置上的完整安全碼，或當面掃描對方的 QR 碼。不在身邊時，請透過另一條已信任的管道核對；僅在目前聊天中互傳安全碼不能確認身分。"</string>
+    <string name="verification_focus_failed" formatted="false">"對焦失敗，請稍微拉遠後重試。"</string>
+    <string name="verification_focus_hint" formatted="false">"輕點二維碼的位置對焦，也可點「重新對焦」。"</string>
+    <string name="verification_focus_locked" formatted="false">"已對焦"</string>
+    <string name="verification_focus_unavailable" formatted="false">"此相機不支援調整對焦。"</string>
+    <string name="verification_focusing" formatted="false">"正在對焦…"</string>
     <string name="verification_image" formatted="false">"從圖片讀取"</string>
     <string name="verification_local_only" formatted="false">"核驗結果僅儲存在此裝置，綁定雙方身分。變更身分或撤銷信任後須重新核驗。"</string>
     <string name="verification_mark" formatted="false">"我已核對一致"</string>
@@ -414,6 +419,7 @@
     <string name="verification_qr_image" formatted="false">"身分核驗 QR 碼"</string>
     <string name="verification_read_failed" formatted="false">"未找到可用的 QR 碼，請另選圖片或手動核對。"</string>
     <string name="verification_reading" formatted="false">"正在讀取 QR 碼…"</string>
+    <string name="verification_refocus" formatted="false">"重新對焦"</string>
     <string name="verification_save_qr" formatted="false">"儲存 QR 碼"</string>
     <string name="verification_scan" formatted="false">"掃描 QR 碼"</string>
     <string name="verification_title" formatted="false">"驗證安全碼"</string>

@@ -91,6 +91,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
             checks+=AndroidNoiseIdentityChecks.run(getTargetContext());
             checks+=AndroidVerificationChecks.run(getTargetContext());
             checks+=dev.ghost.nearbyim.transport.AndroidLanNetworkChecks.run();
+            testScannerFocusControls();
             testRecreationWithLiveSession();
             results.putString("stream", "NearbyIM Android localization: " + checks + " checks passed\n");
         } catch (Throwable failure) {
@@ -161,6 +162,18 @@ public final class LocalizationInstrumentation extends Instrumentation {
             check(!AndroidText.date(translated, 1700000000000L, "MMMdjm").isEmpty(), "New locale formats native dates: " + expected[0]);
         }
         onMain(() -> { AppLanguage.select(application, "en"); return null; });
+    }
+    private void testScannerFocusControls()throws Exception {
+        try(android.os.ParcelFileDescriptor descriptor=getUiAutomation().executeShellCommand("pm grant "+getTargetContext().getPackageName()+" android.permission.CAMERA");InputStream input=new java.io.FileInputStream(descriptor.getFileDescriptor())){byte[] buffer=new byte[128];while(input.read(buffer)!=-1){}}
+        Activity scan=startActivitySync(new Intent().setClassName(getTargetContext(),"dev.ghost.nearbyim.QrScanActivity").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        try{waitForIdleSync();onMain(()->{
+            android.view.View root=scan.getWindow().getDecorView();android.widget.Button refocus=root.findViewWithTag("qrRefocus");android.widget.TextView hint=root.findViewWithTag("qrFocusHint");android.view.View preview=root.findViewWithTag("qrPreview");
+            check(refocus!=null&&refocus.isShown()&&refocus.getText().toString().equals(AndroidText.get(scan,"verificationRefocus")),"Scanner exposes a visible translated manual Refocus button");
+            check(hint!=null&&hint.isShown()&&hint.getText().toString().equals(AndroidText.get(scan,"verificationFocusHint")),"Scanner explains tap-to-focus");
+            check(preview!=null&&preview.isClickable()&&preview.hasOnClickListeners(),"Preview has an accessible real manual focus action");
+            if(refocus.isEnabled())check(refocus.performClick(),"Native Refocus button dispatches its focus request");
+            check(!scan.isFinishing(),"Optional focus request leaves scanner alive");return null;
+        });}finally{onMain(()->{scan.finish();return null;});waitForIdleSync();}
     }
     private void testRecreationWithLiveSession() throws Exception {
         activity = (MainActivity) startActivitySync(new Intent(getTargetContext(), MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));

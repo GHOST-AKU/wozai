@@ -407,6 +407,11 @@
     <string name="verification_copy_done" formatted="false">"安全码已复制"</string>
     <string name="verification_done" formatted="false">"身份核验成功"</string>
     <string name="verification_explain" formatted="false">"核对对方设备上的完整安全码，或当面扫描对方的二维码。不在身边时，请通过另一条已信任的渠道核对；仅在当前聊天中互发安全码不能确认身份。"</string>
+    <string name="verification_focus_failed" formatted="false">"对焦失败，请稍微拉远后重试。"</string>
+    <string name="verification_focus_hint" formatted="false">"轻点二维码的位置对焦，也可点「重新对焦」。"</string>
+    <string name="verification_focus_locked" formatted="false">"已对焦"</string>
+    <string name="verification_focus_unavailable" formatted="false">"此相机不支持调整对焦。"</string>
+    <string name="verification_focusing" formatted="false">"正在对焦…"</string>
     <string name="verification_image" formatted="false">"从图片读取"</string>
     <string name="verification_local_only" formatted="false">"核验结果仅保存在这台设备，绑定双方身份。更换身份或撤销信任后需要重新核验。"</string>
     <string name="verification_mark" formatted="false">"我已核对一致"</string>
@@ -414,6 +419,7 @@
     <string name="verification_qr_image" formatted="false">"身份核验二维码"</string>
     <string name="verification_read_failed" formatted="false">"未找到可用的二维码，请重新选择图片或手动核对。"</string>
     <string name="verification_reading" formatted="false">"正在读取二维码…"</string>
+    <string name="verification_refocus" formatted="false">"重新对焦"</string>
     <string name="verification_save_qr" formatted="false">"保存二维码"</string>
     <string name="verification_scan" formatted="false">"扫描二维码"</string>
     <string name="verification_title" formatted="false">"验证安全码"</string>

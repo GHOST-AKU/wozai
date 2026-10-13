@@ -407,6 +407,11 @@
     <string name="verification_copy_done" formatted="false">"보안 코드 복사됨"</string>
     <string name="verification_done" formatted="false">"신원 확인 완료"</string>
     <string name="verification_explain" formatted="false">"상대 기기의 전체 보안 코드를 비교하거나 직접 만나 QR 코드를 스캔하세요. 떨어져 있다면 다른 신뢰할 수 있는 수단으로 비교하세요. 이 채팅에서만 코드를 교환하면 신원을 확인할 수 없습니다."</string>
+    <string name="verification_focus_failed" formatted="false">"초점을 맞추지 못했습니다. 조금 멀리서 다시 시도하세요."</string>
+    <string name="verification_focus_hint" formatted="false">"QR 코드를 누르거나 다시 초점 맞추기를 누르세요."</string>
+    <string name="verification_focus_locked" formatted="false">"초점이 맞았습니다"</string>
+    <string name="verification_focus_unavailable" formatted="false">"이 카메라는 초점을 조절할 수 없습니다."</string>
+    <string name="verification_focusing" formatted="false">"초점 맞추는 중…"</string>
     <string name="verification_image" formatted="false">"이미지에서 읽기"</string>
     <string name="verification_local_only" formatted="false">"확인 결과는 이 기기에만 저장되며 양쪽 신원에 연결됩니다. 신원이 변경되거나 신뢰를 취소하면 다시 확인해야 합니다."</string>
     <string name="verification_mark" formatted="false">"전체 코드가 일치함을 확인했어요"</string>
@@ -414,6 +419,7 @@
     <string name="verification_qr_image" formatted="false">"신원 확인용 QR 코드"</string>
     <string name="verification_read_failed" formatted="false">"QR 코드를 찾지 못했습니다. 다른 이미지나 수동 비교를 이용하세요."</string>
     <string name="verification_reading" formatted="false">"QR 코드 읽는 중…"</string>
+    <string name="verification_refocus" formatted="false">"다시 초점 맞추기"</string>
     <string name="verification_save_qr" formatted="false">"QR 코드 저장"</string>
     <string name="verification_scan" formatted="false">"QR 코드 스캔"</string>
     <string name="verification_title" formatted="false">"보안 코드 확인"</string>

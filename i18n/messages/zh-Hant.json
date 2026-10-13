@@ -425,5 +425,11 @@
   "attachmentRetryPartial": "{0} 個檔案已加入重發佇列，{1} 個檔案需重新選擇。",
   "attachmentRetryNone": "本批已沒有需要重發的失敗檔案。",
   "attachmentReselect": "重新選擇",
-  "attachmentRetryIneligible": "此項不可重發"
+  "attachmentRetryIneligible": "此項不可重發",
+  "verificationRefocus": "重新對焦",
+  "verificationFocusHint": "輕點二維碼的位置對焦，也可點「重新對焦」。",
+  "verificationFocusing": "正在對焦…",
+  "verificationFocusLocked": "已對焦",
+  "verificationFocusFailed": "對焦失敗，請稍微拉遠後重試。",
+  "verificationFocusUnavailable": "此相機不支援調整對焦。"
 }
