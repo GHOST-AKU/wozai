@@ -43,6 +43,7 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.UUID;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -476,7 +477,21 @@ public final class LocalizationInstrumentation extends Instrumentation {
         android.net.Uri another=uri.buildUpon().appendQueryParameter("selection","second").build();onMain(()->{controller.sendAttachments(peer,controller.attachmentSessionToken(),List.of(uri,another));return null;});
         AttachmentRecord firstBatch=remoteFileState("received"),secondBatch=remoteFileState("received");check(!firstBatch.info.id.equals(secondBatch.info.id)&&firstBatch.info.hash.equals(received.info.hash)&&secondBatch.info.hash.equals(received.info.hash),"Android batches two URI originals through encrypted transfer tasks");
         await(()->onMain(()->controller.messages.stream().filter(m->m.outgoing&&m.attachment!=null&&m.attachment.state.equals("delivered")&&(m.id.equals(firstBatch.info.id)||m.id.equals(secondBatch.info.id))).count()==2),"Android batch completes both saved receipts");
+        testReopenedProviderBatch(controller,peer);
         long token=onMain(()->controller.attachmentSessionToken());onMain(()->{controller.sendAttachment(peer,token-1,uri);return null;});check(onMain(()->controller.error.key.equals("notConnected")),"Stale picker result cannot cross session generations");
+    }
+    private void testReopenedProviderBatch(ChatController controller,String peer)throws Exception {
+        android.net.Uri base=android.net.Uri.parse("content://dev.ghost.nearbyim.test.sources");getTargetContext().getContentResolver().call(base,"reset",null,null);
+        List<android.net.Uri> sources=List.of(base.buildUpon().path("/reopened/first").build(),base.buildUpon().path("/file").build(),base.buildUpon().path("/reopened/third").build());
+        Set<String> previous=onMain(()->controller.messages.stream().map(m->m.id).collect(java.util.stream.Collectors.toSet()));
+        onMain(()->{controller.sendAttachments(peer,controller.attachmentSessionToken(),sources);return null;});
+        await(()->onMain(()->controller.messages.stream().filter(m->m.outgoing&&!previous.contains(m.id)&&m.attachment!=null&&!m.attachment.active()).count()==3),"Provider batch reaches three terminal rows");
+        List<String> states=onMain(()->controller.messages.stream().filter(m->m.outgoing&&!previous.contains(m.id)&&m.attachment!=null).map(m->m.attachment.state).collect(java.util.stream.Collectors.toList()));
+        check(states.size()==3&&states.stream().allMatch("delivered"::equals),"Provider batch must deliver all three files; observed "+states);
+        AttachmentRecord[] received=new AttachmentRecord[3];for(int i=0;i<received.length;i++)received[i]=remoteFileState("received");
+        Set<String> ids=new java.util.HashSet<>();for(AttachmentRecord record:received){ids.add(record.info.id);java.nio.file.Path target=AttachmentTransfer.file(new File(getTargetContext().getCacheDir(),"native-remote-attachments-"+peer).toPath(),record.info);check(java.util.Arrays.equals(java.nio.file.Files.readAllBytes(target),new byte[]{0,1,2,3,4,5,6,7}),"Reopened provider batch preserves each original through Noise");}
+        check(ids.size()==3,"Reopened provider batch has three distinct transfer tasks");
+        await(()->onMain(()->controller.messages.stream().filter(m->m.outgoing&&ids.contains(m.id)&&m.attachment!=null&&m.attachment.state.equals("delivered")).count()==3),"Android batch delivers all selected provider views, not just the stable-inode file");
     }
     private android.widget.Button attachmentButton(android.view.View view,String description){
         if(view instanceof android.widget.Button button&&description.contentEquals(button.getContentDescription()==null?"":button.getContentDescription()))return button;
