@@ -600,6 +600,11 @@ public final class MainActivity extends Activity {
             long day=dayKey(message.time);if(day!=previousDay){String key="date:"+day+":"+messageKey(message);View date=existing.get(key);if(date==null){date=messageDate(message,day);layoutChanged=true;}desired.add(date);previousDay=day;}
             String key=messageKey(message);View row=existing.get(key);ChatStore.Message old=before.get(key);
             boolean reusable=row!=null&&old!=null&&!dirtyAttachmentRows.contains(key)&&sameMessage(old,message);
+            if(reusable&&message.attachment!=null&&retryableAttachment(message.attachment)){
+                AttachmentBatchQueue.RetryState state=controller.attachmentRetryState(controller.selectedId,message.id);
+                Button retry=row.findViewWithTag("attachmentRetry");boolean enabled=controller.canSendAttachment()&&state!=AttachmentBatchQueue.RetryState.RETRYING&&state!=AttachmentBatchQueue.RetryState.RETRIED&&state!=AttachmentBatchQueue.RetryState.INELIGIBLE;
+                reusable=retry!=null&&retry.getText().toString().equals(t(attachmentRetryLabel(state)))&&retry.isEnabled()==enabled;
+            }
             if(!reusable&&row!=null&&old!=null&&!dirtyAttachmentRows.contains(key)){
                 AttachmentRecord a=old.attachment,b=message.attachment;
                 reusable=a!=null&&b!=null&&a.active()&&b.active()&&sameAttachmentInfo(a.info,b.info)&&a.state.equals(b.state)&&a.outgoing==b.outgoing&&old.time==message.time&&old.text.equals(message.text)&&old.state.equals(message.state)&&row.findViewWithTag("attachmentProgress")!=null;
