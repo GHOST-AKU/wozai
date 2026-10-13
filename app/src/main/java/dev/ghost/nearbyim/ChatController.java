@@ -44,6 +44,7 @@ public final class ChatController implements TransportListener {
     private final TrustPolicy trust = new TrustPolicy();
     private final Hooks hooks;
     private Runnable observer, reconnectTimeout;
+    private boolean refreshingHistory, refreshHistoryAgain;
     private volatile FramedSession active;
     private volatile ClientAttachmentTransfers transfers;
     private volatile long attachmentToken;
@@ -613,6 +614,9 @@ public final class ChatController implements TransportListener {
         attachmentsStopped=attachmentsStopped.handle((value,failure)->null).thenRunAsync(()->{try{GalleryPublisher.get(applicationContext).clearPeer(id).get(30,TimeUnit.SECONDS);}catch(Exception failure){throw new CompletionException(failure);}store.clear(id);try{AndroidAttachmentSource.releaseUnusedGrants(applicationContext);}catch(IOException failure){throw new CompletionException(failure);}},storage);
         attachmentsStopped.whenComplete((value,failure)->main.post(()->{if(!destroyed){if(failure!=null)fail(attachmentError(failure));refresh();}}));}
     private void refresh() {
+        if(destroyed)return;
+        if(refreshingHistory){refreshHistoryAgain=true;return;}
+        refreshingHistory=true;refreshHistoryAgain=false;
         String selection = selectedId; long version = trust.version();
         db(() -> {
             List<ChatStore.Conversation> saved = store.conversations();
@@ -620,12 +624,17 @@ public final class ChatController implements TransportListener {
             Map<String,String> checked=new HashMap<>();if(identity!=null)for(ChatStore.TrustedDevice device:devices)if(store.isVerified(device.id,identity.publicKey(),device.publicKey))checked.put(device.id,device.publicKey);
             List<ChatStore.Message> history = selection == null ? new ArrayList<>() : store.messages(selection);
             main.post(() -> {
-                if (destroyed) return; conversations = saved;
-                if (version == trust.version()) {trustedDevices = devices;verifiedRoots=checked;}
-                if (Objects.equals(selection, selectedId)) messages = liveMessages(history,selection);
-                changed();
+                try {
+                    if (destroyed) return; conversations = saved;
+                    if (version == trust.version()) {trustedDevices = devices;verifiedRoots=checked;}
+                    if (Objects.equals(selection, selectedId)) messages = liveMessages(history,selection);
+                    changed();
+                }finally{
+                    refreshingHistory=false;
+                    if(!destroyed&&refreshHistoryAgain)refresh();
+                }
             });
-        }, null);
+        }, null,()->{refreshingHistory=false;refreshHistoryAgain=false;});
     }
     private void db(Runnable work, Runnable success) { db(work, success, null); }
     private void db(Runnable work, Runnable success, Runnable failure) {

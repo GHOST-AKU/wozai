@@ -259,6 +259,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
         await(() -> onMain(() -> controller.messages.size() >= 35), "Saved timeline loads");
         testLiveAttachmentFeedback(controller,peerId);
         testBatchRefreshResponsiveness(controller,peerId);
+        testBatchPhotoRetention(controller,peerId);
         Thread.sleep(150); waitForIdleSync();
         int scroll = onMain(() -> { ScrollView view = field(activity, "messageScroll"); view.scrollTo(0, 120); return view.getScrollY(); });
         check(scroll > 0, "Timeline is scrollable before recreation");
@@ -649,6 +650,14 @@ public final class LocalizationInstrumentation extends Instrumentation {
         });
         java.util.concurrent.ExecutorService storage=field(controller,"storage");
         storage.submit(()->{}).get(10,TimeUnit.SECONDS);waitForIdleSync();
+        onMain(()->{
+            ChatStore.Message text=saved.stream().filter(m->m.attachment==null).findFirst().orElseThrow(()->new AssertionError("Missing saved text fixture"));
+            ChatStore.Message photo=saved.stream().filter(m->m.attachment!=null&&!m.outgoing&&m.attachment.info.mime.startsWith("image/")&&m.attachment.state.equals("received")).findFirst().orElseThrow(()->new AssertionError("Missing saved photo fixture"));
+            android.view.ViewGroup bubbles=field(activity,"bubbles");android.view.View row=bubbles.findViewWithTag("message:"+text.id+":"+text.outgoing);
+            GalleryPublisher.Listener listener=field(activity,"galleryListener");listener.changed(peer,photo.id);
+            if(row!=bubbles.findViewWithTag("message:"+text.id+":"+text.outgoing))failures.add("gallery result rebuilt unrelated saved text");
+            return null;
+        });
         CountDownLatch started=new CountDownLatch(1),release=new CountDownLatch(1);
         java.util.concurrent.atomic.AtomicInteger snapshots=new java.util.concurrent.atomic.AtomicInteger();
         java.util.concurrent.atomic.AtomicReference<java.util.List<ChatStore.Message>> last=new java.util.concurrent.atomic.AtomicReference<>(onMain(()->controller.messages));
@@ -664,6 +673,17 @@ public final class LocalizationInstrumentation extends Instrumentation {
             check(onMain(()->controller.messages.stream().map(m->m.id).collect(java.util.stream.Collectors.toList()).equals(expected.stream().map(m->m.id).collect(java.util.stream.Collectors.toList()))),"Coalesced history still publishes all latest saved records");
         }finally{release.countDown();onMain(()->{controller.observe(observer);return null;});}
         check(failures.isEmpty(),"Batch transfer UI responsiveness: "+String.join("; ",failures));
+    }
+    private void testBatchPhotoRetention(ChatController controller,String peer)throws Exception {
+        Bitmap bitmap=Bitmap.createBitmap(8,8,Bitmap.Config.ARGB_8888);bitmap.eraseColor(android.graphics.Color.GREEN);
+        java.io.ByteArrayOutputStream encoded=new java.io.ByteArrayOutputStream();bitmap.compress(Bitmap.CompressFormat.PNG,100,encoded);bitmap.recycle();byte[] bytes=encoded.toByteArray();List<String> ids=new ArrayList<>();
+        for(int i=0;i<13;i++){
+            String id=remoteTransfers.offer(testFileSource(bytes),"batch-preview-"+i+".png","image/png").get(10,TimeUnit.SECONDS);ids.add(id);
+            AttachmentRecord delivered=remoteFileState("delivered");check(id.equals(delivered.info.id),"Encrypted photo batch gets its matching saved receipt");
+            await(()->onMain(()->controller.messages.stream().anyMatch(m->m.id.equals(id)&&m.attachment!=null&&m.attachment.state.equals("received"))),"Batch photo appears in the saved native timeline");
+        }
+        await(()->onMain(()->{java.util.Set<?> loading=field(activity,"loadingThumbnails");java.util.concurrent.ThreadPoolExecutor worker=field(activity,"imageWorker");return loading.isEmpty()&&worker.getActiveCount()==0&&worker.getQueue().isEmpty();}),"Batch thumbnail work finishes without a repeated rebuild loop");
+        onMain(()->{android.view.ViewGroup bubbles=field(activity,"bubbles");int retained=0;for(String id:ids){android.widget.ImageView image=bubbles.findViewWithTag("photo:"+id);if(image!=null&&image.getDrawable() instanceof android.graphics.drawable.BitmapDrawable)retained++;}java.util.Map<?,?> cache=field(activity,"thumbnails");check(retained>0&&retained<=12,"Photo rows retain the original bounded bitmap budget after batch eviction: "+retained);check(cache.size()<=12,"Thumbnail cache stays bounded after thirteen real encrypted photos");return null;});
     }
     private void rejectedAttachmentFuture(java.util.concurrent.CompletableFuture<?> future,String message)throws Exception {
         try{future.get(1,TimeUnit.SECONDS);throw new AssertionError(message+": unexpectedly succeeded");}

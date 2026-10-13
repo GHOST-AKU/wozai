@@ -66,7 +66,10 @@ public final class MainActivity extends Activity {
     private Uri selectedExportUri;
     private GalleryPublisher gallery;
     private String pendingGalleryPeer,pendingGalleryRecord;
-    private final GalleryPublisher.Listener galleryListener=(peer,id)->{if(!isDestroyed()&&controller!=null&&Objects.equals(peer,controller.selectedId)){renderedMessages=null;renderChat();}};
+    private final GalleryPublisher.Listener galleryListener=this::attachmentVisualChanged;
+    private final Set<String> dirtyAttachmentRows=new HashSet<>();
+    private TimelinePosition pendingTimelinePosition;
+    private final Runnable restoreTimelinePosition=this::restoreTimelinePosition;
     private final java.util.concurrent.ThreadPoolExecutor imageWorker=new java.util.concurrent.ThreadPoolExecutor(1,1,0,java.util.concurrent.TimeUnit.SECONDS,new java.util.concurrent.ArrayBlockingQueue<>(16),r->{Thread thread=new Thread(r,"attachment-thumbnail");thread.setDaemon(true);return thread;},new java.util.concurrent.ThreadPoolExecutor.AbortPolicy());
     private final LinkedHashMap<String,Bitmap> thumbnails=new LinkedHashMap<>();
     private final Set<String> loadingThumbnails=new HashSet<>(),thumbnailTargets=new HashSet<>();
@@ -174,7 +177,7 @@ public final class MainActivity extends Activity {
         if (approvalDialog != null) { approvalDialog.setOnCancelListener(null); approvalDialog.dismiss(); approvalDialog = null; shownApproval = null; }
         super.onStop();
     }
-    protected void onDestroy(){if(verificationDialog!=null)verificationDialog.dismiss();imageWorker.shutdownNow();thumbnails.clear();super.onDestroy();}
+    protected void onDestroy(){if(verificationDialog!=null)verificationDialog.dismiss();if(messageScroll!=null)messageScroll.removeCallbacks(restoreTimelinePosition);pendingTimelinePosition=null;imageWorker.shutdownNow();thumbnails.clear();super.onDestroy();}
     protected void onSaveInstanceState(Bundle state) {
         state.putString("pendingGalleryPeer",pendingGalleryPeer);state.putString("pendingGalleryRecord",pendingGalleryRecord);
         state.putString("pendingAttachmentPeer",pendingAttachmentPeer);state.putLong("pendingAttachmentToken",pendingAttachmentToken);state.putString("pendingExportPeer",pendingExportPeer);state.putString("pendingExportRecord",pendingExportRecord);
@@ -544,21 +547,22 @@ public final class MainActivity extends Activity {
         reconnectHint.setText(connecting ? t(controller.status) : trusted ? controller != null && !UiText.EMPTY.equals(controller.error) ? t("reconnectUnavailable") : t("reconnectRemembered") : t("draftRetainedHint"));
         composer.setEnabled(peerId != null);emojiButton.setEnabled(peerId!=null);attachmentToggle.setEnabled(controller!=null&&controller.canSendAttachment());fileButton.setEnabled(controller!=null&&controller.canSendAttachment());photoButton.setEnabled(controller!=null&&controller.canSendAttachment());if(switched)attachmentTray.setVisibility(View.GONE);updateSend();
         String retryState=controller==null?null:controller.attachmentRetryRevision()+":"+controller.canSendAttachment()+":"+peerId;if(!Objects.equals(renderedRetryState,retryState)){renderedMessages=null;renderedRetryState=retryState;}
-        if (controller == null || renderedMessages == controller.messages && Objects.equals(renderedPeer, peerId)) return;
+        if (controller == null || dirtyAttachmentRows.isEmpty()&&renderedMessages == controller.messages && Objects.equals(renderedPeer, peerId)) return;
         boolean newPeer = !Objects.equals(renderedPeer, peerId), wasAtBottom = atBottom(); int previousScroll = messageScroll.getScrollY();
-        if(!newPeer&&updateLiveAttachmentViews(controller.messages)){renderedMessages=controller.messages;return;}
         String oldLast = renderedMessages == null || renderedMessages.isEmpty() ? null : renderedMessages.get(renderedMessages.size() - 1).id;
         String newLast = controller.messages.isEmpty() ? null : controller.messages.get(controller.messages.size() - 1).id;
         boolean appended = !newPeer && oldLast != null && newLast != null && !Objects.equals(oldLast, newLast);
+        updateThumbnailTargets(peerId,controller.messages);
+        if(!newPeer&&updateLiveAttachmentViews(controller.messages)){
+            renderedMessages=controller.messages;if(appended&&!wasAtBottom&&detail)newMessages.setVisibility(View.VISIBLE);return;
+        }
         if (renderedPeer != null && newPeer && !Objects.equals(renderedPeer, deferredScrollPeer)) historyPositions.put(renderedPeer, previousScroll);
         if (newPeer) { deferredScrollPeer = peerId != null && historyPositions.containsKey(peerId) ? peerId : null; deferredScrollY = deferredScrollPeer == null ? 0 : historyPositions.get(peerId); }
-        Set<String> photoRecords=new HashSet<>();for(ChatStore.Message message:controller.messages)if(message.attachment!=null)photoRecords.add(thumbnailKey(peerId,message.attachment));
-        String cachePrefix=peerId+":";thumbnails.keySet().removeIf(key->key.startsWith(cachePrefix)&&!photoRecords.contains(key));failedThumbnails.removeIf(key->key.startsWith(cachePrefix)&&!photoRecords.contains(key));
-        thumbnailTargets.clear();for(int i=controller.messages.size()-1;i>=0&&thumbnailTargets.size()<12;i--){AttachmentRecord a=controller.messages.get(i).attachment;if(a!=null&&a.info.mime.startsWith("image/")&&photoAvailable(a))thumbnailTargets.add(thumbnailKey(peerId,a));}
+        messageScroll.removeCallbacks(restoreTimelinePosition);pendingTimelinePosition=null;dirtyAttachmentRows.clear();
         renderedPeer = peerId; renderedMessages = controller.messages; final int generation = ++messageGeneration; rebuildingMessages = true; bubbles.removeAllViews();
         if (controller.messages.isEmpty()) bubbles.addView(empty(t("noMessageTitle"), t("firstMessageHint")));
         else { long previousDay = Long.MIN_VALUE; for (ChatStore.Message message : controller.messages) {
-            long day = dayKey(message.time); if (day != previousDay) { TextView date = label(AndroidText.date(this, message.time, "MMMd"), 12, muted); date.setGravity(Gravity.CENTER); date.setPadding(0, dp(16), 0, dp(10)); bubbles.addView(date); previousDay = day; }
+            long day = dayKey(message.time); if (day != previousDay) { bubbles.addView(messageDate(message,day)); previousDay = day; }
             addBubble(message);
         }}
         updateMessageWidths();
@@ -577,23 +581,55 @@ public final class MainActivity extends Activity {
         });
     }
     private boolean atBottom() { return bubbles == null || bubbles.getHeight() - messageScroll.getHeight() - messageScroll.getScrollY() < dp(48); }
+    private void updateThumbnailTargets(String peer,List<ChatStore.Message> messages){
+        Set<String> records=new HashSet<>();for(ChatStore.Message message:messages)if(message.attachment!=null)records.add(thumbnailKey(peer,message.attachment));
+        String prefix=peer+":";thumbnails.keySet().removeIf(key->key.startsWith(prefix)&&!records.contains(key));failedThumbnails.removeIf(key->key.startsWith(prefix)&&!records.contains(key));
+        thumbnailTargets.clear();for(int i=messages.size()-1;i>=0&&thumbnailTargets.size()<12;i--){AttachmentRecord record=messages.get(i).attachment;if(record!=null&&record.info.mime.startsWith("image/")&&photoAvailable(record))thumbnailTargets.add(thumbnailKey(peer,record));}
+    }
+    private static String messageKey(ChatStore.Message message){return "message:"+message.id+":"+message.outgoing;}
+    private static boolean sameMessage(ChatStore.Message a,ChatStore.Message b){return a==b||a.outgoing==b.outgoing&&a.time==b.time&&Objects.equals(a.id,b.id)&&Objects.equals(a.text,b.text)&&Objects.equals(a.state,b.state)&&Objects.equals(a.attachment,b.attachment);}
+    private static boolean sameAttachmentInfo(AttachmentInfo a,AttachmentInfo b){return a==b||a.version==b.version&&a.size==b.size&&a.time==b.time&&a.id.equals(b.id)&&a.name.equals(b.name)&&a.mime.equals(b.mime)&&Objects.equals(a.hash,b.hash);}
+    private View messageDate(ChatStore.Message message,long day){TextView date=label(AndroidText.date(this,message.time,"MMMd"),12,muted);date.setTag("date:"+day+":"+messageKey(message));date.setGravity(Gravity.CENTER);date.setPadding(0,dp(16),0,dp(10));return date;}
     private boolean updateLiveAttachmentViews(List<ChatStore.Message> messages) {
-        if(renderedMessages==null||renderedMessages.size()!=messages.size())return false;
-        for(int i=0;i<messages.size();i++){
-            ChatStore.Message before=renderedMessages.get(i),after=messages.get(i);if(before==after)continue;
-            AttachmentRecord a=before.attachment,b=after.attachment;
-            if(a==null||b==null||!a.active()||!b.active()||a.info!=b.info||!a.state.equals(b.state)||a.outgoing!=b.outgoing||!before.state.equals(after.state))return false;
-            View row=bubbles.findViewWithTag("message:"+b.info.id+":"+b.outgoing);if(row==null||row.findViewWithTag("attachmentProgress")==null)return false;
+        if(renderedMessages==null||renderedMessages.isEmpty()||messages.isEmpty()||deferredScrollPeer!=null)return false;
+        Map<String,ChatStore.Message> before=new HashMap<>();for(ChatStore.Message message:renderedMessages)before.put(messageKey(message),message);
+        Map<String,View> existing=new HashMap<>();for(int i=0;i<bubbles.getChildCount();i++){View view=bubbles.getChildAt(i);if(view.getTag() instanceof String)existing.put((String)view.getTag(),view);}
+        TimelinePosition position=pendingTimelinePosition==null?captureTimelinePosition():pendingTimelinePosition;
+        List<View> desired=new ArrayList<>();long previousDay=Long.MIN_VALUE;boolean layoutChanged=false;
+        for(ChatStore.Message message:messages){
+            long day=dayKey(message.time);if(day!=previousDay){String key="date:"+day+":"+messageKey(message);View date=existing.get(key);if(date==null){date=messageDate(message,day);layoutChanged=true;}desired.add(date);previousDay=day;}
+            String key=messageKey(message);View row=existing.get(key);ChatStore.Message old=before.get(key);
+            boolean reusable=row!=null&&old!=null&&!dirtyAttachmentRows.contains(key)&&sameMessage(old,message);
+            if(!reusable&&row!=null&&old!=null&&!dirtyAttachmentRows.contains(key)){
+                AttachmentRecord a=old.attachment,b=message.attachment;
+                reusable=a!=null&&b!=null&&a.active()&&b.active()&&sameAttachmentInfo(a.info,b.info)&&a.state.equals(b.state)&&a.outgoing==b.outgoing&&old.time==message.time&&old.text.equals(message.text)&&old.state.equals(message.state)&&row.findViewWithTag("attachmentProgress")!=null;
+            }
+            if(!reusable){row=createBubble(message);layoutChanged=true;}
+            desired.add(row);
         }
-        for(ChatStore.Message message:messages){AttachmentRecord record=message.attachment;if(record==null||!record.active())continue;
-            View row=bubbles.findViewWithTag("message:"+record.info.id+":"+record.outgoing);if(row==null)continue;
+        Set<View> retained=new HashSet<>(desired);for(int i=bubbles.getChildCount()-1;i>=0;i--)if(!retained.contains(bubbles.getChildAt(i))){bubbles.removeViewAt(i);layoutChanged=true;}
+        for(int i=0;i<desired.size();i++){View view=desired.get(i);if(i<bubbles.getChildCount()&&bubbles.getChildAt(i)==view)continue;if(view.getParent()==bubbles)bubbles.removeView(view);bubbles.addView(view,i);layoutChanged=true;}
+        dirtyAttachmentRows.clear();
+        // Waiting rows have no changing measurement; avoid formatting all queued files at every tick.
+        for(ChatStore.Message message:messages){AttachmentRecord record=message.attachment;if(record==null||!record.active()||record.state.equals("queued")||record.state.equals("preparing")||record.state.equals("offered"))continue;
+            View row=existing.get(messageKey(message));if(row==null||row.getParent()!=bubbles)continue;
             TransferProgress measurement=controller.transferProgress(controller.selectedId,record);
             TextView summary=row.findViewWithTag("attachmentSummary");
             if(summary!=null){String bytes=android.text.format.Formatter.formatShortFileSize(this,record.info.size);if(record.transferred>0)bytes=android.text.format.Formatter.formatShortFileSize(this,record.transferred)+" / "+bytes;summary.setText(t("attachmentSummary",bytes,attachmentState(record)));}
             TextView feedback=row.findViewWithTag("attachmentFeedback");if(feedback!=null){String text=attachmentFeedback(record,measurement);feedback.setText(text);feedback.setVisibility(text.isEmpty()?View.GONE:View.VISIBLE);}
             ProgressBar progress=row.findViewWithTag("attachmentProgress");if(progress!=null)updateAttachmentProgress(progress,record,measurement);
-        }return true;
+        }
+        if(layoutChanged){pendingTimelinePosition=position;rebuildingMessages=true;++messageGeneration;messageScroll.removeCallbacks(restoreTimelinePosition);messageScroll.post(restoreTimelinePosition);}
+        return true;
     }
+    private static final class TimelinePosition {
+        final String peer;final Object anchor;final int y,offset;final boolean bottom;
+        TimelinePosition(String peer,Object anchor,int y,int offset,boolean bottom){this.peer=peer;this.anchor=anchor;this.y=y;this.offset=offset;this.bottom=bottom;}
+    }
+    private TimelinePosition captureTimelinePosition(){int y=messageScroll.getScrollY();View anchor=null;for(int i=0;i<bubbles.getChildCount();i++){View row=bubbles.getChildAt(i);if(row.getTop()<=y&&row.getTag()!=null)anchor=row;else if(row.getTop()>y)break;}return new TimelinePosition(renderedPeer,anchor==null?null:anchor.getTag(),y,anchor==null?0:y-anchor.getTop(),atBottom());}
+    private void restoreTimelinePosition(){TimelinePosition position=pendingTimelinePosition;pendingTimelinePosition=null;if(position==null||isDestroyed()||!Objects.equals(position.peer,renderedPeer))return;View anchor=position.anchor==null?null:bubbles.findViewWithTag(position.anchor);int y=position.bottom?Math.max(0,bubbles.getHeight()-messageScroll.getHeight()):anchor==null?position.y:anchor.getTop()+position.offset;messageScroll.scrollTo(0,y);rebuildingMessages=false;}
+    private boolean markThumbnailDirty(String key){if(controller==null||!Objects.equals(renderedPeer,controller.selectedId))return false;boolean found=false;for(ChatStore.Message message:controller.messages)if(message.attachment!=null&&thumbnailKey(controller.selectedId,message.attachment).equals(key)){dirtyAttachmentRows.add(messageKey(message));found=true;}return found;}
+    private void attachmentVisualChanged(String peer,String id){if(isDestroyed()||controller==null||!Objects.equals(peer,controller.selectedId)||!Objects.equals(peer,renderedPeer))return;boolean found=false;for(ChatStore.Message message:controller.messages)if(message.attachment!=null&&message.id.equals(id)){dirtyAttachmentRows.add(messageKey(message));found=true;}if(found)renderChat();}
     private String attachmentFeedback(AttachmentRecord record,TransferProgress measurement){
         if(record.state.equals("checking"))return measurement.checking()?t("attachmentCheckingProgress",android.text.format.Formatter.formatShortFileSize(this,measurement.checkedBytes()),android.text.format.Formatter.formatShortFileSize(this,measurement.checkingTotalBytes()),measurement.checkingTotalBytes()==0?100:100*measurement.checkedBytes()/measurement.checkingTotalBytes()):t("attachmentWaitingResume");
         return record.state.equals("transferring")&&measurement.bytesPerSecond()>0?t("attachmentSpeedEta",android.text.format.Formatter.formatShortFileSize(this,measurement.bytesPerSecond()),measurement.remainingSeconds()):"";
@@ -603,7 +639,8 @@ public final class MainActivity extends Activity {
         int percent=measuredChecking?(measurement.checkingTotalBytes()==0?100:(int)(100*measurement.checkedBytes()/measurement.checkingTotalBytes())):record.info.size==0?0:(int)(100*record.transferred/record.info.size);
         progress.setProgress(percent);progress.setIndeterminate(record.state.equals("preparing")||record.state.equals("verifying")||record.state.equals("checking")&&!measuredChecking);progress.setContentDescription(t("attachmentProgress",percent,attachmentState(record)));
     }
-    private void addBubble(ChatStore.Message message) {
+    private void addBubble(ChatStore.Message message) {bubbles.addView(createBubble(message));}
+    private View createBubble(ChatStore.Message message) {
         LinearLayout row = horizontal(); row.setGravity(message.outgoing ? Gravity.END : Gravity.START); row.setPadding(0, dp(4), 0, dp(4));
         row.setTag("message:"+message.id+":"+message.outgoing);
         LinearLayout bubble = vertical(); bubble.setBackground(shape(message.outgoing ? tonal : surface, 18)); bubble.setPadding(dp(14), dp(10), dp(14), dp(10));
@@ -654,7 +691,8 @@ public final class MainActivity extends Activity {
             bubble.setOnLongClickListener(v->{attachmentMenu(bubble,peer,attachment);return true;});
         }
         String time=AndroidText.date(this,message.time,"jm");TextView meta=label(message.outgoing?t("outgoingMessageMeta",time,attachment==null?AndroidText.messageState(this,message.state):attachmentState(attachment)):time,10,muted);
-        meta.setTag("messageMeta");meta.setGravity(Gravity.END);meta.setPadding(dp(6),dp(4),dp(6),0);bubble.addView(meta);row.addView(bubble,new LinearLayout.LayoutParams(-2,-2));bubbles.addView(row);
+        meta.setTag("messageMeta");meta.setGravity(Gravity.END);meta.setPadding(dp(6),dp(4),dp(6),0);bubble.addView(meta);row.addView(bubble,new LinearLayout.LayoutParams(-2,-2));
+        if(messageWidth>0){TextView body=row.findViewWithTag("messageBody");if(body!=null)body.setMaxWidth(messageWidth);meta.setMaxWidth(messageWidth);}return row;
     }
     private String attachmentState(AttachmentRecord record){return t(record.stateKey());}
     private boolean photoAvailable(AttachmentRecord record){return record.outgoing?record.state.equals("delivered")&&record.info.mime.startsWith("image/"):record.state.equals("received");}
@@ -736,8 +774,10 @@ public final class MainActivity extends Activity {
             Uri uri=new Uri.Builder().scheme("content").authority(getPackageName()+".attachments").appendPath(peer).appendPath(path.getFileName().toString()).build();
             try{return PhotoDecoder.decode(getContentResolver(),uri,512);}catch(java.io.IOException e){throw new java.util.concurrent.CompletionException(e);}
         },imageWorker).whenComplete((bitmap,error)->ui.post(()->{
-            loadingThumbnails.remove(key);if(isDestroyed())return;if(bitmap==null){failedThumbnails.add(key);while(failedThumbnails.size()>16)failedThumbnails.remove(failedThumbnails.iterator().next());if(controller!=null&&Objects.equals(peer,controller.selectedId)){renderedMessages=null;renderChat();}return;}thumbnails.put(key,bitmap);while(thumbnails.size()>12)thumbnails.remove(thumbnails.keySet().iterator().next());
-            if(controller!=null&&Objects.equals(peer,controller.selectedId)&&thumbnailTargets.contains(key)){renderedMessages=null;renderChat();}
+            loadingThumbnails.remove(key);if(isDestroyed())return;boolean dirty=markThumbnailDirty(key);
+            if(bitmap==null){failedThumbnails.add(key);while(failedThumbnails.size()>16){String expired=failedThumbnails.iterator().next();failedThumbnails.remove(expired);dirty|=markThumbnailDirty(expired);}}
+            else{thumbnails.put(key,bitmap);while(thumbnails.size()>12){String expired=thumbnails.keySet().iterator().next();thumbnails.remove(expired);dirty|=markThumbnailDirty(expired);}}
+            if(dirty)renderChat();
         }));}catch(java.util.concurrent.RejectedExecutionException e){loadingThumbnails.remove(key);}
     }
     private String thumbnailKey(String peer,AttachmentRecord record){return peer+":"+record.info.id+":"+record.outgoing;}
