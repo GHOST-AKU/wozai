@@ -47,6 +47,11 @@ public final class ChatController implements TransportListener {
     private boolean refreshingHistory, refreshHistoryAgain;
     private volatile FramedSession active;
     private volatile ClientAttachmentTransfers transfers;
+    private volatile AvatarSync avatarSync;
+    private volatile boolean avatarPreparing;
+    private record PendingAvatar(FramedSession wire,AvatarPacket packet){}
+    private final ArrayBlockingQueue<PendingAvatar> pendingAvatars=new ArrayBlockingQueue<>(8);
+    private final AndroidAvatars.Listener avatarListener;
     private volatile long attachmentToken;
     private long attachmentRetryRevision;
     private final Map<String,CompletableFuture<?>> attachmentRetryRequests=new HashMap<>();
@@ -79,12 +84,16 @@ public final class ChatController implements TransportListener {
         try { loaded = AndroidIdentity.load(); }
         catch (GeneralSecurityException | RuntimeException e) { error = UiText.of("identityUnavailableRestart"); }
         identity = loaded;
+        avatarListener=root->main.post(()->{
+            if(!destroyed&&identity!=null&&identity.publicKey().equals(root)&&avatarSync!=null)avatarSync.localChanged();
+        });
         if(identity!=null)storage.execute(()->{try{noiseIdentity.complete(AndroidNoiseIdentity.load(applicationContext,identity));}catch(Exception failure){noiseIdentity.completeExceptionally(failure);main.post(()->{if(!destroyed)fail(UiText.of("identityUnavailableRestart"));});}});
         else noiseIdentity.completeExceptionally(new IOException("Device identity unavailable"));
         store = new ChatStore(context); lan = new LanTransport(context, this); bluetooth = new BluetoothTransport(context, this);
         if(identity!=null)db(()->store.invalidateLocalVerifications(identity.publicKey()),null);
         try{attachmentStorage=new TransferStorageBudget(store.attachmentsRoot(),preferences.getLong("attachmentQuota",TransferStorageBudget.DEFAULT_QUOTA));}catch(IOException error){this.error=attachmentError(error);}
         db(store::recoverPending, null); refresh();
+        AndroidAvatars.get(applicationContext).listen(avatarListener);
     }
     public void observe(Runnable observer) { this.observer = observer; if (observer != null) observer.run(); }
     private void changed() { if (!destroyed) { hooks.onChanged(); if (observer != null) observer.run(); } }
@@ -133,6 +142,14 @@ public final class ChatController implements TransportListener {
         return null;
     }
     public boolean isTrusted(String peerId) { return peerId != null && trustedDevice(peerId) != null; }
+    public String localAvatarRoot() { return identity==null?null:identity.publicKey(); }
+    /** Only a proven session root or a persisted contact root can select an avatar. */
+    public String avatarRoot(String peerId) {
+        if(peerId==null)return null;
+        FramedSession wire=active;TrustPolicy.Authorization grant=authorization;
+        if(connected&&Objects.equals(peerId,connectedPeerId)&&wire!=null&&wire.isReady()&&wire.endToEndEncrypted()&&grant!=null&&trust.canVerify(grant))return grant.publicKey;
+        ChatStore.TrustedDevice device=trustedDevice(peerId);return device==null?null:device.publicKey;
+    }
     public int preferredMode(String peerId) { ChatStore.TrustedDevice device = trustedDevice(peerId); return device == null ? Peer.LAN : device.mode; }
     public boolean isTrustedPeer(Peer peer) {
         if (peer.peerId != null) return isTrusted(peer.peerId);
@@ -278,6 +295,7 @@ public final class ChatController implements TransportListener {
                 Frame hello = remoteHello; TrustPolicy.Authorization grant = authorization;
                 FramedSession wire=reference[0];
                 if(transfers==null||!transfers.v2()){closeActive(UiText.of("attachmentFailed"));return;}
+                startAvatars(wire,grant);
                 if (!incoming) {
                     if (!Objects.equals(selectedId, hello.id)) messages = new ArrayList<>();
                     selectedId = hello.id; selectedName = hello.body;
@@ -290,6 +308,12 @@ public final class ChatController implements TransportListener {
             }); }
             public void onAttachment(Frame frame){main.post(()->{if(active==reference[0]&&transfers!=null)transfers.receive(frame);});}
             public void onTransfer(TransferPacket packet){ClientAttachmentTransfers target=transfers;if(active!=reference[0]||target==null)return;try{target.receive(packet);}catch(IOException failure){reference[0].close(UiText.of("attachmentFailed"));}}
+            public void onAvatar(AvatarPacket packet){
+                if(active!=reference[0]||!reference[0].avatarsSupported())return;
+                AvatarSync sync=avatarSync;
+                if(sync!=null){if(!sync.receive(packet))reference[0].close(UiText.of("busy"));}
+                else if(avatarPreparing||!connected){if(!pendingAvatars.offer(new PendingAvatar(reference[0],packet)))reference[0].close(UiText.of("busy"));}
+            }
             public void onText(Frame frame) { main.post(() -> {
                 if (active != reference[0] || remoteHello == null || !reference[0].isReady()) return;
                 String id = remoteHello.id, name = remoteHello.body;
@@ -300,10 +324,31 @@ public final class ChatController implements TransportListener {
                 String peerId = remoteHello.id; db(() -> store.delivered(peerId, id), ChatController.this::refresh);
             }); }
             public void onClosed(UiText reason) { main.post(() -> releaseSession(reference[0], reason)); }
-        });}catch(IOException failure){close(connection);cancelOutgoing();status=UiText.of("connectionUnavailable");fail(UiText.of("identityUnavailableRestart"));return;}
+        },true);}catch(IOException failure){close(connection);cancelOutgoing();status=UiText.of("connectionUnavailable");fail(UiText.of("identityUnavailableRestart"));return;}
         attachmentToken++;active = reference[0]; active.start(); changed();
     }
     public void approve(String token) { approve(token, true); }
+    private void startAvatars(FramedSession wire,TrustPolicy.Authorization grant) {
+        if(!wire.avatarsSupported()||grant==null||identity==null||identity.publicKey().equals(grant.publicKey)){pendingAvatars.clear();return;}
+        avatarPreparing=true;
+        CompletableFuture<AvatarSync> preparing=new CompletableFuture<>();
+        try{storage.execute(()->{
+            try {
+                Path directory=applicationContext.getFilesDir().toPath().resolve("avatars");
+                AvatarSync sync=new AvatarSync(new AvatarStore(directory,identity.publicKey()),new AvatarStore(directory,grant.publicKey),wire::sendAvatar,new AvatarSync.Listener(){
+                    public void onChanged(AvatarSnapshot snapshot){main.post(()->{if(!destroyed&&active==wire&&authorization==grant&&trust.ready(grant))AndroidAvatars.get(applicationContext).refresh(grant.publicKey);});}
+                    public void onProtocolError(IOException error){if(active==wire)wire.close(UiText.of("disconnected"));}
+                });
+                preparing.complete(sync);
+            }catch(Exception failure){preparing.completeExceptionally(failure);}
+        });}catch(RejectedExecutionException stopped){preparing.completeExceptionally(stopped);}
+        preparing.whenComplete((sync,error)->main.post(()->{
+            if(destroyed||active!=wire||authorization!=grant||!wire.isReady()||!trust.ready(grant)){if(sync!=null)sync.close();return;}
+            avatarPreparing=false;
+            if(error!=null){pendingAvatars.clear();fail(UiText.of("avatarSaveFailed"));return;}
+            avatarSync=sync;sync.start();PendingAvatar pending;while((pending=pendingAvatars.poll())!=null)if(pending.wire()==wire&&!sync.receive(pending.packet())){wire.close(UiText.of("busy"));break;}
+        }));
+    }
     public void approve(String token, boolean remember) {
         if (active == null || approvalId == null || !Objects.equals(token, approvalId) || remoteHello == null) return;
         if (!trust.approve(authorization, remember)) return;
@@ -366,6 +411,7 @@ public final class ChatController implements TransportListener {
     private void releaseSession(FramedSession session, UiText reason) {
         if (active != session) return;
         String peerId = remoteHello == null ? null : remoteHello.id;
+        if(avatarSync!=null){avatarSync.close();avatarSync=null;}avatarPreparing=false;pendingAvatars.clear();
         if(transfers!=null){recordAttachmentShutdown(transfers.shutdown());transfers=null;}attachmentToken++;
         if(attachmentsPreparing!=null){CompletableFuture<ClientAttachmentTransfers> pending=attachmentsPreparing;attachmentsPreparing=null;
             recordAttachmentShutdown(pending.handle((created,failure)->created==null?CompletableFuture.<Void>completedFuture(null):created.shutdown()).thenCompose(value->value));}
@@ -403,6 +449,11 @@ public final class ChatController implements TransportListener {
     }
     public boolean hasRetryableAttachmentBatch(String peer,String id){ClientAttachmentTransfers files=transfers;return files!=null&&Objects.equals(peer,connectedPeerId)&&files.hasRetryableBatch(id);}
     public TransferProgress transferProgress(String peer,AttachmentRecord record){Feedback value=transferProgress.get(peer+":"+record.info.id+":"+record.outgoing);return value==null?TransferProgress.UNKNOWN:value.progress();}
+    public TransferPath attachmentRoute(String peer,AttachmentRecord record) {
+        FramedSession wire=active;
+        boolean ready=connected&&Objects.equals(peer,connectedPeerId)&&wire!=null&&wire.isReady()&&wire.attachmentsSupported();
+        return TransferPath.forAttachment(sessionMode==Peer.BLUETOOTH?"bluetooth":"lan",ready,record);
+    }
     public boolean endToEndEncrypted(String peer){FramedSession wire=active;return connected&&Objects.equals(peer,connectedPeerId)&&wire!=null&&wire.endToEndEncrypted();}
     public boolean identityVerified(String peer){return endToEndEncrypted(peer)&&authorization!=null&&authorization.publicKey.equals(verifiedRoots.get(peer));}
     public IdentityVerification verification(String peer){
@@ -584,16 +635,17 @@ public final class ChatController implements TransportListener {
         try{Path path=store.attachmentFile(peer,record.info,record.outgoing);if(!Files.isRegularFile(path,LinkOption.NOFOLLOW_LINKS))throw new IOException("Attachment unavailable");return path;}
         catch(IOException e){throw new CompletionException(e);}
     });}
-    public CompletableFuture<Void> exportAttachment(String peer,AttachmentRecord record,Uri uri){return attachmentPath(peer,record).thenAcceptAsync(path->{
-        try(InputStream input=Files.newInputStream(path);OutputStream output=resolver.openOutputStream(uri,"wt")){
-            if(output==null)throw new IOException("Export unavailable");byte[] bytes=new byte[32768];int n;while((n=input.read(bytes))!=-1)output.write(bytes,0,n);
-        }catch(IOException e){throw new CompletionException(e);}
-    },fileSelection);}
-    public CompletableFuture<Void> exportAttachment(String peer,AttachmentInfo info,Uri uri){return attachmentPath(peer,info).thenAcceptAsync(path->{
-        try(InputStream input=Files.newInputStream(path);OutputStream output=resolver.openOutputStream(uri,"wt")){
-            if(output==null)throw new IOException("Export unavailable");byte[] bytes=new byte[32768];int n;while((n=input.read(bytes))!=-1)output.write(bytes,0,n);
-        }catch(IOException e){throw new CompletionException(e);}
-    },fileSelection);}
+    private static <T> CompletableFuture<T> failedAttachmentFuture(Throwable error){CompletableFuture<T> future=new CompletableFuture<>();future.completeExceptionally(error);return future;}
+    public CompletableFuture<AttachmentLocations.Location> attachmentLocation(String peer,AttachmentRecord record){
+        try{return AttachmentLocations.get(applicationContext).locate(peer,record);}catch(IOException error){return failedAttachmentFuture(error);}
+    }
+    public CompletableFuture<Void> exportAttachment(String peer,AttachmentRecord record,Uri uri,int pickerFlags){
+        return attachmentPath(peer,record).thenCompose(path->{try{return AttachmentLocations.get(applicationContext).export(peer,record,uri,pickerFlags);}catch(IOException error){return failedAttachmentFuture(error);}});
+    }
+    public CompletableFuture<Void> exportAttachment(String peer,AttachmentRecord record,Uri uri){return exportAttachment(peer,record,uri,Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_WRITE_URI_PERMISSION);}
+    public CompletableFuture<Void> exportAttachment(String peer,AttachmentInfo info,Uri uri){
+        try{return exportAttachment(peer,new AttachmentRecord(info,false,"received",info.size),uri);}catch(IOException error){return failedAttachmentFuture(error);}
+    }
     public boolean send(String body) {
         if (!canSend()) { fail(UiText.of("notConnected")); return false; }
         Frame frame = new Frame(Frame.TEXT, UUID.randomUUID().toString(), body, System.currentTimeMillis());
@@ -611,7 +663,12 @@ public final class ChatController implements TransportListener {
         selectedId = conversation.id; selectedName = conversation.name; refresh(); changed();
     }
     public void clearConversation() {if(selectedId==null)return;String id=selectedId;if(remoteHello!=null&&Objects.equals(id,remoteHello.id))closeActive(UiText.of("connectionEnded"));
-        attachmentsStopped=attachmentsStopped.handle((value,failure)->null).thenRunAsync(()->{try{GalleryPublisher.get(applicationContext).clearPeer(id).get(30,TimeUnit.SECONDS);}catch(Exception failure){throw new CompletionException(failure);}store.clear(id);try{AndroidAttachmentSource.releaseUnusedGrants(applicationContext);}catch(IOException failure){throw new CompletionException(failure);}},storage);
+        attachmentsStopped=attachmentsStopped.handle((value,failure)->null).thenRunAsync(()->{
+            AttachmentLocations locations=null;
+            try{locations=AttachmentLocations.get(applicationContext);GalleryPublisher.get(applicationContext).clearPeer(id).get(30,TimeUnit.SECONDS);locations.clearPeer(id).get(30,TimeUnit.SECONDS);store.clear(id);AndroidAttachmentSource.releaseUnusedGrants(applicationContext);}
+            catch(Exception failure){throw new CompletionException(failure);}
+            finally{if(locations!=null)locations.finishClear(id);}
+        },storage);
         attachmentsStopped.whenComplete((value,failure)->main.post(()->{if(!destroyed){if(failure!=null)fail(attachmentError(failure));refresh();}}));}
     private void refresh() {
         if(destroyed)return;
@@ -649,6 +706,7 @@ public final class ChatController implements TransportListener {
     private void fail(UiText message) { error = message; changed(); }
     public void destroy() {
         if (destroyed) return; stopAll(); destroyed = true; observer = null; lan.destroy(); bluetooth.destroy();
+        AndroidAvatars.get(applicationContext).unlisten(avatarListener);
         noiseIdentity.thenAccept(key->Arrays.fill(key,(byte)0));
         fileSelection.shutdownNow();attachmentsStopped.whenComplete((v,e)->{storage.execute(store::close);storage.shutdown();});
     }

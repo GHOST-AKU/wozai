@@ -32,15 +32,30 @@
     <string name="attachment_batch_limit" formatted="false">"한 번에 최대 {0}개의 파일을 선택할 수 있습니다."</string>
     <string name="attachment_batch_pause" formatted="false">"전송 대기열 일시 중지"</string>
     <string name="attachment_batch_resume" formatted="false">"전송 대기열 계속"</string>
+    <string name="attachment_browse_saved" formatted="false">"시스템 파일에서 찾기"</string>
     <string name="attachment_checking_progress" formatted="false">"재개 데이터 확인 중: {0} / {1} · {2}%"</string>
     <string name="attachment_details" formatted="false">"{0} · {1,number} / {2,number} 바이트 · {3}"</string>
     <string name="attachment_failed" formatted="false">"파일 작업에 실패했습니다. 파일 접근 권한과 여유 공간을 확인하세요."</string>
     <string name="attachment_hint" formatted="false">"파일당 최대 1 GiB. 내용은 암호화되지 않습니다."</string>
     <string name="attachment_hint_v2" formatted="false">"파일당 최대 10 GiB."</string>
+    <string name="attachment_location_access_lost" formatted="false">"저장 위치에 접근할 수 없습니다. 시스템 권한이 만료되었을 수 있습니다."</string>
+    <string name="attachment_location_document" formatted="false">"시스템 파일에 저장됨"</string>
+    <string name="attachment_location_gallery" formatted="false">"시스템 갤러리에 저장됨"</string>
+    <string name="attachment_location_missing" formatted="false">"저장된 파일이 이동되었거나 삭제되었습니다."</string>
+    <string name="attachment_location_private" formatted="false">"이 파일은 NearbyIM 앱에 저장되어 있습니다. 보거나 시스템 파일에 사본을 저장할 수 있습니다."</string>
+    <string name="attachment_location_title" formatted="false">"파일 저장 위치"</string>
+    <string name="attachment_location_unavailable" formatted="false">"현재 저장 위치를 읽을 수 없습니다."</string>
     <string name="attachment_move_down" formatted="false">"아래로 이동"</string>
     <string name="attachment_move_up" formatted="false">"위로 이동"</string>
     <string name="attachment_open" formatted="false">"열기"</string>
+    <string name="attachment_open_saved" formatted="false">"저장된 파일 열기"</string>
     <string name="attachment_overwrite" formatted="false">"파일이 이미 있습니다. 바꾸시겠습니까?"</string>
+    <string name="attachment_path_bluetooth" formatted="false">"전송 경로: 블루투스"</string>
+    <string name="attachment_path_disconnected" formatted="false">"전송 경로: 연결되지 않음"</string>
+    <string name="attachment_path_lan_unconfirmed" formatted="false">"전송 경로: LAN · 경로 미확인"</string>
+    <string name="attachment_path_pending_bluetooth" formatted="false">"전송 대기 · 블루투스"</string>
+    <string name="attachment_path_pending_lan" formatted="false">"전송 대기 · LAN(경로 미확인)"</string>
+    <string name="attachment_path_unknown" formatted="false">"전송 경로: 현재 확인할 수 없음"</string>
     <string name="attachment_pause" formatted="false">"전송 일시 중지"</string>
     <string name="attachment_photo_preview" formatted="false">"사진 미리보기: {0}"</string>
     <string name="attachment_preview" formatted="false">"전송 전 미리 보기"</string>
@@ -62,6 +77,7 @@
     <string name="attachment_retry_queued" formatted="false">"재전송 대기열에 추가했습니다."</string>
     <string name="attachment_retry_select_again" formatted="false">"원본 파일을 읽을 수 없습니다. 다시 선택하여 재전송하세요."</string>
     <string name="attachment_retrying" formatted="false">"재전송 중…"</string>
+    <string name="attachment_save_again" formatted="false">"다른 사본 저장"</string>
     <string name="attachment_save_as" formatted="false">"다른 이름으로 저장"</string>
     <string name="attachment_saved_file_missing" formatted="false">"저장된 파일이 이동되었거나 삭제되었습니다."</string>
     <string name="attachment_selection_count" formatted="false">"{0}개 선택됨"</string>
@@ -92,8 +108,34 @@
     <string name="attachment_unavailable" formatted="false">"파일을 사용할 수 없습니다. 삭제되었을 수 있습니다."</string>
     <string name="attachment_unknown_size" formatted="false">"크기 확인 중"</string>
     <string name="attachment_upgrade_required" formatted="false">"전송 프로토콜이 호환되지 않습니다. 양쪽 앱을 업데이트하세요."</string>
+    <string name="attachment_view_original" formatted="false">"채팅 원본 보기"</string>
     <string name="attachment_waiting_resume" formatted="false">"상대방의 재개 확인을 기다리는 중…"</string>
     <string name="attachments" formatted="false">"첨부 파일"</string>
+    <string name="avatar" formatted="false">"아바타"</string>
+    <string name="avatar_change" formatted="false">"아바타 변경"</string>
+    <string name="avatar_changed" formatted="false">"편집 중에 아바타가 변경되었습니다. 다시 열어 계속하세요."</string>
+    <string name="avatar_choose" formatted="false">"이미지 선택"</string>
+    <string name="avatar_crop" formatted="false">"아바타 자르기"</string>
+    <string name="avatar_crop_hint" formatted="false">"드래그하여 위치를 조정하고 확대·축소 버튼으로 크기를 조정하세요. 방향키로 자르기 영역을 이동할 수 있습니다."</string>
+    <string name="avatar_default" formatted="false">"기본 아바타 사용"</string>
+    <string name="avatar_details" formatted="false">"기기 상세 정보"</string>
+    <string name="avatar_edit_crop" formatted="false">"자르기 조정"</string>
+    <string name="avatar_invalid" formatted="false">"이 이미지를 아바타로 사용할 수 없습니다."</string>
+    <string name="avatar_loading" formatted="false">"아바타 준비 중…"</string>
+    <string name="avatar_prepared" formatted="false">"{0} × {1} PNG · {2} KiB"</string>
+    <string name="avatar_preview" formatted="false">"아바타 미리보기"</string>
+    <string name="avatar_reset" formatted="false">"기기 기본 아이콘으로 복원"</string>
+    <string name="avatar_reset_crop" formatted="false">"자르기 초기화"</string>
+    <string name="avatar_reset_done" formatted="false">"기본 아바타로 복원됨"</string>
+    <string name="avatar_save" formatted="false">"아바타 저장"</string>
+    <string name="avatar_save_failed" formatted="false">"아바타를 저장하지 못했습니다. 다시 시도하세요."</string>
+    <string name="avatar_saved" formatted="false">"아바타 저장됨"</string>
+    <string name="avatar_saved_on_device" formatted="false">"이 기기에 저장됨"</string>
+    <string name="avatar_title" formatted="false">"아바타"</string>
+    <string name="avatar_unavailable" formatted="false">"이 이미지를 사용할 수 없습니다. 다른 이미지를 선택하세요."</string>
+    <string name="avatar_use_crop" formatted="false">"자르기 미리보기"</string>
+    <string name="avatar_visibility_hint" formatted="false">"아바타를 지원하는 연결에서 연락처는 이 기기의 아바타를 볼 수 있습니다. 각 기기는 자신의 아바타를 설정합니다."</string>
+    <string name="avatar_zoom" formatted="false">"확대·축소"</string>
     <string name="back" formatted="false">"뒤로"</string>
     <string name="back_to_chats" formatted="false">"채팅 목록으로 돌아가기"</string>
     <string name="bluetooth" formatted="false">"블루투스"</string>
@@ -253,6 +295,7 @@
     <string name="lan_addresses" formatted="false">"{0}"</string>
     <string name="lan_listening_without_address" formatted="false">"포트 {0}에서 수신 대기 중입니다. Wi-Fi 또는 휴대폰 핫스팟에 연결하세요."</string>
     <string name="lan_no_devices_body" formatted="false">"상대가 수신을 켜고 같은 Wi-Fi 또는 핫스팟에 연결했는지 확인하세요."</string>
+    <string name="lan_path_unconfirmed" formatted="false">"LAN · 경로 미확인"</string>
     <string name="lan_register_failure" formatted="false">"자동 검색 등록에 실패했습니다. IP 주소로 연결하세요."</string>
     <string name="language" formatted="false">"표시 언어"</string>
     <string name="large" formatted="false">"크게"</string>
@@ -308,6 +351,10 @@
     <string name="outgoing_message_meta" formatted="false">"{0} · {1}"</string>
     <string name="paired" formatted="false">"페어링됨"</string>
     <string name="paired_address" formatted="false">"페어링됨 · {0}"</string>
+    <string name="path_details_bluetooth" formatted="false">"블루투스로 파일을 전송합니다. 큰 파일은 시간이 더 걸릴 수 있습니다."</string>
+    <string name="path_details_disconnected" formatted="false">"전송 연결이 없습니다. 연결 후 실제 경로가 표시됩니다."</string>
+    <string name="path_details_lan" formatted="false">"현재 LAN 연결로 파일을 전송합니다. 라우터나 휴대전화 핫스팟을 통하는지는 확인할 수 없습니다."</string>
+    <string name="path_details_title" formatted="false">"전송 경로"</string>
     <string name="peer_ended" formatted="false">"상대가 채팅을 종료했습니다."</string>
     <string name="peer_status_transport" formatted="false">"{0} · {1}"</string>
     <string name="peer_summary" formatted="false">"{0}. {1}"</string>

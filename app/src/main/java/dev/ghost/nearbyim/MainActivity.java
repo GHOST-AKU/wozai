@@ -30,6 +30,7 @@ import dev.ghost.nearbyim.core.AttachmentBatchQueue;
 import dev.ghost.nearbyim.core.IdentityVerification;
 import dev.ghost.nearbyim.core.AttachmentRecord;
 import dev.ghost.nearbyim.core.TransferProgress;
+import dev.ghost.nearbyim.core.TransferPath;
 import android.graphics.Bitmap;
 import java.nio.file.Path;
 
@@ -45,7 +46,10 @@ public final class MainActivity extends Activity {
     private LinearLayout historyList, peersList, trustedList, bubbles, reconnectRow, chatAvatarBox;
     private FrameLayout content, homeFrame;
     private TextView pageTitle, networkName, networkState, errorView, receiveStatus, connectionInfo, modeHint, bluetoothState, requestStatus;
-    private TextView chatName, chatStatus, chatAvatar, nickname, reconnectHint, languageValue;
+    private TextView chatName, chatStatus, nickname, reconnectHint, languageValue;
+    private AvatarView chatAvatar, ownAvatar;
+    private String renderedAvatarRoots;
+    private List<ChatStore.TrustedDevice> renderedHistoryTrusted;
     private Button lanTab, bluetoothTab, receiveButton, searchButton, discoverableButton, manualButton, sendButton, reconnectButton, newMessages;
     private Button newChatButton, cancelConnectionButton,fileButton,photoButton;
     private LinearLayout attachmentTray;
@@ -64,6 +68,7 @@ public final class MainActivity extends Activity {
     private Uri selectedRetryUri;
     private ArrayList<Uri> selectedAttachmentUris;
     private Uri selectedExportUri;
+    private int selectedExportFlags;
     private GalleryPublisher gallery;
     private String pendingGalleryPeer,pendingGalleryRecord;
     private final GalleryPublisher.Listener galleryListener=this::attachmentVisualChanged;
@@ -136,6 +141,7 @@ public final class MainActivity extends Activity {
             pendingRetryPeer=saved.getString("pendingRetryPeer");pendingRetryId=saved.getString("pendingRetryId");pendingRetryToken=saved.getLong("pendingRetryToken");pendingRetrySession=saved.getString("pendingRetrySession");String retryUri=saved.getString("selectedRetryUri");selectedRetryUri=retryUri==null?null:Uri.parse(retryUri);
             selectedAttachmentUris=saved.getParcelableArrayList("selectedAttachmentUris");String exportUri=saved.getString("selectedExportUri");
             selectedExportUri=exportUri==null?null:Uri.parse(exportUri);
+            selectedExportFlags=saved.getInt("selectedExportFlags");
             mode = saved.getInt("mode", Peer.LAN); page = saved.getInt("page", 0); detail = saved.getBoolean("detail");
             pendingAction = (UiAction) saved.getSerializable("pendingAction"); pendingStage = saved.getInt("pendingStage");
             restoredSelectedId = saved.getString("selectedId"); restoredSelectedName = saved.getString("selectedName");
@@ -167,7 +173,7 @@ public final class MainActivity extends Activity {
         super.onStart();if(gallery!=null)gallery.listen(galleryListener); bound = bindService(new Intent(this, ChatService.class), binding, Context.BIND_AUTO_CREATE);
         ui.post(discoverabilityTick);
     }
-    protected void onResume() { super.onResume(); if (root != null) render(); }
+    protected void onResume() { super.onResume(); if (root != null) { if(controller!=null)AndroidAvatars.get(this).refresh(controller.localAvatarRoot()); render(); } }
     protected void onStop() {
         saveDraftAndPosition(); ui.removeCallbacks(discoverabilityTick);
         if(gallery!=null)gallery.unlisten(galleryListener);
@@ -183,6 +189,7 @@ public final class MainActivity extends Activity {
         state.putString("pendingAttachmentPeer",pendingAttachmentPeer);state.putLong("pendingAttachmentToken",pendingAttachmentToken);state.putString("pendingExportPeer",pendingExportPeer);state.putString("pendingExportRecord",pendingExportRecord);
         state.putString("pendingRetryPeer",pendingRetryPeer);state.putString("pendingRetryId",pendingRetryId);state.putLong("pendingRetryToken",pendingRetryToken);state.putString("pendingRetrySession",pendingRetrySession);state.putString("selectedRetryUri",selectedRetryUri==null?null:selectedRetryUri.toString());
         state.putParcelableArrayList("selectedAttachmentUris",selectedAttachmentUris);state.putString("selectedExportUri",selectedExportUri==null?null:selectedExportUri.toString());
+        state.putInt("selectedExportFlags",selectedExportFlags);
         saveDraftAndPosition();
         state.putInt("mode", mode); state.putInt("page", page); state.putBoolean("detail", detail); state.putString("draft", composer.getText().toString());
         state.putString("selectedId", controller == null ? restoredSelectedId : controller.selectedId);
@@ -349,7 +356,11 @@ public final class MainActivity extends Activity {
     }
     private void buildSettings() {
         ScrollView scroll = settingsScroll = new ScrollView(this); LinearLayout settingsContent = vertical(); settingsContent.setPadding(dp(16), dp(12), dp(16), dp(24)); scroll.addView(settingsContent); settingsPage.addView(scroll);
-        settingsContent.addView(sectionHeading(t("deviceSection"))); nickname = label("", 14, muted); settingsContent.addView(settingsRow(t("nickname"), nickname, this::editNickname));
+        settingsContent.addView(sectionHeading(t("deviceSection")));
+        ownAvatar=new AvatarView(this);ownAvatar.setTag("avatarSettings");
+        LinearLayout avatarSetting=horizontal();avatarSetting.setGravity(Gravity.CENTER_VERTICAL);avatarSetting.setPadding(dp(2),dp(12),dp(2),dp(12));avatarSetting.addView(ownAvatar,new LinearLayout.LayoutParams(dp(64),dp(64)));
+        LinearLayout avatarText=vertical();avatarText.setPadding(dp(14),0,0,0);avatarText.addView(label(t("avatarTitle"),16,ink));avatarText.addView(label(t("avatarSavedOnDevice"),13,muted));avatarSetting.addView(avatarText,new LinearLayout.LayoutParams(0,-2,1));avatarSetting.setFocusable(true);avatarSetting.setClickable(true);avatarSetting.setBackground(ripple(background,12));avatarSetting.setOnClickListener(v->startActivity(new Intent(this,AvatarActivity.class)));settingsContent.addView(avatarSetting);
+        nickname = label("", 14, muted); settingsContent.addView(settingsRow(t("nickname"), nickname, this::editNickname));
         languageValue = label("", 14, muted); settingsContent.addView(settingsRow(t("language"), languageValue, this::chooseLanguage));
         settingsContent.addView(sectionHeading(t("trustedDevices"))); trustedList = vertical(); settingsContent.addView(trustedList);
         Switch automaticPhotos=new Switch(this);automaticPhotos.setText(t("galleryAutoSave"));automaticPhotos.setChecked(gallery==null||gallery.automatic());automaticPhotos.setPadding(dp(4),dp(12),dp(4),dp(12));automaticPhotos.setOnCheckedChangeListener((view,enabled)->{if(gallery!=null)gallery.automatic(enabled);});settingsContent.addView(automaticPhotos);
@@ -437,7 +448,10 @@ public final class MainActivity extends Activity {
         if (historyList == null) return;
         List<ChatStore.Conversation> conversations = controller == null ? Collections.emptyList() : controller.conversations;
         String connection = controller == null ? null : controller.connectedPeerId;
-        if (renderedConversations == conversations && Objects.equals(renderedConnection, connection) && Objects.equals(renderedQuery, searchQuery)) return;
+        String avatarRoots=controller==null?null:controller.avatarRoot(connection);
+        List<ChatStore.TrustedDevice> trustedRoots=controller==null?Collections.emptyList():controller.trustedDevices;
+        if (renderedConversations == conversations && Objects.equals(renderedConnection, connection) && Objects.equals(renderedQuery, searchQuery) && Objects.equals(renderedAvatarRoots,avatarRoots) && renderedHistoryTrusted==trustedRoots) return;
+        renderedAvatarRoots=avatarRoots;renderedHistoryTrusted=trustedRoots;
         renderedConversations = conversations; renderedConnection = connection; renderedQuery = searchQuery; int oldY = controller != null && restoredHistoryY >= 0 ? restoredHistoryY : historyScroll.getScrollY();
         if (controller != null) restoredHistoryY = -1; historyList.removeAllViews();
         String query = searchQuery.trim().toLowerCase(Locale.ROOT); int count = 0; String previousGroup = null;
@@ -447,7 +461,7 @@ public final class MainActivity extends Activity {
             if (query.isEmpty() && !group.equals(previousGroup)) { historyList.addView(sectionHeading(group)); previousGroup = group; }
             count++; boolean active = controller != null && controller.connected && Objects.equals(connection, conversation.id);
             LinearLayout row = horizontal(); row.setGravity(Gravity.TOP); row.setPadding(0, dp(14), 0, dp(14)); row.setMinimumHeight(dp(active ? 98 : 82)); row.setBackground(ripple(background, 14));
-            TextView avatar = avatar(conversation.id, conversation.name, 48); row.addView(avatar, new LinearLayout.LayoutParams(dp(48), dp(48)));
+            AvatarView avatar = avatar(conversation.id, conversation.name, 48); row.addView(avatar, new LinearLayout.LayoutParams(dp(48), dp(48)));
             LinearLayout text = vertical(); text.setPadding(dp(14), 0, dp(8), 0); LinearLayout titleRow = horizontal(); titleRow.setGravity(Gravity.CENTER_VERTICAL);
             TextView name = label(safe(conversation.name), 17, ink); name.setTypeface(null, Typeface.BOLD); singleLine(name); titleRow.addView(name, new LinearLayout.LayoutParams(0, -2, 1));
             if (active) { TextView dot = label(" ●", 13, accent); dot.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO); titleRow.addView(dot); }
@@ -498,7 +512,7 @@ public final class MainActivity extends Activity {
         if (Objects.equals(peerSignature, signature.toString())) return; peerSignature = signature.toString(); peersList.removeAllViews(); int count = 0;
         if (attached) for (Peer peer : controller.peers.values()) if (peer.mode == mode && count++ < 50) {
             LinearLayout row = horizontal(); row.setGravity(Gravity.CENTER_VERTICAL); row.setMinimumHeight(dp(82)); row.setPadding(0, dp(12), 0, dp(12)); row.setBackground(ripple(background, 12));
-            row.addView(avatar(peer.key, peerName(peer), 48), new LinearLayout.LayoutParams(dp(48), dp(48))); LinearLayout text = vertical(); text.setPadding(dp(14), 0, 0, 0);
+            row.addView(new AvatarView(this), new LinearLayout.LayoutParams(dp(48), dp(48))); LinearLayout text = vertical(); text.setPadding(dp(14), 0, 0, 0);
             TextView name = label(peerName(peer), 17, ink); name.setTypeface(null, Typeface.BOLD); singleLine(name); text.addView(name);
             text.addView(label(t("peerStatusTransport", controller.isTrustedPeer(peer) ? t("trustedConnect") : t("discovered"), modeName(peer.mode)), 13, muted));
             TextView address = label(peer.mode == Peer.BLUETOOTH ? t(peer.paired ? "pairedAddress" : "unpairedAddress", peer.detail) : peer.detail, 12, muted); singleLine(address); text.addView(address); row.addView(text, new LinearLayout.LayoutParams(0, -2, 1));
@@ -508,6 +522,7 @@ public final class MainActivity extends Activity {
         if (count == 0) peersList.addView(empty(searching ? t("searchingNearby") : t("noDevicesTitle"), mode == Peer.LAN ? t("lanNoDevicesBody") : t("bluetoothNoDevicesBody")));
     }
     private void renderSettings() {
+        if(ownAvatar!=null)AndroidAvatars.get(this).bind(ownAvatar,controller==null?null:controller.localAvatarRoot());
         nickname.setText(controller == null ? t("loading") : controller.nickname);
         String selection = AppLanguage.selection(this);
         languageValue.setText(LanguageRegistry.SYSTEM.equals(selection) ? t("systemLanguage") : LanguageRegistry.resolve(selection, AppLanguage.systemLocale(this)).nativeName);
@@ -515,7 +530,8 @@ public final class MainActivity extends Activity {
         if (renderedTrusted == trusted) return; renderedTrusted = trusted; trustedList.removeAllViews();
         for (ChatStore.TrustedDevice device : trusted) {
             TextView info = label(t("trustedLastConnection", modeName(device.mode), AndroidText.date(this, device.time, "yMMMdjm")), 13, muted);
-            trustedList.addView(settingsRow(device.name, info, () -> deviceInfo(device.id, device.name)));
+            LinearLayout row=horizontal();row.setGravity(Gravity.CENTER_VERTICAL);row.addView(avatar(device.id,device.name,48),new LinearLayout.LayoutParams(dp(48),dp(48)));
+            LinearLayout text=vertical();text.setPadding(dp(14),dp(12),0,dp(12));text.addView(label(device.name,16,ink));text.addView(info);row.addView(text,new LinearLayout.LayoutParams(0,-2,1));row.setMinimumHeight(dp(72));row.setFocusable(true);row.setClickable(true);row.setBackground(ripple(background,12));row.setOnClickListener(v->deviceInfo(device.id,device.name));trustedList.addView(row);
         }
         if (trusted.isEmpty()) trustedList.addView(label(t("noTrustedDevices"), 14, muted));
         if (controller != null && restoredSettingsY >= 0) { final int y = restoredSettingsY; restoredSettingsY = -1; settingsScroll.post(() -> settingsScroll.scrollTo(0, y)); }
@@ -535,17 +551,20 @@ public final class MainActivity extends Activity {
             handledSavedMessage = controller.savedMessageId;
         }
         if (switched || chatAvatar == null) { chatAvatarBox.removeAllViews(); chatAvatar = avatar(peerId, peerName, 40); chatAvatarBox.addView(chatAvatar, new LinearLayout.LayoutParams(dp(40), dp(40))); }
+        if(chatAvatar!=null)AndroidAvatars.get(this).bind(chatAvatar,controller==null?null:controller.avatarRoot(peerId));
         boolean ready = controller != null && controller.connected && Objects.equals(peerId, controller.connectedPeerId);
         boolean connecting = controller != null && outgoingRequest && (controller.connecting || controller.hasSession() && !controller.connected);
-        String connectionLabel=ready?t(controller.endToEndEncrypted(peerId)?"encryptedVia":"connectedVia",modeName(controller.sessionMode)):connecting?t("connecting"):t("localHistoryDisconnected");
+        String connectionLabel=ready?t(controller.endToEndEncrypted(peerId)?"encryptedVia":"connectedVia",controller.sessionMode==Peer.LAN?t("lanPathUnconfirmed"):modeName(controller.sessionMode)):connecting?t("connecting"):t("localHistoryDisconnected");
         if(ready&&controller.endToEndEncrypted(peerId))connectionLabel+=" · "+t(controller.identityVerified(peerId)?"identityVerified":"identityUnverified");
         chatStatus.setText(ready&&controller.isPreparingAttachment()?connectionLabel+" · "+t("attachmentStatePreparing"):connectionLabel);
+        chatStatus.setOnClickListener(v->showTransferPath(peerId));chatStatus.setFocusable(true);
         reconnectRow.setVisibility(!ready && peerId != null ? View.VISIBLE : View.GONE);
         boolean trusted = controller != null && controller.isTrusted(peerId);
         reconnectButton.setVisibility(trusted ? View.VISIBLE : View.GONE); reconnectButton.setEnabled(controller != null);
         reconnectButton.setText(connecting ? t("cancelConnection") : controller != null && !UiText.EMPTY.equals(controller.error) ? t("retryConnection") : t("reconnect"));
         reconnectHint.setText(connecting ? t(controller.status) : trusted ? controller != null && !UiText.EMPTY.equals(controller.error) ? t("reconnectUnavailable") : t("reconnectRemembered") : t("draftRetainedHint"));
         composer.setEnabled(peerId != null);emojiButton.setEnabled(peerId!=null);attachmentToggle.setEnabled(controller!=null&&controller.canSendAttachment());fileButton.setEnabled(controller!=null&&controller.canSendAttachment());photoButton.setEnabled(controller!=null&&controller.canSendAttachment());if(switched)attachmentTray.setVisibility(View.GONE);updateSend();
+        updateAttachmentPaths(peerId);
         String retryState=controller==null?null:controller.attachmentRetryRevision()+":"+controller.canSendAttachment()+":"+peerId;if(!Objects.equals(renderedRetryState,retryState)){renderedMessages=null;renderedRetryState=retryState;}
         if (controller == null || dirtyAttachmentRows.isEmpty()&&renderedMessages == controller.messages && Objects.equals(renderedPeer, peerId)) return;
         boolean newPeer = !Objects.equals(renderedPeer, peerId), wasAtBottom = atBottom(); int previousScroll = messageScroll.getScrollY();
@@ -581,6 +600,21 @@ public final class MainActivity extends Activity {
         });
     }
     private boolean atBottom() { return bubbles == null || bubbles.getHeight() - messageScroll.getHeight() - messageScroll.getScrollY() < dp(48); }
+    private void updateAttachmentPaths(String peer) {
+        if(controller==null||!Objects.equals(renderedPeer,peer))return;
+        for(ChatStore.Message message:controller.messages){
+            if(message.attachment==null)continue;View row=bubbles.findViewWithTag(messageKey(message));if(row==null)continue;
+            TextView label=row.findViewWithTag("attachmentPath");if(label==null)continue;
+            TransferPath route=controller.attachmentRoute(peer,message.attachment);String value=route==TransferPath.NONE?"":t(route.key());
+            if(!label.getText().toString().equals(value))label.setText(value);label.setVisibility(value.isEmpty()?View.GONE:View.VISIBLE);
+            label.setContentDescription(value);
+        }
+    }
+    private void showTransferPath(String peer) {
+        boolean ready=controller!=null&&controller.connected&&Objects.equals(peer,controller.connectedPeerId);
+        String key=!ready?"pathDetailsDisconnected":controller.sessionMode==Peer.BLUETOOTH?"pathDetailsBluetooth":"pathDetailsLan";
+        new AlertDialog.Builder(this).setTitle(t("pathDetailsTitle")).setMessage(t(key)).setPositiveButton(t("close"),null).show();
+    }
     private void updateThumbnailTargets(String peer,List<ChatStore.Message> messages){
         Set<String> records=new HashSet<>();for(ChatStore.Message message:messages)if(message.attachment!=null)records.add(thumbnailKey(peer,message.attachment));
         String prefix=peer+":";thumbnails.keySet().removeIf(key->key.startsWith(prefix)&&!records.contains(key));failedThumbnails.removeIf(key->key.startsWith(prefix)&&!records.contains(key));
@@ -680,6 +714,8 @@ public final class MainActivity extends Activity {
                 if(photoAvailable(attachment)||retryableAttachment(attachment))card.setOnLongClickListener(v->{attachmentMenu(card,peer,attachment);return true;});
             }
             if(attachment.active()||attachment.resumable()){
+                TransferPath route=controller==null?TransferPath.DISCONNECTED:controller.attachmentRoute(peer,attachment);
+                TextView path=label(t(route.key()),11,muted);path.setTag("attachmentPath");path.setPadding(0,dp(4),0,dp(4));path.setFocusable(true);path.setOnClickListener(v->showTransferPath(peer));bubble.addView(path);
                 TransferProgress measurement=controller==null?TransferProgress.UNKNOWN:controller.transferProgress(peer,attachment);
                 String feedback=attachmentFeedback(attachment,measurement);TextView measurementView=label(feedback,11,muted);measurementView.setTag("attachmentFeedback");measurementView.setVisibility(feedback.isEmpty()?View.GONE:View.VISIBLE);bubble.addView(measurementView);
                 LinearLayout progressRow=horizontal();progressRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -692,6 +728,9 @@ public final class MainActivity extends Activity {
                 Button retry=button(t(key),false);retry.setTag("attachmentRetry");retry.setContentDescription(t(key));retry.setBackground(ripple(Color.TRANSPARENT,16));
                 android.graphics.drawable.Drawable symbol=getDrawable(R.drawable.outline_refresh_24).mutate();symbol.setTint(accent);symbol.setBounds(0,0,dp(20),dp(20));retry.setCompoundDrawables(symbol,null,null,null);retry.setCompoundDrawablePadding(dp(6));
                 retry.setEnabled(controller.canSendAttachment()&&state!=AttachmentBatchQueue.RetryState.RETRYING&&state!=AttachmentBatchQueue.RetryState.RETRIED&&state!=AttachmentBatchQueue.RetryState.INELIGIBLE);retry.setOnClickListener(v->retryAttachment(peer,message.id));bubble.addView(retry,new LinearLayout.LayoutParams(-2,dp(48)));
+            }
+            if(photoAvailable(attachment)){
+                Button location=button(t("attachmentShowInFolder"),false);location.setTag("attachmentLocation");location.setBackground(ripple(Color.TRANSPARENT,16));location.setOnClickListener(v->showAttachmentLocation(peer,attachment));bubble.addView(location,new LinearLayout.LayoutParams(-2,dp(48)));
             }
             bubble.setOnLongClickListener(v->{attachmentMenu(bubble,peer,attachment);return true;});
         }
@@ -713,7 +752,8 @@ public final class MainActivity extends Activity {
             menu.setOnMenuItemClickListener(item->{if(item.getItemId()==4)retryAttachment(peer,record.info.id);else if(item.getItemId()==5)retryAttachmentBatch(peer,record.info.id);else if(item.getItemId()==6&&controller!=null)chooseRetryReplacement(peer,record.info.id,controller.attachmentSessionToken(),controller.attachmentSelectionSession(peer));return true;});menu.show();return;
         }
         if(!photoAvailable(record))return;if(attachmentActions!=null)attachmentActions.dismiss();PopupMenu menu=new PopupMenu(this,anchor);attachmentActions=menu;if(record.info.mime.startsWith("image/")||record.info.canOpenExternally())menu.getMenu().add(0,1,0,t("attachmentOpen"));menu.getMenu().add(0,2,1,t("attachmentSaveAs"));if(record.info.mime.startsWith("image/"))menu.getMenu().add(0,3,2,t("gallerySave"));
-        menu.setOnMenuItemClickListener(item->{if(item.getItemId()==1)openAttachment(peer,record);else if(item.getItemId()==3)saveToGallery(peer,record);else saveAttachment(peer,record);return true;});menu.show();
+        menu.getMenu().add(0,7,3,t("attachmentShowInFolder"));
+        menu.setOnMenuItemClickListener(item->{if(item.getItemId()==1)openAttachment(peer,record);else if(item.getItemId()==3)saveToGallery(peer,record);else if(item.getItemId()==7)showAttachmentLocation(peer,record);else saveAttachment(peer,record);return true;});menu.show();
     }
     private Button attachmentChoice(int resource,String text,Runnable action){
         Button button=button(text,false);button.setBackground(ripple(Color.TRANSPARENT,18));button.setContentDescription(text);android.graphics.drawable.Drawable drawable=getDrawable(resource).mutate();drawable.setTint(accent);drawable.setBounds(0,0,dp(28),dp(28));button.setCompoundDrawables(null,drawable,null,null);button.setCompoundDrawablePadding(dp(4));button.setOnClickListener(v->action.run());return button;
@@ -762,6 +802,32 @@ public final class MainActivity extends Activity {
     private void saveAttachment(String peer,AttachmentRecord record){
         try{pendingExportPeer=peer;pendingExportRecord=record.encode();Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT);intent.addCategory(Intent.CATEGORY_OPENABLE);intent.setType(record.info.mime);intent.putExtra(Intent.EXTRA_TITLE,AttachmentInfo.safeName(record.info.name));startActivityForResult(intent,21);}
         catch(Exception e){pendingExportPeer=null;pendingExportRecord=null;toast(t("attachmentFailed"));}
+    }
+    private void showAttachmentLocation(String peer,AttachmentRecord record){
+        ChatController target=controller;if(target==null)return;
+        target.attachmentLocation(peer,record).whenComplete((location,error)->ui.post(()->{
+            if(isDestroyed()||controller!=target||!Objects.equals(peer,target.selectedId))return;
+            if(error!=null){toast(t("attachmentLocationUnavailable"));return;}
+            String key=switch(location.availability()){
+                case MISSING -> "attachmentLocationMissing";
+                case ACCESS_LOST -> "attachmentLocationAccessLost";
+                case UNAVAILABLE -> "attachmentLocationUnavailable";
+                case AVAILABLE -> switch(location.kind()){
+                    case DOCUMENT -> "attachmentLocationDocument";
+                    case GALLERY -> "attachmentLocationGallery";
+                    case APP_PRIVATE -> "attachmentLocationPrivate";
+                };
+            };
+            LinearLayout content=vertical();content.setPadding(dp(20),dp(8),dp(20),dp(8));
+            content.addView(label(location.displayName(),15,ink));TextView description=label(t(key),13,muted);description.setPadding(0,dp(12),0,dp(12));content.addView(description);
+            AlertDialog dialog=new AlertDialog.Builder(this).setTitle(t("attachmentLocationTitle")).setView(content).setNegativeButton(t("close"),null).create();
+            Intent browse=AttachmentLocations.browseIntent(location);
+            if(browse!=null){Button find=button(t("attachmentBrowseSaved"),false);find.setOnClickListener(v->{dialog.dismiss();try{startActivityForResult(browse,25);}catch(ActivityNotFoundException|SecurityException unavailable){toast(t("attachmentLocationUnavailable"));}});content.addView(find);}
+            Intent saved=AttachmentLocations.openSavedIntent(location,record.info.mime);
+            if(saved!=null&&(record.info.mime.startsWith("image/")||record.info.canOpenExternally())){Button open=button(t("attachmentOpenSaved"),false);open.setOnClickListener(v->{dialog.dismiss();try{startActivity(saved);}catch(ActivityNotFoundException|SecurityException unavailable){toast(t("attachmentLocationUnavailable"));}});content.addView(open);}
+            if(record.info.mime.startsWith("image/")||record.info.canOpenExternally()){Button original=button(t("attachmentViewOriginal"),false);original.setOnClickListener(v->{dialog.dismiss();openAttachment(peer,record);});content.addView(original);}
+            Button save=button(t(location.availability()==AttachmentLocations.Availability.AVAILABLE?"attachmentSaveAs":"attachmentSaveAgain"),false);save.setOnClickListener(v->{dialog.dismiss();saveAttachment(peer,record);});content.addView(save);dialog.show();
+        }));
     }
     private void openAttachment(String peer,AttachmentRecord record){
         if(!record.info.mime.startsWith("image/")&&!record.info.canOpenExternally()){saveAttachment(peer,record);return;}
@@ -937,9 +1003,11 @@ public final class MainActivity extends Activity {
         }
         if(requestCode==21){
             selectedExportUri=resultCode==RESULT_OK&&data!=null?data.getData():null;
+            selectedExportFlags=resultCode==RESULT_OK&&data!=null?data.getFlags():0;
             if(selectedExportUri==null){pendingExportPeer=null;pendingExportRecord=null;}
             resumeAttachmentSelection();return;
         }
+        if(requestCode==25)return; // Browsing a saved location must never enqueue the selected file.
         if (requestCode == 8 && pendingAction != null && pendingStage == ENABLE_STAGE) {
             UiAction action = pendingAction; if (resultCode == RESULT_OK) { pendingStage = BIND_STAGE; withPermissions(action); }
             else { pendingAction = null; pendingStage = 0; toast(t("bluetoothEnableCanceled")); }
@@ -956,9 +1024,9 @@ public final class MainActivity extends Activity {
             selectedAttachmentUris=null;pendingAttachmentPeer=null;controller.sendAttachments(peer,token,uris);
         }
         if(selectedExportUri!=null&&pendingExportPeer!=null&&pendingExportRecord!=null){
-            Uri uri=selectedExportUri;String peer=pendingExportPeer,encoded=pendingExportRecord;
-            selectedExportUri=null;pendingExportPeer=null;pendingExportRecord=null;
-            try{AttachmentRecord record=AttachmentRecord.decode(encoded);controller.exportAttachment(peer,record,uri).whenComplete((v,e)->{if(e!=null)ui.post(()->{if(!isDestroyed())toast(t("attachmentFailed"));});});}
+            Uri uri=selectedExportUri;String peer=pendingExportPeer,encoded=pendingExportRecord;int flags=selectedExportFlags;
+            selectedExportUri=null;selectedExportFlags=0;pendingExportPeer=null;pendingExportRecord=null;
+            try{AttachmentRecord record=AttachmentRecord.decode(encoded);controller.exportAttachment(peer,record,uri,flags).whenComplete((v,e)->{if(e!=null)ui.post(()->{if(!isDestroyed())toast(t("attachmentFailed"));});});}
             catch(Exception e){toast(t("attachmentFailed"));}
         }
     }
@@ -1054,6 +1122,7 @@ public final class MainActivity extends Activity {
     private void deviceInfo(String id, String name) {
         if (controller == null || id == null) return; boolean trusted = controller.isTrusted(id);
         AlertDialog.Builder builder = new AlertDialog.Builder(this).setTitle(safe(name)).setMessage(t(trusted ? "deviceInfoTrusted" : "deviceInfoUntrusted", id)).setNegativeButton(t("close"), null);
+        LinearLayout identity=vertical();identity.setGravity(Gravity.CENTER_HORIZONTAL);identity.setPadding(dp(24),dp(12),dp(24),dp(12));identity.addView(avatar(id,name,88),new LinearLayout.LayoutParams(dp(88),dp(88)));builder.setView(identity);
         if (trusted) {
             builder.setPositiveButton(t("revoke"), (d, w) -> confirmRevoke(id, name, false));
             if (Objects.equals(id, controller.connectedPeerId)) builder.setNeutralButton(t("revokeAndDisconnect"), (d, w) -> confirmRevoke(id, name, true));
@@ -1093,11 +1162,8 @@ public final class MainActivity extends Activity {
         LinearLayout row = vertical(); row.setMinimumHeight(dp(64)); row.setPadding(dp(2), dp(12), dp(2), dp(12)); TextView heading = label(title, 16, ink); row.addView(heading); if (detailView != null) row.addView(detailView);
         row.setFocusable(true); row.setClickable(true); row.setBackground(ripple(background, 12)); row.setOnClickListener(v -> action.run()); return row;
     }
-    private TextView avatar(String id, String name, int size) {
-        String clean = safe(name).trim(); String initial = clean.isEmpty() ? "?" : new String(Character.toChars(clean.codePointAt(0)));
-        int index = Math.floorMod(safe(id).hashCode(), 5); String[] fills = isDark() ? new String[]{"#214C3D", "#3D3155", "#243E57", "#514329", "#573438"} : new String[]{"#D8F0E5", "#EEE6FC", "#DFEBFD", "#FFF0D7", "#FBE1E4"};
-        String[] inks = isDark() ? new String[]{"#8BDABA", "#CEB6F1", "#AFD2FC", "#EED09D", "#ECB9C0"} : new String[]{"#167554", "#6A40A2", "#1B6598", "#9A6A1D", "#A94D55"};
-        TextView avatar = label(initial, size == 48 ? 23 : 20, color(inks[index])); avatar.setTypeface(null, Typeface.BOLD); avatar.setGravity(Gravity.CENTER); avatar.setPadding(0, 0, 0, 0); avatar.setBackground(shape(color(fills[index]), size / 2)); avatar.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO); return avatar;
+    private AvatarView avatar(String id, String name, int size) {
+        AvatarView avatar=new AvatarView(this);AndroidAvatars.get(this).bind(avatar,controller==null?null:controller.avatarRoot(id));return avatar;
     }
     private void animatePage(View target) {
         if (!android.animation.ValueAnimator.areAnimatorsEnabled()) return; target.animate().cancel(); target.setAlpha(.75f); target.setTranslationY(dp(5)); target.animate().alpha(1f).translationY(0).setDuration(170).start();

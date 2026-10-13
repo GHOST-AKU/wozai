@@ -24,6 +24,14 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     private final DesktopStore store;
     private final DesktopIdentity.Identity identity;
     private final DesktopClient client;
+    private final DesktopAvatars avatars;
+    private final AppTheme.Avatar ownAvatar=new AppTheme.Avatar(null),chatAvatar=new AppTheme.Avatar(null);
+    private AvatarDialog avatarDialog;
+    private final List<JList<DesktopStore.Peer>> avatarLists=new ArrayList<>();
+    private final Map<String,AppTheme.Avatar> detailAvatars=new HashMap<>();
+    private final Map<String,JDialog> avatarDetails=new HashMap<>();
+    private final Map<String,Runnable> detailTextRefresh=new HashMap<>();
+    private long avatarEditorGeneration;
     private final LanDiscovery discovery = new LanDiscovery();
     private final List<Runnable> translations = new ArrayList<>();
     private final DefaultListModel<DesktopStore.Peer> historyModel = new DefaultListModel<>();
@@ -57,6 +65,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     private List<TransferProgress> renderedProgress = List.of();
     private List<AttachmentBatchQueue.RetryState> renderedRetryStates=List.of();
     private List<Boolean> renderedRetryBatches=List.of();
+    private List<TransferPath> renderedPaths=List.of();
     private JDialog requestDialog;
     private PhotoViewer photoViewer;
     private SecurityDialog securityDialog;
@@ -91,6 +100,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         strings = new Strings(language); nicknameValue = store.nickname();
         setIconImages(AppIcons.load());
         client = new DesktopClient(store, identity, this);
+        avatars = new DesktopAvatars(client::avatar,this::refreshAvatarViews);
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
         setMinimumSize(new Dimension(760, 540)); setSize(1060, 730); setLocationByPlatform(true);
         draftTimer = new javax.swing.Timer(450, e -> saveDraft()); draftTimer.setRepeats(false);
@@ -135,6 +145,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     private void buildChat() {
         JPanel chat = padded(new BorderLayout(8, 12));
         JPanel top = new JPanel(new BorderLayout(12,0)); JPanel title=new JPanel(new GridLayout(2,1,0,4)); title.add(chatTitle); status.setForeground(AppTheme.muted); status.setFont(status.getFont().deriveFont(12f)); title.add(status); top.add(title,BorderLayout.CENTER);
+        chatAvatar.setName("avatar.header");JButton details=new JButton();details.setLayout(new BorderLayout());details.add(chatAvatar);details.setPreferredSize(new Dimension(56,56));details.putClientProperty("JButton.buttonType","toolBarButton");details.addActionListener(e->peerDetails());translations.add(()->{details.setToolTipText(strings.text("avatarDetails"));details.getAccessibleContext().setAccessibleName(strings.text("avatarDetails"));});top.add(details,BorderLayout.LINE_START);
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.TRAILING, 8, 0));
         actions.add(button("reconnect", this::reconnect));
         JPopupMenu menu = new JPopupMenu();
@@ -220,6 +231,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     private void buildSettings(Path path) throws IOException {
         JPanel page=new JPanel(new BorderLayout()); ResponsiveColumn content=new ResponsiveColumn();
         content.add(section("deviceSection")); nickname.setText(nicknameValue);
+        JButton editAvatar=new JButton();editAvatar.setName("avatar.edit");editAvatar.setLayout(new BorderLayout());ownAvatar.setPreferredSize(new Dimension(56,56));editAvatar.add(ownAvatar);editAvatar.setPreferredSize(new Dimension(72,64));editAvatar.addActionListener(e->openAvatarEditor());translations.add(()->{editAvatar.setToolTipText(strings.text("avatarChange"));editAvatar.getAccessibleContext().setAccessibleName(strings.text("avatarChange"));ownAvatar.getAccessibleContext().setAccessibleName(strings.text("avatar"));});content.add(settingRow("avatar",editAvatar,button("avatarChange",this::openAvatarEditor)));
         content.add(settingRow("nickname",nickname,button("save",this::saveNickname)));
         content.add(section("appearanceSection"));
         translations.add(() -> {
@@ -336,17 +348,40 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     }); }
     private void renderState() {
         boolean encrypted = state.peer()!=null && state.phase().equals("ready") && client.endToEndEncrypted(state.peer().id());
-        status.setText(encrypted ? strings.text("encryptedVia",strings.text(state.transport())) : state.transport().isEmpty() ? strings.text(state.phase()) : strings.text("connectionStatus", strings.text(state.transport()), strings.text(state.phase())));
+        String dataPath=strings.text(state.transport().equals("lan")&&state.phase().equals("ready")?"lanPathUnconfirmed":state.transport().isEmpty()?state.phase():state.transport());
+        status.setText(encrypted ? strings.text("encryptedVia",dataPath) : state.transport().isEmpty() ? strings.text(state.phase()) : strings.text("connectionStatus", dataPath, strings.text(state.phase())));
+        status.setToolTipText(state.phase().equals("ready")?strings.text(state.transport().equals("lan")?"pathDetailsLan":"pathDetailsBluetooth"):null);
         if(encrypted)status.setText(status.getText()+" · "+strings.text(client.identityVerified(state.peer().id())?"identityVerified":"identityUnverified"));
         if(securityDialog!=null&&securityDialog.isDisplayable())securityDialog.refresh();
         listenButton.setText(strings.text(state.listening() == null ? "listen" : "stopListen"));
         addresses.setText(state.listening() == null ? strings.text("notListening") : state.listening().endpoints().isEmpty() ? strings.text("noAddress") : String.join("\n", state.listening().endpoints()));
         DesktopStore.Peer peer = selectedPeer(); chatTitle.setText(peer == null ? strings.text("selectChat") : peer.name());
+        refreshAvatarViews();
         send.setEnabled(selected != null && state.peer() != null && selected.equals(state.peer().id()) && state.phase().equals("ready") && !composer.getText().isBlank());
         boolean fileReady=selected!=null&&state.peer()!=null&&selected.equals(state.peer().id())&&state.phase().equals("ready");sendFile.setEnabled(fileReady);sendPhoto.setEnabled(fileReady);attach.setEnabled(fileReady);emoji.setEnabled(selected!=null);
         composer.setEnabled(selected != null); refreshBluetoothText();
     }
     private DesktopStore.Peer selectedPeer() { if (state != null) for (var peer : state.history()) if (peer.id().equals(selected)) return peer; return null; }
+    private void refreshAvatarViews(){
+        if(shuttingDown)return;String localRoot=identity.signer().publicKey();ownAvatar.set(localRoot,avatars.image(localRoot),avatars.model(localRoot));DesktopStore.Peer peer=selectedPeer();String remote=peer==null?"":peer.publicKey();chatAvatar.set(remote,avatars.image(remote),avatars.model(remote));history.repaint();for(JList<DesktopStore.Peer> list:avatarLists)list.repaint();
+        for(var entry:detailAvatars.entrySet()){DesktopStore.Peer current=state==null?null:state.history().stream().filter(p->p.id().equals(entry.getKey())).findFirst().orElse(null);String root=current==null?"":current.publicKey();entry.getValue().set(root,avatars.image(root),avatars.model(root));Runnable text=detailTextRefresh.get(entry.getKey());if(text!=null)text.run();}
+    }
+    public void avatarChanged(String root){avatarsChanged(root);}
+    void avatarsChanged(String root){
+        if(!SwingUtilities.isEventDispatchThread()){SwingUtilities.invokeLater(()->avatarsChanged(root));return;}if(shuttingDown)return;avatars.invalidate(root);if(avatarDialog!=null&&root.equals(identity.signer().publicKey()))avatarDialog.profileChanged();refreshAvatarViews();
+    }
+    private void openAvatarEditor(){
+        if(shuttingDown)return;if(avatarDialog!=null&&avatarDialog.isDisplayable()){avatarDialog.toFront();return;}long token=++avatarEditorGeneration;
+        client.localAvatar().whenComplete((snapshot,error)->SwingUtilities.invokeLater(()->{
+            if(shuttingDown||token!=avatarEditorGeneration)return;if(error!=null||snapshot==null){notice("avatarSaveFailed");return;}
+            AvatarDialog dialog=new AvatarDialog(this,strings,identity.signer().publicKey(),snapshot,new AvatarDialog.Committer(){public CompletableFuture<AvatarSnapshot> save(long revision,byte[] png){return client.saveAvatar(revision,png);}public CompletableFuture<AvatarSnapshot> reset(long revision){return client.resetAvatar(revision);}},saved->{avatars.invalidate(identity.signer().publicKey());refreshAvatarViews();notice(saved.profile().avatarHash.isEmpty()?"avatarResetDone":"avatarSaved");});
+            avatarDialog=dialog;dialogTranslations.put(dialog,List.of(dialog::translate));dialog.addWindowListener(new WindowAdapter(){public void windowClosed(WindowEvent event){dialogTranslations.remove(dialog);if(avatarDialog==dialog)avatarDialog=null;}});scaleFonts(dialog.getContentPane(),fontScale);dialog.setVisible(true);SwingUtilities.invokeLater(dialog::chooseImage);
+        }));
+    }
+    private void peerDetails(){
+        DesktopStore.Peer peer=selectedPeer();if(peer==null)return;JDialog existing=avatarDetails.get(peer.id());if(existing!=null&&existing.isDisplayable()){existing.toFront();return;}List<Runnable> targets=new ArrayList<>();JDialog dialog=new JDialog(this,false);avatarDetails.put(peer.id(),dialog);dialog.setDefaultCloseOperation(DISPOSE_ON_CLOSE);AppTheme.Avatar avatar=new AppTheme.Avatar(peer.publicKey(),avatars.image(peer.publicKey()),avatars.model(peer.publicKey()));avatar.setPreferredSize(new Dimension(96,96));avatar.setName("avatar.details");detailAvatars.put(peer.id(),avatar);
+        JPanel body=padded(new BorderLayout(16,16));body.add(avatar,BorderLayout.LINE_START);JTextArea details=new JTextArea();details.setEditable(false);details.setLineWrap(true);details.setWrapStyleWord(true);details.setOpaque(false);Runnable text=()->{DesktopStore.Peer current=state==null?peer:state.history().stream().filter(p->p.id().equals(peer.id())).findFirst().orElse(peer);details.setText(strings.text("requestDetails",current.name(),current.publicKey().isEmpty()?strings.text("identityUnverified"):fingerprint(current.publicKey())));avatar.getAccessibleContext().setAccessibleName(strings.text("avatar"));};targets.add(text);detailTextRefresh.put(peer.id(),text);body.add(details);JPanel actions=new JPanel(new FlowLayout(FlowLayout.TRAILING));actions.add(button("gotIt",dialog::dispose,targets));body.add(actions,BorderLayout.SOUTH);dialog.add(body);dialog.addWindowListener(new WindowAdapter(){public void windowClosed(WindowEvent event){if(avatarDetails.get(peer.id())==dialog){avatarDetails.remove(peer.id());detailAvatars.remove(peer.id());detailTextRefresh.remove(peer.id());}}});registerDialog(dialog,targets,"avatarDetails");dialog.setSize(480,240);dialog.setMinimumSize(new Dimension(350,200));scaleFonts(dialog.getContentPane(),fontScale);dialog.setLocationRelativeTo(this);dialog.setVisible(true);
+    }
     private void openVerification(){
         DesktopStore.Peer peer=selectedPeer();if(peer==null)return;long revision=conversationGeneration;
         client.verification(peer.id()).whenComplete((snapshot,error)->SwingUtilities.invokeLater(()->{
@@ -396,8 +431,10 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         List<TransferProgress> progress=messages.stream().map(message->message.attachment()==null?TransferProgress.UNKNOWN:client.transferProgress(peer,message.attachment())).toList();
         List<AttachmentBatchQueue.RetryState> retryStates=messages.stream().map(message->retryState(peer,message)).toList();
         List<Boolean> retryBatches=messages.stream().map(message->client.hasRetryableBatch(peer,message.id())).toList();
-        if(messages.equals(renderedMessages)&&progress.equals(renderedProgress)&&retryStates.equals(renderedRetryStates)&&retryBatches.equals(renderedRetryBatches))return;
-        renderedMessages=messages; renderedProgress=progress;renderedRetryStates=retryStates;renderedRetryBatches=retryBatches;
+        List<TransferPath> paths=messages.stream().map(message->TransferPath.forAttachment(state==null?"":state.transport(),state!=null&&state.phase().equals("ready")&&state.peer()!=null&&peer.equals(state.peer().id())&&client.endToEndEncrypted(peer),message.attachment())).toList();
+        if(messages.equals(renderedMessages)&&progress.equals(renderedProgress)&&retryStates.equals(renderedRetryStates)&&retryBatches.equals(renderedRetryBatches)&&paths.equals(renderedPaths))return;
+        renderedMessages=messages; renderedProgress=progress;renderedRetryStates=retryStates;renderedRetryBatches=retryBatches;renderedPaths=paths;
+        transcript.path(message->dev.ghost.nearbyim.core.TransferPath.forAttachment(state==null?"":state.transport(),state!=null&&state.phase().equals("ready")&&state.peer()!=null&&peer.equals(state.peer().id())&&client.endToEndEncrypted(peer),message.attachment()));
         transcript.actions((message,action)->attachmentAction(peer,message,action));transcript.progress(message->message.attachment()==null?TransferProgress.UNKNOWN:client.transferProgress(peer,message.attachment()));transcript.retryState(message->retryState(peer,message));transcript.retryableBatch(message->client.hasRetryableBatch(peer,message.id()));transcript.scale(fontScale);transcript.render(messages,strings);
     }
     private void chooseAttachment(boolean photo){
@@ -610,7 +647,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     }
     private void handle(CompletableFuture<?> future, String errorKey) { future.whenComplete((value, error) -> { if (error != null) notice(errorText(error, errorKey)); }); }
     private void shutdown() {
-        if (shuttingDown) return; saveDraft(); shuttingDown = true; stopBluetoothScan(); draftTimer.stop(); localeTimer.stop(); setEnabled(false);
+        if (shuttingDown) return; saveDraft(); shuttingDown = true;avatarEditorGeneration++;avatars.close();if(avatarDialog!=null)avatarDialog.dispose(); stopBluetoothScan(); draftTimer.stop(); localeTimer.stop(); setEnabled(false);
         new Thread(() -> {
             attachmentWorker.shutdownNow();bluetoothWorker.shutdownNow(); discovery.close(); client.close(); try { store.close(); } catch (IOException ignored) { }
             SwingUtilities.invokeLater(() -> { for (Window window : getOwnedWindows()) window.dispose(); dispose(); });
@@ -625,7 +662,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         public Component getListCellRendererComponent(JList<? extends DesktopStore.Peer> list,DesktopStore.Peer peer,int index,boolean selectedRow,boolean focused) {
             JPanel row=new JPanel(new BorderLayout(12,6)) {
                 protected void paintComponent(Graphics g) { g.setColor(AppTheme.background); g.fillRect(0,0,getWidth(),getHeight()); if(selectedRow) { Graphics2D p=(Graphics2D)g.create(); p.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON); p.setColor(AppTheme.tonal); p.fillRoundRect(0,0,getWidth(),getHeight(),24,24); p.dispose(); } }
-            }; row.setOpaque(false); row.setBorder(BorderFactory.createEmptyBorder(14,12,14,12)); row.add(new AppTheme.Avatar(peer.name()),BorderLayout.LINE_START);
+            }; row.setOpaque(false); row.setBorder(BorderFactory.createEmptyBorder(14,12,14,12)); row.add(new AppTheme.Avatar(peer.publicKey(),avatars.image(peer.publicKey()),avatars.model(peer.publicKey())),BorderLayout.LINE_START);
             JPanel text=new JPanel(new BorderLayout(8,8)); text.setOpaque(false); JLabel name=plainLabel(peer.name()); name.setFont(name.getFont().deriveFont(Font.BOLD,16f*fontScale)); text.add(name,BorderLayout.NORTH);
             var message=summaries.get(peer.id()); boolean active=state!=null && state.peer()!=null && peer.id().equals(state.peer().id()) && state.phase().equals("ready");
             String summary=message==null?strings.text("noMessages"):message.body().replace('\n',' '); JLabel detail=plainLabel(active ? strings.text("conversationSummary", strings.text(state.transport()), strings.text("ready"), summary) : summary); detail.setForeground(AppTheme.muted); detail.setFont(detail.getFont().deriveFont(13f*fontScale)); text.add(detail,BorderLayout.CENTER); row.add(text);
@@ -673,11 +710,12 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         if (state == null) return;
         List<Runnable> targets = new ArrayList<>(); DefaultListModel<DesktopStore.Peer> model = new DefaultListModel<>();
         state.history().stream().filter(p -> !p.publicKey().isEmpty()).forEach(model::addElement);
-        JList<DesktopStore.Peer> devices = new JList<>(model); devices.setCellRenderer(plainRenderer()); devices.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        JList<DesktopStore.Peer> devices = new JList<>(model);devices.setCellRenderer((list,peer,index,selected,focused)->{JPanel row=new JPanel(new BorderLayout(12,0));row.setBackground(selected?list.getSelectionBackground():list.getBackground());row.setBorder(BorderFactory.createEmptyBorder(10,8,10,8));row.add(new AppTheme.Avatar(peer.publicKey(),avatars.image(peer.publicKey()),avatars.model(peer.publicKey())),BorderLayout.LINE_START);row.add(plainLabel(peer.toString()));return row;});devices.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);avatarLists.add(devices);
         targets.add(() -> { devices.getAccessibleContext().setAccessibleName(strings.text("trustedDevices")); devices.getAccessibleContext().setAccessibleDescription(strings.text("deviceCount", model.size())); devices.repaint(); });
         JPanel body = padded(new BorderLayout(8, 12)); body.add(note("trustHint", targets), BorderLayout.NORTH);
         JScrollPane scroll = new JScrollPane(devices); scroll.setPreferredSize(new Dimension(450, 220)); body.add(scroll);
         JDialog dialog = new JDialog(this, false); dialog.setDefaultCloseOperation(DISPOSE_ON_CLOSE);
+        dialog.addWindowListener(new WindowAdapter(){public void windowClosed(WindowEvent event){avatarLists.remove(devices);}});
         JButton revoke = button("revoke", () -> {
             var peer = devices.getSelectedValue(); if (peer == null) return;
             select(peer); if (confirm("revokeConfirm")) {

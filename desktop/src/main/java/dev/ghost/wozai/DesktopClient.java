@@ -20,10 +20,12 @@ public final class DesktopClient implements AutoCloseable {
         void request(Request request);
         void notice(UiText text);
         default void attachmentProgress(String peer){}
+        default void avatarChanged(String publicKey){}
     }
     private final DesktopStore store;
     private final DesktopIdentity.Identity identity;
     private final byte[] noiseIdentity;
+    private AvatarStore ownAvatar;
     private CompletableFuture<Void> attachmentsStopped=CompletableFuture.completedFuture(null);
     private final Listener listener;
     private final TrustPolicy policy = new TrustPolicy();
@@ -71,6 +73,21 @@ public final class DesktopClient implements AutoCloseable {
         }
     }
     public CompletableFuture<Void> refresh() { return submit(() -> { publish(); return null; }); }
+    private AvatarStore ownAvatars()throws IOException {
+        if(ownAvatar==null)ownAvatar=new AvatarStore(store.attachmentsRoot().getParent().resolve("avatars"),identity.signer().publicKey());
+        return ownAvatar;
+    }
+    public CompletableFuture<AvatarSnapshot> localAvatar(){return submit(()->ownAvatars().snapshot());}
+    public CompletableFuture<AvatarSnapshot> avatar(String publicKey){return submit(()->new AvatarStore(store.attachmentsRoot().getParent().resolve("avatars"),publicKey).snapshot());}
+    public CompletableFuture<AvatarSnapshot> saveAvatar(long expectedRevision,byte[] png){
+        byte[] image=png==null?null:png.clone();
+        return submit(()->{AvatarSnapshot snapshot=ownAvatars().save(expectedRevision,image);localAvatarChanged();return snapshot;});
+    }
+    public CompletableFuture<AvatarSnapshot> resetAvatar(long expectedRevision){return submit(()->{AvatarSnapshot snapshot=ownAvatars().reset(expectedRevision);localAvatarChanged();return snapshot;});}
+    private void localAvatarChanged(){
+        listener.avatarChanged(identity.signer().publicKey());
+        Session session=current;if(session!=null&&session.avatars!=null)session.avatars.localChanged();
+    }
     private void publish() {
         try { lastHistory = store.peers(); listener.changed(new State(phase, current == null ? null : current.peer, listening, lastHistory, bluetoothServer != null, current == null ? "" : current.transport)); }
         catch (IOException e) { failure(); }
@@ -148,12 +165,14 @@ public final class DesktopClient implements AutoCloseable {
         DesktopStore.Peer peer;
         TrustPolicy.Authorization authorization;
         volatile ClientAttachmentTransfers transfers;
+        volatile AvatarSync avatars;
+        final ArrayDeque<AvatarPacket> pendingAvatars=new ArrayDeque<>();
         boolean preparing;
         volatile boolean identityVerified;
         Session(StreamConnection connection, boolean incoming, String expectedId, String target, long trustVersion) throws IOException {
             this.incoming = incoming; this.expectedId = expectedId; this.target = target; this.trustVersion = trustVersion; this.transport = connection.label().equals("Bluetooth") ? "bluetooth" : "lan";
             String nickname = store.nickname();
-            wire = FramedSession.secure(connection, identity.id(), nickname, identity.signer(),noiseIdentity,!incoming,this);
+            wire = FramedSession.secure(connection, identity.id(), nickname, identity.signer(),noiseIdentity,!incoming,this,true);
         }
         public void onHello(Frame hello) { event(() -> {
             if (current != this) return;
@@ -207,9 +226,26 @@ public final class DesktopClient implements AutoCloseable {
                 store.peer(peer);
                 if(transfers==null||!transfers.v2())throw new IOException("File reader not prepared before approval");
                 identityVerified=store.isVerified(peer.id(),identity.signer().publicKey(),authorization.publicKey);
-                phase = "ready"; publish();
+                phase = "ready";
+                startAvatars();publish();
             } catch (IOException e) { failure(); }
         }); }
+        void startAvatars() {
+            if(!wire.avatarsSupported()||authorization.publicKey.equals(identity.signer().publicKey())){pendingAvatars.clear();return;}
+            try {
+                AvatarStore remote=new AvatarStore(store.attachmentsRoot().getParent().resolve("avatars"),authorization.publicKey);
+                avatars=new AvatarSync(ownAvatars(),remote,wire::sendAvatar,new AvatarSync.Listener(){
+                    public void onChanged(AvatarSnapshot snapshot){event(()->{if(current==Session.this&&avatars!=null&&policy.ready(authorization))listener.avatarChanged(authorization.publicKey);});}
+                    public void onProtocolError(IOException error){if(current==Session.this)wire.close(UiText.of("disconnected"));}
+                });
+                avatars.start();while(!pendingAvatars.isEmpty())if(!avatars.receive(pendingAvatars.removeFirst())){wire.close(UiText.of("busy"));break;}
+            }catch(IOException|RuntimeException unavailable){pendingAvatars.clear();listener.notice(UiText.of("avatarSaveFailed"));}
+        }
+        public void onAvatar(AvatarPacket packet){event(()->{
+            if(current!=this||!wire.avatarsSupported())return;
+            if(avatars!=null){if(!avatars.receive(packet))wire.close(UiText.of("busy"));}
+            else if(!phase.equals("ready")){if(pendingAvatars.size()>=8)wire.close(UiText.of("busy"));else pendingAvatars.addLast(packet);}
+        });}
         public void onAttachment(Frame frame){event(()->{if(current==this&&transfers!=null)transfers.receive(frame);});}
         public void onTransfer(TransferPacket packet){ClientAttachmentTransfers target=transfers;if(current!=this||target==null)return;try{target.receive(packet);}catch(IOException failure){wire.close(UiText.of("attachmentFailed"));}}
         public void onText(Frame frame) { event(() -> {
@@ -430,6 +466,7 @@ public final class DesktopClient implements AutoCloseable {
         Session previous = current; current = null; phase = "idle";
         transferProgress.clear();
         if (previous != null) {
+            if(previous.avatars!=null){previous.avatars.close();previous.avatars=null;}previous.pendingAvatars.clear();
             if(previous.transfers!=null){CompletableFuture<Void> stopped=previous.transfers.shutdown();attachmentsStopped=CompletableFuture.allOf(attachmentsStopped,stopped);try{stopped.get(5,TimeUnit.SECONDS);}catch(Exception e){listener.notice(UiText.of("attachmentFailed"));}}
             policy.cancel(previous.authorization); previous.wire.close(UiText.of("disconnected"));
             if (previous.peer != null) try { store.unknown(previous.peer.id()); }
@@ -439,7 +476,7 @@ public final class DesktopClient implements AutoCloseable {
     public void close() {
         if (closed) return;
         try { submit(() -> { stopServer(); stopBluetoothServer(); disconnectNow(); closed = true; return null; }).get(5, TimeUnit.SECONDS); }
-        catch (Exception e) { closed = true; stopServer(); stopBluetoothServer(); closeSocket(connecting); closeConnection(connectingBluetooth); Session s = current; if (s != null) s.wire.close(UiText.of("disconnected")); }
+        catch (Exception e) { closed = true; stopServer(); stopBluetoothServer(); closeSocket(connecting); closeConnection(connectingBluetooth); Session s = current; if (s != null){if(s.avatars!=null)s.avatars.close();s.wire.close(UiText.of("disconnected"));} }
         finally { attachmentIO.shutdown();try{attachmentIO.awaitTermination(5,TimeUnit.SECONDS);}catch(InterruptedException interrupted){Thread.currentThread().interrupt();}model.shutdownNow();Arrays.fill(noiseIdentity,(byte)0); }
     }
     public CompletableFuture<Map<String,DesktopStore.Message>> summaries() { return submit(() -> {

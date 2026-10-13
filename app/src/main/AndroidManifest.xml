@@ -34,6 +34,7 @@
         <activity android:name=".GalleryActivity" android:exported="false" />
         <activity android:name=".AttachmentSelectionActivity" android:exported="false" />
         <activity android:name=".PhotoActivity" android:exported="false" />
+        <activity android:name=".AvatarActivity" android:exported="false" />
         <activity android:name=".QrScanActivity" android:exported="false" />
         <provider android:name=".AttachmentProvider" android:authorities="${applicationId}.attachments" android:exported="false" android:grantUriPermissions="true" />
         <service android:name=".ChatService" android:exported="false" android:foregroundServiceType="connectedDevice" />

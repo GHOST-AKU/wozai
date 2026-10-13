@@ -6,6 +6,7 @@ import java.nio.file.*;
 import java.nio.file.attribute.*;
 import java.security.*;
 import java.util.*;
+import java.util.function.BooleanSupplier;
 
 /** Small private journals. Uses attribute views supported by Android, not getFileStore. */
 public final class PrivateMetadata {
@@ -31,14 +32,21 @@ public final class PrivateMetadata {
         if(!MessageDigest.isEqual(hash(data),expected))throw new IOException("Private journal checksum mismatch");return data;
     }
     public static void write(Path file,byte[] data,int limit)throws IOException {
+        write(file,data,limit,()->false);
+    }
+    /** Optional cancellation stops before atomic replacement; the existing writer is unguarded. */
+    public static void write(Path file,byte[] data,int limit,BooleanSupplier canceled)throws IOException {
+        Objects.requireNonNull(canceled);checkCanceled(canceled);
         if(data.length+32>limit||Files.isSymbolicLink(file))throw new IOException("Private journal exceeds bounds");
         directory(file.getParent());Path temporary=Files.createTempFile(file.getParent(),".journal-",".tmp");
         try {
             permissions(temporary,false);
-            try(FileOutputStream out=new FileOutputStream(temporary.toFile())){out.write(data);out.write(hash(data));out.getChannel().force(true);}
+            try(FileOutputStream out=new FileOutputStream(temporary.toFile())){out.write(data);out.write(hash(data));checkCanceled(canceled);out.getChannel().force(true);}
+            checkCanceled(canceled);
             Files.move(temporary,file,StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING);TransferCheckpointStore.syncDirectory(file.getParent());
         }finally{Files.deleteIfExists(temporary);}
     }
+    private static void checkCanceled(BooleanSupplier canceled)throws InterruptedIOException {if(canceled.getAsBoolean())throw new InterruptedIOException("Private journal commit canceled");}
     public static String key(String text){return AttachmentInfo.hex(hash(text.getBytes(java.nio.charset.StandardCharsets.UTF_8)));}
     private static byte[] hash(byte[] data){try{return MessageDigest.getInstance("SHA-256").digest(data);}catch(NoSuchAlgorithmException impossible){throw new AssertionError(impossible);}}
 }

@@ -11,6 +11,7 @@ public final class FramedSession {
     public interface Listener {
         default void onAttachment(Frame frame) { throw new IllegalStateException("Attachments unavailable"); }
         default void onTransfer(TransferPacket packet) { throw new IllegalStateException("Encrypted attachments unavailable"); }
+        default void onAvatar(AvatarPacket packet) { throw new IllegalStateException("Avatars unavailable"); }
         void onHello(Frame hello); void onReady(); void onText(Frame frame); void onAck(String id); void onClosed(UiText reason);
     }
     private final TransferDiagnostics metrics=new TransferDiagnostics();
@@ -26,6 +27,7 @@ public final class FramedSession {
     private volatile long lastReadNanos = System.nanoTime();
     private final Map<String, Integer> receiving = new HashMap<>();
     private final Set<String> awaitingReceipts = new HashSet<>();
+    private final List<AvatarWrite> avatarWrites=new ArrayList<>(AvatarPacket.WINDOW_CHUNKS);
     private int unpersisted;
 
     public FramedSession(StreamConnection connection, String localId, String nickname, DeviceIdentity identity, Listener listener) {
@@ -35,13 +37,16 @@ public final class FramedSession {
         try { channel = new AuthenticatedChannel(identity, new Frame(Frame.HELLO, localId, nickname, System.currentTimeMillis())); }
         catch (IOException error) { throw new IllegalArgumentException("Invalid local identity", error); }
     }
-    private FramedSession(StreamConnection connection,String localId,String nickname,DeviceIdentity identity,byte[] staticKey,boolean initiator,Listener listener)throws IOException {
+    private FramedSession(StreamConnection connection,String localId,String nickname,DeviceIdentity identity,byte[] staticKey,boolean initiator,Listener listener,boolean avatars)throws IOException {
         this.connection=Objects.requireNonNull(connection);this.listener=Objects.requireNonNull(listener);channel=null;
-        noise=new NoiseRecordChannel(connection,initiator,identity,localId==null?null:localId.toLowerCase(Locale.ROOT),nickname,staticKey,null,null);
+        noise=new NoiseRecordChannel(connection,initiator,identity,localId==null?null:localId.toLowerCase(Locale.ROOT),nickname,staticKey,null,null,avatars);
     }
     /** Explicit NIM4 selection; this constructor never falls back to NIM3. */
     public static FramedSession secure(StreamConnection connection,String localId,String nickname,DeviceIdentity identity,byte[] staticKey,boolean initiator,Listener listener)throws IOException {
-        return new FramedSession(connection,localId,nickname,identity,staticKey,initiator,listener);
+        return secure(connection,localId,nickname,identity,staticKey,initiator,listener,false);
+    }
+    public static FramedSession secure(StreamConnection connection,String localId,String nickname,DeviceIdentity identity,byte[] staticKey,boolean initiator,Listener listener,boolean avatars)throws IOException {
+        return new FramedSession(connection,localId,nickname,identity,staticKey,initiator,listener,avatars);
     }
     private static Thread daemon(Runnable runnable, String name) { Thread t = new Thread(runnable, name); t.setDaemon(true); return t; }
     public void start() {
@@ -66,6 +71,10 @@ public final class FramedSession {
                 else {
                     ProtocolV4.Record record=ProtocolV4.decodeRecord(noise.read());lastReadNanos=System.nanoTime();
                     if(record.transfer!=null){if(!isReady())throw new IOException("File before approval");listener.onTransfer(record.transfer);continue;}
+                    if(record.avatar!=null){if(!avatarsSupported())throw new IOException("Avatar before negotiated approval");
+                        listener.onAvatar(record.avatar);
+                        if(record.avatar.kind==AvatarPacket.Kind.CANCEL||record.avatar.kind==AvatarPacket.Kind.RESULT&&record.avatar.code!=AvatarPacket.Code.OK)discardAvatarWrites(record.avatar);
+                        continue;}
                     frame=record.frame;
                 }
                 lastReadNanos = System.nanoTime();
@@ -122,6 +131,7 @@ public final class FramedSession {
     }
     public boolean attachmentsSupported() { return isReady() && (noise!=null||channel.attachments()); }
     public boolean attachmentsV2(){return isReady()&&noise!=null;}
+    public boolean avatarsSupported(){return isReady()&&noise!=null&&noise.avatarsSupported();}
     public String connectionGeneration(){return noise==null?null:noise.connectionGeneration();}
     public int attachmentChunkSize() { return noise==null?channel.chunkSize():TransferLimits.DATA_BYTES; }
     public long attachmentSizeLimit() { return noise==null?channel.fileSize():TransferLimits.MAX_FILE_BYTES; }
@@ -133,6 +143,26 @@ public final class FramedSession {
         if(!attachmentsV2())return false;
         try {byte[] plaintext=ProtocolV4.encodeTransfer(packet);return enqueue(()->noise.write(plaintext),plaintext.length+256,true);}
         catch(IOException error){close(UiText.of("attachmentFailed"));return false;}
+    }
+    public boolean sendAvatar(AvatarPacket packet) {
+        if(!avatarsSupported())return false;
+        try{byte[] plaintext=ProtocolV4.encodeAvatar(packet);
+            if(packet.kind==AvatarPacket.Kind.CHUNK){
+                AvatarWrite write=new AvatarWrite(packet,plaintext);
+                synchronized(avatarWrites){if(avatarWrites.size()>=AvatarPacket.WINDOW_CHUNKS)return false;avatarWrites.add(write);}
+                if(enqueue(write,plaintext.length+256,true))return true;
+                synchronized(avatarWrites){avatarWrites.remove(write);write.plaintext=null;}return false;
+            }
+            if(packet.kind==AvatarPacket.Kind.CANCEL||packet.kind==AvatarPacket.Kind.RESULT&&packet.code!=AvatarPacket.Code.OK)discardAvatarWrites(packet);
+            return enqueue(()->noise.write(plaintext),plaintext.length+256,false);
+        }
+        catch(IOException|IllegalArgumentException invalid){return false;}
+    }
+    /** Release queued canceled PNG bytes while allowing an active encrypted record to finish. */
+    private void discardAvatarWrites(AvatarPacket packet){
+        synchronized(avatarWrites){Iterator<AvatarWrite> writes=avatarWrites.iterator();while(writes.hasNext()){
+            AvatarWrite write=writes.next();if(write.revision==packet.revision&&write.id.equals(packet.transferId)&&write.hash.equals(packet.avatarHash)){write.plaintext=null;writes.remove();}
+        }}
     }
     public boolean send(Frame frame) {
         if (!isReady() || frame.type != Frame.TEXT) return false;
@@ -149,6 +179,14 @@ public final class FramedSession {
         enqueueFrame(new Frame(Frame.ACK, id, "", System.currentTimeMillis()));
     }
     private interface Write { void run() throws IOException; }
+    private final class AvatarWrite implements Write {
+        final String id,hash;final long revision;byte[] plaintext;
+        AvatarWrite(AvatarPacket packet,byte[] plaintext){id=packet.transferId;hash=packet.avatarHash;revision=packet.revision;this.plaintext=plaintext;}
+        public void run()throws IOException {
+            byte[] record;synchronized(avatarWrites){avatarWrites.remove(this);record=plaintext;plaintext=null;}
+            if(record!=null)noise.write(record);
+        }
+    }
     private void writeFrame(Frame frame)throws IOException {if(noise==null)channel.write(output,frame);else noise.write(ProtocolV4.encode(frame));}
     private boolean enqueueFrame(Frame frame) {
         return enqueue(()->writeFrame(frame),frame.data.length+frame.body.length()*2+256,frame.type>=Frame.FILE_OFFER);
@@ -166,6 +204,7 @@ public final class FramedSession {
         if (!closed.compareAndSet(false, true)) return;
         try { connection.close(); } catch (IOException ignored) {}
         timer.shutdownNow(); writer.close();
+        synchronized(avatarWrites){for(AvatarWrite write:avatarWrites)write.plaintext=null;avatarWrites.clear();}
         if(noise!=null)try{noise.close();}catch(IOException ignored){}
         synchronized(receiving){receiving.clear();unpersisted=0;}synchronized(awaitingReceipts){awaitingReceipts.clear();}
         listener.onClosed(reason);

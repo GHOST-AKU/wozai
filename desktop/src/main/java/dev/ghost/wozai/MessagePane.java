@@ -4,6 +4,7 @@ import javax.swing.*;
 import dev.ghost.nearbyim.core.AttachmentRecord;
 import dev.ghost.nearbyim.core.AttachmentBatchQueue;
 import dev.ghost.nearbyim.core.TransferProgress;
+import dev.ghost.nearbyim.core.TransferPath;
 import java.awt.*;
 import java.time.*;
 import java.util.Date;
@@ -17,6 +18,8 @@ final class MessagePane extends JPanel implements Scrollable {
     void actions(AttachmentActions value){actions=value;}
     private java.util.function.Function<DesktopStore.Message,TransferProgress> progress=message->TransferProgress.UNKNOWN;
     void progress(java.util.function.Function<DesktopStore.Message,TransferProgress> value){progress=value;}
+    private java.util.function.Function<DesktopStore.Message,TransferPath> path=message->TransferPath.NONE;
+    void path(java.util.function.Function<DesktopStore.Message,TransferPath> value){path=Objects.requireNonNull(value);}
     private java.util.function.Function<DesktopStore.Message,AttachmentBatchQueue.RetryState> retryState=message->AttachmentBatchQueue.RetryState.AVAILABLE;
     void retryState(java.util.function.Function<DesktopStore.Message,AttachmentBatchQueue.RetryState> value){retryState=value;}
     private java.util.function.Predicate<DesktopStore.Message> retryableBatch=message->false;
@@ -113,6 +116,7 @@ final class MessagePane extends JPanel implements Scrollable {
             }
             if(row.bubble.photoBubble!=(previewIds.contains(key)&&!row.bubble.previewFailed))row.bubble.attachment(message,strings);
             else if(message.attachment()!=null&&(message.attachment().active()||message.attachment().outgoing&&message.attachment().state.equals("failed")))row.bubble.attachment(message,strings);
+            if(message.attachment()!=null)row.bubble.updatePath(message,strings);
             String receipt = row.bubble.receipt.getText();
             content.append(message.body()).append('\n').append(receipt).append('\n');
             desired.addAll(row.components);
@@ -131,6 +135,7 @@ final class MessagePane extends JPanel implements Scrollable {
             protected void paintComponent(Graphics g){Icon icon=getIcon();if(!(icon instanceof ImageIcon image)){super.paintComponent(g);return;}Graphics2D p=(Graphics2D)g.create();double ratio=Math.min((double)getWidth()/icon.getIconWidth(),(double)getHeight()/icon.getIconHeight());int w=(int)(icon.getIconWidth()*ratio),h=(int)(icon.getIconHeight()*ratio);int x=(getWidth()-w)/2,y=(getHeight()-h)/2;p.setRenderingHint(RenderingHints.KEY_INTERPOLATION,RenderingHints.VALUE_INTERPOLATION_BILINEAR);p.clip(new java.awt.geom.RoundRectangle2D.Double(x,y,w,h,16,16));p.drawImage(image.getImage(),x,y,w,h,null);p.dispose();}
         };
         private final JTextArea body; private final JLabel receipt; private final boolean outgoing;
+        private final JLabel pathLabel=new JLabel();
         private String bodyText, measuredReceipt;
         private Font measuredBodyFont, measuredReceiptFont;
         private int measuredAvailable;
@@ -140,6 +145,7 @@ final class MessagePane extends JPanel implements Scrollable {
             body=new JTextArea(text); body.setMargin(new Insets(0,0,0,0)); body.setBorder(BorderFactory.createEmptyBorder()); body.setEditable(false); body.setOpaque(false); body.setLineWrap(true); body.setWrapStyleWord(true); body.setForeground(AppTheme.ink); body.setFont(body.getFont().deriveFont(15f*scale));
             body.getAccessibleContext().setAccessibleName(text);
             receipt=new JLabel(status, SwingConstants.TRAILING); receipt.setForeground(AppTheme.muted); receipt.setFont(receipt.getFont().deriveFont(12f*scale));
+            pathLabel.setName("attachmentPath");pathLabel.putClientProperty("html.disable",true);pathLabel.setForeground(AppTheme.muted);pathLabel.setFont(pathLabel.getFont().deriveFont(12f*scale));
             footer.setOpaque(false);footer.setLayout(new BoxLayout(footer,BoxLayout.Y_AXIS));footer.add(receipt);add(body,BorderLayout.CENTER);add(footer,BorderLayout.SOUTH);thumbnail.setHorizontalAlignment(SwingConstants.CENTER);
         }
         void attachment(DesktopStore.Message message,Strings strings){
@@ -148,6 +154,7 @@ final class MessagePane extends JPanel implements Scrollable {
             bodyText=record.info.name+"\n"+strings.text("attachmentSummary",MessagePane.size(record.info.size),state);body.setText(bodyText);body.getAccessibleContext().setAccessibleName(bodyText);preferred=null;
             body.setVisible(!photoBubble||thumbnail.getIcon()==null);remove(body);remove(thumbnail);remove(attachmentIcon);if(!photoBubble)thumbnail.setIcon(null);
             footer.removeAll();AttachmentActions handler=actions;
+            footer.add(pathLabel);updatePath(message,strings);
             TransferProgress measurement=MessagePane.this.progress.apply(message);
             if(record.state.equals("checking"))footer.add(new JLabel(measurement.checking()?strings.text("attachmentCheckingProgress",MessagePane.size(measurement.checkedBytes()),MessagePane.size(measurement.checkingTotalBytes()),measurement.checkingTotalBytes()==0?100:100*measurement.checkedBytes()/measurement.checkingTotalBytes()):strings.text("attachmentWaitingResume")));
             if(record.state.equals("transferring")&&measurement.bytesPerSecond()>0)footer.add(new JLabel(strings.text("attachmentSpeedEta",MessagePane.size(measurement.bytesPerSecond()),measurement.remainingSeconds())));
@@ -191,6 +198,15 @@ final class MessagePane extends JPanel implements Scrollable {
                 handler.action(message,"preview");
             }else{add(body,BorderLayout.CENTER);attachmentIcon.setIcon(AppTheme.icon(record.info.mime.startsWith("image/")?"photo":"description"));attachmentIcon.setForeground(AppTheme.accent);attachmentIcon.setBorder(BorderFactory.createEmptyBorder(0,0,0,8));attachmentIcon.getAccessibleContext().setAccessibleName(record.info.name);add(attachmentIcon,BorderLayout.LINE_START);}
             if(buttons.getComponentCount()>0)footer.add(buttons);footer.add(receipt);
+        }
+        void updatePath(DesktopStore.Message message,Strings strings) {
+            AttachmentRecord record=message.attachment();
+            TransferPath route=record!=null&&(record.active()||record.resumable())?MessagePane.this.path.apply(message):TransferPath.NONE;
+            String text=route==TransferPath.NONE?"":strings.text(route.key());
+            if(!pathLabel.getText().equals(text)){pathLabel.setText(text);preferred=null;}
+            pathLabel.setVisible(!text.isEmpty());pathLabel.setToolTipText(text.isEmpty()?null:text);
+            pathLabel.getAccessibleContext().setAccessibleName(text);
+            pathLabel.setFont(pathLabel.getFont().deriveFont(12f*scale));
         }
         public Dimension getPreferredSize() {
             int available = Math.max(200, MessagePane.this.getWidth()==0 ? 600 : MessagePane.this.getWidth()-40);

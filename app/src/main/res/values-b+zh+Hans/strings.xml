@@ -32,15 +32,30 @@
     <string name="attachment_batch_limit" formatted="false">"每批最多选择 {0} 个文件。"</string>
     <string name="attachment_batch_pause" formatted="false">"暂停全部待发文件"</string>
     <string name="attachment_batch_resume" formatted="false">"继续待发文件"</string>
+    <string name="attachment_browse_saved" formatted="false">"在系统文件中查找"</string>
     <string name="attachment_checking_progress" formatted="false">"校验续传数据：{0} / {1} · {2}%"</string>
     <string name="attachment_details" formatted="false">"{0} · {1,number} / {2,number} 字节 · {3}"</string>
     <string name="attachment_failed" formatted="false">"文件操作失败，请检查文件授权和可用空间。"</string>
     <string name="attachment_hint" formatted="false">"单文件最大 1 GiB；内容未加密。"</string>
     <string name="attachment_hint_v2" formatted="false">"单文件最大 10 GiB。"</string>
+    <string name="attachment_location_access_lost" formatted="false">"无法访问已保存位置，系统授权可能已失效。"</string>
+    <string name="attachment_location_document" formatted="false">"已另存到系统文件"</string>
+    <string name="attachment_location_gallery" formatted="false">"已保存到系统相册"</string>
+    <string name="attachment_location_missing" formatted="false">"已保存的文件已被移动或删除。"</string>
+    <string name="attachment_location_private" formatted="false">"文件保存在我在应用内，可查看或另存到系统文件。"</string>
+    <string name="attachment_location_title" formatted="false">"文件保存位置"</string>
+    <string name="attachment_location_unavailable" formatted="false">"暂时无法读取保存位置。"</string>
     <string name="attachment_move_down" formatted="false">"下移"</string>
     <string name="attachment_move_up" formatted="false">"上移"</string>
     <string name="attachment_open" formatted="false">"打开"</string>
+    <string name="attachment_open_saved" formatted="false">"打开已保存的文件"</string>
     <string name="attachment_overwrite" formatted="false">"文件已存在，是否替换？"</string>
+    <string name="attachment_path_bluetooth" formatted="false">"传输路径：蓝牙"</string>
+    <string name="attachment_path_disconnected" formatted="false">"传输路径：未连接"</string>
+    <string name="attachment_path_lan_unconfirmed" formatted="false">"传输路径：局域网 · 路径未确认"</string>
+    <string name="attachment_path_pending_bluetooth" formatted="false">"等待传输 · 蓝牙"</string>
+    <string name="attachment_path_pending_lan" formatted="false">"等待传输 · 局域网（路径未确认）"</string>
+    <string name="attachment_path_unknown" formatted="false">"传输路径：暂时无法确认"</string>
     <string name="attachment_pause" formatted="false">"暂停传输"</string>
     <string name="attachment_photo_preview" formatted="false">"照片预览：{0}"</string>
     <string name="attachment_preview" formatted="false">"发送前预览"</string>
@@ -62,6 +77,7 @@
     <string name="attachment_retry_queued" formatted="false">"已加入重发队列。"</string>
     <string name="attachment_retry_select_again" formatted="false">"原文件无法读取，请重新选择后重发。"</string>
     <string name="attachment_retrying" formatted="false">"正在重发…"</string>
+    <string name="attachment_save_again" formatted="false">"重新另存为"</string>
     <string name="attachment_save_as" formatted="false">"另存为"</string>
     <string name="attachment_saved_file_missing" formatted="false">"保存的文件已被移动或删除。"</string>
     <string name="attachment_selection_count" formatted="false">"已选 {0} 项"</string>
@@ -92,8 +108,34 @@
     <string name="attachment_unavailable" formatted="false">"文件不可用，可能已被删除。"</string>
     <string name="attachment_unknown_size" formatted="false">"大小待确认"</string>
     <string name="attachment_upgrade_required" formatted="false">"文件传输协议不兼容，请升级双方应用。"</string>
+    <string name="attachment_view_original" formatted="false">"查看聊天原件"</string>
     <string name="attachment_waiting_resume" formatted="false">"等待对方确认续传…"</string>
     <string name="attachments" formatted="false">"附件"</string>
+    <string name="avatar" formatted="false">"头像"</string>
+    <string name="avatar_change" formatted="false">"更换头像"</string>
+    <string name="avatar_changed" formatted="false">"编辑期间头像已更改。请重新打开后继续。"</string>
+    <string name="avatar_choose" formatted="false">"选择图片"</string>
+    <string name="avatar_crop" formatted="false">"裁剪头像"</string>
+    <string name="avatar_crop_hint" formatted="false">"拖动调整位置，使用缩放按钮调整大小。方向键可移动裁剪区域。"</string>
+    <string name="avatar_default" formatted="false">"使用默认头像"</string>
+    <string name="avatar_details" formatted="false">"设备详情"</string>
+    <string name="avatar_edit_crop" formatted="false">"调整裁剪"</string>
+    <string name="avatar_invalid" formatted="false">"无法将此图片用作头像。"</string>
+    <string name="avatar_loading" formatted="false">"正在准备头像…"</string>
+    <string name="avatar_prepared" formatted="false">"{0} × {1} PNG · {2} KiB"</string>
+    <string name="avatar_preview" formatted="false">"预览头像"</string>
+    <string name="avatar_reset" formatted="false">"恢复设备默认头像"</string>
+    <string name="avatar_reset_crop" formatted="false">"重置裁剪"</string>
+    <string name="avatar_reset_done" formatted="false">"已恢复默认头像"</string>
+    <string name="avatar_save" formatted="false">"保存头像"</string>
+    <string name="avatar_save_failed" formatted="false">"头像保存失败，请重试。"</string>
+    <string name="avatar_saved" formatted="false">"头像已保存"</string>
+    <string name="avatar_saved_on_device" formatted="false">"已保存在此设备上"</string>
+    <string name="avatar_title" formatted="false">"头像"</string>
+    <string name="avatar_unavailable" formatted="false">"无法使用此图片。请选择其他图片。"</string>
+    <string name="avatar_use_crop" formatted="false">"预览裁剪结果"</string>
+    <string name="avatar_visibility_hint" formatted="false">"支持头像的连接中，联系人可以看到此设备的头像。每台设备独立设置头像。"</string>
+    <string name="avatar_zoom" formatted="false">"缩放"</string>
     <string name="back" formatted="false">"返回"</string>
     <string name="back_to_chats" formatted="false">"返回聊天列表"</string>
     <string name="bluetooth" formatted="false">"蓝牙"</string>
@@ -253,6 +295,7 @@
     <string name="lan_addresses" formatted="false">"{0}"</string>
     <string name="lan_listening_without_address" formatted="false">"监听端口 {0} · 请连接 Wi-Fi 或手机热点"</string>
     <string name="lan_no_devices_body" formatted="false">"请确认对方已开启接收，并连接同一个 Wi-Fi 或热点。"</string>
+    <string name="lan_path_unconfirmed" formatted="false">"局域网 · 路径未确认"</string>
     <string name="lan_register_failure" formatted="false">"自动发现注册失败，可使用地址直连"</string>
     <string name="language" formatted="false">"界面语言"</string>
     <string name="large" formatted="false">"大"</string>
@@ -308,6 +351,10 @@
     <string name="outgoing_message_meta" formatted="false">"{0} · {1}"</string>
     <string name="paired" formatted="false">"已配对"</string>
     <string name="paired_address" formatted="false">"已配对 · {0}"</string>
+    <string name="path_details_bluetooth" formatted="false">"文件通过蓝牙传输。较大的文件可能需要更长时间。"</string>
+    <string name="path_details_disconnected" formatted="false">"目前没有已建立的传输通道。连接后会显示实际使用的通道。"</string>
+    <string name="path_details_lan" formatted="false">"文件使用当前局域网连接传输。无法确认具体连接是否经过路由器或手机热点。"</string>
+    <string name="path_details_title" formatted="false">"传输路径"</string>
     <string name="peer_ended" formatted="false">"对方结束了聊天。"</string>
     <string name="peer_status_transport" formatted="false">"{0} · {1}"</string>
     <string name="peer_summary" formatted="false">"{0}。{1}"</string>

@@ -32,15 +32,30 @@
     <string name="attachment_batch_limit" formatted="false">"Select at most {0} files per batch."</string>
     <string name="attachment_batch_pause" formatted="false">"Pause send queue"</string>
     <string name="attachment_batch_resume" formatted="false">"Resume send queue"</string>
+    <string name="attachment_browse_saved" formatted="false">"Find in system files"</string>
     <string name="attachment_checking_progress" formatted="false">"Checking saved data: {0} / {1} · {2}%"</string>
     <string name="attachment_details" formatted="false">"{0} · {1,number} / {2,number} bytes · {3}"</string>
     <string name="attachment_failed" formatted="false">"File operation failed. Check file access and available space."</string>
     <string name="attachment_hint" formatted="false">"Up to 1 GiB per file. Contents are not encrypted."</string>
     <string name="attachment_hint_v2" formatted="false">"Up to 10 GiB per file."</string>
+    <string name="attachment_location_access_lost" formatted="false">"The saved location is inaccessible. System access may have expired."</string>
+    <string name="attachment_location_document" formatted="false">"Saved in system files"</string>
+    <string name="attachment_location_gallery" formatted="false">"Saved in the system gallery"</string>
+    <string name="attachment_location_missing" formatted="false">"The saved file has been moved or deleted."</string>
+    <string name="attachment_location_private" formatted="false">"This file is stored in NearbyIM. You can view it or save a copy in system files."</string>
+    <string name="attachment_location_title" formatted="false">"Saved file location"</string>
+    <string name="attachment_location_unavailable" formatted="false">"The saved location is currently unavailable."</string>
     <string name="attachment_move_down" formatted="false">"Move down"</string>
     <string name="attachment_move_up" formatted="false">"Move up"</string>
     <string name="attachment_open" formatted="false">"Open"</string>
+    <string name="attachment_open_saved" formatted="false">"Open saved file"</string>
     <string name="attachment_overwrite" formatted="false">"File exists. Replace it?"</string>
+    <string name="attachment_path_bluetooth" formatted="false">"Transfer path: Bluetooth"</string>
+    <string name="attachment_path_disconnected" formatted="false">"Transfer path: disconnected"</string>
+    <string name="attachment_path_lan_unconfirmed" formatted="false">"Transfer path: LAN · topology unconfirmed"</string>
+    <string name="attachment_path_pending_bluetooth" formatted="false">"Waiting to transfer · Bluetooth"</string>
+    <string name="attachment_path_pending_lan" formatted="false">"Waiting to transfer · LAN (topology unconfirmed)"</string>
+    <string name="attachment_path_unknown" formatted="false">"Transfer path: currently unknown"</string>
     <string name="attachment_pause" formatted="false">"Pause transfer"</string>
     <string name="attachment_photo_preview" formatted="false">"Photo preview: {0}"</string>
     <string name="attachment_preview" formatted="false">"Review attachments"</string>
@@ -62,6 +77,7 @@
     <string name="attachment_retry_queued" formatted="false">"Added to the retry queue."</string>
     <string name="attachment_retry_select_again" formatted="false">"The original file cannot be read. Select it again to retry."</string>
     <string name="attachment_retrying" formatted="false">"Retrying…"</string>
+    <string name="attachment_save_again" formatted="false">"Save another copy"</string>
     <string name="attachment_save_as" formatted="false">"Save as"</string>
     <string name="attachment_saved_file_missing" formatted="false">"The saved file has been moved or deleted."</string>
     <string name="attachment_selection_count" formatted="false">"{0} selected"</string>
@@ -92,8 +108,34 @@
     <string name="attachment_unavailable" formatted="false">"File unavailable. It may have been deleted."</string>
     <string name="attachment_unknown_size" formatted="false">"Size pending"</string>
     <string name="attachment_upgrade_required" formatted="false">"Incompatible transfer protocol. Update the app on both devices."</string>
+    <string name="attachment_view_original" formatted="false">"View chat original"</string>
     <string name="attachment_waiting_resume" formatted="false">"Waiting for the peer to confirm resume…"</string>
     <string name="attachments" formatted="false">"Attachments"</string>
+    <string name="avatar" formatted="false">"Avatar"</string>
+    <string name="avatar_change" formatted="false">"Change avatar"</string>
+    <string name="avatar_changed" formatted="false">"The avatar changed while you were editing. Open it again to continue."</string>
+    <string name="avatar_choose" formatted="false">"Choose image"</string>
+    <string name="avatar_crop" formatted="false">"Crop avatar"</string>
+    <string name="avatar_crop_hint" formatted="false">"Drag to move and use the zoom controls to resize. Arrow keys move the crop."</string>
+    <string name="avatar_default" formatted="false">"Use default avatar"</string>
+    <string name="avatar_details" formatted="false">"Device details"</string>
+    <string name="avatar_edit_crop" formatted="false">"Adjust crop"</string>
+    <string name="avatar_invalid" formatted="false">"This image cannot be used as an avatar."</string>
+    <string name="avatar_loading" formatted="false">"Preparing avatar…"</string>
+    <string name="avatar_prepared" formatted="false">"{0} × {1} PNG · {2} KiB"</string>
+    <string name="avatar_preview" formatted="false">"Preview avatar"</string>
+    <string name="avatar_reset" formatted="false">"Reset to device icon"</string>
+    <string name="avatar_reset_crop" formatted="false">"Reset crop"</string>
+    <string name="avatar_reset_done" formatted="false">"Avatar reset"</string>
+    <string name="avatar_save" formatted="false">"Save avatar"</string>
+    <string name="avatar_save_failed" formatted="false">"Could not save the avatar. Please try again."</string>
+    <string name="avatar_saved" formatted="false">"Avatar saved"</string>
+    <string name="avatar_saved_on_device" formatted="false">"Saved on this device"</string>
+    <string name="avatar_title" formatted="false">"Avatar"</string>
+    <string name="avatar_unavailable" formatted="false">"This image could not be used. Choose another image."</string>
+    <string name="avatar_use_crop" formatted="false">"Preview crop"</string>
+    <string name="avatar_visibility_hint" formatted="false">"On connections that support avatars, contacts can see this device’s avatar. Each device sets its own avatar."</string>
+    <string name="avatar_zoom" formatted="false">"Zoom"</string>
     <string name="back" formatted="false">"Back"</string>
     <string name="back_to_chats" formatted="false">"Back to chats"</string>
     <string name="bluetooth" formatted="false">"Bluetooth"</string>
@@ -253,6 +295,7 @@
     <string name="lan_addresses" formatted="false">"{0}"</string>
     <string name="lan_listening_without_address" formatted="false">"Listening on port {0}. Connect to Wi-Fi or a phone hotspot."</string>
     <string name="lan_no_devices_body" formatted="false">"Make sure the other device has reception enabled and is on the same Wi-Fi or hotspot."</string>
+    <string name="lan_path_unconfirmed" formatted="false">"LAN · topology unconfirmed"</string>
     <string name="lan_register_failure" formatted="false">"Automatic discovery registration failed. Use an IP address to connect."</string>
     <string name="language" formatted="false">"Interface language"</string>
     <string name="large" formatted="false">"Large"</string>
@@ -308,6 +351,10 @@
     <string name="outgoing_message_meta" formatted="false">"{0} · {1}"</string>
     <string name="paired" formatted="false">"Paired"</string>
     <string name="paired_address" formatted="false">"Paired · {0}"</string>
+    <string name="path_details_bluetooth" formatted="false">"The file uses Bluetooth. Larger files may take longer to transfer."</string>
+    <string name="path_details_disconnected" formatted="false">"No transfer channel is connected. The actual channel will appear after connecting."</string>
+    <string name="path_details_lan" formatted="false">"The file uses the current LAN connection. The connection through a router or phone hotspot cannot be confirmed."</string>
+    <string name="path_details_title" formatted="false">"Transfer path"</string>
     <string name="peer_ended" formatted="false">"The other device ended the chat."</string>
     <string name="peer_status_transport" formatted="false">"{0} · {1}"</string>
     <string name="peer_summary" formatted="false">"{0}. {1}"</string>

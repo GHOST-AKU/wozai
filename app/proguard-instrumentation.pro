@@ -68,3 +68,19 @@
 -keep class dev.ghost.nearbyim.GalleryActivity$* { *; }
 -keep class dev.ghost.nearbyim.AttachmentSelectionActivity { *; }
 -keep class dev.ghost.nearbyim.AttachmentSelectionActivity$* { *; }
+
+# Native avatar checks inspect editor cancellation, exact preview bytes and cache bounds.
+-keep class dev.ghost.nearbyim.AvatarActivity { *; }
+-keep class dev.ghost.nearbyim.AvatarCropView { *; }
+-keep class dev.ghost.nearbyim.AvatarView { *; }
+-keep class dev.ghost.nearbyim.AndroidAvatars { *; }
+-keep class dev.ghost.nearbyim.AndroidAvatars$* { *; }
+-keep class dev.ghost.nearbyim.AvatarImages { public *; }
+-keep class dev.ghost.nearbyim.core.Avatar* { public *; }
+-keep class dev.ghost.nearbyim.AttachmentLocations { *; }
+-keep class dev.ghost.nearbyim.AttachmentLocations$* { *; }
+-keep class dev.ghost.nearbyim.core.AttachmentExportStore { public *; }
+-keep class dev.ghost.nearbyim.core.AttachmentExportStore$* { public *; }
+-keep class dev.ghost.nearbyim.core.TransferPath { public *; }
+-keep class dev.ghost.nearbyim.core.Identicon { public *; }
+-keep class dev.ghost.nearbyim.core.Identicon$* { public *; }

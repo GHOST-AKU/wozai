@@ -19,6 +19,14 @@ try {
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.ImageSafetyTests
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AvatarTests
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AvatarSyncTests
+    if($LASTEXITCODE -ne 0) { throw 'Avatar sync tests failed' }
+    & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentExportStoreTests
+    if($LASTEXITCODE -ne 0) { throw 'Attachment export location tests failed' }
+    & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.TransferPathTests
+    if($LASTEXITCODE -ne 0) { throw 'Transfer path tests failed' }
     & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentBenchmarkTests
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentSourceTests

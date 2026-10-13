@@ -16,6 +16,7 @@ public final class NoiseRecordChannel implements AutoCloseable {
     private static final byte[] PROLOGUE="wozai-nim4\0Noise_XX_25519_AESGCM_SHA256\0file-v2-32k\0".getBytes(StandardCharsets.US_ASCII);
     private static final byte[] ROOT_DOMAIN="wozai-root-proof-v4\0".getBytes(StandardCharsets.US_ASCII),GENERATION_DOMAIN="wozai-connection-v4\0".getBytes(StandardCharsets.US_ASCII);
     private static final int MAGIC=0x4e494d34,VERSION=4,HANDSHAKE=1,ROOT_PROOF=2,RECORD=3,MAX_PLAIN=48*1024;
+    private static final int BASE_CAPABILITIES=3,AVATAR_CAPABILITY=4;
     private static final long MAX_FILE=10_737_418_240L;
     private final TransferDiagnostics metrics=new TransferDiagnostics();
     private final StreamConnection connection;
@@ -23,6 +24,8 @@ public final class NoiseRecordChannel implements AutoCloseable {
     private final DeviceIdentity identity;
     private final String localId,expectedPeerId,expectedRoot;
     private final byte[] localClaim,noisePrivate;
+    private final int localCapabilities;
+    private int remoteCapabilities;
     private final AtomicBoolean closed=new AtomicBoolean(),started=new AtomicBoolean();
     private final Object readLock=new Object(),writeLock=new Object();
     private InputStream input;private OutputStream output;private CipherStatePair pair;
@@ -30,7 +33,11 @@ public final class NoiseRecordChannel implements AutoCloseable {
     private Frame remoteHello;private String remoteRoot,generation;
 
     public NoiseRecordChannel(StreamConnection connection,boolean initiator,DeviceIdentity identity,String localId,String nickname,byte[] noisePrivate,String expectedPeerId,String expectedRoot)throws IOException {
+        this(connection,initiator,identity,localId,nickname,noisePrivate,expectedPeerId,expectedRoot,false);
+    }
+    public NoiseRecordChannel(StreamConnection connection,boolean initiator,DeviceIdentity identity,String localId,String nickname,byte[] noisePrivate,String expectedPeerId,String expectedRoot,boolean avatars)throws IOException {
         this.connection=Objects.requireNonNull(connection);this.initiator=initiator;this.identity=Objects.requireNonNull(identity);
+        localCapabilities=BASE_CAPABILITIES|(avatars?AVATAR_CAPABILITY:0);
         validateId(localId);if(expectedPeerId!=null)validateId(expectedPeerId);validateNickname(nickname);
         if(noisePrivate==null||noisePrivate.length!=32)throw new IOException("Invalid static key size");
         this.localId=localId;this.expectedPeerId=expectedPeerId;this.expectedRoot=expectedRoot;this.noisePrivate=noisePrivate.clone();
@@ -39,7 +46,7 @@ public final class NoiseRecordChannel implements AutoCloseable {
             local=Noise.createDH("25519");local.setPrivateKey(noisePrivate,0);byte[] publicKey=new byte[32];local.getPublicKey(publicKey,0);
             ByteArrayOutputStream bytes=new ByteArrayOutputStream();DataOutputStream out=new DataOutputStream(bytes);
             out.writeByte(VERSION);out.writeByte(initiator?0:1);writeBytes(out,utf8(localId));writeBytes(out,utf8(nickname));writeBytes(out,Base64.getDecoder().decode(identity.publicKey()));
-            out.write(publicKey);out.writeInt(3);out.writeLong(MAX_FILE);out.writeInt(MAX_PLAIN);localClaim=bytes.toByteArray();
+            out.write(publicKey);out.writeInt(localCapabilities);out.writeLong(MAX_FILE);out.writeInt(MAX_PLAIN);localClaim=bytes.toByteArray();
         }catch(GeneralSecurityException|IllegalArgumentException e){Arrays.fill(this.noisePrivate,(byte)0);throw new IOException("Cannot initialize Noise identity",e);}
         finally{if(local!=null)local.destroy();}
     }
@@ -66,6 +73,7 @@ public final class NoiseRecordChannel implements AutoCloseable {
                 if(expectedPeerId!=null&&!expectedPeerId.equals(peer.id)||expectedRoot!=null&&!expectedRoot.equals(peer.root))throw new IOException("Pinned identity mismatch");
                 ensureOpen();remoteHello=new Frame(Frame.HELLO,peer.id,peer.nickname,System.currentTimeMillis());remoteRoot=peer.root;
                 generation=hex(MessageDigest.getInstance("SHA-256").digest(binding(GENERATION_DOMAIN,first,second,hash)));
+                remoteCapabilities=peer.capabilities;
                 verified=true;
             }catch(GeneralSecurityException|RuntimeException e){close();throw new IOException("Noise authentication failed",e);}
             catch(IOException e){close();throw e;}
@@ -73,6 +81,8 @@ public final class NoiseRecordChannel implements AutoCloseable {
         }}
     }
     public boolean verified(){return verified&&!closed.get();}
+    /** Both claims, including these bits, are covered by the encrypted handshake and both P256 proofs. */
+    public boolean avatarsSupported(){return verified()&&(localCapabilities&remoteCapabilities&AVATAR_CAPABILITY)!=0;}
     public Frame remoteHello(){return verified()?remoteHello:null;}
     public String remotePublicKey(){return verified()?remoteRoot:null;}
     public String diagnostics(){return metrics.snapshot();}
@@ -121,10 +131,11 @@ public final class NoiseRecordChannel implements AutoCloseable {
         DataInputStream in=new DataInputStream(new ByteArrayInputStream(bytes));if(in.readUnsignedByte()!=VERSION||in.readUnsignedByte()!=(initiator?1:0))throw new IOException("Invalid peer role");
         String id=text(in,36),nickname=text(in,128);validateId(id);validateNickname(nickname);if(localId.equals(id))throw new IOException("Reflected identity");
         byte[] key=readBytes(in,256),noisePublic=new byte[32];in.readFully(noisePublic);String root=Base64.getEncoder().encodeToString(key);
-        if(in.readInt()!=3||in.readLong()!=MAX_FILE||in.readInt()!=MAX_PLAIN||in.available()!=0)throw new IOException("Unsupported peer capabilities");
-        return new Claim(id,nickname,root,key,noisePublic);
+        int capabilities=in.readInt();
+        if((capabilities!=BASE_CAPABILITIES&&capabilities!=(BASE_CAPABILITIES|AVATAR_CAPABILITY))||in.readLong()!=MAX_FILE||in.readInt()!=MAX_PLAIN||in.available()!=0)throw new IOException("Unsupported peer capabilities");
+        return new Claim(id,nickname,root,key,noisePublic,capabilities);
     }
-    private static final class Claim {final String id,nickname,root;final byte[] key,noisePublic;Claim(String id,String nickname,String root,byte[] key,byte[] noisePublic){this.id=id;this.nickname=nickname;this.root=root;this.key=key;this.noisePublic=noisePublic;}}
+    private static final class Claim {final String id,nickname,root;final byte[] key,noisePublic;final int capabilities;Claim(String id,String nickname,String root,byte[] key,byte[] noisePublic,int capabilities){this.id=id;this.nickname=nickname;this.root=root;this.key=key;this.noisePublic=noisePublic;this.capabilities=capabilities;}}
     private static byte[] binding(byte[] domain,byte[] first,byte[] second,byte[] hash)throws IOException {ByteArrayOutputStream bytes=new ByteArrayOutputStream();DataOutputStream out=new DataOutputStream(bytes);out.write(domain);writeBytes(out,first);writeBytes(out,second);writeBytes(out,hash);return bytes.toByteArray();}
     private static void writeBytes(DataOutputStream out,byte[] bytes)throws IOException {out.writeShort(bytes.length);out.write(bytes);}
     private static byte[] readBytes(DataInputStream in,int maximum)throws IOException {int n=in.readUnsignedShort();if(n>maximum||n>in.available())throw new IOException("Invalid claim size");byte[] bytes=new byte[n];in.readFully(bytes);return bytes;}

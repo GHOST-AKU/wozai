@@ -23,9 +23,10 @@ public final class PhotoActivity extends Activity {
     private ZoomImage image;
     private TextView notice;
     private View saveAction;
+    private String pendingExportPeer,pendingExportRecord;
     protected void attachBaseContext(Context context){super.attachBaseContext(AppLanguage.wrap(context));}
     public void onCreate(Bundle state){
-        super.onCreate(state);photo=getIntent().getData();
+        super.onCreate(state);photo=getIntent().getData();if(state!=null){pendingExportPeer=state.getString("photoExportPeer");pendingExportRecord=state.getString("photoExportRecord");}
         if(photo==null||!"content".equals(photo.getScheme())||!(getPackageName()+".attachments").equals(photo.getAuthority())){finish();return;}
         LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(Color.BLACK);
         root.setOnApplyWindowInsetsListener((view,insets)->{
@@ -64,18 +65,19 @@ public final class PhotoActivity extends Activity {
     }
     public void onRequestPermissionsResult(int request,String[] permissions,int[] result){super.onRequestPermissionsResult(request,permissions,result);if(request==2){if(checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)==android.content.pm.PackageManager.PERMISSION_GRANTED)gallerySave();else Toast.makeText(this,text("gallerySavePermission"),Toast.LENGTH_SHORT).show();}}
     private void save(){
+        try{pendingExportPeer=getIntent().getStringExtra("peer");pendingExportRecord=getIntent().getStringExtra("record");if(pendingExportPeer==null||pendingExportRecord==null)throw new IOException("Missing completed photo");AttachmentExportStore.requireComplete(AttachmentRecord.decode(pendingExportRecord));}
+        catch(IOException invalid){Toast.makeText(this,text("attachmentFailed"),Toast.LENGTH_SHORT).show();return;}
         String name=photo.getQueryParameter("name");if(name==null)name=photo.getLastPathSegment();
         Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType(getContentResolver().getType(photo));intent.putExtra(Intent.EXTRA_TITLE,AttachmentInfo.safeName(name==null?"attachment":name));
-        try{startActivityForResult(intent,1);}catch(android.content.ActivityNotFoundException e){Toast.makeText(this,text("attachmentFailed"),Toast.LENGTH_SHORT).show();}
+        try{startActivityForResult(intent,1);}catch(android.content.ActivityNotFoundException e){pendingExportPeer=null;pendingExportRecord=null;Toast.makeText(this,text("attachmentFailed"),Toast.LENGTH_SHORT).show();}
     }
     protected void onActivityResult(int request,int result,Intent data){
-        super.onActivityResult(request,result,data);if(request!=1||result!=RESULT_OK||data==null||data.getData()==null)return;Uri destination=data.getData();
-        worker.execute(()->{
-            try(InputStream input=getContentResolver().openInputStream(photo);OutputStream output=getContentResolver().openOutputStream(destination,"wt")){
-                if(input==null||output==null)throw new IOException("Photo export unavailable");byte[] buffer=new byte[32768];int n;while((n=input.read(buffer))!=-1)output.write(buffer,0,n);
-            }catch(IOException|RuntimeException e){runOnUiThread(()->{if(!isDestroyed())Toast.makeText(this,text("attachmentFailed"),Toast.LENGTH_SHORT).show();});}
-        });
+        super.onActivityResult(request,result,data);if(request!=1)return;String peer=pendingExportPeer,encoded=pendingExportRecord;pendingExportPeer=null;pendingExportRecord=null;
+        if(result!=RESULT_OK||data==null||data.getData()==null||peer==null||encoded==null)return;Uri destination=data.getData();int flags=data.getFlags();
+        try{AttachmentLocations.get(this).export(peer,AttachmentRecord.decode(encoded),destination,flags).whenComplete((value,error)->{if(error!=null)runOnUiThread(()->{if(!isDestroyed())Toast.makeText(this,text("attachmentFailed"),Toast.LENGTH_SHORT).show();});});}
+        catch(IOException|RuntimeException invalid){Toast.makeText(this,text("attachmentFailed"),Toast.LENGTH_SHORT).show();}
     }
+    protected void onSaveInstanceState(Bundle state){state.putString("photoExportPeer",pendingExportPeer);state.putString("photoExportRecord",pendingExportRecord);super.onSaveInstanceState(state);}
     protected void onDestroy(){worker.shutdownNow();if(image!=null)image.setImageDrawable(null);super.onDestroy();}
     private int dp(int value){return Math.round(value*getResources().getDisplayMetrics().density);}
     private String text(String key,Object...args){return AndroidText.get(this,key,args);}

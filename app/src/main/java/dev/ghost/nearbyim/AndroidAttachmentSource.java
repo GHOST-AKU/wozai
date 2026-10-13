@@ -87,7 +87,8 @@ public final class AndroidAttachmentSource implements AttachmentSource {
     /** Run after canceled task journals are durable and their source handles have closed. */
     public static void releaseUnusedGrants(Context context)throws IOException {
         ContentResolver resolver=context.getContentResolver();Path attachments=context.getFilesDir().toPath().resolve("attachments");
-        for(UriPermission grant:resolver.getPersistedUriPermissions())if(grant.isReadPermission())releaseUnused(resolver,attachments,grant.getUri());
+        Set<String> exported=AttachmentLocations.retainedUris(context);
+        for(UriPermission grant:resolver.getPersistedUriPermissions())if(grant.isReadPermission()&&!exported.contains(grant.getUri().toString()))releaseUnused(resolver,attachments,grant.getUri());
     }
     private static void releaseUnused(ContentResolver resolver,Path attachments,Uri uri)throws IOException {
         synchronized(OPEN){if(OPEN.containsKey(uri.toString()))return;}
@@ -97,6 +98,6 @@ public final class AndroidAttachmentSource implements AttachmentSource {
             for(TransferCheckpoint saved:new TransferCheckpointStore(journal).list())if(saved.state()!=TransferCheckpoint.State.COMPLETE&&saved.state()!=TransferCheckpoint.State.CANCELED&&saved.sourceReference().startsWith(uri+"\n"))return;
             for(String reference:AttachmentBatchQueue.pendingReferences(peer))if(reference.startsWith(uri+"\n")||reference.equals(uri.toString()))return;
         }}
-        synchronized(OPEN){if(OPEN.containsKey(uri.toString()))return;try{resolver.releasePersistableUriPermission(uri,Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(SecurityException absent){}}
+        synchronized(OPEN){if(OPEN.containsKey(uri.toString()))return;if(new AttachmentExportStore(attachments.getParent().resolve("attachment-exports")).retainedUris().contains(uri.toString()))return;try{resolver.releasePersistableUriPermission(uri,Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(SecurityException absent){}}
     }
 }

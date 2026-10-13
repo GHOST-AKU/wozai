@@ -60,6 +60,12 @@ jobs:
         run: |
           & 'desktop/build/package/NearbyIM/runtime/bin/java.exe' -cp 'desktop/build/package/NearbyIM/app/*;desktop/build/tests' dev.ghost.wozai.GuiTests desktop/build/gui-bundled-runtime.png
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & 'desktop/build/package/NearbyIM/runtime/bin/java.exe' -cp 'desktop/build/package/NearbyIM/app/*;desktop/build/tests' dev.ghost.wozai.TransferPathGuiTests
+          if($LASTEXITCODE -ne 0) { throw 'Bundled transfer path GUI tests failed' }
+          & 'desktop/build/package/NearbyIM/runtime/bin/java.exe' -cp 'desktop/build/package/NearbyIM/app/*;desktop/build/tests' dev.ghost.wozai.TransferPathWindowTests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & 'desktop/build/package/NearbyIM/runtime/bin/java.exe' -cp 'desktop/build/package/NearbyIM/app/*;desktop/build/tests' dev.ghost.wozai.AvatarGuiTests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & 'desktop/build/package/NearbyIM/runtime/bin/java.exe' -cp 'desktop/build/package/NearbyIM/app/*;desktop/build/tests' dev.ghost.wozai.DesktopRetryTests --gui
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & 'desktop/build/package/NearbyIM/runtime/bin/java.exe' -cp 'desktop/build/package/NearbyIM/app/*;desktop/build/tests' dev.ghost.wozai.ThumbnailScrollTests
@@ -79,6 +85,12 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & "$env:JAVA_HOME/bin/java.exe" -cp 'desktop/build/classes;desktop/build/tests;desktop/build/lib/*' dev.ghost.wozai.AttachmentSelectionGuiTests
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & "$env:JAVA_HOME/bin/java.exe" -cp 'desktop/build/classes;desktop/build/tests;desktop/build/lib/*' dev.ghost.wozai.TransferPathGuiTests
+          if($LASTEXITCODE -ne 0) { throw 'Transfer path GUI tests failed' }
+          & "$env:JAVA_HOME/bin/java.exe" -cp 'desktop/build/classes;desktop/build/tests;desktop/build/lib/*' dev.ghost.wozai.TransferPathWindowTests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "$env:JAVA_HOME/bin/java.exe" -cp 'desktop/build/classes;desktop/build/tests;desktop/build/lib/*' dev.ghost.wozai.AvatarGuiTests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & "$env:JAVA_HOME/bin/java.exe" -cp 'desktop/build/classes;desktop/build/tests;desktop/build/lib/*' dev.ghost.wozai.VerificationGuiTests desktop/build/gui-verification-windows
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & "$env:JAVA_HOME/bin/java.exe" "-Dwozai.bluetooth.library=$((Resolve-Path desktop/build/lib/wozai_bluetooth.dll).Path)" -cp 'desktop/build/classes;desktop/build/tests;desktop/build/lib/*' dev.ghost.wozai.LayoutTests desktop/build/gui-settings-windows.png

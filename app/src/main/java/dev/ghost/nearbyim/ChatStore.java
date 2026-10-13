@@ -109,6 +109,18 @@ public final class ChatStore extends SQLiteOpenHelper {
     public Path attachmentFile(String peer,AttachmentInfo info)throws IOException{return AttachmentTransfer.file(attachmentDirectory(peer),info);}
     public Path attachmentsRoot(){return attachments;}
     public Path attachmentFile(String peer,AttachmentInfo info,boolean outgoing)throws IOException{return AttachmentTransfer.file(attachmentDirectory(peer),info,outgoing);}
+    /** Resolve the exact immutable receipt before using or exporting attachment content. */
+    public AttachmentRecord completedAttachment(String peer,AttachmentRecord expected)throws IOException {
+        AttachmentExportStore.requireComplete(expected);
+        AttachmentRecord stored=completedAttachment(peer,expected.info.id,expected.outgoing);
+        if(!stored.equals(expected))throw new IOException("Attachment history changed");return stored;
+    }
+    public AttachmentRecord completedAttachment(String peer,String id,boolean outgoing)throws IOException {
+        try(Cursor cursor=getReadableDatabase().query("messages",new String[]{"attachment"},"peer_id=? AND id=? AND outgoing=?",new String[]{peer,id,outgoing?"1":"0"},null,null,null)){
+            if(!cursor.moveToFirst()||cursor.isNull(0))throw new IOException("Attachment unavailable");
+            AttachmentRecord record=decodeAttachment(cursor.getString(0));AttachmentExportStore.requireComplete(record);return record;
+        }
+    }
     public void attachment(String peer,String name,AttachmentRecord record){
         SQLiteDatabase db=getWritableDatabase();db.beginTransaction();try{
             touch(peer,name);ContentValues values=new ContentValues();values.put("attachment",encodeAttachment(record));values.put("state",record.outgoing?(record.state.equals("delivered")?DELIVERED:record.active()?PENDING:UNKNOWN):"");

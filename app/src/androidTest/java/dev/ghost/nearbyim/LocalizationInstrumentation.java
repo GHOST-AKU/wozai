@@ -85,6 +85,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
             checks+=AndroidAttachmentSourceChecks.run(getTargetContext());
             checks+=AndroidAttachmentExperienceChecks.run(getTargetContext());
             checks+=AndroidGalleryExportChecks.run(this);
+            checks+=AndroidAttachmentLocationChecks.run(getTargetContext());
             checks+=AndroidAttachmentV2Checks.run(getTargetContext());
             checks+=dev.ghost.nearbyim.noise.NoiseLibraryChecks.run();
             checks+=dev.ghost.nearbyim.noise.NoiseChannelChecks.run();
@@ -260,6 +261,8 @@ public final class LocalizationInstrumentation extends Instrumentation {
         testLiveAttachmentFeedback(controller,peerId);
         testBatchRefreshResponsiveness(controller,peerId);
         testBatchPhotoRetention(controller,peerId);
+        checks+=AndroidAvatarChecks.run(this,activity);
+        checks+=AndroidTransferPathChecks.run(this,activity);
         Thread.sleep(150); waitForIdleSync();
         int scroll = onMain(() -> { ScrollView view = field(activity, "messageScroll"); view.scrollTo(0, 120); return view.getScrollY(); });
         check(scroll > 0, "Timeline is scrollable before recreation");
