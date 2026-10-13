@@ -84,7 +84,8 @@ public final class AndroidAvatarChecks {
             boolean dark=(context.getResources().getConfiguration().uiMode&android.content.res.Configuration.UI_MODE_NIGHT_MASK)==android.content.res.Configuration.UI_MODE_NIGHT_YES;
             check(actual==tile.foreground(dark),"Default avatar clipped a corner grid cell at "+edge+"px");checks++;
         }
-        String localRoot=AndroidIdentity.load().publicKey();AvatarStore store=new AvatarStore(context.getFilesDir().getCanonicalFile().toPath().resolve("avatars"),localRoot);AvatarSnapshot baseline=store.snapshot();
+        String localRoot=onMain(instrumentation,()->controller==null?null:controller.localAvatarRoot());check(localRoot!=null,"Native avatar editor requires the controller's established device identity");checks++;
+        AvatarStore store=new AvatarStore(context.getFilesDir().getCanonicalFile().toPath().resolve("avatars"),localRoot);AvatarSnapshot baseline=store.snapshot();
         Activity editor=null;
         try {
             editor=instrumentation.startActivitySync(new Intent(context,AvatarActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));Activity current=editor;
