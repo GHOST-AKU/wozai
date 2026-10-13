@@ -424,5 +424,6 @@
   "attachmentRetrySelectAgain": "The original file cannot be read. Select it again to retry.",
   "attachmentRetryPartial": "{0} files added to the retry queue; {1} files need to be selected again.",
   "attachmentRetryNone": "No failed files remain to retry in this batch.",
-  "attachmentReselect": "Select again"
+  "attachmentReselect": "Select again",
+  "attachmentRetryIneligible": "Retry unavailable"
 }

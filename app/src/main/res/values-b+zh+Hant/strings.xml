@@ -56,6 +56,7 @@
     <string name="attachment_retried" formatted="false">"已重發"</string>
     <string name="attachment_retry" formatted="false">"重發"</string>
     <string name="attachment_retry_batch" formatted="false">"重發本批失敗項"</string>
+    <string name="attachment_retry_ineligible" formatted="false">"此項不可重發"</string>
     <string name="attachment_retry_none" formatted="false">"本批已沒有需要重發的失敗檔案。"</string>
     <string name="attachment_retry_partial" formatted="false">"{0} 個檔案已加入重發佇列，{1} 個檔案需重新選擇。"</string>
     <string name="attachment_retry_queued" formatted="false">"已加入重發佇列。"</string>

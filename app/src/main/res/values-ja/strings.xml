@@ -56,6 +56,7 @@
     <string name="attachment_retried" formatted="false">"再送済み"</string>
     <string name="attachment_retry" formatted="false">"再送"</string>
     <string name="attachment_retry_batch" formatted="false">"この一括送信で失敗したファイルを再送"</string>
+    <string name="attachment_retry_ineligible" formatted="false">"再送できません"</string>
     <string name="attachment_retry_none" formatted="false">"この一括送信に再送が必要なファイルはありません。"</string>
     <string name="attachment_retry_partial" formatted="false">"{0} 個のファイルを再送キューに追加しました。{1} 個のファイルは再選択が必要です。"</string>
     <string name="attachment_retry_queued" formatted="false">"再送キューに追加しました。"</string>

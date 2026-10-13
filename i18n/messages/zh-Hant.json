@@ -424,5 +424,6 @@
   "attachmentRetrySelectAgain": "原檔案無法讀取，請重新選擇後重發。",
   "attachmentRetryPartial": "{0} 個檔案已加入重發佇列，{1} 個檔案需重新選擇。",
   "attachmentRetryNone": "本批已沒有需要重發的失敗檔案。",
-  "attachmentReselect": "重新選擇"
+  "attachmentReselect": "重新選擇",
+  "attachmentRetryIneligible": "此項不可重發"
 }

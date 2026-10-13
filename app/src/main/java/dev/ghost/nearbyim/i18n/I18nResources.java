@@ -64,6 +64,7 @@ public final class I18nResources {
             case "attachmentRetried": return R.string.attachment_retried;
             case "attachmentRetry": return R.string.attachment_retry;
             case "attachmentRetryBatch": return R.string.attachment_retry_batch;
+            case "attachmentRetryIneligible": return R.string.attachment_retry_ineligible;
             case "attachmentRetryNone": return R.string.attachment_retry_none;
             case "attachmentRetryPartial": return R.string.attachment_retry_partial;
             case "attachmentRetryQueued": return R.string.attachment_retry_queued;

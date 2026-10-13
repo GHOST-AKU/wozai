@@ -19,22 +19,34 @@ final class AttachmentBatchStore {
     void write(boolean paused,List<AttachmentBatchQueue.Item> items)throws IOException {
         if(items.size()>MAX_ITEMS)throw new IOException("Batch history bound exceeded");
         ByteArrayOutputStream bytes=new ByteArrayOutputStream();DataOutputStream out=new DataOutputStream(bytes);
-        out.writeInt(0x57425131);out.writeUTF(local);out.writeUTF(remote);out.writeBoolean(paused);out.writeInt(items.size());
-        for(var item:items){out.writeUTF(item.batchId());item.info().writeV2(out);var s=item.selection();out.writeUTF(s.reference());out.writeUTF(s.generation());out.writeLong(s.size());out.writeBoolean(s.exact());out.writeUTF(item.state());out.writeLong(item.transferred());}
+        out.writeInt(0x57425132);out.writeUTF(local);out.writeUTF(remote);out.writeBoolean(paused);out.writeInt(items.size());
+        for(var item:items){out.writeUTF(item.batchId());item.info().writeV2(out);writeSelection(out,item.selection());writeSelection(out,item.origin());out.writeUTF(item.retryOf());out.writeUTF(item.state());out.writeLong(item.transferred());}
         PrivateMetadata.write(file,bytes.toByteArray(),LIMIT);
+    }
+    private static void writeSelection(DataOutputStream out,AttachmentBatchQueue.Selection s)throws IOException {
+        out.writeUTF(s.reference());out.writeUTF(s.generation());out.writeUTF(s.name());out.writeUTF(s.mime());out.writeLong(s.size());out.writeBoolean(s.exact());
+    }
+    private static AttachmentBatchQueue.Selection readSelection(DataInputStream in)throws IOException {
+        return new AttachmentBatchQueue.Selection(in.readUTF(),in.readUTF(),in.readUTF(),in.readUTF(),in.readLong(),in.readBoolean());
     }
     private static Saved decode(byte[] bytes,String local,String remote)throws IOException {
         if(bytes==null)return new Saved(false,List.of());
         try(DataInputStream in=new DataInputStream(new ByteArrayInputStream(bytes))){
-            if(in.readInt()!=0x57425131)throw new IOException("Unknown batch journal");String a=in.readUTF(),b=in.readUTF();
+            int format=in.readInt();if(format!=0x57425131&&format!=0x57425132)throw new IOException("Unknown batch journal");String a=in.readUTF(),b=in.readUTF();
             if(!a.matches("[0-9a-f]{64}")||!b.matches("[0-9a-f]{64}")||local!=null&&(!a.equals(local)||!b.equals(remote)))throw new IOException("Batch identity mismatch");
             boolean paused=in.readBoolean();int count=in.readInt();if(count<0||count>MAX_ITEMS)throw new IOException("Batch count exceeds bounds");
             List<AttachmentBatchQueue.Item> items=new ArrayList<>();Set<String> ids=new HashSet<>();
             for(int i=0;i<count;i++){
-                String batch=in.readUTF();AttachmentInfo info=AttachmentInfo.readV2(in);String ref=in.readUTF(),generation=in.readUTF();long size=in.readLong();boolean exact=in.readBoolean();
-                var selection=new AttachmentBatchQueue.Selection(ref,generation,info.name,info.mime,size,exact);String state=in.readUTF();long transferred=in.readLong();
+                String batch=in.readUTF();AttachmentInfo info=AttachmentInfo.readV2(in);
+                var selection=format==0x57425132?readSelection(in):new AttachmentBatchQueue.Selection(in.readUTF(),in.readUTF(),info.name,info.mime,in.readLong(),in.readBoolean());
+                var origin=format==0x57425132?readSelection(in):selection;String retryOf=format==0x57425132?in.readUTF():"";String state=in.readUTF();long transferred=in.readLong();
                 if(!batch.matches("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}")||!ids.add(info.id))throw new IOException("Duplicate batch task");
-                new AttachmentRecord(info,true,state,transferred);items.add(new AttachmentBatchQueue.Item(batch,info,selection,state,transferred));
+                if(!retryOf.isEmpty()&&(!retryOf.matches("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}")||retryOf.equals(info.id)))throw new IOException("Invalid retry parent");
+                new AttachmentRecord(info,true,state,transferred);items.add(new AttachmentBatchQueue.Item(batch,info,selection,state,transferred,origin,retryOf));
+            }
+            Map<String,AttachmentBatchQueue.Item> tasks=new HashMap<>();for(var item:items)tasks.put(item.info().id,item);
+            for(var item:items)if(!item.retryOf().isEmpty()){
+                var parent=tasks.get(item.retryOf());if(parent!=null&&(!parent.retryOf().isEmpty()||!parent.state().equals("failed")||!parent.batchId().equals(item.batchId())))throw new IOException("Invalid retry lineage");
             }
             if(in.available()!=0)throw new IOException("Trailing batch metadata");return new Saved(paused,List.copyOf(items));
         }catch(IllegalArgumentException invalid){throw new IOException("Invalid batch metadata",invalid);}
@@ -47,7 +59,12 @@ final class AttachmentBatchStore {
             if(++count>128||Files.isSymbolicLink(path)||!Files.isRegularFile(path,LinkOption.NOFOLLOW_LINKS))throw new IOException("Invalid batch entry");
             if(path.getFileName().toString().startsWith(".journal-")&&path.getFileName().toString().endsWith(".tmp"))continue;
             if(!path.getFileName().toString().matches("[0-9a-f]{64}\\.bin"))throw new IOException("Invalid batch filename");
-            for(var item:decode(PrivateMetadata.read(path,LIMIT),null,null).items())if(!item.terminal())refs.add(item.selection().reference());
+            Map<String,AttachmentBatchQueue.Item> latest=new LinkedHashMap<>();
+            for(var item:decode(PrivateMetadata.read(path,LIMIT),null,null).items()){
+                latest.put(item.retryOf().isEmpty()?item.info().id:item.retryOf(),item);
+                if(!item.terminal()){refs.add(item.selection().reference());refs.add(item.origin().reference());}
+            }
+            for(var item:latest.values())if(item.state().equals("failed"))refs.add(item.origin().reference());
         }}return List.copyOf(refs);
     }
     static void clear(Path root)throws IOException {

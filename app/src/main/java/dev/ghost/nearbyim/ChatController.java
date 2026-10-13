@@ -21,9 +21,11 @@ public final class ChatController implements TransportListener {
     public final String localId;
     public String nickname;
     public UiText lanInfo = UiText.of("notStarted"), bluetoothInfo = UiText.of("notStarted"), status = UiText.of("initialStatus"), error = UiText.EMPTY;
-    public boolean lanRunning, bluetoothRunning, lanListening, bluetoothListening, lanSearching, bluetoothSearching, connecting, connected;
+    public boolean lanRunning, bluetoothRunning, lanListening, bluetoothListening, lanSearching, bluetoothSearching, connecting;
+    public volatile boolean connected;
     public int sessionMode;
-    public String connectedPeerId, selectedId, selectedName, approvalId, approvalName;
+    public volatile String connectedPeerId, selectedId;
+    public String selectedName, approvalId, approvalName;
     public String savedMessageId, savedMessagePeer, savedMessageBody;
     public boolean savingMessage;
     public final LinkedHashMap<String, Peer> peers = new LinkedHashMap<>();
@@ -44,7 +46,10 @@ public final class ChatController implements TransportListener {
     private Runnable observer, reconnectTimeout;
     private volatile FramedSession active;
     private volatile ClientAttachmentTransfers transfers;
-    private long attachmentToken;
+    private volatile long attachmentToken;
+    private long attachmentRetryRevision;
+    private final Map<String,CompletableFuture<?>> attachmentRetryRequests=new HashMap<>();
+    private final Map<String,Integer> retryingAttachments=new HashMap<>();
     private CompletableFuture<Void> attachmentsStopped=CompletableFuture.completedFuture(null);
     private CompletableFuture<ClientAttachmentTransfers> attachmentsPreparing;
     private final ContentResolver resolver;
@@ -56,10 +61,11 @@ public final class ChatController implements TransportListener {
     private final ConcurrentHashMap<AttachmentSource,Long> selectingSources=new ConcurrentHashMap<>();
     private final Set<StreamConnection> waitingForNoise=new HashSet<>();
     private Frame remoteHello;
-    private TrustPolicy.Authorization authorization;
+    private volatile TrustPolicy.Authorization authorization;
     private int connectingMode;
     private String expectedPeerId, outgoingBluetoothAddress, lanReconnectId,activeBluetoothAddress;
-    private boolean rememberOutgoing, destroyed;
+    private boolean rememberOutgoing;
+    private volatile boolean destroyed;
 
     public ChatController(Context context, Hooks hooks) {
         this.hooks = hooks;applicationContext=context.getApplicationContext();resolver=applicationContext.getContentResolver();preferences = context.getSharedPreferences("identity", Context.MODE_PRIVATE);
@@ -383,6 +389,18 @@ public final class ChatController implements TransportListener {
         return "diagnostics_schema=1\nendpoint=android\nversion="+LanguageRegistry.VERSION+"\ntransport="+(sessionMode==Peer.BLUETOOTH?"bluetooth":"lan")+"\n"+(wire==null?"active_session=false\n":wire.diagnostics())+(files==null?"":files.diagnostics());
     }
     public boolean canSendAttachment(){return canSend()&&transfers!=null&&active.attachmentsSupported();}
+    public long attachmentRetryRevision(){return attachmentRetryRevision;}
+    /** Saved picker state includes both proven roots and the Noise connection generation. */
+    public String attachmentSelectionSession(String peer){
+        FramedSession wire=active;TrustPolicy.Authorization grant=authorization;
+        if(!connected||!Objects.equals(peer,selectedId)||!Objects.equals(peer,connectedPeerId)||wire==null||!wire.isReady()||transfers==null||!wire.attachmentsSupported()||!wire.endToEndEncrypted()||!trust.canVerify(grant)||identity==null)return null;
+        return identity.publicKey()+"\n"+grant.publicKey+"\n"+wire.connectionGeneration();
+    }
+    public AttachmentBatchQueue.RetryState attachmentRetryState(String peer,String id){
+        if(retryingAttachments.containsKey(peer+":"+attachmentToken+":"+id))return AttachmentBatchQueue.RetryState.RETRYING;
+        ClientAttachmentTransfers files=transfers;return files!=null&&Objects.equals(peer,connectedPeerId)?files.retryState(id):AttachmentBatchQueue.RetryState.AVAILABLE;
+    }
+    public boolean hasRetryableAttachmentBatch(String peer,String id){ClientAttachmentTransfers files=transfers;return files!=null&&Objects.equals(peer,connectedPeerId)&&files.hasRetryableBatch(id);}
     public TransferProgress transferProgress(String peer,AttachmentRecord record){Feedback value=transferProgress.get(peer+":"+record.info.id+":"+record.outgoing);return value==null?TransferProgress.UNKNOWN:value.progress();}
     public boolean endToEndEncrypted(String peer){FramedSession wire=active;return connected&&Objects.equals(peer,connectedPeerId)&&wire!=null&&wire.endToEndEncrypted();}
     public boolean identityVerified(String peer){return endToEndEncrypted(peer)&&authorization!=null&&authorization.publicKey.equals(verifiedRoots.get(peer));}
@@ -474,7 +492,77 @@ public final class ChatController implements TransportListener {
         });}catch(RejectedExecutionException e){fail(UiText.of("attachmentFailed"));}
     }
     private void discardSelection(AttachmentSource source){try{fileSelection.execute(()->{try{source.discard();}catch(IOException ignored){}});}catch(RejectedExecutionException stopped){}}
+    private record AttachmentRetrySession(String peer,long token,String identity,ClientAttachmentTransfers files,FramedSession wire,TrustPolicy.Authorization grant){}
+    private AttachmentRetrySession attachmentRetrySession(String peer,long token,String expectedIdentity){
+        String current=attachmentSelectionSession(peer);
+        if(current==null||token!=attachmentToken||expectedIdentity!=null&&!expectedIdentity.equals(current))return null;
+        return new AttachmentRetrySession(peer,token,current,transfers,active,authorization);
+    }
+    private boolean attachmentRetryCurrent(AttachmentRetrySession session){return !destroyed&&session.files()==transfers&&session.wire()==active&&session.grant()==authorization&&session.token()==attachmentToken&&session.identity().equals(attachmentSelectionSession(session.peer()));}
+    private void requireFailedAttachment(String peer,String id){
+        try(Cursor cursor=store.getReadableDatabase().query("messages",new String[]{"attachment"},"peer_id=? AND id=? AND outgoing=1",new String[]{peer,id},null,null,null,"1")){
+            if(!cursor.moveToFirst()||cursor.isNull(0))throw new IOException("Missing failed attachment history");
+            AttachmentRecord record=AttachmentRecord.decode(cursor.getString(0));
+            if(!record.outgoing||record.info.version!=2||!record.info.id.equals(id)||!record.state.equals("failed"))throw new IOException("Attachment is not an outgoing failed task");
+        }catch(IOException invalid){throw new CompletionException(invalid);}
+    }
+    private <T> CompletableFuture<T> rejectedAttachmentRetry(UiText message){fail(message);CompletableFuture<T> failed=new CompletableFuture<>();failed.completeExceptionally(new LocalizedIOException(message));return failed;}
+    @FunctionalInterface private interface AttachmentRetryOperation<T>{CompletableFuture<T> run()throws IOException;}
+    @SuppressWarnings("unchecked")
+    private <T> CompletableFuture<T> queueAttachmentRetry(AttachmentRetrySession session,String request,List<String> ids,AttachmentRetryOperation<T> operation,java.util.function.Function<T,UiText> feedback){
+        CompletableFuture<?> previous=attachmentRetryRequests.get(request);if(previous!=null)return (CompletableFuture<T>)previous;
+        CompletableFuture<T> result=new CompletableFuture<>();attachmentRetryRequests.put(request,result);
+        for(String id:ids)retryingAttachments.merge(session.peer()+":"+session.token()+":"+id,1,Integer::sum);
+        attachmentRetryRevision++;error=UiText.EMPTY;status=UiText.of("attachmentRetrying");changed();
+        CompletableFuture<T> admitted;
+        try{admitted=CompletableFuture.runAsync(()->{for(String id:ids)requireFailedAttachment(session.peer(),id);},storage).thenComposeAsync(value->{
+            if(!attachmentRetryCurrent(session))throw new CompletionException(new LocalizedIOException(UiText.of("notConnected")));
+            try{return operation.run();}catch(IOException failure){throw new CompletionException(failure);}
+        },fileSelection);}catch(RejectedExecutionException stopped){admitted=new CompletableFuture<>();admitted.completeExceptionally(stopped);}
+        admitted.whenComplete((value,failure)->main.post(()->{
+            attachmentRetryRequests.remove(request,result);
+            for(String id:ids){String key=session.peer()+":"+session.token()+":"+id;retryingAttachments.computeIfPresent(key,(ignored,count)->count==1?null:count-1);}
+            attachmentRetryRevision++;
+            if(attachmentRetryCurrent(session)){if(failure!=null)error=attachmentError(failure);else status=feedback.apply(value);}
+            changed();if(!attachmentRetryCurrent(session))result.completeExceptionally(new LocalizedIOException(UiText.of("notConnected")));else if(failure==null)result.complete(value);else result.completeExceptionally(failure);
+        }));return result;
+    }
+    public CompletableFuture<String> retryAttachment(String peer,long token,String id){
+        AttachmentRetrySession session=attachmentRetrySession(peer,token,null);if(session==null)return rejectedAttachmentRetry(UiText.of("notConnected"));
+        return queueAttachmentRetry(session,"single:"+peer+":"+token+":"+id,List.of(id),()->session.files().retry(id,()->attachmentRetryCurrent(session)),value->UiText.of("attachmentRetryQueued"));
+    }
+    public CompletableFuture<AttachmentBatchQueue.RetryBatchResult> retryFailedAttachmentBatch(String peer,long token,String id){
+        AttachmentRetrySession session=attachmentRetrySession(peer,token,null);if(session==null)return rejectedAttachmentRetry(UiText.of("notConnected"));
+        List<AttachmentBatchQueue.Item> items=session.files().batchItems();String batch=items.stream().filter(item->item.info().id.equals(id)).map(AttachmentBatchQueue.Item::batchId).findFirst().orElse(null);
+        if(batch==null)return rejectedAttachmentRetry(UiText.of("attachmentRetrySelectAgain"));
+        List<String> ids=new ArrayList<>();ids.add(id);for(AttachmentBatchQueue.Item item:items)if(item.batchId().equals(batch)&&item.state().equals("failed")&&!item.info().id.equals(id)&&session.files().retryState(item.info().id)!=AttachmentBatchQueue.RetryState.RETRIED)ids.add(item.info().id);
+        return queueAttachmentRetry(session,"batch:"+peer+":"+token+":"+batch,ids,()->session.files().retryFailedBatch(id,()->attachmentRetryCurrent(session)),ChatController::attachmentRetryBatchFeedback);
+    }
+    public static UiText attachmentRetryBatchFeedback(AttachmentBatchQueue.RetryBatchResult result){
+        if(!result.unavailableIds().isEmpty())return UiText.of("attachmentRetryPartial",result.queuedIds().size(),result.unavailableIds().size());
+        return UiText.of(result.queuedIds().isEmpty()?"attachmentRetryNone":"attachmentRetryQueued");
+    }
+    public CompletableFuture<String> retryAttachmentWithSelection(String peer,long token,String expectedSession,String id,Uri uri){
+        AttachmentRetrySession session=expectedSession==null?null:attachmentRetrySession(peer,token,expectedSession);if(session==null)return rejectedAttachmentRetry(UiText.of("notConnected"));
+        String request="single:"+peer+":"+token+":"+id;CompletableFuture<?> previous=attachmentRetryRequests.get(request);if(previous!=null){@SuppressWarnings("unchecked") CompletableFuture<String> existing=(CompletableFuture<String>)previous;return existing;}
+        List<Uri> uris=List.of(uri);AndroidAttachmentSource.retainSelections(uris);
+        CompletableFuture<String> result=queueAttachmentRetry(session,request,List.of(id),()->{
+            AttachmentBatchQueue.Selection replacement;
+            try(AndroidAttachmentSource source=new AndroidAttachmentSource(applicationContext,uri)){replacement=new AttachmentBatchQueue.Selection(uri.toString(),source.generation(),source.name(),source.mime(),source.size(),false);}
+            catch(IOException unavailable){if(unavailable instanceof LocalizedIOException&&((LocalizedIOException)unavailable).text.key.equals("attachmentTooLarge"))throw unavailable;throw new LocalizedIOException(UiText.of("attachmentRetrySelectAgain"),unavailable);}
+            if(!attachmentRetryCurrent(session))throw new LocalizedIOException(UiText.of("notConnected"));
+            return session.files().retryWithSelection(id,replacement,()->attachmentRetryCurrent(session));
+        },value->UiText.of("attachmentRetryQueued"));result.whenComplete((value,failure)->releaseSelections(uris));return result;
+    }
+    public static boolean attachmentRetryNeedsSelection(Throwable failure){
+        while((failure instanceof CompletionException||failure instanceof ExecutionException)&&failure.getCause()!=null)failure=failure.getCause();
+        return failure instanceof AttachmentBatchQueue.RetrySourceUnavailableException||failure instanceof LocalizedIOException&&((LocalizedIOException)failure).text.key.equals("attachmentRetrySelectAgain");
+    }
     public void attachmentAction(String peer,String id,boolean outgoing,String action){
+        if(action==null){fail(UiText.of("attachmentFailed"));return;}
+        if(action.equals("retry")){if(outgoing)retryAttachment(peer,attachmentToken,id);else fail(UiText.of("attachmentFailed"));return;}
+        if(action.equals("retryBatch")){if(outgoing)retryFailedAttachmentBatch(peer,attachmentToken,id);else fail(UiText.of("attachmentFailed"));return;}
+        if(!Set.of("resume","pause","accept","reject","cancel").contains(action)){fail(UiText.of("attachmentFailed"));return;}
         if(transfers==null||!Objects.equals(peer,connectedPeerId)){fail(UiText.of("notConnected"));return;}
         ClientAttachmentTransfers selected=transfers;long token=attachmentToken;
         try{fileSelection.execute(()->{try{if(selected!=transfers||token!=attachmentToken)throw new IOException("Attachment session changed");
@@ -482,7 +570,7 @@ public final class ChatController implements TransportListener {
             future.whenComplete((v,e)->{if(e!=null)main.post(()->{if(!destroyed)fail(attachmentError(e));});});
         }catch(Exception e){main.post(()->{if(!destroyed)fail(attachmentError(e));});}});}catch(RejectedExecutionException e){fail(UiText.of("attachmentFailed"));}
     }
-    private static UiText attachmentError(Throwable error){while(error instanceof CompletionException||error instanceof ExecutionException)error=error.getCause();if(error instanceof TransferStorageException)return UiText.of(((TransferStorageException)error).reason==TransferStorageException.Reason.QUOTA?"attachmentQuotaExceeded":"attachmentStorageFull");return error instanceof LocalizedIOException?((LocalizedIOException)error).text:UiText.of("attachmentFailed");}
+    static UiText attachmentError(Throwable error){while((error instanceof CompletionException||error instanceof ExecutionException)&&error.getCause()!=null)error=error.getCause();if(error instanceof AttachmentBatchQueue.RetrySourceUnavailableException)return UiText.of("attachmentRetrySelectAgain");if(error instanceof TransferStorageException)return UiText.of(((TransferStorageException)error).reason==TransferStorageException.Reason.QUOTA?"attachmentQuotaExceeded":"attachmentStorageFull");return error instanceof LocalizedIOException?((LocalizedIOException)error).text:UiText.of("attachmentFailed");}
     private CompletableFuture<Path> attachmentPath(java.util.function.Supplier<Path> lookup){
         try{return CompletableFuture.supplyAsync(lookup,fileSelection);}
         catch(RejectedExecutionException error){CompletableFuture<Path> failed=new CompletableFuture<>();failed.completeExceptionally(error);return failed;}

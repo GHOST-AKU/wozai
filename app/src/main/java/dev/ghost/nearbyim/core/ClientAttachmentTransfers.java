@@ -21,6 +21,14 @@ public final class ClientAttachmentTransfers implements AutoCloseable {
     }
     public void batchListener(AttachmentBatchQueue.Listener listener){if(batch!=null)batch.listener(listener);}
     public CompletableFuture<String> enqueue(java.util.List<AttachmentBatchQueue.Selection> selected){return batch==null?failed(new IOException("Batch requires V2")):batch.enqueue(selected);}
+    public AttachmentBatchQueue.RetryState retryState(String id){return batch==null?AttachmentBatchQueue.RetryState.UNAVAILABLE:batch.retryState(id);}
+    public boolean hasRetryableBatch(String id){return batch!=null&&batch.hasRetryableBatch(id);}
+    public CompletableFuture<String> retry(String id){return batch==null?failed(new IOException("Retry requires V2")):batch.retry(id);}
+    public CompletableFuture<AttachmentBatchQueue.RetryBatchResult> retryFailedBatch(String id){return batch==null?failed(new IOException("Retry requires V2")):batch.retryFailedBatch(id);}
+    public CompletableFuture<String> retryWithSelection(String id,AttachmentBatchQueue.Selection replacement){return batch==null?failed(new IOException("Retry requires V2")):batch.retryWithSelection(id,replacement);}
+    public CompletableFuture<String> retry(String id,java.util.function.BooleanSupplier valid){return batch==null?failed(new IOException("Retry requires V2")):batch.retry(id,valid);}
+    public CompletableFuture<AttachmentBatchQueue.RetryBatchResult> retryFailedBatch(String id,java.util.function.BooleanSupplier valid){return batch==null?failed(new IOException("Retry requires V2")):batch.retryFailedBatch(id,valid);}
+    public CompletableFuture<String> retryWithSelection(String id,AttachmentBatchQueue.Selection replacement,java.util.function.BooleanSupplier valid){return batch==null?failed(new IOException("Retry requires V2")):batch.retryWithSelection(id,replacement,valid);}
     public java.util.List<AttachmentBatchQueue.Item> batchItems(){return batch==null?java.util.List.of():batch.items();}
     public CompletableFuture<Void> resumeBatch(){return batch==null?failed(new IOException("Batch requires V2")):batch.resumeAll();}
     public String diagnostics(){return metrics.snapshot()+(streaming==null?"attachment_v2=false\n":streaming.diagnostics());}

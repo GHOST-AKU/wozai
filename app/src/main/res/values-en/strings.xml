@@ -56,6 +56,7 @@
     <string name="attachment_retried" formatted="false">"Retried"</string>
     <string name="attachment_retry" formatted="false">"Retry"</string>
     <string name="attachment_retry_batch" formatted="false">"Retry failed files in this batch"</string>
+    <string name="attachment_retry_ineligible" formatted="false">"Retry unavailable"</string>
     <string name="attachment_retry_none" formatted="false">"No failed files remain to retry in this batch."</string>
     <string name="attachment_retry_partial" formatted="false">"{0} files added to the retry queue; {1} files need to be selected again."</string>
     <string name="attachment_retry_queued" formatted="false">"Added to the retry queue."</string>

@@ -424,5 +424,6 @@
   "attachmentRetrySelectAgain": "元のファイルを読み取れません。再選択して再送してください。",
   "attachmentRetryPartial": "{0} 個のファイルを再送キューに追加しました。{1} 個のファイルは再選択が必要です。",
   "attachmentRetryNone": "この一括送信に再送が必要なファイルはありません。",
-  "attachmentReselect": "再選択"
+  "attachmentReselect": "再選択",
+  "attachmentRetryIneligible": "再送できません"
 }

@@ -508,11 +508,13 @@ public final class LocalizationInstrumentation extends Instrumentation {
             List<ChatStore.Message> failed=onMain(()->controller.messages.stream().filter(m->m.outgoing&&!previous.contains(m.id)&&m.attachment!=null).collect(java.util.stream.Collectors.toList()));
             String readableId=failed.get(0).id,deniedId=failed.get(1).id;
             check(onMain(()->{android.view.ViewGroup bubbles=field(activity,"bubbles");return attachmentButton(bubbles.findViewWithTag("attachment:"+readableId),AndroidText.get(activity,"attachmentRetry"))!=null;}),"Failed outgoing bubble exposes Retry instead of Resume");
+            screenshot("zh-Hans-attachment-retry-failed");
             onMain(()->{controller.sendAttachments(peer,controller.attachmentSessionToken(),List.of(retry));return null;});
             await(()->onMain(()->controller.messages.stream().filter(m->m.outgoing&&!previous.contains(m.id)&&m.attachment!=null&&m.attachment.state.equals("failed")).count()==3),"Separate provider batch reaches a failed history row");
             String otherBatchId=onMain(()->controller.messages.stream().filter(m->m.outgoing&&!previous.contains(m.id)&&m.attachment!=null&&!m.id.equals(readableId)&&!m.id.equals(deniedId)).findFirst().get().id);
             getTargetContext().getContentResolver().call(base,"retry-allow",null,null);
             check(onMain(()->{android.view.ViewGroup bubbles=field(activity,"bubbles");return bubbles.findViewWithTag("attachment:"+readableId).performLongClick();}),"Failed file card opens its retry actions");
+            screenshot("zh-Hans-attachment-retry-batch-menu");
             check(onMain(()->{android.widget.PopupMenu menu=field(activity,"attachmentActions");for(int i=0;i<menu.getMenu().size();i++){android.view.MenuItem item=menu.getMenu().getItem(i);if(item.getTitle().toString().equals(AndroidText.get(activity,"attachmentRetryBatch")))return menu.getMenu().performIdentifierAction(item.getItemId(),0);}return false;}),"Failed file popup dispatches this batch's failed-item retry");
             AttachmentRecord queued=remoteFileState("received");
             await(()->onMain(()->controller.messages.stream().anyMatch(m->m.id.equals(queued.info.id)&&m.outgoing&&m.attachment!=null&&m.attachment.state.equals("delivered"))),"Readable failed item creates a distinct delivered retry task");
@@ -520,6 +522,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
             check(onMain(()->controller.messages.stream().filter(m->m.outgoing&&(m.id.equals(readableId)||m.id.equals(deniedId)||m.id.equals(otherBatchId))&&m.attachment.state.equals("failed")).count()==3),"Retry retains failed history and leaves the other batch untouched");
             String retriedId=onMain(()->{android.view.ViewGroup bubbles=field(activity,"bubbles");for(String candidate:List.of(readableId,deniedId)){android.widget.Button button=attachmentButton(bubbles.findViewWithTag("attachment:"+candidate),AndroidText.get(activity,"attachmentRetried"));if(button!=null&&!button.isEnabled())return candidate;}return null;});
             check(retriedId!=null,"Retry parent displays a disabled Retried status");String reselectId=retriedId.equals(readableId)?deniedId:readableId;
+            screenshot("zh-Hans-attachment-retry-partial");
             check(onMain(()->LocalizationInstrumentation.<java.util.concurrent.CompletableFuture<String>>invoke(controller,"retryAttachment",new Class<?>[]{String.class,long.class,String.class},peer,controller.attachmentSessionToken(),retriedId)).get(10,TimeUnit.SECONDS).equals(queued.info.id),"Repeated retry reuses the admitted child instead of creating another task");
             onMain(()->{setField(activity,"pendingRetryPeer",peer);setField(activity,"pendingRetryId",reselectId);setField(activity,"pendingRetryToken",controller.attachmentSessionToken());setField(activity,"pendingRetrySession",invoke(controller,"attachmentSelectionSession",new Class<?>[]{String.class},peer));setField(activity,"controller",null);activity.onActivityResult(24,Activity.RESULT_OK,new Intent().setData(replacement));return null;});
             check(onMain(()->reselectId.equals(field(activity,"pendingRetryId"))&&replacement.equals(field(activity,"selectedRetryUri"))),"Retry replacement waits for asynchronous service rebinding with its failed parent");

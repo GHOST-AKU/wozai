@@ -40,6 +40,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     private final Map<String,java.awt.image.BufferedImage> thumbnails=new LinkedHashMap<>();
     private final Set<String> loadingThumbnails=new HashSet<>();
     private final LinkedHashSet<String> failedThumbnails=new LinkedHashSet<>();
+    private final Set<String> pendingRetries=new HashSet<>();
     private final JTextField nickname = new JTextField(24);
     private final JTabbedPane tabs = new JTabbedPane();
     private final javax.swing.Timer draftTimer;
@@ -54,6 +55,8 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     private long conversationGeneration;
     private List<DesktopStore.Message> renderedMessages;
     private List<TransferProgress> renderedProgress = List.of();
+    private List<AttachmentBatchQueue.RetryState> renderedRetryStates=List.of();
+    private List<Boolean> renderedRetryBatches=List.of();
     private JDialog requestDialog;
     private PhotoViewer photoViewer;
     private SecurityDialog securityDialog;
@@ -391,11 +394,11 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     private void renderTranscript(String peer,List<DesktopStore.Message> history) {
         List<DesktopStore.Message> messages=client.liveMessages(peer,history);
         List<TransferProgress> progress=messages.stream().map(message->message.attachment()==null?TransferProgress.UNKNOWN:client.transferProgress(peer,message.attachment())).toList();
-        if(messages.equals(renderedMessages)&&progress.equals(renderedProgress))return;
-        JScrollPane scroll=(JScrollPane)SwingUtilities.getAncestorOfClass(JScrollPane.class,transcript); JScrollBar bar=scroll.getVerticalScrollBar();
-        boolean bottom=bar.getValue()+bar.getVisibleAmount()>=bar.getMaximum()-24; int position=bar.getValue(); renderedMessages=messages; renderedProgress=progress;
-        transcript.actions((message,action)->attachmentAction(peer,message,action));transcript.progress(message->message.attachment()==null?TransferProgress.UNKNOWN:client.transferProgress(peer,message.attachment()));transcript.scale(fontScale);transcript.render(messages,strings);
-        SwingUtilities.invokeLater(()->{if(bottom)bar.setValue(bar.getMaximum());else bar.setValue(position);});
+        List<AttachmentBatchQueue.RetryState> retryStates=messages.stream().map(message->retryState(peer,message)).toList();
+        List<Boolean> retryBatches=messages.stream().map(message->client.hasRetryableBatch(peer,message.id())).toList();
+        if(messages.equals(renderedMessages)&&progress.equals(renderedProgress)&&retryStates.equals(renderedRetryStates)&&retryBatches.equals(renderedRetryBatches))return;
+        renderedMessages=messages; renderedProgress=progress;renderedRetryStates=retryStates;renderedRetryBatches=retryBatches;
+        transcript.actions((message,action)->attachmentAction(peer,message,action));transcript.progress(message->message.attachment()==null?TransferProgress.UNKNOWN:client.transferProgress(peer,message.attachment()));transcript.retryState(message->retryState(peer,message));transcript.retryableBatch(message->client.hasRetryableBatch(peer,message.id()));transcript.scale(fontScale);transcript.render(messages,strings);
     }
     private void chooseAttachment(boolean photo){
         String peer=selected;if(peer==null)return;
@@ -412,6 +415,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
 
     private void attachmentAction(String peer,DesktopStore.Message message,String action){
         var record=message.attachment();if(record==null)return;
+        if(action.equals("retry")||action.equals("retryBatch")||action.equals("reselect")){retryAttachment(peer,message,action);return;}
         if(action.equals("accept")||action.equals("reject")||action.equals("cancel")||action.equals("pause")||action.equals("resume")){handle(client.attachmentAction(peer,message.id(),message.outgoing(),action),"attachmentFailed");return;}
         if(action.equals("folder")){
             handle(client.attachmentLocation(peer,record).thenAcceptAsync(path->{
@@ -435,12 +439,62 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
             PhotoViewer viewer=new PhotoViewer(this,strings,record.info.name,()->attachmentAction(peer,message,"save"));photoViewer=viewer;dialogTranslations.put(viewer,List.of(viewer::translate));viewer.addWindowListener(new WindowAdapter(){public void windowClosed(WindowEvent e){dialogTranslations.remove(viewer);if(photoViewer==viewer)photoViewer=null;}});scaleFonts(viewer.getContentPane(),fontScale);viewer.setVisible(true);
             client.attachmentPath(peer,record).thenApplyAsync(path->{try{return viewer.active()?AttachmentImages.read(path,2048):null;}catch(IOException e){return null;}},attachmentWorker).whenComplete((image,error)->SwingUtilities.invokeLater(()->viewer.image(image,strings)));return;
         }
+        if(!action.equals("save")&&!action.equals("open"))return;
         if(!action.equals("save")&&!record.info.canOpenExternally())action="save";
         Path destination=null;
         if(action.equals("save")){JFileChooser chooser=new JFileChooser();chooser.setSelectedFile(new java.io.File(AttachmentInfo.safeName(record.info.name)));if(chooser.showSaveDialog(this)!=JFileChooser.APPROVE_OPTION)return;destination=chooser.getSelectedFile().toPath();if(Files.exists(destination)&&JOptionPane.showConfirmDialog(this,strings.text("attachmentOverwrite"),strings.text("attachmentSaveAs"),JOptionPane.YES_NO_OPTION)!=JOptionPane.YES_OPTION)return;}
         Path target=destination;
         if(target!=null){handle(client.exportAttachment(peer,record,target),"attachmentFailed");return;}
         handle(client.attachmentPath(peer,record).thenAcceptAsync(path->{try{Desktop.getDesktop().open(path.toFile());}catch(IOException e){throw new java.util.concurrent.CompletionException(e);}},attachmentWorker),"attachmentFailed");
+    }
+    private AttachmentBatchQueue.RetryState retryState(String peer,DesktopStore.Message message){
+        return pendingRetries.contains(peer+":"+message.id())?AttachmentBatchQueue.RetryState.RETRYING:client.retryState(peer,message.id());
+    }
+    private boolean retryViewCurrent(String peer,long generation){return !shuttingDown&&peer.equals(selected)&&generation==conversationGeneration;}
+    private void refreshRetries(String peer){if(!shuttingDown&&peer.equals(selected)){renderedMessages=null;renderMessages();}}
+    private void retryAttachment(String peer,DesktopStore.Message message,String action){
+        AttachmentRecord record=message.attachment();if(!peer.equals(selected)||record==null||!message.outgoing()||!record.outgoing||record.info.version!=2||!record.state.equals("failed"))return;
+        String key=peer+":"+message.id();if(pendingRetries.contains(key))return;
+        List<String> keys=new ArrayList<>();keys.add(key);
+        if(action.equals("retryBatch")){
+            List<AttachmentBatchQueue.Item> items=client.batchItems(peer);String batch=items.stream().filter(item->item.info().id.equals(message.id())).map(AttachmentBatchQueue.Item::batchId).findFirst().orElse(null);
+            if(batch!=null)for(AttachmentBatchQueue.Item item:items)if(item.batchId().equals(batch)&&item.state().equals("failed")){String itemKey=peer+":"+item.info().id;if(!keys.contains(itemKey))keys.add(itemKey);}
+        }
+        if(keys.stream().anyMatch(pendingRetries::contains))return;
+        pendingRetries.addAll(keys);refreshRetries(peer);long generation=conversationGeneration;
+        client.verification(peer).whenComplete((expected,error)->SwingUtilities.invokeLater(()->{
+            if(!retryViewCurrent(peer,generation)){pendingRetries.removeAll(keys);refreshRetries(peer);return;}
+            if(error!=null||expected==null){pendingRetries.removeAll(keys);refreshRetries(peer);notice("notConnected");return;}
+            if(action.equals("reselect")){chooseRetryReplacement(peer,message,expected,generation,keys);return;}
+            if(action.equals("retryBatch")){
+                client.retryFailedBatch(expected,message.id()).whenComplete((result,failure)->SwingUtilities.invokeLater(()->{
+                    pendingRetries.removeAll(keys);refreshRetries(peer);if(!retryViewCurrent(peer,generation))return;
+                    if(failure!=null){notice(errorText(failure,"attachmentFailed"));return;}
+                    if(!result.unavailableIds().isEmpty())notice(UiText.of("attachmentRetryPartial",result.queuedIds().size(),result.unavailableIds().size()));
+                    else notice(result.queuedIds().isEmpty()?"attachmentRetryNone":"attachmentRetryQueued");
+                }));return;
+            }
+            client.retryAttachment(expected,message.id()).whenComplete((id,failure)->SwingUtilities.invokeLater(()->{
+                if(!retryViewCurrent(peer,generation)){pendingRetries.removeAll(keys);refreshRetries(peer);return;}
+                if(failure!=null&&retrySourceUnavailable(failure)){notice("attachmentRetrySelectAgain");chooseRetryReplacement(peer,message,expected,generation,keys);return;}
+                pendingRetries.removeAll(keys);refreshRetries(peer);if(failure!=null)notice(errorText(failure,"attachmentFailed"));else notice("attachmentRetryQueued");
+            }));
+        }));
+    }
+    private static boolean retrySourceUnavailable(Throwable error){
+        for(Throwable cause=error;cause!=null;cause=cause.getCause())if(cause instanceof AttachmentBatchQueue.RetrySourceUnavailableException)return true;
+        return false;
+    }
+    private void chooseRetryReplacement(String peer,DesktopStore.Message message,IdentityVerification expected,long generation,List<String> keys){
+        if(!retryViewCurrent(peer,generation)||!client.verificationCurrent(expected)){pendingRetries.removeAll(keys);refreshRetries(peer);return;}
+        notice("attachmentRetrySelectAgain");JFileChooser chooser=new JFileChooser();chooser.setMultiSelectionEnabled(false);chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);chooser.setDialogTitle(strings.text("attachmentReselect"));chooser.setApproveButtonText(strings.text("attachmentRetry"));
+        if(chooser.showOpenDialog(this)!=JFileChooser.APPROVE_OPTION){pendingRetries.removeAll(keys);refreshRetries(peer);return;}
+        java.io.File file=chooser.getSelectedFile();
+        if(!retryViewCurrent(peer,generation)){pendingRetries.removeAll(keys);refreshRetries(peer);return;}
+        if(file==null||chooser.getSelectedFiles().length>1||!client.verificationCurrent(expected)){pendingRetries.removeAll(keys);refreshRetries(peer);notice("notConnected");return;}
+        client.retryAttachmentWithSelection(expected,message.id(),file.toPath()).whenComplete((id,failure)->SwingUtilities.invokeLater(()->{
+            pendingRetries.removeAll(keys);refreshRetries(peer);if(!retryViewCurrent(peer,generation))return;if(failure!=null)notice(errorText(failure,"attachmentFailed"));else notice("attachmentRetryQueued");
+        }));
     }
     private void sendMessage() {
         if (!send.isEnabled()) { notice("notConnected"); return; }

@@ -26,6 +26,7 @@ import dev.ghost.nearbyim.i18n.LanguageRegistry;
 import dev.ghost.nearbyim.i18n.UiText;
 import java.util.*;
 import dev.ghost.nearbyim.core.AttachmentInfo;
+import dev.ghost.nearbyim.core.AttachmentBatchQueue;
 import dev.ghost.nearbyim.core.IdentityVerification;
 import dev.ghost.nearbyim.core.AttachmentRecord;
 import dev.ghost.nearbyim.core.TransferProgress;
@@ -58,6 +59,9 @@ public final class MainActivity extends Activity {
     private String pendingVerificationCode;
     private String pendingAttachmentPeer,pendingExportPeer,pendingExportRecord;
     private long pendingAttachmentToken;
+    private String pendingRetryPeer,pendingRetryId,pendingRetrySession;
+    private long pendingRetryToken;
+    private Uri selectedRetryUri;
     private ArrayList<Uri> selectedAttachmentUris;
     private Uri selectedExportUri;
     private GalleryPublisher gallery;
@@ -80,6 +84,7 @@ public final class MainActivity extends Activity {
     private List<ChatStore.Conversation> renderedConversations;
     private List<ChatStore.TrustedDevice> renderedTrusted;
     private String renderedConnection, renderedQuery, peerSignature, renderedPeer, deferredScrollPeer;
+    private String renderedRetryState;
     private int deferredScrollY, messageGeneration;
     private AlertDialog approvalDialog;
     private String shownApproval, restoredSelectedId, restoredSelectedName, composerPeer, handledSavedMessage;
@@ -125,6 +130,7 @@ public final class MainActivity extends Activity {
         if (saved != null) {
             pendingGalleryPeer=saved.getString("pendingGalleryPeer");pendingGalleryRecord=saved.getString("pendingGalleryRecord");
             pendingAttachmentPeer=saved.getString("pendingAttachmentPeer");pendingAttachmentToken=saved.getLong("pendingAttachmentToken");pendingExportPeer=saved.getString("pendingExportPeer");pendingExportRecord=saved.getString("pendingExportRecord");
+            pendingRetryPeer=saved.getString("pendingRetryPeer");pendingRetryId=saved.getString("pendingRetryId");pendingRetryToken=saved.getLong("pendingRetryToken");pendingRetrySession=saved.getString("pendingRetrySession");String retryUri=saved.getString("selectedRetryUri");selectedRetryUri=retryUri==null?null:Uri.parse(retryUri);
             selectedAttachmentUris=saved.getParcelableArrayList("selectedAttachmentUris");String exportUri=saved.getString("selectedExportUri");
             selectedExportUri=exportUri==null?null:Uri.parse(exportUri);
             mode = saved.getInt("mode", Peer.LAN); page = saved.getInt("page", 0); detail = saved.getBoolean("detail");
@@ -172,6 +178,7 @@ public final class MainActivity extends Activity {
     protected void onSaveInstanceState(Bundle state) {
         state.putString("pendingGalleryPeer",pendingGalleryPeer);state.putString("pendingGalleryRecord",pendingGalleryRecord);
         state.putString("pendingAttachmentPeer",pendingAttachmentPeer);state.putLong("pendingAttachmentToken",pendingAttachmentToken);state.putString("pendingExportPeer",pendingExportPeer);state.putString("pendingExportRecord",pendingExportRecord);
+        state.putString("pendingRetryPeer",pendingRetryPeer);state.putString("pendingRetryId",pendingRetryId);state.putLong("pendingRetryToken",pendingRetryToken);state.putString("pendingRetrySession",pendingRetrySession);state.putString("selectedRetryUri",selectedRetryUri==null?null:selectedRetryUri.toString());
         state.putParcelableArrayList("selectedAttachmentUris",selectedAttachmentUris);state.putString("selectedExportUri",selectedExportUri==null?null:selectedExportUri.toString());
         saveDraftAndPosition();
         state.putInt("mode", mode); state.putInt("page", page); state.putBoolean("detail", detail); state.putString("draft", composer.getText().toString());
@@ -536,6 +543,7 @@ public final class MainActivity extends Activity {
         reconnectButton.setText(connecting ? t("cancelConnection") : controller != null && !UiText.EMPTY.equals(controller.error) ? t("retryConnection") : t("reconnect"));
         reconnectHint.setText(connecting ? t(controller.status) : trusted ? controller != null && !UiText.EMPTY.equals(controller.error) ? t("reconnectUnavailable") : t("reconnectRemembered") : t("draftRetainedHint"));
         composer.setEnabled(peerId != null);emojiButton.setEnabled(peerId!=null);attachmentToggle.setEnabled(controller!=null&&controller.canSendAttachment());fileButton.setEnabled(controller!=null&&controller.canSendAttachment());photoButton.setEnabled(controller!=null&&controller.canSendAttachment());if(switched)attachmentTray.setVisibility(View.GONE);updateSend();
+        String retryState=controller==null?null:controller.attachmentRetryRevision()+":"+controller.canSendAttachment()+":"+peerId;if(!Objects.equals(renderedRetryState,retryState)){renderedMessages=null;renderedRetryState=retryState;}
         if (controller == null || renderedMessages == controller.messages && Objects.equals(renderedPeer, peerId)) return;
         boolean newPeer = !Objects.equals(renderedPeer, peerId), wasAtBottom = atBottom(); int previousScroll = messageScroll.getScrollY();
         if(!newPeer&&updateLiveAttachmentViews(controller.messages)){renderedMessages=controller.messages;return;}
@@ -626,7 +634,8 @@ public final class MainActivity extends Activity {
                 TextView name=label(attachment.info.name,14,ink);name.setTypeface(null,Typeface.BOLD);name.setMaxLines(2);name.setEllipsize(TextUtils.TruncateAt.END);name.setTag("messageBody");description.addView(name);
                 String bytes=android.text.format.Formatter.formatShortFileSize(this,attachment.info.size);if(attachment.active()&&attachment.transferred>0)bytes=android.text.format.Formatter.formatShortFileSize(this,attachment.transferred)+" / "+bytes;
                 TextView status=label(t("attachmentSummary",bytes,failedThumbnails.contains(previewKey)?t("photoUnavailable"):attachmentState(attachment)),12,muted);status.setTag("attachmentSummary");description.addView(status);card.addView(description,new LinearLayout.LayoutParams(0,-2,1));bubble.addView(card,new LinearLayout.LayoutParams(Math.min(dp(260),Math.max(dp(160),getResources().getDisplayMetrics().widthPixels-dp(80))),-2));
-                if(photoAvailable(attachment)){card.setOnClickListener(v->openAttachment(peer,attachment));card.setOnLongClickListener(v->{attachmentMenu(card,peer,attachment);return true;});}
+                if(photoAvailable(attachment))card.setOnClickListener(v->openAttachment(peer,attachment));
+                if(photoAvailable(attachment)||retryableAttachment(attachment))card.setOnLongClickListener(v->{attachmentMenu(card,peer,attachment);return true;});
             }
             if(attachment.active()||attachment.resumable()){
                 TransferProgress measurement=controller==null?TransferProgress.UNKNOWN:controller.transferProgress(peer,attachment);
@@ -636,6 +645,12 @@ public final class MainActivity extends Activity {
                 if(attachment.info.version==2){boolean paused=attachment.resumable();Button toggle=iconButton(paused?R.drawable.outline_play_arrow_24:R.drawable.outline_pause_24,t(paused?"attachmentResume":"attachmentPause"),muted);toggle.setOnClickListener(v->{if(controller!=null)controller.attachmentAction(peer,message.id,message.outgoing,paused?"resume":"pause");});progressRow.addView(toggle,new LinearLayout.LayoutParams(dp(48),dp(48)));}
                 Button cancel=iconButton(R.drawable.outline_close_24,t("cancel"),muted);cancel.setOnClickListener(v->{if(controller!=null)controller.attachmentAction(peer,message.id,message.outgoing,"cancel");});progressRow.addView(cancel,new LinearLayout.LayoutParams(dp(48),dp(48)));bubble.addView(progressRow);
             }
+            if(retryableAttachment(attachment)){
+                AttachmentBatchQueue.RetryState state=controller.attachmentRetryState(peer,message.id);String key=attachmentRetryLabel(state);
+                Button retry=button(t(key),false);retry.setTag("attachmentRetry");retry.setContentDescription(t(key));retry.setBackground(ripple(Color.TRANSPARENT,16));
+                android.graphics.drawable.Drawable symbol=getDrawable(R.drawable.outline_refresh_24).mutate();symbol.setTint(accent);symbol.setBounds(0,0,dp(20),dp(20));retry.setCompoundDrawables(symbol,null,null,null);retry.setCompoundDrawablePadding(dp(6));
+                retry.setEnabled(controller.canSendAttachment()&&state!=AttachmentBatchQueue.RetryState.RETRYING&&state!=AttachmentBatchQueue.RetryState.RETRIED&&state!=AttachmentBatchQueue.RetryState.INELIGIBLE);retry.setOnClickListener(v->retryAttachment(peer,message.id));bubble.addView(retry,new LinearLayout.LayoutParams(-2,dp(48)));
+            }
             bubble.setOnLongClickListener(v->{attachmentMenu(bubble,peer,attachment);return true;});
         }
         String time=AndroidText.date(this,message.time,"jm");TextView meta=label(message.outgoing?t("outgoingMessageMeta",time,attachment==null?AndroidText.messageState(this,message.state):attachmentState(attachment)):time,10,muted);
@@ -643,7 +658,17 @@ public final class MainActivity extends Activity {
     }
     private String attachmentState(AttachmentRecord record){return t(record.stateKey());}
     private boolean photoAvailable(AttachmentRecord record){return record.outgoing?record.state.equals("delivered")&&record.info.mime.startsWith("image/"):record.state.equals("received");}
+    private boolean retryableAttachment(AttachmentRecord record){return record.outgoing&&record.info.version==2&&record.state.equals("failed");}
+    private String attachmentRetryLabel(AttachmentBatchQueue.RetryState state){return state==AttachmentBatchQueue.RetryState.RETRYING?"attachmentRetrying":state==AttachmentBatchQueue.RetryState.RETRIED?"attachmentRetried":state==AttachmentBatchQueue.RetryState.INELIGIBLE?"attachmentRetryIneligible":"attachmentRetry";}
     private void attachmentMenu(View anchor,String peer,AttachmentRecord record){
+        if(retryableAttachment(record)){
+            if(controller==null)return;if(attachmentActions!=null)attachmentActions.dismiss();PopupMenu menu=new PopupMenu(this,anchor);attachmentActions=menu;
+            AttachmentBatchQueue.RetryState state=controller.attachmentRetryState(peer,record.info.id);boolean ready=controller.canSendAttachment();
+            menu.getMenu().add(0,4,0,t(attachmentRetryLabel(state))).setEnabled(ready&&state!=AttachmentBatchQueue.RetryState.RETRYING&&state!=AttachmentBatchQueue.RetryState.RETRIED&&state!=AttachmentBatchQueue.RetryState.INELIGIBLE);
+            if(controller.hasRetryableAttachmentBatch(peer,record.info.id))menu.getMenu().add(0,5,1,t("attachmentRetryBatch")).setEnabled(ready&&state!=AttachmentBatchQueue.RetryState.RETRYING);
+            if(state==AttachmentBatchQueue.RetryState.AVAILABLE||state==AttachmentBatchQueue.RetryState.UNAVAILABLE)menu.getMenu().add(0,6,2,t("attachmentReselect")).setEnabled(ready);
+            menu.setOnMenuItemClickListener(item->{if(item.getItemId()==4)retryAttachment(peer,record.info.id);else if(item.getItemId()==5)retryAttachmentBatch(peer,record.info.id);else if(item.getItemId()==6&&controller!=null)chooseRetryReplacement(peer,record.info.id,controller.attachmentSessionToken(),controller.attachmentSelectionSession(peer));return true;});menu.show();return;
+        }
         if(!photoAvailable(record))return;if(attachmentActions!=null)attachmentActions.dismiss();PopupMenu menu=new PopupMenu(this,anchor);attachmentActions=menu;if(record.info.mime.startsWith("image/")||record.info.canOpenExternally())menu.getMenu().add(0,1,0,t("attachmentOpen"));menu.getMenu().add(0,2,1,t("attachmentSaveAs"));if(record.info.mime.startsWith("image/"))menu.getMenu().add(0,3,2,t("gallerySave"));
         menu.setOnMenuItemClickListener(item->{if(item.getItemId()==1)openAttachment(peer,record);else if(item.getItemId()==3)saveToGallery(peer,record);else saveAttachment(peer,record);return true;});menu.show();
     }
@@ -661,6 +686,31 @@ public final class MainActivity extends Activity {
         Intent intent=photo?AttachmentSelection.photosIntent(this):AttachmentSelection.filesIntent();
         try{startActivityForResult(intent,20);}catch(ActivityNotFoundException e){pendingAttachmentPeer=null;toast(t("attachmentFailed"));}
     }
+    private boolean retrySelectionCurrent(ChatController target,String peer,long token,String session){return !isDestroyed()&&controller==target&&session!=null&&token==target.attachmentSessionToken()&&session.equals(target.attachmentSelectionSession(peer));}
+    private void retryAttachment(String peer,String id){
+        ChatController target=controller;if(target==null)return;long token=target.attachmentSessionToken();String session=target.attachmentSelectionSession(peer);
+        AttachmentBatchQueue.RetryState state=target.attachmentRetryState(peer,id);if(state==AttachmentBatchQueue.RetryState.RETRYING||state==AttachmentBatchQueue.RetryState.RETRIED||state==AttachmentBatchQueue.RetryState.INELIGIBLE)return;
+        if(state==AttachmentBatchQueue.RetryState.UNAVAILABLE){offerRetryReplacement(peer,id,token,session);return;}
+        target.retryAttachment(peer,token,id).whenComplete((value,failure)->ui.post(()->{
+            if(!retrySelectionCurrent(target,peer,token,session))return;
+            if(failure!=null&&ChatController.attachmentRetryNeedsSelection(failure))offerRetryReplacement(peer,id,token,session);else toast(t(failure==null?UiText.of("attachmentRetryQueued"):ChatController.attachmentError(failure)));
+        }));
+    }
+    private void retryAttachmentBatch(String peer,String id){
+        ChatController target=controller;if(target==null)return;long token=target.attachmentSessionToken();String session=target.attachmentSelectionSession(peer);
+        target.retryFailedAttachmentBatch(peer,token,id).whenComplete((result,failure)->ui.post(()->{if(retrySelectionCurrent(target,peer,token,session))toast(t(failure==null?ChatController.attachmentRetryBatchFeedback(result):ChatController.attachmentError(failure)));}));
+    }
+    private void offerRetryReplacement(String peer,String id,long token,String session){
+        ChatController target=controller;if(target==null||!retrySelectionCurrent(target,peer,token,session))return;
+        new AlertDialog.Builder(this).setMessage(t("attachmentRetrySelectAgain")).setPositiveButton(t("attachmentReselect"),(dialog,which)->chooseRetryReplacement(peer,id,token,session)).setNegativeButton(t("cancel"),null).show();
+    }
+    private void chooseRetryReplacement(String peer,String id,long token,String session){
+        ChatController target=controller;if(target==null||!retrySelectionCurrent(target,peer,token,session)){toast(t("notConnected"));return;}
+        if(pendingRetryId!=null)return;pendingRetryPeer=peer;pendingRetryId=id;pendingRetryToken=token;pendingRetrySession=session;
+        Intent intent=AttachmentSelection.filesIntent().putExtra(Intent.EXTRA_ALLOW_MULTIPLE,false);
+        try{startActivityForResult(intent,23);}catch(ActivityNotFoundException missing){clearPendingAttachmentRetry();toast(t("attachmentFailed"));}
+    }
+    private void clearPendingAttachmentRetry(){pendingRetryPeer=null;pendingRetryId=null;pendingRetrySession=null;pendingRetryToken=0;selectedRetryUri=null;}
     private void saveToGallery(String peer,AttachmentRecord record){
         if(gallery==null||controller==null){toast(t("gallerySaveFailed"));return;}
         if(Build.VERSION.SDK_INT<=28&&checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)!=PackageManager.PERMISSION_GRANTED){try{pendingGalleryRecord=record.encode();}catch(java.io.IOException invalid){toast(t("gallerySaveFailed"));return;}pendingGalleryPeer=peer;requestPermissions(new String[]{android.Manifest.permission.WRITE_EXTERNAL_STORAGE},968);return;}
@@ -831,6 +881,15 @@ public final class MainActivity extends Activity {
         if(requestCode==22){try{selectedAttachmentUris=new ArrayList<>(resultCode==RESULT_OK?AttachmentSelection.from(data):List.of());}catch(IllegalArgumentException invalid){selectedAttachmentUris=null;toast(t("attachmentFailed"));}
             if(selectedAttachmentUris==null||selectedAttachmentUris.isEmpty())pendingAttachmentPeer=null;resumeAttachmentSelection();return;
         }
+        if(requestCode==23){
+            try{List<Uri> uris=resultCode==RESULT_OK?AttachmentSelection.from(data):List.of();if(uris.size()!=1||pendingRetryId==null){clearPendingAttachmentRetry();return;}
+                Intent preview=new Intent(this,AttachmentSelectionActivity.class).putParcelableArrayListExtra(AttachmentSelection.URIS,new ArrayList<>(uris));preview.setClipData(AttachmentSelection.result(uris).getClipData());preview.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);startActivityForResult(preview,24);
+            }catch(IllegalArgumentException|ActivityNotFoundException invalid){clearPendingAttachmentRetry();toast(t("attachmentFailed"));}return;
+        }
+        if(requestCode==24){
+            try{List<Uri> uris=resultCode==RESULT_OK?AttachmentSelection.from(data):List.of();selectedRetryUri=uris.size()==1?uris.get(0):null;}catch(IllegalArgumentException invalid){selectedRetryUri=null;toast(t("attachmentFailed"));}
+            if(selectedRetryUri==null)clearPendingAttachmentRetry();resumeAttachmentSelection();return;
+        }
         if(requestCode==21){
             selectedExportUri=resultCode==RESULT_OK&&data!=null?data.getData():null;
             if(selectedExportUri==null){pendingExportPeer=null;pendingExportRecord=null;}
@@ -843,6 +902,10 @@ public final class MainActivity extends Activity {
     }
     private void resumeAttachmentSelection(){
         if(controller==null)return;
+        if(selectedRetryUri!=null&&pendingRetryPeer!=null&&pendingRetryId!=null){
+            ChatController target=controller;Uri uri=selectedRetryUri;String peer=pendingRetryPeer,id=pendingRetryId,session=pendingRetrySession;long token=pendingRetryToken;
+            clearPendingAttachmentRetry();target.retryAttachmentWithSelection(peer,token,session,id,uri).whenComplete((value,failure)->ui.post(()->{if(!retrySelectionCurrent(target,peer,token,session))return;if(failure!=null&&ChatController.attachmentRetryNeedsSelection(failure))offerRetryReplacement(peer,id,token,session);else toast(t(failure==null?UiText.of("attachmentRetryQueued"):ChatController.attachmentError(failure)));}));
+        }
         if(selectedAttachmentUris!=null&&!selectedAttachmentUris.isEmpty()&&pendingAttachmentPeer!=null){
             List<Uri> uris=List.copyOf(selectedAttachmentUris);String peer=pendingAttachmentPeer;long token=pendingAttachmentToken;
             selectedAttachmentUris=null;pendingAttachmentPeer=null;controller.sendAttachments(peer,token,uris);

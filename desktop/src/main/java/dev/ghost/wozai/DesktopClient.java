@@ -42,7 +42,7 @@ public final class DesktopClient implements AutoCloseable {
     private long generation;
     private volatile Session current;
     private Listening listening;
-    private String phase = "idle";
+    private volatile String phase = "idle";
     private List<DesktopStore.Peer> lastHistory = List.of();
     private static Thread daemon(Runnable r, String name) { Thread t = new Thread(r, name); t.setDaemon(true); return t; }
     public DesktopClient(DesktopStore store, DesktopIdentity.Identity identity, Listener listener) throws IOException {
@@ -285,10 +285,61 @@ public final class DesktopClient implements AutoCloseable {
         }).thenCompose(future->future)));
     }
     public List<AttachmentBatchQueue.Item> batchItems(String peerId){Session session=current;return session==null||session.peer==null||!session.peer.id().equals(peerId)||session.transfers==null?List.of():session.transfers.batchItems();}
+    public AttachmentBatchQueue.RetryState retryState(String peerId,String id){
+        Session session=current;return session==null||session.peer==null||!session.peer.id().equals(peerId)||session.transfers==null?AttachmentBatchQueue.RetryState.UNAVAILABLE:session.transfers.retryState(id);
+    }
+    public boolean hasRetryableBatch(String peerId,String id){
+        Session session=current;return session!=null&&session.peer!=null&&session.peer.id().equals(peerId)&&session.transfers!=null&&session.transfers.hasRetryableBatch(id);
+    }
+    private record RetryContext(Session session,IdentityVerification identity,String failedId){}
+    private Session retrySession(String peerId,IdentityVerification expected)throws IOException {
+        Session session=current;
+        if(session==null||session.peer==null||!session.peer.id().equals(peerId)||!phase.equals("ready")||session.transfers==null||!session.transfers.v2()||!session.wire.isReady()||!session.wire.endToEndEncrypted()||!policy.canVerify(session.authorization)||expected!=null&&!verificationCurrent(expected))throw new LocalizedIOException(UiText.of("notConnected"));
+        return session;
+    }
+    private void failedAttachment(String peerId,String id)throws IOException {
+        String canonical=DesktopStore.uuid(id);
+        boolean failed=store.messages(peerId).stream().anyMatch(message->message.id().equals(canonical)&&message.outgoing()&&message.attachment()!=null&&message.attachment().outgoing&&message.attachment().info.version==2&&message.attachment().state.equals("failed"));
+        if(!failed)throw new LocalizedIOException(UiText.of("attachmentRetryNone"));
+    }
+    private CompletableFuture<RetryContext> retryContext(String peerId,IdentityVerification expected,String failedId){return submit(()->{
+        Session session=retrySession(peerId,expected);failedAttachment(peerId,failedId);
+        IdentityVerification captured=expected==null?verificationNow(peerId):expected;
+        if(captured==null)throw new LocalizedIOException(UiText.of("notConnected"));
+        return new RetryContext(session,captured,DesktopStore.uuid(failedId));
+    });}
+    private void retryCurrent(RetryContext context)throws IOException {
+        if(retrySession(context.identity().peerId,context.identity())!=context.session())throw new LocalizedIOException(UiText.of("notConnected"));
+    }
+    private boolean retryAdmissionCurrent(RetryContext context){try{retryCurrent(context);return true;}catch(IOException stale){return false;}}
+    private <T> CompletableFuture<T> retryCall(RetryContext context,Callable<CompletableFuture<T>> operation){return submit(()->{
+        retryCurrent(context);failedAttachment(context.identity().peerId,context.failedId());return operation.call();
+    }).thenCompose(result->result.thenCompose(value->submit(()->{retryCurrent(context);return value;})));}
+    public CompletableFuture<String> retryAttachment(String peerId,String failedId){return retryAttachment(peerId,null,failedId);}
+    public CompletableFuture<String> retryAttachment(IdentityVerification expected,String failedId){
+        return expected==null?CompletableFuture.failedFuture(new LocalizedIOException(UiText.of("notConnected"))):retryAttachment(expected.peerId,expected,failedId);
+    }
+    private CompletableFuture<String> retryAttachment(String peerId,IdentityVerification expected,String failedId){
+        return retryContext(peerId,expected,failedId).thenCompose(context->retryCall(context,()->context.session().transfers.retry(context.failedId(),()->retryAdmissionCurrent(context))));
+    }
+    public CompletableFuture<AttachmentBatchQueue.RetryBatchResult> retryFailedBatch(String peerId,String failedId){return retryFailedBatch(peerId,null,failedId);}
+    public CompletableFuture<AttachmentBatchQueue.RetryBatchResult> retryFailedBatch(IdentityVerification expected,String failedId){
+        return expected==null?CompletableFuture.failedFuture(new LocalizedIOException(UiText.of("notConnected"))):retryFailedBatch(expected.peerId,expected,failedId);
+    }
+    private CompletableFuture<AttachmentBatchQueue.RetryBatchResult> retryFailedBatch(String peerId,IdentityVerification expected,String failedId){
+        return retryContext(peerId,expected,failedId).thenCompose(context->retryCall(context,()->context.session().transfers.retryFailedBatch(context.failedId(),()->retryAdmissionCurrent(context))));
+    }
+    public CompletableFuture<String> retryAttachmentWithSelection(IdentityVerification expected,String failedId,java.nio.file.Path replacement){
+        if(expected==null)return CompletableFuture.failedFuture(new LocalizedIOException(UiText.of("notConnected")));
+        return retryContext(expected.peerId,expected,failedId).thenCompose(context->CompletableFuture.supplyAsync(()->{
+            try {if(closed)throw new LocalizedIOException(UiText.of("disconnected"));return AttachmentBatchQueue.selectFile(replacement);}
+            catch(IOException error){throw new CompletionException(error);}
+        },attachmentIO).thenCompose(selection->retryCall(context,()->context.session().transfers.retryWithSelection(context.failedId(),selection,()->retryAdmissionCurrent(context)))));
+    }
     public CompletableFuture<Void> resumeBatch(String peerId){return submit(()->{
         Session session=current;if(session==null||session.peer==null||!session.peer.id().equals(peerId)||session.transfers==null||!session.wire.isReady())throw new LocalizedIOException(UiText.of("notConnected"));return session.transfers.resumeBatch();
     }).thenCompose(future->future);}
-    public CompletableFuture<Void> batchAction(String peer,String action){return submit(()->{Session s=current;if(s==null||s.peer==null||!s.peer.id().equals(peer)||s.transfers==null)throw new LocalizedIOException(UiText.of("notConnected"));return action.equals("resume")?s.transfers.resumeBatch():action.equals("pause")?s.transfers.pauseBatch():s.transfers.cancelBatch();}).thenCompose(value->value);}
+    public CompletableFuture<Void> batchAction(String peer,String action){return submit(()->{Session s=current;if(s==null||s.peer==null||!s.peer.id().equals(peer)||s.transfers==null)throw new LocalizedIOException(UiText.of("notConnected"));if(action.equals("resume"))return s.transfers.resumeBatch();if(action.equals("pause"))return s.transfers.pauseBatch();if(action.equals("cancel"))return s.transfers.cancelBatch();throw new IOException("Unknown attachment batch action");}).thenCompose(value->value);}
     public CompletableFuture<java.nio.file.Path> attachmentLocation(String peerId,AttachmentRecord record){return submit(()->{
         java.nio.file.Path exported=store.exportLocation(peerId,record);
         if(exported!=null){if(!java.nio.file.Files.isRegularFile(exported))throw new LocalizedIOException(UiText.of("attachmentSavedFileMissing"));return exported;}
@@ -313,7 +364,7 @@ public final class DesktopClient implements AutoCloseable {
     }
     public CompletableFuture<Void> attachmentAction(String peerId,String id,boolean outgoing,String action){return submit(()->{
         Session session=current;if(session==null||session.peer==null||!session.peer.id().equals(peerId)||session.transfers==null)throw new LocalizedIOException(UiText.of("notConnected"));
-        if(action.equals("resume"))return session.transfers.resume(id,outgoing);if(action.equals("pause"))return session.transfers.pause(id,outgoing);if(action.equals("accept"))return session.transfers.accept(id);if(action.equals("reject"))return session.transfers.reject(id);return session.transfers.cancel(id,outgoing);
+        if(action.equals("resume"))return session.transfers.resume(id,outgoing);if(action.equals("pause"))return session.transfers.pause(id,outgoing);if(action.equals("accept"))return session.transfers.accept(id);if(action.equals("reject"))return session.transfers.reject(id);if(action.equals("cancel"))return session.transfers.cancel(id,outgoing);throw new IOException("Unknown attachment action");
     }).thenCompose(future->future);}
     public CompletableFuture<java.nio.file.Path> attachmentPath(String peerId,AttachmentInfo info){return submit(()->{
         java.nio.file.Path file=store.attachmentFile(peerId,info);if(!java.nio.file.Files.isRegularFile(file,java.nio.file.LinkOption.NOFOLLOW_LINKS))throw new LocalizedIOException(UiText.of("attachmentUnavailable"));return file;
