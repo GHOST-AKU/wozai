@@ -30,7 +30,7 @@ public final class AndroidAttachmentSource implements AttachmentSource {
     public AndroidAttachmentSource(Context context,Uri uri)throws IOException {this(context,uri,UUID.randomUUID().toString());}
     public AndroidAttachmentSource(Context context,Uri uri,String generation)throws IOException {
         if(uri==null||!"content".equals(uri.getScheme())||generation==null||!generation.matches("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}"))throw new IOException("Invalid document source");
-        this.uri=uri;this.generation=generation;resolver=context.getContentResolver();attachments=context.getFilesDir().toPath().resolve("attachments");AssetFileDescriptor opened=null;
+        this.uri=uri;this.generation=generation;resolver=context.getContentResolver();attachments=context.getFilesDir().getCanonicalFile().toPath().resolve("attachments");AssetFileDescriptor opened=null;
         try {
             String display="attachment";long queried=-1;
             try(Cursor cursor=resolver.query(uri,new String[]{OpenableColumns.DISPLAY_NAME,OpenableColumns.SIZE},null,null,null)) {
@@ -86,7 +86,7 @@ public final class AndroidAttachmentSource implements AttachmentSource {
     }
     /** Run after canceled task journals are durable and their source handles have closed. */
     public static void releaseUnusedGrants(Context context)throws IOException {
-        ContentResolver resolver=context.getContentResolver();Path attachments=context.getFilesDir().toPath().resolve("attachments");
+        ContentResolver resolver=context.getContentResolver();Path attachments=context.getFilesDir().getCanonicalFile().toPath().resolve("attachments");
         Set<String> exported=AttachmentLocations.retainedUris(context);
         for(UriPermission grant:resolver.getPersistedUriPermissions())if(grant.isReadPermission()&&!exported.contains(grant.getUri().toString()))releaseUnused(resolver,attachments,grant.getUri());
     }

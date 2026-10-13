@@ -444,7 +444,11 @@ public final class AttachmentTransferV2 implements AutoCloseable {
         task.canceled.set(true);closeTaskIO(task);if(task.partial!=null)Files.deleteIfExists(task.partial);
         closeResource(task.reservation);
         if(!state.equals("delivered")){if(!checkpoints.load(task.key).isPresent())checkpoint(task,TransferCheckpoint.State.ACTIVE);checkpoints.cancel(task.key);}
-        if(task.source!=null)task.source.discard();
+        if(task.source!=null){
+            // Optional source cleanup cannot revoke the peer's durable authenticated receipt.
+            if(state.equals("delivered"))try{task.source.discard();}catch(IOException ignored){}
+            else task.source.discard();
+        }
         task.state=state;remember(task);if(task==outgoing)outgoing=null;if(task==incoming){incoming=null;stopCredits();}notice(task,true);
         if(notifyPeer)send(control(task,TransferPacket.Kind.CANCEL,task.outgoing,0,0,null,state.equals("canceled")?"canceled":"failed"));
     }
