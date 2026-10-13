@@ -91,6 +91,7 @@ public final class AndroidAvatarChecks {
             await(()->onMain(instrumentation,()->(boolean)field(current,"ready")),"Avatar editor did not load identity on background thread");checks++;
             Uri slow=Uri.parse("content://dev.ghost.nearbyim.test.avatars/slow/red"),fast=Uri.parse("content://dev.ghost.nearbyim.test.avatars/fast/blue");context.getContentResolver().call(slow,"hold",null,null);
             onMain(instrumentation,()->{invoke(current,"onActivityResult",new Class<?>[]{int.class,int.class,Intent.class},1,Activity.RESULT_OK,new Intent().setData(slow));return null;});
+            await(()->context.getContentResolver().call(slow,"started",null,null).getBoolean("started"),"Slow avatar provider was not entered before replacing selection");checks++;
             onMain(instrumentation,()->{invoke(current,"onActivityResult",new Class<?>[]{int.class,int.class,Intent.class},1,Activity.RESULT_OK,new Intent().setData(fast));return null;});context.getContentResolver().call(slow,"release",null,null);
             await(()->onMain(instrumentation,()->{Bitmap source=field(current,"source");return source!=null&&source.getPixel(0,0)==Color.BLUE;}),"Late first selection replaced the newer image");checks++;
             onMain(instrumentation,()->{invoke(current,"onActivityResult",new Class<?>[]{int.class,int.class,Intent.class},1,Activity.RESULT_OK,new Intent().setData(Uri.parse("content://dev.ghost.nearbyim.test.sources/denied")));return null;});
@@ -105,6 +106,7 @@ public final class AndroidAvatarChecks {
             editor=instrumentation.startActivitySync(new Intent(context,AvatarActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));Activity backing=editor;
             await(()->onMain(instrumentation,()->(boolean)field(backing,"ready")),"Back cancellation editor did not initialize");context.getContentResolver().call(slow,"hold",null,null);
             onMain(instrumentation,()->{invoke(backing,"onActivityResult",new Class<?>[]{int.class,int.class,Intent.class},1,Activity.RESULT_OK,new Intent().setData(slow));return null;});int backGeneration=onMain(instrumentation,()->field(backing,"generation"));
+            await(()->context.getContentResolver().call(slow,"started",null,null).getBoolean("started"),"Slow avatar provider was not entered before Back cancellation");checks++;
             instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK);await(()->onMain(instrumentation,backing::isFinishing),"System Back did not cancel the avatar editor");checks++;
             check(onMain(instrumentation,()->(int)field(backing,"generation")>backGeneration),"System Back did not invalidate the pending avatar worker");checks++;context.getContentResolver().call(slow,"release",null,null);editor=null;
             check(store.snapshot().profile().equals(baseline.profile())&&(!connected||controller.connected),"System Back changed the saved avatar or ended chat");checks++;

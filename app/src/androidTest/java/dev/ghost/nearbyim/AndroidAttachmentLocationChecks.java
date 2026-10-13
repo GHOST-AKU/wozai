@@ -59,8 +59,12 @@ final class AndroidAttachmentLocationChecks {
             }
             try(AttachmentLocations restarted=new AttachmentLocations(isolated)){
                 check(writeOnly.equals(restarted.locate(peer,record).get(10,TimeUnit.SECONDS).savedUri()),"Saved URI did not survive subsystem restart");
+                // A new picker selection grants access again after the prior marker was retired.
+                resolver.call(destination,"export-grant",context.getPackageName(),null);
                 restarted.export(peer,record,destination,flags).get(10,TimeUnit.SECONDS);check(persistedRead(resolver,destination),"Clear test has no live persisted destination grant");
                 restarted.clearPeer(peer).get(10,TimeUnit.SECONDS);check(!persistedRead(resolver,destination),"Clear did not release the obsolete persisted read grant");expectFailure(()->restarted.export(peer,record,destination,flags).get(10,TimeUnit.SECONDS));store.clear(peer);restarted.finishClear(peer);check(AttachmentLocations.retainedUris(isolated).isEmpty(),"Clear retained obsolete export grants");
+                // The user selects their public file again; clear must not have deleted its bytes.
+                resolver.call(destination,"export-grant",context.getPackageName(),null);
                 try(InputStream input=resolver.openInputStream(destination)){check(input.read()==2,"Clear deleted user-owned public file");}
                 expectFailure(()->restarted.export(peer,record,destination,flags).get(10,TimeUnit.SECONDS));
             }
@@ -74,7 +78,14 @@ final class AndroidAttachmentLocationChecks {
             gallery.automatic(false);published=gallery.export(peer,record,source,true).get(30,TimeUnit.SECONDS).uri();var location=locations.locate(peer,record).get(10,TimeUnit.SECONDS);
             check(location.kind()==AttachmentLocations.Kind.GALLERY&&location.availability()==AttachmentLocations.Availability.AVAILABLE&&published.equals(location.savedUri()),"Gallery location did not use the actual published MediaStore item");
             PhotoExportStore journal=new PhotoExportStore(context.getFilesDir().toPath().resolve("gallery-exports"));journal.save(peer,record,new PhotoExportStore.Entry(PhotoExportStore.State.PENDING,published.toString()));check(locations.locate(peer,record).get(10,TimeUnit.SECONDS).kind()==AttachmentLocations.Kind.APP_PRIVATE,"Pending gallery publication became externally openable");journal.save(peer,record,new PhotoExportStore.Entry(PhotoExportStore.State.SAVED,published.toString()));
-            context.getContentResolver().delete(published,null,null);check(locations.locate(peer,record).get(10,TimeUnit.SECONDS).availability()==AttachmentLocations.Availability.MISSING,"Deleted gallery item was hidden by stale saved status");
+            Uri removed=published;check(context.getContentResolver().delete(removed,null,null)>0,"Gallery fixture did not delete its published item");published=null;
+            AttachmentLocations.Availability unavailable;
+            try(android.content.res.AssetFileDescriptor descriptor=context.getContentResolver().openAssetFileDescriptor(removed,"r")){
+                if(descriptor!=null)throw new AssertionError("Deleted gallery fixture remains openable");unavailable=AttachmentLocations.Availability.MISSING;
+            }catch(FileNotFoundException missing){unavailable=AttachmentLocations.Availability.MISSING;}
+            catch(SecurityException noOwner){unavailable=AttachmentLocations.Availability.ACCESS_LOST;}
+            var deletedLocation=locations.locate(peer,record).get(10,TimeUnit.SECONDS);
+            check(deletedLocation.kind()==AttachmentLocations.Kind.GALLERY&&removed.equals(deletedLocation.savedUri())&&deletedLocation.availability()==unavailable,"Deleted gallery item did not preserve its real provider failure and saved provenance");
         }finally{if(published!=null)context.getContentResolver().delete(published,null,null);}
     }
     private static boolean persistedRead(ContentResolver resolver,Uri uri){for(UriPermission grant:resolver.getPersistedUriPermissions())if(grant.isReadPermission()&&uri.equals(grant.getUri()))return true;return false;}
