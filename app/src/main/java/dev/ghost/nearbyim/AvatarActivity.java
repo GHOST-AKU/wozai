@@ -74,7 +74,7 @@ public final class AvatarActivity extends Activity {
     }
     private void load() {
         submit(() -> {
-            String root = AndroidIdentity.load().publicKey(); AvatarStore loaded = new AvatarStore(getFilesDir().toPath().resolve("avatars"), root); AvatarSnapshot snapshot = loaded.snapshot();
+            String root = AndroidIdentity.load().publicKey(); AvatarStore loaded = new AvatarStore(getFilesDir().getCanonicalFile().toPath().resolve("avatars"), root); AvatarSnapshot snapshot = loaded.snapshot();
             return () -> { identityRoot = root; store = loaded; revision = snapshot.profile().revision; ready = true; AndroidAvatars.get(this).bind(current, root); notice.setText(text("avatarSavedOnDevice")); controls();if(selection!=null)decodeSelection(); };
         });
     }

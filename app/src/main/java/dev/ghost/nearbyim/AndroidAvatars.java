@@ -55,7 +55,7 @@ public final class AndroidAvatars {
             Identicon.Model model = Identicon.neutral(); Bitmap bitmap = null;
             try {
                 model = Identicon.fromPublicKey(root);
-                AvatarSnapshot snapshot = new AvatarStore(context.getFilesDir().toPath().resolve("avatars"), root).snapshot();
+                AvatarSnapshot snapshot = new AvatarStore(context.getFilesDir().getCanonicalFile().toPath().resolve("avatars"), root).snapshot();
                 byte[] png = snapshot.png(); if (png.length != 0) bitmap = AvatarImages.preview(png);
             } catch (Exception | OutOfMemoryError unavailable) { /* A missing/corrupt avatar cannot affect chat. */ }
             Entry entry = new Entry(model, bitmap);

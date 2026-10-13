@@ -334,7 +334,7 @@ public final class ChatController implements TransportListener {
         CompletableFuture<AvatarSync> preparing=new CompletableFuture<>();
         try{storage.execute(()->{
             try {
-                Path directory=applicationContext.getFilesDir().toPath().resolve("avatars");
+                Path directory=applicationContext.getFilesDir().getCanonicalFile().toPath().resolve("avatars");
                 AvatarSync sync=new AvatarSync(new AvatarStore(directory,identity.publicKey()),new AvatarStore(directory,grant.publicKey),wire::sendAvatar,new AvatarSync.Listener(){
                     public void onChanged(AvatarSnapshot snapshot){main.post(()->{if(!destroyed&&active==wire&&authorization==grant&&trust.ready(grant))AndroidAvatars.get(applicationContext).refresh(grant.publicKey);});}
                     public void onProtocolError(IOException error){if(active==wire)wire.close(UiText.of("disconnected"));}

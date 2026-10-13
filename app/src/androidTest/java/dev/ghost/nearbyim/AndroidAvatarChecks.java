@@ -31,7 +31,7 @@ public final class AndroidAvatarChecks {
     }
     public static void main(String[] arguments) throws Exception { requireImplementation(); }
     public static int run(Context context) throws Exception {
-        requireImplementation();int checks=0;Path directory=Files.createTempDirectory(context.getCacheDir().toPath(),"avatars-native-");
+        requireImplementation();int checks=0;Path directory=Files.createTempDirectory(context.getCacheDir().getCanonicalFile().toPath(),"avatars-native-");
         Bitmap original=Bitmap.createBitmap(320,160,Bitmap.Config.ARGB_8888);original.eraseColor(Color.RED);Canvas canvas=new Canvas(original);Paint paint=new Paint();paint.setColor(Color.BLUE);canvas.drawRect(160,0,320,160,paint);
         try {
             byte[] encoded=AvatarImages.encodeCrop(original,new RectF(80,0,240,160));AvatarSpec.PngInfo info=AvatarSpec.validatePng(encoded);
@@ -84,7 +84,7 @@ public final class AndroidAvatarChecks {
             boolean dark=(context.getResources().getConfiguration().uiMode&android.content.res.Configuration.UI_MODE_NIGHT_MASK)==android.content.res.Configuration.UI_MODE_NIGHT_YES;
             check(actual==tile.foreground(dark),"Default avatar clipped a corner grid cell at "+edge+"px");checks++;
         }
-        String localRoot=AndroidIdentity.load().publicKey();AvatarStore store=new AvatarStore(context.getFilesDir().toPath().resolve("avatars"),localRoot);AvatarSnapshot baseline=store.snapshot();
+        String localRoot=AndroidIdentity.load().publicKey();AvatarStore store=new AvatarStore(context.getFilesDir().getCanonicalFile().toPath().resolve("avatars"),localRoot);AvatarSnapshot baseline=store.snapshot();
         Activity editor=null;
         try {
             editor=instrumentation.startActivitySync(new Intent(context,AvatarActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));Activity current=editor;
@@ -125,11 +125,11 @@ public final class AndroidAvatarChecks {
     }
     private static int manager(Instrumentation instrumentation,Context context)throws Exception {
         AndroidAvatars manager=AndroidAvatars.get(context);List<String> roots=new ArrayList<>();List<AvatarView> views=new ArrayList<>();Bitmap pixels=Bitmap.createBitmap(256,256,Bitmap.Config.ARGB_8888);pixels.eraseColor(Color.GREEN);byte[] png=AvatarImages.encodeCrop(pixels,new RectF(0,0,256,256));pixels.recycle();
-        for(int i=0;i<10;i++){String root=identity();roots.add(root);new AvatarStore(context.getFilesDir().toPath().resolve("avatars"),root).save(0,png);onMain(instrumentation,()->{AvatarView view=new AvatarView(context);views.add(view);manager.bind(view,root);return null;});}
+        for(int i=0;i<10;i++){String root=identity();roots.add(root);new AvatarStore(context.getFilesDir().getCanonicalFile().toPath().resolve("avatars"),root).save(0,png);onMain(instrumentation,()->{AvatarView view=new AvatarView(context);views.add(view);manager.bind(view,root);return null;});}
         await(()->onMain(instrumentation,()->((Set<?>)field(manager,"loading")).isEmpty()),"Bound avatar cache did not settle");check(onMain(instrumentation,()->(int)field(manager,"cachedBytes")<=AvatarSpec.MAX_CACHE_BYTES),"Avatar bitmap cache exceeded 2 MiB");
         String root=roots.get(roots.size()-1);AvatarView own=views.get(views.size()-1);await(()->onMain(instrumentation,()->field(own,"image")!=null),"Identity-bound custom avatar was not displayed");
-        new AvatarStore(context.getFilesDir().toPath().resolve("avatars"),roots.get(0)).reset(1);manager.refresh(roots.get(0));await(()->onMain(instrumentation,()->((Set<?>)field(manager,"loading")).isEmpty()),"Root refresh did not settle");check(onMain(instrumentation,()->{Bitmap retained=field(own,"image");return retained!=null&&retained.getPixel(128,128)==Color.GREEN;}),"Refreshing another root changed the device's avatar view");
-        for(String identity:roots){AvatarStore store=new AvatarStore(context.getFilesDir().toPath().resolve("avatars"),identity);store.reset(store.snapshot().profile().revision);manager.refresh(identity);}return 4;
+        new AvatarStore(context.getFilesDir().getCanonicalFile().toPath().resolve("avatars"),roots.get(0)).reset(1);manager.refresh(roots.get(0));await(()->onMain(instrumentation,()->((Set<?>)field(manager,"loading")).isEmpty()),"Root refresh did not settle");check(onMain(instrumentation,()->{Bitmap retained=field(own,"image");return retained!=null&&retained.getPixel(128,128)==Color.GREEN;}),"Refreshing another root changed the device's avatar view");
+        for(String identity:roots){AvatarStore store=new AvatarStore(context.getFilesDir().getCanonicalFile().toPath().resolve("avatars"),identity);store.reset(store.snapshot().profile().revision);manager.refresh(identity);}return 4;
     }
     private static boolean contains(byte[] data,String text){return new String(data,java.nio.charset.StandardCharsets.ISO_8859_1).contains(text);}
     private interface Checked {void run()throws Exception;}

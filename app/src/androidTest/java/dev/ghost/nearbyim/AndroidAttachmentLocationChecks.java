@@ -18,9 +18,10 @@ final class AndroidAttachmentLocationChecks {
     private static int checks;
     static int run(Context context)throws Exception {
         checks=0;
-        Path root=Files.createTempDirectory(context.getCacheDir().toPath(),"native-location-");
+        Path root=Files.createTempDirectory(context.getCacheDir().getCanonicalFile().toPath(),"native-location-");
         Context isolated=new ContextWrapper(context){
             public File getFilesDir(){File file=root.resolve("files").toFile();file.mkdirs();return file;}
+            public SharedPreferences getSharedPreferences(String name,int mode){return context.getSharedPreferences(root.getFileName()+name,mode);}
             public File getDatabasePath(String name){return root.resolve(name).toFile();}
             public SQLiteDatabase openOrCreateDatabase(String name,int mode,SQLiteDatabase.CursorFactory factory){return SQLiteDatabase.openOrCreateDatabase(getDatabasePath(name),factory);}
             public SQLiteDatabase openOrCreateDatabase(String name,int mode,SQLiteDatabase.CursorFactory factory,DatabaseErrorHandler handler){return SQLiteDatabase.openOrCreateDatabase(getDatabasePath(name).getPath(),factory,handler);}
