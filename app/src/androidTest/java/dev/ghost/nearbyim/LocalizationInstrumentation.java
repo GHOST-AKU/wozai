@@ -630,7 +630,11 @@ public final class LocalizationInstrumentation extends Instrumentation {
                     for(int i=0;i<timeline.size();i++){
                         ChatStore.Message message=timeline.get(i);AttachmentRecord record=message.attachment;
                         if(record!=null)record=AttachmentRecord.decode(record.encode()); // SQLite reload produces new value objects.
-                        if(i==80)record=new AttachmentRecord(record.info,true,state,state.equals("delivered")?record.info.size:1024*1024);
+                        if(i==80){
+                            AttachmentInfo info=record.info;
+                            if(state.equals("delivered"))info=AttachmentInfo.v2(info.id,info.name,info.mime,info.size,"0000000000000000000000000000000000000000000000000000000000000000",info.time);
+                            record=new AttachmentRecord(info,true,state,state.equals("delivered")?info.size:1024*1024);
+                        }
                         next.add(new ChatStore.Message(message.id,message.text,i==80?(state.equals("delivered")?ChatStore.DELIVERED:record.active()?ChatStore.PENDING:ChatStore.UNKNOWN):message.state,message.outgoing,message.time,record));
                     }
                     controller.messages=next;invoke(activity,"renderChat",new Class<?>[0]);
