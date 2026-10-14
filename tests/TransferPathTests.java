@@ -13,12 +13,15 @@ public final class TransferPathTests {
         for(String state:new String[]{"transferring","checking","verifying","awaitingReceipt","paused","interrupted","sourceUnavailable","unknown"}) {
             expect("LAN_UNCONFIRMED","lan",true,record(state,true));
             expect("BLUETOOTH","bluetooth",true,record(state,false));
+            expect("WIFI_DIRECT","wifi_direct",true,record(state,true));
             expect("DISCONNECTED","lan",false,record(state,true));
             expect("UNKNOWN","wifi",true,record(state,true));
         }
         for(String state:new String[]{"queued","preparing","offered"}) {
             expect("PENDING_LAN","lan",true,record(state,true));
             expect("PENDING_BLUETOOTH","bluetooth",true,record(state,true));
+            expect("PENDING_WIFI_DIRECT","wifi_direct",true,record(state,false));
+            expect("DISCONNECTED","wifi_direct",false,record(state,true));
             expect("DISCONNECTED","bluetooth",false,record(state,true));
         }
         for(String state:new String[]{"received","delivered","failed","canceled","rejected"}) {

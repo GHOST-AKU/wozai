@@ -4,8 +4,10 @@ package dev.ghost.nearbyim.core;
 public enum TransferPath {
     NONE(""),
     LAN_UNCONFIRMED("attachmentPathLanUnconfirmed"),
+    WIFI_DIRECT("attachmentPathWifiDirect"),
     BLUETOOTH("attachmentPathBluetooth"),
     PENDING_LAN("attachmentPathPendingLan"),
+    PENDING_WIFI_DIRECT("attachmentPathPendingWifiDirect"),
     PENDING_BLUETOOTH("attachmentPathPendingBluetooth"),
     DISCONNECTED("attachmentPathDisconnected"),
     UNKNOWN("attachmentPathUnknown");
@@ -20,6 +22,7 @@ public enum TransferPath {
         if(!ready)return DISCONNECTED;
         boolean waiting=record.state.equals("queued")||record.state.equals("preparing")||record.state.equals("offered");
         if("lan".equals(transport))return waiting?PENDING_LAN:LAN_UNCONFIRMED;
+        if("wifi_direct".equals(transport))return waiting?PENDING_WIFI_DIRECT:WIFI_DIRECT;
         if("bluetooth".equals(transport))return waiting?PENDING_BLUETOOTH:BLUETOOTH;
         return UNKNOWN;
     }

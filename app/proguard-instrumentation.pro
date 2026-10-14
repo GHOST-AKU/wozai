@@ -16,6 +16,7 @@
     dev.ghost.nearbyim.ChatStore store;
     java.lang.Runnable observer;
     void refresh();
+    boolean beginConnect(int,java.lang.String,boolean,java.lang.String);
 }
 -keep class dev.ghost.nearbyim.ChatController$Feedback { *; }
 -keep class dev.ghost.nearbyim.ChatStore { public *; }
