@@ -19,6 +19,7 @@
     dev.ghost.nearbyim.ChatStore store;
     java.lang.Runnable observer;
     void refresh();
+    java.util.List liveMessages(java.util.List,java.lang.String);
     boolean beginConnect(int,java.lang.String,boolean,java.lang.String);
     java.lang.String lanReconnectId;
 }
