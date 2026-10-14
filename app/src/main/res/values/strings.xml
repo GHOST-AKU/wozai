@@ -6,7 +6,7 @@
     <string name="about_body_windows" formatted="false">"NearbyIM\nWindows preview {0}\n\nNearby text chat without an account.\n\nChat one to one over LAN or Bluetooth. Messages stay on this computer. Deleting local data removes chat history and device trust."</string>
     <string name="address_copied" formatted="false">"Address copied"</string>
     <string name="allow_discoverable" formatted="false">"Allow discovery for 120 seconds"</string>
-    <string name="android_about_body" formatted="false">"NearbyIM · 我在\nAndroid {0}\n\nChat one to one over LAN or Bluetooth. Messages stay on this device. Uninstalling the app or clearing its data removes chat history and device trust."</string>
+    <string name="android_about_body" formatted="false">"NearbyIM · 我在\nAndroid {0}\n\nChat one to one over Android Wi-Fi Direct, LAN or Bluetooth. Messages stay on this device. Uninstalling the app or clearing its data removes chat history and device trust."</string>
     <string name="android_about_summary" formatted="false">"Android · {0}\nNearby text chat without an account"</string>
     <string name="android_bluetooth_connect_failed" formatted="false">"Bluetooth connection failed. Make sure the other device has NearbyIM installed and reception enabled. Both people must confirm system pairing prompts."</string>
     <string name="android_bluetooth_hint" formatted="false">"Start searching after the other device enables reception and discovery. The system handles pairing on the first connection."</string>
@@ -15,13 +15,14 @@
     <string name="android_bluetooth_unavailable" formatted="false">"This device does not support Bluetooth. Use LAN instead."</string>
     <string name="android_composer" formatted="false">"Write a message…"</string>
     <string name="android_direct_body" formatted="false">"Enter the complete address and port shown on the other device."</string>
-    <string name="android_help_body" formatted="false">"LAN: Connect both devices to the same Wi-Fi or hotspot. Enable reception and search, or enter the complete IP address and port. Chat and file transfers are end-to-end encrypted. Local history and attachments are not encrypted.\n\nBluetooth: Search after the other device enables reception and discovery. Follow system pairing prompts on the first connection. Remembered devices can reconnect from chat history while Bluetooth and reception remain enabled on the other device.\n\nFor the first chat, remember the device or allow this time only. Reconnection verifies the same device identity. Revoke trust in Settings.\n\nPending means no storage receipt has arrived. Delivered means the other device saved the message. Unconfirmed means the result is unknown. These states do not mean read.\n\nHistory stays on this device. Drafts are kept when switching chats or rebuilding the interface, but may be lost when the app stops. Enable reception again after the system stops the app."</string>
+    <string name="android_help_body" formatted="false">"Wi-Fi Direct: For Android phones and tablets, choose Wi-Fi Direct on both devices, enable reception, and search. No router is needed. Accept system connection prompts. For Windows or Linux, switch both devices to LAN and join the same Wi-Fi or hotspot.\n\nLAN: Connect both devices to the same Wi-Fi or hotspot. Enable reception and search, or enter the complete IP address and port. Chat and file transfers are end-to-end encrypted. Local history and attachments are not encrypted.\n\nBluetooth: Search after the other device enables reception and discovery. Follow system pairing prompts on the first connection. Remembered devices can reconnect from chat history while Bluetooth and reception remain enabled on the other device.\n\nFor the first chat, remember the device or allow this time only. Reconnection verifies the same device identity. Revoke trust in Settings.\n\nPending means no storage receipt has arrived. Delivered means the other device saved the message. Unconfirmed means the result is unknown. These states do not mean read.\n\nHistory stays on this device. Drafts are kept when switching chats or rebuilding the interface, but may be lost when the app stops. Enable reception again after the system stops the app."</string>
     <string name="android_identity_changed" formatted="false">"This device identity key has changed. If you want to establish trust again, revoke its trust in Settings and reconnect."</string>
     <string name="android_lan_hint" formatted="false">"Connect both devices to the same Wi-Fi or hotspot."</string>
     <string name="android_request_body" formatted="false">"Connection over {0}. Remember this device to reconnect next time. You can revoke trust in Device information.\n\nThe other person chooses their nickname. Device trust does not verify their real name."</string>
     <string name="android_request_lan_body" formatted="false">"Connection over {0}. Remember this device to reconnect next time. You can revoke trust in Device information.\n\nThe other person chooses their nickname. Device trust does not verify their real name. Chat and file transfers are end-to-end encrypted. Local history and attachments are not encrypted."</string>
     <string name="android_storage_failure" formatted="false">"Local data could not be read or saved. Try again; if the problem persists, report the error."</string>
     <string name="android_storage_stopped" formatted="false">"Local data could not be saved. The connection was stopped."</string>
+    <string name="android_wifi_direct_hint" formatted="false">"Connect Android phones and tablets over Wi-Fi Direct without a router. Both devices must choose Wi-Fi Direct, enable reception, and search. For Windows or Linux, choose LAN on both devices and join the same Wi-Fi or hotspot."</string>
     <string name="app" formatted="false">"NearbyIM"</string>
     <string name="app_permissions" formatted="false">"App permissions"</string>
     <string name="app_section" formatted="false">"Application"</string>
@@ -55,7 +56,9 @@
     <string name="attachment_path_lan_unconfirmed" formatted="false">"Transfer path: LAN · topology unconfirmed"</string>
     <string name="attachment_path_pending_bluetooth" formatted="false">"Waiting to transfer · Bluetooth"</string>
     <string name="attachment_path_pending_lan" formatted="false">"Waiting to transfer · LAN (topology unconfirmed)"</string>
+    <string name="attachment_path_pending_wifi_direct" formatted="false">"Waiting to transfer · Wi-Fi Direct"</string>
     <string name="attachment_path_unknown" formatted="false">"Transfer path: currently unknown"</string>
+    <string name="attachment_path_wifi_direct" formatted="false">"Transfer path: Wi-Fi Direct"</string>
     <string name="attachment_pause" formatted="false">"Pause transfer"</string>
     <string name="attachment_photo_preview" formatted="false">"Photo preview: {0}"</string>
     <string name="attachment_preview" formatted="false">"Review attachments"</string>
@@ -232,6 +235,33 @@
     <string name="device_section" formatted="false">"This device"</string>
     <string name="diagnostics_copied" formatted="false">"Transfer diagnostics copied"</string>
     <string name="direct" formatted="false">"Connect by IP address"</string>
+    <string name="direct_advertising" formatted="false">"Advertised to nearby Android devices · waiting for a direct network"</string>
+    <string name="direct_busy" formatted="false">"Wi-Fi Direct is busy. Wait for the current operation, then retry."</string>
+    <string name="direct_channel_lost" formatted="false">"The Wi-Fi Direct service was lost. Restart reception and retry."</string>
+    <string name="direct_cleanup_failed" formatted="false">"Wi-Fi Direct cleanup did not finish. New Direct attempts are blocked to protect the current network. Check Wi-Fi settings, then restart the app and retry."</string>
+    <string name="direct_connect_failed" formatted="false">"Wi-Fi Direct connection failed. Check that the other Android device has reception enabled and accepts the system prompt."</string>
+    <string name="direct_connect_timeout" formatted="false">"Wi-Fi Direct connection timed out. Search again and retry."</string>
+    <string name="direct_discovery_failed" formatted="false">"Wi-Fi Direct search failed. Check permissions and Wi-Fi, then retry. Older Android devices also need system location on."</string>
+    <string name="direct_enable_canceled" formatted="false">"Wi-Fi is still off. Turn it on, then retry."</string>
+    <string name="direct_enable_first" formatted="false">"Turn on Wi-Fi in system settings to use Wi-Fi Direct."</string>
+    <string name="direct_foreign_group" formatted="false">"Another app’s or an unknown Wi-Fi Direct group is active. It was left unchanged. Disconnect it in Wi-Fi settings before retrying."</string>
+    <string name="direct_group_lost" formatted="false">"The Wi-Fi Direct network was lost. The connection stopped; reconnect to continue."</string>
+    <string name="direct_interface_unavailable" formatted="false">"The Wi-Fi Direct network interface is not ready. Search again and retry."</string>
+    <string name="direct_invalid_peer" formatted="false">"This nearby device cannot be used for Wi-Fi Direct. Search again."</string>
+    <string name="direct_ipv6_unsupported" formatted="false">"This Wi-Fi Direct network address is unsupported. Search again and retry."</string>
+    <string name="direct_listening" formatted="false">"Listening on the Wi-Fi Direct interface: {0}"</string>
+    <string name="direct_location_required" formatted="false">"System location is off. Older Android devices need it for Wi-Fi Direct discovery. Turn it on in Settings, then search again."</string>
+    <string name="direct_location_settings" formatted="false">"Location settings"</string>
+    <string name="direct_no_devices_body" formatted="false">"On both Android devices, choose Wi-Fi Direct, enable reception, and search. Accept the system connection prompt. For Windows or Linux, switch both devices to LAN and join the same Wi-Fi or hotspot."</string>
+    <string name="direct_peer_hint" formatted="false">"Verify the safety code after connecting."</string>
+    <string name="direct_permission_required" formatted="false">"Wi-Fi Direct needs Nearby devices permission, or Location permission on older devices. Allow it in App settings."</string>
+    <string name="direct_permission_title" formatted="false">"Allow Wi-Fi Direct access"</string>
+    <string name="direct_route_ambiguous" formatted="false">"The direct route cannot be confirmed safely because network routes overlap or a VPN is active. Check network settings and retry."</string>
+    <string name="direct_search_stop_failed" formatted="false">"Wi-Fi Direct search could not be stopped. Try again."</string>
+    <string name="direct_service_failed" formatted="false">"Wi-Fi Direct reception could not be advertised. Check Wi-Fi and permissions, then retry."</string>
+    <string name="direct_settings_unavailable" formatted="false">"System settings could not be opened. Open Settings on this device and check Wi-Fi or location."</string>
+    <string name="direct_unavailable" formatted="false">"Wi-Fi Direct is unavailable on this device. You can use LAN instead."</string>
+    <string name="direct_wifi_settings" formatted="false">"Wi-Fi settings"</string>
     <string name="disconnect" formatted="false">"Disconnect"</string>
     <string name="disconnect_and_connect" formatted="false">"Disconnect and connect"</string>
     <string name="disconnected" formatted="false">"Disconnected. Messages without a receipt remain unconfirmed."</string>
@@ -355,6 +385,7 @@
     <string name="path_details_disconnected" formatted="false">"No transfer channel is connected. The actual channel will appear after connecting."</string>
     <string name="path_details_lan" formatted="false">"The file uses the current LAN connection. The connection through a router or phone hotspot cannot be confirmed."</string>
     <string name="path_details_title" formatted="false">"Transfer path"</string>
+    <string name="path_details_wifi_direct" formatted="false">"The file uses the current Android Wi-Fi Direct data channel. The direct network route was confirmed for this connection. Encryption and identity verification are shown separately."</string>
     <string name="peer_ended" formatted="false">"The other device ended the chat."</string>
     <string name="peer_status_transport" formatted="false">"{0} · {1}"</string>
     <string name="peer_summary" formatted="false">"{0}. {1}"</string>
@@ -477,6 +508,10 @@
     <string name="view_copy_address" formatted="false">"View and copy my addresses"</string>
     <string name="waiting_both_ready" formatted="false">"Waiting for both devices to finish connecting…"</string>
     <string name="waiting_peer_consent" formatted="false">"Waiting for the other person to approve the chat…"</string>
+    <string name="wifi_direct" formatted="false">"Wi-Fi Direct"</string>
+    <string name="wifi_direct_connecting" formatted="false">"Connecting over Wi-Fi Direct…"</string>
+    <string name="wifi_direct_fallback_bluetooth" formatted="false">"Wi-Fi Direct unavailable; switched to Bluetooth. Reason: {0}"</string>
+    <string name="wifi_direct_fallback_lan" formatted="false">"Wi-Fi Direct unavailable; switched to LAN. Reason: {0}"</string>
     <string name="yes" formatted="false">"Confirm"</string>
     <string name="yesterday" formatted="false">"Yesterday"</string>
     <string name="you" formatted="false">"Me"</string>

@@ -39,7 +39,7 @@ public final class MainActivity extends Activity {
     private ChatService service;
     private ChatController controller;
     private boolean bound, detail, outgoingRequest, rebuildingMessages, resumePosted;
-    private int mode = Peer.LAN, page;
+    private int mode = Peer.WIFI_DIRECT, page;
     private int background, surface, ink, muted, accent, accentInk, tonal, line;
     private int sideInsetLeft, sideInsetRight, topInset, bottomInset, messageWidth;
     private LinearLayout root, header, bottomNav, homePage, nearbyPage, settingsPage, chatPage;
@@ -50,7 +50,7 @@ public final class MainActivity extends Activity {
     private AvatarView chatAvatar, ownAvatar;
     private String renderedAvatarRoots;
     private List<ChatStore.TrustedDevice> renderedHistoryTrusted;
-    private Button lanTab, bluetoothTab, receiveButton, searchButton, discoverableButton, manualButton, sendButton, reconnectButton, newMessages;
+    private Button directTab, lanTab, bluetoothTab, receiveButton, searchButton, discoverableButton, manualButton, wifiSettingsButton, sendButton, reconnectButton, newMessages;
     private Button newChatButton, cancelConnectionButton,fileButton,photoButton;
     private LinearLayout attachmentTray;
     private Button attachmentToggle,emojiButton;
@@ -103,7 +103,7 @@ public final class MainActivity extends Activity {
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final Map<String, String> drafts = new HashMap<>();
     private final Map<String, Integer> historyPositions = new HashMap<>();
-    private static final int PERMISSION_STAGE = 1, ENABLE_STAGE = 2, BIND_STAGE = 3, CLOSE_STAGE = 4;
+    private static final int PERMISSION_STAGE = 1, ENABLE_STAGE = 2, BIND_STAGE = 3, CLOSE_STAGE = 4, WIFI_STAGE = 5;
     private static final class UiAction implements java.io.Serializable {
         private static final long serialVersionUID = 2L;
         static final int START = 1, SEARCH = 2, DISCOVERABLE = 3, PEER = 4, ADDRESS = 5, RECONNECT = 6;
@@ -134,7 +134,7 @@ public final class MainActivity extends Activity {
     public void onCreate(Bundle saved) {
         super.onCreate(saved);
         try{gallery=GalleryPublisher.get(this);gallery.listen(galleryListener);}catch(java.io.IOException unavailable){}
-        if (saved == null) { SharedPreferences preferences = getSharedPreferences("ui", MODE_PRIVATE); mode = preferences.getInt("lastMode", Peer.LAN); rememberNext = preferences.getBoolean("rememberNext", true); }
+        if (saved == null) { SharedPreferences preferences = getSharedPreferences("ui", MODE_PRIVATE); mode = preferences.getInt("lastMode", Peer.WIFI_DIRECT); rememberNext = preferences.getBoolean("rememberNext", true); }
         if (saved != null) {
             pendingGalleryPeer=saved.getString("pendingGalleryPeer");pendingGalleryRecord=saved.getString("pendingGalleryRecord");
             pendingAttachmentPeer=saved.getString("pendingAttachmentPeer");pendingAttachmentToken=saved.getLong("pendingAttachmentToken");pendingExportPeer=saved.getString("pendingExportPeer");pendingExportRecord=saved.getString("pendingExportRecord");
@@ -142,7 +142,7 @@ public final class MainActivity extends Activity {
             selectedAttachmentUris=saved.getParcelableArrayList("selectedAttachmentUris");String exportUri=saved.getString("selectedExportUri");
             selectedExportUri=exportUri==null?null:Uri.parse(exportUri);
             selectedExportFlags=saved.getInt("selectedExportFlags");
-            mode = saved.getInt("mode", Peer.LAN); page = saved.getInt("page", 0); detail = saved.getBoolean("detail");
+            mode = saved.getInt("mode", Peer.WIFI_DIRECT); page = saved.getInt("page", 0); detail = saved.getBoolean("detail");
             pendingAction = (UiAction) saved.getSerializable("pendingAction"); pendingStage = saved.getInt("pendingStage");
             restoredSelectedId = saved.getString("selectedId"); restoredSelectedName = saved.getString("selectedName");
             composerPeer = saved.getString("composerPeer"); handledSavedMessage = saved.getString("handledSavedMessage");
@@ -152,6 +152,7 @@ public final class MainActivity extends Activity {
             if (draftState != null) for (String key : draftState.keySet()) drafts.put(key, draftState.getString(key, ""));
             if (positions != null) for (String key : positions.keySet()) historyPositions.put(key, positions.getInt(key));
         }
+        if (mode != Peer.WIFI_DIRECT && mode != Peer.LAN && mode != Peer.BLUETOOTH) mode = Peer.WIFI_DIRECT;
         palette(); buildUi();
         if (saved != null) {
             composer.setText(saved.getString("draft", ""));
@@ -173,7 +174,7 @@ public final class MainActivity extends Activity {
         super.onStart();if(gallery!=null)gallery.listen(galleryListener); bound = bindService(new Intent(this, ChatService.class), binding, Context.BIND_AUTO_CREATE);
         ui.post(discoverabilityTick);
     }
-    protected void onResume() { super.onResume(); if (root != null) { if(controller!=null)AndroidAvatars.get(this).refresh(controller.localAvatarRoot()); render(); } }
+    protected void onResume() { super.onResume(); if (root != null) { if(controller!=null)AndroidAvatars.get(this).refresh(controller.localAvatarRoot()); resumePending(); render(); } }
     protected void onStop() {
         saveDraftAndPosition(); ui.removeCallbacks(discoverabilityTick);
         if(gallery!=null)gallery.unlisten(galleryListener);
@@ -321,8 +322,9 @@ public final class MainActivity extends Activity {
         ScrollView scroll = nearbyScroll = new ScrollView(this); LinearLayout nearbyContent = vertical(); nearbyContent.setPadding(dp(16), dp(12), dp(16), dp(24));
         scroll.addView(nearbyContent); nearbyPage.addView(scroll, new LinearLayout.LayoutParams(-1, -1));
         LinearLayout modes = horizontal(); modes.setPadding(dp(4), dp(4), dp(4), dp(4)); modes.setBackground(shape(surface, 28));
-        lanTab = button(t("lan"), true); bluetoothTab = button(t("bluetooth"), false); lanTab.setOnClickListener(v -> chooseMode(Peer.LAN));
-        bluetoothTab.setOnClickListener(v -> chooseMode(Peer.BLUETOOTH)); modes.addView(lanTab, new LinearLayout.LayoutParams(0, -2, 1)); modes.addView(bluetoothTab, new LinearLayout.LayoutParams(0, -2, 1)); nearbyContent.addView(modes);
+        directTab = button(t("wifiDirect"), true); lanTab = button(t("lan"), false); bluetoothTab = button(t("bluetooth"), false);
+        directTab.setOnClickListener(v -> chooseMode(Peer.WIFI_DIRECT)); lanTab.setOnClickListener(v -> chooseMode(Peer.LAN)); bluetoothTab.setOnClickListener(v -> chooseMode(Peer.BLUETOOTH));
+        modes.addView(directTab, new LinearLayout.LayoutParams(0, -2, 1)); modes.addView(lanTab, new LinearLayout.LayoutParams(0, -2, 1)); modes.addView(bluetoothTab, new LinearLayout.LayoutParams(0, -2, 1)); nearbyContent.addView(modes);
         modeHint = label("", 14, muted); modeHint.setPadding(0, dp(16), 0, dp(8)); nearbyContent.addView(modeHint);
         rememberDevice = new CheckBox(this); rememberDevice.setText(t("rememberFirstConnection")); rememberDevice.setTextSize(14); rememberDevice.setTextColor(muted); rememberDevice.setChecked(rememberNext);
         rememberDevice.setMinHeight(dp(48)); rememberDevice.setOnCheckedChangeListener((button, checked) -> { rememberNext = checked; getSharedPreferences("ui", MODE_PRIVATE).edit().putBoolean("rememberNext", checked).apply(); }); nearbyContent.addView(rememberDevice);
@@ -331,7 +333,7 @@ public final class MainActivity extends Activity {
         receiveRow.addView(receiveStatus, new LinearLayout.LayoutParams(0, -2, 1)); receiveButton = button(t("startReception"), false);
         receiveButton.setOnClickListener(v -> {
             if (controller == null) return;
-            if (mode == Peer.LAN ? controller.lanRunning : controller.bluetoothRunning) {
+            if (controller.running(mode)) {
                 if (controller.hasSession() && controller.sessionMode == mode)
                     new AlertDialog.Builder(this).setTitle(t("stopReceptionTitle")).setMessage(t("historyTrustRetained"))
                         .setPositiveButton(t("stopReception"), (d, w) -> { if (controller != null) controller.stop(mode); }).setNegativeButton(t("cancel"), null).show();
@@ -342,11 +344,14 @@ public final class MainActivity extends Activity {
         connectionInfo = label("", 13, muted); connectionInfo.setTextIsSelectable(true); connectionInfo.setPadding(0, dp(8), 0, dp(8));
         connectionInfo.setOnLongClickListener(v -> { ((ClipboardManager) getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText(t("localAddress"), connectionInfo.getText())); toast(t("addressCopied")); return true; }); nearbyContent.addView(connectionInfo);
         searchButton = button(t("searchDevices"), true); searchButton.setOnClickListener(v -> {
-            if (controller != null && (mode == Peer.LAN ? controller.lanSearching : controller.bluetoothSearching)) controller.stopSearch(mode);
+            if (controller != null && controller.searching(mode)) controller.stopSearch(mode);
             else withPermissions(new UiAction(UiAction.SEARCH, mode));
         }); nearbyContent.addView(searchButton, topSpace());
         discoverableButton = button(t("allowDiscoverable"), false); discoverableButton.setOnClickListener(v -> withPermissions(new UiAction(UiAction.DISCOVERABLE, Peer.BLUETOOTH))); nearbyContent.addView(discoverableButton, topSpace());
         manualButton = button(t("direct"), false); manualButton.setOnClickListener(v -> manualConnect()); nearbyContent.addView(manualButton, topSpace());
+        wifiSettingsButton = button(t("directWifiSettings"), false); wifiSettingsButton.setOnClickListener(v -> {
+            if (directEnabled()) openLocationSettings(); else openWifiSettings();
+        }); nearbyContent.addView(wifiSettingsButton, topSpace());
         requestStatus = label("", 14, muted); requestStatus.setPadding(0, dp(12), 0, dp(4)); requestStatus.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE); nearbyContent.addView(requestStatus);
         cancelConnectionButton = button(t("cancelConnection"), false); cancelConnectionButton.setOnClickListener(v -> { outgoingRequest = false; if (controller != null) controller.disconnect(); }); nearbyContent.addView(cancelConnectionButton, topSpace());
         LinearLayout devicesHeader = horizontal(); devicesHeader.setGravity(Gravity.CENTER_VERTICAL);
@@ -485,23 +490,34 @@ public final class MainActivity extends Activity {
         if (controller == null) return; saveDraftAndPosition(); detail = true; page = 0; hideKeyboard(); controller.selectConversation(conversation); render(); animatePage(chatPage);
     }
     private void renderNearby() {
-        boolean attached = controller != null; style(lanTab, mode == Peer.LAN); style(bluetoothTab, mode == Peer.BLUETOOTH);
-        lanTab.setSelected(mode == Peer.LAN); bluetoothTab.setSelected(mode == Peer.BLUETOOTH);
-        modeHint.setText(mode == Peer.LAN ? t("androidLanHint") : t("androidBluetoothHint"));
-        boolean running = attached && (mode == Peer.LAN ? controller.lanRunning : controller.bluetoothRunning);
-        boolean searching = attached && (mode == Peer.LAN ? controller.lanSearching : controller.bluetoothSearching);
-        String info = !attached ? "" : t(mode == Peer.LAN ? controller.lanInfo : controller.bluetoothInfo);
-        boolean readyToReceive = running && (mode == Peer.LAN ? controller.lanListening : controller.bluetoothListening);
-        receiveStatus.setText(!running ? t("receptionOff") : readyToReceive ? t("receiving") : t("startingReception")); receiveButton.setText(running ? t("stopReception") : t("startReception")); receiveButton.setEnabled(attached);
-        scanProgress.setVisibility(searching ? View.VISIBLE : View.GONE); searchButton.setText(searching ? t("stopSearch") : t("searchDevices")); searchButton.setEnabled(attached && !controller.connecting);
+        boolean attached = controller != null; style(directTab, mode == Peer.WIFI_DIRECT); style(lanTab, mode == Peer.LAN); style(bluetoothTab, mode == Peer.BLUETOOTH);
+        directTab.setSelected(mode == Peer.WIFI_DIRECT); lanTab.setSelected(mode == Peer.LAN); bluetoothTab.setSelected(mode == Peer.BLUETOOTH);
+        modeHint.setText(t(mode == Peer.WIFI_DIRECT ? "androidWifiDirectHint" : mode == Peer.LAN ? "androidLanHint" : "androidBluetoothHint"));
+        boolean running = attached && controller.running(mode), searching = attached && controller.searching(mode);
+        String info = !attached ? "" : t(controller.info(mode));
+        boolean readyToReceive = running && controller.listening(mode), available = attached && (mode != Peer.WIFI_DIRECT || controller.directAvailable());
+        boolean directConnected = attached && controller.connected && controller.sessionMode == Peer.WIFI_DIRECT && controller.connectedPeerId != null;
+        String reception = !running ? t("receptionOff") : readyToReceive ? t("receiving") : t("startingReception");
+        if (running && mode == Peer.WIFI_DIRECT) reception = directConnected ? t("connectedVia", modeName(Peer.WIFI_DIRECT)) : info;
+        receiveStatus.setText(reception); receiveButton.setText(running ? t("stopReception") : t("startReception")); receiveButton.setEnabled(available);
+        scanProgress.setVisibility(searching ? View.VISIBLE : View.GONE); searchButton.setText(searching ? t("stopSearch") : t("searchDevices")); searchButton.setEnabled(available && !controller.connecting);
         manualButton.setVisibility(mode == Peer.LAN ? View.VISIBLE : View.GONE); manualButton.setEnabled(attached && !controller.connecting);
         discoverableButton.setVisibility(mode == Peer.BLUETOOTH ? View.VISIBLE : View.GONE); discoverableButton.setEnabled(attached && controller.bluetoothAvailable());
         boolean waiting = attached && (controller.connecting || controller.hasSession() && !controller.connected);
-        requestStatus.setVisibility(waiting ? View.VISIBLE : View.GONE); requestStatus.setText(waiting ? t(controller.status) : "");
+        requestStatus.setVisibility(waiting ? View.VISIBLE : View.GONE); requestStatus.setText(waiting ? withRouteNotice(t(controller.status)) : "");
         cancelConnectionButton.setVisibility(waiting ? View.VISIBLE : View.GONE);
         View details = nearbyPage.findViewWithTag("lanDetails"); details.setVisibility(mode == Peer.LAN && running ? View.VISIBLE : View.GONE);
-        connectionInfo.setVisibility(mode == Peer.LAN && running && lanDetails ? View.VISIBLE : View.GONE); connectionInfo.setText(info);
+        connectionInfo.setVisibility(running && (mode == Peer.WIFI_DIRECT || mode == Peer.LAN && lanDetails) ? View.VISIBLE : View.GONE);
+        connectionInfo.setText(mode == Peer.WIFI_DIRECT && directConnected ? t("pathDetailsWifiDirect") + (readyToReceive ? "\n" + info : "") : info);
         bluetoothState.setVisibility(mode == Peer.BLUETOOTH ? View.VISIBLE : View.GONE);
+        wifiSettingsButton.setVisibility(View.GONE);
+        if (mode == Peer.WIFI_DIRECT) {
+            boolean wifi = attached && directEnabled(), location = legacyDirectLocationEnabled();
+            String state = !attached ? t("serviceConnecting") : !available ? t("directUnavailable") : !directPermissionsGranted() ? t("directPermissionRequired") : !wifi ? t("directEnableFirst") : !location ? t("directLocationRequired") : "";
+            bluetoothState.setText(state); bluetoothState.setVisibility(state.isEmpty() ? View.GONE : View.VISIBLE);
+            wifiSettingsButton.setVisibility(available && (!wifi || !location) ? View.VISIBLE : View.GONE);
+            wifiSettingsButton.setText(t(wifi ? "directLocationSettings" : "directWifiSettings"));
+        }
         if (mode == Peer.BLUETOOTH) {
             String bt = !attached ? t("serviceConnecting") : !controller.bluetoothAvailable() ? t("androidBluetoothUnavailable") : !bluetoothPermissionsGranted() ? t("nearbyPermissionMissing") : bluetoothEnabled() ? t("bluetoothOn") : t("bluetoothOffSearch");
             bluetoothState.setText(bt); searchButton.setEnabled(attached && controller.bluetoothAvailable() && !controller.connecting); updateDiscoverability();
@@ -515,11 +531,11 @@ public final class MainActivity extends Activity {
             row.addView(new AvatarView(this), new LinearLayout.LayoutParams(dp(48), dp(48))); LinearLayout text = vertical(); text.setPadding(dp(14), 0, 0, 0);
             TextView name = label(peerName(peer), 17, ink); name.setTypeface(null, Typeface.BOLD); singleLine(name); text.addView(name);
             text.addView(label(t("peerStatusTransport", controller.isTrustedPeer(peer) ? t("trustedConnect") : t("discovered"), modeName(peer.mode)), 13, muted));
-            TextView address = label(peer.mode == Peer.BLUETOOTH ? t(peer.paired ? "pairedAddress" : "unpairedAddress", peer.detail) : peer.detail, 12, muted); singleLine(address); text.addView(address); row.addView(text, new LinearLayout.LayoutParams(0, -2, 1));
+            TextView address = label(peer.mode == Peer.WIFI_DIRECT ? t("directPeerHint") : peer.mode == Peer.BLUETOOTH ? t(peer.paired ? "pairedAddress" : "unpairedAddress", peer.detail) : peer.detail, 12, muted); singleLine(address); text.addView(address); row.addView(text, new LinearLayout.LayoutParams(0, -2, 1));
             row.setFocusable(true); row.setClickable(true); row.setOnClickListener(v -> initiatePeer(peer)); peersList.addView(row);
         }
         if (attached && restoredNearbyY >= 0) { final int y = restoredNearbyY; restoredNearbyY = -1; nearbyScroll.post(() -> nearbyScroll.scrollTo(0, y)); }
-        if (count == 0) peersList.addView(empty(searching ? t("searchingNearby") : t("noDevicesTitle"), mode == Peer.LAN ? t("lanNoDevicesBody") : t("bluetoothNoDevicesBody")));
+        if (count == 0) peersList.addView(empty(searching ? t("searchingNearby") : t("noDevicesTitle"), t(mode == Peer.WIFI_DIRECT ? "directNoDevicesBody" : mode == Peer.LAN ? "lanNoDevicesBody" : "bluetoothNoDevicesBody")));
     }
     private void renderSettings() {
         if(ownAvatar!=null)AndroidAvatars.get(this).bind(ownAvatar,controller==null?null:controller.localAvatarRoot());
@@ -562,7 +578,7 @@ public final class MainActivity extends Activity {
         boolean trusted = controller != null && controller.isTrusted(peerId);
         reconnectButton.setVisibility(trusted ? View.VISIBLE : View.GONE); reconnectButton.setEnabled(controller != null);
         reconnectButton.setText(connecting ? t("cancelConnection") : controller != null && !UiText.EMPTY.equals(controller.error) ? t("retryConnection") : t("reconnect"));
-        reconnectHint.setText(connecting ? t(controller.status) : trusted ? controller != null && !UiText.EMPTY.equals(controller.error) ? t("reconnectUnavailable") : t("reconnectRemembered") : t("draftRetainedHint"));
+        reconnectHint.setText(connecting ? withRouteNotice(t(controller.status)) : trusted ? controller != null && !UiText.EMPTY.equals(controller.error) ? t("reconnectUnavailable") : t("reconnectRemembered") : t("draftRetainedHint"));
         composer.setEnabled(peerId != null);emojiButton.setEnabled(peerId!=null);attachmentToggle.setEnabled(controller!=null&&controller.canSendAttachment());fileButton.setEnabled(controller!=null&&controller.canSendAttachment());photoButton.setEnabled(controller!=null&&controller.canSendAttachment());if(switched)attachmentTray.setVisibility(View.GONE);updateSend();
         updateAttachmentPaths(peerId);
         String retryState=controller==null?null:controller.attachmentRetryRevision()+":"+controller.canSendAttachment()+":"+peerId;if(!Objects.equals(renderedRetryState,retryState)){renderedMessages=null;renderedRetryState=retryState;}
@@ -610,10 +626,14 @@ public final class MainActivity extends Activity {
             label.setContentDescription(value);
         }
     }
-    private void showTransferPath(String peer) {
+    private AlertDialog showTransferPath(String peer) {
         boolean ready=controller!=null&&controller.connected&&Objects.equals(peer,controller.connectedPeerId);
-        String key=!ready?"pathDetailsDisconnected":controller.sessionMode==Peer.BLUETOOTH?"pathDetailsBluetooth":"pathDetailsLan";
-        new AlertDialog.Builder(this).setTitle(t("pathDetailsTitle")).setMessage(t(key)).setPositiveButton(t("close"),null).show();
+        String key=!ready?"pathDetailsDisconnected":controller.sessionMode==Peer.WIFI_DIRECT?"pathDetailsWifiDirect":controller.sessionMode==Peer.BLUETOOTH?"pathDetailsBluetooth":"pathDetailsLan";
+        return new AlertDialog.Builder(this).setTitle(t("pathDetailsTitle")).setMessage(withRouteNotice(t(key))).setPositiveButton(t("close"),null).show();
+    }
+    private String withRouteNotice(String value) {
+        if (controller == null || UiText.EMPTY.equals(controller.routeNotice)) return value;
+        String notice = t(controller.routeNotice); return value.contains(notice) ? value : value + "\n\n" + notice;
     }
     private void updateThumbnailTargets(String peer,List<ChatStore.Message> messages){
         Set<String> records=new HashSet<>();for(ChatStore.Message message:messages)if(message.attachment!=null)records.add(thumbnailKey(peer,message.attachment));
@@ -904,6 +924,7 @@ public final class MainActivity extends Activity {
     }
     private void withPermissions(UiAction action) {
         if (controller == null) { pendingAction = action; pendingStage = BIND_STAGE; return; }
+        if (action.mode == Peer.WIFI_DIRECT && !controller.directAvailable()) { pendingAction = null; pendingStage = 0; toast(t("directUnavailable")); render(); return; }
         if (action.mode == Peer.BLUETOOTH && !controller.bluetoothAvailable()) { pendingAction = null; pendingStage = 0; toast(t("unsupportedBluetooth")); return; }
         List<String> request = new ArrayList<>(); for (String permission : requiredPermissions(action)) if (checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) request.add(permission);
         SharedPreferences prefs = getSharedPreferences("ui", MODE_PRIVATE);
@@ -914,23 +935,35 @@ public final class MainActivity extends Activity {
         else ensureEnabled(action);
     }
     private List<String> requiredPermissions(UiAction action) {
-        if (action.mode != Peer.BLUETOOTH) return Collections.emptyList();
-        if (Build.VERSION.SDK_INT >= 31) {
+        return requiredPermissionsFor(Build.VERSION.SDK_INT, action.mode, action.type);
+    }
+    static List<String> requiredPermissionsFor(int sdk, int transport, int action) {
+        if (transport == Peer.WIFI_DIRECT) return Collections.singletonList(sdk >= 33 ? Manifest.permission.NEARBY_WIFI_DEVICES : Manifest.permission.ACCESS_FINE_LOCATION);
+        if (transport != Peer.BLUETOOTH) return Collections.emptyList();
+        if (sdk >= 31) {
             List<String> permissions = new ArrayList<>(); permissions.add(Manifest.permission.BLUETOOTH_CONNECT);
-            if (action.type == UiAction.SEARCH || action.type == UiAction.PEER) permissions.add(Manifest.permission.BLUETOOTH_SCAN);
-            if (action.type == UiAction.DISCOVERABLE) permissions.add(Manifest.permission.BLUETOOTH_ADVERTISE); return permissions;
+            if (action == UiAction.SEARCH || action == UiAction.PEER) permissions.add(Manifest.permission.BLUETOOTH_SCAN);
+            if (action == UiAction.DISCOVERABLE) permissions.add(Manifest.permission.BLUETOOTH_ADVERTISE); return permissions;
         }
-        return action.type == UiAction.SEARCH ? Collections.singletonList(Manifest.permission.ACCESS_FINE_LOCATION) : Collections.emptyList();
+        return action == UiAction.SEARCH ? Collections.singletonList(Manifest.permission.ACCESS_FINE_LOCATION) : Collections.emptyList();
     }
     private boolean bluetoothPermissionsGranted() { return Build.VERSION.SDK_INT < 31 || checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED; }
     private boolean bluetoothEnabled() { try { return controller != null && controller.bluetoothEnabled(); } catch (SecurityException e) { return false; } }
+    private boolean directEnabled() { try { return controller != null && controller.directEnabled(); } catch (SecurityException e) { return false; } }
+    private boolean directPermissionsGranted() { for (String permission : requiredPermissionsFor(Build.VERSION.SDK_INT, Peer.WIFI_DIRECT, UiAction.START)) if (checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) return false; return true; }
+    private boolean legacyDirectLocationEnabled() {
+        if (Build.VERSION.SDK_INT >= 33) return true;
+        try { if (Build.VERSION.SDK_INT >= 28) { android.location.LocationManager location = getSystemService(android.location.LocationManager.class); return location != null && location.isLocationEnabled(); }
+            return Settings.Secure.getInt(getContentResolver(), Settings.Secure.LOCATION_MODE, Settings.Secure.LOCATION_MODE_OFF) != Settings.Secure.LOCATION_MODE_OFF;
+        } catch (RuntimeException unavailable) { return false; }
+    }
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
         super.onRequestPermissionsResult(requestCode, permissions, results);
         if(requestCode==968){String peer=pendingGalleryPeer,encoded=pendingGalleryRecord;pendingGalleryPeer=null;pendingGalleryRecord=null;if(peer!=null&&encoded!=null&&checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)==PackageManager.PERMISSION_GRANTED){try{saveToGallery(peer,AttachmentRecord.decode(encoded));}catch(java.io.IOException invalid){toast(t("gallerySaveFailed"));}}else toast(t("gallerySavePermission"));return;}
         if (requestCode != 7 || pendingAction == null || pendingStage != PERMISSION_STAGE) return; UiAction action = pendingAction;
         for (String permission : requiredPermissions(action)) if (checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
             pendingAction = null; pendingStage = 0;
-            new AlertDialog.Builder(this).setTitle(t("bluetoothPermissionTitle")).setMessage(t("bluetoothPermissionBody"))
+            new AlertDialog.Builder(this).setTitle(t(action.mode == Peer.WIFI_DIRECT ? "directPermissionTitle" : "bluetoothPermissionTitle")).setMessage(t(action.mode == Peer.WIFI_DIRECT ? "directPermissionRequired" : "bluetoothPermissionBody"))
                 .setPositiveButton(t("appSettings"), (d, w) -> appSettings()).setNegativeButton(t("close"), null).show(); render(); return;
         }
         ensureEnabled(action);
@@ -938,23 +971,31 @@ public final class MainActivity extends Activity {
     private void ensureEnabled(UiAction action) {
         if (controller == null) { pendingAction = action; pendingStage = BIND_STAGE; return; }
         try {
-            if (action.mode == Peer.BLUETOOTH && !controller.bluetoothEnabled()) { pendingAction = action; pendingStage = ENABLE_STAGE; startActivityForResult(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE), 8); }
+            if (action.mode == Peer.WIFI_DIRECT && !controller.directEnabled()) { pendingAction = action; pendingStage = WIFI_STAGE; openWifiSettings(); }
+            else if (action.mode == Peer.BLUETOOTH && !controller.bluetoothEnabled()) { pendingAction = action; pendingStage = ENABLE_STAGE; startActivityForResult(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE), 8); }
             else { pendingAction = null; pendingStage = 0; execute(action); }
-        } catch (SecurityException e) { pendingAction = null; pendingStage = 0; toast(t("bluetoothPermissionRevoked")); }
+        } catch (SecurityException e) { pendingAction = null; pendingStage = 0; toast(t(action.mode == Peer.WIFI_DIRECT ? "directPermissionRequired" : "bluetoothPermissionRevoked")); }
     }
+    private void openWifiSettings() {
+        if (Build.VERSION.SDK_INT >= 29) try { startActivityForResult(new Intent(Settings.Panel.ACTION_WIFI), 10); return; } catch (ActivityNotFoundException unavailable) {}
+        try { startActivityForResult(new Intent(Settings.ACTION_WIFI_SETTINGS), 10); }
+        catch (ActivityNotFoundException unavailable) { pendingAction = null; pendingStage = 0; toast(t("directSettingsUnavailable")); }
+    }
+    private void openLocationSettings() { try { startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)); } catch (ActivityNotFoundException unavailable) { toast(t("directSettingsUnavailable")); } }
     private void resumePending() {
         if (pendingAction == null || controller == null) return;
         boolean granted = true; for (String permission : requiredPermissions(pendingAction)) if (checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) granted = false;
         if (pendingStage == CLOSE_STAGE) { if (!controller.hasSession() && !controller.connecting) withPermissions(pendingAction); }
         else if (pendingStage == BIND_STAGE || pendingStage == PERMISSION_STAGE && granted) withPermissions(pendingAction);
         else if (pendingStage == ENABLE_STAGE && granted && bluetoothEnabled()) ensureEnabled(pendingAction);
+        else if (pendingStage == WIFI_STAGE && directEnabled()) withPermissions(pendingAction);
     }
     private void execute(UiAction action) {
         if (controller == null) { pendingAction = action; pendingStage = BIND_STAGE; return; }
         switch (action.type) {
             case UiAction.START: startTransport(action.mode); break;
             case UiAction.SEARCH:
-                if (!(action.mode == Peer.LAN ? controller.lanRunning : controller.bluetoothRunning)) startTransport(action.mode);
+                if (!controller.running(action.mode)) startTransport(action.mode);
                 controller.search(action.mode); break;
             case UiAction.DISCOVERABLE:
                 if (!controller.bluetoothRunning) startTransport(Peer.BLUETOOTH);
@@ -962,7 +1003,7 @@ public final class MainActivity extends Activity {
             case UiAction.PEER:
             case UiAction.ADDRESS:
             case UiAction.RECONNECT:
-                if (!(action.mode == Peer.LAN ? controller.lanRunning : controller.bluetoothRunning)) startTransport(action.mode);
+                if (!controller.running(action.mode)) startTransport(action.mode);
                 outgoingRequest = true;
                 if (action.type == UiAction.PEER) controller.connect(action.peer, action.remember);
                 else if (action.type == UiAction.ADDRESS) controller.connectAddress(action.address, action.remember);
@@ -1008,7 +1049,10 @@ public final class MainActivity extends Activity {
             resumeAttachmentSelection();return;
         }
         if(requestCode==25)return; // Browsing a saved location must never enqueue the selected file.
-        if (requestCode == 8 && pendingAction != null && pendingStage == ENABLE_STAGE) {
+        if (requestCode == 10 && pendingAction != null && pendingStage == WIFI_STAGE) {
+            if (directEnabled()) withPermissions(pendingAction);
+            else { pendingAction = null; pendingStage = 0; toast(t("directEnableCanceled")); render(); }
+        } else if (requestCode == 8 && pendingAction != null && pendingStage == ENABLE_STAGE) {
             UiAction action = pendingAction; if (resultCode == RESULT_OK) { pendingStage = BIND_STAGE; withPermissions(action); }
             else { pendingAction = null; pendingStage = 0; toast(t("bluetoothEnableCanceled")); }
         } else if (requestCode == 9) { discoverableUntil = resultCode > 0 ? SystemClock.elapsedRealtime() + resultCode * 1000L : 0; updateDiscoverability(); }
@@ -1174,7 +1218,7 @@ public final class MainActivity extends Activity {
     private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
     private int color(String value) { return Color.parseColor(value); }
     private String safe(String value) { return value == null ? "" : value; }
-    private String modeName(int value) { return t(value == Peer.BLUETOOTH ? "bluetooth" : "lan"); }
+    private String modeName(int value) { return t(ChatController.modeKey(value)); }
     private String t(String key, Object... arguments) { return AndroidText.get(this, key, arguments); }
     private String t(UiText text) { return AndroidText.get(this, text); }
     private LinearLayout vertical() { LinearLayout layout = new LinearLayout(this); layout.setOrientation(LinearLayout.VERTICAL); return layout; }

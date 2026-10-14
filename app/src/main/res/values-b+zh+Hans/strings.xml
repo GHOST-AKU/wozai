@@ -6,7 +6,7 @@
     <string name="about_body_windows" formatted="false">"我在 · NearbyIM\nWindows 预览版 {0}\n\n无需账号的附近文字聊天。\n\n通过局域网或蓝牙进行一对一文字聊天。消息保存在本机，删除本地数据会删除记录与设备信任。"</string>
     <string name="address_copied" formatted="false">"地址已复制"</string>
     <string name="allow_discoverable" formatted="false">"允许被发现 120 秒"</string>
-    <string name="android_about_body" formatted="false">"我在 · NearbyIM\nAndroid {0}\n\n通过局域网或蓝牙进行一对一文字聊天。消息保存在本机，卸载或清除应用数据会删除记录与设备信任。"</string>
+    <string name="android_about_body" formatted="false">"我在 · NearbyIM\nAndroid {0}\n\n通过 Android Wi-Fi 直连、局域网或蓝牙进行一对一文字聊天。消息保存在本机，卸载或清除应用数据会删除记录与设备信任。"</string>
     <string name="android_about_summary" formatted="false">"Android · {0}\n无需账号的附近文字聊天"</string>
     <string name="android_bluetooth_connect_failed" formatted="false">"蓝牙连接失败：确认对方安装我在并开启接收；配对提示需要双方确认"</string>
     <string name="android_bluetooth_hint" formatted="false">"对方开启接收并允许被发现后，再开始搜索。首次连接由系统处理配对。"</string>
@@ -15,13 +15,14 @@
     <string name="android_bluetooth_unavailable" formatted="false">"这部设备不支持蓝牙，可切换局域网。"</string>
     <string name="android_composer" formatted="false">"说点什么…"</string>
     <string name="android_direct_body" formatted="false">"输入对方显示的完整地址和端口。"</string>
-    <string name="android_help_body" formatted="false">"局域网：双方连接同一个 Wi-Fi 或热点，开启接收后搜索，也可输入完整 IP 地址和端口。聊天与文件传输使用端到端加密。本机聊天记录和附件不加密。\n\n蓝牙：对方开启接收并允许被发现后搜索，首次连接按系统提示配对。已记住设备可通过历史直接连接，对方仍需开启蓝牙和接收服务。\n\n首次聊天可选择记住设备或仅本次。记住后验证同一设备身份再直接连接；可在设置中取消信任。\n\n待确认表示尚未收到保存回执，已送达表示对方已保存，未确认表示结果未知，不能表示已读。\n\n聊天记录保存在本机。草稿在会话切换和界面重建时保留，停止应用后不保证保留。系统结束应用后需要重新开启接收。"</string>
+    <string name="android_help_body" formatted="false">"Wi-Fi 直连：Android 手机和平板可无需路由器连接。双方选择 Wi-Fi 直连、开启接收并搜索，并接受系统连接提示。连接 Windows 或 Linux 时，双方切换到局域网并加入同一 Wi-Fi 或热点。\n\n局域网：双方连接同一个 Wi-Fi 或热点，开启接收后搜索，也可输入完整 IP 地址和端口。聊天与文件传输使用端到端加密。本机聊天记录和附件不加密。\n\n蓝牙：对方开启接收并允许被发现后搜索，首次连接按系统提示配对。已记住设备可通过历史直接连接，对方仍需开启蓝牙和接收服务。\n\n首次聊天可选择记住设备或仅本次。记住后验证同一设备身份再直接连接；可在设置中取消信任。\n\n待确认表示尚未收到保存回执，已送达表示对方已保存，未确认表示结果未知，不能表示已读。\n\n聊天记录保存在本机。草稿在会话切换和界面重建时保留，停止应用后不保证保留。系统结束应用后需要重新开启接收。"</string>
     <string name="android_identity_changed" formatted="false">"此设备的身份密钥已变化。如确认需要重新认识，请先在设置中取消该设备信任，再重新连接"</string>
     <string name="android_lan_hint" formatted="false">"两部设备连接同一 Wi-Fi，或加入同一个热点。"</string>
     <string name="android_request_body" formatted="false">"{0}连接。记住后，下次可以直接连接。可在设备信息中取消信任。\n\n昵称由对方填写，设备信任不认证真实姓名。"</string>
     <string name="android_request_lan_body" formatted="false">"{0}连接。记住后，下次可以直接连接。可在设备信息中取消信任。\n\n昵称由对方填写，设备信任不认证真实姓名。聊天与文件传输使用端到端加密。本机聊天记录和附件不加密。"</string>
     <string name="android_storage_failure" formatted="false">"本地记录读写失败，请重试；若问题持续，请报告错误"</string>
     <string name="android_storage_stopped" formatted="false">"本地记录保存失败，连接已停止"</string>
+    <string name="android_wifi_direct_hint" formatted="false">"Android 手机和平板可通过 Wi-Fi 直连连接，无需路由器。双方都需选择 Wi-Fi 直连、开启接收并搜索。连接 Windows 或 Linux 时，请双方选择局域网，并加入同一 Wi-Fi 或热点。"</string>
     <string name="app" formatted="false">"我在"</string>
     <string name="app_permissions" formatted="false">"应用权限"</string>
     <string name="app_section" formatted="false">"应用"</string>
@@ -55,7 +56,9 @@
     <string name="attachment_path_lan_unconfirmed" formatted="false">"传输路径：局域网 · 路径未确认"</string>
     <string name="attachment_path_pending_bluetooth" formatted="false">"等待传输 · 蓝牙"</string>
     <string name="attachment_path_pending_lan" formatted="false">"等待传输 · 局域网（路径未确认）"</string>
+    <string name="attachment_path_pending_wifi_direct" formatted="false">"等待传输 · Wi-Fi 直连"</string>
     <string name="attachment_path_unknown" formatted="false">"传输路径：暂时无法确认"</string>
+    <string name="attachment_path_wifi_direct" formatted="false">"传输路径：Wi-Fi 直连"</string>
     <string name="attachment_pause" formatted="false">"暂停传输"</string>
     <string name="attachment_photo_preview" formatted="false">"照片预览：{0}"</string>
     <string name="attachment_preview" formatted="false">"发送前预览"</string>
@@ -232,6 +235,33 @@
     <string name="device_section" formatted="false">"这部设备"</string>
     <string name="diagnostics_copied" formatted="false">"传输诊断已复制"</string>
     <string name="direct" formatted="false">"通过 IP 地址连接"</string>
+    <string name="direct_advertising" formatted="false">"已向附近 Android 设备发布服务 · 等待建立直连网络"</string>
+    <string name="direct_busy" formatted="false">"Wi-Fi 直连正忙。请等待当前操作完成后重试。"</string>
+    <string name="direct_channel_lost" formatted="false">"Wi-Fi 直连服务已中断。请重新开启接收后重试。"</string>
+    <string name="direct_cleanup_failed" formatted="false">"Wi-Fi 直连清理未完成。为保护当前网络，新的直连尝试已暂停。请检查 Wi-Fi 设置，然后重启应用再试。"</string>
+    <string name="direct_connect_failed" formatted="false">"Wi-Fi 直连连接失败。请确认对方 Android 设备已开启接收，并接受系统连接提示。"</string>
+    <string name="direct_connect_timeout" formatted="false">"Wi-Fi 直连连接超时。请重新搜索后重试。"</string>
+    <string name="direct_discovery_failed" formatted="false">"Wi-Fi 直连搜索失败。请检查权限和 Wi-Fi 后重试。较旧的 Android 设备还需开启系统位置信息。"</string>
+    <string name="direct_enable_canceled" formatted="false">"Wi-Fi 仍未开启。请开启后重试。"</string>
+    <string name="direct_enable_first" formatted="false">"请在系统设置中开启 Wi-Fi，以使用 Wi-Fi 直连。"</string>
+    <string name="direct_foreign_group" formatted="false">"当前存在其他应用或来源不明的 Wi-Fi 直连群组，已保留不变。请在 Wi-Fi 设置中断开该群组后重试。"</string>
+    <string name="direct_group_lost" formatted="false">"Wi-Fi 直连网络已丢失，连接已停止。请重新连接以继续。"</string>
+    <string name="direct_interface_unavailable" formatted="false">"Wi-Fi 直连网络接口尚未就绪。请重新搜索后重试。"</string>
+    <string name="direct_invalid_peer" formatted="false">"此附近设备无法用于 Wi-Fi 直连。请重新搜索。"</string>
+    <string name="direct_ipv6_unsupported" formatted="false">"不支持此 Wi-Fi 直连网络地址。请重新搜索后重试。"</string>
+    <string name="direct_listening" formatted="false">"正在 Wi-Fi 直连接口上监听：{0}"</string>
+    <string name="direct_location_required" formatted="false">"系统位置信息已关闭。较旧的 Android 设备需要开启它才能搜索 Wi-Fi 直连设备。请在设置中开启后重新搜索。"</string>
+    <string name="direct_location_settings" formatted="false">"位置信息设置"</string>
+    <string name="direct_no_devices_body" formatted="false">"请在两台 Android 设备上选择 Wi-Fi 直连、开启接收并搜索，并接受系统连接提示。连接 Windows 或 Linux 时，请双方切换到局域网，并加入同一 Wi-Fi 或热点。"</string>
+    <string name="direct_peer_hint" formatted="false">"连接后请核对安全码。"</string>
+    <string name="direct_permission_required" formatted="false">"Wi-Fi 直连需要附近设备权限；较旧的设备需要位置信息权限。请在应用设置中允许。"</string>
+    <string name="direct_permission_title" formatted="false">"允许 Wi-Fi 直连访问"</string>
+    <string name="direct_route_ambiguous" formatted="false">"网络路由重叠或 VPN 正在运行，无法安全确认直连路径。请检查网络设置后重试。"</string>
+    <string name="direct_search_stop_failed" formatted="false">"无法停止 Wi-Fi 直连搜索。请重试。"</string>
+    <string name="direct_service_failed" formatted="false">"无法发布 Wi-Fi 直连接收服务。请检查 Wi-Fi 和权限后重试。"</string>
+    <string name="direct_settings_unavailable" formatted="false">"无法打开系统设置。请手动打开此设备的设置，检查 Wi-Fi 或位置信息。"</string>
+    <string name="direct_unavailable" formatted="false">"此设备无法使用 Wi-Fi 直连。可改用局域网。"</string>
+    <string name="direct_wifi_settings" formatted="false">"Wi-Fi 设置"</string>
     <string name="disconnect" formatted="false">"断开连接"</string>
     <string name="disconnect_and_connect" formatted="false">"结束并连接"</string>
     <string name="disconnected" formatted="false">"连接已断开。没有回执的消息保持“未确认”。"</string>
@@ -355,6 +385,7 @@
     <string name="path_details_disconnected" formatted="false">"目前没有已建立的传输通道。连接后会显示实际使用的通道。"</string>
     <string name="path_details_lan" formatted="false">"文件使用当前局域网连接传输。无法确认具体连接是否经过路由器或手机热点。"</string>
     <string name="path_details_title" formatted="false">"传输路径"</string>
+    <string name="path_details_wifi_direct" formatted="false">"文件使用当前 Android Wi-Fi 直连数据通道。本次连接的直连网络路径已确认。加密状态和身份核验状态会单独显示。"</string>
     <string name="peer_ended" formatted="false">"对方结束了聊天。"</string>
     <string name="peer_status_transport" formatted="false">"{0} · {1}"</string>
     <string name="peer_summary" formatted="false">"{0}。{1}"</string>
@@ -477,6 +508,10 @@
     <string name="view_copy_address" formatted="false">"查看并复制本机地址"</string>
     <string name="waiting_both_ready" formatted="false">"等待双方完成连接…"</string>
     <string name="waiting_peer_consent" formatted="false">"等待对方同意聊天…"</string>
+    <string name="wifi_direct" formatted="false">"Wi-Fi 直连"</string>
+    <string name="wifi_direct_connecting" formatted="false">"正在通过 Wi-Fi 直连连接…"</string>
+    <string name="wifi_direct_fallback_bluetooth" formatted="false">"Wi-Fi 直连不可用，已切换到蓝牙。原因：{0}"</string>
+    <string name="wifi_direct_fallback_lan" formatted="false">"Wi-Fi 直连不可用，已切换到局域网。原因：{0}"</string>
     <string name="yes" formatted="false">"确定"</string>
     <string name="yesterday" formatted="false">"昨天"</string>
     <string name="you" formatted="false">"我"</string>

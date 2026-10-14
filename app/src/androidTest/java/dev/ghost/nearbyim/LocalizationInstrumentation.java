@@ -90,9 +90,11 @@ public final class LocalizationInstrumentation extends Instrumentation {
             checks+=dev.ghost.nearbyim.noise.NoiseLibraryChecks.run();
             checks+=dev.ghost.nearbyim.noise.NoiseChannelChecks.run();
             checks+=AndroidNoiseIdentityChecks.run(getTargetContext());
+            checks+=AndroidWifiDirectSessionChecks.run(this);
             checks+=AndroidVerificationChecks.run(getTargetContext());
             checks+=dev.ghost.nearbyim.transport.AndroidLanNetworkChecks.run();
             testScannerFocusControls();
+            checks+=AndroidWifiDirectUiChecks.run(this);
             testRecreationWithLiveSession();
             results.putString("stream", "NearbyIM Android localization: " + checks + " checks passed\n");
         } catch (Throwable failure) {
@@ -263,6 +265,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
         testBatchPhotoRetention(controller,peerId);
         checks+=AndroidAvatarChecks.run(this,activity);
         checks+=AndroidTransferPathChecks.run(this,activity);
+        checks+=AndroidWifiDirectUiChecks.run(this,activity);
         Thread.sleep(150); waitForIdleSync();
         int scroll = onMain(() -> { ScrollView view = field(activity, "messageScroll"); view.scrollTo(0, 120); return view.getScrollY(); });
         check(scroll > 0, "Timeline is scrollable before recreation");
@@ -325,8 +328,9 @@ public final class LocalizationInstrumentation extends Instrumentation {
         } finally { bitmap.recycle(); }
     }
     private void testEmptyNearbyRestoration(ChatController controller) throws Exception {
+        int previousMode=onMain(()->field(activity,"mode"));
         onMain(() -> {
-            controller.peers.clear(); setField(activity, "page", 1);
+            controller.peers.clear(); setField(activity,"mode",Peer.LAN); setField(activity, "page", 1);
             setField(activity, "restoredNearbyY", 160); setField(activity, "peerSignature", null);
             invoke(activity, "render", new Class<?>[0]); return null;
         });
@@ -335,7 +339,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
         onMain(() -> { ((ScrollView) field(activity, "nearbyScroll")).scrollTo(0, 0); controller.lanSearching = true; invoke(activity, "renderNearby", new Class<?>[0]); return null; });
         waitForIdleSync();
         check(onMain(() -> ((ScrollView) field(activity, "nearbyScroll")).getScrollY() == 0), "Search state change does not reapply stale nearby offset");
-        onMain(() -> { controller.lanSearching = false; setField(activity, "page", 0); invoke(activity, "render", new Class<?>[0]); return null; });
+        onMain(() -> { controller.lanSearching = false; setField(activity,"mode",previousMode); setField(activity, "page", 0); invoke(activity, "render", new Class<?>[0]); return null; });
     }
     private void testEmptySettingsRestoration(ChatController controller) throws Exception {
         onMain(() -> {
