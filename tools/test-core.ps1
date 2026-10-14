@@ -27,6 +27,8 @@ try {
     if($LASTEXITCODE -ne 0) { throw 'Attachment export location tests failed' }
     & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.TransferPathTests
     if($LASTEXITCODE -ne 0) { throw 'Transfer path tests failed' }
+    & ./tools/test-wifi-direct.ps1
+    if($LASTEXITCODE -ne 0) { throw 'Direct Wi-Fi policy/socket tests failed' }
     & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentBenchmarkTests
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentSourceTests
