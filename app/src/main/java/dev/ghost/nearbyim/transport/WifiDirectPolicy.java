@@ -10,6 +10,23 @@ final class WifiDirectPolicy {
     static final String TYPE = "_wozai-p2p._tcp";
     static final int PORT = 39741;
     static final long PEER_TTL_MS = 45_000;
+    /** Eligibility comes only from an approved control-chat file attempt, never discovery. */
+    static final class FileAttempt {
+        private String expected;
+        private boolean dialer, dialing;
+        void arm(String peerId, boolean dialer) {
+            String id = uuid(peerId);
+            if (id == null) throw new IllegalArgumentException("Invalid file peer");
+            expected = id; this.dialer = dialer; dialing = false;
+        }
+        boolean allows(Peer peer) { return expected != null && peer != null && expected.equals(peer.peerId); }
+        boolean armed() { return expected != null; }
+        boolean dial(Peer peer) {
+            if (!dialer || dialing || !allows(peer)) return false;
+            dialing = true; return true;
+        }
+        void stop() { expected = null; dialer = dialing = false; }
+    }
     static final class Request<T> {
         final Object client; final long run, scan; final T value;
         private final long deadline;
@@ -102,6 +119,7 @@ final class WifiDirectPolicy {
             retired.timeoutReported = true; return true;
         }
         boolean mayOpen(boolean explicit) { return !blocked() && (explicit || !passiveSuppressed); }
+        void rearmFile() { if (!blocked()) passiveSuppressed = false; }
         Admission admit(Peer candidate, boolean exists, boolean matches, boolean fresh) {
             Peer retained = candidate == null ? null : currentPeer(candidate.peerId);
             boolean sameHint = retained != null && Objects.equals(retained.wifiDirectAddress, candidate.wifiDirectAddress);

@@ -465,8 +465,8 @@
   "attachmentPathDisconnected": "転送経路：未接続",
   "attachmentPathUnknown": "転送経路：現在不明",
   "pathDetailsTitle": "転送経路",
-  "pathDetailsLan": "現在のLAN接続でファイルを転送します。ルーターまたはスマートフォンのホットスポットを経由するかは確認できません。",
-  "pathDetailsBluetooth": "Bluetoothでファイルを転送します。大きなファイルは時間がかかる場合があります。",
+  "pathDetailsLan": "このファイルに記録された転送経路は LAN です。ルーターやスマートフォンのホットスポットを経由したかは確認できません。",
+  "pathDetailsBluetooth": "このファイルに記録された転送経路は Bluetooth です。大きなファイルは転送に時間がかかる場合があります。",
   "pathDetailsDisconnected": "転送用の接続はありません。接続後に実際の経路が表示されます。",
   "attachmentLocationTitle": "ファイルの保存場所",
   "attachmentLocationDocument": "システムのファイルに保存済み",
@@ -485,7 +485,7 @@
   "wifiDirectFallbackBluetooth": "Wi-Fi Direct を利用できません。代替経路：Bluetooth。理由：{0}",
   "attachmentPathWifiDirect": "転送経路：Wi-Fi Direct",
   "attachmentPathPendingWifiDirect": "転送待ち · Wi-Fi Direct",
-  "pathDetailsWifiDirect": "ファイルは現在の Android Wi-Fi Direct データ接続を使用します。この接続の直接通信経路は確認済みです。暗号化と本人確認の状態は別に表示されます。",
+  "pathDetailsWifiDirect": "このファイルに記録された転送経路は Android Wi-Fi Direct です。暗号化と本人確認の状態は別に表示されます。",
   "androidWifiDirectHint": "Android のスマートフォンやタブレットをルーターなしで接続できます。両方で Wi-Fi Direct を選び、受信を有効にして検索してください。Windows または Linux と接続する場合は両方で LAN を選び、同じ Wi-Fi またはホットスポットに接続してください。 キャンセルや切断の後は、両方の端末で接続を押して再試行してください。",
   "directNoDevicesBody": "両方の Android 端末で Wi-Fi Direct を選び、受信を有効にして検索し、システムの接続確認を許可してください。Windows または Linux と接続する場合は両方を LAN に切り替え、同じ Wi-Fi またはホットスポットに接続してください。 キャンセルや切断の後は、両方の端末で接続を押して再試行してください。",
   "directWifiSettings": "Wi-Fi 設定",
@@ -513,5 +513,7 @@
   "directInvalidPeer": "この付近の端末を Wi-Fi Direct に使用できません。再検索してください。",
   "directServiceFailed": "Wi-Fi Direct の受信サービスを公開できませんでした。Wi-Fi と権限を確認して再試行してください。",
   "directCleanupFailed": "Wi-Fi Direct のシステム操作が完了したことを確認できません。新しい接続は停止されています。Wi-Fi 設定を確認し、アプリを再起動して再試行してください。",
-  "directPeerHint": "接続後に安全コードを確認してください。 キャンセルや切断の後は、両方の端末で接続を押して再試行してください。"
+  "directPeerHint": "接続後に安全コードを確認してください。 キャンセルや切断の後は、両方の端末で接続を押して再試行してください。",
+  "attachmentPathSelecting": "転送経路を選択中…",
+  "pathDetailsSelecting": "ファイルは Wi-Fi Direct、LAN、Bluetooth の順に試します。チャットの接続モードは変更されません。"
 }

@@ -18,7 +18,7 @@ final class MessagePane extends JPanel implements Scrollable {
     void actions(AttachmentActions value){actions=value;}
     private java.util.function.Function<DesktopStore.Message,TransferProgress> progress=message->TransferProgress.UNKNOWN;
     void progress(java.util.function.Function<DesktopStore.Message,TransferProgress> value){progress=value;}
-    private java.util.function.Function<DesktopStore.Message,TransferPath> path=message->TransferPath.NONE;
+    private java.util.function.Function<DesktopStore.Message,TransferPath> path=message->TransferPath.forAttachment("",false,message.attachment());
     void path(java.util.function.Function<DesktopStore.Message,TransferPath> value){path=Objects.requireNonNull(value);}
     private java.util.function.Function<DesktopStore.Message,AttachmentBatchQueue.RetryState> retryState=message->AttachmentBatchQueue.RetryState.AVAILABLE;
     void retryState(java.util.function.Function<DesktopStore.Message,AttachmentBatchQueue.RetryState> value){retryState=value;}
@@ -201,7 +201,7 @@ final class MessagePane extends JPanel implements Scrollable {
         }
         void updatePath(DesktopStore.Message message,Strings strings) {
             AttachmentRecord record=message.attachment();
-            TransferPath route=record!=null&&(record.active()||record.resumable())?MessagePane.this.path.apply(message):TransferPath.NONE;
+            TransferPath route=record!=null?MessagePane.this.path.apply(message):TransferPath.NONE;
             String text=route==TransferPath.NONE?"":strings.text(route.key());
             if(!pathLabel.getText().equals(text)){pathLabel.setText(text);preferred=null;}
             pathLabel.setVisible(!text.isEmpty());pathLabel.setToolTipText(text.isEmpty()?null:text);

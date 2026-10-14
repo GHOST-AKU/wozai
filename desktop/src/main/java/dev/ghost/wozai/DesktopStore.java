@@ -169,6 +169,14 @@ public final class DesktopStore implements AutoCloseable {
     public synchronized Path attachmentFile(String peer,AttachmentInfo info,boolean outgoing)throws IOException {return AttachmentTransfer.file(attachmentDirectory(peer),info,outgoing);}
     public synchronized void attachment(String peer,AttachmentRecord record)throws IOException {
         Path file=messageFile(peer,record.info.id,record.outgoing);Message previous=Files.exists(file)?readMessage(file):null;
+        if(previous!=null&&previous.attachment()!=null){
+            AttachmentRecord saved=previous.attachment();
+            // Identical terminal snapshots may replay on another lane; retain their original route.
+            if(!saved.active()&&!saved.resumable()){
+                AttachmentRecord snapshot=new AttachmentRecord(record.info,record.outgoing,record.state,record.transferred).withRoute(saved.route);
+                if(saved.equals(snapshot))record=saved;
+            }else if(record.route.isEmpty())record=record.withRoute(saved.route);
+        }
         if(previous!=null&&(previous.attachment()==null||!previous.attachment().mayReplace(record)))throw new IOException("Conflicting attachment ID");
         String state=record.outgoing?(record.state.equals("delivered")?"delivered":record.active()?"pending":"unknown"):"received";
         writeMessage(file,new Message(record.info.id,record.info.name,previous==null?System.currentTimeMillis():previous.time(),record.outgoing,state,record.info.time,record));

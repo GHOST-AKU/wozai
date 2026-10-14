@@ -31,6 +31,7 @@ public final class WifiDirectTransport {
     private final WifiDirectPolicy.Lifecycle lifecycle = new WifiDirectPolicy.Lifecycle();
     private final WifiDirectPolicy.CleanupGate cleanup = new WifiDirectPolicy.CleanupGate();
     private final WifiDirectPolicy.SessionAuthority authority = new WifiDirectPolicy.SessionAuthority();
+    private final WifiDirectPolicy.FileAttempt fileAttempt = new WifiDirectPolicy.FileAttempt();
     private final WifiDirectSockets sockets = new WifiDirectSockets();
     private final ThreadPoolExecutor routes = new ThreadPoolExecutor(1, 1, 0, TimeUnit.MILLISECONDS,
             new ArrayBlockingQueue<>(1), runnable -> { Thread thread = new Thread(runnable, "wozai-p2p-route"); thread.setDaemon(true); return thread; }, new ThreadPoolExecutor.AbortPolicy());
@@ -48,7 +49,7 @@ public final class WifiDirectTransport {
     private boolean requestCleanupFailed;
     private CleanupWork cleanupWork;
     private Peer selected;
-    private GroupIdentity observedGroup;
+    private volatile GroupIdentity observedGroup;
     private String readyGroup;
     private String unprovenGroup;
     private long unprovenDeadline;
@@ -66,6 +67,17 @@ public final class WifiDirectTransport {
     public boolean enabled() { try { return supported && wifi != null && wifi.isWifiEnabled(); } catch (RuntimeException denied) { return false; } }
     /** Current-group RAM hint only. connect() rechecks the group/interface; Noise proves identity. */
     public Peer currentPeer(String peerId) { return authority.currentPeer(peerId); }
+    public String currentInterface() { GroupIdentity group=observedGroup;return group==null?null:group.iface; }
+    /** Called only after the approved chat has negotiated a new authenticated file attempt. */
+    public void armFileAttempt(String peerId, boolean dialer) {
+        onMain(() -> {
+            if (destroyed) return;
+            fileAttempt.arm(peerId, dialer); authority.rearmFile();
+            Peer retained = authority.currentPeer(peerId);
+            if (retained != null && fileAttempt.dial(retained)) connectInternal(retained);
+            if (initialized) { inspectGroup(); discoverInternal(); }
+        });
+    }
     private boolean permitted() {
         return context.checkSelfPermission(Build.VERSION.SDK_INT >= 33 ? Manifest.permission.NEARBY_WIFI_DEVICES : Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
     }
@@ -142,7 +154,11 @@ public final class WifiDirectTransport {
     private void report(Peer peer) {
         long started = run;
         for (Peer lost : registry.takeLost()) listener.onLost(lost.key);
-        if (peer != null && lifecycle.valid(started)) { listener.onPeer(peer); if (lifecycle.valid(started) && observedGroup == null) inspectGroup(); }
+        if (peer != null && lifecycle.valid(started)) {
+            listener.onPeer(peer);
+            if (fileAttempt.dial(peer)) connectInternal(peer);
+            if (lifecycle.valid(started) && observedGroup == null) inspectGroup();
+        }
     }
     private void expirePeers(long started) {
         if (!lifecycle.valid(started)) return;
@@ -327,6 +343,7 @@ public final class WifiDirectTransport {
     }
     public void disconnect() { onMain(this::disconnectInternal); }
     private void disconnectInternal() {
+        fileAttempt.stop();
         if (queuedConnect) { afterCleanup = null; queuedConnect = false; }
         if (lifecycle.pending()) { cancelInternal(); return; }
         WifiDirectPolicy.Release release = authority.release(false, false, now());
@@ -357,6 +374,7 @@ public final class WifiDirectTransport {
     private void invalidateInspection() { inspection++; inspecting = inspectAgain = false; groupGeneration++; readyGroup = null; }
     private void inspectGroup() {
         if (!lifecycle.valid(run) || !initialized || cleanup.blocked()) return;
+        if(fileAttempt.armed())authority.rearmFile();
         if (inspecting) { inspectAgain = true; return; }
         inspecting = true; final long started = run, query = ++inspection;
         GroupSnapshot snapshot = new GroupSnapshot();
@@ -392,6 +410,7 @@ public final class WifiDirectTransport {
         // authorize sockets after retirement; a delayed broadcast/service hint cannot resurrect it.
         if (!authority.mayOpen(lifecycle.pending()) && observedGroup == null) return;
         Peer counterpart = verifiedCounterpart(group);
+        if (counterpart != null && !fileAttempt.allows(counterpart)) return;
         if (counterpart == null) {
             closeGroupStreams();
             String key = group.getInterface() + "/" + group.getNetworkName() + "/" + group.isGroupOwner();
@@ -559,6 +578,7 @@ public final class WifiDirectTransport {
 
     public void stop() { onMain(this::stopInternal); }
     private void stopInternal() {
+        fileAttempt.stop();
         operation++; afterCleanup = afterRequests = null; queuedConnect = false; automaticDiscovery = false; unprovenGroup = null; unprovenRetry = false; foreignReported = false;
         WifiDirectPolicy.Release release = authority.release(lifecycle.pending(), true, now());
         WifiP2pManager.Channel previous = channel; WifiP2pDnsSdServiceInfo service = advertisement;
@@ -595,6 +615,7 @@ public final class WifiDirectTransport {
         if (work.closeChannel) closeChannel(work.channel);
         if (!cleanup.complete(work.token)) return;
         cleanupWork = null;
+        if(fileAttempt.armed())authority.rearmFile();
         if (!finishDeferredAction() && afterCleanup == null && lifecycle.valid(run)) { listener.onListening(Peer.WIFI_DIRECT, UiText.of("directAdvertising")); scheduleIdleDiscovery(run, scan); }
     }
     private static final class CleanupWork {

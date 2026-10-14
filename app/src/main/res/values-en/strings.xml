@@ -57,6 +57,7 @@
     <string name="attachment_path_pending_bluetooth" formatted="false">"Waiting to transfer · Bluetooth"</string>
     <string name="attachment_path_pending_lan" formatted="false">"Waiting to transfer · LAN (topology unconfirmed)"</string>
     <string name="attachment_path_pending_wifi_direct" formatted="false">"Waiting to transfer · Wi-Fi Direct"</string>
+    <string name="attachment_path_selecting" formatted="false">"Choosing transfer route…"</string>
     <string name="attachment_path_unknown" formatted="false">"Transfer path: currently unknown"</string>
     <string name="attachment_path_wifi_direct" formatted="false">"Transfer path: Wi-Fi Direct"</string>
     <string name="attachment_pause" formatted="false">"Pause transfer"</string>
@@ -381,11 +382,12 @@
     <string name="outgoing_message_meta" formatted="false">"{0} · {1}"</string>
     <string name="paired" formatted="false">"Paired"</string>
     <string name="paired_address" formatted="false">"Paired · {0}"</string>
-    <string name="path_details_bluetooth" formatted="false">"The file uses Bluetooth. Larger files may take longer to transfer."</string>
+    <string name="path_details_bluetooth" formatted="false">"The recorded file route is Bluetooth. Larger files may take longer to transfer."</string>
     <string name="path_details_disconnected" formatted="false">"No transfer channel is connected. The actual channel will appear after connecting."</string>
-    <string name="path_details_lan" formatted="false">"The file uses the current LAN connection. The connection through a router or phone hotspot cannot be confirmed."</string>
+    <string name="path_details_lan" formatted="false">"The recorded file route is LAN. Whether this route went through a router or phone hotspot cannot be confirmed."</string>
+    <string name="path_details_selecting" formatted="false">"Files try Wi-Fi Direct, LAN, then Bluetooth. This does not change the chat connection mode."</string>
     <string name="path_details_title" formatted="false">"Transfer path"</string>
-    <string name="path_details_wifi_direct" formatted="false">"The file uses the current Android Wi-Fi Direct data channel. The direct network route was confirmed for this connection. Encryption and identity verification are shown separately."</string>
+    <string name="path_details_wifi_direct" formatted="false">"The recorded file route is Android Wi-Fi Direct. Encryption and identity verification are shown separately."</string>
     <string name="peer_ended" formatted="false">"The other device ended the chat."</string>
     <string name="peer_status_transport" formatted="false">"{0} · {1}"</string>
     <string name="peer_summary" formatted="false">"{0}. {1}"</string>

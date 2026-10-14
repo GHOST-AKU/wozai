@@ -38,6 +38,8 @@ public final class ClientAttachmentTransfers implements AutoCloseable {
     public CompletableFuture<Void> pauseBatch(){return streaming==null?failed(new IOException("Pause requires V2")):batch.pauseAll();}
     public CompletableFuture<Void> cancelBatch(){return streaming==null?legacy.cancelAll():batch.cancelAll();}
     public CompletableFuture<Void> pauseAll(){return streaming==null?failed(new IOException("Pause requires V2")):batch.pauseAll().thenCompose(value->streaming.pauseAll());}
+    /** Preserve the batch and checkpoints without attempting to write PAUSE to a lost lane. */
+    public CompletableFuture<Void> pauseOnDisconnect(){return streaming==null?failed(new IOException("Pause requires V2")):batch.pauseOnDisconnect().thenCompose(value->streaming.pauseOnDisconnect());}
     public CompletableFuture<String> offer(AttachmentSource source,String name,String mime) {
         if(streaming!=null)return streaming.offer(source,name,mime);
         if(source.size()>AttachmentInfo.MAX_SIZE){dispose(source);return failed(new IOException("Attachment exceeds legacy file size limit"));}

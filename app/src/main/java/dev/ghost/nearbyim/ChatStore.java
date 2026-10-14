@@ -126,7 +126,16 @@ public final class ChatStore extends SQLiteOpenHelper {
             touch(peer,name);ContentValues values=new ContentValues();values.put("attachment",encodeAttachment(record));values.put("state",record.outgoing?(record.state.equals("delivered")?DELIVERED:record.active()?PENDING:UNKNOWN):"");
             try(Cursor cursor=db.query("messages",new String[]{"attachment"},"peer_id=? AND id=? AND outgoing=?",new String[]{peer,record.info.id,record.outgoing?"1":"0"},null,null,null)){
                 if(cursor.moveToFirst()){
-                    AttachmentRecord previous=decodeAttachment(cursor.getString(0));if(previous==null||!previous.mayReplace(record))throw new SQLiteException("Conflicting attachment ID");
+                    AttachmentRecord previous=decodeAttachment(cursor.getString(0));
+                    if(previous!=null)try{
+                        // Identical terminal snapshots may replay on another lane; retain their original route.
+                        if(!previous.active()&&!previous.resumable()){
+                            AttachmentRecord snapshot=new AttachmentRecord(record.info,record.outgoing,record.state,record.transferred).withRoute(previous.route);
+                            if(previous.equals(snapshot))record=previous;
+                        }else if(record.route.isEmpty())record=record.withRoute(previous.route);
+                        values.put("attachment",encodeAttachment(record));
+                    }catch(IOException invalid){throw new SQLiteException("Invalid attachment route");}
+                    if(previous==null||!previous.mayReplace(record))throw new SQLiteException("Conflicting attachment ID");
                     db.update("messages",values,"peer_id=? AND id=? AND outgoing=?",new String[]{peer,record.info.id,record.outgoing?"1":"0"});
                 }else{
                     values.put("peer_id",peer);values.put("id",record.info.id);values.put("body",record.info.name);values.put("outgoing",record.outgoing?1:0);values.put("time",System.currentTimeMillis());values.put("received",System.currentTimeMillis());db.insertOrThrow("messages",null,values);

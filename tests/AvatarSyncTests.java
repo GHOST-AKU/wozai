@@ -175,7 +175,7 @@ public final class AvatarSyncTests {
         }finally{release.countDown();clean(root);}
     }
     private static void unknownCapabilities()throws Exception {
-        for(int capabilities:new int[]{0,2,11,15}){
+        for(int capabilities:new int[]{0,2,19,23}){
             Socket[] sockets=sockets();End end=new End();end.wire=FramedSession.secure(SessionTests.connection(sockets[0]),CoreTests.A,"A",DeviceIdentity.generate(),randomKey(),true,end,true);
             try(NoiseRecordChannel raw=new NoiseRecordChannel(SessionTests.connection(sockets[1]),false,DeviceIdentity.generate(),CoreTests.B,"B",randomKey(),null,null,true)){
                 Field field=NoiseRecordChannel.class.getDeclaredField("localClaim");field.setAccessible(true);byte[] claim=(byte[])field.get(raw);ByteBuffer.wrap(claim).putInt(claim.length-16,capabilities);end.wire.start();rejects(raw::establish);check(end.closed.await(3,TimeUnit.SECONDS)&&end.hello.getCount()==1&&!end.wire.avatarsSupported(),"Unknown or incomplete capability claim reached consent");

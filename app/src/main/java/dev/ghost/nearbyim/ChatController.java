@@ -50,6 +50,10 @@ public final class ChatController implements TransportListener {
     private boolean refreshingHistory, refreshHistoryAgain;
     private volatile FramedSession active;
     private volatile ClientAttachmentTransfers transfers;
+    private volatile AutomaticFileRoutes fileRoutes;
+    private record PendingFile(FramedSession wire,FileRoutePacket control,TransferPacket transfer){}
+    private final ArrayBlockingQueue<PendingFile> pendingFiles=new ArrayBlockingQueue<>(8);
+    private volatile CompletableFuture<Void> filePauseStopped=CompletableFuture.completedFuture(null);
     private volatile AvatarSync avatarSync;
     private volatile boolean avatarPreparing;
     private record PendingAvatar(FramedSession wire,AvatarPacket packet){}
@@ -74,7 +78,6 @@ public final class ChatController implements TransportListener {
     private int connectingMode;
     private String expectedPeerId, outgoingBluetoothAddress, lanReconnectId,activeBluetoothAddress;
     private boolean rememberOutgoing;
-    private boolean directFallback;
     private volatile boolean destroyed;
 
     public ChatController(Context context, Hooks hooks) {
@@ -103,17 +106,17 @@ public final class ChatController implements TransportListener {
     /** An older Activity can stop after its successor has subscribed. */
     public void unobserve(Runnable observer) { if (this.observer == observer) this.observer = null; }
     private void changed() { if (!destroyed) { hooks.onChanged(); if (observer != null) observer.run(); } }
-    public boolean needsForeground() { return directRunning || lanRunning || bluetoothRunning || connecting || active != null; }
+    public boolean needsForeground() { return lanRunning || bluetoothRunning || connecting || active != null; }
     public boolean hasSession() { return active != null; }
     public boolean bluetoothAvailable() { return bluetooth.available(); }
     public boolean bluetoothEnabled() { return bluetooth.enabled(); }
     public boolean directAvailable() { return direct.available(); }
     public boolean directEnabled() { return direct.enabled(); }
-    public static String modeKey(int mode) { return mode==Peer.WIFI_DIRECT?"wifiDirect":mode==Peer.BLUETOOTH?"bluetooth":"lan"; }
-    private String transportKey() { return sessionMode==Peer.WIFI_DIRECT?"wifi_direct":sessionMode==Peer.BLUETOOTH?"bluetooth":"lan"; }
-    public boolean searching(int mode) { return mode==Peer.WIFI_DIRECT?directSearching:mode==Peer.LAN?lanSearching:mode==Peer.BLUETOOTH&&bluetoothSearching; }
-    public boolean listening(int mode) { return mode==Peer.WIFI_DIRECT?directListening:mode==Peer.LAN?lanListening:mode==Peer.BLUETOOTH&&bluetoothListening; }
-    public UiText info(int mode) { return mode==Peer.WIFI_DIRECT?directInfo:mode==Peer.LAN?lanInfo:bluetoothInfo; }
+    public static String modeKey(int mode) { return mode==Peer.BLUETOOTH?"bluetooth":"lan"; }
+    private String transportKey() { return sessionMode==Peer.BLUETOOTH?"bluetooth":"lan"; }
+    public boolean searching(int mode) { return mode==Peer.LAN?lanSearching:mode==Peer.BLUETOOTH&&bluetoothSearching; }
+    public boolean listening(int mode) { return mode==Peer.LAN?lanListening:mode==Peer.BLUETOOTH&&bluetoothListening; }
+    public UiText info(int mode) { return mode==Peer.LAN?lanInfo:bluetoothInfo; }
     public void setNickname(String name) {
         String clean = name.trim();
         try { Protocol.write(new ByteArrayOutputStream(), new Frame(Frame.HELLO, localId, clean, 1)); }
@@ -125,12 +128,6 @@ public final class ChatController implements TransportListener {
         error = UiText.EMPTY;
         if (mode == Peer.LAN) { if (lanRunning) return; lanRunning = true; lanListening = false; lanInfo = UiText.of("starting"); lan.start(localId, nickname); }
         else if (mode == Peer.BLUETOOTH) { if (bluetoothRunning) return; bluetoothRunning = true; bluetoothListening = false; bluetoothInfo = UiText.of("starting"); bluetooth.start(); }
-        else if (mode == Peer.WIFI_DIRECT) {
-            if(directRunning)return;
-            // Advertise both paths so a same-identity LAN fallback can also reach the receiver.
-            if(!lanRunning)start(Peer.LAN);
-            directRunning=true;directListening=false;directInfo=UiText.of("starting");direct.start(localId,nickname);
-        }
         else { fail(UiText.of("invalidTransport")); return; }
         changed();
     }
@@ -138,25 +135,24 @@ public final class ChatController implements TransportListener {
         if (active != null && sessionMode == mode) closeActive(UiText.of("connectionEnded"));
         if (connecting && connectingMode == mode) cancelOutgoing();
         if (mode == Peer.LAN) { lan.stop(); lanRunning = false; lanListening = false; lanSearching = false; lanInfo = UiText.of("notStarted"); }
-        else if(mode==Peer.WIFI_DIRECT){direct.stop();directRunning=false;directListening=false;directSearching=false;directInfo=UiText.of("notStarted");}
         else if(mode==Peer.BLUETOOTH) { bluetooth.stop(); bluetoothRunning = false; bluetoothListening = false; bluetoothSearching = false; bluetoothInfo = UiText.of("notStarted"); }
         peers.entrySet().removeIf(entry -> entry.getValue().mode == mode); changed();
     }
-    public void stopAll() { stop(Peer.WIFI_DIRECT); stop(Peer.LAN); stop(Peer.BLUETOOTH); }
+    public void stopAll() { stop(Peer.LAN); stop(Peer.BLUETOOTH); }
     public void search(int mode) {
         if (!running(mode)) { fail(UiText.of("startReceptionFirst")); return; }
         if (connecting) { fail(UiText.of("pleaseWaitConnecting")); return; }
         error = UiText.EMPTY; peers.entrySet().removeIf(entry -> entry.getValue().mode == mode);
-        if (mode == Peer.LAN) lan.discover(); else if(mode==Peer.WIFI_DIRECT)direct.discover();else bluetooth.scan(); changed();
+        if (mode == Peer.LAN) lan.discover(); else bluetooth.scan(); changed();
     }
     public void stopSearch(int mode) {
         if (mode == Peer.LAN) {
             if (lanReconnectId != null && connectingMode==mode) { cancelOutgoing(); status = UiText.of("connectionAttemptStopped"); }
             lan.stopSearch();
-        } else if(mode==Peer.WIFI_DIRECT){if(lanReconnectId!=null&&connectingMode==mode){cancelOutgoing();status=UiText.of("connectionAttemptStopped");}direct.stopSearch();}else bluetooth.stopSearch();
+        } else if(mode==Peer.BLUETOOTH) bluetooth.stopSearch();
         changed();
     }
-    public boolean running(int mode) { return mode==Peer.WIFI_DIRECT?directRunning:mode == Peer.LAN ? lanRunning : mode == Peer.BLUETOOTH && bluetoothRunning; }
+    public boolean running(int mode) { return mode == Peer.LAN ? lanRunning : mode == Peer.BLUETOOTH && bluetoothRunning; }
     private ChatStore.TrustedDevice trustedDevice(String peerId) {
         for (ChatStore.TrustedDevice device : trustedDevices) if (Objects.equals(device.id, peerId)) return device;
         return null;
@@ -170,7 +166,7 @@ public final class ChatController implements TransportListener {
         if(connected&&Objects.equals(peerId,connectedPeerId)&&wire!=null&&wire.isReady()&&wire.endToEndEncrypted()&&grant!=null&&trust.canVerify(grant))return grant.publicKey;
         ChatStore.TrustedDevice device=trustedDevice(peerId);return device==null?null:device.publicKey;
     }
-    public int preferredMode(String peerId) { ChatStore.TrustedDevice device = trustedDevice(peerId); return device == null ? Peer.LAN : device.mode; }
+    public int preferredMode(String peerId) { ChatStore.TrustedDevice device = trustedDevice(peerId); return device == null || device.mode != Peer.BLUETOOTH ? Peer.LAN : Peer.BLUETOOTH; }
     public boolean isTrustedPeer(Peer peer) {
         if (peer.peerId != null) return isTrusted(peer.peerId);
         return trustedIdAtAddress(peer.bluetoothAddress) != null;
@@ -184,7 +180,7 @@ public final class ChatController implements TransportListener {
     public void connect(Peer peer, boolean remember) {
         String expected = peer.peerId == null ? trustedIdAtAddress(peer.bluetoothAddress) : peer.peerId;
         if (!beginConnect(peer.mode, expected, remember, peer.bluetoothAddress)) return;
-        if (peer.mode == Peer.LAN) lan.connect(peer.host, peer.port); else if(peer.mode==Peer.WIFI_DIRECT)direct.connect(peer);else bluetooth.connect(peer.bluetoothAddress);
+        if (peer.mode == Peer.LAN) lan.connect(peer.host, peer.port); else bluetooth.connect(peer.bluetoothAddress);
     }
     public void connectAddress(String address) { connectAddress(address, true); }
     public void connectAddress(String address, boolean remember) {
@@ -196,38 +192,33 @@ public final class ChatController implements TransportListener {
         ChatStore.TrustedDevice device = trustedDevice(peerId);
         if (device == null) { fail(UiText.of("notRemembered")); return; }
         if (device.mode == Peer.BLUETOOTH && device.bluetoothAddress == null) { fail(UiText.of("noBluetoothAddress")); return; }
-        if (!beginConnect(device.mode, device.id, true, device.bluetoothAddress)) return;
+        int mode=device.mode==Peer.BLUETOOTH?Peer.BLUETOOTH:Peer.LAN;
+        if (!beginConnect(mode, device.id, true, device.bluetoothAddress)) return;
         if (device.mode == Peer.BLUETOOTH) { bluetooth.connect(device.bluetoothAddress); return; }
-        if(device.mode==Peer.WIFI_DIRECT){
-            // A still-present group can supply an ephemeral hint after DNS expiry.
-            // The adapter queries that group again; Noise still proves the expected UUID/root.
-            Peer current=direct.currentPeer(device.id);
-            if(current!=null){direct.connect(current);return;}
-        }
         // Resolve a fresh advertised UUID. Never use a persisted IP as identity.
         lanReconnectId = device.id; status = UiText.of("findingRemembered");
-        peers.entrySet().removeIf(entry -> entry.getValue().mode == device.mode);
+        peers.entrySet().removeIf(entry -> entry.getValue().mode == mode);
         reconnectTimeout = () -> {
             if (lanReconnectId == null) return;
-            if(device.mode==Peer.WIFI_DIRECT&&tryFallback(device.mode,UiText.of("rememberedPeerNotFound")))return;
-            cancelOutgoing(); stopSearch(device.mode); status = UiText.of("connectionUnavailable");fail(UiText.of("rememberedPeerNotFound"));
+            cancelOutgoing(); stopSearch(mode); status = UiText.of("connectionUnavailable");fail(UiText.of("rememberedPeerNotFound"));
         };
-        main.postDelayed(reconnectTimeout, 12000);if(device.mode==Peer.WIFI_DIRECT)direct.discover();else lan.discover(); changed();
+        main.postDelayed(reconnectTimeout, 12000);lan.discover(); changed();
     }
     private boolean beginConnect(int mode, String expected, boolean remember, String bluetoothAddress) {
+        if(mode!=Peer.LAN&&mode!=Peer.BLUETOOTH){fail(UiText.of("invalidTransport"));return false;}
         if (active != null || connecting) { fail(UiText.of("busy")); return false; }
         if (identity == null) { fail(UiText.of("identityUnavailable")); return false; }
         if (!running(mode)) { fail(UiText.of("startModeReceptionFirst")); return false; }
         expectedPeerId = expected; rememberOutgoing = remember; outgoingBluetoothAddress = bluetoothAddress;
-        directFallback=mode==Peer.WIFI_DIRECT;routeNotice=UiText.EMPTY;
-        connecting = true; connectingMode = mode; sessionMode = mode; error = UiText.EMPTY; status = UiText.of(mode==Peer.WIFI_DIRECT?"wifiDirectConnecting":"connecting"); changed(); return true;
+        routeNotice=UiText.EMPTY;
+        connecting = true; connectingMode = mode; sessionMode = mode; error = UiText.EMPTY; status = UiText.of("connecting"); changed(); return true;
     }
     private void clearReconnectWait() {
         lanReconnectId = null;
         if (reconnectTimeout != null) { main.removeCallbacks(reconnectTimeout); reconnectTimeout = null; }
     }
     private void cancelOutgoing() {
-        clearReconnectWait(); lan.cancelConnect(); bluetooth.cancelConnect();direct.cancelConnect();directFallback=false;
+        clearReconnectWait(); lan.cancelConnect(); bluetooth.cancelConnect();
         for(StreamConnection connection:waitingForNoise)close(connection);waitingForNoise.clear();
         connecting = false; expectedPeerId = null; outgoingBluetoothAddress = null; rememberOutgoing = false;
     }
@@ -250,59 +241,36 @@ public final class ChatController implements TransportListener {
         attachmentsStopped.whenComplete((value,failure)->main.post(()->{if(!destroyed){if(failure!=null)fail(attachmentError(failure));refresh();}}));changed();
     }
     public void onPeer(Peer peer) {
-        if (destroyed) return;
+        if (destroyed || peer.mode!=Peer.LAN&&peer.mode!=Peer.BLUETOOTH) return;
         peers.put(peer.key, peer);
         if (connecting && lanReconnectId != null && lanReconnectId.equals(peer.peerId) && peer.mode == connectingMode) {
-            clearReconnectWait(); status = UiText.of(peer.mode==Peer.WIFI_DIRECT?"wifiDirectConnecting":"connecting");
-            if(peer.mode==Peer.WIFI_DIRECT){direct.stopSearch();direct.connect(peer);}else{lan.stopSearch();lan.connect(peer.host, peer.port);}
+            clearReconnectWait(); status = UiText.of("connecting");
+            lan.stopSearch();lan.connect(peer.host, peer.port);
         }
         changed();
     }
     public void onLost(String key) { peers.remove(key); changed(); }
-    public void onSearching(int mode, boolean searching) { if(mode==Peer.WIFI_DIRECT)directSearching=searching;else if (mode == Peer.LAN) lanSearching = searching; else bluetoothSearching = searching; changed(); }
-    public void onSearchStopFailed(int mode, UiText message) { fail(message); }
-    public void onListening(int mode, UiText detail) { if(mode==Peer.WIFI_DIRECT){directInfo=detail;directListening=true;}else if (mode == Peer.LAN) { lanInfo = detail; lanListening = true; } else { bluetoothInfo = detail; bluetoothListening = true; } changed(); }
+    public void onSearching(int mode, boolean searching) { if (mode == Peer.LAN) lanSearching = searching; else if(mode==Peer.BLUETOOTH)bluetoothSearching = searching; changed(); }
+    public void onSearchStopFailed(int mode, UiText message) { if(mode==Peer.LAN||mode==Peer.BLUETOOTH)fail(message); }
+    public void onListening(int mode, UiText detail) { if (mode == Peer.LAN) { lanInfo = detail; lanListening = true; } else if(mode==Peer.BLUETOOTH){ bluetoothInfo = detail; bluetoothListening = true; } changed(); }
     public void onError(int mode, UiText message, boolean fatal) {
-        boolean fallback=fatal&&connecting&&connectingMode==mode&&active==null&&tryFallback(mode,message);
-        if (!fallback&&fatal&&lanReconnectId != null && mode == connectingMode) { cancelOutgoing(); status = UiText.of("connectionUnavailable"); }
+        if(mode!=Peer.LAN&&mode!=Peer.BLUETOOTH)return;
         if (fatal) {
-            if (!fallback&&connecting && connectingMode == mode) cancelOutgoing();
-            if(mode==Peer.WIFI_DIRECT){directRunning=false;directListening=false;directSearching=false;directInfo=UiText.of("notStarted");}else if (mode == Peer.LAN) { lanRunning = false; lanListening = false; lanSearching = false; lanInfo = UiText.of("notStarted"); } else { bluetoothRunning = false; bluetoothListening = false; bluetoothSearching = false; bluetoothInfo = UiText.of("notStarted"); }
+            if(connecting && connectingMode == mode)cancelOutgoing();
+            if(mode == Peer.LAN) { lanRunning = false; lanListening = false; lanSearching = false; lanInfo = UiText.of("notStarted"); }
+            else { bluetoothRunning = false; bluetoothListening = false; bluetoothSearching = false; bluetoothInfo = UiText.of("notStarted"); }
             peers.entrySet().removeIf(entry -> entry.getValue().mode == mode);
             if (active != null && sessionMode == mode) closeActive(message);
         }
-        if(!fallback)fail(message);else changed();
+        fail(message);
     }
     public void onConnectFailed(int mode, UiText message) {
         if (!connecting || connectingMode != mode || active != null) return;
-        if(tryFallback(mode,message))return;
         cancelOutgoing(); status = UiText.of("connectionUnavailable"); fail(message);
-    }
-    /** Only transport failure before Noise/identity validation permits an automatic fallback. */
-    private boolean tryFallback(int failedMode,UiText reason) {
-        if(!directFallback||active!=null||expectedPeerId==null||!connecting||connectingMode!=failedMode)return false;
-        if(failedMode==Peer.WIFI_DIRECT) {
-            direct.cancelConnect();clearReconnectWait();connectingMode=Peer.LAN;sessionMode=Peer.LAN;
-            routeNotice=UiText.of("wifiDirectFallbackLan",reason);status=routeNotice;error=UiText.EMPTY;
-            if(!lanRunning)start(Peer.LAN);
-            for(Peer peer:peers.values())if(peer.mode==Peer.LAN&&expectedPeerId.equals(peer.peerId)){lan.connect(peer.host,peer.port);changed();return true;}
-            lanReconnectId=expectedPeerId;
-            reconnectTimeout=()->{if(lanReconnectId!=null){clearReconnectWait();onConnectFailed(Peer.LAN,UiText.of("rememberedPeerNotFound"));}};
-            main.postDelayed(reconnectTimeout,12000);lan.discover();changed();return true;
-        }
-        if(failedMode==Peer.LAN&&bluetoothRunning) {
-            String address=null;
-            for(Peer peer:peers.values())if(peer.mode==Peer.BLUETOOTH&&expectedPeerId.equals(peer.peerId)){address=peer.bluetoothAddress;break;}
-            if(address==null){ChatStore.TrustedDevice device=trustedDevice(expectedPeerId);if(device!=null)address=device.bluetoothAddress;}
-            if(address==null)return false;
-            lan.cancelConnect();clearReconnectWait();lan.stopSearch();connectingMode=Peer.BLUETOOTH;sessionMode=Peer.BLUETOOTH;outgoingBluetoothAddress=address;
-            routeNotice=UiText.of("wifiDirectFallbackBluetooth",reason);status=routeNotice;error=UiText.EMPTY;bluetooth.connect(address);changed();return true;
-        }
-        return false;
     }
     public void onConnection(int mode, StreamConnection connection, boolean incoming) { onConnection(mode, connection, incoming, null); }
     public void onConnection(int mode, StreamConnection connection, boolean incoming, String bluetoothAddress) {
-        ConnectionRole role=ConnectionRole.decide(mode==Peer.WIFI_DIRECT,incoming,connecting,connectingMode==mode);
+        ConnectionRole role=ConnectionRole.decide(false,incoming,connecting,connectingMode==mode);
         if (destroyed || identity == null || !running(mode) || active != null || role==ConnectionRole.DISCARD) { close(connection); return; }
         if(!noiseIdentity.isDone()){if(waitingForNoise.add(connection))noiseIdentity.whenComplete((key,failure)->main.post(()->{if(waitingForNoise.remove(connection))onConnection(mode,connection,incoming,bluetoothAddress);}));return;}
         final byte[] staticKey;
@@ -348,19 +316,21 @@ public final class ChatController implements TransportListener {
                 Frame hello = remoteHello; TrustPolicy.Authorization grant = authorization;
                 FramedSession wire=reference[0];
                 if(transfers==null||!transfers.v2()){closeActive(UiText.of("attachmentFailed"));return;}
+                startFileRoutes(wire,grant);
                 startAvatars(wire,grant);
                 if (userRequested) {
                     if (!Objects.equals(selectedId, hello.id)) messages = new ArrayList<>();
                     selectedId = hello.id; selectedName = hello.body;
                 }
-                directFallback=false;status = UiText.of("connectedVia", UiText.of(modeKey(mode))); changed();
+                status = UiText.of("connectedVia", UiText.of(modeKey(mode))); changed();
                 db(() -> {
                     trust.persist(grant, () -> store.remember(hello.id, hello.body, grant.publicKey, mode, socketAddress));
                     store.touch(hello.id, hello.body);
                 }, ChatController.this::refresh);
             }); }
             public void onAttachment(Frame frame){main.post(()->{if(active==reference[0]&&transfers!=null)transfers.receive(frame);});}
-            public void onTransfer(TransferPacket packet){ClientAttachmentTransfers target=transfers;if(active!=reference[0]||target==null)return;try{target.receive(packet);}catch(IOException failure){reference[0].close(UiText.of("attachmentFailed"));}}
+            public void onFileRoute(FileRoutePacket packet){receiveFile(reference[0],packet,null);}
+            public void onTransfer(TransferPacket packet){receiveFile(reference[0],null,packet);}
             public void onAvatar(AvatarPacket packet){
                 if(active!=reference[0]||!reference[0].avatarsSupported())return;
                 AvatarSync sync=avatarSync;
@@ -377,10 +347,52 @@ public final class ChatController implements TransportListener {
                 String peerId = remoteHello.id; db(() -> store.delivered(peerId, id), ChatController.this::refresh);
             }); }
             public void onClosed(UiText reason) { main.post(() -> releaseSession(reference[0], reason)); }
-        },true);}catch(IOException failure){close(connection);cancelOutgoing();status=UiText.of("connectionUnavailable");fail(UiText.of("identityUnavailableRestart"));return;}
+        },true,true);}catch(IOException failure){close(connection);cancelOutgoing();status=UiText.of("connectionUnavailable");fail(UiText.of("identityUnavailableRestart"));return;}
         attachmentToken++;active = reference[0]; active.start(); changed();
     }
     public void approve(String token) { approve(token, true); }
+    private void startFileRoutes(FramedSession wire,TrustPolicy.Authorization grant) {
+        Frame hello=remoteHello;long revision=trust.peerRevision(hello.id);
+        filePauseStopped=CompletableFuture.completedFuture(null);
+        AutomaticFileRoutes routes=new AutomaticFileRoutes(wire,localId,nickname,identity,noiseIdentity.getNow(null),hello.id,grant.publicKey,transportKey(),
+            ()->!destroyed&&active==wire&&wire.isReady()&&authorization==grant&&trust.ready(grant)&&trust.peerRevision(hello.id)==revision,
+            new AndroidFilePlatform(applicationContext,localId,nickname,hello.id),new AutomaticFileRoutes.Listener(){
+                public void receive(TransferPacket packet){ClientAttachmentTransfers files=transfers;if(active!=wire||files==null)return;try{files.receive(packet);}catch(IOException failure){AutomaticFileRoutes current=fileRoutes;if(current!=null)current.abort();}}
+                public void changed(){main.post(()->{if(active==wire&&!destroyed)ChatController.this.changed();});}
+                public boolean busy(){ClientAttachmentTransfers files=transfers;return active==wire&&(!selectingSources.isEmpty()||files!=null&&files.hasActive());}
+                public void failed(IOException failure){ClientAttachmentTransfers files=transfers;if(active!=wire||files==null)return;CompletableFuture<Void> stopped=files.pauseOnDisconnect();filePauseStopped=stopped;stopped.whenComplete((value,error)->main.post(()->{if(active==wire&&!destroyed)fail(attachmentError(error==null?failure:error));}));}
+            });
+        fileRoutes=routes;routes.start();drainPendingFiles(wire);
+    }
+    private void receiveFile(FramedSession wire,FileRoutePacket control,TransferPacket packet){
+        if(active!=wire)return;AutomaticFileRoutes routes=fileRoutes;
+        if(routes!=null){if(control!=null)routes.receiveControl(control);else routes.receiveChatTransfer(packet);return;}
+        if(!pendingFiles.offer(new PendingFile(wire,control,packet))){wire.close(UiText.of("busy"));return;}
+        main.post(()->drainPendingFiles(wire));
+    }
+    private void drainPendingFiles(FramedSession wire){
+        AutomaticFileRoutes routes=fileRoutes;if(active!=wire||routes==null)return;
+        PendingFile pending;while((pending=pendingFiles.poll())!=null)if(pending.wire()==wire){if(pending.control()!=null)routes.receiveControl(pending.control());else routes.receiveChatTransfer(pending.transfer());}
+    }
+    private AttachmentRecord decorateFileRoute(AttachmentRecord record)throws IOException {
+        AutomaticFileRoutes routes=fileRoutes;String route=routes==null?"":routes.route();
+        if(route.isEmpty()&&record.route.isEmpty()){
+            Feedback previous=transferProgress.get(connectedPeerId+":"+record.info.id+":"+record.outgoing);
+            if(previous!=null)route=previous.record().route;
+        }
+        return route.isEmpty()?record:record.withRoute(route);
+    }
+    private CompletableFuture<AutomaticFileRoutes.Route> fileReady(ClientAttachmentTransfers expected,long token) {
+        return fileReady(expected,token,false);
+    }
+    private CompletableFuture<AutomaticFileRoutes.Route> fileReady(ClientAttachmentTransfers expected,long token,boolean newBatch) {
+        AutomaticFileRoutes routes=fileRoutes;
+        if(routes==null||expected!=transfers||token!=attachmentToken)return failedAttachmentFuture(new LocalizedIOException(UiText.of("notConnected")));
+        return filePauseStopped.thenCompose(value->newBatch?routes.prepareNewBatch():routes.ensureReady()).thenApply(route->{
+            if(destroyed||routes!=fileRoutes||expected!=transfers||token!=attachmentToken)throw new CompletionException(new LocalizedIOException(UiText.of("notConnected")));
+            return route;
+        });
+    }
     private void startAvatars(FramedSession wire,TrustPolicy.Authorization grant) {
         if(!wire.avatarsSupported()||grant==null||identity==null||identity.publicKey().equals(grant.publicKey)){pendingAvatars.clear();return;}
         avatarPreparing=true;
@@ -425,16 +437,18 @@ public final class ChatController implements TransportListener {
                         AndroidAttachmentSource source=new AndroidAttachmentSource(applicationContext,Uri.parse(saved.split("\n",2)[0]),checkpoint.key().sourceGeneration());
                         if(!saved.equals(source.persistentReference())){source.close();source.discard();throw new LocalizedIOException(UiText.of("attachmentSourceChanged"));}return source;};
                     AttachmentTransferV2 engine=new AttachmentTransferV2(directory,localRoot,remoteRoot,wire.connectionGeneration(),rfcomm,new AttachmentTransferV2.Wire(){
-                        public boolean send(TransferPacket packet){return wire.sendTransfer(packet);}public void abort(){wire.close(UiText.of("attachmentFailed"));}
+                        public boolean send(TransferPacket packet){AutomaticFileRoutes routes=fileRoutes;return active==wire&&routes!=null&&routes.send(packet);}public void abort(){AutomaticFileRoutes routes=fileRoutes;if(active==wire&&routes!=null)routes.abort();}
+                        public boolean recoverableDisconnect(){return true;}
                     },new AttachmentTransferV2.Listener(){
-                        public void changed(AttachmentRecord record)throws IOException {
+                        public void changed(AttachmentRecord original)throws IOException {
+                            AttachmentRecord record=decorateFileRoute(original);
                             try{storage.submit(()->store.attachment(hello.id,hello.body,record)).get(10,TimeUnit.SECONDS);}
                             catch(Exception failure){throw new IOException("Attachment metadata save failed",failure);}
                             if(!record.outgoing&&record.state.equals("received")&&record.info.mime.startsWith("image/"))try{GalleryPublisher.get(applicationContext).export(hello.id,record,AttachmentTransfer.file(directory,record.info,false),false);}catch(IOException exportFailure){main.post(()->{if(!destroyed)fail(UiText.of("gallerySaveFailed"));});}
                             main.post(()->{if(!destroyed)refresh();});
                         }
-                        public void progress(AttachmentRecord record,TransferProgress progress){
-                            if(active!=wire)return;String key=hello.id+":"+record.info.id+":"+record.outgoing;
+                        public void progress(AttachmentRecord original,TransferProgress progress){
+                            if(active!=wire)return;AttachmentRecord record;try{record=decorateFileRoute(original);}catch(IOException invalid){return;}String key=hello.id+":"+record.info.id+":"+record.outgoing;
                             if(!record.active()&&!record.resumable()){transferProgress.remove(key);return;}
                             transferProgress.put(key,new Feedback(record,progress));
                             main.post(()->{if(!destroyed&&active==wire){if(Objects.equals(selectedId,hello.id))messages=liveMessages(messages,hello.id);ChatController.this.changed();}});
@@ -446,7 +460,7 @@ public final class ChatController implements TransportListener {
                         if(selected.exact()&&!selected.reference().equals(source.persistentReference())){source.close();throw new LocalizedIOException(UiText.of("attachmentSourceChanged"));}return source;
                     });
                     files.batchListener(new AttachmentBatchQueue.Listener(){
-                        public void changed(AttachmentRecord record)throws IOException {try{storage.submit(()->store.attachment(hello.id,hello.body,record)).get(10,TimeUnit.SECONDS);}catch(Exception failure){throw new IOException("Batch history save failed",failure);}main.post(()->{if(!destroyed)refresh();});releaseUnusedSources();}
+                        public void changed(AttachmentRecord original)throws IOException {AttachmentRecord record=decorateFileRoute(original);try{storage.submit(()->store.attachment(hello.id,hello.body,record)).get(10,TimeUnit.SECONDS);}catch(Exception failure){throw new IOException("Batch history save failed",failure);}main.post(()->{if(!destroyed)refresh();});releaseUnusedSources();}
                         public void finished(AttachmentRecord record){releaseUnusedSources();}
                         private void releaseUnusedSources(){try{fileSelection.execute(()->{try{AndroidAttachmentSource.releaseUnusedGrants(applicationContext);}catch(IOException ignored){}});}catch(RejectedExecutionException stopped){}}
                     });
@@ -464,6 +478,7 @@ public final class ChatController implements TransportListener {
     private void releaseSession(FramedSession session, UiText reason) {
         if (active != session) return;
         String peerId = remoteHello == null ? null : remoteHello.id;
+        if(fileRoutes!=null){fileRoutes.close();fileRoutes=null;}pendingFiles.clear();
         if(avatarSync!=null){avatarSync.close();avatarSync=null;}avatarPreparing=false;pendingAvatars.clear();
         if(transfers!=null){recordAttachmentShutdown(transfers.shutdown());transfers=null;}attachmentToken++;
         if(attachmentsPreparing!=null){CompletableFuture<ClientAttachmentTransfers> pending=attachmentsPreparing;attachmentsPreparing=null;
@@ -473,7 +488,6 @@ public final class ChatController implements TransportListener {
         trust.cancel(authorization); authorization = null; active = null; remoteHello = null;
         connected = false; connectedPeerId = null; approvalId = null; approvalName = null;
         cancelOutgoing(); status = reason;
-        if(sessionMode==Peer.WIFI_DIRECT)direct.disconnect();
         if (peerId != null) db(() -> store.uncertain(peerId), this::refresh);
         changed();
     }
@@ -487,7 +501,7 @@ public final class ChatController implements TransportListener {
     public long attachmentSessionToken(){return attachmentToken;}
     public String transferDiagnostics(){
         FramedSession wire=active;ClientAttachmentTransfers files=transfers;
-        return "diagnostics_schema=1\nendpoint=android\nversion="+LanguageRegistry.VERSION+"\ntransport="+transportKey()+"\n"+(wire==null?"active_session=false\n":wire.diagnostics())+(files==null?"":files.diagnostics());
+        return "diagnostics_schema=1\nendpoint=android\nversion="+LanguageRegistry.VERSION+"\ntransport="+transportKey()+"\n"+(wire==null?"active_session=false\n":wire.diagnostics())+(files==null?"":files.diagnostics())+(fileRoutes==null?"":fileRoutes.diagnostics());
     }
     public boolean canSendAttachment(){return canSend()&&transfers!=null&&active.attachmentsSupported();}
     public long attachmentRetryRevision(){return attachmentRetryRevision;}
@@ -504,9 +518,10 @@ public final class ChatController implements TransportListener {
     public boolean hasRetryableAttachmentBatch(String peer,String id){ClientAttachmentTransfers files=transfers;return files!=null&&Objects.equals(peer,connectedPeerId)&&files.hasRetryableBatch(id);}
     public TransferProgress transferProgress(String peer,AttachmentRecord record){Feedback value=transferProgress.get(peer+":"+record.info.id+":"+record.outgoing);return value==null?TransferProgress.UNKNOWN:value.progress();}
     public TransferPath attachmentRoute(String peer,AttachmentRecord record) {
+        if(record==null)return TransferPath.NONE;
         FramedSession wire=active;
         boolean ready=connected&&Objects.equals(peer,connectedPeerId)&&wire!=null&&wire.isReady()&&wire.attachmentsSupported();
-        return TransferPath.forAttachment(transportKey(),ready,record);
+        return TransferPath.forAttachment(record.route,ready,record);
     }
     public boolean endToEndEncrypted(String peer){FramedSession wire=active;return connected&&Objects.equals(peer,connectedPeerId)&&wire!=null&&wire.endToEndEncrypted();}
     public boolean identityVerified(String peer){return endToEndEncrypted(peer)&&authorization!=null&&authorization.publicKey.equals(verifiedRoots.get(peer));}
@@ -537,7 +552,9 @@ public final class ChatController implements TransportListener {
     private List<ChatStore.Message> liveMessages(List<ChatStore.Message> history,String peer){
         List<ChatStore.Message> values=new ArrayList<>(history.size());
         for(ChatStore.Message message:history){AttachmentRecord previous=message.attachment;Feedback value=previous==null?null:transferProgress.get(peer+":"+previous.info.id+":"+previous.outgoing);
-            if(value!=null&&previous.mayReplace(value.record())){AttachmentRecord record=value.record();String state=record.outgoing?(record.state.equals("delivered")?ChatStore.DELIVERED:record.active()?ChatStore.PENDING:ChatStore.UNKNOWN):message.state;
+            if(value!=null&&previous.mayReplace(value.record())){AttachmentRecord record=value.record();
+                if(record.route.isEmpty()&&!previous.route.isEmpty())try{record=record.withRoute(previous.route);}catch(IOException invalid){values.add(message);continue;}
+                String state=record.outgoing?(record.state.equals("delivered")?ChatStore.DELIVERED:record.active()?ChatStore.PENDING:ChatStore.UNKNOWN):message.state;
                 values.add(new ChatStore.Message(message.id,message.text,state,message.outgoing,message.time,record));
             }else values.add(message);
         }return values;
@@ -555,7 +572,7 @@ public final class ChatController implements TransportListener {
     public CompletableFuture<Void> attachmentQuota(long bytes){CompletableFuture<Void> future=new CompletableFuture<>();try{fileSelection.execute(()->{try{if(attachmentStorage==null)attachmentStorage=new TransferStorageBudget(store.attachmentsRoot(),bytes);else attachmentStorage.quota(bytes);preferences.edit().putLong("attachmentQuota",bytes).apply();future.complete(null);}catch(IOException error){future.completeExceptionally(new LocalizedIOException(UiText.of("attachmentQuotaInUse"),error));}});}catch(RejectedExecutionException error){future.completeExceptionally(error);}return future;}
     public void pauseSendQueue(){ClientAttachmentTransfers selected=transfers;if(selected!=null)selected.pauseBatch().whenComplete((value,error)->{if(error!=null)main.post(()->fail(attachmentError(error)));});}
     public void cancelSendQueue(){attachmentToken++;ClientAttachmentTransfers selected=transfers;if(selected!=null)selected.cancelBatch().whenComplete((value,error)->{if(error!=null)main.post(()->fail(attachmentError(error)));});changed();}
-    public void resumeAttachments(){ClientAttachmentTransfers selected=transfers;if(selected!=null)selected.resumeBatch().whenComplete((value,error)->{if(error!=null)main.post(()->fail(attachmentError(error)));});}
+    public void resumeAttachments(){ClientAttachmentTransfers selected=transfers;if(selected!=null)fileReady(selected,attachmentToken).thenCompose(route->selected.resumeBatch()).whenComplete((value,error)->{if(error!=null)main.post(()->fail(attachmentError(error)));});}
     public void sendAttachments(String peer,long token,List<Uri> selectedUris){
         List<Uri> uris=List.copyOf(selectedUris);if(uris.isEmpty()||uris.size()>AttachmentBatchQueue.MAX_PENDING){fail(UiText.of("attachmentBatchLimit",AttachmentBatchQueue.MAX_PENDING));return;}
         if(!canSendAttachment()||token!=attachmentToken||!Objects.equals(peer,connectedPeerId)){fail(UiText.of("notConnected"));return;}ClientAttachmentTransfers selected=transfers;
@@ -572,7 +589,7 @@ public final class ChatController implements TransportListener {
                 catch(IOException unavailable){descriptions.add(new AttachmentBatchQueue.Selection(uri.toString(),UUID.randomUUID().toString(),"attachment","application/octet-stream",-1,false));}
             }
             main.post(()->{if(destroyed||selected!=transfers||!canSendAttachment()||token!=attachmentToken||!Objects.equals(peer,connectedPeerId)){releaseSelections(uris);if(!destroyed)fail(UiText.of("notConnected"));return;}
-                selected.enqueue(descriptions).whenComplete((batch,error)->{releaseSelections(uris);if(error!=null)main.post(()->{if(!destroyed)fail(attachmentError(error));});});
+                fileReady(selected,token,true).thenCompose(route->selected.enqueue(descriptions)).whenComplete((batch,error)->{releaseSelections(uris);if(error!=null)main.post(()->{if(!destroyed)fail(attachmentError(error));});});
             });
         }catch(Exception failure){releaseSelections(uris);main.post(()->{if(!destroyed)fail(attachmentError(failure));});}});}catch(RejectedExecutionException full){releaseSelections(uris);fail(UiText.of("attachmentFailed"));}
     }
@@ -592,7 +609,10 @@ public final class ChatController implements TransportListener {
                 main.post(()->{
                     selectingSources.remove(source);
                     if(destroyed||!canSendAttachment()||token!=attachmentToken||!Objects.equals(peer,connectedPeerId)){try{source.close();}catch(IOException ignored){}discardSelection(source);if(!destroyed&&token==attachmentToken)fail(UiText.of("notConnected"));return;}
-                    changed();selected.offer(source,fileName,contentType).whenComplete((id,e)->{if(e!=null)main.post(()->{if(!destroyed&&token==attachmentToken)fail(attachmentError(e));});});
+                    changed();fileReady(selected,token,true).whenComplete((route,error)->{
+                        if(error!=null){try{source.close();}catch(IOException ignored){}discardSelection(source);main.post(()->{if(!destroyed&&token==attachmentToken)fail(attachmentError(error));});return;}
+                        selected.offer(source,fileName,contentType).whenComplete((id,e)->{if(e!=null)main.post(()->{if(!destroyed&&token==attachmentToken)fail(attachmentError(e));});});
+                    });
                 });
             }catch(Exception e){if(original!=null){selectingSources.remove(original);try{original.discard();}catch(IOException ignored){}}main.post(()->{changed();if(!destroyed&&token==attachmentToken)fail(attachmentError(e));});}
         });}catch(RejectedExecutionException e){fail(UiText.of("attachmentFailed"));}
@@ -621,7 +641,7 @@ public final class ChatController implements TransportListener {
         for(String id:ids)retryingAttachments.merge(session.peer()+":"+session.token()+":"+id,1,Integer::sum);
         attachmentRetryRevision++;error=UiText.EMPTY;changed();
         CompletableFuture<T> admitted;
-        try{admitted=CompletableFuture.runAsync(()->{for(String id:ids)requireFailedAttachment(session.peer(),id);},storage).thenComposeAsync(value->{
+        try{admitted=CompletableFuture.runAsync(()->{for(String id:ids)requireFailedAttachment(session.peer(),id);},storage).thenCompose(value->fileReady(session.files(),session.token())).thenComposeAsync(value->{
             if(!attachmentRetryCurrent(session))throw new CompletionException(new LocalizedIOException(UiText.of("notConnected")));
             try{return operation.run();}catch(IOException failure){throw new CompletionException(failure);}
         },fileSelection);}catch(RejectedExecutionException stopped){admitted=new CompletableFuture<>();admitted.completeExceptionally(stopped);}
@@ -672,7 +692,7 @@ public final class ChatController implements TransportListener {
         if(transfers==null||!Objects.equals(peer,connectedPeerId)){fail(UiText.of("notConnected"));return;}
         ClientAttachmentTransfers selected=transfers;long token=attachmentToken;
         try{fileSelection.execute(()->{try{if(selected!=transfers||token!=attachmentToken)throw new IOException("Attachment session changed");
-            CompletableFuture<Void> future=action.equals("resume")?selected.resume(id,outgoing):action.equals("pause")?selected.pause(id,outgoing):action.equals("accept")?selected.accept(id):action.equals("reject")?selected.reject(id):selected.cancel(id,outgoing);
+            CompletableFuture<Void> future=action.equals("resume")?fileReady(selected,token).thenCompose(route->{try{return selected.resume(id,outgoing);}catch(IOException failure){return failedAttachmentFuture(failure);}}):action.equals("pause")?selected.pause(id,outgoing):action.equals("accept")?selected.accept(id):action.equals("reject")?selected.reject(id):selected.cancel(id,outgoing);
             future.whenComplete((v,e)->{if(e!=null)main.post(()->{if(!destroyed)fail(attachmentError(e));});});
         }catch(Exception e){main.post(()->{if(!destroyed)fail(attachmentError(e));});}});}catch(RejectedExecutionException e){fail(UiText.of("attachmentFailed"));}
     }

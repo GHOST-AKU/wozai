@@ -57,6 +57,7 @@
     <string name="attachment_path_pending_bluetooth" formatted="false">"等待传输 · 蓝牙"</string>
     <string name="attachment_path_pending_lan" formatted="false">"等待传输 · 局域网（路径未确认）"</string>
     <string name="attachment_path_pending_wifi_direct" formatted="false">"等待传输 · Wi-Fi 直连"</string>
+    <string name="attachment_path_selecting" formatted="false">"选择传输渠道…"</string>
     <string name="attachment_path_unknown" formatted="false">"传输路径：暂时无法确认"</string>
     <string name="attachment_path_wifi_direct" formatted="false">"传输路径：Wi-Fi 直连"</string>
     <string name="attachment_pause" formatted="false">"暂停传输"</string>
@@ -381,11 +382,12 @@
     <string name="outgoing_message_meta" formatted="false">"{0} · {1}"</string>
     <string name="paired" formatted="false">"已配对"</string>
     <string name="paired_address" formatted="false">"已配对 · {0}"</string>
-    <string name="path_details_bluetooth" formatted="false">"文件通过蓝牙传输。较大的文件可能需要更长时间。"</string>
+    <string name="path_details_bluetooth" formatted="false">"这份文件记录的传输渠道是蓝牙。较大的文件可能需要更长的传输时间。"</string>
     <string name="path_details_disconnected" formatted="false">"目前没有已建立的传输通道。连接后会显示实际使用的通道。"</string>
-    <string name="path_details_lan" formatted="false">"文件使用当前局域网连接传输。无法确认具体连接是否经过路由器或手机热点。"</string>
+    <string name="path_details_lan" formatted="false">"这份文件记录的传输渠道是局域网。无法确认该渠道是否经过路由器或手机热点。"</string>
+    <string name="path_details_selecting" formatted="false">"文件依次尝试 Wi-Fi 直连、局域网、蓝牙；不会改变聊天连接模式。"</string>
     <string name="path_details_title" formatted="false">"传输路径"</string>
-    <string name="path_details_wifi_direct" formatted="false">"文件使用当前 Android Wi-Fi 直连数据通道。本次连接的直连网络路径已确认。加密状态和身份核验状态会单独显示。"</string>
+    <string name="path_details_wifi_direct" formatted="false">"这份文件记录的传输渠道是 Android Wi-Fi 直连。加密状态和身份核验状态会单独显示。"</string>
     <string name="peer_ended" formatted="false">"对方结束了聊天。"</string>
     <string name="peer_status_transport" formatted="false">"{0} · {1}"</string>
     <string name="peer_summary" formatted="false">"{0}。{1}"</string>

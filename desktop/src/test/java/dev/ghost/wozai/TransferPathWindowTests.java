@@ -21,15 +21,15 @@ public final class TransferPathWindowTests {
                 var listening=b.listen().get(5,TimeUnit.SECONDS);String endpoint=listening.endpoints().get(0);
                 var peer=new DesktopStore.Peer(bi.id(),"path peer",bi.signer().publicKey(),endpoint);as.peer(peer);as.setSetting("language","en");
                 AttachmentInfo info=AttachmentInfo.v2(UUID.randomUUID().toString(),"paused incoming.bin","application/octet-stream",1024,null,1);
-                as.attachment(peer.id(),new AttachmentRecord(info,false,"paused",512));
+                as.attachment(peer.id(),new AttachmentRecord(info,false,"paused",512).withRoute("bluetooth"));
                 SwingUtilities.invokeAndWait(()->{try{AppTheme.install(false);window[0]=new DesktopWindow(as,ai,ap);window[0].setVisible(true);Method select=DesktopWindow.class.getDeclaredMethod("select",DesktopStore.Peer.class);select.setAccessible(true);select.invoke(window[0],peer);}catch(Exception e){throw new AssertionError(e);}});
                 DesktopClient a=field(window[0],"client");
-                until(()->path(window[0]).contains("disconnected"));
+                until(()->path(window[0]).contains("Bluetooth"));
                 a.connect(endpoint,bi.id()).get(5,TimeUnit.SECONDS);
                 until(()->a.endToEndEncrypted(bi.id()));
-                until(()->path(window[0]).contains("LAN"));
-                a.disconnect().get(5,TimeUnit.SECONDS);until(()->path(window[0]).contains("disconnected"));
-                System.out.println("TransferPathWindowTests: actual window cache updates an unchanged incoming paused task on connection and disconnect");
+                until(()->path(window[0]).contains("Bluetooth"));
+                a.disconnect().get(5,TimeUnit.SECONDS);until(()->path(window[0]).contains("Bluetooth"));
+                System.out.println("TransferPathWindowTests: actual window keeps file route through unrelated LAN chat connection and disconnect");
             }finally {
                 if(window[0]!=null){shutdown(window[0]);until(()->!window[0].isDisplayable());}
             }
@@ -43,5 +43,5 @@ public final class TransferPathWindowTests {
     private static String path(Container root)throws Exception{String[] value={""};SwingUtilities.invokeAndWait(()->value[0]=find(root));return value[0];}
     private static String find(Container root){for(Component child:root.getComponents()){if(child instanceof JLabel label&&"attachmentPath".equals(label.getName())&&label.isVisible())return label.getText();if(child instanceof Container inner){String found=find(inner);if(!found.isEmpty())return found;}}return "";}
     private interface Check{boolean test()throws Exception;}
-    private static void until(Check check)throws Exception{long end=System.nanoTime()+TimeUnit.SECONDS.toNanos(15);while(System.nanoTime()<end){if(check.test())return;Thread.sleep(20);}throw new AssertionError("Window path did not follow the unchanged paused transfer's actual session");}
+    private static void until(Check check)throws Exception{long end=System.nanoTime()+TimeUnit.SECONDS.toNanos(15);while(System.nanoTime()<end){if(check.test())return;Thread.sleep(20);}throw new AssertionError("Window path did not preserve durable attachment route");}
 }

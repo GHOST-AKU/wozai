@@ -57,6 +57,7 @@
     <string name="attachment_path_pending_bluetooth" formatted="false">"等待傳輸 · 藍牙"</string>
     <string name="attachment_path_pending_lan" formatted="false">"等待傳輸 · 區域網路（路徑未確認）"</string>
     <string name="attachment_path_pending_wifi_direct" formatted="false">"等待傳輸 · Wi-Fi 直連"</string>
+    <string name="attachment_path_selecting" formatted="false">"選擇傳輸管道…"</string>
     <string name="attachment_path_unknown" formatted="false">"傳輸路徑：暫時無法確認"</string>
     <string name="attachment_path_wifi_direct" formatted="false">"傳輸路徑：Wi-Fi 直連"</string>
     <string name="attachment_pause" formatted="false">"暫停傳輸"</string>
@@ -381,11 +382,12 @@
     <string name="outgoing_message_meta" formatted="false">"{0} · {1}"</string>
     <string name="paired" formatted="false">"已配對"</string>
     <string name="paired_address" formatted="false">"已配對 · {0}"</string>
-    <string name="path_details_bluetooth" formatted="false">"檔案透過藍牙傳輸。較大的檔案可能需要更長時間。"</string>
+    <string name="path_details_bluetooth" formatted="false">"這份檔案記錄的傳輸管道是藍牙。較大的檔案可能需要更長的傳輸時間。"</string>
     <string name="path_details_disconnected" formatted="false">"目前沒有已建立的傳輸通道。連線後會顯示實際使用的通道。"</string>
-    <string name="path_details_lan" formatted="false">"檔案使用目前區域網路連線傳輸。無法確認具體連線是否經過路由器或手機熱點。"</string>
+    <string name="path_details_lan" formatted="false">"這份檔案記錄的傳輸管道是區域網路。無法確認該管道是否經過路由器或手機熱點。"</string>
+    <string name="path_details_selecting" formatted="false">"檔案依序嘗試 Wi-Fi 直連、區域網路、藍牙；不會改變聊天連線模式。"</string>
     <string name="path_details_title" formatted="false">"傳輸路徑"</string>
-    <string name="path_details_wifi_direct" formatted="false">"檔案使用目前的 Android Wi-Fi 直連資料通道。此次連線的直連網路路徑已確認。加密狀態和身分驗證狀態會分別顯示。"</string>
+    <string name="path_details_wifi_direct" formatted="false">"這份檔案記錄的傳輸管道是 Android Wi-Fi 直連。加密狀態和身分驗證狀態會分別顯示。"</string>
     <string name="peer_ended" formatted="false">"對方結束了聊天。"</string>
     <string name="peer_status_transport" formatted="false">"{0} · {1}"</string>
     <string name="peer_summary" formatted="false">"{0}。{1}"</string>

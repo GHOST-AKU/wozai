@@ -12,11 +12,15 @@ import static dev.ghost.nearbyim.core.TransferDiagnostics.Stage.*;
 
 /** Authenticated NIM4 records over a TCP or RFCOMM byte stream. */
 public final class NoiseRecordChannel implements AutoCloseable {
+    public static final class AuthenticationException extends IOException {
+        public AuthenticationException(String message){super(message);}
+        public AuthenticationException(String message,Throwable cause){super(message,cause);}
+    }
     private static final String SUITE="Noise_XX_25519_AESGCM_SHA256";
     private static final byte[] PROLOGUE="wozai-nim4\0Noise_XX_25519_AESGCM_SHA256\0file-v2-32k\0".getBytes(StandardCharsets.US_ASCII);
     private static final byte[] ROOT_DOMAIN="wozai-root-proof-v4\0".getBytes(StandardCharsets.US_ASCII),GENERATION_DOMAIN="wozai-connection-v4\0".getBytes(StandardCharsets.US_ASCII);
     private static final int MAGIC=0x4e494d34,VERSION=4,HANDSHAKE=1,ROOT_PROOF=2,RECORD=3,MAX_PLAIN=48*1024;
-    private static final int BASE_CAPABILITIES=3,AVATAR_CAPABILITY=4;
+    private static final int BASE_CAPABILITIES=3,AVATAR_CAPABILITY=4,AUTOMATIC_FILE_CAPABILITY=8;
     private static final long MAX_FILE=10_737_418_240L;
     private final TransferDiagnostics metrics=new TransferDiagnostics();
     private final StreamConnection connection;
@@ -36,8 +40,11 @@ public final class NoiseRecordChannel implements AutoCloseable {
         this(connection,initiator,identity,localId,nickname,noisePrivate,expectedPeerId,expectedRoot,false);
     }
     public NoiseRecordChannel(StreamConnection connection,boolean initiator,DeviceIdentity identity,String localId,String nickname,byte[] noisePrivate,String expectedPeerId,String expectedRoot,boolean avatars)throws IOException {
+        this(connection,initiator,identity,localId,nickname,noisePrivate,expectedPeerId,expectedRoot,avatars,false);
+    }
+    public NoiseRecordChannel(StreamConnection connection,boolean initiator,DeviceIdentity identity,String localId,String nickname,byte[] noisePrivate,String expectedPeerId,String expectedRoot,boolean avatars,boolean automaticFiles)throws IOException {
         this.connection=Objects.requireNonNull(connection);this.initiator=initiator;this.identity=Objects.requireNonNull(identity);
-        localCapabilities=BASE_CAPABILITIES|(avatars?AVATAR_CAPABILITY:0);
+        localCapabilities=BASE_CAPABILITIES|(avatars?AVATAR_CAPABILITY:0)|(automaticFiles?AUTOMATIC_FILE_CAPABILITY:0);
         validateId(localId);if(expectedPeerId!=null)validateId(expectedPeerId);validateNickname(nickname);
         if(noisePrivate==null||noisePrivate.length!=32)throw new IOException("Invalid static key size");
         this.localId=localId;this.expectedPeerId=expectedPeerId;this.expectedRoot=expectedRoot;this.noisePrivate=noisePrivate.clone();
@@ -65,17 +72,17 @@ public final class NoiseRecordChannel implements AutoCloseable {
                     if(readHandshake(handshake).length!=0)throw new IOException("Unexpected initial payload");
                     sendHandshake(handshake,localClaim);remoteClaim=readHandshake(handshake);
                 }
-                Claim peer=parseClaim(remoteClaim);byte[] noisePublic=new byte[32];handshake.getRemotePublicKey().getPublicKey(noisePublic,0);
-                if(!Arrays.equals(peer.noisePublic,noisePublic))throw new IOException("Static key binding mismatch");
+                Claim peer;try{peer=parseClaim(remoteClaim);}catch(IOException invalid){throw new AuthenticationException("Invalid authenticated peer claim",invalid);}byte[] noisePublic=new byte[32];handshake.getRemotePublicKey().getPublicKey(noisePublic,0);
+                if(!Arrays.equals(peer.noisePublic,noisePublic))throw new AuthenticationException("Static key binding mismatch");
                 byte[] first=initiator?localClaim:remoteClaim,second=initiator?remoteClaim:localClaim,hash=handshake.getHandshakeHash().clone();
                 byte[] binding=binding(ROOT_DOMAIN,first,second,hash);pair=handshake.split();
                 if(initiator){sendProof(binding,0);verifyProof(peer,binding,1);}else{verifyProof(peer,binding,0);sendProof(binding,1);}
-                if(expectedPeerId!=null&&!expectedPeerId.equals(peer.id)||expectedRoot!=null&&!expectedRoot.equals(peer.root))throw new IOException("Pinned identity mismatch");
+                if(expectedPeerId!=null&&!expectedPeerId.equals(peer.id)||expectedRoot!=null&&!expectedRoot.equals(peer.root))throw new AuthenticationException("Pinned identity mismatch");
                 ensureOpen();remoteHello=new Frame(Frame.HELLO,peer.id,peer.nickname,System.currentTimeMillis());remoteRoot=peer.root;
                 generation=hex(MessageDigest.getInstance("SHA-256").digest(binding(GENERATION_DOMAIN,first,second,hash)));
                 remoteCapabilities=peer.capabilities;
                 verified=true;
-            }catch(GeneralSecurityException|RuntimeException e){close();throw new IOException("Noise authentication failed",e);}
+            }catch(GeneralSecurityException|RuntimeException e){close();throw new AuthenticationException("Noise authentication failed",e);}
             catch(IOException e){close();throw e;}
             finally{Arrays.fill(noisePrivate,(byte)0);if(handshake!=null)handshake.destroy();}
         }}
@@ -83,6 +90,7 @@ public final class NoiseRecordChannel implements AutoCloseable {
     public boolean verified(){return verified&&!closed.get();}
     /** Both claims, including these bits, are covered by the encrypted handshake and both P256 proofs. */
     public boolean avatarsSupported(){return verified()&&(localCapabilities&remoteCapabilities&AVATAR_CAPABILITY)!=0;}
+    public boolean automaticFilesSupported(){return verified()&&(localCapabilities&remoteCapabilities&AUTOMATIC_FILE_CAPABILITY)!=0;}
     public Frame remoteHello(){return verified()?remoteHello:null;}
     public String remotePublicKey(){return verified()?remoteRoot:null;}
     public String diagnostics(){return metrics.snapshot();}
@@ -93,7 +101,7 @@ public final class NoiseRecordChannel implements AutoCloseable {
     }
     public byte[] read()throws IOException {
         synchronized(readLock){if(!verified())throw new IOException("Unauthenticated read");
-            try{return readEncrypted(RECORD,MAX_PLAIN);}catch(GeneralSecurityException|RuntimeException e){close();throw new IOException("Encrypted record rejected",e);}catch(IOException e){close();throw e;}}
+            try{return readEncrypted(RECORD,MAX_PLAIN);}catch(GeneralSecurityException|RuntimeException e){close();throw new AuthenticationException("Encrypted record rejected",e);}catch(IOException e){close();throw e;}}
     }
     private void sendHandshake(HandshakeState handshake,byte[] payload)throws GeneralSecurityException,IOException {
         byte[] bytes=new byte[2048];int n=handshake.writeMessage(bytes,0,payload,0,payload.length);writeEnvelope(HANDSHAKE,Arrays.copyOf(bytes,n));
@@ -110,7 +118,7 @@ public final class NoiseRecordChannel implements AutoCloseable {
         if(n!=size)throw new IOException("Invalid encrypted size");began=metrics.begin(SOCKET_WRITE);try{output.write(record);output.flush();}finally{metrics.end(SOCKET_WRITE,began,record.length);}
     }
     private byte[] readEncrypted(int kind,int maximum)throws GeneralSecurityException,IOException {
-        byte[] ciphertext=readEnvelope(kind,maximum+16);if(ciphertext.length<16)throw new IOException("Truncated encrypted record");byte[] plaintext=new byte[ciphertext.length-16];
+        byte[] ciphertext=readEnvelope(kind,maximum+16);if(ciphertext.length<16)throw new AuthenticationException("Truncated encrypted record");byte[] plaintext=new byte[ciphertext.length-16];
         long began=metrics.begin(DECRYPT);int n;try{n=pair.getReceiver().decryptWithAd(aad(kind,ciphertext.length),ciphertext,0,plaintext,0,ciphertext.length);}finally{metrics.end(DECRYPT,began,ciphertext.length);}
         if(n!=plaintext.length)throw new IOException("Invalid clear size");return plaintext;
     }
@@ -121,10 +129,10 @@ public final class NoiseRecordChannel implements AutoCloseable {
         // DataInputStream.readInt/readUnsignedByte issue scalar reads on an unbuffered socket.
         // Read the length separately so an invalid length is rejected before waiting for the rest.
         byte[] header=new byte[10];long began=metrics.begin(SOCKET_HEADER);int size;try{in.readFully(header,0,4);size=ByteBuffer.wrap(header).getInt();
-            if(size<6||size>maximum+6)throw new IOException("Invalid NIM4 envelope length");
+            if(size<6||size>maximum+6){if(kind!=HANDSHAKE)throw new AuthenticationException("Invalid encrypted envelope length");throw new IOException("Invalid NIM4 envelope length");}
             in.readFully(header,4,6);
         }finally{metrics.end(SOCKET_HEADER,began,10);}
-        if(ByteBuffer.wrap(header,4,4).getInt()!=MAGIC||(header[8]&255)!=VERSION||(header[9]&255)!=kind)throw new UnsupportedProtocolException();
+        if(ByteBuffer.wrap(header,4,4).getInt()!=MAGIC||(header[8]&255)!=VERSION||(header[9]&255)!=kind){if(kind!=HANDSHAKE)throw new AuthenticationException("Invalid encrypted envelope binding");throw new UnsupportedProtocolException();}
         byte[] bytes=new byte[size-6];began=metrics.begin(SOCKET_READ);try{in.readFully(bytes);}finally{metrics.end(SOCKET_READ,began,bytes.length);}return bytes;
     }
     private Claim parseClaim(byte[] bytes)throws IOException {
@@ -132,7 +140,7 @@ public final class NoiseRecordChannel implements AutoCloseable {
         String id=text(in,36),nickname=text(in,128);validateId(id);validateNickname(nickname);if(localId.equals(id))throw new IOException("Reflected identity");
         byte[] key=readBytes(in,256),noisePublic=new byte[32];in.readFully(noisePublic);String root=Base64.getEncoder().encodeToString(key);
         int capabilities=in.readInt();
-        if((capabilities!=BASE_CAPABILITIES&&capabilities!=(BASE_CAPABILITIES|AVATAR_CAPABILITY))||in.readLong()!=MAX_FILE||in.readInt()!=MAX_PLAIN||in.available()!=0)throw new IOException("Unsupported peer capabilities");
+        if(((capabilities&BASE_CAPABILITIES)!=BASE_CAPABILITIES||(capabilities&~(BASE_CAPABILITIES|AVATAR_CAPABILITY|AUTOMATIC_FILE_CAPABILITY))!=0)||in.readLong()!=MAX_FILE||in.readInt()!=MAX_PLAIN||in.available()!=0)throw new IOException("Unsupported peer capabilities");
         return new Claim(id,nickname,root,key,noisePublic,capabilities);
     }
     private static final class Claim {final String id,nickname,root;final byte[] key,noisePublic;final int capabilities;Claim(String id,String nickname,String root,byte[] key,byte[] noisePublic,int capabilities){this.id=id;this.nickname=nickname;this.root=root;this.key=key;this.noisePublic=noisePublic;this.capabilities=capabilities;}}

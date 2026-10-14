@@ -9,7 +9,9 @@ java -m jdk.compiler/com.sun.tools.javac.Main -encoding UTF-8 -d build/wifi-dire
     app/src/main/java/dev/ghost/nearbyim/transport/WifiDirectSockets.java \
     tests/transport/WifiDirectPeerTests.java \
     tests/transport/WifiDirectPolicyTests.java \
-    tests/transport/WifiDirectSocketTests.java
+    tests/transport/WifiDirectSocketTests.java \
+    tests/transport/AutomaticDirectTargetTests.java
 java -cp build/wifi-direct-tests dev.ghost.nearbyim.transport.WifiDirectPeerTests
 java -cp build/wifi-direct-tests dev.ghost.nearbyim.transport.WifiDirectPolicyTests
 java -cp build/wifi-direct-tests dev.ghost.nearbyim.transport.WifiDirectSocketTests
+java -cp build/wifi-direct-tests dev.ghost.nearbyim.transport.AutomaticDirectTargetTests

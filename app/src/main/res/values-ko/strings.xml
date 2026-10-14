@@ -57,6 +57,7 @@
     <string name="attachment_path_pending_bluetooth" formatted="false">"전송 대기 · 블루투스"</string>
     <string name="attachment_path_pending_lan" formatted="false">"전송 대기 · LAN(경로 미확인)"</string>
     <string name="attachment_path_pending_wifi_direct" formatted="false">"전송 대기 중 · Wi-Fi Direct"</string>
+    <string name="attachment_path_selecting" formatted="false">"전송 경로 선택 중…"</string>
     <string name="attachment_path_unknown" formatted="false">"전송 경로: 현재 확인할 수 없음"</string>
     <string name="attachment_path_wifi_direct" formatted="false">"전송 경로: Wi-Fi Direct"</string>
     <string name="attachment_pause" formatted="false">"전송 일시 중지"</string>
@@ -381,11 +382,12 @@
     <string name="outgoing_message_meta" formatted="false">"{0} · {1}"</string>
     <string name="paired" formatted="false">"페어링됨"</string>
     <string name="paired_address" formatted="false">"페어링됨 · {0}"</string>
-    <string name="path_details_bluetooth" formatted="false">"블루투스로 파일을 전송합니다. 큰 파일은 시간이 더 걸릴 수 있습니다."</string>
+    <string name="path_details_bluetooth" formatted="false">"이 파일에 기록된 전송 경로는 Bluetooth입니다. 큰 파일은 전송에 시간이 더 걸릴 수 있습니다."</string>
     <string name="path_details_disconnected" formatted="false">"전송 연결이 없습니다. 연결 후 실제 경로가 표시됩니다."</string>
-    <string name="path_details_lan" formatted="false">"현재 LAN 연결로 파일을 전송합니다. 라우터나 휴대전화 핫스팟을 통하는지는 확인할 수 없습니다."</string>
+    <string name="path_details_lan" formatted="false">"이 파일에 기록된 전송 경로는 LAN입니다. 라우터나 휴대전화 핫스팟을 거쳤는지는 확인할 수 없습니다."</string>
+    <string name="path_details_selecting" formatted="false">"파일은 Wi-Fi Direct, LAN, Bluetooth 순서로 시도합니다. 채팅 연결 모드는 바뀌지 않습니다."</string>
     <string name="path_details_title" formatted="false">"전송 경로"</string>
-    <string name="path_details_wifi_direct" formatted="false">"파일은 현재 Android Wi-Fi Direct 데이터 연결을 사용합니다. 이 연결의 직접 통신 경로가 확인되었습니다. 암호화와 신원 확인 상태는 별도로 표시됩니다."</string>
+    <string name="path_details_wifi_direct" formatted="false">"이 파일에 기록된 전송 경로는 Android Wi-Fi Direct입니다. 암호화와 신원 확인 상태는 별도로 표시됩니다."</string>
     <string name="peer_ended" formatted="false">"상대가 채팅을 종료했습니다."</string>
     <string name="peer_status_transport" formatted="false">"{0} · {1}"</string>
     <string name="peer_summary" formatted="false">"{0}. {1}"</string>

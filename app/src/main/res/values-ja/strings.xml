@@ -57,6 +57,7 @@
     <string name="attachment_path_pending_bluetooth" formatted="false">"転送待機中 · Bluetooth"</string>
     <string name="attachment_path_pending_lan" formatted="false">"転送待機中 · LAN（経路未確認）"</string>
     <string name="attachment_path_pending_wifi_direct" formatted="false">"転送待ち · Wi-Fi Direct"</string>
+    <string name="attachment_path_selecting" formatted="false">"転送経路を選択中…"</string>
     <string name="attachment_path_unknown" formatted="false">"転送経路：現在不明"</string>
     <string name="attachment_path_wifi_direct" formatted="false">"転送経路：Wi-Fi Direct"</string>
     <string name="attachment_pause" formatted="false">"転送を一時停止"</string>
@@ -381,11 +382,12 @@
     <string name="outgoing_message_meta" formatted="false">"{0} · {1}"</string>
     <string name="paired" formatted="false">"ペアリング済み"</string>
     <string name="paired_address" formatted="false">"ペアリング済み · {0}"</string>
-    <string name="path_details_bluetooth" formatted="false">"Bluetoothでファイルを転送します。大きなファイルは時間がかかる場合があります。"</string>
+    <string name="path_details_bluetooth" formatted="false">"このファイルに記録された転送経路は Bluetooth です。大きなファイルは転送に時間がかかる場合があります。"</string>
     <string name="path_details_disconnected" formatted="false">"転送用の接続はありません。接続後に実際の経路が表示されます。"</string>
-    <string name="path_details_lan" formatted="false">"現在のLAN接続でファイルを転送します。ルーターまたはスマートフォンのホットスポットを経由するかは確認できません。"</string>
+    <string name="path_details_lan" formatted="false">"このファイルに記録された転送経路は LAN です。ルーターやスマートフォンのホットスポットを経由したかは確認できません。"</string>
+    <string name="path_details_selecting" formatted="false">"ファイルは Wi-Fi Direct、LAN、Bluetooth の順に試します。チャットの接続モードは変更されません。"</string>
     <string name="path_details_title" formatted="false">"転送経路"</string>
-    <string name="path_details_wifi_direct" formatted="false">"ファイルは現在の Android Wi-Fi Direct データ接続を使用します。この接続の直接通信経路は確認済みです。暗号化と本人確認の状態は別に表示されます。"</string>
+    <string name="path_details_wifi_direct" formatted="false">"このファイルに記録された転送経路は Android Wi-Fi Direct です。暗号化と本人確認の状態は別に表示されます。"</string>
     <string name="peer_ended" formatted="false">"相手がチャットを終了しました。"</string>
     <string name="peer_status_transport" formatted="false">"{0} · {1}"</string>
     <string name="peer_summary" formatted="false">"{0}。{1}"</string>

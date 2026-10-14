@@ -465,8 +465,8 @@
   "attachmentPathDisconnected": "Transfer path: disconnected",
   "attachmentPathUnknown": "Transfer path: currently unknown",
   "pathDetailsTitle": "Transfer path",
-  "pathDetailsLan": "The file uses the current LAN connection. The connection through a router or phone hotspot cannot be confirmed.",
-  "pathDetailsBluetooth": "The file uses Bluetooth. Larger files may take longer to transfer.",
+  "pathDetailsLan": "The recorded file route is LAN. Whether this route went through a router or phone hotspot cannot be confirmed.",
+  "pathDetailsBluetooth": "The recorded file route is Bluetooth. Larger files may take longer to transfer.",
   "pathDetailsDisconnected": "No transfer channel is connected. The actual channel will appear after connecting.",
   "attachmentLocationTitle": "Saved file location",
   "attachmentLocationDocument": "Saved in system files",
@@ -485,7 +485,7 @@
   "wifiDirectFallbackBluetooth": "Wi-Fi Direct unavailable; fallback path: Bluetooth. Reason: {0}",
   "attachmentPathWifiDirect": "Transfer path: Wi-Fi Direct",
   "attachmentPathPendingWifiDirect": "Waiting to transfer · Wi-Fi Direct",
-  "pathDetailsWifiDirect": "The file uses the current Android Wi-Fi Direct data channel. The direct network route was confirmed for this connection. Encryption and identity verification are shown separately.",
+  "pathDetailsWifiDirect": "The recorded file route is Android Wi-Fi Direct. Encryption and identity verification are shown separately.",
   "androidWifiDirectHint": "Connect Android phones and tablets over Wi-Fi Direct without a router. Both devices must choose Wi-Fi Direct, enable reception, and search. For Windows or Linux, choose LAN on both devices and join the same Wi-Fi or hotspot. After cancellation or disconnection, both peers should tap Connect to retry.",
   "directNoDevicesBody": "On both Android devices, choose Wi-Fi Direct, enable reception, and search. Accept the system connection prompt. For Windows or Linux, switch both devices to LAN and join the same Wi-Fi or hotspot. After cancellation or disconnection, both peers should tap Connect to retry.",
   "directWifiSettings": "Wi-Fi settings",
@@ -513,5 +513,7 @@
   "directInvalidPeer": "This nearby device cannot be used for Wi-Fi Direct. Search again.",
   "directServiceFailed": "Wi-Fi Direct reception could not be advertised. Check Wi-Fi and permissions, then retry.",
   "directCleanupFailed": "The Wi-Fi Direct system operation has not been confirmed complete. New Direct attempts are paused. Check Wi-Fi settings, then restart the app and retry.",
-  "directPeerHint": "Verify the safety code after connecting. After cancellation or disconnection, both peers should tap Connect to retry."
+  "directPeerHint": "Verify the safety code after connecting. After cancellation or disconnection, both peers should tap Connect to retry.",
+  "attachmentPathSelecting": "Choosing transfer route…",
+  "pathDetailsSelecting": "Files try Wi-Fi Direct, LAN, then Bluetooth. This does not change the chat connection mode."
 }

@@ -431,10 +431,10 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         List<TransferProgress> progress=messages.stream().map(message->message.attachment()==null?TransferProgress.UNKNOWN:client.transferProgress(peer,message.attachment())).toList();
         List<AttachmentBatchQueue.RetryState> retryStates=messages.stream().map(message->retryState(peer,message)).toList();
         List<Boolean> retryBatches=messages.stream().map(message->client.hasRetryableBatch(peer,message.id())).toList();
-        List<TransferPath> paths=messages.stream().map(message->TransferPath.forAttachment(state==null?"":state.transport(),state!=null&&state.phase().equals("ready")&&state.peer()!=null&&peer.equals(state.peer().id())&&client.endToEndEncrypted(peer),message.attachment())).toList();
+        List<TransferPath> paths=messages.stream().map(message->client.attachmentTransferPath(peer,message.attachment())).toList();
         if(messages.equals(renderedMessages)&&progress.equals(renderedProgress)&&retryStates.equals(renderedRetryStates)&&retryBatches.equals(renderedRetryBatches)&&paths.equals(renderedPaths))return;
         renderedMessages=messages; renderedProgress=progress;renderedRetryStates=retryStates;renderedRetryBatches=retryBatches;renderedPaths=paths;
-        transcript.path(message->dev.ghost.nearbyim.core.TransferPath.forAttachment(state==null?"":state.transport(),state!=null&&state.phase().equals("ready")&&state.peer()!=null&&peer.equals(state.peer().id())&&client.endToEndEncrypted(peer),message.attachment()));
+        transcript.path(message->client.attachmentTransferPath(peer,message.attachment()));
         transcript.actions((message,action)->attachmentAction(peer,message,action));transcript.progress(message->message.attachment()==null?TransferProgress.UNKNOWN:client.transferProgress(peer,message.attachment()));transcript.retryState(message->retryState(peer,message));transcript.retryableBatch(message->client.hasRetryableBatch(peer,message.id()));transcript.scale(fontScale);transcript.render(messages,strings);
     }
     private void chooseAttachment(boolean photo){

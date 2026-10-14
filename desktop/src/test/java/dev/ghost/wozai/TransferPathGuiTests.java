@@ -30,7 +30,10 @@ public final class TransferPathGuiTests {
                 path.set(TransferPath.DISCONNECTED);pane.render(List.of(text,paused),strings);check(pathLabel(pane).getText().equals(strings.text("attachmentPathDisconnected")),"Paused disconnect retains a stale active channel");
                 path.set(TransferPath.LAN_UNCONFIRMED);pane.render(List.of(text,paused),strings);check(pathLabel(pane).getText().equals(strings.text("attachmentPathLanUnconfirmed")),"Paused history ignores a reconnected current channel");
                 check(pathLabel(pane).getAccessibleContext().getAccessibleName().contains(strings.text("attachmentPathLanUnconfirmed")),"Transfer path lacks a reader label");
-                System.out.println("TransferPathGuiTests: 6 native checks passed (live path change, pause/disconnect/reconnect, unrelated-row reuse, accessibility)");
+                var terminal=new DesktopStore.Message(info.id,info.name,2,true,"delivered",2,new AttachmentRecord(info,true,"delivered",info.size).withRoute("wifi-direct"));
+                path.set(TransferPath.WIFI_DIRECT);pane.render(List.of(text,terminal),strings);
+                check(pathLabel(pane).isVisible()&&pathLabel(pane).getText().equals(strings.text("attachmentPathWifiDirect")),"Completed file hides its actual route");
+                System.out.println("TransferPathGuiTests: 7 Swing checks passed (path changes, terminal route, unrelated-row reuse, accessibility)");
             }catch(Exception e){throw new AssertionError(e);}
         });
     }

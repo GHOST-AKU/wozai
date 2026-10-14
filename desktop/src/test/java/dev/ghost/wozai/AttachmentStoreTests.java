@@ -46,6 +46,8 @@ public final class AttachmentStoreTests {
     }
     static String offerPaused(DesktopClient client,PauseSource source)throws Exception {
         Field current=DesktopClient.class.getDeclaredField("current");current.setAccessible(true);Object session=current.get(client);
+        Field routes=session.getClass().getDeclaredField("files");routes.setAccessible(true);
+        ((AutomaticFileRoutes)routes.get(session)).ensureReady().get(10,TimeUnit.SECONDS);
         Field files=session.getClass().getDeclaredField("transfers");files.setAccessible(true);
         return ((ClientAttachmentTransfers)files.get(session)).offer(source,"resume.bin","application/octet-stream").get(10,TimeUnit.SECONDS);
     }
@@ -125,7 +127,48 @@ public final class AttachmentStoreTests {
         timeoutEvidence=()->{};
         try(DesktopStore restarted=new DesktopStore(a)){if(!Files.exists(restarted.attachmentFile(bi.id(),sentPhoto,true)))throw new AssertionError("Restart removed delivered photo");restarted.clear(bi.id());if(Files.exists(retainedPhoto))throw new AssertionError("Clear retained sent photo bytes");}
     }
+    private static void routeHistory()throws Exception {
+        Path root=Files.createTempDirectory("route-history-");
+        try {
+            AttachmentInfo info=AttachmentInfo.v2(ID,"route.bin","application/octet-stream",8,"0".repeat(64),1);
+            try(DesktopStore store=new DesktopStore(root)) {
+                store.peer(new DesktopStore.Peer(PEER,"peer","",""));
+                store.attachment(PEER,new AttachmentRecord(info,true,"transferring",4).withRoute("wifi-direct"));
+                store.attachment(PEER,new AttachmentRecord(info,true,"paused",4));
+                if(!record(store,PEER,ID).route.equals("wifi-direct"))throw new AssertionError("Blank paused callback erased actual route");
+                store.attachment(PEER,new AttachmentRecord(info,true,"delivered",8));
+                store.attachment(PEER,new AttachmentRecord(info,true,"delivered",8));
+                if(!record(store,PEER,ID).route.equals("wifi-direct"))throw new AssertionError("Completed history lost actual route");
+                terminalRouteReplay(store);
+                AttachmentInfo conflict=AttachmentInfo.v2(ID,"other.bin","application/octet-stream",8,"0".repeat(64),1);
+                try{store.attachment(PEER,new AttachmentRecord(conflict,true,"delivered",8));throw new AssertionError("Route retention allowed metadata conflict");}catch(java.io.IOException expected){}
+            }
+            try(DesktopStore store=new DesktopStore(root)){if(!record(store,PEER,ID).route.equals("wifi-direct"))throw new AssertionError("Route lost after store reopen");}
+        }finally{try(var files=Files.walk(root)){for(Path path:files.sorted(Comparator.reverseOrder()).toList())Files.deleteIfExists(path);}}
+    }
+    private static void terminalRouteReplay(DesktopStore store)throws Exception {
+        AttachmentInfo saved=AttachmentInfo.v2(UUID.randomUUID().toString(),"received.bin","application/octet-stream",8,"0".repeat(64),1);
+        store.attachment(PEER,new AttachmentRecord(saved,false,"received",8).withRoute("lan"));
+        try{store.attachment(PEER,new AttachmentRecord(saved,false,"received",8).withRoute("bluetooth"));}
+        catch(java.io.IOException conflict){throw new AssertionError("Identical terminal receipt replay rejects a changed control route",conflict);}
+        if(!record(store,PEER,saved.id).route.equals("lan"))throw new AssertionError("Receipt replay overwrote the original file route");
+        for(AttachmentInfo changed:new AttachmentInfo[]{
+                AttachmentInfo.v2(saved.id,"renamed.bin",saved.mime,8,saved.hash,1),
+                AttachmentInfo.v2(saved.id,saved.name,saved.mime,8,"1".repeat(64),1),
+                AttachmentInfo.v2(saved.id,saved.name,saved.mime,9,saved.hash,1),
+                AttachmentInfo.v2(saved.id,saved.name,saved.mime,8,saved.hash,2)}) {
+            try{store.attachment(PEER,new AttachmentRecord(changed,false,"received",changed.size).withRoute("bluetooth"));throw new AssertionError("Terminal route replay allowed conflicting metadata");}catch(java.io.IOException expected){}
+        }
+        try{store.attachment(PEER,new AttachmentRecord(saved,false,"delivered",8).withRoute("bluetooth"));throw new AssertionError("Terminal route replay allowed a changed final state");}catch(java.io.IOException expected){}
+        AttachmentInfo legacy=new AttachmentInfo(UUID.randomUUID().toString(),"legacy.bin","application/octet-stream",8,"0".repeat(64),1);
+        java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream();Protocol.write(bytes,legacy.offer());java.io.DataOutputStream out=new java.io.DataOutputStream(bytes);out.writeBoolean(false);out.writeUTF("received");out.writeLong(8);
+        AttachmentRecord unknown=AttachmentRecord.decode(Base64.getEncoder().encodeToString(bytes.toByteArray()));
+        store.attachment(PEER,unknown);store.attachment(PEER,unknown.withRoute("bluetooth"));
+        if(!record(store,PEER,legacy.id).route.isEmpty())throw new AssertionError("Receipt replay invented a route for legacy terminal history");
+        try{store.attachment(PEER,new AttachmentRecord(legacy,false,"received",7).withRoute("bluetooth"));throw new AssertionError("Terminal route replay allowed a changed saved length");}catch(java.io.IOException expected){}
+    }
     public static void main(String[] args)throws Exception {
+        routeHistory();if(args.length>0&&args[0].equals("--routes-only")){System.out.println("AttachmentStoreTests: durable routes preserved across blank callbacks, terminal history, reopen and conflict rejection");return;}
         Path root=Files.createTempDirectory("attachment-store-");
         AttachmentInfo info=new AttachmentInfo(ID,"photo.jpg","image/jpeg",10,"0".repeat(64),1);
         try(DesktopStore store=new DesktopStore(root)) {

@@ -465,8 +465,8 @@
   "attachmentPathDisconnected": "傳輸路徑：未連線",
   "attachmentPathUnknown": "傳輸路徑：暫時無法確認",
   "pathDetailsTitle": "傳輸路徑",
-  "pathDetailsLan": "檔案使用目前區域網路連線傳輸。無法確認具體連線是否經過路由器或手機熱點。",
-  "pathDetailsBluetooth": "檔案透過藍牙傳輸。較大的檔案可能需要更長時間。",
+  "pathDetailsLan": "這份檔案記錄的傳輸管道是區域網路。無法確認該管道是否經過路由器或手機熱點。",
+  "pathDetailsBluetooth": "這份檔案記錄的傳輸管道是藍牙。較大的檔案可能需要更長的傳輸時間。",
   "pathDetailsDisconnected": "目前沒有已建立的傳輸通道。連線後會顯示實際使用的通道。",
   "attachmentLocationTitle": "檔案儲存位置",
   "attachmentLocationDocument": "已另存到系統檔案",
@@ -485,7 +485,7 @@
   "wifiDirectFallbackBluetooth": "Wi-Fi 直連無法使用；備用路徑：藍牙。原因：{0}",
   "attachmentPathWifiDirect": "傳輸路徑：Wi-Fi 直連",
   "attachmentPathPendingWifiDirect": "等待傳輸 · Wi-Fi 直連",
-  "pathDetailsWifiDirect": "檔案使用目前的 Android Wi-Fi 直連資料通道。此次連線的直連網路路徑已確認。加密狀態和身分驗證狀態會分別顯示。",
+  "pathDetailsWifiDirect": "這份檔案記錄的傳輸管道是 Android Wi-Fi 直連。加密狀態和身分驗證狀態會分別顯示。",
   "androidWifiDirectHint": "Android 手機和平板可透過 Wi-Fi 直連連線，無需路由器。雙方都需選擇 Wi-Fi 直連、啟用接收並搜尋。連線至 Windows 或 Linux 時，請雙方選擇區域網路，並加入同一 Wi-Fi 或熱點。 取消或中斷後，請雙方都點選連線以重試。",
   "directNoDevicesBody": "請在兩台 Android 裝置上選擇 Wi-Fi 直連、啟用接收並搜尋，並接受系統連線提示。連線至 Windows 或 Linux 時，請雙方切換至區域網路，並加入同一 Wi-Fi 或熱點。 取消或中斷後，請雙方都點選連線以重試。",
   "directWifiSettings": "Wi-Fi 設定",
@@ -513,5 +513,7 @@
   "directInvalidPeer": "此附近裝置無法用於 Wi-Fi 直連。請重新搜尋。",
   "directServiceFailed": "無法發布 Wi-Fi 直連接收服務。請檢查 Wi-Fi 和權限後重試。",
   "directCleanupFailed": "Wi-Fi 直連的系統操作尚未確認完成，新的直連嘗試已暫停。請檢查 Wi-Fi 設定，然後重新啟動應用程式再試。",
-  "directPeerHint": "連線後請核對安全碼。 取消或中斷後，請雙方都點選連線以重試。"
+  "directPeerHint": "連線後請核對安全碼。 取消或中斷後，請雙方都點選連線以重試。",
+  "attachmentPathSelecting": "選擇傳輸管道…",
+  "pathDetailsSelecting": "檔案依序嘗試 Wi-Fi 直連、區域網路、藍牙；不會改變聊天連線模式。"
 }

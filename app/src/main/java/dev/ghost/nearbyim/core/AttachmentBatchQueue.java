@@ -206,8 +206,10 @@ public final class AttachmentBatchQueue implements AutoCloseable {
             if(next.terminal()){listener.finished(record);cancelRequests.remove(record.info.id);resumeRequests.remove(record.info.id);if(record.info.id.equals(active))active=null;pump();}
         }catch(IOException failure){paused=true;}
     });}
-    public CompletableFuture<Void> pauseAll(){paused=true;AttachmentSource source=preparing;if(source!=null)try{source.close();}catch(IOException ignored){}
-        return command(()->{resumeRequests.clear();for(Item item:List.copyOf(items))if(!item.terminal()&&!item.info().id.equals(active)&&!item.state().equals("paused"))state(new Item(item.batchId(),item.info(),item.selection(),"paused",item.transferred(),item.origin(),item.retryOf()));persist();return active;}).thenCompose(id->id==null?CompletableFuture.completedFuture(null):engine.pause(id,true));
+    public CompletableFuture<Void> pauseAll(){return pauseAll(true);}
+    public CompletableFuture<Void> pauseOnDisconnect(){return pauseAll(false);}
+    private CompletableFuture<Void> pauseAll(boolean notifyPeer){paused=true;AttachmentSource source=preparing;if(source!=null)try{source.close();}catch(IOException ignored){}
+        return command(()->{resumeRequests.clear();for(Item item:List.copyOf(items))if(!item.terminal()&&!item.info().id.equals(active)&&!item.state().equals("paused"))state(new Item(item.batchId(),item.info(),item.selection(),"paused",item.transferred(),item.origin(),item.retryOf()));persist();return active;}).thenCompose(id->id==null?CompletableFuture.completedFuture(null):notifyPeer?engine.pause(id,true):engine.pauseOnDisconnect(id,true)).thenCompose(ignored->command(()->null));
     }
     public CompletableFuture<Void> resumeAll(){return command(()->{boolean wasPaused=paused;paused=false;for(Item item:items)if(!item.terminal()&&resumableState(item.state()))resumeRequests.add(item.info().id);if(wasPaused||active!=null&&resumeRequests.contains(active))active=null;persist();later(this::pump);return null;});}
     public CompletableFuture<Void> cancel(String id){if(snapshot.stream().anyMatch(item->item.info().id.equals(id)&&!item.terminal()))cancelRequests.add(id);if(id.equals(active)){AttachmentSource source=preparing;if(source!=null)try{source.close();}catch(IOException ignored){}}return command(()->{

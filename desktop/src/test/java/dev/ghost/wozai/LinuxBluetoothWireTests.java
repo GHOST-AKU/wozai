@@ -2,6 +2,9 @@ package dev.ghost.wozai;
 
 import dev.ghost.nearbyim.i18n.UiText;
 import dev.ghost.nearbyim.core.AttachmentRecord;
+import dev.ghost.nearbyim.core.AutomaticFileRoutes;
+import java.net.ServerSocket;
+import java.lang.reflect.Field;
 import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.*;
@@ -25,6 +28,16 @@ public final class LinuxBluetoothWireTests {
         public void notice(UiText text) { }
         boolean ready() { return state.get() != null && state.get().phase().equals("ready"); }
         boolean idle() { return state.get() != null && state.get().phase().equals("idle"); }
+    }
+    private static Object field(Object owner,String name)throws ReflectiveOperationException{
+        Field field=owner.getClass().getDeclaredField(name);field.setAccessible(true);return field.get(owner);
+    }
+    private static void disableFileLan(DesktopClient client)throws Exception{
+        Object session=field(client,"current");AutomaticFileRoutes routes=(AutomaticFileRoutes)field(session,"files");
+        await(()->{try{return (boolean)field(routes,"endpointsPrepared");}catch(ReflectiveOperationException unavailable){throw new AssertionError(unavailable);}},"FILE LAN preparation callback did not finish");
+        DesktopFileRoutes platform=(DesktopFileRoutes)field(routes,"platform");
+        ((ServerSocket)field(platform,"server")).close();
+        check(platform.currentLanEndpoints().isEmpty(),"Fixture retained ordinary LAN FILE endpoints after owned listener close");
     }
     public static void main(String[] args) throws Exception {
         Path root = Files.createTempDirectory("nearbyim-bluez-wire-");
@@ -53,10 +66,14 @@ public final class LinuxBluetoothWireTests {
                 receiver.stopBluetoothListening().get(3, TimeUnit.SECONDS);
                 check(receiver.send("停止接收后继续聊天").get(3, TimeUnit.SECONDS), "Stop reception broke active connection");
                 await(() -> { try { return sendStore.messages(receiverId.id()).size() == 2; } catch (Exception e) { return false; } }, "Stopped receiver's established stream was closed");
+                // Preserve JNI FILE coverage while production routing continues to prefer available LAN.
+                disableFileLan(receiver);disableFileLan(sender);
                 byte[] attachmentBytes=new byte[32768*5+13];new Random(123).nextBytes(attachmentBytes);Path source=root.resolve("native-file.bin");Files.write(source,attachmentBytes);
                 String attachmentId=sender.sendAttachment(receiverId.id(),source).get(5,TimeUnit.SECONDS);
                 await(()->{try{return sendStore.messages(receiverId.id()).stream().anyMatch(m->m.id().equals(attachmentId)&&m.attachment()!=null&&m.attachment().state.equals("delivered"));}catch(Exception e){return false;}},"Native attachment save receipt lost");
                 AttachmentRecord offer=receiveStore.messages(senderId.id()).stream().filter(m->m.id().equals(attachmentId)).findFirst().get().attachment();
+                check(offer.route.equals("bluetooth"),"Native Bluetooth attachment fixture actually used "+offer.route);
+                check(incoming.state.get().transport().equals("bluetooth")&&outgoing.state.get().transport().equals("bluetooth")&&receiver.endToEndEncrypted(senderId.id())&&sender.endToEndEncrypted(receiverId.id()),"FILE routing changed encrypted native Bluetooth CHAT");
                 check(Arrays.equals(attachmentBytes,Files.readAllBytes(receiveStore.attachmentFile(senderId.id(),offer.info))),"JNI binary chunks changed bytes");
                 sender.disconnect().get(3, TimeUnit.SECONDS);
                 await(() -> incoming.idle() && outgoing.idle(), "Disconnect retained active session");

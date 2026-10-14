@@ -11,6 +11,8 @@ public final class FramedSession {
     public interface Listener {
         default void onAttachment(Frame frame) { throw new IllegalStateException("Attachments unavailable"); }
         default void onTransfer(TransferPacket packet) { throw new IllegalStateException("Encrypted attachments unavailable"); }
+        default void onFileRoute(FileRoutePacket packet) { throw new IllegalStateException("Automatic file routes unavailable"); }
+        default void onFailure(IOException error) {}
         default void onAvatar(AvatarPacket packet) { throw new IllegalStateException("Avatars unavailable"); }
         void onHello(Frame hello); void onReady(); void onText(Frame frame); void onAck(String id); void onClosed(UiText reason);
     }
@@ -23,6 +25,7 @@ public final class FramedSession {
     private final FairRecordWriter writer=new FairRecordWriter(error->close(UiText.of("sendInterrupted")));
     private final ScheduledExecutorService timer = Executors.newSingleThreadScheduledExecutor(r -> daemon(r, "nearby-timeout"));
     private volatile boolean greeted, approved, remoteReady;
+    private boolean fileLane;
     private volatile OutputStream output;
     private volatile long lastReadNanos = System.nanoTime();
     private final Map<String, Integer> receiving = new HashMap<>();
@@ -37,17 +40,22 @@ public final class FramedSession {
         try { channel = new AuthenticatedChannel(identity, new Frame(Frame.HELLO, localId, nickname, System.currentTimeMillis())); }
         catch (IOException error) { throw new IllegalArgumentException("Invalid local identity", error); }
     }
-    private FramedSession(StreamConnection connection,String localId,String nickname,DeviceIdentity identity,byte[] staticKey,boolean initiator,Listener listener,boolean avatars)throws IOException {
+    private FramedSession(StreamConnection connection,String localId,String nickname,DeviceIdentity identity,byte[] staticKey,boolean initiator,Listener listener,boolean avatars,boolean automaticFiles)throws IOException {
         this.connection=Objects.requireNonNull(connection);this.listener=Objects.requireNonNull(listener);channel=null;
-        noise=new NoiseRecordChannel(connection,initiator,identity,localId==null?null:localId.toLowerCase(Locale.ROOT),nickname,staticKey,null,null,avatars);
+        noise=new NoiseRecordChannel(connection,initiator,identity,localId==null?null:localId.toLowerCase(Locale.ROOT),nickname,staticKey,null,null,avatars,automaticFiles);
     }
     /** Explicit NIM4 selection; this constructor never falls back to NIM3. */
     public static FramedSession secure(StreamConnection connection,String localId,String nickname,DeviceIdentity identity,byte[] staticKey,boolean initiator,Listener listener)throws IOException {
         return secure(connection,localId,nickname,identity,staticKey,initiator,listener,false);
     }
     public static FramedSession secure(StreamConnection connection,String localId,String nickname,DeviceIdentity identity,byte[] staticKey,boolean initiator,Listener listener,boolean avatars)throws IOException {
-        return new FramedSession(connection,localId,nickname,identity,staticKey,initiator,listener,avatars);
+        return secure(connection,localId,nickname,identity,staticKey,initiator,listener,avatars,false);
     }
+    public static FramedSession secure(StreamConnection connection,String localId,String nickname,DeviceIdentity identity,byte[] staticKey,boolean initiator,Listener listener,boolean avatars,boolean automaticFiles)throws IOException {
+        return new FramedSession(connection,localId,nickname,identity,staticKey,initiator,listener,avatars,automaticFiles);
+    }
+    /** Dedicated FILE streams accept no chat text, receipts, or avatar profile traffic. */
+    void restrictToFileLane(){if(started.get())throw new IllegalStateException("FILE lane already started");fileLane=true;}
     private static Thread daemon(Runnable runnable, String name) { Thread t = new Thread(runnable, name); t.setDaemon(true); return t; }
     public void start() {
         if (!started.compareAndSet(false, true) || closed.get()) return;
@@ -70,8 +78,9 @@ public final class FramedSession {
                 if(noise==null)frame=channel.read(input);
                 else {
                     ProtocolV4.Record record=ProtocolV4.decodeRecord(noise.read());lastReadNanos=System.nanoTime();
-                    if(record.transfer!=null){if(!isReady())throw new IOException("File before approval");listener.onTransfer(record.transfer);continue;}
-                    if(record.avatar!=null){if(!avatarsSupported())throw new IOException("Avatar before negotiated approval");
+                    if(record.fileRoute!=null){if(!automaticFilesSupported())throw new IOException("File routing before negotiated approval");listener.onFileRoute(record.fileRoute);continue;}
+                    if(record.transfer!=null){if(!isReady())throw new NoiseRecordChannel.AuthenticationException("File before approval");listener.onTransfer(record.transfer);continue;}
+                    if(record.avatar!=null){if(fileLane)throw new NoiseRecordChannel.AuthenticationException("Avatar on FILE lane");if(!avatarsSupported())throw new IOException("Avatar before negotiated approval");
                         listener.onAvatar(record.avatar);
                         if(record.avatar.kind==AvatarPacket.Kind.CANCEL||record.avatar.kind==AvatarPacket.Kind.RESULT&&record.avatar.code!=AvatarPacket.Code.OK)discardAvatarWrites(record.avatar);
                         continue;}
@@ -83,6 +92,7 @@ public final class FramedSession {
                         if (remoteReady) throw new IOException("Repeated approval");
                         remoteReady = true; maybeReady(); break;
                     case Frame.TEXT:
+                        if(fileLane)throw new NoiseRecordChannel.AuthenticationException("Text on FILE lane");
                         if (!isReady()) throw new IOException("Text before approval");
                         synchronized (receiving) {
                             if (unpersisted >= 32) throw new IOException("Too many unpersisted messages");
@@ -90,6 +100,7 @@ public final class FramedSession {
                         }
                         listener.onText(frame); break;
                     case Frame.ACK:
+                        if(fileLane)throw new NoiseRecordChannel.AuthenticationException("Receipt on FILE lane");
                         if (!isReady()) throw new IOException("Receipt before approval");
                         boolean known; synchronized (awaitingReceipts) { known = awaitingReceipts.remove(frame.id); }
                         if (known) listener.onAck(frame.id); break;
@@ -106,7 +117,11 @@ public final class FramedSession {
                 }
             }
         } catch (UnsupportedProtocolException error) { close(UiText.of("attachmentUpgradeRequired")); }
-        catch (IOException | RuntimeException error) { close(UiText.of("disconnected")); }
+        catch (IOException | RuntimeException error) {
+            IOException failure=error instanceof IOException?(IOException)error:new IOException(error);
+            if(fileLane&&noise!=null&&noise.verified()&&!(failure instanceof NoiseRecordChannel.AuthenticationException))failure=new NoiseRecordChannel.AuthenticationException("Invalid authenticated FILE record",failure);
+            listener.onFailure(failure);close(UiText.of("disconnected"));
+        }
     }
     public void approve() {
         if (!greeted || approved || closed.get()) return;
@@ -132,6 +147,11 @@ public final class FramedSession {
     public boolean attachmentsSupported() { return isReady() && (noise!=null||channel.attachments()); }
     public boolean attachmentsV2(){return isReady()&&noise!=null;}
     public boolean avatarsSupported(){return isReady()&&noise!=null&&noise.avatarsSupported();}
+    public boolean automaticFilesSupported(){return isReady()&&noise!=null&&noise.automaticFilesSupported();}
+    public boolean sendFileRoute(FileRoutePacket packet){
+        if(!automaticFilesSupported())return false;
+        try{byte[] bytes=ProtocolV4.encodeFileRoute(packet);return enqueue(()->noise.write(bytes),bytes.length+256,false);}catch(IOException|IllegalArgumentException invalid){return false;}
+    }
     public String connectionGeneration(){return noise==null?null:noise.connectionGeneration();}
     public int attachmentChunkSize() { return noise==null?channel.chunkSize():TransferLimits.DATA_BYTES; }
     public long attachmentSizeLimit() { return noise==null?channel.fileSize():TransferLimits.MAX_FILE_BYTES; }
@@ -165,7 +185,7 @@ public final class FramedSession {
         }}
     }
     public boolean send(Frame frame) {
-        if (!isReady() || frame.type != Frame.TEXT) return false;
+        if (fileLane || !isReady() || frame.type != Frame.TEXT) return false;
         synchronized (awaitingReceipts) { if (awaitingReceipts.size() >= 32 || !awaitingReceipts.add(frame.id)) return false; }
         if (enqueueFrame(frame)) return true;
         synchronized (awaitingReceipts) { awaitingReceipts.remove(frame.id); } return false;

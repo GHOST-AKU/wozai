@@ -65,6 +65,7 @@ public final class I18nResources {
             case "attachmentPathPendingBluetooth": return R.string.attachment_path_pending_bluetooth;
             case "attachmentPathPendingLan": return R.string.attachment_path_pending_lan;
             case "attachmentPathPendingWifiDirect": return R.string.attachment_path_pending_wifi_direct;
+            case "attachmentPathSelecting": return R.string.attachment_path_selecting;
             case "attachmentPathUnknown": return R.string.attachment_path_unknown;
             case "attachmentPathWifiDirect": return R.string.attachment_path_wifi_direct;
             case "attachmentPause": return R.string.attachment_pause;
@@ -392,6 +393,7 @@ public final class I18nResources {
             case "pathDetailsBluetooth": return R.string.path_details_bluetooth;
             case "pathDetailsDisconnected": return R.string.path_details_disconnected;
             case "pathDetailsLan": return R.string.path_details_lan;
+            case "pathDetailsSelecting": return R.string.path_details_selecting;
             case "pathDetailsTitle": return R.string.path_details_title;
             case "pathDetailsWifiDirect": return R.string.path_details_wifi_direct;
             case "peerEnded": return R.string.peer_ended;
