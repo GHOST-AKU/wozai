@@ -26,7 +26,7 @@ final class AndroidWifiDirectUiChecks {
 
     /** Also runnable on the JVM: the permission policy has no Android runtime side effects. */
     public static void main(String[] args) throws Exception {
-        checks=0; permissionMatrix();
+        checks=0; permissionMatrix(); permissionRequests();
         System.out.println("Wi-Fi Direct UI permission policy: "+checks+" checks passed");
     }
     private static void permissionMatrix() throws Exception {
@@ -35,8 +35,8 @@ final class AndroidWifiDirectUiChecks {
         catch(NoSuchMethodException missing) { throw new AssertionError("Permission policy must support the actual SDK without mutating Android Build",missing); }
         policy.setAccessible(true);
         for(int sdk:new int[]{26,31,32,33,34}) for(int action:new int[]{1,2,4,6}) {
-            String expected=sdk>=33?Manifest.permission.NEARBY_WIFI_DEVICES:Manifest.permission.ACCESS_FINE_LOCATION;
-            check(permissions(policy,sdk,Peer.WIFI_DIRECT,action).equals(List.of(expected)),"Direct action "+action+" on Android "+sdk+" must request "+expected);
+            List<String> expected=sdk>=33?List.of(Manifest.permission.NEARBY_WIFI_DEVICES):sdk>=31?List.of(Manifest.permission.ACCESS_COARSE_LOCATION,Manifest.permission.ACCESS_FINE_LOCATION):List.of(Manifest.permission.ACCESS_FINE_LOCATION);
+            check(permissions(policy,sdk,Peer.WIFI_DIRECT,action).equals(expected),"Direct action "+action+" on Android "+sdk+" must request "+expected);
             check(permissions(policy,sdk,Peer.LAN,action).isEmpty(),"LAN does not acquire a Direct runtime permission");
         }
         check(permissions(policy,26,Peer.BLUETOOTH,2).equals(List.of(Manifest.permission.ACCESS_FINE_LOCATION)),"Legacy Bluetooth search still requests location");
@@ -47,9 +47,29 @@ final class AndroidWifiDirectUiChecks {
     @SuppressWarnings("unchecked") private static List<String> permissions(Method policy,int sdk,int mode,int action)throws Exception {
         return (List<String>)policy.invoke(null,sdk,mode,action);
     }
+    private static void permissionRequests()throws Exception {
+        Method missing;
+        try {missing=MainActivity.class.getDeclaredMethod("missingPermissionsFor",int.class,int.class,int.class,Set.class);}
+        catch(NoSuchMethodException error){throw new AssertionError("Actual permission requests must retain both Android 12 location permissions after approximate-only approval",error);}
+        missing.setAccessible(true);
+        List<String> pair=List.of(Manifest.permission.ACCESS_COARSE_LOCATION,Manifest.permission.ACCESS_FINE_LOCATION);
+        for(int sdk:new int[]{31,32})for(int action:new int[]{1,2,4,6}) {
+            check(requests(missing,sdk,Peer.WIFI_DIRECT,action,Set.of()).equals(pair),"Android 12 first Direct request includes both location permissions");
+            check(requests(missing,sdk,Peer.WIFI_DIRECT,action,Set.of(Manifest.permission.ACCESS_COARSE_LOCATION)).equals(pair),"Approximate-only approval must still request the full Coarse+Fine pair");
+            check(requests(missing,sdk,Peer.WIFI_DIRECT,action,Set.of(Manifest.permission.ACCESS_FINE_LOCATION)).isEmpty(),"Fine Location approval needs no new Direct permission prompt");
+        }
+        check(requests(missing,26,Peer.WIFI_DIRECT,2,Set.of()).equals(List.of(Manifest.permission.ACCESS_FINE_LOCATION)),"Legacy Direct requests Fine Location only");
+        for(int sdk:new int[]{33,34}) {
+            check(requests(missing,sdk,Peer.WIFI_DIRECT,2,Set.of(Manifest.permission.ACCESS_COARSE_LOCATION,Manifest.permission.ACCESS_FINE_LOCATION)).equals(List.of(Manifest.permission.NEARBY_WIFI_DEVICES)),"Modern Direct does not substitute location for Nearby permission");
+            check(requests(missing,sdk,Peer.WIFI_DIRECT,2,Set.of(Manifest.permission.NEARBY_WIFI_DEVICES)).isEmpty(),"Granted Nearby permission is not requested again");
+        }
+        check(requests(missing,32,Peer.LAN,2,Set.of()).isEmpty(),"LAN does not request Direct permissions");
+        check(requests(missing,31,Peer.BLUETOOTH,2,Set.of(Manifest.permission.BLUETOOTH_CONNECT)).equals(List.of(Manifest.permission.BLUETOOTH_SCAN)),"Bluetooth still requests only its missing permission");
+    }
+    @SuppressWarnings("unchecked") private static List<String> requests(Method policy,int sdk,int mode,int action,Set<String> granted)throws Exception {return (List<String>)policy.invoke(null,sdk,mode,action,granted);}
 
     static int run(Instrumentation instrumentation)throws Exception {
-        checks=0;permissionMatrix();
+        checks=0;permissionMatrix();permissionRequests();
         Context context=instrumentation.getTargetContext();SharedPreferences prefs=context.getSharedPreferences("ui",Context.MODE_PRIVATE);
         boolean hadMode=prefs.contains("lastMode");int previous=prefs.getInt("lastMode",Peer.LAN);
         prefs.edit().remove("lastMode").commit();MainActivity activity=null;
@@ -87,6 +107,7 @@ final class AndroidWifiDirectUiChecks {
                     Object restoredAction=restored.getSerializable("pendingAction");
                     check(restored.getInt("pendingStage")==5&&(int)field(restoredAction,"mode")==Peer.WIFI_DIRECT&&(int)field(restoredAction,"type")==2,"Wi-Fi settings preserves the pending mode and search action across Activity state serialization");
                 }finally { parcel.recycle();set(current,"pendingAction",null);set(current,"pendingStage",0); }
+                testWifiSettingsRebind(current,controller,action,instrumentation);
                 return null;
             });
         }finally {
@@ -94,6 +115,24 @@ final class AndroidWifiDirectUiChecks {
             if(hadMode)prefs.edit().putInt("lastMode",previous).commit();else prefs.edit().remove("lastMode").commit();
         }
         return checks;
+    }
+    private static void testWifiSettingsRebind(MainActivity activity,ChatController controller,Object action,Instrumentation instrumentation)throws Exception {
+        try {
+            set(activity,"pendingAction",action);set(activity,"pendingStage",5);set(activity,"controller",null);
+            invoke(activity,"onActivityResult",new Class<?>[]{int.class,int.class,Intent.class},10,android.app.Activity.RESULT_CANCELED,null);
+            check(field(activity,"pendingAction")==action&&(int)field(activity,"pendingStage")==5,"Wi-Fi Settings return before service binding preserves the exact pending Direct action");
+            invoke(activity,"resumePending",new Class<?>[0]);
+            check(field(activity,"pendingAction")==action,"Unbound Activity cannot mistake missing controller for Wi-Fi off");
+            Bundle saved=new Bundle();instrumentation.callActivityOnSaveInstanceState(activity,saved);
+            check(saved.getBoolean("wifiSettingsReturned"),"Deferred Wi-Fi Settings result survives Activity recreation");
+            set(activity,"controller",controller);
+            // Unavailable/off emulators exercise the real rebind resolution without starting a radio.
+            if(!controller.directEnabled()||!controller.directAvailable()) {
+                invoke(activity,"resumePending",new Class<?>[0]);
+                check(field(activity,"pendingAction")==null&&(int)field(activity,"pendingStage")==0,"Rebound controller resolves the returned Settings action rather than leaving it indefinitely pending");
+                check(!(boolean)field(activity,"wifiSettingsReturned"),"A completed Settings result cannot affect the next action");
+            }
+        }finally {set(activity,"controller",controller);set(activity,"pendingAction",null);set(activity,"pendingStage",0);try{set(activity,"wifiSettingsReturned",false);}catch(NoSuchFieldException absent){}render(activity);}
     }
 
     /** Uses an actual approved LAN/Noise channel, temporarily classifying its UI as Direct. */

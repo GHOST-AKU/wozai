@@ -118,6 +118,7 @@ public final class MainActivity extends Activity {
     }
     private UiAction pendingAction;
     private int pendingStage;
+    private boolean wifiSettingsReturned;
     private final Runnable discoverabilityTick = new Runnable() {
         public void run() { updateDiscoverability(); ui.postDelayed(this, 1000); }
     };
@@ -143,7 +144,7 @@ public final class MainActivity extends Activity {
             selectedExportUri=exportUri==null?null:Uri.parse(exportUri);
             selectedExportFlags=saved.getInt("selectedExportFlags");
             mode = saved.getInt("mode", Peer.WIFI_DIRECT); page = saved.getInt("page", 0); detail = saved.getBoolean("detail");
-            pendingAction = (UiAction) saved.getSerializable("pendingAction"); pendingStage = saved.getInt("pendingStage");
+            pendingAction = (UiAction) saved.getSerializable("pendingAction"); pendingStage = saved.getInt("pendingStage"); wifiSettingsReturned = saved.getBoolean("wifiSettingsReturned");
             restoredSelectedId = saved.getString("selectedId"); restoredSelectedName = saved.getString("selectedName");
             composerPeer = saved.getString("composerPeer"); handledSavedMessage = saved.getString("handledSavedMessage");
             outgoingRequest = saved.getBoolean("outgoingRequest"); searchQuery = saved.getString("searchQuery", "");
@@ -209,7 +210,7 @@ public final class MainActivity extends Activity {
         for (Map.Entry<String, String> entry : drafts.entrySet()) draftState.putString(entry.getKey(), entry.getValue());
         for (Map.Entry<String, Integer> entry : historyPositions.entrySet()) positions.putInt(entry.getKey(), entry.getValue());
         state.putBundle("drafts", draftState); state.putBundle("historyPositions", positions);
-        state.putSerializable("pendingAction", pendingAction); state.putInt("pendingStage", pendingStage); super.onSaveInstanceState(state);
+        state.putSerializable("pendingAction", pendingAction); state.putInt("pendingStage", pendingStage); state.putBoolean("wifiSettingsReturned", wifiSettingsReturned); super.onSaveInstanceState(state);
     }
     private void saveDraftAndPosition() {
         if (composerPeer != null && composer != null) drafts.put(composerPeer, composer.getText().toString());
@@ -926,7 +927,8 @@ public final class MainActivity extends Activity {
         if (controller == null) { pendingAction = action; pendingStage = BIND_STAGE; return; }
         if (action.mode == Peer.WIFI_DIRECT && !controller.directAvailable()) { pendingAction = null; pendingStage = 0; toast(t("directUnavailable")); render(); return; }
         if (action.mode == Peer.BLUETOOTH && !controller.bluetoothAvailable()) { pendingAction = null; pendingStage = 0; toast(t("unsupportedBluetooth")); return; }
-        List<String> request = new ArrayList<>(); for (String permission : requiredPermissions(action)) if (checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) request.add(permission);
+        Set<String> granted = new HashSet<>(); for (String permission : requiredPermissions(action)) if (checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED) granted.add(permission);
+        List<String> request = new ArrayList<>(missingPermissionsFor(Build.VERSION.SDK_INT, action.mode, action.type, granted));
         SharedPreferences prefs = getSharedPreferences("ui", MODE_PRIVATE);
         if (Build.VERSION.SDK_INT >= 33 && !prefs.getBoolean("notificationsAsked", false) && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             request.add(Manifest.permission.POST_NOTIFICATIONS); prefs.edit().putBoolean("notificationsAsked", true).apply();
@@ -938,7 +940,11 @@ public final class MainActivity extends Activity {
         return requiredPermissionsFor(Build.VERSION.SDK_INT, action.mode, action.type);
     }
     static List<String> requiredPermissionsFor(int sdk, int transport, int action) {
-        if (transport == Peer.WIFI_DIRECT) return Collections.singletonList(sdk >= 33 ? Manifest.permission.NEARBY_WIFI_DEVICES : Manifest.permission.ACCESS_FINE_LOCATION);
+        if (transport == Peer.WIFI_DIRECT) {
+            if (sdk >= 33) return Collections.singletonList(Manifest.permission.NEARBY_WIFI_DEVICES);
+            if (sdk >= 31) return List.of(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION);
+            return Collections.singletonList(Manifest.permission.ACCESS_FINE_LOCATION);
+        }
         if (transport != Peer.BLUETOOTH) return Collections.emptyList();
         if (sdk >= 31) {
             List<String> permissions = new ArrayList<>(); permissions.add(Manifest.permission.BLUETOOTH_CONNECT);
@@ -946,6 +952,16 @@ public final class MainActivity extends Activity {
             if (action == UiAction.DISCOVERABLE) permissions.add(Manifest.permission.BLUETOOTH_ADVERTISE); return permissions;
         }
         return action == UiAction.SEARCH ? Collections.singletonList(Manifest.permission.ACCESS_FINE_LOCATION) : Collections.emptyList();
+    }
+    static List<String> missingPermissionsFor(int sdk, int transport, int action, Set<String> granted) {
+        if (transport == Peer.WIFI_DIRECT && sdk >= 31 && sdk <= 32) {
+            // Android 12 requires the pair even when only precise access is missing.
+            if (granted.contains(Manifest.permission.ACCESS_FINE_LOCATION)) return Collections.emptyList();
+            return List.of(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION);
+        }
+        List<String> request = new ArrayList<>();
+        for (String permission : requiredPermissionsFor(sdk, transport, action)) if (!granted.contains(permission)) request.add(permission);
+        return request;
     }
     private boolean bluetoothPermissionsGranted() { return Build.VERSION.SDK_INT < 31 || checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED; }
     private boolean bluetoothEnabled() { try { return controller != null && controller.bluetoothEnabled(); } catch (SecurityException e) { return false; } }
@@ -971,7 +987,7 @@ public final class MainActivity extends Activity {
     private void ensureEnabled(UiAction action) {
         if (controller == null) { pendingAction = action; pendingStage = BIND_STAGE; return; }
         try {
-            if (action.mode == Peer.WIFI_DIRECT && !controller.directEnabled()) { pendingAction = action; pendingStage = WIFI_STAGE; openWifiSettings(); }
+            if (action.mode == Peer.WIFI_DIRECT && !controller.directEnabled()) { pendingAction = action; pendingStage = WIFI_STAGE; wifiSettingsReturned = false; openWifiSettings(); }
             else if (action.mode == Peer.BLUETOOTH && !controller.bluetoothEnabled()) { pendingAction = action; pendingStage = ENABLE_STAGE; startActivityForResult(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE), 8); }
             else { pendingAction = null; pendingStage = 0; execute(action); }
         } catch (SecurityException e) { pendingAction = null; pendingStage = 0; toast(t(action.mode == Peer.WIFI_DIRECT ? "directPermissionRequired" : "bluetoothPermissionRevoked")); }
@@ -988,7 +1004,11 @@ public final class MainActivity extends Activity {
         if (pendingStage == CLOSE_STAGE) { if (!controller.hasSession() && !controller.connecting) withPermissions(pendingAction); }
         else if (pendingStage == BIND_STAGE || pendingStage == PERMISSION_STAGE && granted) withPermissions(pendingAction);
         else if (pendingStage == ENABLE_STAGE && granted && bluetoothEnabled()) ensureEnabled(pendingAction);
-        else if (pendingStage == WIFI_STAGE && directEnabled()) withPermissions(pendingAction);
+        else if (pendingStage == WIFI_STAGE && wifiSettingsReturned) {
+            wifiSettingsReturned = false;
+            if (directEnabled()) withPermissions(pendingAction);
+            else { pendingAction = null; pendingStage = 0; toast(t("directEnableCanceled")); render(); }
+        } else if (pendingStage == WIFI_STAGE && directEnabled()) withPermissions(pendingAction);
     }
     private void execute(UiAction action) {
         if (controller == null) { pendingAction = action; pendingStage = BIND_STAGE; return; }
@@ -1050,8 +1070,8 @@ public final class MainActivity extends Activity {
         }
         if(requestCode==25)return; // Browsing a saved location must never enqueue the selected file.
         if (requestCode == 10 && pendingAction != null && pendingStage == WIFI_STAGE) {
-            if (directEnabled()) withPermissions(pendingAction);
-            else { pendingAction = null; pendingStage = 0; toast(t("directEnableCanceled")); render(); }
+            // Full Settings can return before the asynchronous service rebind.
+            wifiSettingsReturned = true; resumePending();
         } else if (requestCode == 8 && pendingAction != null && pendingStage == ENABLE_STAGE) {
             UiAction action = pendingAction; if (resultCode == RESULT_OK) { pendingStage = BIND_STAGE; withPermissions(action); }
             else { pendingAction = null; pendingStage = 0; toast(t("bluetoothEnableCanceled")); }
