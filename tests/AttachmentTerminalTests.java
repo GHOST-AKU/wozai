@@ -12,20 +12,23 @@ public final class AttachmentTerminalTests {
         AttachmentTransferV2[] peers=new AttachmentTransferV2[2];
         BlockingQueue<Boolean> sender=new LinkedBlockingQueue<>(),receiver=new LinkedBlockingQueue<>();
         BlockingQueue<AttachmentRecord> receivedRecords=new LinkedBlockingQueue<>();AtomicInteger aborted=new AtomicInteger(),discarded=new AtomicInteger();
+        AtomicReference<AttachmentRecord> lastSender=new AtomicReference<>(),lastReceiver=new AtomicReference<>();
+        AtomicReference<Exception> wireFailure=new AtomicReference<>();
         String a="a".repeat(64),b="b".repeat(64),connection="c".repeat(64);
         try {
             peers[0]=new AttachmentTransferV2(root.resolve("a"),a,b,connection,false,new AttachmentTransferV2.Wire(){
-                public boolean send(TransferPacket packet){try{peers[1].receive(packet,true);return true;}catch(Exception e){return false;}}
+                public boolean send(TransferPacket packet){try{peers[1].receive(packet,true);return true;}catch(Exception e){wireFailure.compareAndSet(null,e);return false;}}
                 public void abort(){aborted.incrementAndGet();}
-            },record->{if(record.state.equals("delivered"))sender.add(!peers[0].hasActive());});
+            },record->{lastSender.set(record);if(record.state.equals("delivered"))sender.add(!peers[0].hasActive());});
             peers[1]=new AttachmentTransferV2(root.resolve("b"),b,a,connection,false,new AttachmentTransferV2.Wire(){
-                public boolean send(TransferPacket packet){try{peers[0].receive(packet,true);return true;}catch(Exception e){return false;}}
+                public boolean send(TransferPacket packet){try{peers[0].receive(packet,true);return true;}catch(Exception e){wireFailure.compareAndSet(null,e);return false;}}
                 public void abort(){aborted.incrementAndGet();}
-            },record->{if(record.state.equals("received")){receivedRecords.add(record);receiver.add(!peers[1].hasActive());}});
+            },record->{lastReceiver.set(record);if(record.state.equals("received")){receivedRecords.add(record);receiver.add(!peers[1].hasActive());}});
             Path original=root.resolve("original.bin");Files.write(original,new byte[131075]);
             peers[0].offer(new FileAttachmentSource(original),"original.bin","application/octet-stream").get(3,TimeUnit.SECONDS);
             Boolean released=sender.poll(5,TimeUnit.SECONDS);
-            if(!Boolean.TRUE.equals(released))throw new AssertionError("Delivered event still occupies the sender slot: "+released);
+            if(!Boolean.TRUE.equals(released))throw new AssertionError("Delivered event still occupies the sender slot: "+released
+                    +"; sender="+describe(lastSender.get())+"; receiver="+describe(lastReceiver.get())+"; aborts="+aborted.get(),wireFailure.get());
             if(!Boolean.TRUE.equals(receiver.poll(3,TimeUnit.SECONDS)))throw new AssertionError("Received event still occupies the receiver slot");
             if(!Files.exists(original))throw new AssertionError("Delivery removed user original");
             receivedRecords.remove();
@@ -49,4 +52,5 @@ public final class AttachmentTerminalTests {
             try(var paths=Files.walk(root)){for(Path path:paths.sorted(java.util.Comparator.reverseOrder()).toList())Files.deleteIfExists(path);}
         }
     }
+    private static String describe(AttachmentRecord record){return record==null?"none":record.state+" "+record.transferred+"/"+record.info.size;}
 }
