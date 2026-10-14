@@ -8,6 +8,9 @@
 -keep class dev.ghost.nearbyim.AppLanguage { public *; }
 -keep class dev.ghost.nearbyim.AndroidText { public *; }
 -keep class dev.ghost.nearbyim.ChatController { public *; }
+# The separate test APK supplies its own Hooks implementations. Keep this API open
+# so R8 cannot replace its interface dispatch with the app's sole concrete callback.
+-keep interface dev.ghost.nearbyim.ChatController$Hooks { *; }
 -keepclassmembers class dev.ghost.nearbyim.ChatController { java.util.concurrent.ThreadPoolExecutor fileSelection; }
 # Native feedback tests inspect the transient map without adding production hooks.
 -keepclassmembers class dev.ghost.nearbyim.ChatController { java.util.concurrent.ConcurrentHashMap transferProgress; }
