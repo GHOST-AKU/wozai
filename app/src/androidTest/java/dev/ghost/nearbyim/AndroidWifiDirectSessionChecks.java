@@ -69,6 +69,7 @@ final class AndroidWifiDirectSessionChecks {
         final AtomicReference<AttachmentTransferV2> engine=new AtomicReference<>();
         final BlockingQueue<AttachmentRecord> records=new LinkedBlockingQueue<>();
         final BlockingQueue<String> textAcks=new LinkedBlockingQueue<>();
+        final AtomicReference<UiText> remoteClosed=new AtomicReference<>();
         Fixture(Instrumentation instrumentation,boolean incoming,boolean requested,boolean mismatch)throws Exception {
             this.instrumentation=instrumentation;
             controller=onMain(instrumentation,()->new ChatController(instrumentation.getTargetContext(),()->{}));
@@ -93,18 +94,21 @@ final class AndroidWifiDirectSessionChecks {
                 public void onText(Frame text){session.get().acknowledge(text.id);}
                 public void onAck(String id){textAcks.add(id);}
                 public void onReady(){}
-                public void onClosed(UiText reason){}
-            },true);
+                public void onClosed(UiText reason){remoteClosed.compareAndSet(null,reason);}
+            },false); // This file/consent peer has no AvatarSync; do not advertise an unimplemented handler.
             session.set(remote);remote.start();
             onMain(instrumentation,()->{controller.onConnection(Peer.WIFI_DIRECT,connection(local),incoming);return null;});
         }
         void ready(boolean requested)throws Exception {
             if(!requested){await(()->onMain(instrumentation,()->controller.approvalId!=null),"Passive direct TCP role still requires chat consent");check(!remote.isReady(),"Passive GC automatically approves unknown contact");onMain(instrumentation,()->{controller.approve(controller.approvalId,false);return null;});}
             await(()->onMain(instrumentation,()->controller.connected&&controller.canSendAttachment()),"Both Direct socket roles create ready production file engines");
+            check(remote.attachmentsV2()&&!remote.avatarsSupported(),"File fixture must negotiate its implemented encrypted capabilities");
             check(onMain(instrumentation,()->controller.approvalId==null&&peer.equals(controller.selectedId)&&controller.endToEndEncrypted(peer)),"GO/GC changes selected peer or encryption");
             if(requested)await(()->onMain(instrumentation,()->controller.trustedDevices.stream().anyMatch(device->device.id.equals(peer)&&device.mode==Peer.WIFI_DIRECT&&device.publicKey.equals(root.publicKey())&&device.bluetoothAddress==null)),"Remembered Direct session persists its root and mode without a storage disconnect");
             String id=UUID.randomUUID().toString();check(remote.send(new Frame(Frame.TEXT,id,"direct consent proof",System.currentTimeMillis())),"Direct fixture sends encrypted text");
-            check(id.equals(textAcks.poll(10,TimeUnit.SECONDS)),"Native Direct controller acknowledges text before/without saving");
+            String ack=textAcks.poll(10,TimeUnit.SECONDS);
+            check(id.equals(ack),"Native Direct saved-text receipt missing: ack="+ack+", remoteClosed="+remoteClosed.get()+", controller="+onMain(instrumentation,()->controller.status.key+"/"+controller.error.key));
+            await(()->onMain(instrumentation,()->controller.messages.stream().anyMatch(message->message.id.equals(id)&&!message.outgoing&&message.text.equals("direct consent proof"))),"Acknowledged Direct text is present in saved history");
         }
         void bidirectionalFiles()throws Exception {
             byte[] expected=new byte[65539];new Random(927).nextBytes(expected);
