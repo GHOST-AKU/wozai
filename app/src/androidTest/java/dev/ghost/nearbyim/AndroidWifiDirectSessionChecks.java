@@ -18,6 +18,7 @@ final class AndroidWifiDirectSessionChecks {
     private static int checks;
     static int run(Instrumentation instrumentation)throws Exception {
         checks=0;
+        fallback(instrumentation);
         for(boolean incoming:new boolean[]{true,false})for(boolean requested:new boolean[]{true,false}) {
             try(Fixture fixture=new Fixture(instrumentation,incoming,requested,false)) {
                 fixture.ready(requested);
@@ -33,6 +34,30 @@ final class AndroidWifiDirectSessionChecks {
             check(onMain(instrumentation,()->fixture.controller.routeNotice.isEmpty()),"Identity failure silently downgrades to another path");
         }
         return checks;
+    }
+    private static void fallback(Instrumentation instrumentation)throws Exception {
+        ChatController controller=onMain(instrumentation,()->new ChatController(instrumentation.getTargetContext(),()->{}));
+        String target=UUID.randomUUID().toString();
+        try {
+            onMain(instrumentation,()->{
+                controller.directRunning=true;controller.lanRunning=true;
+                Method begin=ChatController.class.getDeclaredMethod("beginConnect",int.class,String.class,boolean.class,String.class);begin.setAccessible(true);
+                check((boolean)begin.invoke(controller,Peer.WIFI_DIRECT,target,false,null),"Fallback fixture cannot select target");
+                Field wait=ChatController.class.getDeclaredField("lanReconnectId");wait.setAccessible(true);wait.set(controller,target);
+                controller.stopSearch(Peer.LAN);
+                check(controller.connecting&&controller.sessionMode==Peer.WIFI_DIRECT,"Stopping LAN discovery cancels a remembered Direct lookup");
+                controller.onError(Peer.WIFI_DIRECT,UiText.of("directDiscoveryFailed"),false);
+                check(controller.connecting&&controller.sessionMode==Peer.WIFI_DIRECT&&controller.routeNotice.isEmpty(),"An unrelated discovery warning downgrades a pending connection");
+                controller.onConnectFailed(Peer.WIFI_DIRECT,UiText.of("directConnectTimeout"));
+                check(controller.connecting&&controller.sessionMode==Peer.LAN&&controller.routeNotice.key.equals("wifiDirectFallbackLan"),"Direct transport timeout never starts bounded LAN fallback");
+                controller.onPeer(new Peer(Peer.LAN,"foreign","Unrelated","",null,0,null,UUID.randomUUID().toString()));
+                check(controller.connecting,"Fallback dialed an unrelated discovered identity");
+                controller.disconnect();
+                controller.onPeer(new Peer(Peer.LAN,"late","Old result","",null,0,null,target));
+                check(!controller.connecting&&!controller.hasSession(),"Cancelled fallback restarts from a late discovery result");
+                return null;
+            });
+        }finally{onMain(instrumentation,()->{controller.destroy();return null;});}
     }
     private static final class Fixture implements AutoCloseable {
         final Instrumentation instrumentation;
@@ -51,7 +76,7 @@ final class AndroidWifiDirectSessionChecks {
             onMain(instrumentation,()->{
                 // The emulator has no P2P radio. Exercise the actual socket-delivery boundary independently.
                 controller.directRunning=true;
-                if(requested){Method begin=ChatController.class.getDeclaredMethod("beginConnect",int.class,String.class,boolean.class,String.class);begin.setAccessible(true);check((boolean)begin.invoke(controller,Peer.WIFI_DIRECT,mismatch?UUID.randomUUID().toString():peer,false,null),"Native requested direct session cannot begin");}
+                if(requested){Method begin=ChatController.class.getDeclaredMethod("beginConnect",int.class,String.class,boolean.class,String.class);begin.setAccessible(true);check((boolean)begin.invoke(controller,Peer.WIFI_DIRECT,mismatch?UUID.randomUUID().toString():peer,true,null),"Native requested direct session cannot begin");}
                 else controller.selectConversation(new ChatStore.Conversation(peer,"Direct fixture",0));
                 return null;
             });
@@ -63,7 +88,7 @@ final class AndroidWifiDirectSessionChecks {
                     FramedSession wire=session.get();
                     engine.set(new AttachmentTransferV2(directory,root.fingerprint(),DeviceIdentity.fingerprint(wire.remotePublicKey()),wire.connectionGeneration(),false,new AttachmentTransferV2.Wire(){public boolean send(TransferPacket packet){return wire.sendTransfer(packet);}public void abort(){wire.close(UiText.of("attachmentFailed"));}},record->records.add(record)));
                     wire.approve();
-                }catch(IOException failure){throw new UncheckedIOException(failure);}}
+                }catch(Exception failure){throw new IllegalStateException("Direct encrypted fixture setup failed",failure);}}
                 public void onTransfer(TransferPacket packet){try{engine.get().receive(packet,true);}catch(IOException failure){throw new UncheckedIOException(failure);}}
                 public void onText(Frame text){session.get().acknowledge(text.id);}
                 public void onAck(String id){textAcks.add(id);}
@@ -77,6 +102,7 @@ final class AndroidWifiDirectSessionChecks {
             if(!requested){await(()->onMain(instrumentation,()->controller.approvalId!=null),"Passive direct TCP role still requires chat consent");check(!remote.isReady(),"Passive GC automatically approves unknown contact");onMain(instrumentation,()->{controller.approve(controller.approvalId,false);return null;});}
             await(()->onMain(instrumentation,()->controller.connected&&controller.canSendAttachment()),"Both Direct socket roles create ready production file engines");
             check(onMain(instrumentation,()->controller.approvalId==null&&peer.equals(controller.selectedId)&&controller.endToEndEncrypted(peer)),"GO/GC changes selected peer or encryption");
+            if(requested)await(()->onMain(instrumentation,()->controller.trustedDevices.stream().anyMatch(device->device.id.equals(peer)&&device.mode==Peer.WIFI_DIRECT&&device.publicKey.equals(root.publicKey())&&device.bluetoothAddress==null)),"Remembered Direct session persists its root and mode without a storage disconnect");
             String id=UUID.randomUUID().toString();check(remote.send(new Frame(Frame.TEXT,id,"direct consent proof",System.currentTimeMillis())),"Direct fixture sends encrypted text");
             check(id.equals(textAcks.poll(10,TimeUnit.SECONDS)),"Native Direct controller acknowledges text before/without saving");
         }

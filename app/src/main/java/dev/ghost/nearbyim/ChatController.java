@@ -149,7 +149,7 @@ public final class ChatController implements TransportListener {
     }
     public void stopSearch(int mode) {
         if (mode == Peer.LAN) {
-            if (lanReconnectId != null) { cancelOutgoing(); status = UiText.of("connectionAttemptStopped"); }
+            if (lanReconnectId != null && connectingMode==mode) { cancelOutgoing(); status = UiText.of("connectionAttemptStopped"); }
             lan.stopSearch();
         } else if(mode==Peer.WIFI_DIRECT){if(lanReconnectId!=null&&connectingMode==mode){cancelOutgoing();status=UiText.of("connectionAttemptStopped");}direct.stopSearch();}else bluetooth.stopSearch();
         changed();
@@ -256,7 +256,7 @@ public final class ChatController implements TransportListener {
     public void onListening(int mode, UiText detail) { if(mode==Peer.WIFI_DIRECT){directInfo=detail;directListening=true;}else if (mode == Peer.LAN) { lanInfo = detail; lanListening = true; } else { bluetoothInfo = detail; bluetoothListening = true; } changed(); }
     public void onError(int mode, UiText message, boolean fatal) {
         boolean fallback=fatal&&connecting&&connectingMode==mode&&active==null&&tryFallback(mode,message);
-        if (!fallback&&lanReconnectId != null && mode == connectingMode) { cancelOutgoing(); status = UiText.of("connectionUnavailable"); }
+        if (!fallback&&fatal&&lanReconnectId != null && mode == connectingMode) { cancelOutgoing(); status = UiText.of("connectionUnavailable"); }
         if (fatal) {
             if (!fallback&&connecting && connectingMode == mode) cancelOutgoing();
             if(mode==Peer.WIFI_DIRECT){directRunning=false;directListening=false;directSearching=false;directInfo=UiText.of("notStarted");}else if (mode == Peer.LAN) { lanRunning = false; lanListening = false; lanSearching = false; lanInfo = UiText.of("notStarted"); } else { bluetoothRunning = false; bluetoothListening = false; bluetoothSearching = false; bluetoothInfo = UiText.of("notStarted"); }

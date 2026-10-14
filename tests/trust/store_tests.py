@@ -13,7 +13,7 @@ LEGACY_MESSAGES=CREATE_MESSAGES.replace(' attachment TEXT,','')
 
 class AttachmentMigrationTests(unittest.TestCase):
     def test_v4_upgrade_preserves_history_and_trust_without_granting_manual_verification(self):
-        self.assertEqual(5, version, 'manual verification requires a lossless schema migration')
+        self.assertGreaterEqual(version, 5, 'manual verification requires a lossless schema migration')
         db=sqlite3.connect(':memory:')
         for statement in (CREATE_CONVERSATIONS, CREATE_MESSAGES, CREATE_INDEX, CREATE_TRUST): db.execute(statement)
         db.execute('INSERT INTO conversations VALUES (?,?,?)', ('peer','Old friend',12))
@@ -31,6 +31,37 @@ class AttachmentMigrationTests(unittest.TestCase):
         export=subprocess.check_output(['java','-cp',classpath,'dev.ghost.nearbyim.storage.SchemaExport','3','4'],text=True)
         for line in export.splitlines(): db.execute(base64.b64decode(line).decode())
         self.assertEqual(('old text','delivered',None),db.execute('SELECT body,state,attachment FROM messages').fetchone())
+
+class DirectTrustMigrationTests(unittest.TestCase):
+    def test_fresh_schema_remembers_direct_without_losing_pin_or_bluetooth(self):
+        db=sqlite3.connect(':memory:')
+        db.execute(CREATE_TRUST)
+        db.execute(REMEMBER,('peer','root','Old name',40,2,'02:11:22:33:44:55'))
+        try:db.execute(REMEMBER,('peer','root','Direct name',50,3,None))
+        except sqlite3.IntegrityError as error:self.fail('Fresh schema cannot remember Wi-Fi Direct: '+str(error))
+        self.assertEqual(('root','Direct name',50,3,'02:11:22:33:44:55'),db.execute('SELECT public_key,name,last_connected,mode,bluetooth_address FROM trusted_devices').fetchone())
+        db.execute(REMEMBER,('peer','attacker','Changed pin',60,3,None))
+        self.assertEqual('root',db.execute('SELECT public_key FROM trusted_devices').fetchone()[0])
+
+    def test_v5_upgrade_preserves_history_verification_and_existing_device_records(self):
+        self.assertGreaterEqual(version,6,'Wi-Fi Direct needs a migration for existing mode constraint')
+        db=sqlite3.connect(':memory:')
+        # Exact deployed v5 trust constraint, not the latest exported schema.
+        old_trust='CREATE TABLE trusted_devices (peer_id TEXT PRIMARY KEY,public_key TEXT NOT NULL,name TEXT NOT NULL,last_connected INTEGER NOT NULL,mode INTEGER NOT NULL CHECK(mode IN (1,2)),bluetooth_address TEXT)'
+        for statement in (CREATE_CONVERSATIONS,CREATE_MESSAGES,CREATE_INDEX,old_trust):db.execute(statement)
+        db.execute('CREATE TABLE verified_identities (peer_id TEXT PRIMARY KEY, local_key TEXT NOT NULL, public_key TEXT NOT NULL, verified_at INTEGER NOT NULL)')
+        db.execute('INSERT INTO conversations VALUES (?,?,?)',('peer','Friend',12))
+        db.execute('INSERT INTO messages VALUES (?,?,?,?,?,?,?,?)',('peer','id','original body',1,'delivered',1,2,'original metadata'))
+        db.execute(REMEMBER,('peer','root','Friend',40,2,'02:11:22:33:44:55'))
+        db.execute('INSERT INTO verified_identities VALUES (?,?,?,?)',('peer','local-root','root',20))
+        before={table:db.execute('SELECT * FROM '+table).fetchall() for table in ('conversations','messages','trusted_devices','verified_identities')}
+        export=subprocess.check_output(['java','-cp',classpath,'dev.ghost.nearbyim.storage.SchemaExport','5','6'],text=True)
+        with db:
+            for line in export.splitlines():db.execute(base64.b64decode(line).decode())
+        for table,rows in before.items():self.assertEqual(rows,db.execute('SELECT * FROM '+table).fetchall())
+        db.execute(REMEMBER,('peer','root','Direct',50,3,None))
+        self.assertEqual((3,'02:11:22:33:44:55'),db.execute('SELECT mode,bluetooth_address FROM trusted_devices').fetchone())
+        with self.assertRaises(sqlite3.IntegrityError):db.execute(REMEMBER,('bad','key','Invalid',1,4,None))
 
 class StoreTests(unittest.TestCase):
     def test_schema_supports_language_independent_status_upgrade(self):

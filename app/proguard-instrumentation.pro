@@ -17,6 +17,7 @@
     java.lang.Runnable observer;
     void refresh();
     boolean beginConnect(int,java.lang.String,boolean,java.lang.String);
+    java.lang.String lanReconnectId;
 }
 -keep class dev.ghost.nearbyim.ChatController$Feedback { *; }
 -keep class dev.ghost.nearbyim.ChatStore { public *; }
