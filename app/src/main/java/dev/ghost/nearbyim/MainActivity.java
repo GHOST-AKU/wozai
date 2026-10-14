@@ -509,7 +509,9 @@ public final class MainActivity extends Activity {
         cancelConnectionButton.setVisibility(waiting ? View.VISIBLE : View.GONE);
         View details = nearbyPage.findViewWithTag("lanDetails"); details.setVisibility(mode == Peer.LAN && running ? View.VISIBLE : View.GONE);
         connectionInfo.setVisibility(running && (mode == Peer.WIFI_DIRECT || mode == Peer.LAN && lanDetails) ? View.VISIBLE : View.GONE);
-        connectionInfo.setText(mode == Peer.WIFI_DIRECT && directConnected ? t("pathDetailsWifiDirect") + (readyToReceive ? "\n" + info : "") : info);
+        // Advertising readiness persists on a GC after its socket connects; it is not a listening endpoint.
+        boolean directEndpoint = readyToReceive && attached && "directListening".equals(controller.directInfo.key);
+        connectionInfo.setText(mode == Peer.WIFI_DIRECT && directConnected ? t("pathDetailsWifiDirect") + (directEndpoint ? "\n" + info : "") : info);
         bluetoothState.setVisibility(mode == Peer.BLUETOOTH ? View.VISIBLE : View.GONE);
         wifiSettingsButton.setVisibility(View.GONE);
         if (mode == Peer.WIFI_DIRECT) {

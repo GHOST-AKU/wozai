@@ -165,7 +165,8 @@ final class AndroidWifiDirectUiChecks {
                 }
                 check(((TextView)field(activity,"networkName")).getText().toString().equals(AndroidText.get(activity,"wifiDirect")),"Main header names the approved Direct path");
                 check(((TextView)field(activity,"chatStatus")).getText().toString().contains(AndroidText.get(activity,"wifiDirect")),"Chat header names Direct independently of encryption/identity verification");
-                controller.directListening=false;controller.directInfo=UiText.of("directAdvertising");render(activity);
+                // A real GC retains the advertisement ACK; only GO emits a socket-listening callback.
+                controller.directListening=true;controller.directInfo=UiText.of("directAdvertising");render(activity);
                 check(((TextView)field(activity,"connectionInfo")).getText().toString().equals(AndroidText.get(activity,"pathDetailsWifiDirect")),"An approved group-client channel does not retain an advertising-only waiting claim");
                 AlertDialog direct=(AlertDialog)invoke(activity,"showTransferPath",new Class<?>[]{String.class},peer);
                 try {check(((TextView)direct.findViewById(android.R.id.message)).getText().toString().equals(AndroidText.get(activity,"pathDetailsWifiDirect")),"Connected Direct details explain the actual path");}finally {direct.dismiss();}
