@@ -10,6 +10,55 @@ final class WifiDirectPolicy {
     static final String TYPE = "_wozai-p2p._tcp";
     static final int PORT = 39741;
     static final long PEER_TTL_MS = 45_000;
+    static final class Request<T> {
+        final Object client; final long run, scan; final T value;
+        private final long deadline;
+        private boolean addPending = true, retiring, cleared, timeoutReported;
+        Request(Object client, long run, long scan, T value, long now) { this.client = client; this.run = run; this.scan = scan; this.value = value; deadline = now + 4_000; }
+    }
+    static final class RequestClear<T> {
+        final Request<T> request; private final long deadline; private boolean timeoutReported;
+        RequestClear(Request<T> request, long now) { this.request = request; deadline = now + 4_000; }
+    }
+    /** One own-client subscription plus at most one unresolved clear listener; failure is not deletion. */
+    static final class RequestLedger<T> {
+        private Request<T> request;
+        private RequestClear<T> clear;
+        Request<T> add(Object client, long run, long scan, T value, long now) {
+            if (request != null) return null;
+            return request = new Request<>(client, run, scan, value, now);
+        }
+        boolean addPending(Request<T> added) { return request == added && added.addPending; }
+        boolean addReply(Request<T> added, boolean success) {
+            if (!addPending(added)) return false;
+            added.addPending = false;
+            if (!success) added.retiring = true;
+            boolean discover = success && !added.retiring;
+            settle(); return discover;
+        }
+        RequestClear<T> clear(long now) {
+            if (request == null || clear != null || request.cleared) return null;
+            request.retiring = true; return clear = new RequestClear<>(request, now);
+        }
+        boolean clearReply(RequestClear<T> replied, boolean success) {
+            if (clear != replied || request != replied.request) return false;
+            clear = null; request.cleared = success;
+            settle(); return true;
+        }
+        boolean occupied() { return request != null; }
+        boolean retiring() { return request != null && request.retiring; }
+        Request<T> current() { return request; }
+        boolean addTimeout(Request<T> added, long now) {
+            if (!addPending(added) || added.timeoutReported || now < added.deadline) return false;
+            added.timeoutReported = added.retiring = true; return true;
+        }
+        boolean clearTimeout(RequestClear<T> pending, long now) {
+            if (clear != pending || pending.timeoutReported || now < pending.deadline) return false;
+            pending.timeoutReported = true; return true;
+        }
+        void closed(Object client) { if (request != null && request.client == client) { request = null; clear = null; } }
+        private void settle() { if (request != null && request.cleared && !request.addPending && clear == null) request = null; }
+    }
     enum Release { LOCAL_ONLY, WAIT_NATIVE_ACK }
     enum Admission { NEGOTIATE, REUSE_GROUP, FOREIGN_GROUP, INVALID_PEER }
     static final class NativeCommand {

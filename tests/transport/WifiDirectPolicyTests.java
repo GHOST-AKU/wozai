@@ -102,6 +102,49 @@ public final class WifiDirectPolicyTests {
             truth(authority.blocked(), "Old ACK cannot release the new command's fence");
             authority.reply(next, false);
         });
+        check("failed ADD retains the one native request slot until own clear ACK", () -> {
+            var requests = new WifiDirectPolicy.RequestLedger<String>(); Object client = new Object();
+            var added = requests.add(client, 7, 1, "own-request", 0);
+            truth(!requests.addReply(added, false), "Failed ADD cannot start discovery");
+            truth(requests.occupied() && requests.add(client, 7, 2, "second", 1) == null, "ADD failure may have inserted the original native request");
+            var clear = requests.clear(2); truth(clear != null, "Uncertain own request needs client-scoped cleanup");
+            requests.clearReply(clear, true); truth(!requests.occupied(), "Only successful cleanup settles the slot");
+        });
+        check("failed clear never permits accumulating new requests", () -> {
+            var requests = new WifiDirectPolicy.RequestLedger<String>(); Object client = new Object();
+            var added = requests.add(client, 7, 1, "own-request", 0); requests.addReply(added, true);
+            var clear = requests.clear(1); requests.clearReply(clear, false);
+            for (int i = 0; i < 100; i++) truth(requests.add(client, 7, i + 2, "new", i + 2) == null, "Repeated Search cannot ADD over failed cleanup");
+            var retry = requests.clear(200); truth(retry != null, "ACKed failure permits one later explicit cleanup attempt");
+            truth(!requests.clearReply(clear, true) && requests.occupied(), "Older clear ACK cannot settle the retry");
+            requests.clearReply(retry, true); truth(!requests.occupied(), "Current cleanup success allows the next search");
+        });
+        check("ADD in flight stop and late ACK cannot restart a canceled scan", () -> {
+            var requests = new WifiDirectPolicy.RequestLedger<String>(); Object client = new Object();
+            var added = requests.add(client, 7, 1, "own-request", 0); var clear = requests.clear(1);
+            requests.clearReply(clear, true);
+            truth(requests.occupied(), "Even after native clear, unresolved ADD listener remains bounded in its slot");
+            truth(!requests.addReply(added, true) && !requests.occupied(), "Late ADD success settles metadata without discovery resurrection");
+            var next = requests.add(client, 7, 2, "next", 2);
+            truth(!requests.addReply(added, false) && requests.current() == next, "Duplicate old ADD failure cannot touch the next request");
+        });
+        check("unknown ADD and CLEAR callbacks have bounded visible watchdogs", () -> {
+            var requests = new WifiDirectPolicy.RequestLedger<String>(); Object client = new Object();
+            var added = requests.add(client, 7, 1, "own-request", 100);
+            truth(!requests.addTimeout(added, 4_099) && requests.addTimeout(added, 4_100), "Missing ADD reply is visible within four seconds");
+            var clear = requests.clear(4_100);
+            truth(!requests.clearTimeout(clear, 8_099) && requests.clearTimeout(clear, 8_100), "Missing clear reply is visible within four seconds");
+            for (int i = 0; i < 100; i++) truth(requests.clear(8_101 + i) == null, "Unknown clear is fenced instead of accumulating native ActionListeners");
+            truth(!requests.clearTimeout(clear, 8_201) && requests.occupied(), "Timeout reports once and never guesses request deletion");
+        });
+        check("request retirement is scoped to its exact client and clears stale callbacks", () -> {
+            var requests = new WifiDirectPolicy.RequestLedger<String>(); Object oldClient = new Object(), nextClient = new Object();
+            var old = requests.add(oldClient, 7, 1, "old", 0); var clear = requests.clear(1);
+            requests.closed(nextClient); truth(requests.occupied(), "Closing another channel cannot retire this client's request");
+            requests.closed(oldClient); truth(!requests.occupied(), "Successful public own-client close retires its native listener/request slot");
+            var next = requests.add(nextClient, 8, 2, "new", 2);
+            truth(!requests.clearReply(clear, true) && !requests.addReply(old, true) && requests.current() == next, "Old channel callbacks cannot clear or discover on the new channel");
+        });
         check("startup without a native advertisement acknowledgement is bounded", () -> {
             var deadline = new WifiDirectPolicy.StartupDeadline(7, 10_000);
             truth(!deadline.expired(7, 9_999), "Wait for the bounded startup interval");

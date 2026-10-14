@@ -37,14 +37,15 @@ public final class WifiDirectTransport {
     // Platform state below belongs to the main looper. Workers return immutable snapshots.
     private WifiP2pManager.Channel channel;
     private WifiP2pDnsSdServiceInfo advertisement;
-    private WifiP2pDnsSdServiceRequest request;
+    private final WifiDirectPolicy.RequestLedger<WifiP2pDnsSdServiceRequest> requests = new WifiDirectPolicy.RequestLedger<>();
     private WifiDirectPolicy.Registry registry;
     private boolean receiverRegistered, searchRequested, searching, initialized, advertised, inspecting, inspectAgain, foreignReported, automaticDiscovery;
     private BroadcastReceiver receiver;
     private volatile boolean destroyed;
     private long run, operation, scan, inspection, groupGeneration, attempt;
-    private Runnable afterCleanup, connectDeadline, startupWatchdog;
+    private Runnable afterCleanup, afterRequests, connectDeadline, startupWatchdog;
     private boolean queuedConnect;
+    private boolean requestCleanupFailed;
     private CleanupWork cleanupWork;
     private Peer selected;
     private GroupIdentity observedGroup;
@@ -73,8 +74,8 @@ public final class WifiDirectTransport {
             if (destroyed) return;
             final long wanted = operation + 1; stopInternal(); if (wanted != operation) return;
             Runnable begin = () -> { if (!destroyed && wanted == operation) beginStart(localId, name); };
-            if (cleanup.blocked()) {
-                if (cleanupWork != null && cleanupWork.failed) error("directCleanupFailed", true);
+            if (cleanup.blocked() || requests.occupied()) {
+                if (cleanupWork != null && cleanupWork.failed || requests.occupied() && requestCleanupFailed) error("directCleanupFailed", true);
                 else { afterCleanup = begin; queuedConnect = false; }
             } else begin.run();
         });
@@ -158,43 +159,90 @@ public final class WifiDirectTransport {
     }
     private void beginDiscovery(long started, long search) {
         if (!lifecycle.valid(started) || search != scan || cleanup.blocked()) return;
-        request = WifiP2pDnsSdServiceRequest.newInstance(WifiDirectPolicy.TYPE); WifiP2pDnsSdServiceRequest added = request;
-        WifiP2pManager.Channel discoveredOn = channel;
+        var added = requests.add(channel, started, search, WifiP2pDnsSdServiceRequest.newInstance(WifiDirectPolicy.TYPE), now());
+        if (added == null) { requestFailure("directSearchStopFailed"); return; }
         searchRequested = true;
+        WifiP2pManager.Channel discoveredOn = channel;
+        main.postDelayed(() -> {
+            if (!requests.addTimeout(added, now())) return;
+            if (lifecycle.valid(started) && search == scan) { scan++; afterRequests = null; }
+            requestFailure("directDiscoveryFailed"); clearRequests();
+        }, 4_000);
         try {
-            manager.addServiceRequest(channel, added, new WifiP2pManager.ActionListener() {
-                public void onSuccess() { onMain(() -> {
-                    if (!lifecycle.valid(started) || search != scan || request != added) { removeRequest(discoveredOn, added); return; }
-                    try { manager.discoverServices(channel, action(started, () -> {}, code -> {
-                        if (search == scan) { stopSearchInternal(false); error(reason(code, "directDiscoveryFailed"), false); }
-                    })); } catch (RuntimeException failure) { if (search == scan) { stopSearchInternal(false); error(permissionReason(failure, "directDiscoveryFailed"), false); } }
-                }); }
-                public void onFailure(int code) { onMain(() -> {
-                    if (!lifecycle.valid(started) || search != scan) return;
-                    request = null; searchRequested = false; searching = false; listener.onSearching(Peer.WIFI_DIRECT, false); error(reason(code, "directDiscoveryFailed"), false);
-                }); }
+            manager.addServiceRequest(discoveredOn, added.value, new WifiP2pManager.ActionListener() {
+                public void onSuccess() { onMain(() -> addRequestReply(added, true, 0)); }
+                public void onFailure(int code) { onMain(() -> addRequestReply(added, false, code)); }
             });
-            main.postDelayed(() -> { if (lifecycle.valid(started) && search == scan) stopSearchInternal(false); }, DISCOVERY_MS);
-        } catch (RuntimeException failure) { request = null; searchRequested = false; error(permissionReason(failure, "directDiscoveryFailed"), false); }
+            main.postDelayed(() -> { if (lifecycle.valid(started) && search == scan && requests.current() == added) stopSearchInternal(false); }, DISCOVERY_MS);
+        } catch (RuntimeException failure) {
+            addRequestReply(added, false, WifiP2pManager.ERROR);
+            if (failure instanceof SecurityException && lifecycle.valid(started)) error("directPermissionRequired", false);
+        }
+    }
+    private void addRequestReply(WifiDirectPolicy.Request<WifiP2pDnsSdServiceRequest> added, boolean success, int code) {
+        if (!requests.addPending(added)) return;
+        boolean alreadyRetiring = requests.retiring();
+        boolean discover = requests.addReply(added, success);
+        if (discover && lifecycle.valid(added.run) && added.scan == scan && searchRequested && channel == added.client) {
+            try { manager.discoverServices(channel, action(added.run, () -> {}, failure -> {
+                if (added.scan == scan) { stopSearchInternal(false); error(reason(failure, "directDiscoveryFailed"), false); }
+            })); } catch (RuntimeException failure) {
+                if (added.scan == scan) { stopSearchInternal(false); error(permissionReason(failure, "directDiscoveryFailed"), false); }
+            }
+        } else if (!success && !alreadyRetiring) {
+            if (lifecycle.valid(added.run) && added.scan == scan) { scan++; afterRequests = null; }
+            requestFailure(reason(code, "directDiscoveryFailed")); clearRequests();
+        }
+        requestsSettled();
     }
     public void stopSearch() { onMain(() -> { automaticDiscovery = false; stopSearchInternal(false); }); }
     private void stopSearchInternal(boolean restart) {
-        long search = ++scan, started = run; searchRequested = false;
-        WifiP2pDnsSdServiceRequest previous = request; request = null;
-        if (channel == null || !lifecycle.valid(started)) { searching = false; listener.onSearching(Peer.WIFI_DIRECT, false); return; }
-        if (previous == null) { searching = false; listener.onSearching(Peer.WIFI_DIRECT, false); if (restart) beginDiscovery(started, search); else scheduleIdleDiscovery(started, search); return; }
-        // Removing this client's request stops our scan subscription without globally stopping
-        // another app's P2P discovery or negotiation.
-        try { manager.removeServiceRequest(channel, previous, action(started, () -> {
-            if (search != scan) return;
-            searching = false; listener.onSearching(Peer.WIFI_DIRECT, false);
-            if (restart) beginDiscovery(started, search); else scheduleIdleDiscovery(started, search);
-        }, code -> {
-            if (search != scan) return;
-            listener.onSearchStopFailed(Peer.WIFI_DIRECT, UiText.of(reason(code, "directSearchStopFailed")));
-        })); } catch (RuntimeException failure) {
-            listener.onSearchStopFailed(Peer.WIFI_DIRECT, UiText.of(permissionReason(failure, "directSearchStopFailed")));
+        long search = ++scan, started = run;
+        searchRequested = searching = false; listener.onSearching(Peer.WIFI_DIRECT, false);
+        if (channel == null || !lifecycle.valid(started)) { afterRequests = null; return; }
+        afterRequests = restart ? () -> beginDiscovery(started, search) : () -> scheduleIdleDiscovery(started, search);
+        if (requests.occupied()) { if (!clearRequests() && requestCleanupFailed) requestFailure("directSearchStopFailed"); }
+        else requestsSettled();
+    }
+    /** clearServiceRequests targets this Channel's client Messenger, never global P2P discovery. */
+    private boolean clearRequests() {
+        var clearing = requests.clear(now());
+        if (clearing == null) return false; // Unknown clear is fenced; ACKed failure permits a later explicit retry.
+        requestCleanupFailed = false;
+        WifiP2pManager.Channel owner = (WifiP2pManager.Channel) clearing.request.client;
+        main.postDelayed(() -> { if (requests.clearTimeout(clearing, now())) requestFailure("directSearchStopFailed"); }, 4_000);
+        try { manager.clearServiceRequests(owner, new WifiP2pManager.ActionListener() {
+            public void onSuccess() { onMain(() -> {
+                if (!requests.clearReply(clearing, true)) return;
+                requestsSettled();
+            }); }
+            public void onFailure(int code) { onMain(() -> {
+                if (requests.clearReply(clearing, false)) requestFailure(reason(code, "directSearchStopFailed"));
+            }); }
+        }); } catch (RuntimeException failure) {
+            if (requests.clearReply(clearing, false)) requestFailure(permissionReason(failure, "directSearchStopFailed"));
         }
+        return true;
+    }
+    private void requestFailure(String key) {
+        requestCleanupFailed = true;
+        searchRequested = searching = false; listener.onSearching(Peer.WIFI_DIRECT, false);
+        afterRequests = null;
+        listener.onSearchStopFailed(Peer.WIFI_DIRECT, UiText.of(key));
+        if (afterCleanup != null && !queuedConnect) { afterCleanup = null; error("directCleanupFailed", true); }
+    }
+    private void requestsSettled() {
+        if (requests.occupied()) return;
+        requestCleanupFailed = false;
+        Runnable next = afterRequests; afterRequests = null;
+        if (next != null) next.run();
+        finishDeferredAction();
+    }
+    private boolean finishDeferredAction() {
+        if (afterCleanup == null || cleanup.blocked() || !queuedConnect && requests.occupied()) return false;
+        Runnable next = afterCleanup; afterCleanup = null; queuedConnect = false;
+        if (!destroyed) next.run();
+        return true;
     }
     private void scheduleIdleDiscovery(long started, long search) {
         if (!automaticDiscovery || !lifecycle.valid(started)) return;
@@ -260,6 +308,7 @@ public final class WifiDirectTransport {
         WifiDirectPolicy.Release release = authority.release(true, false, now());
         lifecycle.cancelAttempt(); selected = null;
         clearDeadline(); invalidateInspection(); closeGroupStreams(); forgetObservedGroup();
+        stopSearchInternal(false);
         beginRetirement(channel, release, false);
     }
     private void failAttempt(String key) {
@@ -510,14 +559,14 @@ public final class WifiDirectTransport {
 
     public void stop() { onMain(this::stopInternal); }
     private void stopInternal() {
-        operation++; afterCleanup = null; queuedConnect = false; automaticDiscovery = false; unprovenGroup = null; unprovenRetry = false; foreignReported = false;
+        operation++; afterCleanup = afterRequests = null; queuedConnect = false; automaticDiscovery = false; unprovenGroup = null; unprovenRetry = false; foreignReported = false;
         WifiDirectPolicy.Release release = authority.release(lifecycle.pending(), true, now());
-        WifiP2pManager.Channel previous = channel; WifiP2pDnsSdServiceInfo service = advertisement; WifiP2pDnsSdServiceRequest oldRequest = request;
-        lifecycle.stop(); run = 0; initialized = advertised = false; selected = null; observedGroup = null; channel = null; advertisement = null; request = null; registry = null;
+        WifiP2pManager.Channel previous = channel; WifiP2pDnsSdServiceInfo service = advertisement;
+        lifecycle.stop(); run = 0; initialized = advertised = false; selected = null; observedGroup = null; channel = null; advertisement = null; registry = null;
         clearDeadline(); clearStartupWatchdog(); invalidateInspection(); closeGroupStreams(); scan++; searchRequested = searching = false;
         if (receiverRegistered) { try { context.unregisterReceiver(receiver); } catch (RuntimeException ignored) {} receiverRegistered = false; } receiver = null;
+        if (requests.occupied()) clearRequests();
         if (previous != null) {
-            removeRequest(previous, oldRequest);
             if (service != null) try { manager.removeLocalService(previous, service, null); } catch (RuntimeException ignored) {}
             beginRetirement(previous, release, true);
         }
@@ -546,9 +595,7 @@ public final class WifiDirectTransport {
         if (work.closeChannel) closeChannel(work.channel);
         if (!cleanup.complete(work.token)) return;
         cleanupWork = null;
-        Runnable next = afterCleanup; afterCleanup = null; queuedConnect = false;
-        if (next != null && !destroyed) next.run();
-        else if (lifecycle.valid(run)) { listener.onListening(Peer.WIFI_DIRECT, UiText.of("directAdvertising")); scheduleIdleDiscovery(run, scan); }
+        if (!finishDeferredAction() && afterCleanup == null && lifecycle.valid(run)) { listener.onListening(Peer.WIFI_DIRECT, UiText.of("directAdvertising")); scheduleIdleDiscovery(run, scan); }
     }
     private static final class CleanupWork {
         final long token; final WifiP2pManager.Channel channel; final WifiDirectPolicy.NativeCommand command;
@@ -563,10 +610,13 @@ public final class WifiDirectTransport {
         for (WifiP2pDevice device : devices) if (device != null && address.equals(WifiDirectPolicy.address(device.deviceAddress))) return true;
         return false;
     }
-    private void removeRequest(WifiP2pManager.Channel old, WifiP2pDnsSdServiceRequest previous) {
-        if (old != null && previous != null) try { manager.removeServiceRequest(old, previous, null); } catch (RuntimeException ignored) {}
+    private void closeChannel(WifiP2pManager.Channel client) {
+        if (Build.VERSION.SDK_INT < 27) return;
+        try {
+            client.close(); // Public own-client retirement; the OS may tear down its last client.
+            requests.closed(client); requestsSettled();
+        } catch (RuntimeException ignored) {} // Unsupported/failed close cannot settle an uncertain slot.
     }
-    private static void closeChannel(WifiP2pManager.Channel channel) { if (Build.VERSION.SDK_INT >= 27) try { channel.close(); } catch (RuntimeException ignored) {} }
     public void destroy() { onMain(() -> { if (destroyed) return; stopInternal(); destroyed = true; if (cleanupWork != null) closeChannel(cleanupWork.channel); sockets.close(); routes.shutdownNow(); }); }
     private interface Failure { void failed(int code); }
     private WifiP2pManager.ActionListener action(long started, Runnable success, Failure failure) {
