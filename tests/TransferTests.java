@@ -32,7 +32,9 @@ public final class TransferTests {
         AttachmentRecord waitFor(String state)throws Exception {
             long end=System.nanoTime()+TimeUnit.SECONDS.toNanos(15);
             while(System.nanoTime()<end){AttachmentRecord r=changes.poll(100,TimeUnit.MILLISECONDS);if(r!=null&&r.state.equals(state))return r;}
-            throw new AssertionError("No state "+state);
+            AttachmentRecord record=latest;
+            throw new AssertionError("No state "+state+"; latest="+(record==null?"none":record.state+":"+record.transferred+"/"+record.info.size)
+                +", closed="+(closed.getCount()==0)+", usable="+Files.getFileStore(root).getUsableSpace()+"; "+wire.diagnostics());
         }
     }
     static final class Pair implements AutoCloseable {

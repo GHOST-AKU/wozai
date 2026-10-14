@@ -80,8 +80,10 @@ public final class AutomaticFileRoutes implements AutoCloseable {
         recheckDeadline=actor.schedule(()->{if(refreshing&&selected!=null)finishRecheck();},8,TimeUnit.SECONDS);
     }
     private void finishRecheck(){
-        refreshing=false;refreshRequest=null;recheckNonce=null;if(recheckDeadline!=null){recheckDeadline.cancel(false);recheckDeadline=null;}
-        if(selected!=null)complete(parseRoute(selectedRoute));
+        CompletableFuture<Route> finishing;Route route;
+        synchronized(this){finishing=ready;route=selected==null?null:parseRoute(selectedRoute);refreshing=false;}
+        refreshRequest=null;recheckNonce=null;if(recheckDeadline!=null){recheckDeadline.cancel(false);recheckDeadline=null;}
+        if(route!=null){if(finishing!=null&&!finishing.isDone())finishing.complete(route);listener.changed();}
     }
     private void requestRecheck(){
         if(selected==null||listener.busy()||"wifi-direct".equals(selectedRoute)){finishRecheck();return;}
@@ -196,8 +198,12 @@ public final class AutomaticFileRoutes implements AutoCloseable {
             else if(packet.kind==FileRoutePacket.Kind.BIND_ACK&&initiator&&!bound){bound=true;if(lead)select();}
             else fail(new IOException("Unexpected FILE lane binding"),true);
         }finally{processed.complete(null);}});try{processed.get(15,TimeUnit.SECONDS);}catch(Exception error){wire.close(UiText.EMPTY);}finally{laneTransitions.remove(processed);}}
-        public void onTransfer(TransferPacket packet){if(valid()&&selected==wire&&generation.equals(packet.connectionGeneration))listener.receive(packet);else post(()->fail(new IOException("FILE packet before selection or wrong generation"),true));}
-        public void onText(Frame f){post(()->fail(new IOException("Text on FILE lane"),true));}public void onAck(String id){post(()->fail(new IOException("Receipt on FILE lane"),true));}
+        public void onTransfer(TransferPacket packet){
+            if(!live())return;
+            if(selected==wire&&generation.equals(packet.connectionGeneration))listener.receive(packet);
+            else post(()->{if(live())fail(new IOException("FILE packet before selection or wrong generation"),true);});
+        }
+        public void onText(Frame f){post(()->{if(live())fail(new IOException("Text on FILE lane"),true);});}public void onAck(String id){post(()->{if(live())fail(new IOException("Receipt on FILE lane"),true);});}
         public void onFailure(IOException e){post(()->{if(live()&&(e instanceof NoiseRecordChannel.AuthenticationException))fail(e,true);});}
         public void onClosed(UiText reason){post(()->{if(!live()||refreshing)return;if(selected==wire)fail(new IOException("FILE lane interrupted"),false);else attemptFailed(new IOException("FILE lane handshake failed"));});}
     }
@@ -209,10 +215,15 @@ public final class AutomaticFileRoutes implements AutoCloseable {
     }
     private void complete(Route route){synchronized(this){if(ready!=null&&!ready.isDone())ready.complete(route);}listener.changed();}
     private void fail(IOException error,boolean security){
-        if(closed)return;
-        if(security&&!terminal&&nonce!=null&&generation!=null&&chat.isReady())control(FileRoutePacket.Kind.FAIL,nonce,attempting,true,Collections.emptyList());
-        terminal|=security;selected=null;selectedRoute="";finishRecheck();resetCandidate();attempting=null;nonce=null;
-        if(security)platform.close();synchronized(this){if(ready!=null&&!ready.isDone())ready.completeExceptionally(error);}listener.failed(error);listener.changed();
+        CompletableFuture<Route> retiring;boolean notifyPeer;
+        synchronized(this){
+            if(closed)return;
+            notifyPeer=security&&!terminal&&nonce!=null&&generation!=null&&chat.isReady();
+            terminal|=security;retiring=ready;ready=null;selected=null;selectedRoute="";refreshing=false;
+        }
+        if(notifyPeer)control(FileRoutePacket.Kind.FAIL,nonce,attempting,true,Collections.emptyList());
+        finishRecheck();resetCandidate();attempting=null;nonce=null;
+        if(security)platform.close();if(retiring!=null&&!retiring.isDone())retiring.completeExceptionally(error);listener.failed(error);listener.changed();
     }
     private void cancelDeadline(){if(deadline!=null){deadline.cancel(false);deadline=null;}}
     private void resetCandidate(){cancelDeadline();FramedSession old=candidate;candidate=null;bound=false;dialed=false;selecting=false;if(old!=null)old.close(UiText.EMPTY);platform.stopDirect();}

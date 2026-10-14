@@ -68,7 +68,41 @@ public final class AutomaticFileRoutesTests {
             String token=UUID.randomUUID().toString();FileRoutePacket lie=new FileRoutePacket(FileRoutePacket.Kind.BEGIN,token,p.a.wire.connectionGeneration(),AutomaticFileRoutes.Route.BLUETOOTH,false,Collections.emptyList());
             check(p.a.wire.sendFileRoute(lie),"Authenticated false parent fallback sent");check(p.a.wire.sendFileRoute(new FileRoutePacket(FileRoutePacket.Kind.SELECT,token,p.a.wire.connectionGeneration(),AutomaticFileRoutes.Route.BLUETOOTH,false,Collections.emptyList())),"False fallback selection sent");check(p.b.errors.poll(2,TimeUnit.SECONDS)!=null&&p.b.files.route().isEmpty(),"Parent LAN cannot be labeled Bluetooth by peer control");check(p.b.wire.isReady(),"False provenance rejection preserves chat");
         }
+        retiredLaneCallbacks();liveLaneRejections();failurePromiseRetirement();
         System.out.println("Automatic file routes: "+checks+" checks passed");
+    }
+    static Object field(Object owner,String name)throws Exception {java.lang.reflect.Field f=owner.getClass().getDeclaredField(name);f.setAccessible(true);return f.get(owner);}
+    static FramedSession.Listener laneListener(AutomaticFileRoutes routes)throws Exception {return (FramedSession.Listener)field(field(routes,"candidate"),"listener");}
+    static void drainActor(AutomaticFileRoutes routes)throws Exception {((ExecutorService)field(routes,"actor")).submit(()->{}).get(3,TimeUnit.SECONDS);}
+    static TransferPacket packet(String generation)throws IOException {return TransferPacket.data(UUID.randomUUID().toString(),UUID.randomUUID().toString(),generation,1,0,new byte[]{7});}
+    static void retiredLaneCallbacks()throws Exception {
+        for(boolean beforeSelection:new boolean[]{true,false})try(Pair p=new Pair("bluetooth",false,true)) {
+            p.a.files.ensureReady().get(5,TimeUnit.SECONDS);p.b.files.ensureReady().get(5,TimeUnit.SECONDS);FramedSession.Listener retired=laneListener(p.a.files);
+            p.a.files.abort();check(p.a.errors.poll(3,TimeUnit.SECONDS)!=null&&p.b.errors.poll(3,TimeUnit.SECONDS)!=null,"Real lane abort observed on both peers");p.a.errors.clear();p.b.errors.clear();
+            if(beforeSelection){p.a.platform.holdLan=true;p.a.platform.connectEntered=new CountDownLatch(1);}
+            CompletableFuture<AutomaticFileRoutes.Route> replacement=p.a.files.ensureReady();if(beforeSelection){check(p.a.platform.connectEntered.await(3,TimeUnit.SECONDS)&&!replacement.isDone(),"Replacement socket provider held before selection");}else replacement.get(5,TimeUnit.SECONDS);
+            retired.onTransfer(packet(p.a.wire.connectionGeneration()));retired.onText(new Frame(Frame.TEXT,UUID.randomUUID().toString(),"retired",1));retired.onAck(UUID.randomUUID().toString());retired.onFailure(new dev.ghost.nearbyim.noise.NoiseRecordChannel.AuthenticationException("retired proof"));
+            drainActor(p.a.files);check(p.a.errors.isEmpty(),"Retired DATA/TEXT/ACK/auth callbacks cannot fail replacement FILE route");
+            if(beforeSelection)p.a.platform.releaseLan();
+            check(replacement.get(5,TimeUnit.SECONDS)==AutomaticFileRoutes.Route.LAN,"Retired callback cannot poison explicit resume");check(p.a.received.isEmpty(),"Retired DATA is not delivered to engine");p.transfer();check(p.a.wire.isReady()&&p.b.wire.isReady(),"Retired callbacks retain healthy chat");
+        }
+    }
+    static void liveLaneRejections()throws Exception {
+        for(boolean beforeSelection:new boolean[]{true,false})try(Pair p=new Pair("bluetooth",false,true)) {
+            p.a.files.ensureReady().get(5,TimeUnit.SECONDS);p.b.files.ensureReady().get(5,TimeUnit.SECONDS);FramedSession.Listener live=laneListener(p.a.files);
+            if(beforeSelection){java.lang.reflect.Field selected=AutomaticFileRoutes.class.getDeclaredField("selected");selected.setAccessible(true);selected.set(p.a.files,null);}
+            live.onTransfer(packet(beforeSelection?p.a.wire.connectionGeneration():repeat('d',64)));drainActor(p.a.files);
+            check(!p.a.errors.isEmpty()&&p.a.files.ensureReady().isCompletedExceptionally(),"Current lane DATA before selection or wrong generation stays terminal");check(p.a.received.isEmpty()&&p.a.wire.isReady(),"Invalid current lane DATA reaches no engine and leaves chat healthy");
+        }
+    }
+    static void failurePromiseRetirement()throws Exception {
+        try(Pair p=new Pair("bluetooth",false,true)) {
+            p.a.files.ensureReady().get(5,TimeUnit.SECONDS);p.b.files.ensureReady().get(5,TimeUnit.SECONDS);
+            p.a.platform.stopEntered=new CountDownLatch(1);p.a.platform.stopRelease=new CountDownLatch(1);p.a.files.abort();
+            check(p.a.platform.stopEntered.await(3,TimeUnit.SECONDS),"Old failure paused inside platform teardown");
+            CompletableFuture<AutomaticFileRoutes.Route> replacement=p.a.files.ensureReady();check(!replacement.isDone(),"Replacement readiness admitted during old teardown");
+            p.a.platform.stopRelease.countDown();check(replacement.get(5,TimeUnit.SECONDS)==AutomaticFileRoutes.Route.LAN,"Old cancellation cannot reject newly allocated readiness promise");p.transfer();
+        }
     }
     static boolean hasApi(){try{Class.forName("dev.ghost.nearbyim.core.AutomaticFileRoutes");return true;}catch(ClassNotFoundException e){return false;}}
     static void codec()throws Exception {
@@ -81,16 +115,19 @@ public final class AutomaticFileRoutesTests {
     static byte[] key(){byte[] k=new byte[32];new java.security.SecureRandom().nextBytes(k);return k;}
     static StreamConnection[] sockets()throws Exception {try(ServerSocket s=new ServerSocket(0,1,InetAddress.getLoopbackAddress())){Socket a=new Socket(InetAddress.getLoopbackAddress(),s.getLocalPort()),b=s.accept();return new StreamConnection[]{SessionTests.connection(a),SessionTests.connection(b)};}}
     static final class TestPlatform implements AutomaticFileRoutes.Platform {
-        boolean direct,lan;TestPlatform peer;Consumer<StreamConnection> accept;Consumer<List<AutomaticFileRoutes.Endpoint>> endpoints;int dials;boolean directSuccess,delayDirect,reverse,corruptHeader;final java.util.concurrent.atomic.AtomicBoolean corrupt=new java.util.concurrent.atomic.AtomicBoolean();Consumer<AutomaticFileRoutes.Opened> opened;boolean dialer;final CountDownLatch directCalled=new CountDownLatch(1);
+        boolean direct,lan;TestPlatform peer;Consumer<StreamConnection> accept;Consumer<List<AutomaticFileRoutes.Endpoint>> endpoints;int dials;boolean directSuccess,delayDirect,reverse,corruptHeader;volatile boolean holdLan;volatile Runnable heldLan;volatile StreamConnection[] heldConnections;CountDownLatch connectEntered;volatile CountDownLatch stopEntered,stopRelease;final java.util.concurrent.atomic.AtomicBoolean corrupt=new java.util.concurrent.atomic.AtomicBoolean();Consumer<AutomaticFileRoutes.Opened> opened;boolean dialer;final CountDownLatch directCalled=new CountDownLatch(1);
         TestPlatform(boolean direct,boolean lan){this.direct=direct;this.lan=lan;}
         public boolean directSupported(){return direct;}
         public void prepareLan(Consumer<List<AutomaticFileRoutes.Endpoint>> endpoints,Consumer<StreamConnection> accepted){accept=accepted;this.endpoints=endpoints;CompletableFuture.delayedExecutor(40,TimeUnit.MILLISECONDS).execute(this::publish);}
         public List<AutomaticFileRoutes.Endpoint> currentLanEndpoints(){return lan?List.of(new AutomaticFileRoutes.Endpoint("192.168.1.2",2345)):List.of();}
         void publish(){endpoints.accept(lan?Collections.singletonList(new AutomaticFileRoutes.Endpoint("192.168.1.2",2345)):Collections.emptyList());}
-        public void connectLan(List<AutomaticFileRoutes.Endpoint> endpoints,Consumer<StreamConnection> opened,Consumer<Throwable> failed){dials++;try{StreamConnection[] pair=sockets();peer.accept.accept(peer.wrap(pair[1]));opened.accept(wrap(pair[0]));}catch(Exception e){failed.accept(e);}}
+        public void connectLan(List<AutomaticFileRoutes.Endpoint> endpoints,Consumer<StreamConnection> opened,Consumer<Throwable> failed){dials++;try{StreamConnection[] pair=sockets();Runnable deliver=()->{peer.accept.accept(peer.wrap(pair[1]));opened.accept(wrap(pair[0]));};if(holdLan){heldConnections=pair;heldLan=deliver;connectEntered.countDown();}else deliver.run();}catch(Exception e){failed.accept(e);}}
         public void openDirect(boolean dialer,Consumer<AutomaticFileRoutes.Opened> opened,Consumer<Throwable> failed){this.opened=opened;this.dialer=dialer;directCalled.countDown();if(delayDirect)return;if(!directSuccess){failed.accept(new IOException("Direct unavailable"));return;}synchronized(TestPlatform.class){if(peer.opened!=null&&peer.directSuccess)try{StreamConnection[] connections=sockets();opened.accept(new AutomaticFileRoutes.Opened(connections[0],reverse?dialer:!dialer));peer.opened.accept(new AutomaticFileRoutes.Opened(connections[1],reverse?!dialer:dialer));}catch(Exception e){failed.accept(e);}}}
         StreamConnection wrap(StreamConnection base){return new StreamConnection(){public InputStream input()throws IOException{return base.input();}public String label(){return base.label();}public void close()throws IOException{base.close();}public OutputStream output()throws IOException{OutputStream out=base.output();return new OutputStream(){public void write(int value)throws IOException{out.write(value);}public void flush()throws IOException{out.flush();}public void write(byte[] bytes,int off,int len)throws IOException{if(corrupt.compareAndSet(true,false)){byte[] changed=Arrays.copyOfRange(bytes,off,off+len);changed[corruptHeader?4:changed.length-1]^=1;out.write(changed);}else out.write(bytes,off,len);}};}};}
-        public void stopDirect(){}public void close(){}
+        void releaseLan(){Runnable deliver=heldLan;heldLan=null;heldConnections=null;holdLan=false;deliver.run();}
+        public void stopDirect(){CountDownLatch entered=stopEntered,release=stopRelease;if(entered!=null&&release!=null){stopEntered=null;entered.countDown();try{if(!release.await(5,TimeUnit.SECONDS))throw new IllegalStateException("Teardown barrier timeout");}catch(InterruptedException e){Thread.currentThread().interrupt();}}}
+        public void close(){CountDownLatch release=stopRelease;if(release!=null)release.countDown();StreamConnection[] connections=heldConnections;if(connections!=null)for(StreamConnection connection:connections)try{connection.close();}catch(IOException ignored){}}
+
     }
     static final class ClosedConnection implements StreamConnection {
         final CountDownLatch closed=new CountDownLatch(1);

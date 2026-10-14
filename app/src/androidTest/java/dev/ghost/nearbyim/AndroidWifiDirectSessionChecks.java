@@ -21,21 +21,23 @@ final class AndroidWifiDirectSessionChecks {
         checks=0;
         directChatRejected(instrumentation);
         pausedLiveRouteRetained(instrumentation);
-        for(boolean incoming:new boolean[]{true,false})for(boolean requested:new boolean[]{true,false}) {
+        rejectedChatSocketRoles(instrumentation);
+        for(boolean incoming:new boolean[]{true,false}) {
+            boolean requested=!incoming;
             try(Fixture fixture=new Fixture(instrumentation,incoming,requested,false)) {
                 fixture.ready(requested);
                 fixture.bidirectionalFiles();
-                check(onMain(instrumentation,()->fixture.controller.transferDiagnostics().contains("transport=lan\n")),"Controller loses actual direct-channel diagnostic");
+                check(onMain(instrumentation,()->fixture.controller.transferDiagnostics().contains("transport=lan\n")),"Controller loses actual LAN chat diagnostic");
                 AttachmentInfo info=AttachmentInfo.v2(UUID.randomUUID().toString(),"pending.bin","application/octet-stream",32,"0".repeat(64),0);
                 check(onMain(instrumentation,()->fixture.controller.attachmentRoute(fixture.peer,new AttachmentRecord(info,true,"transferring",0).withRoute("lan"))==TransferPath.LAN_UNCONFIRMED),"Native approved LAN session displays the persisted file route");
             }
         }
-        try(Fixture fixture=new Fixture(instrumentation,true,true,true)) {
+        try(Fixture fixture=new Fixture(instrumentation,false,true,true)) {
             await(()->onMain(instrumentation,()->!fixture.controller.error.isEmpty()),"Selected chat identity mismatch is rejected");
             check(onMain(instrumentation,()->!fixture.controller.connected&&fixture.controller.error.key.equals("identityVerificationFailed")),"Selected chat socket bypasses recipient identity");
             check(onMain(instrumentation,()->fixture.controller.routeNotice.isEmpty()),"Identity failure silently downgrades to another path");
         }
-        try(Fixture fixture=new Fixture(instrumentation,true,true,false,Peer.BLUETOOTH,true)) {
+        try(Fixture fixture=new Fixture(instrumentation,false,true,false,Peer.BLUETOOTH,true)) {
             fixture.ready(true);
             FramedSession chat=onMain(instrumentation,()->field(fixture.controller,"active"));
             fixture.bidirectionalFiles();
@@ -55,6 +57,19 @@ final class AndroidWifiDirectSessionChecks {
             check(!controller.connecting&&!controller.hasSession(),"Rejected file-only mode created a chat attempt");
             return null;
         });}finally{onMain(instrumentation,()->{controller.destroy();return null;});}
+    }
+    private static void rejectedChatSocketRoles(Instrumentation instrumentation)throws Exception {
+        for(boolean incoming:new boolean[]{true,false}){
+            ChatController controller=onMain(instrumentation,()->new ChatController(instrumentation.getTargetContext(),()->{}));
+            java.util.concurrent.atomic.AtomicBoolean closed=new java.util.concurrent.atomic.AtomicBoolean();
+            try{onMain(instrumentation,()->{
+                controller.lanRunning=true;
+                if(incoming){Method begin=ChatController.class.getDeclaredMethod("beginConnect",int.class,String.class,boolean.class,String.class);begin.setAccessible(true);check((boolean)begin.invoke(controller,Peer.LAN,UUID.randomUUID().toString(),false,null),"Requested chat rejection fixture cannot begin");}
+                StreamConnection stream=new StreamConnection(){public InputStream input(){throw new AssertionError("Rejected chat role read a stream");}public OutputStream output(){throw new AssertionError("Rejected chat role wrote a stream");}public String label(){return "Rejected chat role";}public void close(){closed.set(true);}};
+                controller.onConnection(Peer.LAN,stream,incoming);
+                check(closed.get()&&!controller.hasSession()&&!controller.connected,"An unsolicited outgoing/requested incoming LAN socket was treated as a file-lane role");return null;
+            });}finally{onMain(instrumentation,()->{controller.destroy();return null;});}
+        }
     }
     private static void pausedLiveRouteRetained(Instrumentation instrumentation)throws Exception {
         ChatController controller=onMain(instrumentation,()->new ChatController(instrumentation.getTargetContext(),()->{}));
@@ -101,33 +116,35 @@ final class AndroidWifiDirectSessionChecks {
         final AtomicReference<AutomaticFileRoutes> routes=new AtomicReference<>();
         final int chatMode;
         final boolean automatic;
+        final boolean incoming,requested;
 
         final BlockingQueue<AttachmentRecord> records=new LinkedBlockingQueue<>();
         final BlockingQueue<String> textAcks=new LinkedBlockingQueue<>();
         final AtomicReference<UiText> remoteClosed=new AtomicReference<>();
+        final AtomicReference<String> remoteFailure=new AtomicReference<>();
         Fixture(Instrumentation instrumentation,boolean incoming,boolean requested,boolean mismatch)throws Exception {
             this(instrumentation,incoming,requested,mismatch,Peer.LAN,false);
         }
         Fixture(Instrumentation instrumentation,boolean incoming,boolean requested,boolean mismatch,int chatMode,boolean automatic)throws Exception {
-            this.instrumentation=instrumentation;this.chatMode=chatMode;this.automatic=automatic;
+            this.instrumentation=instrumentation;this.chatMode=chatMode;this.automatic=automatic;this.incoming=incoming;this.requested=requested;
             controller=onMain(instrumentation,()->new ChatController(instrumentation.getTargetContext(),()->{}));
             directory=Files.createTempDirectory(instrumentation.getTargetContext().getCacheDir().toPath(),"direct-noise-");
             onMain(instrumentation,()->{
                 // The emulator has no P2P radio. Exercise the actual socket-delivery boundary independently.
                 if(chatMode==Peer.LAN)controller.lanRunning=true;else controller.bluetoothRunning=true;
                 if(requested){Method begin=ChatController.class.getDeclaredMethod("beginConnect",int.class,String.class,boolean.class,String.class);begin.setAccessible(true);check((boolean)begin.invoke(controller,chatMode,mismatch?UUID.randomUUID().toString():peer,true,null),"Native requested chat session cannot begin");}
-                else controller.selectConversation(new ChatStore.Conversation(peer,"Direct fixture",0));
+                else controller.selectConversation(new ChatStore.Conversation(peer,"Native chat fixture",0));
                 return null;
             });
             Socket local,far;
             try(ServerSocket server=new ServerSocket(0,1,InetAddress.getLoopbackAddress())) {far=new Socket(InetAddress.getLoopbackAddress(),server.getLocalPort());local=server.accept();}
             AtomicReference<FramedSession> session=new AtomicReference<>();byte[] key=new byte[32];new java.security.SecureRandom().nextBytes(key);
-            remote=FramedSession.secure(connection(far),peer,"Direct fixture",root,key,incoming,new FramedSession.Listener(){
+            remote=FramedSession.secure(connection(far),peer,"Native chat fixture",root,key,incoming,new FramedSession.Listener(){
                 public void onHello(Frame hello){try{
                     FramedSession wire=session.get();
                     engine.set(new AttachmentTransferV2(directory,root.fingerprint(),DeviceIdentity.fingerprint(wire.remotePublicKey()),wire.connectionGeneration(),false,new AttachmentTransferV2.Wire(){public boolean send(TransferPacket packet){AutomaticFileRoutes selected=routes.get();return automatic?selected!=null&&selected.send(packet):wire.sendTransfer(packet);}public void abort(){AutomaticFileRoutes selected=routes.get();if(selected!=null)selected.abort();else wire.close(UiText.of("attachmentFailed"));}},record->records.add(record)));
                     wire.approve();
-                }catch(Exception failure){throw new IllegalStateException("Direct encrypted fixture setup failed",failure);}}
+                }catch(Exception failure){throw new IllegalStateException("Native encrypted chat fixture setup failed",failure);}}
                 public void onTransfer(TransferPacket packet){AutomaticFileRoutes selected=routes.get();if(selected!=null)selected.receiveChatTransfer(packet);else try{engine.get().receive(packet,true);}catch(IOException failure){throw new UncheckedIOException(failure);}}
                 public void onFileRoute(FileRoutePacket packet){AutomaticFileRoutes selected=routes.get();if(selected!=null)selected.receiveControl(packet);}
                 public void onText(Frame text){session.get().acknowledge(text.id);}
@@ -141,20 +158,38 @@ final class AndroidWifiDirectSessionChecks {
                     });routes.set(selected);selected.start();
                 }}
                 public void onClosed(UiText reason){remoteClosed.compareAndSet(null,reason);}
+                public void onFailure(IOException failure){remoteFailure.compareAndSet(null,boundedFailure(failure));}
             },false,automatic); // This file/consent peer has no AvatarSync; do not advertise an unimplemented handler.
             session.set(remote);remote.start();
             onMain(instrumentation,()->{controller.onConnection(chatMode,connection(local),incoming);return null;});
         }
         void ready(boolean requested)throws Exception {
-            if(!requested){await(()->onMain(instrumentation,()->controller.approvalId!=null),"Passive direct TCP role still requires chat consent");check(!remote.isReady(),"Passive GC automatically approves unknown contact");onMain(instrumentation,()->{controller.approve(controller.approvalId,false);return null;});}
-            await(()->onMain(instrumentation,()->controller.connected&&controller.canSendAttachment()),"Both supported chat socket roles create ready production file engines");
-            check(remote.attachmentsV2()&&!remote.avatarsSupported(),"File fixture must negotiate its implemented encrypted capabilities");
-            check(onMain(instrumentation,()->controller.approvalId==null&&peer.equals(controller.selectedId)&&controller.endToEndEncrypted(peer)),"GO/GC changes selected peer or encryption");
-            if(requested)await(()->onMain(instrumentation,()->controller.trustedDevices.stream().anyMatch(device->device.id.equals(peer)&&device.mode==chatMode&&device.publicKey.equals(root.publicKey())&&device.bluetoothAddress==null)),"Remembered Direct session persists its root and mode without a storage disconnect");
-            String id=UUID.randomUUID().toString();check(remote.send(new Frame(Frame.TEXT,id,"direct consent proof",System.currentTimeMillis())),"Direct fixture sends encrypted text");
+            if(!requested){awaitState(()->onMain(instrumentation,()->controller.approvalId!=null),"Incoming LAN chat still requires consent");check(!remote.isReady(),"Incoming chat automatically approves unknown contact");onMain(instrumentation,()->{controller.approve(controller.approvalId,false);return null;});}
+            awaitState(()->onMain(instrumentation,()->controller.connected&&controller.canSendAttachment()),"Both supported chat socket roles create ready production file engines");
+            check(remote.attachmentsV2()&&!remote.avatarsSupported(),"Chat fixture must negotiate its implemented encrypted capabilities");
+            check(onMain(instrumentation,()->controller.approvalId==null&&peer.equals(controller.selectedId)&&controller.endToEndEncrypted(peer)),"Chat socket direction changes selected peer or encryption");
+            if(requested)await(()->onMain(instrumentation,()->controller.trustedDevices.stream().anyMatch(device->device.id.equals(peer)&&device.mode==chatMode&&device.publicKey.equals(root.publicKey())&&device.bluetoothAddress==null)),"Remembered chat session persists its root and mode without a storage disconnect");
+            String id=UUID.randomUUID().toString();check(remote.send(new Frame(Frame.TEXT,id,"native consent proof",System.currentTimeMillis())),"Native chat fixture sends encrypted text");
             String ack=textAcks.poll(10,TimeUnit.SECONDS);
-            check(id.equals(ack),"Native Native saved-text receipt missing: ack="+ack+", remoteClosed="+remoteClosed.get()+", controller="+onMain(instrumentation,()->controller.status.key+"/"+controller.error.key));
-            await(()->onMain(instrumentation,()->controller.messages.stream().anyMatch(message->message.id.equals(id)&&!message.outgoing&&message.text.equals("direct consent proof"))),"Acknowledged Direct text is present in saved history");
+            check(id.equals(ack),"Native saved-text receipt missing: ack="+ack+", remoteClosed="+remoteClosed.get()+", controller="+onMain(instrumentation,()->controller.status.key+"/"+controller.error.key));
+            await(()->onMain(instrumentation,()->controller.messages.stream().anyMatch(message->message.id.equals(id)&&!message.outgoing&&message.text.equals("native consent proof"))),"Acknowledged native chat text is present in saved history");
+        }
+        private void awaitState(Callable<Boolean> condition,String message)throws Exception {
+            try{await(condition,message);}catch(AssertionError timeout){throw new AssertionError(message+"; "+stateSnapshot(),timeout);}
+        }
+        private String stateSnapshot()throws Exception {
+            String nativeState=onMain(instrumentation,()->{
+                String setup;
+                try{
+                    FramedSession wire=field(controller,"active");CompletableFuture<?> preparing=field(controller,"attachmentsPreparing");
+                    setup=",wireReady="+(wire!=null&&wire.isReady())+",transfers="+(field(controller,"transfers")!=null)+",preparing="+(preparing!=null)+",preparedDone="+(preparing!=null&&preparing.isDone())+",preparedFailed="+(preparing!=null&&preparing.isCompletedExceptionally());
+                }catch(Exception unavailable){setup=",privateSnapshot="+unavailable.getClass().getSimpleName();}
+                return "incoming="+incoming+",requested="+requested+",mode="+chatMode+",automatic="+automatic+
+                    ",connected="+controller.connected+",connecting="+controller.connecting+",status="+controller.status.key+",error="+controller.error.key+
+                    ",active="+controller.hasSession()+",consent="+(controller.approvalId!=null)+",peerMatch="+peer.equals(controller.connectedPeerId)+",selectedMatch="+peer.equals(controller.selectedId)+
+                    ",canSendAttachment="+controller.canSendAttachment()+setup;
+            });
+            UiText reason=remoteClosed.get();return nativeState+",remoteReady="+remote.isReady()+",remoteEngine="+(engine.get()!=null)+",remoteClosed="+(reason==null?"none":reason.key)+",remoteFailure="+remoteFailure.get();
         }
         void bidirectionalFiles()throws Exception {
             byte[] expected=new byte[65539];new Random(927).nextBytes(expected);
@@ -192,6 +227,7 @@ final class AndroidWifiDirectSessionChecks {
             public void close(){nativeLan.close();}
         };
     }
+    private static String boundedFailure(IOException failure){String text=failure.getClass().getSimpleName()+": "+String.valueOf(failure.getMessage()).replace('\n',' ').replace('\r',' ');return text.substring(0,Math.min(320,text.length()));}
     @SuppressWarnings("unchecked") private static <T>T field(Object object,String name)throws Exception{Field field=object.getClass().getDeclaredField(name);field.setAccessible(true);return (T)field.get(object);}
     private static StreamConnection connection(Socket socket){return new StreamConnection(){public InputStream input()throws IOException{return socket.getInputStream();}public OutputStream output()throws IOException{return socket.getOutputStream();}public String label(){return "controller fixture, no P2P radio";}public void close()throws IOException{socket.close();}};}
     private static <T>T onMain(Instrumentation instrumentation,Callable<T> operation)throws Exception{Object[] result=new Object[2];instrumentation.runOnMainSync(()->{try{result[0]=operation.call();}catch(Throwable error){result[1]=error;}});if(result[1]!=null)throw new Exception((Throwable)result[1]);@SuppressWarnings("unchecked")T value=(T)result[0];return value;}

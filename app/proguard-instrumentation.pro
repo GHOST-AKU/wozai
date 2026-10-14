@@ -18,6 +18,9 @@
     java.util.concurrent.ExecutorService storage;
     dev.ghost.nearbyim.ChatStore store;
     java.lang.Runnable observer;
+    dev.ghost.nearbyim.core.FramedSession active;
+    dev.ghost.nearbyim.core.ClientAttachmentTransfers transfers;
+    java.util.concurrent.CompletableFuture attachmentsPreparing;
     void refresh();
     java.util.List liveMessages(java.util.List,java.lang.String);
     boolean beginConnect(int,java.lang.String,boolean,java.lang.String);
