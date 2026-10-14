@@ -13,7 +13,7 @@ public final class WifiDirectPolicyTests {
             WifiDirectPolicy.Lifecycle life = new WifiDirectPolicy.Lifecycle(); long old = life.start();
             life.stop(); long current = life.start();
             truth(!life.valid(old) && life.valid(current), "A restarted run must reject old callbacks");
-            truth(!life.claimGroup(old, true) && !life.ownsGroup(), "Stale group cannot become owned");
+            truth(!life.observeGroup(old, true) && !life.hasObservedGroup(), "Stale group cannot become observed");
         });
         check("cancel invalidates pending attempts without closing a delivered session", () -> {
             WifiDirectPolicy.Lifecycle life = new WifiDirectPolicy.Lifecycle(); long run = life.start(), first = life.beginAttempt();
@@ -21,11 +21,11 @@ public final class WifiDirectPolicyTests {
             long second = life.beginAttempt(); life.connected(run, second); life.cancelAttempt();
             truth(life.validAttempt(run, second), "Cancel must leave delivered session alone");
         });
-        check("foreign groups are never owned", () -> {
+        check("foreign groups never become verified app groups", () -> {
             WifiDirectPolicy.Lifecycle life = new WifiDirectPolicy.Lifecycle(); long run = life.start();
-            truth(!life.claimGroup(run, false) && !life.ownsGroup(), "Unknown group must be preserved");
-            truth(life.claimGroup(run, true) && life.ownsGroup(), "Verified app-peer group can be owned");
-            life.loseGroup(run); truth(!life.ownsGroup(), "Group loss removes ownership");
+            truth(!life.observeGroup(run, false) && !life.hasObservedGroup(), "Unknown group must be preserved");
+            truth(life.observeGroup(run, true) && life.hasObservedGroup(), "Verified app-peer group permits interface checks");
+            life.loseGroup(run); truth(!life.hasObservedGroup(), "Group loss removes observed topology");
         });
         check("confirmed foreign group loss permits the next explicit attempt", () -> {
             WifiDirectPolicy.Lifecycle life = new WifiDirectPolicy.Lifecycle(); long run = life.start(); life.foreignGroup(run);
@@ -47,6 +47,60 @@ public final class WifiDirectPolicyTests {
             truth(gate.complete(old), "Matching acknowledgement releases cleanup"); long next = gate.begin();
             truth(!gate.complete(old) && gate.blocked(), "Late old acknowledgement cannot release new cleanup");
             truth(gate.complete(next) && !gate.blocked(), "Current cleanup may release the next operation");
+        });
+        check("passive app-peer observation never grants global cleanup authority", () -> {
+            var authority = new WifiDirectPolicy.SessionAuthority(); Peer peer = Peer.wifiDirect(OTHER, "Pad", MAC);
+            authority.observe(peer);
+            equal(WifiDirectPolicy.Release.LOCAL_ONLY, authority.release(false, false, 0), "Disconnect must leave a concurrently created observed group alone");
+            authority.observe(peer);
+            equal(WifiDirectPolicy.Release.LOCAL_ONLY, authority.release(false, true, 0), "Stop closes this client's resources without removeGroup");
+        });
+        check("cancel before BUSY reply retires only this command", () -> {
+            var authority = new WifiDirectPolicy.SessionAuthority(); var command = authority.issue(7, 9);
+            equal(WifiDirectPolicy.Release.WAIT_NATIVE_ACK, authority.release(true, false, 0), "Unknown ACK cannot justify global cancelConnect");
+            truth(authority.blocked(), "No second command may overlap retirement");
+            truth(!authority.reply(command, false), "Late BUSY reply cannot approve the canceled attempt");
+            truth(!authority.blocked() && !authority.mayOpen(false), "Rejection releases ACK fence but cannot resurrect passive chat");
+        });
+        check("unresolved ACK timeout stays fenced without guessing radio ownership", () -> {
+            var authority = new WifiDirectPolicy.SessionAuthority(); var command = authority.issue(7, 9);
+            authority.release(true, true, 100);
+            truth(!authority.timeout(command, 4_099) && authority.timeout(command, 4_100), "Unknown command retirement has a bounded visible timeout");
+            truth(authority.blocked(), "Timeout never guesses that global negotiation stopped");
+            truth(!authority.mayOpen(true), "An unresolved retired command also blocks a fresh explicit socket attempt");
+            truth(!authority.timeout(command, 4_101), "Timeout is reported once");
+        });
+        check("late accepted ACK cannot reopen sockets after app cancel", () -> {
+            var authority = new WifiDirectPolicy.SessionAuthority(); var command = authority.issue(7, 9);
+            authority.release(true, false, 0);
+            truth(!authority.reply(command, true) && !authority.mayOpen(false), "Late success retires metadata only, never approves a chat");
+            truth(authority.mayOpen(true), "A fresh explicit attempt can authorize socket reuse");
+        });
+        check("invitation ACK for an existing group cannot promote removal authority", () -> {
+            var authority = new WifiDirectPolicy.SessionAuthority(); var command = authority.issue(7, 9);
+            truth(authority.reply(command, true), "Current accepted command may inspect group readiness");
+            authority.observe(Peer.wifiDirect(OTHER, "Pad", MAC));
+            equal(WifiDirectPolicy.Release.LOCAL_ONLY, authority.release(false, true, 0), "Connect ACK and peer hint do not identify a group's initiating app");
+        });
+        check("healthy observed-group hint survives TTL for explicit same-peer socket retry", () -> {
+            var authority = new WifiDirectPolicy.SessionAuthority(); Peer peer = Peer.wifiDirect(OTHER, "Pad", MAC); authority.observe(peer);
+            truth(authority.hasGroup(), "Verified current group pauses client discovery waves");
+            authority.release(false, false, 60_000);
+            equal(peer, authority.currentPeer(OTHER), "Disconnect preserves only the in-memory current group hint");
+            equal(WifiDirectPolicy.Admission.REUSE_GROUP, authority.admit(peer, true, true, false), "Fresh matching group query permits reuse after DNS expiry");
+            equal(WifiDirectPolicy.Admission.FOREIGN_GROUP, authority.admit(peer, true, false, true), "Another group cannot inherit the retained address");
+            authority.loseGroup(); equal(null, authority.currentPeer(OTHER), "Confirmed group loss discards hint");
+            equal(WifiDirectPolicy.Admission.INVALID_PEER, authority.admit(peer, false, false, false), "Stale hint cannot create a new radio negotiation");
+        });
+        check("canceled snapshots and stale ACKs cannot become a current peer", () -> {
+            var authority = new WifiDirectPolicy.SessionAuthority(); Peer peer = Peer.wifiDirect(OTHER, "Pad", MAC); authority.observe(peer);
+            var old = authority.issue(7, 9); authority.release(true, false, 0); authority.reply(old, false);
+            equal(null, authority.currentPeer(OTHER), "Canceled group is not a remembered routing hint");
+            var next = authority.issue(7, 10);
+            truth(!authority.reply(old, true), "Duplicate old success cannot alter a newer command");
+            authority.release(true, false, 10);
+            truth(authority.blocked(), "Old ACK cannot release the new command's fence");
+            authority.reply(next, false);
         });
         check("startup without a native advertisement acknowledgement is bounded", () -> {
             var deadline = new WifiDirectPolicy.StartupDeadline(7, 10_000);

@@ -30,6 +30,7 @@ public final class WifiDirectTransport {
     private final Handler main = new Handler(Looper.getMainLooper());
     private final WifiDirectPolicy.Lifecycle lifecycle = new WifiDirectPolicy.Lifecycle();
     private final WifiDirectPolicy.CleanupGate cleanup = new WifiDirectPolicy.CleanupGate();
+    private final WifiDirectPolicy.SessionAuthority authority = new WifiDirectPolicy.SessionAuthority();
     private final WifiDirectSockets sockets = new WifiDirectSockets();
     private final ThreadPoolExecutor routes = new ThreadPoolExecutor(1, 1, 0, TimeUnit.MILLISECONDS,
             new ArrayBlockingQueue<>(1), runnable -> { Thread thread = new Thread(runnable, "wozai-p2p-route"); thread.setDaemon(true); return thread; }, new ThreadPoolExecutor.AbortPolicy());
@@ -46,7 +47,7 @@ public final class WifiDirectTransport {
     private boolean queuedConnect;
     private CleanupWork cleanupWork;
     private Peer selected;
-    private GroupIdentity ownedGroup;
+    private GroupIdentity observedGroup;
     private String readyGroup;
     private String unprovenGroup;
     private long unprovenDeadline;
@@ -62,6 +63,8 @@ public final class WifiDirectTransport {
     }
     public boolean available() { return supported; }
     public boolean enabled() { try { return supported && wifi != null && wifi.isWifiEnabled(); } catch (RuntimeException denied) { return false; } }
+    /** Current-group RAM hint only. connect() rechecks the group/interface; Noise proves identity. */
+    public Peer currentPeer(String peerId) { return authority.currentPeer(peerId); }
     private boolean permitted() {
         return context.checkSelfPermission(Build.VERSION.SDK_INT >= 33 ? Manifest.permission.NEARBY_WIFI_DEVICES : Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
     }
@@ -136,8 +139,9 @@ public final class WifiDirectTransport {
         return result.isEmpty() ? "wozai" : result;
     }
     private void report(Peer peer) {
+        long started = run;
         for (Peer lost : registry.takeLost()) listener.onLost(lost.key);
-        if (peer != null) { listener.onPeer(peer); if (ownedGroup == null) inspectGroup(); }
+        if (peer != null && lifecycle.valid(started)) { listener.onPeer(peer); if (lifecycle.valid(started) && observedGroup == null) inspectGroup(); }
     }
     private void expirePeers(long started) {
         if (!lifecycle.valid(started)) return;
@@ -149,7 +153,7 @@ public final class WifiDirectTransport {
     private void discoverInternal() {
         if (!lifecycle.valid(run) || !initialized || !advertised || cleanup.blocked()) { error("directBusy", false); return; }
         if (!permitted()) { error("directPermissionRequired", false); return; }
-        // Starting a new scan waits for the previous global stop to be acknowledged.
+        // Starting a new scan waits for removal of this client's previous DNS request.
         stopSearchInternal(true);
     }
     private void beginDiscovery(long started, long search) {
@@ -175,12 +179,13 @@ public final class WifiDirectTransport {
     }
     public void stopSearch() { onMain(() -> { automaticDiscovery = false; stopSearchInternal(false); }); }
     private void stopSearchInternal(boolean restart) {
-        boolean hadSearch = request != null || searchRequested || searching;
         long search = ++scan, started = run; searchRequested = false;
-        WifiP2pDnsSdServiceRequest previous = request; request = null; removeRequest(channel, previous);
+        WifiP2pDnsSdServiceRequest previous = request; request = null;
         if (channel == null || !lifecycle.valid(started)) { searching = false; listener.onSearching(Peer.WIFI_DIRECT, false); return; }
-        if (!hadSearch) { listener.onSearching(Peer.WIFI_DIRECT, false); if (restart) beginDiscovery(started, search); else scheduleIdleDiscovery(started, search); return; }
-        try { manager.stopPeerDiscovery(channel, action(started, () -> {
+        if (previous == null) { searching = false; listener.onSearching(Peer.WIFI_DIRECT, false); if (restart) beginDiscovery(started, search); else scheduleIdleDiscovery(started, search); return; }
+        // Removing this client's request stops our scan subscription without globally stopping
+        // another app's P2P discovery or negotiation.
+        try { manager.removeServiceRequest(channel, previous, action(started, () -> {
             if (search != scan) return;
             searching = false; listener.onSearching(Peer.WIFI_DIRECT, false);
             if (restart) beginDiscovery(started, search); else scheduleIdleDiscovery(started, search);
@@ -194,7 +199,7 @@ public final class WifiDirectTransport {
     private void scheduleIdleDiscovery(long started, long search) {
         if (!automaticDiscovery || !lifecycle.valid(started)) return;
         main.postDelayed(() -> {
-            if (automaticDiscovery && lifecycle.valid(started) && search == scan && !cleanup.blocked() && !lifecycle.pending() && !lifecycle.ownsGroup() && !sockets.hasDelivered()) discoverInternal();
+            if (automaticDiscovery && lifecycle.valid(started) && search == scan && !cleanup.blocked() && !lifecycle.pending() && !authority.hasGroup() && !sockets.hasDelivered()) discoverInternal();
         }, 15_000);
     }
 
@@ -202,35 +207,60 @@ public final class WifiDirectTransport {
     private void connectInternal(Peer peer) {
         if (!lifecycle.valid(run) || !initialized || !advertised) { listener.onConnectFailed(Peer.WIFI_DIRECT, UiText.of("directBusy")); return; }
         if (!permitted()) { listener.onConnectFailed(Peer.WIFI_DIRECT, UiText.of("directPermissionRequired")); return; }
-        if (registry == null || !registry.contains(peer, now())) { listener.onConnectFailed(Peer.WIFI_DIRECT, UiText.of("directInvalidPeer")); return; }
-        if (lifecycle.foreign() || unprovenGroup != null) { listener.onConnectFailed(Peer.WIFI_DIRECT, UiText.of("directForeignGroup")); return; }
+        Peer retained = peer == null ? null : authority.currentPeer(peer.peerId);
+        boolean sameHint = retained != null && Objects.equals(retained.wifiDirectAddress, peer.wifiDirectAddress);
+        boolean fresh = registry != null && registry.contains(peer, now());
+        if (!fresh && !sameHint) { listener.onConnectFailed(Peer.WIFI_DIRECT, UiText.of("directInvalidPeer")); return; }
         if (sockets.hasDelivered() || lifecycle.pending()) { listener.onConnectFailed(Peer.WIFI_DIRECT, UiText.of("directBusy")); return; }
         if (cleanup.blocked()) {
             if (cleanupWork != null && cleanupWork.failed) { listener.onConnectFailed(Peer.WIFI_DIRECT, UiText.of("directCleanupFailed")); return; }
             long wanted = operation, started = run;
             queuedConnect = true; afterCleanup = () -> { if (wanted == operation && lifecycle.valid(started)) connectInternal(peer); }; return;
         }
-        if (lifecycle.ownsGroup()) {
-            disconnectInternal(); long wanted = operation, started = run;
-            queuedConnect = true; afterCleanup = () -> { if (wanted == operation && lifecycle.valid(started)) connectInternal(peer); };
-            if (!cleanup.blocked()) { Runnable next = afterCleanup; afterCleanup = null; queuedConnect = false; next.run(); } return;
-        }
         selected = peer; final long started = run, ticket = attempt = lifecycle.beginAttempt();
         invalidateInspection(); closeGroupStreams();
         connectDeadline = () -> { if (lifecycle.validAttempt(started, ticket) && lifecycle.pending()) failAttempt("directConnectTimeout"); };
         main.postDelayed(connectDeadline, CONNECT_MS);
+        try { manager.requestGroupInfo(channel, group -> onMain(() -> {
+            if (!lifecycle.validAttempt(started, ticket) || !lifecycle.pending()) return;
+            // Query before every explicit attempt: connect() may invite into an existing group.
+            // A retained hint is usable only when this exact observed group still matches.
+            if (observedGroup != null && !observedGroup.matches(group)) forgetObservedGroup();
+            if (group == null) { forgetObservedGroup(); foreignReported = false; unprovenGroup = null; unprovenRetry = false; }
+            boolean matches = groupHasPeer(group, peer.wifiDirectAddress);
+            WifiDirectPolicy.Admission admission = authority.admit(peer, group != null, matches, fresh);
+            if (admission == WifiDirectPolicy.Admission.REUSE_GROUP) { inspectGroup(); return; }
+            if (admission != WifiDirectPolicy.Admission.NEGOTIATE) {
+                rejectAttempt(admission == WifiDirectPolicy.Admission.FOREIGN_GROUP ? "directForeignGroup" : "directInvalidPeer"); return;
+            }
+            issueConnect(started, ticket, peer);
+        })); } catch (RuntimeException failure) { rejectAttempt(permissionReason(failure, "directConnectFailed")); }
+    }
+    private void issueConnect(long started, long ticket, Peer peer) {
+        WifiDirectPolicy.NativeCommand command;
+        try { command = authority.issue(started, ticket); }
+        catch (IllegalStateException unresolved) { rejectAttempt("directBusy"); return; }
         WifiP2pConfig config = new WifiP2pConfig(); config.deviceAddress = peer.wifiDirectAddress; config.wps.setup = WpsInfo.PBC;
-        try { manager.connect(channel, config, action(started, () -> {
-            if (lifecycle.validAttempt(started, ticket) && lifecycle.pending()) inspectGroup();
-        }, code -> { if (lifecycle.validAttempt(started, ticket) && lifecycle.pending()) rejectAttempt(reason(code, "directConnectFailed")); })); }
-        catch (RuntimeException failure) { rejectAttempt(permissionReason(failure, "directConnectFailed")); }
+        try { manager.connect(channel, config, new WifiP2pManager.ActionListener() {
+            public void onSuccess() { onMain(() -> connectReply(command, true, 0)); }
+            public void onFailure(int code) { onMain(() -> connectReply(command, false, code)); }
+        }); } catch (RuntimeException failure) {
+            authority.reply(command, false); rejectAttempt(permissionReason(failure, "directConnectFailed"));
+        }
+    }
+    private void connectReply(WifiDirectPolicy.NativeCommand command, boolean accepted, int code) {
+        boolean live = authority.reply(command, accepted);
+        completeRetirement(command);
+        if (!live || !lifecycle.validAttempt(command.run, command.attempt) || !lifecycle.pending()) return;
+        if (accepted) inspectGroup(); else rejectAttempt(reason(code, "directConnectFailed"));
     }
     public void cancelConnect() { onMain(() -> { if (queuedConnect) { afterCleanup = null; queuedConnect = false; } cancelInternal(); }); }
     private void cancelInternal() {
         if (!lifecycle.pending()) return;
-        Peer previous = selected; GroupIdentity owned = ownedGroup; lifecycle.cancelAttempt(); selected = null;
-        clearDeadline(); invalidateInspection(); closeGroupStreams(); lifecycle.loseGroup(run); ownedGroup = null;
-        beginCleanup(channel, owned == null, owned, previous, false);
+        WifiDirectPolicy.Release release = authority.release(true, false, now());
+        lifecycle.cancelAttempt(); selected = null;
+        clearDeadline(); invalidateInspection(); closeGroupStreams(); forgetObservedGroup();
+        beginRetirement(channel, release, false);
     }
     private void failAttempt(String key) {
         if (!lifecycle.pending()) return;
@@ -238,20 +268,23 @@ public final class WifiDirectTransport {
     }
     private void rejectAttempt(String key) {
         if (!lifecycle.pending()) return;
-        // An explicit native command rejection has no accepted negotiation to cancel.
-        GroupIdentity owned = ownedGroup; lifecycle.cancelAttempt(); selected = null;
-        clearDeadline(); invalidateInspection(); closeGroupStreams(); lifecycle.loseGroup(run); ownedGroup = null;
-        if (owned != null) beginCleanup(channel, false, owned, null, false); else scheduleIdleDiscovery(run, scan);
+        // Rejection changes this attempt only; native radio state belongs to the system.
+        WifiDirectPolicy.Release release = authority.release(true, false, now());
+        lifecycle.cancelAttempt(); selected = null;
+        clearDeadline(); invalidateInspection(); closeGroupStreams(); forgetObservedGroup();
+        beginRetirement(channel, release, false);
+        scheduleIdleDiscovery(run, scan);
         listener.onConnectFailed(Peer.WIFI_DIRECT, UiText.of(key));
     }
     public void disconnect() { onMain(this::disconnectInternal); }
     private void disconnectInternal() {
         if (queuedConnect) { afterCleanup = null; queuedConnect = false; }
         if (lifecycle.pending()) { cancelInternal(); return; }
-        GroupIdentity owned = ownedGroup; closeGroupStreams(); invalidateInspection(); selected = null;
-        lifecycle.loseGroup(run); ownedGroup = null;
-        if (owned != null) beginCleanup(channel, false, owned, null, false);
-        else if (lifecycle.valid(run)) { listener.onListening(Peer.WIFI_DIRECT, UiText.of("directAdvertising")); scheduleIdleDiscovery(run, scan); }
+        WifiDirectPolicy.Release release = authority.release(false, false, now());
+        closeGroupStreams(); invalidateInspection(); selected = null;
+        // Preserve a healthy current-group hint for an explicit retry, without automatically dialing.
+        beginRetirement(channel, release, false);
+        if (lifecycle.valid(run)) { listener.onListening(Peer.WIFI_DIRECT, UiText.of("directAdvertising")); scheduleIdleDiscovery(run, scan); }
     }
 
     @SuppressWarnings("deprecation")
@@ -301,18 +334,22 @@ public final class WifiDirectTransport {
     }
     private void handleGroup(long started, WifiP2pInfo info, WifiP2pGroup group) {
         if (info == null || !info.groupFormed || group == null) {
-            if (ownedGroup != null || readyGroup != null || foreignReported || unprovenGroup != null) groupLost();
+            if (observedGroup != null || readyGroup != null || foreignReported || unprovenGroup != null) groupLost();
             return;
         }
         if (info.isGroupOwner != group.isGroupOwner() || info.groupOwnerAddress == null) { routeFailure("directInterfaceUnavailable"); return; }
-        String counterpart = verifiedCounterpart(group);
+        if (observedGroup != null && !observedGroup.matches(group)) { closeGroupStreams(); forgetObservedGroup(); }
+        // A canceled native command may still form a group. Only a fresh explicit attempt can
+        // authorize sockets after retirement; a delayed broadcast/service hint cannot resurrect it.
+        if (!authority.mayOpen(lifecycle.pending()) && observedGroup == null) return;
+        Peer counterpart = verifiedCounterpart(group);
         if (counterpart == null) {
             closeGroupStreams();
             String key = group.getInterface() + "/" + group.getNetworkName() + "/" + group.isGroupOwner();
             if (!key.equals(unprovenGroup)) {
                 unprovenGroup = key; unprovenDeadline = now() + INTERFACE_MS;
                 // An idle advertised receiver may not have heard this peer recently. Seek bounded
-                // app-service provenance; never infer ownership from the invitation or group name.
+                // app-service provenance; an invitation/group name never proves radio authority.
                 if (automaticDiscovery && !searchRequested) discoverInternal();
             }
             if (now() < unprovenDeadline) {
@@ -325,34 +362,40 @@ public final class WifiDirectTransport {
             lifecycle.foreignGroup(started);
             if (lifecycle.pending()) failAttempt("directForeignGroup");
             else if (!foreignReported) { foreignReported = true; error("directForeignGroup", false); }
-            return; // Preserve unrelated or unproven groups. Advertising never confers ownership.
+            return; // Preserve unrelated or unproven groups. Advertising never grants removal authority.
         }
         unprovenGroup = null; unprovenRetry = false;
         foreignReported = false;
         GroupIdentity identity = new GroupIdentity(group, counterpart);
-        if (!lifecycle.claimGroup(started, true)) return;
-        if (ownedGroup != null && !ownedGroup.matches(group)) closeGroupStreams();
-        ownedGroup = identity;
+        if (!lifecycle.observeGroup(started, true)) return;
+        observedGroup = identity; authority.observe(counterpart);
         if (searchRequested || searching) stopSearchInternal(false);
+        if (!authority.mayOpen(lifecycle.pending())) return;
         String key = identity.key() + "/" + info.groupOwnerAddress.getHostAddress();
         if (key.equals(readyGroup)) return;
         readyGroup = key; final long generation = ++groupGeneration, ticket = lifecycle.pending() ? attempt : 0;
         sockets.reset(); unregisterNetwork();
         readyInterface(started, generation, ticket, group.getInterface(), info.groupOwnerAddress, info.isGroupOwner, now() + INTERFACE_MS);
     }
-    private String verifiedCounterpart(WifiP2pGroup group) {
-        if (ownedGroup != null && ownedGroup.matches(group)) return ownedGroup.peer;
+    private Peer verifiedCounterpart(WifiP2pGroup group) {
+        if (observedGroup != null && observedGroup.matches(group)) {
+            Peer retained = authority.currentPeer(observedGroup.peerId);
+            if (retained != null && (!lifecycle.pending() || selected == null || retained.peerId.equals(selected.peerId) && retained.wifiDirectAddress.equals(selected.wifiDirectAddress))) return retained;
+        }
         Collection<WifiP2pDevice> devices = group.isGroupOwner() ? group.getClientList() : Collections.singletonList(group.getOwner());
         for (WifiP2pDevice device : devices) {
             if (device == null) continue;
             String verified = WifiDirectPolicy.counterpart(device.deviceAddress, selected, lifecycle.pending(), registry, now());
-            if (verified != null) return verified;
+            if (verified != null) {
+                if (lifecycle.pending() && selected != null && verified.equals(selected.wifiDirectAddress)) return selected;
+                return registry.byAddress(verified, now());
+            }
         }
         return null;
     }
     private static final class GroupIdentity {
-        final String iface, network, peer; final boolean go;
-        GroupIdentity(WifiP2pGroup group, String peer) { iface = group.getInterface(); network = group.getNetworkName(); go = group.isGroupOwner(); this.peer = peer; }
+        final String iface, network, peer, peerId; final boolean go;
+        GroupIdentity(WifiP2pGroup group, Peer peer) { iface = group.getInterface(); network = group.getNetworkName(); go = group.isGroupOwner(); this.peer = peer.wifiDirectAddress; peerId = peer.peerId; }
         boolean matches(WifiP2pGroup group) {
             if (group == null || !Objects.equals(iface, group.getInterface()) || !Objects.equals(network, group.getNetworkName()) || go != group.isGroupOwner()) return false;
             Collection<WifiP2pDevice> devices = go ? group.getClientList() : Collections.singletonList(group.getOwner());
@@ -377,7 +420,7 @@ public final class WifiDirectTransport {
         } catch (RejectedExecutionException busy) { routeFailure("directBusy"); }
     }
     private boolean groupCurrent(long started, long generation, long ticket) {
-        return lifecycle.valid(started) && generation == groupGeneration && !cleanup.blocked() && (ticket == 0 || lifecycle.validAttempt(started, ticket));
+        return lifecycle.valid(started) && generation == groupGeneration && !cleanup.blocked() && authority.mayOpen(lifecycle.pending()) && (ticket == 0 || lifecycle.validAttempt(started, ticket));
     }
     private static final class RouteSnapshot { final WifiDirectPolicy.Route route; final Network network; final String failure;
         RouteSnapshot(WifiDirectPolicy.Route route, Network network, String failure) { this.route = route; this.network = network; this.failure = failure; }
@@ -451,15 +494,16 @@ public final class WifiDirectTransport {
     }
     private void routeFailure(String key) { closeGroupStreams(); if (lifecycle.pending()) failAttempt(key); else error(key, false); }
     private void groupLost() {
-        boolean delivered = sockets.hasDelivered(), owned = lifecycle.ownsGroup();
-        closeGroupStreams(); invalidateInspection(); lifecycle.loseGroup(run); ownedGroup = null;
+        boolean delivered = sockets.hasDelivered(), observed = authority.hasGroup();
+        closeGroupStreams(); invalidateInspection(); forgetObservedGroup();
         unprovenGroup = null; unprovenRetry = false; foreignReported = false;
         if (!lifecycle.pending()) selected = null;
-        if (lifecycle.pending() && owned) rejectAttempt("directGroupLost");
+        if (lifecycle.pending() && observed) rejectAttempt("directGroupLost");
         else if (delivered) error("directGroupLost", false);
-        if (owned && lifecycle.valid(run)) listener.onListening(Peer.WIFI_DIRECT, UiText.of("directAdvertising"));
+        if (observed && lifecycle.valid(run)) listener.onListening(Peer.WIFI_DIRECT, UiText.of("directAdvertising"));
         scheduleIdleDiscovery(run, scan);
     }
+    private void forgetObservedGroup() { observedGroup = null; authority.loseGroup(); lifecycle.loseGroup(run); }
     private void closeGroupStreams() { groupGeneration++; readyGroup = null; sockets.reset(); unregisterNetwork(); }
     private void clearDeadline() { if (connectDeadline != null) main.removeCallbacks(connectDeadline); connectDeadline = null; }
     private void clearStartupWatchdog() { if (startupWatchdog != null) main.removeCallbacks(startupWatchdog); startupWatchdog = null; }
@@ -467,68 +511,53 @@ public final class WifiDirectTransport {
     public void stop() { onMain(this::stopInternal); }
     private void stopInternal() {
         operation++; afterCleanup = null; queuedConnect = false; automaticDiscovery = false; unprovenGroup = null; unprovenRetry = false; foreignReported = false;
-        boolean pending = lifecycle.pending(); GroupIdentity owned = ownedGroup; Peer peer = selected;
-        boolean hadSearch = request != null || searchRequested || searching;
+        WifiDirectPolicy.Release release = authority.release(lifecycle.pending(), true, now());
         WifiP2pManager.Channel previous = channel; WifiP2pDnsSdServiceInfo service = advertisement; WifiP2pDnsSdServiceRequest oldRequest = request;
-        lifecycle.stop(); run = 0; initialized = advertised = false; selected = null; ownedGroup = null; channel = null; advertisement = null; request = null; registry = null;
+        lifecycle.stop(); run = 0; initialized = advertised = false; selected = null; observedGroup = null; channel = null; advertisement = null; request = null; registry = null;
         clearDeadline(); clearStartupWatchdog(); invalidateInspection(); closeGroupStreams(); scan++; searchRequested = searching = false;
         if (receiverRegistered) { try { context.unregisterReceiver(receiver); } catch (RuntimeException ignored) {} receiverRegistered = false; } receiver = null;
         if (previous != null) {
             removeRequest(previous, oldRequest);
             if (service != null) try { manager.removeLocalService(previous, service, null); } catch (RuntimeException ignored) {}
-            if (hadSearch) try { manager.stopPeerDiscovery(previous, null); } catch (RuntimeException ignored) {}
-            beginCleanup(previous, pending && owned == null, owned, peer, true);
+            beginRetirement(previous, release, true);
         }
         listener.onSearching(Peer.WIFI_DIRECT, false);
     }
-    /** Cleanup is global in Android. Keep a barrier until its ACK; timeout refuses later starts. */
-    private void beginCleanup(WifiP2pManager.Channel old, boolean cancel, GroupIdentity owned, Peer peer, boolean closeChannel) {
+    /** Retire our command/client, never globally cancel negotiation or remove an observed group. */
+    private void beginRetirement(WifiP2pManager.Channel old, WifiDirectPolicy.Release release, boolean closeClient) {
         if (old == null) return;
         if (cleanup.blocked()) {
-            if (cleanupWork != null && cleanupWork.channel == old) cleanupWork.closeChannel |= closeChannel;
+            if (cleanupWork != null && cleanupWork.channel == old) cleanupWork.closeChannel |= closeClient;
             return;
         }
-        if (!cancel && owned == null) { if (closeChannel) closeChannel(old); return; }
-        final long token = cleanup.begin(); final long started = run;
-        CleanupWork work = cleanupWork = new CleanupWork(token, old, closeChannel);
-        Runnable complete = () -> {
-            if (!cleanup.current(token)) return;
+        if (release == WifiDirectPolicy.Release.LOCAL_ONLY) { if (closeClient) closeChannel(old); return; }
+        long token = cleanup.begin();
+        CleanupWork work = cleanupWork = new CleanupWork(token, old, authority.currentCommand(), closeClient);
+        main.postDelayed(() -> {
+            if (!cleanup.current(token) || cleanupWork != work || !authority.timeout(work.command, now())) return;
+            work.failed = true; afterCleanup = null; queuedConnect = false;
             if (work.closeChannel) closeChannel(old);
-            if (!cleanup.complete(token)) return;
-            cleanupWork = null;
-            Runnable next = afterCleanup; afterCleanup = null; queuedConnect = false;
-            if (next != null && !destroyed) next.run();
-            else if (lifecycle.valid(started)) { listener.onListening(Peer.WIFI_DIRECT, UiText.of("directAdvertising")); scheduleIdleDiscovery(started, scan); }
-        };
-        Runnable inspect = () -> {
-            if (!cleanup.current(token)) return;
-            try { manager.requestGroupInfo(old, group -> onMain(() -> {
-                if (!cleanup.current(token)) return;
-                boolean ours = owned != null ? owned.matches(group) : peer != null && matchesAttempt(group, peer.wifiDirectAddress);
-                if (!ours) { complete.run(); return; }
-                try { manager.removeGroup(old, new WifiP2pManager.ActionListener() {
-                    public void onSuccess() { onMain(complete); }
-                    public void onFailure(int code) { onMain(() -> { cleanupFailed(token); }); }
-                }); } catch (RuntimeException failure) { cleanupFailed(token); }
-            })); } catch (RuntimeException failure) { cleanupFailed(token); }
-        };
-        main.postDelayed(() -> cleanupFailed(token), 4_000);
-        if (cancel) try { manager.cancelConnect(old, new WifiP2pManager.ActionListener() {
-            public void onSuccess() { onMain(inspect); }
-            public void onFailure(int code) { onMain(() -> cleanupFailed(token)); }
-        }); } catch (RuntimeException failure) { cleanupFailed(token); }
-        else inspect.run();
+            error("directCleanupFailed", false);
+        }, 4_000);
     }
-    private void cleanupFailed(long token) {
-        if (!cleanup.current(token) || cleanupWork == null || cleanupWork.failed) return;
-        // Do not release the barrier on timeout/failure: a late native removal could hit a new group.
-        cleanupWork.failed = true; afterCleanup = null; queuedConnect = false; error("directCleanupFailed", false);
+    private void completeRetirement(WifiDirectPolicy.NativeCommand command) {
+        CleanupWork work = cleanupWork;
+        if (work == null || work.command != command || authority.blocked() || !cleanup.current(work.token)) return;
+        if (work.closeChannel) closeChannel(work.channel);
+        if (!cleanup.complete(work.token)) return;
+        cleanupWork = null;
+        Runnable next = afterCleanup; afterCleanup = null; queuedConnect = false;
+        if (next != null && !destroyed) next.run();
+        else if (lifecycle.valid(run)) { listener.onListening(Peer.WIFI_DIRECT, UiText.of("directAdvertising")); scheduleIdleDiscovery(run, scan); }
     }
     private static final class CleanupWork {
-        final long token; final WifiP2pManager.Channel channel; boolean closeChannel, failed;
-        CleanupWork(long token, WifiP2pManager.Channel channel, boolean closeChannel) { this.token = token; this.channel = channel; this.closeChannel = closeChannel; }
+        final long token; final WifiP2pManager.Channel channel; final WifiDirectPolicy.NativeCommand command;
+        boolean closeChannel, failed;
+        CleanupWork(long token, WifiP2pManager.Channel channel, WifiDirectPolicy.NativeCommand command, boolean closeChannel) {
+            this.token = token; this.channel = channel; this.command = command; this.closeChannel = closeChannel;
+        }
     }
-    private static boolean matchesAttempt(WifiP2pGroup group, String address) {
+    private static boolean groupHasPeer(WifiP2pGroup group, String address) {
         if (group == null || address == null) return false;
         Collection<WifiP2pDevice> devices = group.isGroupOwner() ? group.getClientList() : Collections.singletonList(group.getOwner());
         for (WifiP2pDevice device : devices) if (device != null && address.equals(WifiDirectPolicy.address(device.deviceAddress))) return true;

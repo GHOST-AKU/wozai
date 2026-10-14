@@ -10,6 +10,56 @@ final class WifiDirectPolicy {
     static final String TYPE = "_wozai-p2p._tcp";
     static final int PORT = 39741;
     static final long PEER_TTL_MS = 45_000;
+    enum Release { LOCAL_ONLY, WAIT_NATIVE_ACK }
+    enum Admission { NEGOTIATE, REUSE_GROUP, FOREIGN_GROUP, INVALID_PEER }
+    static final class NativeCommand {
+        final long run, attempt;
+        private int reply; // 0 unknown, 1 accepted, 2 rejected; ACK never proves group creation.
+        private boolean retired, timeoutReported;
+        private long deadline;
+        NativeCommand(long run, long attempt) { this.run = run; this.attempt = attempt; }
+    }
+    /** Public P2P APIs expose usable topology, never the group's initiating UID or removal authority. */
+    static final class SessionAuthority {
+        private volatile Peer peer;
+        private NativeCommand command;
+        private boolean passiveSuppressed;
+        void observe(Peer peer) { this.peer = peer; }
+        boolean hasGroup() { return peer != null; }
+        void loseGroup() { peer = null; }
+        Peer currentPeer(String id) { Peer current = peer; return current != null && current.peerId.equals(uuid(id)) ? current : null; }
+        NativeCommand currentCommand() { return command; }
+        NativeCommand issue(long run, long attempt) {
+            if (command != null && command.reply == 0) throw new IllegalStateException("Native connect acknowledgement unresolved");
+            return command = new NativeCommand(run, attempt);
+        }
+        boolean reply(NativeCommand replied, boolean accepted) {
+            if (replied != command || replied.reply != 0) return false;
+            replied.reply = accepted ? 1 : 2;
+            return !replied.retired;
+        }
+        Release release(boolean pending, boolean stopping, long now) {
+            if (pending || peer != null || stopping && command != null) passiveSuppressed = true;
+            if (pending || stopping) peer = null;
+            if (command != null) {
+                command.retired = true;
+                if (command.reply == 0 && command.deadline == 0) command.deadline = now + 4_000;
+            }
+            return blocked() ? Release.WAIT_NATIVE_ACK : Release.LOCAL_ONLY;
+        }
+        boolean blocked() { return command != null && command.retired && command.reply == 0; }
+        boolean timeout(NativeCommand retired, long now) {
+            if (retired != command || !blocked() || retired.timeoutReported || now < retired.deadline) return false;
+            retired.timeoutReported = true; return true;
+        }
+        boolean mayOpen(boolean explicit) { return !blocked() && (explicit || !passiveSuppressed); }
+        Admission admit(Peer candidate, boolean exists, boolean matches, boolean fresh) {
+            Peer retained = candidate == null ? null : currentPeer(candidate.peerId);
+            boolean sameHint = retained != null && Objects.equals(retained.wifiDirectAddress, candidate.wifiDirectAddress);
+            if (exists) return matches && (fresh || sameHint) ? Admission.REUSE_GROUP : Admission.FOREIGN_GROUP;
+            return fresh ? Admission.NEGOTIATE : Admission.INVALID_PEER;
+        }
+    }
     static final class StartupDeadline {
         private final long run, deadline; private boolean ready;
         StartupDeadline(long run, long deadline) { this.run = run; this.deadline = deadline; }
@@ -20,18 +70,18 @@ final class WifiDirectPolicy {
     /** Every platform/socket completion must carry the run and, for a dial, its attempt. */
     static final class Lifecycle {
         private long epoch, attempt;
-        private boolean running, pending, owned, foreign;
-        synchronized long start() { epoch++; attempt++; running = true; pending = owned = foreign = false; return epoch; }
-        synchronized void stop() { epoch++; attempt++; running = pending = owned = foreign = false; }
+        private boolean running, pending, observed, foreign;
+        synchronized long start() { epoch++; attempt++; running = true; pending = observed = foreign = false; return epoch; }
+        synchronized void stop() { epoch++; attempt++; running = pending = observed = foreign = false; }
         synchronized boolean valid(long run) { return running && run == epoch; }
         synchronized long beginAttempt() { pending = true; return ++attempt; }
         synchronized void cancelAttempt() { if (pending) { pending = false; attempt++; } }
         synchronized boolean pending() { return pending; }
         synchronized boolean validAttempt(long run, long ticket) { return valid(run) && ticket == attempt; }
         synchronized void connected(long run, long ticket) { if (validAttempt(run, ticket)) pending = false; }
-        synchronized boolean claimGroup(long run, boolean verified) { if (!valid(run) || !verified) return false; owned = true; foreign = false; return true; }
-        synchronized boolean ownsGroup() { return owned; }
-        synchronized void loseGroup(long run) { if (valid(run)) owned = foreign = false; }
+        synchronized boolean observeGroup(long run, boolean verified) { if (!valid(run) || !verified) return false; observed = true; foreign = false; return true; }
+        synchronized boolean hasObservedGroup() { return observed; }
+        synchronized void loseGroup(long run) { if (valid(run)) observed = foreign = false; }
         synchronized void foreignGroup(long run) { if (valid(run)) foreign = true; }
         synchronized boolean foreign() { return foreign; }
     }
@@ -42,7 +92,7 @@ final class WifiDirectPolicy {
         return known != null && (!pending || selected == null || known.peerId.equals(selected.peerId) && known.wifiDirectAddress.equals(selected.wifiDirectAddress)) ? address : null;
     }
 
-    /** No next native start/connect may run while an older cancel/remove is unacknowledged. */
+    /** Retired commands fence later starts/connects until their own matching native reply. */
     static final class CleanupGate {
         private long serial, pending;
         long begin() { if (pending == 0) pending = ++serial; return pending; }
