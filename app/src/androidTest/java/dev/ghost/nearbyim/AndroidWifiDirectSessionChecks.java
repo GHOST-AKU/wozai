@@ -122,6 +122,8 @@ final class AndroidWifiDirectSessionChecks {
         final BlockingQueue<String> textAcks=new LinkedBlockingQueue<>();
         final AtomicReference<UiText> remoteClosed=new AtomicReference<>();
         final AtomicReference<String> remoteFailure=new AtomicReference<>();
+        final AtomicReference<String> remoteRouteFailure=new AtomicReference<>();
+        final ArrayDeque<String> recordEvents=new ArrayDeque<>();
         Fixture(Instrumentation instrumentation,boolean incoming,boolean requested,boolean mismatch)throws Exception {
             this(instrumentation,incoming,requested,mismatch,Peer.LAN,false);
         }
@@ -142,7 +144,7 @@ final class AndroidWifiDirectSessionChecks {
             remote=FramedSession.secure(connection(far),peer,"Native chat fixture",root,key,incoming,new FramedSession.Listener(){
                 public void onHello(Frame hello){try{
                     FramedSession wire=session.get();
-                    engine.set(new AttachmentTransferV2(directory,root.fingerprint(),DeviceIdentity.fingerprint(wire.remotePublicKey()),wire.connectionGeneration(),false,new AttachmentTransferV2.Wire(){public boolean send(TransferPacket packet){AutomaticFileRoutes selected=routes.get();return automatic?selected!=null&&selected.send(packet):wire.sendTransfer(packet);}public void abort(){AutomaticFileRoutes selected=routes.get();if(selected!=null)selected.abort();else wire.close(UiText.of("attachmentFailed"));}},record->records.add(record)));
+                    engine.set(new AttachmentTransferV2(directory,root.fingerprint(),DeviceIdentity.fingerprint(wire.remotePublicKey()),wire.connectionGeneration(),false,new AttachmentTransferV2.Wire(){public boolean send(TransferPacket packet){AutomaticFileRoutes selected=routes.get();return automatic?selected!=null&&selected.send(packet):wire.sendTransfer(packet);}public boolean recoverableDisconnect(){return automatic;}public void abort(){AutomaticFileRoutes selected=routes.get();if(selected!=null)selected.abort();else wire.close(UiText.of("attachmentFailed"));}},record->{records.add(record);synchronized(recordEvents){if(recordEvents.size()==12)recordEvents.removeFirst();recordEvents.addLast(record.info.id.substring(0,8)+":"+(record.outgoing?"out":"in")+":"+record.state+":"+record.transferred+":"+record.route);}}));
                     wire.approve();
                 }catch(Exception failure){throw new IllegalStateException("Native encrypted chat fixture setup failed",failure);}}
                 public void onTransfer(TransferPacket packet){AutomaticFileRoutes selected=routes.get();if(selected!=null)selected.receiveChatTransfer(packet);else try{engine.get().receive(packet,true);}catch(IOException failure){throw new UncheckedIOException(failure);}}
@@ -154,7 +156,8 @@ final class AndroidWifiDirectSessionChecks {
                     AutomaticFileRoutes selected=new AutomaticFileRoutes(wire,peer,"Native FILE fixture",root,key,controller.localId,wire.remotePublicKey(),chatMode==Peer.LAN?"lan":"bluetooth",()->wire.isReady(),lanOnlyPlatform(instrumentation,peer,controller.localId),new AutomaticFileRoutes.Listener(){
                         public void receive(TransferPacket packet){try{engine.get().receive(packet,true);}catch(IOException failure){throw new UncheckedIOException(failure);}}
                         public void changed(){}
-                        public void failed(IOException failure){remoteClosed.compareAndSet(null,UiText.of("attachmentFailed"));}
+                        public boolean busy(){AttachmentTransferV2 files=engine.get();return files!=null&&files.hasActive();}
+                        public void failed(IOException failure){remoteRouteFailure.compareAndSet(null,boundedFailure(failure));AttachmentTransferV2 files=engine.get();if(files!=null)files.pauseOnDisconnect().whenComplete((value,error)->{if(error!=null)remoteRouteFailure.set(boundedFailure(new IOException("Peer file pause failed",error)));});}
                     });routes.set(selected);selected.start();
                 }}
                 public void onClosed(UiText reason){remoteClosed.compareAndSet(null,reason);}
@@ -187,9 +190,15 @@ final class AndroidWifiDirectSessionChecks {
                 return "incoming="+incoming+",requested="+requested+",mode="+chatMode+",automatic="+automatic+
                     ",connected="+controller.connected+",connecting="+controller.connecting+",status="+controller.status.key+",error="+controller.error.key+
                     ",active="+controller.hasSession()+",consent="+(controller.approvalId!=null)+",peerMatch="+peer.equals(controller.connectedPeerId)+",selectedMatch="+peer.equals(controller.selectedId)+
-                    ",canSendAttachment="+controller.canSendAttachment()+setup;
+                    ",canSendAttachment="+controller.canSendAttachment()+",sourcePreparing="+controller.isPreparingAttachment()+",routeNotice="+controller.routeNotice.key+",nativeFileRoute="+fileRouteDiagnostics(controller.transferDiagnostics())+",nativeRecords="+nativeRecordSnapshot()+setup;
             });
-            UiText reason=remoteClosed.get();return nativeState+",remoteReady="+remote.isReady()+",remoteEngine="+(engine.get()!=null)+",remoteClosed="+(reason==null?"none":reason.key)+",remoteFailure="+remoteFailure.get();
+            UiText reason=remoteClosed.get();AttachmentTransferV2 files=engine.get();AutomaticFileRoutes selected=routes.get();String events;synchronized(recordEvents){events=String.join("|",recordEvents);}
+            return nativeState+",remoteReady="+remote.isReady()+",remoteEngine="+(files!=null)+",remoteBusy="+(files!=null&&files.hasActive())+",remoteRoute="+(selected==null?"none":selected.route())+",remoteClosed="+(reason==null?"none":reason.key)+",remoteFailure="+remoteFailure.get()+",remoteRouteFailure="+remoteRouteFailure.get()+",remoteRecords="+events;
+        }
+        private String nativeRecordSnapshot(){
+            StringBuilder result=new StringBuilder();int count=0;
+            for(int i=controller.messages.size()-1;i>=0&&count<6;i--){AttachmentRecord record=controller.messages.get(i).attachment;if(record==null)continue;if(count++>0)result.append('|');result.append(record.info.id.substring(0,8)).append(':').append(record.outgoing?"out":"in").append(':').append(record.state).append(':').append(record.transferred).append(':').append(record.route);}
+            return result.toString();
         }
         void bidirectionalFiles()throws Exception {
             byte[] expected=new byte[65539];new Random(927).nextBytes(expected);
@@ -204,7 +213,7 @@ final class AndroidWifiDirectSessionChecks {
             onMain(instrumentation,()->{controller.sendAttachment(peer,controller.attachmentSessionToken(),uri);return null;});
             AttachmentRecord returned=null;long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(15);
             while(System.nanoTime()<deadline){AttachmentRecord next=records.poll(1,TimeUnit.SECONDS);if(next!=null&&!next.outgoing&&next.state.equals("received")){returned=next;break;}}
-            check(returned!=null,"Native file sender never completes durable return file");
+            check(returned!=null,"Native file sender never completes durable return file; "+stateSnapshot());
             check(Arrays.equals(expected,Files.readAllBytes(AttachmentTransfer.file(directory,returned.info,false))),"Return file bytes differ after encrypted chunks");
             String returnedId=returned.info.id;
             await(()->onMain(instrumentation,()->controller.messages.stream().anyMatch(message->message.id.equals(returnedId)&&message.attachment!=null&&message.attachment.state.equals("delivered"))),"Native file sender receives durable saved receipt");
@@ -228,6 +237,7 @@ final class AndroidWifiDirectSessionChecks {
         };
     }
     private static String boundedFailure(IOException failure){String text=failure.getClass().getSimpleName()+": "+String.valueOf(failure.getMessage()).replace('\n',' ').replace('\r',' ');return text.substring(0,Math.min(320,text.length()));}
+    private static String fileRouteDiagnostics(String report){StringBuilder result=new StringBuilder();for(String line:report.split("\n"))if(line.startsWith("file_transport=")||line.startsWith("file_route_pending=")){if(result.length()>0)result.append('|');result.append(line);}return result.substring(0,Math.min(320,result.length()));}
     @SuppressWarnings("unchecked") private static <T>T field(Object object,String name)throws Exception{Field field=object.getClass().getDeclaredField(name);field.setAccessible(true);return (T)field.get(object);}
     private static StreamConnection connection(Socket socket){return new StreamConnection(){public InputStream input()throws IOException{return socket.getInputStream();}public OutputStream output()throws IOException{return socket.getOutputStream();}public String label(){return "controller fixture, no P2P radio";}public void close()throws IOException{socket.close();}};}
     private static <T>T onMain(Instrumentation instrumentation,Callable<T> operation)throws Exception{Object[] result=new Object[2];instrumentation.runOnMainSync(()->{try{result[0]=operation.call();}catch(Throwable error){result[1]=error;}});if(result[1]!=null)throw new Exception((Throwable)result[1]);@SuppressWarnings("unchecked")T value=(T)result[0];return value;}

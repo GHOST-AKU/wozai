@@ -7,7 +7,7 @@ import java.util.function.Consumer;
 /** Bounded queues including the active write; preserve file FIFO and prioritize chat. */
 public final class FairRecordWriter implements AutoCloseable {
     public static final long FILE_BUDGET=9L*1024*1024,CONTROL_BUDGET=1024*1024;
-    public static final int ENTRY_OVERHEAD=256;
+    public static final int ENTRY_OVERHEAD=256,MAX_FILE_ENTRIES=512;
     public interface Write {void run()throws IOException;}
     private static final class Entry {final Write operation;final long charge;final boolean file;Entry(Write operation,long charge,boolean file){this.operation=operation;this.charge=charge;this.file=file;}}
     private final Object lock=new Object();
@@ -21,7 +21,7 @@ public final class FairRecordWriter implements AutoCloseable {
     public boolean submit(Write operation,int retainedBytes,boolean file) {
         Objects.requireNonNull(operation);if(retainedBytes<0||retainedBytes>65536)return false;long charge=retainedBytes+ENTRY_OVERHEAD;
         synchronized(lock) {
-            if(closed||file&&(files.size()>=512||charge>FILE_BUDGET-fileBytes)||!file&&(controls.size()>=64||charge>CONTROL_BUDGET-controlBytes))return false;
+            if(closed||file&&(files.size()>=MAX_FILE_ENTRIES||charge>FILE_BUDGET-fileBytes)||!file&&(controls.size()>=64||charge>CONTROL_BUDGET-controlBytes))return false;
             Entry entry=new Entry(operation,charge,file);if(file){files.addLast(entry);fileBytes+=charge;}else{controls.addLast(entry);controlBytes+=charge;}
             if(worker==null){worker=new Thread(this::run,"nearby-writer");worker.setDaemon(true);worker.start();}
             lock.notifyAll();return true;

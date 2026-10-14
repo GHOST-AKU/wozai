@@ -68,7 +68,7 @@ public final class AutomaticFileRoutesTests {
             String token=UUID.randomUUID().toString();FileRoutePacket lie=new FileRoutePacket(FileRoutePacket.Kind.BEGIN,token,p.a.wire.connectionGeneration(),AutomaticFileRoutes.Route.BLUETOOTH,false,Collections.emptyList());
             check(p.a.wire.sendFileRoute(lie),"Authenticated false parent fallback sent");check(p.a.wire.sendFileRoute(new FileRoutePacket(FileRoutePacket.Kind.SELECT,token,p.a.wire.connectionGeneration(),AutomaticFileRoutes.Route.BLUETOOTH,false,Collections.emptyList())),"False fallback selection sent");check(p.b.errors.poll(2,TimeUnit.SECONDS)!=null&&p.b.files.route().isEmpty(),"Parent LAN cannot be labeled Bluetooth by peer control");check(p.b.wire.isReady(),"False provenance rejection preserves chat");
         }
-        retiredLaneCallbacks();liveLaneRejections();failurePromiseRetirement();
+        retiredLaneCallbacks();liveLaneRejections();failurePromiseRetirement();retiredParentPacket();invalidParentPacket();retiredParentCaps();retiredParentAcrossUpgrade();
         System.out.println("Automatic file routes: "+checks+" checks passed");
     }
     static Object field(Object owner,String name)throws Exception {java.lang.reflect.Field f=owner.getClass().getDeclaredField(name);f.setAccessible(true);return f.get(owner);}
@@ -104,6 +104,52 @@ public final class AutomaticFileRoutesTests {
             p.a.platform.stopRelease.countDown();check(replacement.get(5,TimeUnit.SECONDS)==AutomaticFileRoutes.Route.LAN,"Old cancellation cannot reject newly allocated readiness promise");p.transfer();
         }
     }
+    static void retiredParentPacket()throws Exception {
+        try(Pair p=new Pair("bluetooth",false,false)) {
+            p.a.files.ensureReady().get(5,TimeUnit.SECONDS);p.b.files.ensureReady().get(5,TimeUnit.SECONDS);
+            p.a.parentDecoded=new CountDownLatch(1);p.a.releaseParent=new CountDownLatch(1);p.a.parentDispatched=new CountDownLatch(1);
+            check(p.b.files.send(packet(p.b.wire.connectionGeneration())),"Authorized parent FILE packet sent");check(p.a.parentDecoded.await(3,TimeUnit.SECONDS),"Real Noise parent DATA decoded before cancellation");
+            p.a.files.abort();check(p.a.errors.poll(3,TimeUnit.SECONDS)!=null&&p.b.errors.poll(3,TimeUnit.SECONDS)!=null,"Shared parent FILE canceled while decoded DATA callback held");p.a.errors.clear();p.b.errors.clear();
+            p.a.releaseParent.countDown();check(p.a.parentDispatched.await(3,TimeUnit.SECONDS),"Held parent callback dispatched after FILE retirement");drainActor(p.a.files);
+            check(p.a.errors.isEmpty(),"Already-decoded retired parent DATA cannot terminally poison FILE resume");check(p.a.received.isEmpty(),"Retired parent DATA is never delivered while unselected");check(p.a.wire.isReady()&&p.b.wire.isReady(),"Shared parent retirement keeps chat healthy");
+            check(p.a.files.ensureReady().get(5,TimeUnit.SECONDS)==AutomaticFileRoutes.Route.BLUETOOTH,"Explicit shared parent resume remains available");p.transfer();
+        }
+    }
+    static void invalidParentPacket()throws Exception {
+        for(boolean retired:new boolean[]{false,true})try(Pair p=new Pair("bluetooth",false,false)) {
+            if(retired){p.a.files.ensureReady().get(5,TimeUnit.SECONDS);p.b.files.ensureReady().get(5,TimeUnit.SECONDS);p.a.files.abort();check(p.a.errors.poll(3,TimeUnit.SECONDS)!=null&&p.b.errors.poll(3,TimeUnit.SECONDS)!=null,"Parent authorization retired before wrong-generation check");}
+            check(p.b.wire.sendTransfer(packet(retired?repeat('c',64):p.b.wire.connectionGeneration())),"Invalid parent traffic transmitted through real Noise");
+            check(p.a.errors.poll(3,TimeUnit.SECONDS)!=null&&p.a.files.ensureReady().isCompletedExceptionally(),"Never-selected parent traffic and retired wrong-generation traffic remain terminal");check(p.a.received.isEmpty()&&p.a.wire.isReady(),"Invalid parent traffic reaches no engine and leaves CHAT healthy");
+        }
+    }
+    static void sendParent(Pair p,TransferPacket packet)throws Exception {
+        CountDownLatch dispatched=new CountDownLatch(1);p.a.parentDispatched=dispatched;
+        if(!p.b.wire.sendTransfer(packet)||!dispatched.await(3,TimeUnit.SECONDS))throw new AssertionError("Real parent record was not dispatched");
+    }
+    static void retireParent(Pair p)throws Exception {
+        p.a.files.ensureReady().get(5,TimeUnit.SECONDS);p.b.files.ensureReady().get(5,TimeUnit.SECONDS);p.a.files.abort();
+        check(p.a.errors.poll(3,TimeUnit.SECONDS)!=null&&p.b.errors.poll(3,TimeUnit.SECONDS)!=null,"Parent selected authorization retired for finite drain");p.a.errors.clear();p.b.errors.clear();
+    }
+    static void retiredParentCaps()throws Exception {
+        for(boolean data:new boolean[]{true,false})try(Pair p=new Pair("bluetooth",false,false)) {
+            retireParent(p);
+            if(data){for(long remaining=FairRecordWriter.FILE_BUDGET;remaining>0;){int length=(int)Math.min(TransferLimits.DATA_BYTES,remaining);sendParent(p,TransferPacket.data(UUID.randomUUID().toString(),UUID.randomUUID().toString(),p.b.wire.connectionGeneration(),length,0,new byte[length]));remaining-=length;}}
+            else{TransferPacket control=TransferPacket.control(TransferPacket.Kind.CANCEL,UUID.randomUUID().toString(),UUID.randomUUID().toString(),p.b.wire.connectionGeneration(),true,1,0,0,null,"canceled");for(int i=0;i<FairRecordWriter.MAX_FILE_ENTRIES+1;i++)sendParent(p,control);}
+            drainActor(p.a.files);check(p.a.errors.isEmpty()&&p.a.received.isEmpty(),"Retired parent allowance discards its complete bounded budget");
+            sendParent(p,data?packet(p.b.wire.connectionGeneration()):TransferPacket.control(TransferPacket.Kind.CANCEL,UUID.randomUUID().toString(),UUID.randomUUID().toString(),p.b.wire.connectionGeneration(),true,1,0,0,null,"canceled"));drainActor(p.a.files);
+            check(!p.a.errors.isEmpty()&&p.a.files.ensureReady().isCompletedExceptionally(),"Retired parent byte/control allowance cannot be exceeded");check(p.a.received.isEmpty()&&p.a.wire.isReady(),"Excess retired traffic reaches no engine and leaves chat healthy");
+        }
+    }
+    static void retiredParentAcrossUpgrade()throws Exception {
+        try(Pair p=new Pair("bluetooth",false,false)) {
+            p.a.files.ensureReady().get(5,TimeUnit.SECONDS);p.a.platform.lan=p.b.platform.lan=true;check(p.a.files.prepareNewBatch().get(5,TimeUnit.SECONDS)==AutomaticFileRoutes.Route.LAN,"Historical parent authorization retired for idle LAN upgrade");p.b.files.ensureReady().get(5,TimeUnit.SECONDS);
+            sendParent(p,packet(p.b.wire.connectionGeneration()));drainActor(p.a.files);check(p.a.errors.isEmpty()&&p.a.received.isEmpty()&&p.a.files.route().equals("lan"),"Late authorized parent DATA stays discarded after extra lane selection");p.transfer();
+        }
+        try(Pair p=new Pair("bluetooth",false,true)) {
+            p.a.files.ensureReady().get(5,TimeUnit.SECONDS);p.b.files.ensureReady().get(5,TimeUnit.SECONDS);sendParent(p,packet(p.b.wire.connectionGeneration()));drainActor(p.a.files);
+            check(!p.a.errors.isEmpty()&&p.a.files.ensureReady().isCompletedExceptionally()&&p.a.received.isEmpty(),"Extra lane cannot grant never-selected parent DATA authority");
+        }
+    }
     static boolean hasApi(){try{Class.forName("dev.ghost.nearbyim.core.AutomaticFileRoutes");return true;}catch(ClassNotFoundException e){return false;}}
     static void codec()throws Exception {
         FileRoutePacket packet=new FileRoutePacket(FileRoutePacket.Kind.BEGIN,UUID.randomUUID().toString(),repeat('a',64),AutomaticFileRoutes.Route.LAN,false,Collections.emptyList());
@@ -134,9 +180,9 @@ public final class AutomaticFileRoutesTests {
         public InputStream input(){return new ByteArrayInputStream(new byte[0]);}public OutputStream output(){return new ByteArrayOutputStream();}public String label(){return "late";}public void close(){closed.countDown();}
     }
     static final class End implements FramedSession.Listener,AutomaticFileRoutes.Listener {
-        FramedSession wire;AutomaticFileRoutes files;TestPlatform platform;boolean delaySelectionAck,busy,approved=true;final CountDownLatch ready=new CountDownLatch(1);final BlockingQueue<TransferPacket> received=new LinkedBlockingQueue<>();final BlockingQueue<IOException> errors=new LinkedBlockingQueue<>();
+        FramedSession wire;AutomaticFileRoutes files;TestPlatform platform;boolean delaySelectionAck,busy,approved=true;volatile CountDownLatch parentDecoded,releaseParent,parentDispatched;final CountDownLatch ready=new CountDownLatch(1);final BlockingQueue<TransferPacket> received=new LinkedBlockingQueue<>();final BlockingQueue<IOException> errors=new LinkedBlockingQueue<>();
         public void onHello(Frame f){wire.approve();}public void onReady(){ready.countDown();}public void onClosed(UiText t){}public void onText(Frame f){}public void onAck(String id){}
-        public void onFileRoute(FileRoutePacket p){if(delaySelectionAck&&p.kind==FileRoutePacket.Kind.SELECT_ACK)try{Thread.sleep(300);}catch(InterruptedException e){Thread.currentThread().interrupt();}files.receiveControl(p);}public void onTransfer(TransferPacket p){files.receiveChatTransfer(p);}
+        public void onFileRoute(FileRoutePacket p){if(delaySelectionAck&&p.kind==FileRoutePacket.Kind.SELECT_ACK)try{Thread.sleep(300);}catch(InterruptedException e){Thread.currentThread().interrupt();}files.receiveControl(p);}public void onTransfer(TransferPacket p){CountDownLatch decoded=parentDecoded,release=releaseParent,dispatched=parentDispatched;if(decoded!=null){parentDecoded=null;decoded.countDown();try{if(!release.await(5,TimeUnit.SECONDS))throw new IllegalStateException("Parent callback barrier timeout");}catch(InterruptedException e){Thread.currentThread().interrupt();}}files.receiveChatTransfer(p);if(dispatched!=null)dispatched.countDown();}
         public boolean busy(){return busy;}public void receive(TransferPacket p){received.add(p);}public void changed(){}public void failed(IOException e){errors.add(e);}
     }
     static final class Pair implements AutoCloseable {
