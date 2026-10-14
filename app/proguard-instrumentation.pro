@@ -39,6 +39,16 @@
 -keep class dev.ghost.nearbyim.core.FramedSession { public *; }
 -keep class dev.ghost.nearbyim.core.FramedSession$* { public *; }
 -keep class dev.ghost.nearbyim.core.StreamConnection { public *; }
+# The separate native test APK supplies FILE providers/listeners. Preserve their
+# dispatch and constructor contract; app-only R8 must not specialize them to its
+# one Android implementation. These rules do not apply to production release.
+-keep class dev.ghost.nearbyim.core.AutomaticFileRoutes { public *; }
+-keep interface dev.ghost.nearbyim.core.AutomaticFileRoutes$Platform { *; }
+-keep interface dev.ghost.nearbyim.core.AutomaticFileRoutes$Listener { *; }
+-keep class dev.ghost.nearbyim.core.AutomaticFileRoutes$Endpoint { public *; }
+-keep class dev.ghost.nearbyim.core.AutomaticFileRoutes$Opened { public *; }
+-keep enum dev.ghost.nearbyim.core.AutomaticFileRoutes$Route { public *; }
+-keep class dev.ghost.nearbyim.transport.AndroidFilePlatform { public *; }
 -keep class dev.ghost.nearbyim.i18n.UiText { public *; }
 -keep class dev.ghost.nearbyim.i18n.I18nResources { public *; }
 -keep class dev.ghost.nearbyim.transport.Peer { public *; }
