@@ -196,6 +196,12 @@ public final class ChatController implements TransportListener {
         if (device.mode == Peer.BLUETOOTH && device.bluetoothAddress == null) { fail(UiText.of("noBluetoothAddress")); return; }
         if (!beginConnect(device.mode, device.id, true, device.bluetoothAddress)) return;
         if (device.mode == Peer.BLUETOOTH) { bluetooth.connect(device.bluetoothAddress); return; }
+        if(device.mode==Peer.WIFI_DIRECT){
+            // A still-present group can supply an ephemeral hint after DNS expiry.
+            // The adapter queries that group again; Noise still proves the expected UUID/root.
+            Peer current=direct.currentPeer(device.id);
+            if(current!=null){direct.connect(current);return;}
+        }
         // Resolve a fresh advertised UUID. Never use a persisted IP as identity.
         lanReconnectId = device.id; status = UiText.of("findingRemembered");
         peers.entrySet().removeIf(entry -> entry.getValue().mode == device.mode);
