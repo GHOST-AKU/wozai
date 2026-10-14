@@ -244,7 +244,7 @@
     <string name="direct_discovery_failed" formatted="false">"Wi-Fi Direct の検索に失敗しました。権限と Wi-Fi を確認して再試行してください。古い Android 端末ではシステムの位置情報もオンにする必要があります。"</string>
     <string name="direct_enable_canceled" formatted="false">"Wi-Fi がまだオフです。オンにしてから再試行してください。"</string>
     <string name="direct_enable_first" formatted="false">"Wi-Fi Direct を使用するにはシステム設定で Wi-Fi をオンにしてください。"</string>
-    <string name="direct_foreign_group" formatted="false">"別のアプリまたは不明な Wi-Fi Direct グループが存在するため、変更せずに保持しました。Wi-Fi 設定でそのグループを切断してから再試行してください。"</string>
+    <string name="direct_foreign_group" formatted="false">"既存の Wi-Fi Direct グループの作成元を確認できないため、新しい接続は開始していません。Wi-Fi 設定を確認してから再試行してください。"</string>
     <string name="direct_group_lost" formatted="false">"Wi-Fi Direct ネットワークが失われ、接続が停止しました。続行するには再接続してください。"</string>
     <string name="direct_interface_unavailable" formatted="false">"Wi-Fi Direct のネットワークインターフェースが準備できていません。再検索して再試行してください。"</string>
     <string name="direct_invalid_peer" formatted="false">"この付近の端末を Wi-Fi Direct に使用できません。再検索してください。"</string>

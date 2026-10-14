@@ -244,7 +244,7 @@
     <string name="direct_discovery_failed" formatted="false">"Wi-Fi 直連搜尋失敗。請檢查權限和 Wi-Fi 後重試。較舊的 Android 裝置還需啟用系統位置資訊。"</string>
     <string name="direct_enable_canceled" formatted="false">"Wi-Fi 仍未啟用。請啟用後重試。"</string>
     <string name="direct_enable_first" formatted="false">"請在系統設定中啟用 Wi-Fi，以使用 Wi-Fi 直連。"</string>
-    <string name="direct_foreign_group" formatted="false">"目前存在其他應用程式或來源不明的 Wi-Fi 直連群組，已保留不變。請在 Wi-Fi 設定中中斷該群組後重試。"</string>
+    <string name="direct_foreign_group" formatted="false">"現有 Wi-Fi 直連群組的來源無法確認，因此未發起新的直連。請檢查 Wi-Fi 設定後重試。"</string>
     <string name="direct_group_lost" formatted="false">"Wi-Fi 直連網路已遺失，連線已停止。請重新連線以繼續。"</string>
     <string name="direct_interface_unavailable" formatted="false">"Wi-Fi 直連網路介面尚未就緒。請重新搜尋後重試。"</string>
     <string name="direct_invalid_peer" formatted="false">"此附近裝置無法用於 Wi-Fi 直連。請重新搜尋。"</string>

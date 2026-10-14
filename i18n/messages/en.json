@@ -498,7 +498,7 @@
   "directEnableFirst": "Turn on Wi-Fi in system settings to use Wi-Fi Direct.",
   "directPermissionRequired": "Wi-Fi Direct needs Nearby devices permission, or Location permission on older devices. Allow it in App settings.",
   "directChannelLost": "The Wi-Fi Direct service was lost. Restart reception and retry.",
-  "directForeignGroup": "Another app’s or an unknown Wi-Fi Direct group is active. It was left unchanged. Disconnect it in Wi-Fi settings before retrying.",
+  "directForeignGroup": "An existing Wi-Fi Direct group has an unconfirmed origin. A new Direct connection was not started. Check Wi-Fi settings before retrying.",
   "directAdvertising": "Advertised to nearby Android devices · waiting for a direct network",
   "directListening": "Listening on the Wi-Fi Direct interface: {0}",
   "directDiscoveryFailed": "Wi-Fi Direct search failed. Check permissions and Wi-Fi, then retry. Older Android devices also need system location on.",

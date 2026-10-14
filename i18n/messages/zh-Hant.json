@@ -498,7 +498,7 @@
   "directEnableFirst": "請在系統設定中啟用 Wi-Fi，以使用 Wi-Fi 直連。",
   "directPermissionRequired": "Wi-Fi 直連需要附近裝置權限；較舊的裝置需要位置資訊權限。請在應用程式設定中允許。",
   "directChannelLost": "Wi-Fi 直連服務已中斷。請重新啟用接收後重試。",
-  "directForeignGroup": "目前存在其他應用程式或來源不明的 Wi-Fi 直連群組，已保留不變。請在 Wi-Fi 設定中中斷該群組後重試。",
+  "directForeignGroup": "現有 Wi-Fi 直連群組的來源無法確認，因此未發起新的直連。請檢查 Wi-Fi 設定後重試。",
   "directAdvertising": "已向附近 Android 裝置發布服務 · 等待建立直連網路",
   "directListening": "正在 Wi-Fi 直連介面上監聽：{0}",
   "directDiscoveryFailed": "Wi-Fi 直連搜尋失敗。請檢查權限和 Wi-Fi 後重試。較舊的 Android 裝置還需啟用系統位置資訊。",

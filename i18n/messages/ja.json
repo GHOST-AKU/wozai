@@ -498,7 +498,7 @@
   "directEnableFirst": "Wi-Fi Direct を使用するにはシステム設定で Wi-Fi をオンにしてください。",
   "directPermissionRequired": "Wi-Fi Direct には付近のデバイスの権限が必要です。古い端末では位置情報の権限が必要です。アプリの設定で許可してください。",
   "directChannelLost": "Wi-Fi Direct サービスが切断されました。受信を再開して再試行してください。",
-  "directForeignGroup": "別のアプリまたは不明な Wi-Fi Direct グループが存在するため、変更せずに保持しました。Wi-Fi 設定でそのグループを切断してから再試行してください。",
+  "directForeignGroup": "既存の Wi-Fi Direct グループの作成元を確認できないため、新しい接続は開始していません。Wi-Fi 設定を確認してから再試行してください。",
   "directAdvertising": "付近の Android 端末に公開中 · 直接通信ネットワークを待機中",
   "directListening": "Wi-Fi Direct インターフェースで待ち受け中：{0}",
   "directDiscoveryFailed": "Wi-Fi Direct の検索に失敗しました。権限と Wi-Fi を確認して再試行してください。古い Android 端末ではシステムの位置情報もオンにする必要があります。",

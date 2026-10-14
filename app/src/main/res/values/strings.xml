@@ -244,7 +244,7 @@
     <string name="direct_discovery_failed" formatted="false">"Wi-Fi Direct search failed. Check permissions and Wi-Fi, then retry. Older Android devices also need system location on."</string>
     <string name="direct_enable_canceled" formatted="false">"Wi-Fi is still off. Turn it on, then retry."</string>
     <string name="direct_enable_first" formatted="false">"Turn on Wi-Fi in system settings to use Wi-Fi Direct."</string>
-    <string name="direct_foreign_group" formatted="false">"Another app’s or an unknown Wi-Fi Direct group is active. It was left unchanged. Disconnect it in Wi-Fi settings before retrying."</string>
+    <string name="direct_foreign_group" formatted="false">"An existing Wi-Fi Direct group has an unconfirmed origin. A new Direct connection was not started. Check Wi-Fi settings before retrying."</string>
     <string name="direct_group_lost" formatted="false">"The Wi-Fi Direct network was lost. The connection stopped; reconnect to continue."</string>
     <string name="direct_interface_unavailable" formatted="false">"The Wi-Fi Direct network interface is not ready. Search again and retry."</string>
     <string name="direct_invalid_peer" formatted="false">"This nearby device cannot be used for Wi-Fi Direct. Search again."</string>
