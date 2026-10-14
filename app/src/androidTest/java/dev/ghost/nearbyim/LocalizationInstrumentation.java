@@ -201,6 +201,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
         BlockingQueue<String> receipts = new LinkedBlockingQueue<>();
         CountDownLatch ready = new CountDownLatch(1);
         AtomicReference<FramedSession> reference = new AtomicReference<>();
+        AtomicReference<UiText> remoteClosed = new AtomicReference<>();
         DeviceIdentity remoteRoot=DeviceIdentity.generate();
         try (ServerSocket socketServer = new ServerSocket(0, 1, InetAddress.getLoopbackAddress())) {
             Socket remoteSocket = new Socket(InetAddress.getLoopbackAddress(), socketServer.getLocalPort());
@@ -220,12 +221,17 @@ public final class LocalizationInstrumentation extends Instrumentation {
                 public void onReady() { ready.countDown(); }
                 public void onText(Frame frame) { reference.get().acknowledge(frame.id); }
                 public void onAck(String id) { receipts.add(id); }
-                public void onClosed(UiText reason) {}
+                public void onClosed(UiText reason) { remoteClosed.compareAndSet(null,reason); }
             });
             reference.set(remote); remote.start();
             onMain(() -> { controller.onConnection(Peer.LAN, connection(localSocket), true); return null; });
         }
-        await(() -> onMain(() -> controller.approvalId != null && field(activity, "approvalDialog") != null), "Signed incoming session awaits native consent");
+        try {
+            await(() -> onMain(() -> controller.approvalId != null && field(activity, "approvalDialog") != null), "Signed incoming session awaits native consent");
+        } catch (AssertionError failure) {
+            String state=onMain(()->"controllerAttached="+(field(activity,"controller")==controller)+", serviceController="+(service.controller==controller)+", bound="+field(activity,"bound")+", finishing="+activity.isFinishing()+", destroyed="+activity.isDestroyed()+", windowFocus="+activity.hasWindowFocus()+", observer="+(field(controller,"observer")!=null)+", identity="+(controller.localAvatarRoot()!=null)+", lanRunning="+controller.lanRunning+", lanListening="+controller.lanListening+", connecting="+controller.connecting+", connected="+controller.connected+", hasSession="+controller.hasSession()+", mode="+controller.sessionMode+", approval="+(controller.approvalId!=null)+", dialog="+(field(activity,"approvalDialog")!=null)+", status="+controller.status.key+", error="+controller.error.key);
+            throw new AssertionError(failure.getMessage()+": "+state+", remoteReady="+remote.isReady()+", remoteIdentity="+(remote.remotePublicKey()!=null)+", remoteClosed="+(remoteClosed.get()==null?"none":remoteClosed.get().key),failure);
+        }
         String approval = onMain(() -> controller.approvalId);
         Object pending = queuedAction(peerId, name);
         // CLOSE_STAGE remains queued while the current signed session awaits approval.
