@@ -100,6 +100,8 @@ public final class ChatController implements TransportListener {
         AndroidAvatars.get(applicationContext).listen(avatarListener);
     }
     public void observe(Runnable observer) { this.observer = observer; if (observer != null) observer.run(); }
+    /** An older Activity can stop after its successor has subscribed. */
+    public void unobserve(Runnable observer) { if (this.observer == observer) this.observer = null; }
     private void changed() { if (!destroyed) { hooks.onChanged(); if (observer != null) observer.run(); } }
     public boolean needsForeground() { return directRunning || lanRunning || bluetoothRunning || connecting || active != null; }
     public boolean hasSession() { return active != null; }

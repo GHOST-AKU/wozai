@@ -38,6 +38,7 @@ import java.nio.file.Path;
 public final class MainActivity extends Activity {
     private ChatService service;
     private ChatController controller;
+    private final Runnable renderObserver = this::render;
     private boolean bound, detail, outgoingRequest, rebuildingMessages, resumePosted;
     private int mode = Peer.WIFI_DIRECT, page;
     private int background, surface, ink, muted, accent, accentInk, tonal, line;
@@ -127,7 +128,7 @@ public final class MainActivity extends Activity {
             service = ((ChatService.LocalBinder) binder).service(); controller = service.controller;
             if (controller.selectedId == null && restoredSelectedId != null)
                 controller.selectConversation(new ChatStore.Conversation(restoredSelectedId, restoredSelectedName, 0));
-            controller.observe(MainActivity.this::render); resumePending(); resumeAttachmentSelection();resumeVerificationResult();
+            controller.observe(renderObserver); resumePending(); resumeAttachmentSelection();resumeVerificationResult();
         }
         public void onServiceDisconnected(ComponentName name) { service = null; controller = null; render(); }
     };
@@ -180,7 +181,7 @@ public final class MainActivity extends Activity {
         saveDraftAndPosition(); ui.removeCallbacks(discoverabilityTick);
         if(gallery!=null)gallery.unlisten(galleryListener);
         if(attachmentActions!=null){attachmentActions.dismiss();attachmentActions=null;}
-        if (controller != null) { restoredSelectedId = controller.selectedId; restoredSelectedName = controller.selectedName; controller.observe(null); }
+        if (controller != null) { restoredSelectedId = controller.selectedId; restoredSelectedName = controller.selectedName; controller.unobserve(renderObserver); }
         if (bound) { unbindService(binding); bound = false; } controller = null; service = null;
         if (approvalDialog != null) { approvalDialog.setOnCancelListener(null); approvalDialog.dismiss(); approvalDialog = null; shownApproval = null; }
         super.onStop();

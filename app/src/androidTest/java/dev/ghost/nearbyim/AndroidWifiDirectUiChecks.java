@@ -19,6 +19,7 @@ import dev.ghost.nearbyim.transport.Peer;
 import java.lang.reflect.*;
 import java.util.*;
 import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /** Native UI classification checks. Loopback sessions do not prove P2P radio support. */
 final class AndroidWifiDirectUiChecks {
@@ -108,6 +109,15 @@ final class AndroidWifiDirectUiChecks {
                     check(restored.getInt("pendingStage")==5&&(int)field(restoredAction,"mode")==Peer.WIFI_DIRECT&&(int)field(restoredAction,"type")==2,"Wi-Fi settings preserves the pending mode and search action across Activity state serialization");
                 }finally { parcel.recycle();set(current,"pendingAction",null);set(current,"pendingStage",0); }
                 testWifiSettingsRebind(current,controller,action,instrumentation);
+                AtomicInteger successorChanges=new AtomicInteger();Runnable successor=()->successorChanges.incrementAndGet();
+                controller.observe(successor);successorChanges.set(0);
+                try {
+                    // Exercise the old Activity's real stop path after a successor subscribes.
+                    instrumentation.callActivityOnStop(current);
+                    check(field(controller,"observer")==successor,"Stopping an older Activity preserves its successor's observer");
+                    controller.stopSearch(Peer.LAN);
+                    check(successorChanges.get()>0,"Controller changes still notify the successor after an old Activity stops");
+                }finally {controller.observe(null);}
                 return null;
             });
         }finally {
