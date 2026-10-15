@@ -37,6 +37,7 @@ public final class AndroidFilePlatform implements AutomaticFileRoutes.Platform {
     private long directAttempt;
     private Runnable directTimeout;
     private boolean directStarted;
+    private volatile String directLastEvent="idle",directLastError="";
 
     public AndroidFilePlatform(Context context,String localId,String nickname,String remoteId) {
         this.context=context.getApplicationContext();this.localId=localId;this.nickname=nickname;this.remoteId=remoteId;
@@ -44,11 +45,13 @@ public final class AndroidFilePlatform implements AutomaticFileRoutes.Platform {
             public void onConnection(int mode,StreamConnection stream,boolean incoming) {
                 Consumer<AutomaticFileRoutes.Opened> target=directOpened;
                 if(closed||target==null){closeStream(stream);return;}
-                clearDirectTimeout(); directOpened=null;directFailed=null;
+                directLastEvent="socket_opened";clearDirectTimeout(); directOpened=null;directFailed=null;
                 target.accept(new AutomaticFileRoutes.Opened(stream,incoming));
             }
-            public void onError(int mode,UiText reason,boolean fatal){if(fatal){directStarted=false;failDirect(new IOException(reason.key));}}
-            public void onConnectFailed(int mode,UiText reason){failDirect(new IOException(reason.key));}
+            public void onPeer(Peer peer){directLastEvent="peer_discovered";}
+            public void onListening(int mode,UiText detail){if(directOpened!=null)directLastEvent=detail.key;}
+            public void onError(int mode,UiText reason,boolean fatal){directLastEvent=reason.key;directLastError=reason.key;if(fatal){directStarted=false;failDirect(new IOException(reason.key));}}
+            public void onConnectFailed(int mode,UiText reason){directLastEvent=reason.key;directLastError=reason.key;failDirect(new IOException(reason.key));}
         });
         lanDial=new LanTransport(context,new Events(){
             public void onConnection(int mode,StreamConnection stream,boolean incoming) {
@@ -60,11 +63,21 @@ public final class AndroidFilePlatform implements AutomaticFileRoutes.Platform {
             public void onError(int mode,UiText reason,boolean fatal){if(fatal)nextLan();}
         });
     }
-    public boolean directSupported() {
-        String permission=Build.VERSION.SDK_INT>=33?Manifest.permission.NEARBY_WIFI_DEVICES:Manifest.permission.ACCESS_FINE_LOCATION;
-        if(!direct.available()||!direct.enabled()||context.checkSelfPermission(permission)!=PackageManager.PERMISSION_GRANTED)return false;
-        if(Build.VERSION.SDK_INT<33){android.location.LocationManager location=context.getSystemService(android.location.LocationManager.class);if(location==null||Build.VERSION.SDK_INT>=28&&!location.isLocationEnabled())return false;}
-        return true;
+    public boolean directSupported(){return directUnavailableReason().isEmpty();}
+    public String directUnavailableReason() {
+        try{
+            if(!direct.available())return "unsupported";
+            if(!direct.enabled())return "wifi_disabled";
+            String permission=Build.VERSION.SDK_INT>=33?Manifest.permission.NEARBY_WIFI_DEVICES:Manifest.permission.ACCESS_FINE_LOCATION;
+            if(context.checkSelfPermission(permission)!=PackageManager.PERMISSION_GRANTED)return "permission_missing";
+            if(Build.VERSION.SDK_INT<33){android.location.LocationManager location=context.getSystemService(android.location.LocationManager.class);if(location==null||Build.VERSION.SDK_INT>=28&&!location.isLocationEnabled())return "location_disabled";}
+            return "";
+        }catch(RuntimeException unavailable){return "system_state_unavailable";}
+    }
+    public String diagnostics(){
+        String location="unknown";
+        try{android.location.LocationManager manager=context.getSystemService(android.location.LocationManager.class);if(manager!=null&&Build.VERSION.SDK_INT>=28)location=Boolean.toString(manager.isLocationEnabled());}catch(RuntimeException unavailable){}
+        return "wifi_direct_blocked_reason="+directUnavailableReason()+"\nwifi_direct_location_enabled="+location+"\nwifi_direct_last_event="+directLastEvent+"\nwifi_direct_last_error="+directLastError+"\n";
     }
     public void prepareLan(Consumer<List<AutomaticFileRoutes.Endpoint>> endpoints,Consumer<StreamConnection> accepted) {
         if(closed){endpoints.accept(List.of());return;}
@@ -142,10 +155,10 @@ public final class AndroidFilePlatform implements AutomaticFileRoutes.Platform {
     public void openDirect(boolean dialer,Consumer<AutomaticFileRoutes.Opened> opened,Consumer<Throwable> failed) {
         onMain(()->{
             if(closed||!directSupported()){failed.accept(new IOException("Wi-Fi Direct file route unavailable"));return;}
-            stopDirect();directOpened=opened;directFailed=failed;long ticket=++directAttempt;
+            stopDirect();directOpened=opened;directFailed=failed;directLastEvent="starting";directLastError="";long ticket=++directAttempt;
             if(!directStarted){directStarted=true;direct.start(localId,nickname);}
             direct.armFileAttempt(remoteId,dialer);
-            directTimeout=()->{if(ticket==directAttempt)failDirect(new IOException("Wi-Fi Direct file route timed out"));};main.postDelayed(directTimeout,50_000);
+            directTimeout=()->{if(ticket==directAttempt){directLastEvent="timeout";directLastError="timeout";failDirect(new IOException("Wi-Fi Direct file route timed out"));}};main.postDelayed(directTimeout,AutomaticFileRoutes.DIRECT_OPEN_TIMEOUT_MS);
         });
     }
     private void failDirect(Throwable reason){Consumer<Throwable> failure=directFailed;stopDirect();if(failure!=null)failure.accept(reason);}

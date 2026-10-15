@@ -9,6 +9,9 @@ import java.util.function.*;
 
 /** One authenticated FILE route for an approved chat; chat and engine generations never change. */
 public final class AutomaticFileRoutes implements AutoCloseable {
+    /** Native discovery/group/socket budget; identity binding gets a separate deadline. */
+    public static final long DIRECT_OPEN_TIMEOUT_MS=50_000;
+    private static final long LANE_HANDSHAKE_TIMEOUT_MS=15_000;
     public enum Route { WIFI_DIRECT, LAN, BLUETOOTH }
     public static final class Endpoint {
         public final String host;public final int port;
@@ -23,6 +26,8 @@ public final class AutomaticFileRoutes implements AutoCloseable {
     }
     public interface Platform {
         boolean directSupported();
+        default String directUnavailableReason(){return "unsupported";}
+        default String diagnostics(){return "";}
         void prepareLan(Consumer<List<Endpoint>> endpoints,Consumer<StreamConnection> accepted);
         void connectLan(List<Endpoint> endpoints,Consumer<StreamConnection> opened,Consumer<Throwable> failed);
         void openDirect(boolean dialer,Consumer<Opened> opened,Consumer<Throwable> failed);
@@ -41,7 +46,8 @@ public final class AutomaticFileRoutes implements AutoCloseable {
     private volatile FramedSession selected;private volatile FramedSession candidate;
     private volatile String selectedRoute="";private volatile String generation,nonce;private volatile Route attempting;
     private List<Endpoint> localEndpoints=Collections.emptyList();private ScheduledFuture<?> deadline;
-    private CompletableFuture<Route> ready;
+    private volatile CompletableFuture<Route> ready;
+    private volatile String directOutcome="not_attempted",directSkipReason="",lastRouteFailure="";
     private long retiredParentBytes;private int retiredParentControls;
     private volatile boolean refreshing;private String refreshRequest,recheckNonce;private ScheduledFuture<?> recheckDeadline;
     public AutomaticFileRoutes(FramedSession chat,String localId,String nickname,DeviceIdentity identity,byte[] noiseKey,String remoteId,String remoteKey,String chatRoute,BooleanSupplier approved,Platform platform,Listener listener){
@@ -63,7 +69,7 @@ public final class AutomaticFileRoutes implements AutoCloseable {
     public synchronized CompletableFuture<Route> ensureReady(){
         if(closed||terminal||!chat.isReady()||!approved.getAsBoolean())return failedFuture(new IOException("Approved FILE route unavailable"));
         if(selected!=null&&!refreshing)return CompletableFuture.completedFuture(parseRoute(selectedRoute));
-        if(ready==null||ready.isDone()){ready=new CompletableFuture<>();post(()->{startActor();if(!valid())return;if(!chat.automaticFilesSupported()){selectLegacy();return;}if(lead){if(attempting==null)begin(platform.directSupported()?Route.WIFI_DIRECT:Route.LAN);}else if(attempting==null)control(FileRoutePacket.Kind.REQUEST,UUID.randomUUID().toString(),Route.LAN,false,Collections.emptyList());});}
+        if(ready==null||ready.isDone()){ready=new CompletableFuture<>();post(()->{startActor();if(!valid())return;if(!chat.automaticFilesSupported()){selectLegacy();return;}if(lead){if(attempting==null)begin(initialRoute());}else if(attempting==null)control(FileRoutePacket.Kind.REQUEST,UUID.randomUUID().toString(),Route.LAN,false,Collections.emptyList());});}
         return ready;
     }
     /** Re-evaluate a prior fallback only when both engines are idle. Call before enqueueing a new batch. */
@@ -104,14 +110,19 @@ public final class AutomaticFileRoutes implements AutoCloseable {
             case RECHECK_ACK:
                 if(!lead||!Objects.equals(recheckNonce,p.nonce))return true;
                 if(listener.busy()){control(FileRoutePacket.Kind.BUSY,p.nonce,p.route,false,Collections.emptyList());finishRecheck();return true;}
-                synchronized(this){retireParent();selected=null;selectedRoute="";}finishRecheck();begin(platform.directSupported()?Route.WIFI_DIRECT:Route.LAN);return true;
+                synchronized(this){retireParent();selected=null;selectedRoute="";}finishRecheck();begin(initialRoute());return true;
             case BUSY:
                 if(Objects.equals(recheckNonce,p.nonce)||Objects.equals(refreshRequest,p.nonce))finishRecheck();return true;
             default:return false;
         }
     }
     private static <T> CompletableFuture<T> failedFuture(IOException e){CompletableFuture<T> f=new CompletableFuture<>();f.completeExceptionally(e);return f;}
-    private void selectLegacy(){selected=chat;selectedRoute=chatRoute;complete(parseRoute(chatRoute));}
+    private void selectLegacy(){directOutcome="peer_legacy";selected=chat;selectedRoute=chatRoute;complete(parseRoute(chatRoute));}
+    private Route initialRoute(){
+        lastRouteFailure="";directSkipReason="";
+        if(platform.directSupported()){directOutcome="not_attempted";return Route.WIFI_DIRECT;}
+        directOutcome="skipped";directSkipReason=platform.directUnavailableReason();return Route.LAN;
+    }
     private static Route parseRoute(String route){return "wifi-direct".equals(route)?Route.WIFI_DIRECT:"lan".equals(route)?Route.LAN:Route.BLUETOOTH;}
     private static String name(Route r){return r==Route.WIFI_DIRECT?"wifi-direct":r==Route.LAN?"lan":"bluetooth";}
     private boolean control(FileRoutePacket.Kind kind,String token,Route route,boolean terminal,List<Endpoint> endpoints){return chat.sendFileRoute(new FileRoutePacket(kind,token,generation,route,terminal,endpoints));}
@@ -123,9 +134,11 @@ public final class AutomaticFileRoutes implements AutoCloseable {
         phaseFailed=false;
         if(!valid()){fail(new IOException("Approval revoked"),true);return;}
         String token=nonce;
-        deadline=actor.schedule(()->{if(Objects.equals(token,nonce)&&selected==null)attemptFailed(new IOException("FILE route timed out"));},attempting==Route.WIFI_DIRECT?15:attempting==Route.LAN?8:15,TimeUnit.SECONDS);
+        long timeout=attempting==Route.WIFI_DIRECT?DIRECT_OPEN_TIMEOUT_MS+LANE_HANDSHAKE_TIMEOUT_MS:attempting==Route.LAN?8_000:15_000;
+        deadline=actor.schedule(()->{if(Objects.equals(token,nonce)&&selected==null)attemptFailed(new IOException("FILE route timed out"),"timeout");},timeout,TimeUnit.MILLISECONDS);
         if(attempting==Route.WIFI_DIRECT){
-            if(!platform.directSupported()){attemptFailed(new IOException("Direct unsupported"));return;}
+            directOutcome="attempting";directSkipReason="";
+            if(!platform.directSupported()){directOutcome="skipped";directSkipReason=platform.directUnavailableReason();attemptFailed(new IOException("Direct unsupported"),"unavailable");return;}
             platform.openDirect(lead,opened->opened(opened,token,Route.WIFI_DIRECT),error->post(()->{if(current(token,Route.WIFI_DIRECT))attemptFailed(asIo(error));}));
         }else if(attempting==Route.LAN){
             if("lan".equals(chatRoute)){if(lead)select();}
@@ -143,13 +156,15 @@ public final class AutomaticFileRoutes implements AutoCloseable {
         startActor();if(!valid())return;
         if(p==null||!generation.equals(p.generation)){fail(new IOException("FILE parent binding mismatch"),true);return;}
         if(receiveRecheck(p))return;
-        if(p.kind==FileRoutePacket.Kind.REQUEST){if(lead&&selected==null&&attempting==null)begin(platform.directSupported()?Route.WIFI_DIRECT:Route.LAN);return;}
+        if(p.kind==FileRoutePacket.Kind.REQUEST){if(lead&&selected==null&&attempting==null)begin(initialRoute());return;}
         if(p.kind==FileRoutePacket.Kind.BEGIN){
             if(lead){fail(new IOException("Invalid FILE coordinator"),true);return;}
             if(selected!=null&&!refreshing)return;
             Route previous=refreshing?null:attempting;
             boolean ordered=p.route==Route.WIFI_DIRECT?previous==null:p.route==Route.LAN?previous==null||previous==Route.WIFI_DIRECT:previous==Route.LAN&&"bluetooth".equals(chatRoute);
             if(!ordered){fail(new IOException("Invalid FILE fallback provenance or order"),true);return;}
+            if(previous==null){lastRouteFailure="";directSkipReason="";directOutcome=p.route==Route.WIFI_DIRECT?"not_attempted":"peer_skipped";}
+            else if(previous==Route.WIFI_DIRECT&&p.route==Route.LAN&&directOutcome.equals("attempting")){directOutcome="failed";lastRouteFailure="peer_unavailable";}
             if(refreshing){synchronized(this){retireParent();selected=null;selectedRoute="";}finishRecheck();}resetCandidate();nonce=p.nonce;attempting=p.route;enter();return;
         }
         if(!Objects.equals(nonce,p.nonce)||p.route!=attempting)return;
@@ -161,7 +176,7 @@ public final class AutomaticFileRoutes implements AutoCloseable {
                     platform.connectLan(p.endpoints,connection->opened(new Opened(connection,false),token,Route.LAN),error->post(()->{if(current(token,Route.LAN))attemptFailed(asIo(error));}));
                 }break;
             case ABORT:fail(new IOException("Peer canceled FILE route"),false);break;
-            case FAIL:if(p.terminal)fail(new IOException("Peer rejected FILE identity binding"),true);else if(lead)attemptFailed(new IOException("Peer FILE route unavailable"));break;
+            case FAIL:if(p.terminal)fail(new IOException("Peer rejected FILE identity binding"),true);else if(lead)attemptFailed(new IOException("Peer FILE route unavailable"),"peer_unavailable");break;
             case SELECT:
                 if(lead){fail(new IOException("Invalid FILE selector"),true);return;}
                 if(extra()&&!bound){fail(new IOException("Unbound FILE selection"),true);return;}
@@ -181,7 +196,7 @@ public final class AutomaticFileRoutes implements AutoCloseable {
             try{
                 Lane listener=new Lane(token,route,!opened.incoming);
                 candidate=FramedSession.secure(opened.connection,localId,nickname,identity,noiseKey,!opened.incoming,listener,false,true);listener.wire=candidate;candidate.restrictToFileLane();
-                if(route==Route.LAN){cancelDeadline();deadline=actor.schedule(()->{if(current(token,route))attemptFailed(new IOException("FILE lane handshake timed out"));},15,TimeUnit.SECONDS);}candidate.start();
+                cancelDeadline();deadline=actor.schedule(()->{if(current(token,route))attemptFailed(new IOException("FILE lane handshake timed out"),"handshake_timeout");},LANE_HANDSHAKE_TIMEOUT_MS,TimeUnit.MILLISECONDS);candidate.start();
             }catch(IOException e){dispose(opened.connection);attemptFailed(e);}
         });
     }
@@ -206,19 +221,23 @@ public final class AutomaticFileRoutes implements AutoCloseable {
         }
         public void onText(Frame f){post(()->{if(live())fail(new IOException("Text on FILE lane"),true);});}public void onAck(String id){post(()->{if(live())fail(new IOException("Receipt on FILE lane"),true);});}
         public void onFailure(IOException e){post(()->{if(live()&&(e instanceof NoiseRecordChannel.AuthenticationException))fail(e,true);});}
-        public void onClosed(UiText reason){post(()->{if(!live()||refreshing)return;if(selected==wire)fail(new IOException("FILE lane interrupted"),false);else attemptFailed(new IOException("FILE lane handshake failed"));});}
+        public void onClosed(UiText reason){post(()->{if(!live()||refreshing)return;if(selected==wire)fail(new IOException("FILE lane interrupted"),false);else attemptFailed(new IOException("FILE lane handshake failed"),"handshake_failed");});}
     }
-    private void attemptFailed(IOException error){
+    private void attemptFailed(IOException error){attemptFailed(error,"platform_error");}
+    private void attemptFailed(IOException error,String reason){
         if(!valid()||selected!=null)return;
+        lastRouteFailure=reason;if(attempting==Route.WIFI_DIRECT&&!directOutcome.equals("skipped"))directOutcome="failed";
         if(!lead){control(FileRoutePacket.Kind.FAIL,nonce,attempting,false,Collections.emptyList());resetCandidate();phaseFailed=true;return;}
         Route next=attempting==Route.WIFI_DIRECT?Route.LAN:Route.BLUETOOTH;
         if(attempting==Route.BLUETOOTH){fail(error,false);return;}begin(next);
     }
-    private void complete(Route route){synchronized(this){if(ready!=null&&!ready.isDone())ready.complete(route);}listener.changed();}
+    private void complete(Route route){if(route==Route.WIFI_DIRECT)directOutcome="selected";synchronized(this){if(ready!=null&&!ready.isDone())ready.complete(route);}listener.changed();}
     private void fail(IOException error,boolean security){
         CompletableFuture<Route> retiring;boolean notifyPeer;
         synchronized(this){
             if(closed)return;
+            lastRouteFailure=security?"security_error":"route_interrupted";
+            if(attempting==Route.WIFI_DIRECT&&directOutcome.equals("attempting"))directOutcome="failed";
             notifyPeer=security&&!terminal&&nonce!=null&&generation!=null&&chat.isReady();
             if(!security)retireParent();else{retiredParentBytes=0;retiredParentControls=0;}
             terminal|=security;retiring=ready;ready=null;selected=null;selectedRoute="";refreshing=false;
@@ -249,7 +268,10 @@ public final class AutomaticFileRoutes implements AutoCloseable {
         post(()->{startActor();if(valid()&&selected==null&&!chat.automaticFilesSupported())selectLegacy();if(valid()&&selected==chat&&packet!=null&&Objects.equals(generation,packet.connectionGeneration))listener.receive(packet);else if(!discardRetiredParent(packet))fail(new IOException("Unexpected chat FILE packet"),true);});
     }
     public String route(){return selectedRoute;}
-    public String diagnostics(){return "file_transport="+selectedRoute+"\nfile_route_pending="+(selected==null)+"\n";}
+    public String diagnostics(){
+        String state=closed?"closed":terminal?"failed":selected!=null?(refreshing?"rechecking":"ready"):attempting!=null?"negotiating":ready!=null&&!ready.isDone()?"requesting":lastRouteFailure.isEmpty()?"idle":"failed";
+        return "file_transport="+selectedRoute+"\nfile_route_pending="+(selected==null)+"\nfile_route_state="+state+"\nfile_attempt_route="+(attempting==null?"":name(attempting))+"\nfile_direct_outcome="+directOutcome+"\nfile_direct_skip_reason="+directSkipReason+"\nfile_route_last_failure="+lastRouteFailure+"\n"+platform.diagnostics();
+    }
     public void abort(){post(()->{String token=nonce;Route route=attempting;fail(new IOException("FILE route canceled"),false);if(valid()&&token!=null)control(FileRoutePacket.Kind.ABORT,token,route,false,Collections.emptyList());});}
     public void close(){
         synchronized(this){if(closed)return;closed=true;retiredParentBytes=0;retiredParentControls=0;if(ready!=null&&!ready.isDone())ready.completeExceptionally(new IOException("FILE routes closed"));}
