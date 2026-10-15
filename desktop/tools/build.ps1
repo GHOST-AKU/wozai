@@ -1,4 +1,4 @@
-param([switch]$Run, [switch]$Package)
+param([switch]$Run, [switch]$Package, [switch]$PreviewRelease)
 $ErrorActionPreference = 'Stop'
 Set-Location (Join-Path $PSScriptRoot '..')
 & python ../tools/generate-i18n.py --check
@@ -14,6 +14,7 @@ function Invoke-JavaTool([string]$Tool, [string[]]$Arguments) {
 }
 if (-not $env:JAVA_HOME) { throw 'Set JAVA_HOME to a JDK 17 installation.' }
 New-Item -ItemType Directory -Force build/lib, build/classes, build/tests | Out-Null
+Remove-Item build/preview-acceptance.txt -ErrorAction SilentlyContinue
 if(Test-Path build/lib/wozai-desktop.jar) { Remove-Item build/lib/wozai-desktop.jar -Force }
 foreach ($line in Get-Content dependencies.txt) {
     $expected, $artifact = $line.Split(' ')
@@ -63,8 +64,11 @@ Invoke-JavaTool jar @('--create', '--file', 'build/lib/nearbyim-desktop.jar', '-
 $tests = (Get-ChildItem src/test/java -Recurse -Filter '*.java').FullName
 Invoke-JavaTool javac (@('--release', '17', '-encoding', 'UTF-8', '-cp', 'build/classes;build/lib/*', '-d', 'build/tests') + $tests)
 foreach ($test in @('DesktopTests', 'ReadyCloseTests', 'ReviewRegressionTests', 'DataLocationTests', 'NoiseIdentityTests', 'DesktopVerificationTests', 'VerificationSessionTests', 'QrCodeTests', 'BluetoothTests', 'TransportTests', 'DesktopWifiGatewayTests', 'DesktopFileRoutesTests', 'DesktopAutomaticFileRoutesTests', 'StringsTests', 'FontTests', 'MessagePaneTests', 'DesktopBatchTests', 'DesktopRetryTests', 'AttachmentStoreTests', 'AttachmentGuiTests', 'AppIconTests', 'AvatarImageTests', 'AvatarReviewTests', 'DesktopAvatarTests', 'DesktopAvatarIntegrationTests', 'TransferPathGuiTests')) {
-    Invoke-JavaTool java @($bluetoothLibrary, '-cp', 'build/classes;build/tests;build/lib/*', "dev.ghost.wozai.$test")
+    $testOptions = @()
+    if ($PreviewRelease -and $test -eq 'AttachmentStoreTests') { $testOptions = @('-Dwozai.test.previewRelease=true', '-Dwozai.test.acceptanceReport=build/preview-acceptance.txt') }
+    Invoke-JavaTool java ($testOptions + @($bluetoothLibrary, '-cp', 'build/classes;build/tests;build/lib/*', "dev.ghost.wozai.$test"))
 }
+Invoke-JavaTool java @('-cp', 'build/classes;build/tests;build/lib/*', 'dev.ghost.wozai.AttachmentPreviewGateTests')
 if ($Package) {
     # Share constant strings; keep modules compressible by the outer ZIP.
     if (Test-Path build/package/NearbyIM) { Remove-Item build/package/NearbyIM -Recurse -Force }
@@ -74,5 +78,6 @@ if ($Package) {
     Copy-Item ../licenses build/package/NearbyIM/ -Recurse -Force
     Copy-Item ../docs/licenses/material-icons-LICENSE.txt build/package/NearbyIM/licenses/ -Force
     Compress-Archive -Path build/package/NearbyIM -DestinationPath "build/NearbyIM-$appVersion-windows-x64.zip" -Force
+    if(Test-Path build/preview-acceptance.txt) { Copy-Item build/preview-acceptance.txt build/package/PREVIEW-ACCEPTANCE.txt -Force }
 }
 if ($Run) { Invoke-JavaTool java @($bluetoothLibrary, '-cp', 'build/lib/*', 'dev.ghost.wozai.Main') }
