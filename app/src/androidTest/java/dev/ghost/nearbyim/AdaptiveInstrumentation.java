@@ -74,7 +74,9 @@ public final class AdaptiveInstrumentation extends Instrumentation {
         waitForIdleSync();screenshot("tablet-layout.png");
     }
     private void liveContinuity()throws Exception {
-        onMain(()->{controller.start(Peer.LAN);return null;});await(()->onMain(()->controller.lanListening),"LAN reception starts");
+        onMain(()->{Method start=MainActivity.class.getDeclaredMethod("startTransport",int.class);start.setAccessible(true);start.invoke(activity,Peer.LAN);return null;});
+        await(()->onMain(()->{Object service=field(activity,"service");return service!=null&&Boolean.TRUE.equals(field(service,"foreground"));}),"Production start action retains a foreground service before recreation");
+        await(()->onMain(()->controller.lanListening),"LAN reception starts");
         CountDownLatch ready=new CountDownLatch(1);String peer=UUID.randomUUID().toString();AtomicReference<FramedSession> endpoint=new AtomicReference<>();
         DeviceIdentity identity=DeviceIdentity.generate();byte[] key=new byte[32];new java.security.SecureRandom().nextBytes(key);
         try(ServerSocket server=new ServerSocket(0,1,InetAddress.getLoopbackAddress())){
@@ -96,6 +98,7 @@ public final class AdaptiveInstrumentation extends Instrumentation {
         Path source=new File(getTargetContext().getCacheDir(),"adaptive-source.bin").toPath();byte[] bytes=new byte[2*1024*1024];new java.util.Random(25).nextBytes(bytes);Files.write(source,bytes);
         String expectedHash=hex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes));
         files.offer(new FileAttachmentSource(source),"adaptive-source.bin","application/octet-stream").get(10,TimeUnit.SECONDS);check(dataBlocked.await(10,TimeUnit.SECONDS),"Real encrypted file is in flight before resizing");
+        progress("Noise file is in flight; foreground service is retained");
         waitForIdleSync();onMain(()->{((ScrollView)field(activity,"messageScroll")).scrollTo(0,dp(500));return null;});
         String anchor=onMain(()->readingAnchor(activity));check(anchor!=null,"Reading anchor available before recreation");
         MainActivity old=activity;
@@ -103,6 +106,7 @@ public final class AdaptiveInstrumentation extends Instrumentation {
         await(()->onMain(()->field(activity,"controller")==controller),"Started foreground service/controller survives recreation");
         await(()->onMain(()->anchor.equals(readingAnchor(activity))),"Reading message survives recreation");
         onMain(()->{EditText draft=field(activity,"composer");check(draft.getText().toString().equals("Unsent across recreation")&&draft.getSelectionStart()==3&&draft.getSelectionEnd()==8,"Draft and caret survive native recreation");check(field(controller,"active")==wire&&field(controller,"transfers")==files&&controller.connected,"UI recreation keeps the same Noise session");return null;});
+        progress("Activity recreation preserves controller, Noise, draft and reading anchor");
         shell("wm size 900x1600");shell("wm density 320");
         await(()->onMain(()->{MainActivity m=latest.get();return m!=null&&field(m,"controller")==controller&&!((AdaptiveScaffold)field(m,"root")).dualPane();}),"Actual window change becomes compact while retaining the live session");activity=latest.get();
         await(()->onMain(()->anchor.equals(readingAnchor(latest.get()))),"Real window resize retains reading message");
