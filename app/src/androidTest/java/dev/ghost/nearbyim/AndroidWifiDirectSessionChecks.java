@@ -123,6 +123,7 @@ final class AndroidWifiDirectSessionChecks {
         final AtomicReference<UiText> remoteClosed=new AtomicReference<>();
         final AtomicReference<String> remoteFailure=new AtomicReference<>();
         final AtomicReference<String> remoteRouteFailure=new AtomicReference<>();
+        final java.util.concurrent.atomic.AtomicLong remoteAcceptCredit=new java.util.concurrent.atomic.AtomicLong();
         final ArrayDeque<String> recordEvents=new ArrayDeque<>();
         Fixture(Instrumentation instrumentation,boolean incoming,boolean requested,boolean mismatch)throws Exception {
             this(instrumentation,incoming,requested,mismatch,Peer.LAN,false);
@@ -144,7 +145,9 @@ final class AndroidWifiDirectSessionChecks {
             remote=FramedSession.secure(connection(far),peer,"Native chat fixture",root,key,incoming,new FramedSession.Listener(){
                 public void onHello(Frame hello){try{
                     FramedSession wire=session.get();
-                    engine.set(new AttachmentTransferV2(directory,root.fingerprint(),DeviceIdentity.fingerprint(wire.remotePublicKey()),wire.connectionGeneration(),false,new AttachmentTransferV2.Wire(){public boolean send(TransferPacket packet){AutomaticFileRoutes selected=routes.get();return automatic?selected!=null&&selected.send(packet):wire.sendTransfer(packet);}public boolean recoverableDisconnect(){return automatic;}public void abort(){AutomaticFileRoutes selected=routes.get();if(selected!=null)selected.abort();else wire.close(UiText.of("attachmentFailed"));}},record->{records.add(record);synchronized(recordEvents){if(recordEvents.size()==12)recordEvents.removeFirst();recordEvents.addLast(record.info.id.substring(0,8)+":"+(record.outgoing?"out":"in")+":"+record.state+":"+record.transferred+":"+record.route);}}));
+                    // Both immutable engines retain the original CHAT window even when FILE selects LAN.
+                    boolean rfcomm=chatMode==Peer.BLUETOOTH;
+                    engine.set(new AttachmentTransferV2(directory,root.fingerprint(),DeviceIdentity.fingerprint(wire.remotePublicKey()),wire.connectionGeneration(),rfcomm,new AttachmentTransferV2.Wire(){public boolean send(TransferPacket packet){if(packet.kind==TransferPacket.Kind.ACCEPT)remoteAcceptCredit.set(packet.windowBytes);AutomaticFileRoutes selected=routes.get();return automatic?selected!=null&&selected.send(packet):wire.sendTransfer(packet);}public boolean recoverableDisconnect(){return automatic;}public void abort(){AutomaticFileRoutes selected=routes.get();if(selected!=null)selected.abort();else wire.close(UiText.of("attachmentFailed"));}},record->{records.add(record);synchronized(recordEvents){if(recordEvents.size()==12)recordEvents.removeFirst();recordEvents.addLast(record.info.id.substring(0,8)+":"+(record.outgoing?"out":"in")+":"+record.state+":"+record.transferred+":"+record.route);}}));
                     wire.approve();
                 }catch(Exception failure){throw new IllegalStateException("Native encrypted chat fixture setup failed",failure);}}
                 public void onTransfer(TransferPacket packet){AutomaticFileRoutes selected=routes.get();if(selected!=null)selected.receiveChatTransfer(packet);else try{engine.get().receive(packet,true);}catch(IOException failure){throw new UncheckedIOException(failure);}}
@@ -193,7 +196,7 @@ final class AndroidWifiDirectSessionChecks {
                     ",canSendAttachment="+controller.canSendAttachment()+",sourcePreparing="+controller.isPreparingAttachment()+",routeNotice="+controller.routeNotice.key+",nativeFileRoute="+fileRouteDiagnostics(controller.transferDiagnostics())+",nativeRecords="+nativeRecordSnapshot()+setup;
             });
             UiText reason=remoteClosed.get();AttachmentTransferV2 files=engine.get();AutomaticFileRoutes selected=routes.get();String events;synchronized(recordEvents){events=String.join("|",recordEvents);}
-            return nativeState+",remoteReady="+remote.isReady()+",remoteEngine="+(files!=null)+",remoteBusy="+(files!=null&&files.hasActive())+",remoteRoute="+(selected==null?"none":selected.route())+",remoteClosed="+(reason==null?"none":reason.key)+",remoteFailure="+remoteFailure.get()+",remoteRouteFailure="+remoteRouteFailure.get()+",remoteRecords="+events;
+            return nativeState+",remoteReady="+remote.isReady()+",remoteEngine="+(files!=null)+",remoteBusy="+(files!=null&&files.hasActive())+",remoteRoute="+(selected==null?"none":selected.route())+",remoteAcceptCredit="+remoteAcceptCredit.get()+",remoteClosed="+(reason==null?"none":reason.key)+",remoteFailure="+remoteFailure.get()+",remoteRouteFailure="+remoteRouteFailure.get()+",remoteRecords="+events;
         }
         private String nativeRecordSnapshot(){
             StringBuilder result=new StringBuilder();int count=0;
@@ -215,6 +218,7 @@ final class AndroidWifiDirectSessionChecks {
             while(System.nanoTime()<deadline){AttachmentRecord next=records.poll(1,TimeUnit.SECONDS);if(next!=null&&!next.outgoing&&next.state.equals("received")){returned=next;break;}}
             check(returned!=null,"Native file sender never completes durable return file; "+stateSnapshot());
             check(Arrays.equals(expected,Files.readAllBytes(AttachmentTransfer.file(directory,returned.info,false))),"Return file bytes differ after encrypted chunks");
+            if(chatMode==Peer.BLUETOOTH)check(remoteAcceptCredit.get()==65536,"FILE LAN selection changed the fixture's immutable Bluetooth CHAT credit window");
             String returnedId=returned.info.id;
             await(()->onMain(instrumentation,()->controller.messages.stream().anyMatch(message->message.id.equals(returnedId)&&message.attachment!=null&&message.attachment.state.equals("delivered"))),"Native file sender receives durable saved receipt");
         }

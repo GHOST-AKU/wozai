@@ -4,6 +4,10 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
+      native-only:
+        description: 'After test-only changes, build optimized preview and run API 26/34 native checks only'
+        type: boolean
+        default: false
       signed-upgrade-input-run:
         description: 'Run ID containing locally signed public APKs for upgrade acceptance (no private key required)'
         type: string
@@ -41,6 +45,7 @@ jobs:
           packages: platform-tools
       - run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
       - name: Source and protocol checks
+        if: ${{ !inputs['native-only'] }}
         run: |
           sh tools/test-i18n.sh
           sh tools/test-core.sh
@@ -48,15 +53,22 @@ jobs:
           sh tools/test-trust.sh
           sh tools/check-source.sh
       - name: Build and lint
+        if: ${{ !inputs['native-only'] }}
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug
           ./gradlew --no-daemon -PtestBuildType=preview :app:assembleRelease :app:assemblePreview :app:assemblePreviewAndroidTest :app:lintPreview
-      - name: Verify APK signatures and alignment
+      - name: Build optimized native test APKs
+        if: ${{ inputs['native-only'] }}
+        run: ./gradlew --no-daemon -PtestBuildType=preview :app:assemblePreview :app:assemblePreviewAndroidTest
+      - name: Verify debug APK signatures and alignment
+        if: ${{ !inputs['native-only'] }}
         run: |
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs app/build/outputs/apk/debug/app-debug.apk > app/build/outputs/apk/signature.txt
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c 4 app/build/outputs/apk/debug/app-debug.apk
           sha256sum app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk > app/build/outputs/apk/checksums.txt
+      - name: Verify preview APK signatures and alignment
+        run: |
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs app/build/outputs/apk/preview/app-preview.apk > app/build/outputs/apk/preview-signature.txt
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c 4 app/build/outputs/apk/preview/app-preview.apk
           sha256sum app/build/outputs/apk/preview/app-preview.apk app/build/outputs/apk/androidTest/preview/app-preview-androidTest.apk > app/build/outputs/apk/preview-checksums.txt
@@ -75,6 +87,7 @@ jobs:
           path: app/build/outputs/mapping/preview/
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
+        if: ${{ !inputs['native-only'] }}
         with:
           name: NearbyIM-${{ steps.metadata.outputs.version }}-android-debug
           path: |
