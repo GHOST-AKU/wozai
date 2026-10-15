@@ -36,7 +36,7 @@ public final class AdaptiveInstrumentation extends Instrumentation {
         try{
             activity=(MainActivity)startActivitySync(new Intent(getTargetContext(),MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             await(()->onMain(()->field(activity,"controller")!=null),"Controller attached");controller=onMain(()->field(activity,"controller"));
-            nativeLayouts();liveContinuity();discoveryDeadline();
+            nativeLayouts();progress("Native layout geometry completed");liveContinuity();progress("Live file/window continuity completed");discoveryDeadline();progress("Five-second discovery deadline completed");
             results.putString("stream","Adaptive Android: "+checks+" checks passed\n");
         }catch(Throwable failure){result=Activity.RESULT_CANCELED;StringWriter trace=new StringWriter();failure.printStackTrace(new PrintWriter(trace));results.putString("stream",trace.toString());}
         finally{
@@ -62,9 +62,9 @@ public final class AdaptiveInstrumentation extends Instrumentation {
                 if(width>=840)check(home.getRight()<=chat.getLeft(),"Actual child bounds do not overlap");
             }
             int unit=dp(1);root.fold(new AdaptiveLayout.Fold(dp(480),0,dp(520),dp(800),true,true,true));measure(root,1000,800);
-            check(home.getRight()<=dp(480)+root.getPaddingLeft()&&chat.getLeft()>=dp(520)+root.getPaddingLeft(),"Native views avoid the simulated hinge");
+            check(home.getRight()<=dp(480)&&chat.getLeft()>=dp(520),"Native views avoid the simulated hinge");
             root.fold(new AdaptiveLayout.Fold(0,dp(400),dp(1000),dp(440),false,true,false));measure(root,1000,900);
-            check(!root.dualPane()&&chat.getTop()>=dp(440)+root.getPaddingTop(),"Tabletop avoids the separating horizontal fold");
+            check(!root.dualPane()&&chat.getTop()>=dp(440),"Tabletop avoids the separating horizontal fold");
             root.fold(null);measure(root,1280,400);check(!root.dualPane(),"Short window falls back without losing current chat");
             check(draft==sameDraft&&draft.getText().toString().equals("fold draft 中文"),"Posture fallback preserves input");
             root.setPadding(0,0,0,dp(350));measure(root,1000,800);check(!root.dualPane()&&chat.getBottom()<=dp(450),"IME insets constrain the usable chat area");root.setPadding(0,0,0,0);
@@ -133,6 +133,7 @@ public final class AdaptiveInstrumentation extends Instrumentation {
     }
     private static String readingAnchor(MainActivity activity)throws Exception{Method method=MainActivity.class.getDeclaredMethod("captureTimelinePosition");method.setAccessible(true);Object position=method.invoke(activity);return field(position,"anchor");}
     private static String hex(byte[] values){StringBuilder out=new StringBuilder();for(byte value:values)out.append(String.format(java.util.Locale.ROOT,"%02x",value&255));return out.toString();}
+    private void progress(String text){Bundle status=new Bundle();status.putString("stream",text+"\n");sendStatus(0,status);}
     private int dp(int n){return Math.round(n*getTargetContext().getResources().getDisplayMetrics().density);}
     private void measure(View root,int w,int h){root.measure(View.MeasureSpec.makeMeasureSpec(dp(w),View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(dp(h),View.MeasureSpec.EXACTLY));root.layout(0,0,dp(w),dp(h));}
     private void screenshot(String name)throws Exception {waitForIdleSync();Bitmap shot=getUiAutomation().takeScreenshot();if(shot==null)return;File dir=new File(getTargetContext().getExternalFilesDir(null),"adaptive");dir.mkdirs();try(var out=new FileOutputStream(new File(dir,name))){shot.compress(Bitmap.CompressFormat.PNG,100,out);}finally{shot.recycle();}}
