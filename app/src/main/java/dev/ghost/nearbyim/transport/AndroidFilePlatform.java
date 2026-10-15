@@ -50,8 +50,8 @@ public final class AndroidFilePlatform implements AutomaticFileRoutes.Platform {
             }
             public void onPeer(Peer peer){directLastEvent="peer_discovered";}
             public void onListening(int mode,UiText detail){if(directOpened!=null)directLastEvent=detail.key;}
-            public void onError(int mode,UiText reason,boolean fatal){directLastEvent=reason.key;directLastError=reason.key;if(fatal){directStarted=false;failDirect(new IOException(reason.key));}}
-            public void onConnectFailed(int mode,UiText reason){directLastEvent=reason.key;directLastError=reason.key;failDirect(new IOException(reason.key));}
+            public void onError(int mode,UiText reason,boolean fatal){String code=directError(reason);directLastEvent=code;directLastError=code;if(fatal){directStarted=false;failDirect(new IOException(code));}}
+            public void onConnectFailed(int mode,UiText reason){String code=directError(reason);directLastEvent=code;directLastError=code;failDirect(new IOException(code));}
         });
         lanDial=new LanTransport(context,new Events(){
             public void onConnection(int mode,StreamConnection stream,boolean incoming) {
@@ -67,7 +67,6 @@ public final class AndroidFilePlatform implements AutomaticFileRoutes.Platform {
     public String directUnavailableReason() {
         try{
             if(!direct.available())return "unsupported";
-            if(!direct.enabled())return "wifi_disabled";
             String permission=Build.VERSION.SDK_INT>=33?Manifest.permission.NEARBY_WIFI_DEVICES:Manifest.permission.ACCESS_FINE_LOCATION;
             if(context.checkSelfPermission(permission)!=PackageManager.PERMISSION_GRANTED)return "permission_missing";
             if(Build.VERSION.SDK_INT<33){android.location.LocationManager location=context.getSystemService(android.location.LocationManager.class);if(location==null||Build.VERSION.SDK_INT>=28&&!location.isLocationEnabled())return "location_disabled";}
@@ -77,7 +76,7 @@ public final class AndroidFilePlatform implements AutomaticFileRoutes.Platform {
     public String diagnostics(){
         String location="unknown";
         try{android.location.LocationManager manager=context.getSystemService(android.location.LocationManager.class);if(manager!=null&&Build.VERSION.SDK_INT>=28)location=Boolean.toString(manager.isLocationEnabled());}catch(RuntimeException unavailable){}
-        return "wifi_direct_blocked_reason="+directUnavailableReason()+"\nwifi_direct_location_enabled="+location+"\nwifi_direct_last_event="+directLastEvent+"\nwifi_direct_last_error="+directLastError+"\n";
+        return "wifi_direct_blocked_reason="+directUnavailableReason()+"\nwifi_direct_station_wifi_enabled="+direct.enabled()+"\nwifi_direct_p2p_state="+direct.p2pState()+"\nwifi_direct_location_enabled="+location+"\nwifi_direct_last_event="+directLastEvent+"\nwifi_direct_last_error="+directLastError+"\n";
     }
     public void prepareLan(Consumer<List<AutomaticFileRoutes.Endpoint>> endpoints,Consumer<StreamConnection> accepted) {
         if(closed){endpoints.accept(List.of());return;}
@@ -161,6 +160,7 @@ public final class AndroidFilePlatform implements AutomaticFileRoutes.Platform {
             directTimeout=()->{if(ticket==directAttempt){directLastEvent="timeout";directLastError="timeout";failDirect(new IOException("Wi-Fi Direct file route timed out"));}};main.postDelayed(directTimeout,AutomaticFileRoutes.DIRECT_OPEN_TIMEOUT_MS);
         });
     }
+    private String directError(UiText reason){return reason.key.equals("directEnableFirst")&&direct.p2pState().equals("disabled")?"p2p_disabled":reason.key;}
     private void failDirect(Throwable reason){Consumer<Throwable> failure=directFailed;stopDirect();if(failure!=null)failure.accept(reason);}
     private void clearDirectTimeout(){if(directTimeout!=null)main.removeCallbacks(directTimeout);directTimeout=null;}
     public void stopDirect(){onMain(()->{directAttempt++;clearDirectTimeout();directOpened=null;directFailed=null;direct.disconnect();});}

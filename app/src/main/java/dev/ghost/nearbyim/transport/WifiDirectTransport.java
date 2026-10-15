@@ -43,6 +43,7 @@ public final class WifiDirectTransport {
     private boolean receiverRegistered, searchRequested, searching, initialized, advertised, inspecting, inspectAgain, foreignReported, automaticDiscovery;
     private BroadcastReceiver receiver;
     private volatile boolean destroyed;
+    private volatile int observedP2pState;
     private long run, operation, scan, inspection, groupGeneration, attempt;
     private Runnable afterCleanup, afterRequests, connectDeadline, startupWatchdog;
     private boolean queuedConnect;
@@ -65,6 +66,8 @@ public final class WifiDirectTransport {
     }
     public boolean available() { return supported; }
     public boolean enabled() { try { return supported && wifi != null && wifi.isWifiEnabled(); } catch (RuntimeException denied) { return false; } }
+    /** Last native observation, kept separately from the station Wi-Fi switch. */
+    public String p2pState() { return observedP2pState==WifiP2pManager.WIFI_P2P_STATE_ENABLED?"enabled":observedP2pState==WifiP2pManager.WIFI_P2P_STATE_DISABLED?"disabled":"unknown"; }
     /** Current-group RAM hint only. connect() rechecks the group/interface; Noise proves identity. */
     public Peer currentPeer(String peerId) { return authority.currentPeer(peerId); }
     public String currentInterface() { GroupIdentity group=observedGroup;return group==null?null:group.iface; }
@@ -95,9 +98,9 @@ public final class WifiDirectTransport {
     private void beginStart(String localId, String name) {
         if (!available()) { error("directUnavailable", true); return; }
         if (!permitted()) { error("directPermissionRequired", true); return; }
-        if (!enabled()) { error("directEnableFirst", true); return; }
         String id = WifiDirectPolicy.uuid(localId), displayName = localName(name);
         if (id == null) { error("directInvalidPeer", true); return; }
+        observedP2pState=0;
         run = lifecycle.start(); final long started = run; registry = new WifiDirectPolicy.Registry(id);
         WifiDirectPolicy.StartupDeadline startup = new WifiDirectPolicy.StartupDeadline(started, now() + 10_000);
         startupWatchdog = () -> {
@@ -127,22 +130,34 @@ public final class WifiDirectTransport {
             }), (domain, values, device) -> onMain(() -> {
                 if (lifecycle.valid(started) && searchRequested && device != null) report(registry.txt(domain, values, device.deviceAddress, now()));
             }));
-            // A group already present at startup has no app provenance, even if its peer advertises our type.
-            manager.requestGroupInfo(channel, group -> onMain(() -> {
+            // A hotspot host can have its station Wi-Fi switch off. Ask the P2P service,
+            // rather than inferring P2P availability from WifiManager.isWifiEnabled().
+            if (Build.VERSION.SDK_INT >= 29) manager.requestP2pState(channel, state -> onMain(() -> {
                 if (!lifecycle.valid(started)) return;
-                if (group != null) { stopInternal(); error("directForeignGroup", true); return; }
-                initialized = true;
-                Map<String,String> txt = new HashMap<>(); txt.put("id", id); txt.put("name", displayName); txt.put("v", "1");
-                advertisement = WifiP2pDnsSdServiceInfo.newInstance("wozai-" + id.substring(0, 8), WifiDirectPolicy.TYPE, txt);
-                try {
-                    manager.addLocalService(channel, advertisement, action(started, () -> {
-                        advertised = true; startup.acknowledge(started); clearStartupWatchdog();
-                        listener.onListening(Peer.WIFI_DIRECT, UiText.of("directAdvertising"));
-                        if (lifecycle.valid(started)) { automaticDiscovery = true; discoverInternal(); expirePeers(started); }
-                    }, code -> { stopInternal(); error(reason(code, "directServiceFailed"), true); }));
-                } catch (RuntimeException failure) { failStart(failure); }
+                observedP2pState=state;
+                if (state != WifiP2pManager.WIFI_P2P_STATE_ENABLED) { stopInternal(); error("directEnableFirst", true); return; }
+                advertise(started,id,displayName,startup);
             }));
+            else advertise(started,id,displayName,startup);
         } catch (RuntimeException failure) { failStart(failure); }
+    }
+    private void advertise(long started,String id,String displayName,WifiDirectPolicy.StartupDeadline startup) {
+        if (!lifecycle.valid(started)) return;
+        // A group already present at startup has no app provenance, even if its peer advertises our type.
+        try { manager.requestGroupInfo(channel, group -> onMain(() -> {
+            if (!lifecycle.valid(started)) return;
+            if (group != null) { stopInternal(); error("directForeignGroup", true); return; }
+            initialized = true;
+            Map<String,String> txt = new HashMap<>(); txt.put("id", id); txt.put("name", displayName); txt.put("v", "1");
+            advertisement = WifiP2pDnsSdServiceInfo.newInstance("wozai-" + id.substring(0, 8), WifiDirectPolicy.TYPE, txt);
+            try {
+                manager.addLocalService(channel, advertisement, action(started, () -> {
+                    advertised = true; startup.acknowledge(started); clearStartupWatchdog();
+                    listener.onListening(Peer.WIFI_DIRECT, UiText.of("directAdvertising"));
+                    if (lifecycle.valid(started)) { automaticDiscovery = true; discoverInternal(); expirePeers(started); }
+                }, code -> { stopInternal(); error(reason(code, "directServiceFailed"), true); }));
+            } catch (RuntimeException failure) { failStart(failure); }
+        })); } catch (RuntimeException failure) { failStart(failure); }
     }
     private void failStart(RuntimeException failure) { stopInternal(); error(failure instanceof SecurityException ? "directPermissionRequired" : "directChannelLost", true); }
     private static String localName(String name) {
@@ -359,7 +374,8 @@ public final class WifiDirectTransport {
             if (!lifecycle.valid(started)) return;
             String action = intent.getAction();
             if (WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION.equals(action)) {
-                if (intent.getIntExtra(WifiP2pManager.EXTRA_WIFI_STATE, WifiP2pManager.WIFI_P2P_STATE_DISABLED) != WifiP2pManager.WIFI_P2P_STATE_ENABLED) { stopInternal(); error("directEnableFirst", true); }
+                observedP2pState=intent.getIntExtra(WifiP2pManager.EXTRA_WIFI_STATE, WifiP2pManager.WIFI_P2P_STATE_DISABLED);
+                if (observedP2pState != WifiP2pManager.WIFI_P2P_STATE_ENABLED) { stopInternal(); error("directEnableFirst", true); }
             } else if (WifiP2pManager.WIFI_P2P_DISCOVERY_CHANGED_ACTION.equals(action)) {
                 boolean active = intent.getIntExtra(WifiP2pManager.EXTRA_DISCOVERY_STATE, WifiP2pManager.WIFI_P2P_DISCOVERY_STOPPED) == WifiP2pManager.WIFI_P2P_DISCOVERY_STARTED;
                 if (!active) searching = false; else if (searchRequested) searching = true;
