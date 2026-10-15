@@ -9,7 +9,7 @@ Wozai (NearbyIM) is an open-source chat application for nearby communication. It
 > Latest stable release: **0.3.1** · Android / Windows / Linux
 > [Download the latest release](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.1) · [View Issues](https://github.com/GHOST-AKU/wozai/issues)
 
-This branch contains **unreleased 0.3.2 candidate source**: NIM4 Noise sessions, streaming files up to 10 GiB and persistent resume. Evidence and blockers are tracked in [PR #18](https://github.com/GHOST-AKU/wozai/pull/18), [files #11](https://github.com/GHOST-AKU/wozai/issues/11), [encryption #15](https://github.com/GHOST-AKU/wozai/issues/15) and the [performance report](../performance.md). Phone-to-phone speed, physical Bluetooth and thermal endurance remain unverified.
+**[0.3.2 Preview 1](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.2-preview.1)** provides Android, Windows and Linux previews, including a new Linux AppImage. The application version is 0.3.2; the latest stable release remains 0.3.1. This branch includes NIM4 Noise sessions, streaming files up to 10 GiB and persistent resume. Evidence and blockers are tracked in [PR #18](https://github.com/GHOST-AKU/wozai/pull/18), [files #11](https://github.com/GHOST-AKU/wozai/issues/11), [encryption #15](https://github.com/GHOST-AKU/wozai/issues/15) and the [performance report](../performance.md). Temporary Wi-Fi Direct/P2P still fails on the user's devices, tablet/foldable UI has known rough edges, and physical Bluetooth and thermal endurance remain unverified.
 
 ## 🌱 Why Wozai?
 

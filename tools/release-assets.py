@@ -52,7 +52,7 @@ def desktop(version, source, tag):
                 archive.write(path, path.relative_to(image.parent))
     files = [windows]
     linux = inputs / "linux"
-    for suffix in ("tar.gz", "deb"):
+    for suffix in ("tar.gz", "deb", "AppImage"):
         name = f"NearbyIM-{version}-linux-x64.{suffix}"
         path = linux / name
         require(path.is_file(), f"Missing {name}")
@@ -62,8 +62,9 @@ def desktop(version, source, tag):
                               if m.name.endswith("/lib/app/nearbyim-desktop.jar")]
                 require(len(candidates) == 1, "Ambiguous Linux application JAR")
                 metadata(io.BytesIO(archive.extractfile(candidates[0]).read()), version, source)
-        else:
-            require(run("dpkg-deb", "-f", str(path), "Version") == version,
+        elif suffix == "deb":
+            deb_version = version + "~" + tag.split("-", 1)[1] if "-preview." in tag else version
+            require(run("dpkg-deb", "-f", str(path), "Version") == deb_version,
                     "Wrong Debian package version")
             extracted = output / "deb-inspection"
             subprocess.run(["dpkg-deb", "-x", str(path), str(extracted)], check=True)
@@ -71,6 +72,14 @@ def desktop(version, source, tag):
             require(len(jars) == 1, "Ambiguous Debian application JAR")
             metadata(jars[0], version, source)
             shutil.rmtree(extracted)
+        else:
+            runtime = json.loads(Path("desktop/appimage-runtime.json").read_text())
+            with path.open("rb") as stream:
+                require(hashlib.sha256(stream.read(runtime["bytes"])).hexdigest() == runtime["sha256"],
+                        "Wrong AppImage runtime")
+            jar = subprocess.check_output(["unsquashfs", "-cat", "-o", str(runtime["bytes"]), str(path),
+                                           "usr/lib/app/nearbyim-desktop.jar"])
+            metadata(io.BytesIO(jar), version, source)
         target = output / name
         shutil.copyfile(path, target)
         files.append(target)
@@ -126,7 +135,8 @@ def main():
     version = json.loads(Path("i18n/config.json").read_text())["appVersion"]
     source = os.environ["GITHUB_SHA"]
     tag = os.environ["RELEASE_TAG"]
-    require(tag == "v" + version, "Release tag does not match the shared version")
+    require(tag == "v" + version or re.fullmatch(re.escape("v" + version) + r"-preview\.[1-9][0-9]*", tag),
+            "Release tag does not match the shared version")
     require(run("git", "rev-parse", "HEAD") == source, "Unexpected checkout")
     release = json.loads(run("gh", "release", "view", tag, "--json", "isDraft,targetCommitish"))
     require(release["isDraft"] is True, "Assets may only be staged in a draft release")

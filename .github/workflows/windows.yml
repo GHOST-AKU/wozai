@@ -24,6 +24,7 @@ jobs:
     uses: ./.github/workflows/linux.yml
     with:
       performance-baseline: ${{ inputs['performance-baseline'] }}
+      release-tag: ${{ inputs['release-tag'] }}
   windows:
     runs-on: windows-latest
     steps:
@@ -155,6 +156,8 @@ jobs:
       - name: Read release version
         id: metadata
         run: python3 -c 'import json; print("version=" + json.load(open("i18n/config.json"))["appVersion"])' >> "$GITHUB_OUTPUT"
+      - name: Install AppImage payload inspection tool
+        run: sudo apt-get update && sudo apt-get install -y squashfs-tools
       - uses: actions/download-artifact@v4
         with:
           name: NearbyIM-${{ steps.metadata.outputs.version }}-windows-x64

@@ -9,7 +9,7 @@
 > 最新正式版：**0.3.1** · Android / Windows / Linux
 > [下载最新版本](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.1) · [查看 Issues](https://github.com/GHOST-AKU/wozai/issues)
 
-本分支为 **0.3.2 候选源码，尚未正式发布**：NIM4 Noise 加密会话、10 GiB 流式附件与持久续传。验收证据与设备阻碍见 [PR #18](https://github.com/GHOST-AKU/wozai/pull/18)、[文件传输 #11](https://github.com/GHOST-AKU/wozai/issues/11)、[加密 #15](https://github.com/GHOST-AKU/wozai/issues/15) 和[性能报告](docs/performance.md)。手机互传速度、真实蓝牙与温升长跑仍待验收。
+**[0.3.2 Preview 1](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.2-preview.1)** 提供Android、Windows、Linux预览包（Linux新增AppImage），应用内部版本为0.3.2，最新稳定版仍为0.3.1。本分支包括：NIM4 Noise 加密会话、10 GiB 流式附件与持久续传。验收证据与设备阻碍见 [PR #18](https://github.com/GHOST-AKU/wozai/pull/18)、[文件传输 #11](https://github.com/GHOST-AKU/wozai/issues/11)、[加密 #15](https://github.com/GHOST-AKU/wozai/issues/15) 和[性能报告](docs/performance.md)。临时Wi-Fi Direct/P2P仍有真机失败反馈，平板/折叠UI有已知小问题；真实蓝牙与温升长跑等仍待验收。
 
 ## 🌱 为什么做「我在」
 

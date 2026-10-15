@@ -31,6 +31,18 @@ Windows and Linux packaging include a linked Eclipse Temurin OpenJDK 17 runtime.
 
 The Linux Bluetooth bridge dynamically links the distribution's GLib/GIO libraries (LGPL-2.1-or-later, https://gitlab.gnome.org/GNOME/glib) and uses the system BlueZ D-Bus service (https://www.bluez.org/). These system libraries and bluetoothd are not included in the application package. The Linux native launcher and BlueZ bridge are application source; no BlueZ implementation source is copied into them.
 
+## Linux AppImage runtime
+
+AppImages embed the unmodified official AppImage type-2 runtime at commit
+`8f39b89e2ac31e1640b3d3f7e9a5108e6ce805fa`; its immutable asset ID, byte count and
+SHA-256 are pinned in `desktop/appimage-runtime.json`. Its MIT license and upstream
+notices for statically linked musl, libfuse, squashfuse, zstd and zlib are retained
+in `licenses/AppImage-runtime-LICENSE.txt`. Runtime source, dependency build scripts
+and patches are available at https://github.com/AppImage/type2-runtime/tree/8f39b89e2ac31e1640b3d3f7e9a5108e6ce805fa.
+The AppImage payload is the same application/JVM/BlueZ JNI used by tar.gz and deb;
+it still uses the host's graphical and BlueZ system libraries. No runtime is
+downloaded by the installed application.
+
 ## Noise protocol implementation
 
 The sources under `third_party/noise-java/src` come from Southern Storm Software's
