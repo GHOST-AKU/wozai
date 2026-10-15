@@ -180,9 +180,10 @@ public final class AutomaticFileRoutesTests {
         public InputStream input(){return new ByteArrayInputStream(new byte[0]);}public OutputStream output(){return new ByteArrayOutputStream();}public String label(){return "late";}public void close(){closed.countDown();}
     }
     static final class End implements FramedSession.Listener,AutomaticFileRoutes.Listener {
+        volatile SocketPath nativePath;boolean ignorePath;
         FramedSession wire;AutomaticFileRoutes files;TestPlatform platform;boolean delaySelectionAck,busy,approved=true;volatile CountDownLatch parentDecoded,releaseParent,parentDispatched;final CountDownLatch ready=new CountDownLatch(1);final BlockingQueue<TransferPacket> received=new LinkedBlockingQueue<>();final BlockingQueue<IOException> errors=new LinkedBlockingQueue<>();
         public void onHello(Frame f){wire.approve();}public void onReady(){ready.countDown();}public void onClosed(UiText t){}public void onText(Frame f){}public void onAck(String id){}
-        public void onFileRoute(FileRoutePacket p){if(delaySelectionAck&&p.kind==FileRoutePacket.Kind.SELECT_ACK)try{Thread.sleep(300);}catch(InterruptedException e){Thread.currentThread().interrupt();}files.receiveControl(p);}public void onTransfer(TransferPacket p){CountDownLatch decoded=parentDecoded,release=releaseParent,dispatched=parentDispatched;if(decoded!=null){parentDecoded=null;decoded.countDown();try{if(!release.await(5,TimeUnit.SECONDS))throw new IllegalStateException("Parent callback barrier timeout");}catch(InterruptedException e){Thread.currentThread().interrupt();}}files.receiveChatTransfer(p);if(dispatched!=null)dispatched.countDown();}
+        public void onFileRoute(FileRoutePacket p){if(ignorePath&&UUID.fromString(p.nonce).version()==3)return;if(delaySelectionAck&&p.kind==FileRoutePacket.Kind.SELECT_ACK)try{Thread.sleep(300);}catch(InterruptedException e){Thread.currentThread().interrupt();}files.receiveControl(p);}public void onTransfer(TransferPacket p){CountDownLatch decoded=parentDecoded,release=releaseParent,dispatched=parentDispatched;if(decoded!=null){parentDecoded=null;decoded.countDown();try{if(!release.await(5,TimeUnit.SECONDS))throw new IllegalStateException("Parent callback barrier timeout");}catch(InterruptedException e){Thread.currentThread().interrupt();}}files.receiveChatTransfer(p);if(dispatched!=null)dispatched.countDown();}
         public boolean busy(){return busy;}public void receive(TransferPacket p){received.add(p);}public void changed(){}public void failed(IOException e){errors.add(e);}
     }
     static final class Pair implements AutoCloseable {
@@ -190,13 +191,18 @@ public final class AutomaticFileRoutesTests {
         Pair(String route,boolean direct,boolean lan)throws Exception {this(route,direct,lan,false);}
         Pair(String route,boolean direct,boolean lan,boolean wrongRoot)throws Exception {this(route,direct,lan,wrongRoot,true);}
         Pair(String route,boolean direct,boolean lan,boolean wrongRoot,boolean automatic)throws Exception {
+            this(route,direct,lan,wrongRoot,automatic,null,null);
+        }
+        Pair(String route,boolean direct,boolean lan,boolean wrongRoot,boolean automatic,SocketPath aPath,SocketPath bPath)throws Exception {
             DeviceIdentity ka=DeviceIdentity.generate(),kb=DeviceIdentity.generate();byte[] na=key(),nb=key();StreamConnection[] pair=sockets();
-            a.wire=FramedSession.secure(pair[0],CoreTests.A,"A",ka,na,true,a,false,automatic);b.wire=FramedSession.secure(pair[1],CoreTests.B,"B",kb,nb,false,b,false,automatic);
+            a.nativePath=aPath;b.nativePath=bPath;
+            a.wire=FramedSession.secure(path(pair[0],a),CoreTests.A,"A",ka,na,true,a,false,automatic);b.wire=FramedSession.secure(path(pair[1],b),CoreTests.B,"B",kb,nb,false,b,false,automatic);
             a.wire.start();b.wire.start();check(a.ready.await(5,TimeUnit.SECONDS)&&b.ready.await(5,TimeUnit.SECONDS),"Parent ready");
             a.platform=new TestPlatform(direct,lan);b.platform=new TestPlatform(direct,lan);a.platform.peer=b.platform;b.platform.peer=a.platform;
             a.files=new AutomaticFileRoutes(a.wire,CoreTests.A,"A",ka,na,CoreTests.B,kb.publicKey(),route,()->a.approved,a.platform,a);b.files=new AutomaticFileRoutes(b.wire,CoreTests.B,"B",wrongRoot?DeviceIdentity.generate():kb,nb,CoreTests.A,ka.publicKey(),route,()->b.approved,b.platform,b);
             a.files.start();b.files.start();
         }
+        private StreamConnection path(StreamConnection base,End end){return new StreamConnection(){public InputStream input()throws IOException{return base.input();}public OutputStream output()throws IOException{return base.output();}public String label(){return base.label();}public SocketPath socketPath(){return end.nativePath;}public void close()throws IOException{base.close();}};}
         void transfer()throws Exception {a.files.ensureReady().get(5,TimeUnit.SECONDS);b.files.ensureReady().get(5,TimeUnit.SECONDS);TransferPacket packet=TransferPacket.data(UUID.randomUUID().toString(),UUID.randomUUID().toString(),a.wire.connectionGeneration(),4,0,new byte[]{1,2,3,4});check(a.files.send(packet),"Selected lane sends: "+a.files.diagnostics()+" error="+a.errors.peek());TransferPacket got=b.received.poll(5,TimeUnit.SECONDS);check(got!=null&&got.connectionGeneration.equals(a.wire.connectionGeneration()),"File packets retain logical parent generation");}
         public void close(){a.files.close();b.files.close();a.wire.close(UiText.EMPTY);b.wire.close(UiText.EMPTY);}
     }

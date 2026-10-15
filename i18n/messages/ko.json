@@ -483,7 +483,7 @@
   "wifiDirectConnecting": "Wi-Fi Direct로 연결 중…",
   "wifiDirectFallbackLan": "Wi-Fi Direct를 사용할 수 없습니다. 대체 경로: LAN. 이유: {0}",
   "wifiDirectFallbackBluetooth": "Wi-Fi Direct를 사용할 수 없습니다. 대체 경로: Bluetooth. 이유: {0}",
-  "attachmentPathWifiDirect": "전송 경로: Wi-Fi Direct",
+  "attachmentPathWifiDirect": "전송 경로: Wi-Fi 직접 연결",
   "attachmentPathPendingWifiDirect": "전송 대기 중 · Wi-Fi Direct",
   "pathDetailsWifiDirect": "이 파일에 기록된 전송 경로는 Android Wi-Fi Direct입니다. 암호화와 신원 확인 상태는 별도로 표시됩니다.",
   "androidWifiDirectHint": "Android 휴대전화와 태블릿을 공유기 없이 연결할 수 있습니다. 양쪽에서 Wi-Fi Direct를 선택하고 수신을 켠 후 검색하세요. Windows 또는 Linux와 연결하려면 양쪽에서 LAN을 선택하고 같은 Wi-Fi나 핫스팟에 연결하세요. 취소하거나 연결을 끊은 후에는 양쪽 기기에서 연결을 눌러 다시 시도하세요.",

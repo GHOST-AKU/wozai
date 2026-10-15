@@ -31,6 +31,7 @@ java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentLifecycleRev
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.ProtocolV4Tests
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.FairRecordWriterTests
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AutomaticFileRoutesTests
+java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.ExistingWifiReuseTests
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AutomaticFileRouteDiagnosticsTests
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AutomaticFileRouteDiagnosticsTests --slow-direct
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentRouteDisconnectTests

@@ -483,7 +483,7 @@
   "wifiDirectConnecting": "Wi-Fi Direct で接続中…",
   "wifiDirectFallbackLan": "Wi-Fi Direct を利用できません。代替経路：LAN。理由：{0}",
   "wifiDirectFallbackBluetooth": "Wi-Fi Direct を利用できません。代替経路：Bluetooth。理由：{0}",
-  "attachmentPathWifiDirect": "転送経路：Wi-Fi Direct",
+  "attachmentPathWifiDirect": "転送経路：Wi-Fi 直接接続",
   "attachmentPathPendingWifiDirect": "転送待ち · Wi-Fi Direct",
   "pathDetailsWifiDirect": "このファイルに記録された転送経路は Android Wi-Fi Direct です。暗号化と本人確認の状態は別に表示されます。",
   "androidWifiDirectHint": "Android のスマートフォンやタブレットをルーターなしで接続できます。両方で Wi-Fi Direct を選び、受信を有効にして検索してください。Windows または Linux と接続する場合は両方で LAN を選び、同じ Wi-Fi またはホットスポットに接続してください。 キャンセルや切断の後は、両方の端末で接続を押して再試行してください。",

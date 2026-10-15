@@ -42,6 +42,7 @@
 -keep class dev.ghost.nearbyim.core.FramedSession { public *; }
 -keep class dev.ghost.nearbyim.core.FramedSession$* { public *; }
 -keep class dev.ghost.nearbyim.core.StreamConnection { public *; }
+-keep class dev.ghost.nearbyim.core.SocketPath { public *; }
 # The separate native test APK supplies FILE providers/listeners. Preserve their
 # dispatch and constructor contract; app-only R8 must not specialize them to its
 # one Android implementation. These rules do not apply to production release.

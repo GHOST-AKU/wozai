@@ -183,6 +183,7 @@ public final class LanTransport {
         public InputStream input()throws IOException{return socket.getInputStream();}
         public OutputStream output()throws IOException{return socket.getOutputStream();}
         public String label(){return "LAN · "+socket.getInetAddress().getHostAddress();}
+        public SocketPath socketPath(){return LanTransport.socketPath(socket,network,manager);}
         public void close()throws IOException {
             if(!closed.compareAndSet(false,true))return;
             try{socket.close();}finally{if(callback!=null)try{manager.unregisterNetworkCallback(callback);}catch(RuntimeException ignored){}}
@@ -212,8 +213,25 @@ public final class LanTransport {
             public InputStream input() throws IOException { return socket.getInputStream(); }
             public OutputStream output() throws IOException { return socket.getOutputStream(); }
             public String label() { return "LAN · " + socket.getInetAddress().getHostAddress(); }
+            public SocketPath socketPath(){
+                try{return LanTransport.socketPath(socket,null,context.getSystemService(ConnectivityManager.class));}
+                catch(RuntimeException unavailable){return SocketPath.from(socket,false);}
+            }
             public void close() throws IOException { socket.close(); }
         };
+    }
+    private static SocketPath socketPath(Socket socket,Network selected,ConnectivityManager manager){
+        boolean gateway=false;
+        try{
+            if(manager!=null)for(Network network:selected==null?manager.getAllNetworks():new Network[]{selected}){
+                NetworkCapabilities caps=manager.getNetworkCapabilities(network);LinkProperties props=manager.getLinkProperties(network);
+                if(caps==null||props==null||!caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)||caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN))continue;
+                boolean owns=false;for(LinkAddress address:props.getLinkAddresses())if(address.getAddress().equals(socket.getLocalAddress()))owns=true;
+                if(!owns)continue;
+                for(RouteInfo route:props.getRoutes())if(route.isDefaultRoute()&&socket.getInetAddress().equals(route.getGateway()))gateway=true;
+            }
+        }catch(RuntimeException unavailable){/* Unknown is never promoted to a direct path. */}
+        return SocketPath.from(socket,gateway);
     }
     private void stopDiscovery() {
         discovery = null;

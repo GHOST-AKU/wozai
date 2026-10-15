@@ -562,6 +562,7 @@ public final class DesktopClient implements AutoCloseable {
         public InputStream input() throws IOException { return socket.getInputStream(); }
         public OutputStream output() throws IOException { return socket.getOutputStream(); }
         public String label() { return "LAN"; }
+        public SocketPath socketPath(){return SocketPath.from(socket,DesktopWifiGateway.matches(socket.getLocalAddress(),socket.getInetAddress()));}
         public void close() throws IOException { socket.close(); }
     }; }
 }

@@ -59,7 +59,7 @@
     <string name="attachment_path_pending_wifi_direct" formatted="false">"転送待ち · Wi-Fi Direct"</string>
     <string name="attachment_path_selecting" formatted="false">"転送経路を選択中…"</string>
     <string name="attachment_path_unknown" formatted="false">"転送経路：現在不明"</string>
-    <string name="attachment_path_wifi_direct" formatted="false">"転送経路：Wi-Fi Direct"</string>
+    <string name="attachment_path_wifi_direct" formatted="false">"転送経路：Wi-Fi 直接接続"</string>
     <string name="attachment_pause" formatted="false">"転送を一時停止"</string>
     <string name="attachment_photo_preview" formatted="false">"写真プレビュー：{0}"</string>
     <string name="attachment_preview" formatted="false">"送信前プレビュー"</string>

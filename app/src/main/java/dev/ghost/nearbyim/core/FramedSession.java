@@ -153,6 +153,7 @@ public final class FramedSession {
         try{byte[] bytes=ProtocolV4.encodeFileRoute(packet);return enqueue(()->noise.write(bytes),bytes.length+256,false);}catch(IOException|IllegalArgumentException invalid){return false;}
     }
     public String connectionGeneration(){return noise==null?null:noise.connectionGeneration();}
+    public SocketPath socketPath(){return isReady()&&!fileLane?connection.socketPath():null;}
     public int attachmentChunkSize() { return noise==null?channel.chunkSize():TransferLimits.DATA_BYTES; }
     public long attachmentSizeLimit() { return noise==null?channel.fileSize():TransferLimits.MAX_FILE_BYTES; }
     public boolean sendAttachment(Frame frame) {

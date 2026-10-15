@@ -59,7 +59,7 @@
     <string name="attachment_path_pending_wifi_direct" formatted="false">"Waiting to transfer · Wi-Fi Direct"</string>
     <string name="attachment_path_selecting" formatted="false">"Choosing transfer route…"</string>
     <string name="attachment_path_unknown" formatted="false">"Transfer path: currently unknown"</string>
-    <string name="attachment_path_wifi_direct" formatted="false">"Transfer path: Wi-Fi Direct"</string>
+    <string name="attachment_path_wifi_direct" formatted="false">"Transfer path: direct Wi-Fi"</string>
     <string name="attachment_pause" formatted="false">"Pause transfer"</string>
     <string name="attachment_photo_preview" formatted="false">"Photo preview: {0}"</string>
     <string name="attachment_preview" formatted="false">"Review attachments"</string>

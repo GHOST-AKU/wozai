@@ -483,7 +483,7 @@
   "wifiDirectConnecting": "Connecting over Wi-Fi Direct…",
   "wifiDirectFallbackLan": "Wi-Fi Direct unavailable; fallback path: LAN. Reason: {0}",
   "wifiDirectFallbackBluetooth": "Wi-Fi Direct unavailable; fallback path: Bluetooth. Reason: {0}",
-  "attachmentPathWifiDirect": "Transfer path: Wi-Fi Direct",
+  "attachmentPathWifiDirect": "Transfer path: direct Wi-Fi",
   "attachmentPathPendingWifiDirect": "Waiting to transfer · Wi-Fi Direct",
   "pathDetailsWifiDirect": "The recorded file route is Android Wi-Fi Direct. Encryption and identity verification are shown separately.",
   "androidWifiDirectHint": "Connect Android phones and tablets over Wi-Fi Direct without a router. Both devices must choose Wi-Fi Direct, enable reception, and search. For Windows or Linux, choose LAN on both devices and join the same Wi-Fi or hotspot. After cancellation or disconnection, both peers should tap Connect to retry.",

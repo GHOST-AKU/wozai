@@ -4,6 +4,10 @@ cd "$(dirname "$0")/.."
 mkdir -p build/wifi-direct-tests
 java -m jdk.compiler/com.sun.tools.javac.Main -encoding UTF-8 -d build/wifi-direct-tests \
     app/src/main/java/dev/ghost/nearbyim/core/StreamConnection.java \
+    app/src/main/java/dev/ghost/nearbyim/core/SocketPath.java \
+    app/src/main/java/dev/ghost/nearbyim/core/LocalEndpoint.java \
+    app/src/main/java/dev/ghost/nearbyim/i18n/UiText.java \
+    app/src/main/java/dev/ghost/nearbyim/i18n/LocalizedIllegalArgumentException.java \
     app/src/main/java/dev/ghost/nearbyim/transport/Peer.java \
     app/src/main/java/dev/ghost/nearbyim/transport/WifiDirectPolicy.java \
     app/src/main/java/dev/ghost/nearbyim/transport/WifiDirectSockets.java \
