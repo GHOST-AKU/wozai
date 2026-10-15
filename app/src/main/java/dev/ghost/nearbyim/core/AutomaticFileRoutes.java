@@ -128,7 +128,7 @@ public final class AutomaticFileRoutes implements AutoCloseable {
         // ENDPOINTS with a version-3 UUID is a backwards-compatible path advertisement.
         // Legacy attempts use random version-4 UUIDs, so older peers safely ignore it.
         String token=UUID.nameUUIDFromBytes((generation+UUID.randomUUID()).getBytes(java.nio.charset.StandardCharsets.US_ASCII)).toString();
-        pathSnapshot=path;pathProbe=token;pathDeadline=actor.schedule(()->{if(Objects.equals(pathProbe,token)&&valid()){pathProbe=null;pathSnapshot=null;begin(initialRoute());}},3,TimeUnit.SECONDS);
+        pathSnapshot=path;pathProbe=token;listener.changed();pathDeadline=actor.schedule(()->{if(Objects.equals(pathProbe,token)&&valid()){pathProbe=null;pathSnapshot=null;begin(initialRoute());}},3,TimeUnit.SECONDS);
         if(!control(FileRoutePacket.Kind.ENDPOINTS,token,Route.LAN,false,pathEndpoints(path)))fail(new IOException("FILE path probe unavailable"),false);
     }
     private boolean receivePath(FileRoutePacket p){
@@ -173,7 +173,7 @@ public final class AutomaticFileRoutes implements AutoCloseable {
     private void enter(){
         phaseFailed=false;
         if(!valid()){fail(new IOException("Approval revoked"),true);return;}
-        String token=nonce;
+        String token=nonce;listener.changed();
         long timeout=attempting==Route.WIFI_DIRECT?DIRECT_OPEN_TIMEOUT_MS+LANE_HANDSHAKE_TIMEOUT_MS:attempting==Route.LAN?8_000:15_000;
         deadline=actor.schedule(()->{if(Objects.equals(token,nonce)&&selected==null)attemptFailed(new IOException("FILE route timed out"),"timeout");},timeout,TimeUnit.MILLISECONDS);
         if(attempting==Route.WIFI_DIRECT){
@@ -312,6 +312,13 @@ public final class AutomaticFileRoutes implements AutoCloseable {
         post(()->{startActor();if(valid()&&selected==null&&!chat.automaticFilesSupported())selectLegacy();if(valid()&&selected==chat&&packet!=null&&Objects.equals(generation,packet.connectionGeneration))listener.receive(packet);else if(!discardRetiredParent(packet))fail(new IOException("Unexpected chat FILE packet"),true);});
     }
     public String route(){return selectedRoute;}
+    /** Live UI state only; pending routes are never persisted as completed data paths. */
+    public TransferPath pendingPath(){
+        if(closed||terminal)return TransferPath.DISCONNECTED;
+        if(selected!=null&&!refreshing)return "wifi-direct".equals(selectedRoute)?TransferPath.WIFI_DIRECT:"lan".equals(selectedRoute)?TransferPath.LAN_UNCONFIRMED:TransferPath.BLUETOOTH;
+        if(pathProbe!=null||refreshing||attempting==null)return TransferPath.SELECTING;
+        return attempting==Route.WIFI_DIRECT?TransferPath.PENDING_WIFI_DIRECT:attempting==Route.LAN?TransferPath.PENDING_LAN:TransferPath.PENDING_BLUETOOTH;
+    }
     public String diagnostics(){
         String state=closed?"closed":terminal?"failed":pathProbe!=null?"checking_existing":selected!=null?(refreshing?"rechecking":"ready"):attempting!=null?"negotiating":ready!=null&&!ready.isDone()?"requesting":lastRouteFailure.isEmpty()?"idle":"failed";
         return "file_transport="+selectedRoute+"\nfile_route_pending="+(selected==null)+"\nfile_route_state="+state+"\nfile_attempt_route="+(attempting==null?"":name(attempting))+"\nfile_direct_outcome="+directOutcome+"\nfile_direct_skip_reason="+directSkipReason+"\nfile_route_last_failure="+lastRouteFailure+"\nfile_existing_wifi="+(parentHotspot?"confirmed_hotspot":"unconfirmed")+"\n"+platform.diagnostics();

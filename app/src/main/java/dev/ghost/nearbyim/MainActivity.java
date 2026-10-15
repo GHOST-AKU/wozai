@@ -625,7 +625,7 @@ public final class MainActivity extends Activity {
     }
     private AlertDialog showAttachmentTransferPath(String peer,AttachmentRecord record) {
         TransferPath route=controller==null?TransferPath.forAttachment("",false,record):controller.attachmentRoute(peer,record);
-        String key=route==TransferPath.WIFI_DIRECT?"pathDetailsWifiDirect":route==TransferPath.LAN_UNCONFIRMED?"pathDetailsLan":route==TransferPath.BLUETOOTH?"pathDetailsBluetooth":route==TransferPath.SELECTING?"pathDetailsSelecting":"attachmentPathUnknown";
+        String key=route==TransferPath.WIFI_DIRECT?"pathDetailsWifiDirect":route==TransferPath.LAN_UNCONFIRMED?"pathDetailsLan":route==TransferPath.BLUETOOTH?"pathDetailsBluetooth":(route==TransferPath.SELECTING||route==TransferPath.PENDING_WIFI_DIRECT||route==TransferPath.PENDING_LAN||route==TransferPath.PENDING_BLUETOOTH)?"pathDetailsSelecting":"attachmentPathUnknown";
         return new AlertDialog.Builder(this).setTitle(t("pathDetailsTitle")).setMessage(t(key)).setPositiveButton(t("close"),null).show();
     }
     private AlertDialog showTransferPath(String peer) {

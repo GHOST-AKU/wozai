@@ -35,6 +35,7 @@ public final class AttachmentBatchQueue implements AutoCloseable {
     private final SourceResolver sources;
     private final AttachmentBatchStore store;
     private final List<Item> items=new ArrayList<>();
+    private final Map<String,CompletableFuture<?>> routeGates=new ConcurrentHashMap<>();
     private final ThreadPoolExecutor actor=new ThreadPoolExecutor(0,1,15,TimeUnit.SECONDS,new ArrayBlockingQueue<>(128),r->{Thread t=new Thread(r,"attachment-batch");t.setDaemon(true);return t;},new ThreadPoolExecutor.AbortPolicy());
     private volatile List<Item> snapshot=List.of();
     private volatile Listener listener=record->{};
@@ -65,6 +66,8 @@ public final class AttachmentBatchQueue implements AutoCloseable {
     public List<Item> items(){return snapshot;}
     public boolean pending(){return snapshot.stream().anyMatch(item->!item.terminal());}
     public boolean paused(){return paused;}
+    /** Queued selections waiting for routing must not block the idle route handshake. */
+    public boolean routeBusy(){return snapshot.stream().anyMatch(item->{CompletableFuture<?> gate=routeGates.get(item.batchId());return !item.terminal()&&(gate==null||gate.isDone());});}
     private static String retryRoot(Item item){return item.retryOf().isEmpty()?item.info().id:item.retryOf();}
     private static Item latest(List<Item> values,String id){
         Item parent=values.stream().filter(i->i.info().id.equals(id)).findFirst().orElse(null);
@@ -143,7 +146,9 @@ public final class AttachmentBatchQueue implements AutoCloseable {
         FileAttachmentSource source=new FileAttachmentSource(Paths.get(java.net.URI.create(ref.split("\n",2)[0])),checkpoint.key().sourceGeneration());
         if(!source.persistentReference().equals(ref)){source.close();throw new IOException("Attachment source changed");}return source;
     };}
-    public CompletableFuture<String> enqueue(List<Selection> selection) {
+    public CompletableFuture<String> enqueue(List<Selection> selection) {return enqueue(selection,CompletableFuture.completedFuture(null));}
+    public CompletableFuture<String> enqueue(List<Selection> selection,CompletableFuture<?> routeReady) {
+        Objects.requireNonNull(routeReady);
         List<Selection> selected=List.copyOf(selection);return command(()->{
             if(closing)throw new IOException("Batch session closed");
             long pending=items.stream().filter(item->!item.terminal()).count();
@@ -152,7 +157,14 @@ public final class AttachmentBatchQueue implements AutoCloseable {
             while(items.size()+selected.size()>AttachmentBatchStore.MAX_ITEMS){int i=0;while(i<items.size()&&!items.get(i).terminal())i++;if(i==items.size())throw new IOException("Batch history bound exceeded");items.remove(i);}
             String batch=UUID.randomUUID().toString();long time=System.currentTimeMillis();List<Item> added=new ArrayList<>();
             for(Selection s:selected)added.add(new Item(batch,AttachmentInfo.v2(UUID.randomUUID().toString(),s.name(),s.mime(),Math.max(0,s.size()),null,time),s,paused?"paused":"queued",0));
-            items.addAll(added);try{persist();}catch(IOException error){items.clear();items.addAll(before);snapshot=List.copyOf(items);throw error;}for(Item item:added)listener.changed(item.record());later(this::pump);return batch;
+            routeGates.put(batch,routeReady);
+            items.addAll(added);try{persist();}catch(IOException error){routeGates.remove(batch);items.clear();items.addAll(before);snapshot=List.copyOf(items);throw error;}
+            for(Item item:added)listener.changed(item.record());
+            routeReady.whenComplete((value,error)->later(()->{
+                routeGates.remove(batch);
+                if(error!=null){for(Item item:List.copyOf(items))if(item.batchId().equals(batch)&&!item.terminal()&&!resumableState(item.state()))try{state(new Item(item.batchId(),item.info(),item.selection(),"failed",item.transferred(),item.origin(),item.retryOf()));}catch(IOException storageFailure){paused=true;}}
+                pump();
+            }));later(this::pump);return batch;
         });
     }
     private <T> CompletableFuture<T> command(Callable<T> work){
@@ -167,7 +179,7 @@ public final class AttachmentBatchQueue implements AutoCloseable {
     private static boolean resumableState(String state){return Set.of("paused","sourceUnavailable","interrupted","unknown").contains(state);}
     private void pump() {
         if(closed||paused||active!=null)return;
-        Item item=items.stream().filter(e->!e.terminal()&&(!resumableState(e.state())||resumeRequests.contains(e.info().id))).findFirst().orElse(null);if(item==null)return;
+        Item item=items.stream().filter(e->!e.terminal()&&(!resumableState(e.state())||resumeRequests.contains(e.info().id))).findFirst().orElse(null);if(item==null||routeGates.containsKey(item.batchId()))return;
         active=item.info().id;
         try {
             TransferCheckpoint checkpoint=new TransferCheckpointStore(root.resolve(".tasks-v2")).load(engine.taskIdentity(item.info().id,item.selection().generation())).orElse(null);

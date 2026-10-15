@@ -53,11 +53,11 @@
     <string name="attachment_overwrite" formatted="false">"檔案已存在，是否取代？"</string>
     <string name="attachment_path_bluetooth" formatted="false">"傳輸路徑：藍牙"</string>
     <string name="attachment_path_disconnected" formatted="false">"傳輸路徑：未連線"</string>
-    <string name="attachment_path_lan_unconfirmed" formatted="false">"傳輸路徑：區域網路 · 路徑未確認"</string>
-    <string name="attachment_path_pending_bluetooth" formatted="false">"等待傳輸 · 藍牙"</string>
-    <string name="attachment_path_pending_lan" formatted="false">"等待傳輸 · 區域網路（路徑未確認）"</string>
-    <string name="attachment_path_pending_wifi_direct" formatted="false">"等待傳輸 · Wi-Fi 直連"</string>
-    <string name="attachment_path_selecting" formatted="false">"選擇傳輸管道…"</string>
+    <string name="attachment_path_lan_unconfirmed" formatted="false">"傳輸路徑：區域網路"</string>
+    <string name="attachment_path_pending_bluetooth" formatted="false">"正在連接藍牙 · 尚未傳輸"</string>
+    <string name="attachment_path_pending_lan" formatted="false">"正在連接區域網路 · 尚未傳輸"</string>
+    <string name="attachment_path_pending_wifi_direct" formatted="false">"正在建立 Wi-Fi 直連 · 尚未傳輸"</string>
+    <string name="attachment_path_selecting" formatted="false">"正在檢查傳輸路徑 · 尚未傳輸"</string>
     <string name="attachment_path_unknown" formatted="false">"傳輸路徑：暫時無法確認"</string>
     <string name="attachment_path_wifi_direct" formatted="false">"傳輸路徑：Wi-Fi 直連"</string>
     <string name="attachment_pause" formatted="false">"暫停傳輸"</string>

@@ -104,3 +104,15 @@
 -keep class dev.ghost.nearbyim.core.TransferPath { public *; }
 -keep class dev.ghost.nearbyim.core.Identicon { public *; }
 -keep class dev.ghost.nearbyim.core.Identicon$* { public *; }
+
+# Native FILE discovery checks inspect the actual query and asynchronous attempt callbacks.
+-keepclassmembers class dev.ghost.nearbyim.transport.AndroidFilePlatform {
+    *** direct;
+    *** directFailed;
+    *** directOpened;
+    *** discoveryTimeout;
+}
+-keep class dev.ghost.nearbyim.transport.WifiDirectTransport {
+    static android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceRequest discoveryRequest();
+    dev.ghost.nearbyim.transport.TransportListener listener;
+}

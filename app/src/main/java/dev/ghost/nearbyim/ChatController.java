@@ -359,7 +359,7 @@ public final class ChatController implements TransportListener {
             new AndroidFilePlatform(applicationContext,localId,nickname,hello.id),new AutomaticFileRoutes.Listener(){
                 public void receive(TransferPacket packet){ClientAttachmentTransfers files=transfers;if(active!=wire||files==null)return;try{files.receive(packet);}catch(IOException failure){AutomaticFileRoutes current=fileRoutes;if(current!=null)current.abort();}}
                 public void changed(){main.post(()->{if(active==wire&&!destroyed)ChatController.this.changed();});}
-                public boolean busy(){ClientAttachmentTransfers files=transfers;return active==wire&&(!selectingSources.isEmpty()||files!=null&&files.hasActive());}
+                public boolean busy(){ClientAttachmentTransfers files=transfers;return active==wire&&(!selectingSources.isEmpty()||files!=null&&files.routeBusy());}
                 public void failed(IOException failure){ClientAttachmentTransfers files=transfers;if(active!=wire||files==null)return;CompletableFuture<Void> stopped=files.pauseOnDisconnect();filePauseStopped=stopped;stopped.whenComplete((value,error)->main.post(()->{if(active==wire&&!destroyed)fail(attachmentError(error==null?failure:error));}));}
             });
         fileRoutes=routes;routes.start();drainPendingFiles(wire);
@@ -375,6 +375,7 @@ public final class ChatController implements TransportListener {
         PendingFile pending;while((pending=pendingFiles.poll())!=null)if(pending.wire()==wire){if(pending.control()!=null)routes.receiveControl(pending.control());else routes.receiveChatTransfer(pending.transfer());}
     }
     private AttachmentRecord decorateFileRoute(AttachmentRecord record)throws IOException {
+        if(record.outgoing&&record.state.equals("queued"))return record;
         AutomaticFileRoutes routes=fileRoutes;String route=routes==null?"":routes.route();
         if(route.isEmpty()&&record.route.isEmpty()){
             Feedback previous=transferProgress.get(connectedPeerId+":"+record.info.id+":"+record.outgoing);
@@ -521,6 +522,8 @@ public final class ChatController implements TransportListener {
         if(record==null)return TransferPath.NONE;
         FramedSession wire=active;
         boolean ready=connected&&Objects.equals(peer,connectedPeerId)&&wire!=null&&wire.isReady()&&wire.attachmentsSupported();
+        AutomaticFileRoutes routes=fileRoutes;
+        if(ready&&routes!=null&&record.outgoing&&record.route.isEmpty()&&(record.state.equals("queued")||record.state.equals("preparing")))return routes.pendingPath();
         return TransferPath.forAttachment(record.route,ready,record);
     }
     public boolean endToEndEncrypted(String peer){FramedSession wire=active;return connected&&Objects.equals(peer,connectedPeerId)&&wire!=null&&wire.endToEndEncrypted();}
@@ -589,12 +592,15 @@ public final class ChatController implements TransportListener {
                 catch(IOException unavailable){descriptions.add(new AttachmentBatchQueue.Selection(uri.toString(),UUID.randomUUID().toString(),"attachment","application/octet-stream",-1,false));}
             }
             main.post(()->{if(destroyed||selected!=transfers||!canSendAttachment()||token!=attachmentToken||!Objects.equals(peer,connectedPeerId)){releaseSelections(uris);if(!destroyed)fail(UiText.of("notConnected"));return;}
-                fileReady(selected,token,true).thenCompose(route->selected.enqueue(descriptions)).whenComplete((batch,error)->{releaseSelections(uris);if(error!=null)main.post(()->{if(!destroyed)fail(attachmentError(error));});});
+                CompletableFuture<AutomaticFileRoutes.Route> routeReady=fileReady(selected,token,true);
+                selected.enqueue(descriptions,routeReady).whenComplete((batch,error)->{releaseSelections(uris);if(error!=null)main.post(()->{if(!destroyed)fail(attachmentError(error));});});
+                routeReady.whenComplete((route,error)->{if(error!=null)main.post(()->{if(!destroyed&&selected==transfers&&token==attachmentToken)fail(attachmentError(error));});});
             });
         }catch(Exception failure){releaseSelections(uris);main.post(()->{if(!destroyed)fail(attachmentError(failure));});}});}catch(RejectedExecutionException full){releaseSelections(uris);fail(UiText.of("attachmentFailed"));}
     }
     private void releaseSelections(List<Uri> uris){AndroidAttachmentSource.releaseSelections(uris);try{fileSelection.execute(()->{try{AndroidAttachmentSource.releaseUnusedGrants(applicationContext);}catch(IOException ignored){}});}catch(RejectedExecutionException stopped){}}
     public void sendAttachment(String peer,long token,Uri uri){
+        ClientAttachmentTransfers files=transfers;if(files!=null&&files.v2()){sendAttachments(peer,token,List.of(uri));return;}
         if(!canSendAttachment()||token!=attachmentToken||!Objects.equals(peer,connectedPeerId)){fail(UiText.of("notConnected"));return;}
         ClientAttachmentTransfers selected=transfers;
         try{fileSelection.execute(()->{

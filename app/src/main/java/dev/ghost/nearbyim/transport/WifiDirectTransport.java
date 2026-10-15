@@ -44,6 +44,9 @@ public final class WifiDirectTransport {
     private BroadcastReceiver receiver;
     private volatile boolean destroyed;
     private volatile int observedP2pState;
+    private volatile String lastStage="idle";
+    private volatile int serviceResponses,txtResponses;
+    public String discoveryDiagnostics(){return "wifi_direct_phase="+lastStage+"\nwifi_direct_service_responses="+serviceResponses+"\nwifi_direct_txt_responses="+txtResponses+"\n";}
     private long run, operation, scan, inspection, groupGeneration, attempt;
     private Runnable afterCleanup, afterRequests, connectDeadline, startupWatchdog;
     private boolean queuedConnect;
@@ -75,7 +78,7 @@ public final class WifiDirectTransport {
     public void armFileAttempt(String peerId, boolean dialer) {
         onMain(() -> {
             if (destroyed) return;
-            fileAttempt.arm(peerId, dialer); authority.rearmFile();
+            automaticDiscovery=true;fileAttempt.arm(peerId, dialer); authority.rearmFile();
             Peer retained = authority.currentPeer(peerId);
             if (retained != null && fileAttempt.dial(retained)) connectInternal(retained);
             if (initialized) { inspectGroup(); discoverInternal(); }
@@ -100,7 +103,7 @@ public final class WifiDirectTransport {
         if (!permitted()) { error("directPermissionRequired", true); return; }
         String id = WifiDirectPolicy.uuid(localId), displayName = localName(name);
         if (id == null) { error("directInvalidPeer", true); return; }
-        observedP2pState=0;
+        observedP2pState=0;lastStage="initializing";serviceResponses=txtResponses=0;
         run = lifecycle.start(); final long started = run; registry = new WifiDirectPolicy.Registry(id);
         WifiDirectPolicy.StartupDeadline startup = new WifiDirectPolicy.StartupDeadline(started, now() + 10_000);
         startupWatchdog = () -> {
@@ -126,9 +129,9 @@ public final class WifiDirectTransport {
             else context.registerReceiver(receiver, filter);
             receiverRegistered = true;
             manager.setDnsSdResponseListeners(channel, (instance, type, device) -> onMain(() -> {
-                if (lifecycle.valid(started) && searchRequested && device != null) report(registry.service(instance, type, device.deviceAddress, now()));
+                if (lifecycle.valid(started) && searchRequested && device != null) {serviceResponses++;report(registry.service(instance, type, device.deviceAddress, now()));}
             }), (domain, values, device) -> onMain(() -> {
-                if (lifecycle.valid(started) && searchRequested && device != null) report(registry.txt(domain, values, device.deviceAddress, now()));
+                if (lifecycle.valid(started) && searchRequested && device != null) {txtResponses++;report(registry.txt(domain, values, device.deviceAddress, now()));}
             }));
             // A hotspot host can have its station Wi-Fi switch off. Ask the P2P service,
             // rather than inferring P2P availability from WifiManager.isWifiEnabled().
@@ -152,7 +155,7 @@ public final class WifiDirectTransport {
             advertisement = WifiP2pDnsSdServiceInfo.newInstance("wozai-" + id.substring(0, 8), WifiDirectPolicy.TYPE, txt);
             try {
                 manager.addLocalService(channel, advertisement, action(started, () -> {
-                    advertised = true; startup.acknowledge(started); clearStartupWatchdog();
+                    lastStage="advertising";advertised = true; startup.acknowledge(started); clearStartupWatchdog();
                     listener.onListening(Peer.WIFI_DIRECT, UiText.of("directAdvertising"));
                     if (lifecycle.valid(started)) { automaticDiscovery = true; discoverInternal(); expirePeers(started); }
                 }, code -> { stopInternal(); error(reason(code, "directServiceFailed"), true); }));
@@ -170,6 +173,7 @@ public final class WifiDirectTransport {
         long started = run;
         for (Peer lost : registry.takeLost()) listener.onLost(lost.key);
         if (peer != null && lifecycle.valid(started)) {
+            if(fileAttempt.allows(peer))lastStage="peer_discovered";
             listener.onPeer(peer);
             if (fileAttempt.dial(peer)) connectInternal(peer);
             if (lifecycle.valid(started) && observedGroup == null) inspectGroup();
@@ -188,11 +192,13 @@ public final class WifiDirectTransport {
         // Starting a new scan waits for removal of this client's previous DNS request.
         stopSearchInternal(true);
     }
+    /** A type-only request is PTR-only; our registry also requires the matching TXT identity. */
+    static WifiP2pDnsSdServiceRequest discoveryRequest(){return WifiP2pDnsSdServiceRequest.newInstance();}
     private void beginDiscovery(long started, long search) {
         if (!lifecycle.valid(started) || search != scan || cleanup.blocked()) return;
-        var added = requests.add(channel, started, search, WifiP2pDnsSdServiceRequest.newInstance(WifiDirectPolicy.TYPE), now());
+        var added = requests.add(channel, started, search, discoveryRequest(), now());
         if (added == null) { requestFailure("directSearchStopFailed"); return; }
-        searchRequested = true;
+        lastStage="discovering";searchRequested = true;
         WifiP2pManager.Channel discoveredOn = channel;
         main.postDelayed(() -> {
             if (!requests.addTimeout(added, now())) return;
@@ -216,15 +222,18 @@ public final class WifiDirectTransport {
         boolean discover = requests.addReply(added, success);
         if (discover && lifecycle.valid(added.run) && added.scan == scan && searchRequested && channel == added.client) {
             try { manager.discoverServices(channel, action(added.run, () -> {}, failure -> {
-                if (added.scan == scan) { stopSearchInternal(false); error(reason(failure, "directDiscoveryFailed"), false); }
+                if (added.scan == scan) { stopSearchInternal(false); discoveryError(reason(failure, "directDiscoveryFailed")); }
             })); } catch (RuntimeException failure) {
-                if (added.scan == scan) { stopSearchInternal(false); error(permissionReason(failure, "directDiscoveryFailed"), false); }
+                if (added.scan == scan) { stopSearchInternal(false); discoveryError(permissionReason(failure, "directDiscoveryFailed")); }
             }
         } else if (!success && !alreadyRetiring) {
             if (lifecycle.valid(added.run) && added.scan == scan) { scan++; afterRequests = null; }
             requestFailure(reason(code, "directDiscoveryFailed")); clearRequests();
         }
         requestsSettled();
+    }
+    private void discoveryError(String key) {
+        if(fileAttempt.armed())listener.onConnectFailed(Peer.WIFI_DIRECT,UiText.of(key));else error(key,false);
     }
     public void stopSearch() { onMain(() -> { automaticDiscovery = false; stopSearchInternal(false); }); }
     private void stopSearchInternal(boolean restart) {
@@ -319,6 +328,7 @@ public final class WifiDirectTransport {
         WifiDirectPolicy.NativeCommand command;
         try { command = authority.issue(started, ticket); }
         catch (IllegalStateException unresolved) { rejectAttempt("directBusy"); return; }
+        lastStage="connecting_group";
         WifiP2pConfig config = new WifiP2pConfig(); config.deviceAddress = peer.wifiDirectAddress; config.wps.setup = WpsInfo.PBC;
         try { manager.connect(channel, config, new WifiP2pManager.ActionListener() {
             public void onSuccess() { onMain(() -> connectReply(command, true, 0)); }
@@ -331,7 +341,7 @@ public final class WifiDirectTransport {
         boolean live = authority.reply(command, accepted);
         completeRetirement(command);
         if (!live || !lifecycle.validAttempt(command.run, command.attempt) || !lifecycle.pending()) return;
-        if (accepted) inspectGroup(); else rejectAttempt(reason(code, "directConnectFailed"));
+        if (accepted) {lastStage="awaiting_group";inspectGroup();} else rejectAttempt(reason(code, "directConnectFailed"));
     }
     public void cancelConnect() { onMain(() -> { if (queuedConnect) { afterCleanup = null; queuedConnect = false; } cancelInternal(); }); }
     private void cancelInternal() {
@@ -420,6 +430,7 @@ public final class WifiDirectTransport {
             if (observedGroup != null || readyGroup != null || foreignReported || unprovenGroup != null) groupLost();
             return;
         }
+        lastStage="group_observed";
         if (info.isGroupOwner != group.isGroupOwner() || info.groupOwnerAddress == null) { routeFailure("directInterfaceUnavailable"); return; }
         if (observedGroup != null && !observedGroup.matches(group)) { closeGroupStreams(); forgetObservedGroup(); }
         // A canceled native command may still form a group. Only a fresh explicit attempt can
@@ -542,6 +553,7 @@ public final class WifiDirectTransport {
     }
     private void openSockets(long started, long generation, long ticket, RouteSnapshot route, InetAddress owner, boolean go) {
         if (!groupCurrent(started, generation, ticket)) return;
+        lastStage="opening_socket";
         final long socketGeneration = sockets.reset();
         try { monitorNetwork(started, generation, route.network); } catch (RuntimeException denied) { routeFailure(permissionReason(denied, "directRouteAmbiguous")); return; }
         WifiDirectSockets.Events events = new WifiDirectSockets.Events() {
@@ -552,7 +564,7 @@ public final class WifiDirectTransport {
                 if (!groupCurrent(started, generation, ticket) || !sockets.current(socketGeneration)) { close(connection); return; }
                 if (ticket != 0) { lifecycle.connected(started, ticket); selected = null; clearDeadline(); }
                 // incoming is TCP accept / Noise responder. It never expresses the user's request.
-                listener.onConnection(Peer.WIFI_DIRECT, connection, incoming);
+                lastStage="socket_opened";listener.onConnection(Peer.WIFI_DIRECT, connection, incoming);
             }); }
             public void onFailure(Exception failure) { onMain(() -> {
                 if (groupCurrent(started, generation, ticket) && sockets.current(socketGeneration)) routeFailure("directConnectFailed");

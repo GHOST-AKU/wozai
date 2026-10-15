@@ -53,11 +53,11 @@
     <string name="attachment_overwrite" formatted="false">"파일이 이미 있습니다. 바꾸시겠습니까?"</string>
     <string name="attachment_path_bluetooth" formatted="false">"전송 경로: 블루투스"</string>
     <string name="attachment_path_disconnected" formatted="false">"전송 경로: 연결되지 않음"</string>
-    <string name="attachment_path_lan_unconfirmed" formatted="false">"전송 경로: LAN · 경로 미확인"</string>
-    <string name="attachment_path_pending_bluetooth" formatted="false">"전송 대기 · 블루투스"</string>
-    <string name="attachment_path_pending_lan" formatted="false">"전송 대기 · LAN(경로 미확인)"</string>
-    <string name="attachment_path_pending_wifi_direct" formatted="false">"전송 대기 중 · Wi-Fi Direct"</string>
-    <string name="attachment_path_selecting" formatted="false">"전송 경로 선택 중…"</string>
+    <string name="attachment_path_lan_unconfirmed" formatted="false">"전송 경로: LAN"</string>
+    <string name="attachment_path_pending_bluetooth" formatted="false">"블루투스 연결 중 · 전송 시작 전"</string>
+    <string name="attachment_path_pending_lan" formatted="false">"LAN 연결 중 · 전송 시작 전"</string>
+    <string name="attachment_path_pending_wifi_direct" formatted="false">"직접 Wi-Fi 연결 준비 중 · 전송 시작 전"</string>
+    <string name="attachment_path_selecting" formatted="false">"전송 경로 확인 중 · 전송 시작 전"</string>
     <string name="attachment_path_unknown" formatted="false">"전송 경로: 현재 확인할 수 없음"</string>
     <string name="attachment_path_wifi_direct" formatted="false">"전송 경로: Wi-Fi 직접 연결"</string>
     <string name="attachment_pause" formatted="false">"전송 일시 중지"</string>

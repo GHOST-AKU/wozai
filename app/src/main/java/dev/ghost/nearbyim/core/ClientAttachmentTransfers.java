@@ -21,6 +21,8 @@ public final class ClientAttachmentTransfers implements AutoCloseable {
     }
     public void batchListener(AttachmentBatchQueue.Listener listener){if(batch!=null)batch.listener(listener);}
     public CompletableFuture<String> enqueue(java.util.List<AttachmentBatchQueue.Selection> selected){return batch==null?failed(new IOException("Batch requires V2")):batch.enqueue(selected);}
+    public CompletableFuture<String> enqueue(java.util.List<AttachmentBatchQueue.Selection> selected,CompletableFuture<?> routeReady){return batch==null?failed(new IOException("Batch requires V2")):batch.enqueue(selected,routeReady);}
+    public boolean routeBusy(){return streaming!=null&&(streaming.hasActive()||batch.routeBusy());}
     public AttachmentBatchQueue.RetryState retryState(String id){return batch==null?AttachmentBatchQueue.RetryState.UNAVAILABLE:batch.retryState(id);}
     public boolean hasRetryableBatch(String id){return batch!=null&&batch.hasRetryableBatch(id);}
     public CompletableFuture<String> retry(String id){return batch==null?failed(new IOException("Retry requires V2")):batch.retry(id);}

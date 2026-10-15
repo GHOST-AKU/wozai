@@ -53,11 +53,11 @@
     <string name="attachment_overwrite" formatted="false">"文件已存在，是否替换？"</string>
     <string name="attachment_path_bluetooth" formatted="false">"传输路径：蓝牙"</string>
     <string name="attachment_path_disconnected" formatted="false">"传输路径：未连接"</string>
-    <string name="attachment_path_lan_unconfirmed" formatted="false">"传输路径：局域网 · 路径未确认"</string>
-    <string name="attachment_path_pending_bluetooth" formatted="false">"等待传输 · 蓝牙"</string>
-    <string name="attachment_path_pending_lan" formatted="false">"等待传输 · 局域网（路径未确认）"</string>
-    <string name="attachment_path_pending_wifi_direct" formatted="false">"等待传输 · Wi-Fi 直连"</string>
-    <string name="attachment_path_selecting" formatted="false">"选择传输渠道…"</string>
+    <string name="attachment_path_lan_unconfirmed" formatted="false">"传输路径：局域网"</string>
+    <string name="attachment_path_pending_bluetooth" formatted="false">"正在连接蓝牙 · 尚未传输"</string>
+    <string name="attachment_path_pending_lan" formatted="false">"正在连接局域网 · 尚未传输"</string>
+    <string name="attachment_path_pending_wifi_direct" formatted="false">"正在建立 Wi-Fi 直连 · 尚未传输"</string>
+    <string name="attachment_path_selecting" formatted="false">"正在检查传输路径 · 尚未传输"</string>
     <string name="attachment_path_unknown" formatted="false">"传输路径：暂时无法确认"</string>
     <string name="attachment_path_wifi_direct" formatted="false">"传输路径：Wi-Fi 直连"</string>
     <string name="attachment_pause" formatted="false">"暂停传输"</string>

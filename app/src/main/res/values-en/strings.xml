@@ -53,11 +53,11 @@
     <string name="attachment_overwrite" formatted="false">"File exists. Replace it?"</string>
     <string name="attachment_path_bluetooth" formatted="false">"Transfer path: Bluetooth"</string>
     <string name="attachment_path_disconnected" formatted="false">"Transfer path: disconnected"</string>
-    <string name="attachment_path_lan_unconfirmed" formatted="false">"Transfer path: LAN · topology unconfirmed"</string>
-    <string name="attachment_path_pending_bluetooth" formatted="false">"Waiting to transfer · Bluetooth"</string>
-    <string name="attachment_path_pending_lan" formatted="false">"Waiting to transfer · LAN (topology unconfirmed)"</string>
-    <string name="attachment_path_pending_wifi_direct" formatted="false">"Waiting to transfer · Wi-Fi Direct"</string>
-    <string name="attachment_path_selecting" formatted="false">"Choosing transfer route…"</string>
+    <string name="attachment_path_lan_unconfirmed" formatted="false">"Transfer path: LAN"</string>
+    <string name="attachment_path_pending_bluetooth" formatted="false">"Connecting over Bluetooth · not transferring yet"</string>
+    <string name="attachment_path_pending_lan" formatted="false">"Connecting over LAN · not transferring yet"</string>
+    <string name="attachment_path_pending_wifi_direct" formatted="false">"Establishing direct Wi-Fi · not transferring yet"</string>
+    <string name="attachment_path_selecting" formatted="false">"Checking transfer paths · not transferring yet"</string>
     <string name="attachment_path_unknown" formatted="false">"Transfer path: currently unknown"</string>
     <string name="attachment_path_wifi_direct" formatted="false">"Transfer path: direct Wi-Fi"</string>
     <string name="attachment_pause" formatted="false">"Pause transfer"</string>

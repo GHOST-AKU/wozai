@@ -53,11 +53,11 @@
     <string name="attachment_overwrite" formatted="false">"ファイルが存在します。置き換えますか？"</string>
     <string name="attachment_path_bluetooth" formatted="false">"転送経路：Bluetooth"</string>
     <string name="attachment_path_disconnected" formatted="false">"転送経路：未接続"</string>
-    <string name="attachment_path_lan_unconfirmed" formatted="false">"転送経路：LAN · 経路未確認"</string>
-    <string name="attachment_path_pending_bluetooth" formatted="false">"転送待機中 · Bluetooth"</string>
-    <string name="attachment_path_pending_lan" formatted="false">"転送待機中 · LAN（経路未確認）"</string>
-    <string name="attachment_path_pending_wifi_direct" formatted="false">"転送待ち · Wi-Fi Direct"</string>
-    <string name="attachment_path_selecting" formatted="false">"転送経路を選択中…"</string>
+    <string name="attachment_path_lan_unconfirmed" formatted="false">"転送経路：LAN"</string>
+    <string name="attachment_path_pending_bluetooth" formatted="false">"Bluetooth に接続中 · 転送は未開始"</string>
+    <string name="attachment_path_pending_lan" formatted="false">"LAN に接続中 · 転送は未開始"</string>
+    <string name="attachment_path_pending_wifi_direct" formatted="false">"直接 Wi-Fi 接続を準備中 · 転送は未開始"</string>
+    <string name="attachment_path_selecting" formatted="false">"転送経路を確認中 · 転送は未開始"</string>
     <string name="attachment_path_unknown" formatted="false">"転送経路：現在不明"</string>
     <string name="attachment_path_wifi_direct" formatted="false">"転送経路：Wi-Fi 直接接続"</string>
     <string name="attachment_pause" formatted="false">"転送を一時停止"</string>

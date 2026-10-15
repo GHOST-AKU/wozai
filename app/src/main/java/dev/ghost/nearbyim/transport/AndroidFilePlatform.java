@@ -35,8 +35,8 @@ public final class AndroidFilePlatform implements AutomaticFileRoutes.Platform {
     private Consumer<AutomaticFileRoutes.Opened> directOpened;
     private Consumer<Throwable> directFailed;
     private long directAttempt;
-    private Runnable directTimeout;
-    private boolean directStarted;
+    private Runnable directTimeout,discoveryTimeout;
+    private boolean directStarted,directPeerSeen;
     private volatile String directLastEvent="idle",directLastError="";
 
     public AndroidFilePlatform(Context context,String localId,String nickname,String remoteId) {
@@ -45,12 +45,16 @@ public final class AndroidFilePlatform implements AutomaticFileRoutes.Platform {
             public void onConnection(int mode,StreamConnection stream,boolean incoming) {
                 Consumer<AutomaticFileRoutes.Opened> target=directOpened;
                 if(closed||target==null){closeStream(stream);return;}
-                directLastEvent="socket_opened";clearDirectTimeout(); directOpened=null;directFailed=null;
+                directLastEvent="socket_opened";clearDiscoveryTimeout();clearDirectTimeout(); directOpened=null;directFailed=null;
                 target.accept(new AutomaticFileRoutes.Opened(stream,incoming));
             }
-            public void onPeer(Peer peer){directLastEvent="peer_discovered";}
-            public void onListening(int mode,UiText detail){if(directOpened!=null)directLastEvent=detail.key;}
-            public void onError(int mode,UiText reason,boolean fatal){String code=directError(reason);directLastEvent=code;directLastError=code;if(fatal){directStarted=false;failDirect(new IOException(code));}}
+            public void onPeer(Peer peer){if(remoteId.equals(peer.peerId)){directPeerSeen=true;directLastEvent="peer_discovered";clearDiscoveryTimeout();}}
+            public void onListening(int mode,UiText detail){if(directOpened!=null){directLastEvent=detail.key;if(detail.key.equals("directAdvertising")&&!directPeerSeen&&discoveryTimeout==null){
+                long ticket=directAttempt;discoveryTimeout=()->{if(ticket==directAttempt&&directOpened!=null&&!directPeerSeen){directLastEvent="discovery_timeout";directLastError="discovery_timeout";failDirect(new IOException("Wi-Fi Direct peer discovery timed out"));}};
+                main.postDelayed(discoveryTimeout,15_000);
+            }}}
+            public void onError(int mode,UiText reason,boolean fatal){String code=directError(reason);directLastEvent=code;directLastError=code;if(fatal||!reason.key.equals("directBusy")){if(fatal)directStarted=false;failDirect(new IOException(code));}}
+            public void onSearchStopFailed(int mode,UiText reason){String code=directError(reason);directLastEvent=code;directLastError=code;failDirect(new IOException(code));}
             public void onConnectFailed(int mode,UiText reason){String code=directError(reason);directLastEvent=code;directLastError=code;failDirect(new IOException(code));}
         });
         lanDial=new LanTransport(context,new Events(){
@@ -76,7 +80,7 @@ public final class AndroidFilePlatform implements AutomaticFileRoutes.Platform {
     public String diagnostics(){
         String location="unknown";
         try{android.location.LocationManager manager=context.getSystemService(android.location.LocationManager.class);if(manager!=null&&Build.VERSION.SDK_INT>=28)location=Boolean.toString(manager.isLocationEnabled());}catch(RuntimeException unavailable){}
-        return "wifi_direct_blocked_reason="+directUnavailableReason()+"\nwifi_direct_station_wifi_enabled="+direct.enabled()+"\nwifi_direct_p2p_state="+direct.p2pState()+"\nwifi_direct_location_enabled="+location+"\nwifi_direct_last_event="+directLastEvent+"\nwifi_direct_last_error="+directLastError+"\n";
+        return "wifi_direct_blocked_reason="+directUnavailableReason()+"\nwifi_direct_station_wifi_enabled="+direct.enabled()+"\nwifi_direct_p2p_state="+direct.p2pState()+"\nwifi_direct_location_enabled="+location+"\nwifi_direct_last_event="+directLastEvent+"\nwifi_direct_last_error="+directLastError+"\n"+direct.discoveryDiagnostics();
     }
     public void prepareLan(Consumer<List<AutomaticFileRoutes.Endpoint>> endpoints,Consumer<StreamConnection> accepted) {
         if(closed){endpoints.accept(List.of());return;}
@@ -154,16 +158,18 @@ public final class AndroidFilePlatform implements AutomaticFileRoutes.Platform {
     public void openDirect(boolean dialer,Consumer<AutomaticFileRoutes.Opened> opened,Consumer<Throwable> failed) {
         onMain(()->{
             if(closed||!directSupported()){failed.accept(new IOException("Wi-Fi Direct file route unavailable"));return;}
-            stopDirect();directOpened=opened;directFailed=failed;directLastEvent="starting";directLastError="";long ticket=++directAttempt;
+            stopDirect();directOpened=opened;directFailed=failed;directPeerSeen=false;directLastEvent="starting";directLastError="";long ticket=++directAttempt;
             if(!directStarted){directStarted=true;direct.start(localId,nickname);}
+            if(ticket!=directAttempt||directOpened==null)return;
             direct.armFileAttempt(remoteId,dialer);
             directTimeout=()->{if(ticket==directAttempt){directLastEvent="timeout";directLastError="timeout";failDirect(new IOException("Wi-Fi Direct file route timed out"));}};main.postDelayed(directTimeout,AutomaticFileRoutes.DIRECT_OPEN_TIMEOUT_MS);
         });
     }
     private String directError(UiText reason){return reason.key.equals("directEnableFirst")&&direct.p2pState().equals("disabled")?"p2p_disabled":reason.key;}
-    private void failDirect(Throwable reason){Consumer<Throwable> failure=directFailed;stopDirect();if(failure!=null)failure.accept(reason);}
+    private void failDirect(Throwable reason){Consumer<Throwable> failure=directFailed;if(failure==null)return;stopDirect();failure.accept(reason);}
+    private void clearDiscoveryTimeout(){if(discoveryTimeout!=null)main.removeCallbacks(discoveryTimeout);discoveryTimeout=null;}
     private void clearDirectTimeout(){if(directTimeout!=null)main.removeCallbacks(directTimeout);directTimeout=null;}
-    public void stopDirect(){onMain(()->{directAttempt++;clearDirectTimeout();directOpened=null;directFailed=null;direct.disconnect();});}
+    public void stopDirect(){onMain(()->{directAttempt++;clearDiscoveryTimeout();clearDirectTimeout();directOpened=null;directFailed=null;direct.stopSearch();direct.disconnect();});}
     public void close(){onMain(()->{if(closed)return;closed=true;stopDirect();direct.destroy();lanDial.destroy();acceptedStreams.keySet().forEach(AndroidFilePlatform::closeStream);ConnectivityManager manager=context.getSystemService(ConnectivityManager.class);if(manager!=null&&networkCallback!=null)try{manager.unregisterNetworkCallback(networkCallback);}catch(RuntimeException ignored){}networkCallback=null;endpointUpdates=null;try{if(server!=null)server.close();}catch(IOException ignored){}acceptor.shutdownNow();});}
     private void onMain(Runnable action){if(Looper.myLooper()==main.getLooper())action.run();else main.post(action);}
     private static void closeStream(StreamConnection stream){try{stream.close();}catch(IOException ignored){}}

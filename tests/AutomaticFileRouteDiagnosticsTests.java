@@ -22,6 +22,12 @@ public final class AutomaticFileRouteDiagnosticsTests {
             p.b.files.ensureReady().get(5,TimeUnit.SECONDS);
             check(p.b.files.diagnostics().contains("file_direct_outcome=failed\n")&&p.b.files.diagnostics().contains("file_route_last_failure=peer_unavailable\n"),"A peer-triggered LAN fallback must end the local Direct attempt in diagnostics");
         }
+        try(AutomaticFileRoutesTests.Pair p=new AutomaticFileRoutesTests.Pair("lan",true,false)){
+            p.a.platform.delayDirect=p.b.platform.delayDirect=true;
+            p.a.files.ensureReady();
+            check(p.a.platform.directCalled.await(3,TimeUnit.SECONDS),"Direct must start");
+            check(AutomaticFileRoutes.class.getMethod("pendingPath").invoke(p.a.files)==TransferPath.PENDING_WIFI_DIRECT,"Queued bubbles must show the ongoing Direct attempt, not an unknown path");
+        }
         System.out.println("Automatic FILE route diagnostics passed");
     }
     private static void slowDirect()throws Exception {
