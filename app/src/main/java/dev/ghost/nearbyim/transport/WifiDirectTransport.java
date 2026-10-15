@@ -68,6 +68,7 @@ public final class WifiDirectTransport {
         supported = manager != null && this.context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WIFI_DIRECT);
     }
     public boolean available() { return supported; }
+    public boolean advertising(){return initialized&&advertised&&lifecycle.valid(run);}
     public boolean enabled() { try { return supported && wifi != null && wifi.isWifiEnabled(); } catch (RuntimeException denied) { return false; } }
     /** Last native observation, kept separately from the station Wi-Fi switch. */
     public String p2pState() { return observedP2pState==WifiP2pManager.WIFI_P2P_STATE_ENABLED?"enabled":observedP2pState==WifiP2pManager.WIFI_P2P_STATE_DISABLED?"disabled":"unknown"; }

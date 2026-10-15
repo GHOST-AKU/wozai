@@ -1,7 +1,14 @@
 import java.security.MessageDigest
 
 plugins { id("com.android.application") }
-dependencies { implementation("com.google.zxing:core:3.5.3") }
+dependencies {
+    implementation("com.google.zxing:core:3.5.3")
+    implementation("androidx.window:window:1.5.1")
+    implementation("androidx.window:window-java:1.5.1")
+    // Expose callback types upstream declares runtime-only, aligned to its stable dependency set.
+    implementation("androidx.core:core:1.8.0")
+    compileOnly("androidx.annotation:annotation:1.8.1")
+}
 
 val i18nConfiguration = groovy.json.JsonSlurper().parse(rootProject.file("i18n/config.json")) as Map<*, *>
 val signingStore = providers.environmentVariable("WOZAI_ANDROID_KEYSTORE").orNull

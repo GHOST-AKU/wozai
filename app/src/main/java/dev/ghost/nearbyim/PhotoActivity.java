@@ -18,22 +18,21 @@ import java.util.concurrent.*;
 
 /** Internal, offline photo viewer; decoding and export never run on the main thread. */
 public final class PhotoActivity extends Activity {
+    private FoldWindow.SafeArea foldArea;
     private final ExecutorService worker=Executors.newSingleThreadExecutor();
     private Uri photo;
     private ZoomImage image;
     private TextView notice;
     private View saveAction;
     private String pendingExportPeer,pendingExportRecord;
+    protected void onStart(){super.onStart();if(foldArea!=null)foldArea.start();}
+    protected void onStop(){if(foldArea!=null)foldArea.stop();super.onStop();}
     protected void attachBaseContext(Context context){super.attachBaseContext(AppLanguage.wrap(context));}
     public void onCreate(Bundle state){
         super.onCreate(state);photo=getIntent().getData();if(state!=null){pendingExportPeer=state.getString("photoExportPeer");pendingExportRecord=state.getString("photoExportRecord");}
         if(photo==null||!"content".equals(photo.getScheme())||!(getPackageName()+".attachments").equals(photo.getAuthority())){finish();return;}
         LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(Color.BLACK);
-        root.setOnApplyWindowInsetsListener((view,insets)->{
-            if(android.os.Build.VERSION.SDK_INT>=30){android.graphics.Insets bars=insets.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.displayCutout());view.setPadding(bars.left,bars.top,bars.right,bars.bottom);}
-            else view.setPadding(insets.getSystemWindowInsetLeft(),insets.getSystemWindowInsetTop(),insets.getSystemWindowInsetRight(),insets.getSystemWindowInsetBottom());
-            return insets;
-        });
+        foldArea=new FoldWindow.SafeArea(this,root);root.setOnApplyWindowInsetsListener((v,insets)->foldArea.windowInsets(insets,0,0,0,0));
         LinearLayout toolbar=new LinearLayout(this);toolbar.setGravity(Gravity.CENTER_VERTICAL);
         toolbar.addView(action(R.drawable.outline_arrow_back_24,text("backToChats"),this::finish),new LinearLayout.LayoutParams(dp(48),dp(56)));
         TextView title=new TextView(this);title.setText(photo.getQueryParameter("name"));title.setTextColor(Color.WHITE);title.setTextSize(15);title.setSingleLine(true);title.setEllipsize(android.text.TextUtils.TruncateAt.END);toolbar.addView(title,new LinearLayout.LayoutParams(0,-2,1));

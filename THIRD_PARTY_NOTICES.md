@@ -6,7 +6,16 @@ https://github.com/gradle/gradle/tree/v8.13.0
 
 Copyright 2015 the original author or authors. Licensed under Apache License, Version 2.0; see `licenses/Gradle-Apache-2.0.txt`. The original script headers are retained. The wrapper JAR SHA-256 is `81a82aaea5abcc8ff68b3dfcb58b3c3c429378efd98e7433460610fecd7ae45f`, verified against https://gradle.org/release-checksums/.
 
-No third-party Android UI or networking library is bundled with application source.
+Android uses its native Views UI. Adaptive-window support links the official AndroidX WindowManager libraries listed below; no third-party networking library is added.
+
+## Android adaptive-window support
+
+- AndroidX WindowManager `window` / `window-java` 1.5.1, and AndroidX Core 1.8.0: https://developer.android.com/jetpack/androidx/releases/window and https://android.googlesource.com/platform/frameworks/support/. Copyright The Android Open Source Project. Apache License 2.0 (the full license is retained at `licenses/Gradle-Apache-2.0.txt`). Other transitive AndroidX lifecycle, startup, annotation and concurrent-futures components use the same license.
+- Kotlin standard library 2.0.21: https://github.com/JetBrains/kotlin/tree/v2.0.21. Copyright JetBrains s.r.o. and Kotlin Programming Language contributors. Apache License 2.0.
+- kotlinx.coroutines 1.8.1: https://github.com/Kotlin/kotlinx.coroutines/tree/1.8.1. Copyright JetBrains s.r.o. and Kotlin contributors. Apache License 2.0.
+- Transitive `listenablefuture` 1.0 from Google Guava: https://github.com/google/guava. Copyright The Guava Authors. Apache License 2.0.
+
+These libraries support window layout and lifecycle callbacks. Application and transport implementation remain Java; no Compose toolkit is included. Release builds shrink unused code with R8. Upstream license resources remain in their artifacts; Android also retains the Apache 2.0 text in application assets.
 
 ## Desktop interface and networking
 

@@ -15,14 +15,17 @@ import java.util.concurrent.*;
 
 /** Immutable-on-confirm ordered preview; no source descriptor stays open on this page. */
 public final class AttachmentSelectionActivity extends Activity {
+    private FoldWindow.SafeArea foldArea;
     private record Metadata(String name,long size){}
     private final ArrayList<Uri> selected=new ArrayList<>();private final Map<Uri,Metadata> metadata=new HashMap<>();
     private final ThreadPoolExecutor worker=new ThreadPoolExecutor(0,1,15,TimeUnit.SECONDS,new ArrayBlockingQueue<>(1),r->{Thread t=new Thread(r,"selection-metadata");t.setDaemon(true);return t;},new ThreadPoolExecutor.AbortPolicy());
     private SelectionThumbnails thumbnails;private Adapter adapter;private TextView count;private Button send;private ListView list;private int focused;
+    protected void onStart(){super.onStart();if(foldArea!=null)foldArea.start();}
+    protected void onStop(){if(foldArea!=null)foldArea.stop();super.onStop();}
     protected void attachBaseContext(Context base){super.attachBaseContext(AppLanguage.wrap(base));}
     public void onCreate(Bundle saved){super.onCreate(saved);ArrayList<Uri> input=saved==null?getIntent().getParcelableArrayListExtra(AttachmentSelection.URIS):saved.getParcelableArrayList(AttachmentSelection.URIS);
         try{if(input==null||input.isEmpty()||input.size()>AttachmentBatchQueue.MAX_PENDING)throw new IllegalArgumentException();selected.addAll(AttachmentSelection.from(AttachmentSelection.result(input)));}catch(IllegalArgumentException invalid){finish();return;}focused=saved==null?0:saved.getInt("focused",0);thumbnails=new SelectionThumbnails(getContentResolver());
-        LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(12),dp(12),dp(12),dp(12));root.setBackgroundColor(0xfff7faf7);root.setOnApplyWindowInsetsListener((v,insets)->{v.setPadding(dp(12)+insets.getSystemWindowInsetLeft(),dp(12)+insets.getSystemWindowInsetTop(),dp(12)+insets.getSystemWindowInsetRight(),dp(12)+insets.getSystemWindowInsetBottom());return insets;});
+        LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(12),dp(12),dp(12),dp(12));root.setBackgroundColor(0xfff7faf7);foldArea=new FoldWindow.SafeArea(this,root);root.setOnApplyWindowInsetsListener((v,insets)->foldArea.windowInsets(insets,dp(12),dp(12),dp(12),dp(12)));
         LinearLayout toolbar=new LinearLayout(this);Button cancel=button("cancel",this::finish);toolbar.addView(cancel);TextView title=new TextView(this);title.setText(text("attachmentPreview"));title.setTextSize(20);toolbar.addView(title,new LinearLayout.LayoutParams(0,-2,1));root.addView(toolbar);count=new TextView(this);root.addView(count);
         list=new ListView(this);list.setChoiceMode(ListView.CHOICE_MODE_SINGLE);adapter=new Adapter();list.setAdapter(adapter);list.setOnItemClickListener((p,v,index,id)->{focused=index;adapter.notifyDataSetChanged();});list.setRecyclerListener(view->{Holder holder=(Holder)view.getTag();if(holder!=null)holder.unbind();});root.addView(list,new LinearLayout.LayoutParams(-1,0,1));
         LinearLayout controls=new LinearLayout(this);controls.addView(button("attachmentMoveUp",()->move(-1)),new LinearLayout.LayoutParams(0,-2,1));controls.addView(button("attachmentMoveDown",()->move(1)),new LinearLayout.LayoutParams(0,-2,1));controls.addView(button("attachmentRemove",()->{if(!selected.isEmpty()){selected.remove(focused);focused=Math.max(0,Math.min(focused,selected.size()-1));update();}}),new LinearLayout.LayoutParams(0,-2,1));root.addView(controls);

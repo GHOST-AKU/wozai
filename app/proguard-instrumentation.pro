@@ -116,3 +116,12 @@
     static android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceRequest discoveryRequest();
     dev.ghost.nearbyim.transport.TransportListener listener;
 }
+
+# Targeted adaptive-window suite measures existing Views and preserves its synthetic hinge API.
+-keep class dev.ghost.nearbyim.AdaptiveScaffold { *; }
+-keep class dev.ghost.nearbyim.core.AdaptiveLayout { public *; }
+-keep class dev.ghost.nearbyim.core.AdaptiveLayout$* { public *; }
+-keepclassmembers class dev.ghost.nearbyim.ChatController {
+    dev.ghost.nearbyim.core.AutomaticFileRoutes fileRoutes;
+}
+-keep class dev.ghost.nearbyim.MainActivity$TimelinePosition { *; }

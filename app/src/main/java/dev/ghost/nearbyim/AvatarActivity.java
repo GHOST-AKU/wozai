@@ -15,6 +15,7 @@ import java.util.concurrent.*;
 
 /** The local device's avatar editor. Nothing is persisted until Save/default is selected. */
 public final class AvatarActivity extends Activity {
+    private FoldWindow.SafeArea foldArea;
     private final ThreadPoolExecutor worker = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS, new ArrayBlockingQueue<>(2), task -> new Thread(task, "avatar-editor"));
     private Future<?> task;
     private CancellationSignal selectionCancellation;
@@ -34,6 +35,8 @@ public final class AvatarActivity extends Activity {
     private LinearLayout cropActions;
     private Button choose, reset, useCrop, adjust, save;
     private int ink, muted, background, surface, accent;
+    protected void onStart(){super.onStart();if(foldArea!=null)foldArea.start();}
+    protected void onStop(){if(foldArea!=null)foldArea.stop();super.onStop();}
     protected void attachBaseContext(Context context) { super.attachBaseContext(AppLanguage.wrap(context)); }
     public void onCreate(Bundle state) {
         super.onCreate(state);if(state!=null){String uri=state.getString("avatarSelection");selection=uri==null?null:Uri.parse(uri);float[] square=state.getFloatArray("avatarCrop");if(square!=null&&square.length==4)restoredCrop=new RectF(square[0],square[1],square[2],square[3]);} palette(); build(); load();
@@ -46,9 +49,9 @@ public final class AvatarActivity extends Activity {
     }
     private void build() {
         LinearLayout root = vertical(); root.setPadding(dp(16), dp(8), dp(16), dp(16)); root.setBackgroundColor(background);boolean light = background == 0xfffafcfa;
-        root.setOnApplyWindowInsetsListener((view, insets) -> {
-            if (Build.VERSION.SDK_INT >= 30) { Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout()); view.setPadding(dp(16) + bars.left, dp(8) + bars.top, dp(16) + bars.right, dp(16) + bars.bottom);WindowInsetsController controller=view.getWindowInsetsController();if(controller!=null)controller.setSystemBarsAppearance(light ? WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS : 0, WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS); }
-            else view.setPadding(dp(16) + insets.getSystemWindowInsetLeft(), dp(8) + insets.getSystemWindowInsetTop(), dp(16) + insets.getSystemWindowInsetRight(), dp(16) + insets.getSystemWindowInsetBottom()); return insets;
+        foldArea=new FoldWindow.SafeArea(this,root);root.setOnApplyWindowInsetsListener((view, insets) -> {
+            if (Build.VERSION.SDK_INT >= 30) { Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout()); foldArea.insets(dp(16) + bars.left, dp(8) + bars.top, dp(16) + bars.right, dp(16) + bars.bottom);WindowInsetsController controller=view.getWindowInsetsController();if(controller!=null)controller.setSystemBarsAppearance(light ? WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS : 0, WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS); }
+            else foldArea.insets(dp(16) + insets.getSystemWindowInsetLeft(), dp(8) + insets.getSystemWindowInsetTop(), dp(16) + insets.getSystemWindowInsetRight(), dp(16) + insets.getSystemWindowInsetBottom()); return insets;
         });
         if (Build.VERSION.SDK_INT >= 30) getWindow().setDecorFitsSystemWindows(false);
         getWindow().setStatusBarColor(background); getWindow().setNavigationBarColor(background);

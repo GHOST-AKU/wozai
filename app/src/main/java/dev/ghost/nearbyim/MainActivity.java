@@ -43,9 +43,12 @@ public final class MainActivity extends Activity {
     private int mode = Peer.LAN, page;
     private int background, surface, ink, muted, accent, accentInk, tonal, line;
     private int sideInsetLeft, sideInsetRight, topInset, bottomInset, messageWidth;
-    private LinearLayout root, header, bottomNav, homePage, nearbyPage, settingsPage, chatPage;
+    private AdaptiveScaffold root;
+    private FoldWindow foldWindow;
+    private final Map<android.app.Dialog,Boolean> adaptiveDialogs=new WeakHashMap<>();
+    private LinearLayout header, bottomNav, homePage, nearbyPage, settingsPage, chatPage;
     private LinearLayout historyList, peersList, trustedList, bubbles, reconnectRow, chatAvatarBox;
-    private FrameLayout content, homeFrame;
+    private FrameLayout homeFrame;
     private TextView pageTitle, networkName, networkState, errorView, receiveStatus, connectionInfo, modeHint, bluetoothState, requestStatus;
     private TextView chatName, chatStatus, nickname, reconnectHint, languageValue;
     private AvatarView chatAvatar, ownAvatar;
@@ -55,6 +58,7 @@ public final class MainActivity extends Activity {
     private Button newChatButton, cancelConnectionButton,fileButton,photoButton;
     private LinearLayout attachmentTray;
     private Button attachmentToggle,emojiButton;
+    private boolean hardwareSendKey;
     private PopupMenu attachmentActions;
     private android.app.Dialog verificationDialog;
     private IdentityVerification verificationSnapshot,pendingVerification;
@@ -74,7 +78,7 @@ public final class MainActivity extends Activity {
     private String pendingGalleryPeer,pendingGalleryRecord;
     private final GalleryPublisher.Listener galleryListener=this::attachmentVisualChanged;
     private final Set<String> dirtyAttachmentRows=new HashSet<>();
-    private TimelinePosition pendingTimelinePosition;
+    private TimelinePosition pendingTimelinePosition,restoredTimelinePosition;
     private final Runnable restoreTimelinePosition=this::restoreTimelinePosition;
     private final java.util.concurrent.ThreadPoolExecutor imageWorker=new java.util.concurrent.ThreadPoolExecutor(1,1,0,java.util.concurrent.TimeUnit.SECONDS,new java.util.concurrent.ArrayBlockingQueue<>(16),r->{Thread thread=new Thread(r,"attachment-thumbnail");thread.setDaemon(true);return thread;},new java.util.concurrent.ThreadPoolExecutor.AbortPolicy());
     private final LinkedHashMap<String,Bitmap> thumbnails=new LinkedHashMap<>();
@@ -92,6 +96,7 @@ public final class MainActivity extends Activity {
     private List<ChatStore.Message> renderedMessages;
     private List<ChatStore.Conversation> renderedConversations;
     private List<ChatStore.TrustedDevice> renderedTrusted;
+    private String renderedSelected;
     private String renderedConnection, renderedQuery, peerSignature, renderedPeer, deferredScrollPeer;
     private String renderedRetryState;
     private int deferredScrollY, messageGeneration;
@@ -144,6 +149,7 @@ public final class MainActivity extends Activity {
             selectedAttachmentUris=saved.getParcelableArrayList("selectedAttachmentUris");String exportUri=saved.getString("selectedExportUri");
             selectedExportUri=exportUri==null?null:Uri.parse(exportUri);
             selectedExportFlags=saved.getInt("selectedExportFlags");
+            if(saved.getString("timelinePeer")!=null)restoredTimelinePosition=new TimelinePosition(saved.getString("timelinePeer"),saved.getString("timelineAnchor"),dp(saved.getInt("timelineYDp")),dp(saved.getInt("timelineOffsetDp")),saved.getBoolean("timelineBottom"));
             mode = saved.getInt("mode", Peer.LAN); page = saved.getInt("page", 0); detail = saved.getBoolean("detail");
             pendingAction = (UiAction) saved.getSerializable("pendingAction"); pendingStage = saved.getInt("pendingStage"); wifiSettingsReturned = saved.getBoolean("wifiSettingsReturned");
             restoredSelectedId = saved.getString("selectedId"); restoredSelectedName = saved.getString("selectedName");
@@ -175,12 +181,12 @@ public final class MainActivity extends Activity {
         render();
     }
     protected void onStart() {
-        super.onStart();if(gallery!=null)gallery.listen(galleryListener); bound = bindService(new Intent(this, ChatService.class), binding, Context.BIND_AUTO_CREATE);
+        super.onStart();if(foldWindow!=null)foldWindow.start();if(gallery!=null)gallery.listen(galleryListener); bound = bindService(new Intent(this, ChatService.class), binding, Context.BIND_AUTO_CREATE);
         ui.post(discoverabilityTick);
     }
     protected void onResume() { super.onResume(); if (root != null) { if(controller!=null)AndroidAvatars.get(this).refresh(controller.localAvatarRoot()); resumePending(); render(); } }
     protected void onStop() {
-        saveDraftAndPosition(); ui.removeCallbacks(discoverabilityTick);
+        saveDraftAndPosition();if(foldWindow!=null)foldWindow.stop(); ui.removeCallbacks(discoverabilityTick);
         if(gallery!=null)gallery.unlisten(galleryListener);
         if(attachmentActions!=null){attachmentActions.dismiss();attachmentActions=null;}
         if (controller != null) { restoredSelectedId = controller.selectedId; restoredSelectedName = controller.selectedName; controller.unobserve(renderObserver); }
@@ -196,6 +202,8 @@ public final class MainActivity extends Activity {
         state.putParcelableArrayList("selectedAttachmentUris",selectedAttachmentUris);state.putString("selectedExportUri",selectedExportUri==null?null:selectedExportUri.toString());
         state.putInt("selectedExportFlags",selectedExportFlags);
         saveDraftAndPosition();
+        TimelinePosition timeline=restoredTimelinePosition!=null?restoredTimelinePosition:pendingTimelinePosition!=null?pendingTimelinePosition:captureTimelinePosition();
+        if(timeline.peer!=null){float density=getResources().getDisplayMetrics().density;state.putString("timelinePeer",timeline.peer);state.putString("timelineAnchor",timeline.anchor instanceof String?(String)timeline.anchor:null);state.putInt("timelineYDp",Math.round(timeline.y/density));state.putInt("timelineOffsetDp",Math.round(timeline.offset/density));state.putBoolean("timelineBottom",timeline.bottom);}
         state.putInt("mode", mode); state.putInt("page", page); state.putBoolean("detail", detail); state.putString("draft", composer.getText().toString());
         state.putString("selectedId", controller == null ? restoredSelectedId : controller.selectedId);
         state.putString("selectedName", controller == null ? restoredSelectedName : controller.selectedName);
@@ -235,7 +243,7 @@ public final class MainActivity extends Activity {
     }
     private boolean isDark() { return (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES; }
     private void buildUi() {
-        root = vertical(); root.setBackgroundColor(background); root.setFocusableInTouchMode(true); setContentView(root);
+        root = new AdaptiveScaffold(this); root.setBackgroundColor(background); root.setFocusableInTouchMode(true); setContentView(root);
         if (Build.VERSION.SDK_INT >= 30) {
             getWindow().setDecorFitsSystemWindows(false);
             WindowInsetsController appearance = getWindow().getInsetsController();
@@ -269,15 +277,17 @@ public final class MainActivity extends Activity {
         indicator.setPadding(dp(8), dp(4), 0, dp(4)); header.addView(indicator); root.addView(header);
         errorView = label("", 13, ink); errorView.setPadding(dp(16), dp(10), dp(16), dp(10)); errorView.setBackgroundColor(tonal);
         errorView.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE); root.addView(errorView);
-        content = new FrameLayout(this); root.addView(content, new LinearLayout.LayoutParams(-1, 0, 1));
         homePage = vertical(); nearbyPage = vertical(); settingsPage = vertical(); chatPage = vertical();
-        content.addView(homePage, new FrameLayout.LayoutParams(-1, -1)); content.addView(nearbyPage, new FrameLayout.LayoutParams(-1, -1));
-        content.addView(settingsPage, new FrameLayout.LayoutParams(-1, -1)); content.addView(chatPage, new FrameLayout.LayoutParams(-1, -1));
-        buildHome(); buildNearby(); buildSettings(); buildChat(); buildNavigation(); root.requestApplyInsets();
+        root.addView(homePage); root.addView(nearbyPage);
+        root.addView(settingsPage); root.addView(chatPage);
+        buildHome(); buildNearby(); buildSettings(); buildChat(); buildNavigation();
+        LinearLayout placeholder=empty(t("chats"),t("noMessageTitle"));root.addView(placeholder);
+        root.bind(header,errorView,homePage,nearbyPage,settingsPage,chatPage,placeholder,bottomNav,line);
+        root.geometryChanging=()->{if(!rebuildingMessages&&chatPage.getVisibility()==View.VISIBLE&&renderedPeer!=null&&messageScroll.getWidth()>0)pendingTimelinePosition=captureTimelinePosition();};
+        root.geometryChanged=()->{fitOpenDialogs();if(pendingTimelinePosition!=null){messageScroll.removeCallbacks(restoreTimelinePosition);messageScroll.post(restoreTimelinePosition);}};foldWindow=new FoldWindow(this,root::fold);root.requestApplyInsets();
     }
     private void applyRootPadding() {
-        int gutter = Math.max(0, (root.getWidth() - sideInsetLeft - sideInsetRight - dp(720)) / 2);
-        root.setPadding(sideInsetLeft + gutter, topInset, sideInsetRight + gutter, bottomInset);
+        root.setPadding(sideInsetLeft, topInset, sideInsetRight, bottomInset);
     }
     private void buildNavigation() {
         bottomNav = horizontal(); bottomNav.setGravity(Gravity.CENTER); bottomNav.setPadding(dp(12), dp(9), dp(12), dp(7));
@@ -291,7 +301,6 @@ public final class MainActivity extends Activity {
             item.addView(pill, new LinearLayout.LayoutParams(dp(72), dp(32))); TextView text = label(labels[i], 13, muted); text.setGravity(Gravity.CENTER);
             item.addView(text); navItems[i] = item; navIcons[i] = icon; navLabels[i] = text; bottomNav.addView(item, new LinearLayout.LayoutParams(0, -2, 1));
         }
-        View divider = new View(this); divider.setBackgroundColor(line); divider.setTag("navDivider"); root.addView(divider, new LinearLayout.LayoutParams(-1, dp(1)));
         root.addView(bottomNav);
     }
     static int normalizeChatMode(int mode){return mode==Peer.BLUETOOTH?Peer.BLUETOOTH:Peer.LAN;}
@@ -340,7 +349,7 @@ public final class MainActivity extends Activity {
             if (controller == null) return;
             if (controller.running(mode)) {
                 if (controller.hasSession() && controller.sessionMode == mode)
-                    new AlertDialog.Builder(this).setTitle(t("stopReceptionTitle")).setMessage(t("historyTrustRetained"))
+                    new AdaptiveDialogBuilder().setTitle(t("stopReceptionTitle")).setMessage(t("historyTrustRetained"))
                         .setPositiveButton(t("stopReception"), (d, w) -> { if (controller != null) controller.stop(mode); }).setNegativeButton(t("cancel"), null).show();
                 else controller.stop(mode);
             } else withPermissions(new UiAction(UiAction.START, mode));
@@ -375,13 +384,13 @@ public final class MainActivity extends Activity {
         settingsContent.addView(sectionHeading(t("trustedDevices"))); trustedList = vertical(); settingsContent.addView(trustedList);
         Switch automaticPhotos=new Switch(this);automaticPhotos.setText(t("galleryAutoSave"));automaticPhotos.setChecked(gallery==null||gallery.automatic());automaticPhotos.setPadding(dp(4),dp(12),dp(4),dp(12));automaticPhotos.setOnCheckedChangeListener((view,enabled)->{if(gallery!=null)gallery.automatic(enabled);});settingsContent.addView(automaticPhotos);
         settingsContent.addView(sectionHeading(t("appSection"))); settingsContent.addView(settingsRow(t("appPermissions"), label(t("permissionsSummary"), 13, muted), this::appSettings));
-        settingsContent.addView(settingsRow(t("attachmentQuota"),null,()->{if(controller==null)return;long[] choices={16,32,64,128};String[] labels=new String[choices.length];int selected=1;for(int i=0;i<choices.length;i++){labels[i]=t("attachmentQuotaGiB",choices[i]);if(controller.attachmentQuota()==choices[i]*1024*1024*1024)selected=i;}new AlertDialog.Builder(this).setTitle(t("attachmentQuota")).setSingleChoiceItems(labels,selected,(dialog,index)->{controller.attachmentQuota(choices[index]*1024*1024*1024).whenComplete((value,error)->ui.post(()->{if(!isDestroyed()&&error!=null)toast(t("attachmentQuotaInUse"));}));dialog.dismiss();}).setNegativeButton(t("cancel"),null).show();}));
+        settingsContent.addView(settingsRow(t("attachmentQuota"),null,()->{if(controller==null)return;long[] choices={16,32,64,128};String[] labels=new String[choices.length];int selected=1;for(int i=0;i<choices.length;i++){labels[i]=t("attachmentQuotaGiB",choices[i]);if(controller.attachmentQuota()==choices[i]*1024*1024*1024)selected=i;}new AdaptiveDialogBuilder().setTitle(t("attachmentQuota")).setSingleChoiceItems(labels,selected,(dialog,index)->{controller.attachmentQuota(choices[index]*1024*1024*1024).whenComplete((value,error)->ui.post(()->{if(!isDestroyed()&&error!=null)toast(t("attachmentQuotaInUse"));}));dialog.dismiss();}).setNegativeButton(t("cancel"),null).show();}));
         settingsContent.addView(settingsRow(t("stopAll"), label(t("stopConnectionsSummary"), 13, muted), () -> {
-            if (controller != null) new AlertDialog.Builder(this).setTitle(t("stopConnectionsTitle")).setMessage(t("stopConnectionsBody"))
+            if (controller != null) new AdaptiveDialogBuilder().setTitle(t("stopConnectionsTitle")).setMessage(t("stopConnectionsBody"))
                 .setPositiveButton(t("stop"), (d, w) -> { if (controller != null) controller.stopAll(); }).setNegativeButton(t("cancel"), null).show();
         }));
         settingsContent.addView(settingsRow(t("help"), null, this::showHelp));
-        settingsContent.addView(settingsRow(t("about"), label(t("androidAboutSummary", LanguageRegistry.VERSION), 13, muted), () -> new AlertDialog.Builder(this).setTitle(t("app"))
+        settingsContent.addView(settingsRow(t("about"), label(t("androidAboutSummary", LanguageRegistry.VERSION), 13, muted), () -> new AdaptiveDialogBuilder().setTitle(t("app"))
             .setMessage(t("androidAboutBody", LanguageRegistry.VERSION))
             .setPositiveButton(t("gotIt"), null).show()));
     }
@@ -421,15 +430,18 @@ public final class MainActivity extends Activity {
         attachmentToggle.setOnClickListener(v->{attachmentTray.setVisibility(attachmentTray.getVisibility()==View.VISIBLE?View.GONE:View.VISIBLE);});inputBox.addView(attachmentToggle,new LinearLayout.LayoutParams(dp(48),dp(48)));
         inputRow.addView(inputBox, new LinearLayout.LayoutParams(0, -2, 1)); sendButton = iconButton(R.drawable.outline_send_24,t("send"),accentInk);sendButton.setPadding(dp(12),dp(12),dp(12),dp(12)); sendButton.setOnClickListener(v -> { if (controller != null) controller.send(composer.getText().toString()); });
         LinearLayout.LayoutParams sendParams = new LinearLayout.LayoutParams(dp(48), dp(48)); sendParams.setMarginStart(dp(8)); inputRow.addView(sendButton, sendParams); chatPage.addView(inputRow);
+        composer.setOnKeyListener((v,key,event)->{
+            if(key==KeyEvent.KEYCODE_ESCAPE&&event.getAction()==KeyEvent.ACTION_UP){if(attachmentTray.getVisibility()==View.VISIBLE)attachmentTray.setVisibility(View.GONE);else hideKeyboard();return true;}
+            if(key!=KeyEvent.KEYCODE_ENTER)return false;
+            if(event.getAction()==KeyEvent.ACTION_DOWN){hardwareSendKey=!event.isShiftPressed()&&!event.isAltPressed()&&android.view.inputmethod.BaseInputConnection.getComposingSpanStart(composer.getText())<0;return hardwareSendKey;}
+            if(event.getAction()==KeyEvent.ACTION_UP){boolean send=hardwareSendKey;hardwareSendKey=false;if(send&&sendButton.isEnabled())sendButton.performClick();return send;}return false;
+        });
         composer.addTextChangedListener(watcher(this::updateSend));
     }
     private void render() {
         if (root == null) return;
         updateVerificationDialog();
-        header.setVisibility(detail ? View.GONE : View.VISIBLE); bottomNav.setVisibility(detail ? View.GONE : View.VISIBLE);
-        View divider = root.findViewWithTag("navDivider"); if (divider != null) divider.setVisibility(detail ? View.GONE : View.VISIBLE);
-        homePage.setVisibility(!detail && page == 0 ? View.VISIBLE : View.GONE); nearbyPage.setVisibility(!detail && page == 1 ? View.VISIBLE : View.GONE);
-        settingsPage.setVisibility(!detail && page == 2 ? View.VISIBLE : View.GONE); chatPage.setVisibility(detail ? View.VISIBLE : View.GONE);
+        root.show(page,detail);
         pageTitle.setText(page == 0 ? t("app") : page == 1 ? t("nearby") : t("settings"));
         for (int i = 0; i < 3; i++) {
             navItems[i].setSelected(i == page); navItems[i].findViewWithTag("pill").setBackground(shape(i == page ? tonal : Color.TRANSPARENT, 20));
@@ -460,9 +472,10 @@ public final class MainActivity extends Activity {
         String connection = controller == null ? null : controller.connectedPeerId;
         String avatarRoots=controller==null?null:controller.avatarRoot(connection);
         List<ChatStore.TrustedDevice> trustedRoots=controller==null?Collections.emptyList():controller.trustedDevices;
-        if (renderedConversations == conversations && Objects.equals(renderedConnection, connection) && Objects.equals(renderedQuery, searchQuery) && Objects.equals(renderedAvatarRoots,avatarRoots) && renderedHistoryTrusted==trustedRoots) return;
+        String selected=controller==null||!detail?null:controller.selectedId;
+        if (Objects.equals(renderedSelected,selected)&&renderedConversations == conversations && Objects.equals(renderedConnection, connection) && Objects.equals(renderedQuery, searchQuery) && Objects.equals(renderedAvatarRoots,avatarRoots) && renderedHistoryTrusted==trustedRoots) return;
         renderedAvatarRoots=avatarRoots;renderedHistoryTrusted=trustedRoots;
-        renderedConversations = conversations; renderedConnection = connection; renderedQuery = searchQuery; int oldY = controller != null && restoredHistoryY >= 0 ? restoredHistoryY : historyScroll.getScrollY();
+        renderedSelected=selected;renderedConversations = conversations; renderedConnection = connection; renderedQuery = searchQuery; int oldY = controller != null && restoredHistoryY >= 0 ? restoredHistoryY : historyScroll.getScrollY();
         if (controller != null) restoredHistoryY = -1; historyList.removeAllViews();
         String query = searchQuery.trim().toLowerCase(Locale.ROOT); int count = 0; String previousGroup = null;
         for (ChatStore.Conversation conversation : conversations) {
@@ -470,7 +483,7 @@ public final class MainActivity extends Activity {
             String group = sameDay(conversation.time, System.currentTimeMillis()) ? t("today") : t("earlier");
             if (query.isEmpty() && !group.equals(previousGroup)) { historyList.addView(sectionHeading(group)); previousGroup = group; }
             count++; boolean active = controller != null && controller.connected && Objects.equals(connection, conversation.id);
-            LinearLayout row = horizontal(); row.setGravity(Gravity.TOP); row.setPadding(0, dp(14), 0, dp(14)); row.setMinimumHeight(dp(active ? 98 : 82)); row.setBackground(ripple(background, 14));
+            LinearLayout row = horizontal(); row.setGravity(Gravity.TOP); row.setPadding(0, dp(14), 0, dp(14)); row.setMinimumHeight(dp(active ? 98 : 82)); row.setBackground(ripple(Objects.equals(selected,conversation.id)?tonal:background, 14));row.setSelected(Objects.equals(selected,conversation.id));
             AvatarView avatar = avatar(conversation.id, conversation.name, 48); row.addView(avatar, new LinearLayout.LayoutParams(dp(48), dp(48)));
             LinearLayout text = vertical(); text.setPadding(dp(14), 0, dp(8), 0); LinearLayout titleRow = horizontal(); titleRow.setGravity(Gravity.CENTER_VERTICAL);
             TextView name = label(safe(conversation.name), 17, ink); name.setTypeface(null, Typeface.BOLD); singleLine(name); titleRow.addView(name, new LinearLayout.LayoutParams(0, -2, 1));
@@ -602,6 +615,9 @@ public final class MainActivity extends Activity {
         if (restoreUnread && !controller.messages.isEmpty()) { newMessages.setVisibility(View.VISIBLE); restoreUnread = false; }
         messageScroll.post(() -> {
             if (generation != messageGeneration || !Objects.equals(renderedPeer, peerId)) return;
+            if(restoredTimelinePosition!=null&&Objects.equals(restoredTimelinePosition.peer,peerId)&&!renderedMessages.isEmpty()){
+                pendingTimelinePosition=restoredTimelinePosition;restoredTimelinePosition=null;deferredScrollPeer=null;restoreTimelinePosition();return;
+            }
             if (Objects.equals(deferredScrollPeer, peerId) && deferredScrollPeer != null) {
                 messageScroll.scrollTo(0, deferredScrollY);
                 // Selection initially emits an empty list while SQLite loads the history.
@@ -626,12 +642,12 @@ public final class MainActivity extends Activity {
     private AlertDialog showAttachmentTransferPath(String peer,AttachmentRecord record) {
         TransferPath route=controller==null?TransferPath.forAttachment("",false,record):controller.attachmentRoute(peer,record);
         String key=route==TransferPath.WIFI_DIRECT?"pathDetailsWifiDirect":route==TransferPath.LAN_UNCONFIRMED?"pathDetailsLan":route==TransferPath.BLUETOOTH?"pathDetailsBluetooth":(route==TransferPath.SELECTING||route==TransferPath.PENDING_WIFI_DIRECT||route==TransferPath.PENDING_LAN||route==TransferPath.PENDING_BLUETOOTH)?"pathDetailsSelecting":"attachmentPathUnknown";
-        return new AlertDialog.Builder(this).setTitle(t("pathDetailsTitle")).setMessage(t(key)).setPositiveButton(t("close"),null).show();
+        return new AdaptiveDialogBuilder().setTitle(t("pathDetailsTitle")).setMessage(t(key)).setPositiveButton(t("close"),null).show();
     }
     private AlertDialog showTransferPath(String peer) {
         boolean ready=controller!=null&&controller.connected&&Objects.equals(peer,controller.connectedPeerId);
         String description=!ready?t("pathDetailsDisconnected"):t(controller.endToEndEncrypted(peer)?"encryptedVia":"connectedVia",controller.sessionMode==Peer.LAN?t("lanPathUnconfirmed"):modeName(controller.sessionMode));
-        return new AlertDialog.Builder(this).setTitle(t("pathDetailsTitle")).setMessage(withRouteNotice(description)).setPositiveButton(t("close"),null).show();
+        return new AdaptiveDialogBuilder().setTitle(t("pathDetailsTitle")).setMessage(withRouteNotice(description)).setPositiveButton(t("close"),null).show();
     }
     private String withRouteNotice(String value) {
         if (controller == null || UiText.EMPTY.equals(controller.routeNotice)) return value;
@@ -691,7 +707,7 @@ public final class MainActivity extends Activity {
         TimelinePosition(String peer,Object anchor,int y,int offset,boolean bottom){this.peer=peer;this.anchor=anchor;this.y=y;this.offset=offset;this.bottom=bottom;}
     }
     private TimelinePosition captureTimelinePosition(){int y=messageScroll.getScrollY();View anchor=null;for(int i=0;i<bubbles.getChildCount();i++){View row=bubbles.getChildAt(i);if(row.getTop()<=y&&row.getTag()!=null)anchor=row;else if(row.getTop()>y)break;}return new TimelinePosition(renderedPeer,anchor==null?null:anchor.getTag(),y,anchor==null?0:y-anchor.getTop(),atBottom());}
-    private void restoreTimelinePosition(){TimelinePosition position=pendingTimelinePosition;pendingTimelinePosition=null;if(position==null||isDestroyed()||!Objects.equals(position.peer,renderedPeer))return;View anchor=position.anchor==null?null:bubbles.findViewWithTag(position.anchor);int y=position.bottom?Math.max(0,bubbles.getHeight()-messageScroll.getHeight()):anchor==null?position.y:anchor.getTop()+position.offset;messageScroll.scrollTo(0,y);rebuildingMessages=false;}
+    private void restoreTimelinePosition(){TimelinePosition position=pendingTimelinePosition;pendingTimelinePosition=null;if(position==null||isDestroyed()||!Objects.equals(position.peer,renderedPeer))return;View anchor=position.anchor==null?null:bubbles.findViewWithTag(position.anchor);int y=position.bottom?Math.max(0,bubbles.getHeight()-messageScroll.getHeight()):anchor==null?position.y:anchor.getTop()+Math.min(Math.max(0,position.offset),Math.max(0,anchor.getHeight()-1));messageScroll.scrollTo(0,y);rebuildingMessages=false;}
     private boolean markThumbnailDirty(String key){if(controller==null||!Objects.equals(renderedPeer,controller.selectedId))return false;boolean found=false;for(ChatStore.Message message:controller.messages)if(message.attachment!=null&&thumbnailKey(controller.selectedId,message.attachment).equals(key)){dirtyAttachmentRows.add(messageKey(message));found=true;}return found;}
     private void attachmentVisualChanged(String peer,String id){if(isDestroyed()||controller==null||!Objects.equals(peer,controller.selectedId)||!Objects.equals(peer,renderedPeer))return;boolean found=false;for(ChatStore.Message message:controller.messages)if(message.attachment!=null&&message.id.equals(id)){dirtyAttachmentRows.add(messageKey(message));found=true;}if(found)renderChat();}
     private String attachmentFeedback(AttachmentRecord record,TransferProgress measurement){
@@ -718,7 +734,7 @@ public final class MainActivity extends Activity {
                 bubble.setPadding(dp(4),dp(4),dp(4),dp(6));
                 ImageView image=new ImageView(this);image.setTag("photo:"+attachment.info.id);image.setScaleType(ImageView.ScaleType.CENTER_CROP);image.setBackground(shape(message.outgoing?tonal:surface,14));image.setClipToOutline(true);
                 image.setContentDescription(t("attachmentPhotoPreview",attachment.info.name));image.setImageResource(R.drawable.outline_photo_24);
-                int width=Math.min(dp(240),Math.max(dp(100),Math.round((getResources().getDisplayMetrics().widthPixels-dp(48))*.78f)));
+                int width=Math.min(dp(240),Math.max(dp(100),Math.round((Math.max(dp(160),messageScroll.getWidth())-dp(48))*.78f)));
                 Bitmap cached=thumbnails.get(previewKey);int height=cached==null?dp(160):Math.max(dp(100),Math.min(dp(300),Math.round(width*(float)cached.getHeight()/cached.getWidth())));
                 bubble.addView(image,new LinearLayout.LayoutParams(width,height));image.setOnClickListener(v->openAttachment(peer,attachment));image.setOnLongClickListener(v->{attachmentMenu(image,peer,attachment);return true;});
                 if(cached!=null)image.setImageBitmap(cached);else if(thumbnailTargets.contains(previewKey))thumbnail(peer,attachment,image);
@@ -734,7 +750,7 @@ public final class MainActivity extends Activity {
                 card.addView(symbol,new LinearLayout.LayoutParams(dp(36),dp(40)));LinearLayout description=vertical();description.setPadding(dp(10),0,0,0);
                 TextView name=label(attachment.info.name,14,ink);name.setTypeface(null,Typeface.BOLD);name.setMaxLines(2);name.setEllipsize(TextUtils.TruncateAt.END);name.setTag("messageBody");description.addView(name);
                 String bytes=android.text.format.Formatter.formatShortFileSize(this,attachment.info.size);if(attachment.active()&&attachment.transferred>0)bytes=android.text.format.Formatter.formatShortFileSize(this,attachment.transferred)+" / "+bytes;
-                TextView status=label(t("attachmentSummary",bytes,failedThumbnails.contains(previewKey)?t("photoUnavailable"):attachmentState(attachment)),12,muted);status.setTag("attachmentSummary");description.addView(status);card.addView(description,new LinearLayout.LayoutParams(0,-2,1));bubble.addView(card,new LinearLayout.LayoutParams(Math.min(dp(260),Math.max(dp(160),getResources().getDisplayMetrics().widthPixels-dp(80))),-2));
+                TextView status=label(t("attachmentSummary",bytes,failedThumbnails.contains(previewKey)?t("photoUnavailable"):attachmentState(attachment)),12,muted);status.setTag("attachmentSummary");description.addView(status);card.addView(description,new LinearLayout.LayoutParams(0,-2,1));bubble.addView(card,new LinearLayout.LayoutParams(Math.min(dp(260),Math.max(dp(160),Math.max(dp(160),messageScroll.getWidth())-dp(80))),-2));
                 if(photoAvailable(attachment))card.setOnClickListener(v->openAttachment(peer,attachment));
                 if(photoAvailable(attachment)||retryableAttachment(attachment))card.setOnLongClickListener(v->{attachmentMenu(card,peer,attachment);return true;});
             }
@@ -784,7 +800,7 @@ public final class MainActivity extends Activity {
         Button button=button(text,false);button.setBackground(ripple(Color.TRANSPARENT,18));button.setContentDescription(text);android.graphics.drawable.Drawable drawable=getDrawable(resource).mutate();drawable.setTint(accent);drawable.setBounds(0,0,dp(28),dp(28));button.setCompoundDrawables(null,drawable,null,null);button.setCompoundDrawablePadding(dp(4));button.setOnClickListener(v->action.run());return button;
     }
     private void showEmoji(){
-        if(!composer.isEnabled())return;GridLayout grid=new GridLayout(this);grid.setColumnCount(4);grid.setPadding(dp(12),dp(8),dp(12),dp(8));AlertDialog dialog=new AlertDialog.Builder(this).setTitle(t("emoji")).setView(grid).create();
+        if(!composer.isEnabled())return;GridLayout grid=new GridLayout(this);grid.setColumnCount(4);grid.setPadding(dp(12),dp(8),dp(12),dp(8));AlertDialog dialog=new AdaptiveDialogBuilder().setTitle(t("emoji")).setView(grid).create();
         for(String emoji:new String[]{"😀","😂","🥰","😎","😭","🤔","👍","👋","❤️","🎉","🙏","✨"}){
             Button choice=button(emoji,false);choice.setTextSize(26);choice.setContentDescription(emoji);choice.setBackground(ripple(Color.TRANSPARENT,18));choice.setOnClickListener(v->{int start=Math.max(0,composer.getSelectionStart()),end=Math.max(start,composer.getSelectionEnd());composer.getText().replace(start,end,emoji);dialog.dismiss();composer.requestFocus();});GridLayout.LayoutParams params=new GridLayout.LayoutParams();params.width=dp(64);params.height=dp(56);grid.addView(choice,params);
         }dialog.show();
@@ -810,7 +826,7 @@ public final class MainActivity extends Activity {
     }
     private void offerRetryReplacement(String peer,String id,long token,String session){
         ChatController target=controller;if(target==null||!retrySelectionCurrent(target,peer,token,session))return;
-        new AlertDialog.Builder(this).setMessage(t("attachmentRetrySelectAgain")).setPositiveButton(t("attachmentReselect"),(dialog,which)->chooseRetryReplacement(peer,id,token,session)).setNegativeButton(t("cancel"),null).show();
+        new AdaptiveDialogBuilder().setMessage(t("attachmentRetrySelectAgain")).setPositiveButton(t("attachmentReselect"),(dialog,which)->chooseRetryReplacement(peer,id,token,session)).setNegativeButton(t("cancel"),null).show();
     }
     private void chooseRetryReplacement(String peer,String id,long token,String session){
         ChatController target=controller;if(target==null||!retrySelectionCurrent(target,peer,token,session)){toast(t("notConnected"));return;}
@@ -845,7 +861,7 @@ public final class MainActivity extends Activity {
             };
             LinearLayout content=vertical();content.setPadding(dp(20),dp(8),dp(20),dp(8));
             content.addView(label(location.displayName(),15,ink));TextView description=label(t(key),13,muted);description.setPadding(0,dp(12),0,dp(12));content.addView(description);
-            AlertDialog dialog=new AlertDialog.Builder(this).setTitle(t("attachmentLocationTitle")).setView(content).setNegativeButton(t("close"),null).create();
+            AlertDialog dialog=new AdaptiveDialogBuilder().setTitle(t("attachmentLocationTitle")).setView(content).setNegativeButton(t("close"),null).create();
             Intent browse=AttachmentLocations.browseIntent(location);
             if(browse!=null){Button find=button(t("attachmentBrowseSaved"),false);find.setOnClickListener(v->{dialog.dismiss();try{startActivityForResult(browse,25);}catch(ActivityNotFoundException|SecurityException unavailable){toast(t("attachmentLocationUnavailable"));}});content.addView(find);}
             Intent saved=AttachmentLocations.openSavedIntent(location,record.info.mime);
@@ -880,7 +896,7 @@ public final class MainActivity extends Activity {
     private void updateMessageWidths() {
         if (messageScroll == null || bubbles == null) return;
         int available = messageScroll.getWidth() - messageScroll.getPaddingLeft() - messageScroll.getPaddingRight(); if (available <= 0) return;
-        messageWidth = Math.max(dp(64), Math.round(available * .78f) - dp(28));
+        messageWidth = Math.max(dp(64), Math.min(dp(560),Math.round(available * .78f) - dp(28)));
         for (int i = 0; i < bubbles.getChildCount(); i++) { View row = bubbles.getChildAt(i); TextView body = row.findViewWithTag("messageBody"), meta = row.findViewWithTag("messageMeta"); if (body != null) body.setMaxWidth(messageWidth); if (meta != null) meta.setMaxWidth(messageWidth); }
     }
     private void updateSend() {
@@ -893,7 +909,7 @@ public final class MainActivity extends Activity {
         if (token == null || approvalDialog != null || isFinishing()) return; shownApproval = token;
         String transport = modeName(controller.sessionMode);
         String detailText = t(controller.sessionMode == Peer.LAN ? "androidRequestLanBody" : "androidRequestBody", transport);
-        approvalDialog = new AlertDialog.Builder(this).setTitle(t("requestNamedTitle", safe(controller.approvalName))).setMessage(detailText)
+        approvalDialog = new AdaptiveDialogBuilder().setTitle(t("requestNamedTitle", safe(controller.approvalName))).setMessage(detailText)
             .setPositiveButton(t("remember"), (d, w) -> { if (controller != null) controller.approve(token, true); })
             .setNeutralButton(t("once"), (d, w) -> { if (controller != null) controller.approve(token, false); })
             .setNegativeButton(t("reject"), (d, w) -> { if (controller != null) controller.reject(token); }).create();
@@ -912,7 +928,7 @@ public final class MainActivity extends Activity {
         if (controller != null && controller.connecting) { toast(t("pleaseWaitConnecting")); return; }
         if (controller != null && controller.hasSession()) {
             if (action.peerId != null && Objects.equals(action.peerId, controller.connectedPeerId)) { detail = true; render(); return; }
-            new AlertDialog.Builder(this).setTitle(t("connectionSwitchTitle")).setMessage(t("connectionSwitchBody"))
+            new AdaptiveDialogBuilder().setTitle(t("connectionSwitchTitle")).setMessage(t("connectionSwitchBody"))
                 .setPositiveButton(t("disconnectAndConnect"), (d, w) -> { if (controller != null) { pendingAction = action; pendingStage = CLOSE_STAGE; controller.disconnect(); } })
                 .setNegativeButton(t("cancel"), null).show();
         } else withPermissions(action);
@@ -920,7 +936,7 @@ public final class MainActivity extends Activity {
     private void manualConnect() {
         EditText address = new EditText(this); address.setSingleLine(true); address.setHint("192.168.1.20:54321"); address.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         LinearLayout box = vertical(); box.setPadding(dp(20), dp(8), dp(20), 0); box.addView(address); CheckBox remember = new CheckBox(this); remember.setText(t("rememberConnectedDevice")); remember.setChecked(true); box.addView(remember);
-        new AlertDialog.Builder(this).setTitle(t("direct")).setMessage(t("androidDirectBody")).setView(box)
+        new AdaptiveDialogBuilder().setTitle(t("direct")).setMessage(t("androidDirectBody")).setView(box)
             .setPositiveButton(t("reconnect"), (d, w) -> requestConnection(new UiAction(UiAction.ADDRESS, Peer.LAN, null, address.getText().toString(), null, remember.isChecked())))
             .setNegativeButton(t("cancel"), null).show();
     }
@@ -992,7 +1008,7 @@ public final class MainActivity extends Activity {
         if (requestCode != 7 || pendingAction == null || pendingStage != PERMISSION_STAGE) return; UiAction action = pendingAction;
         for (String permission : requiredPermissions(action)) if (checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
             pendingAction = null; pendingStage = 0;
-            new AlertDialog.Builder(this).setTitle(t(action.mode == Peer.WIFI_DIRECT ? "directPermissionTitle" : "bluetoothPermissionTitle")).setMessage(t(action.mode == Peer.WIFI_DIRECT ? "directPermissionRequired" : "bluetoothPermissionBody"))
+            new AdaptiveDialogBuilder().setTitle(t(action.mode == Peer.WIFI_DIRECT ? "directPermissionTitle" : "bluetoothPermissionTitle")).setMessage(t(action.mode == Peer.WIFI_DIRECT ? "directPermissionRequired" : "bluetoothPermissionBody"))
                 .setPositiveButton(t("appSettings"), (d, w) -> appSettings()).setNegativeButton(t("close"), null).show(); render(); return;
         }
         ensureEnabled(action);
@@ -1153,7 +1169,7 @@ public final class MainActivity extends Activity {
         if(verificationDialog!=null)verificationDialog.dismiss();verificationSnapshot=expected;verificationBusy=false;
         android.app.Dialog dialog=new android.app.Dialog(this);verificationDialog=dialog;dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setBackgroundColor(background);LinearLayout centered=vertical();centered.setGravity(Gravity.CENTER_HORIZONTAL);LinearLayout body=vertical();body.setPadding(dp(20),dp(16),dp(20),dp(24));
-        int width=Math.min(dp(640),getResources().getDisplayMetrics().widthPixels);centered.addView(body,new LinearLayout.LayoutParams(width,-2));scroll.addView(centered);
+        int width=Math.max(dp(160),Math.min(dp(640),root.dialogBounds().width()));centered.addView(body,new LinearLayout.LayoutParams(width,-2));scroll.addView(centered);
         LinearLayout toolbar=horizontal();toolbar.setGravity(Gravity.CENTER_VERTICAL);Button back=iconButton(R.drawable.outline_arrow_back_24,t("close"),ink);back.setOnClickListener(v->dialog.dismiss());toolbar.addView(back,new LinearLayout.LayoutParams(dp(48),dp(48)));toolbar.addView(label(t("verificationTitle"),20,ink),new LinearLayout.LayoutParams(0,-2,1));body.addView(toolbar);
         TextView name=label(safe(controller.selectedName),18,ink);name.setTypeface(null,Typeface.BOLD);body.addView(name);
         verificationConnection=label(t("encryptionActive"),13,accent);verificationConnection.setCompoundDrawablePadding(dp(6));verificationConnection.setCompoundDrawablesWithIntrinsicBounds(R.drawable.outline_lock_24,0,0,0);verificationConnection.setCompoundDrawableTintList(ColorStateList.valueOf(accent));body.addView(verificationConnection);
@@ -1162,13 +1178,13 @@ public final class MainActivity extends Activity {
         ImageView qr=new ImageView(this);qr.setContentDescription(t("verificationQrImage"));qr.setBackgroundColor(Color.WHITE);qr.setScaleType(ImageView.ScaleType.FIT_CENTER);int edge=Math.max(dp(128),Math.min(dp(260),width-dp(80)));card.addView(qr,new LinearLayout.LayoutParams(edge,edge));
         verificationWork(()->{Bitmap bitmap=verificationBitmap(expected);ui.post(()->{if(verificationDialog==dialog&&dialog.isShowing())qr.setImageBitmap(bitmap);else bitmap.recycle();});});
         TextView code=label(expected.code.display(),17,ink);code.setTypeface(Typeface.MONOSPACE);code.setTextIsSelectable(true);code.setGravity(Gravity.CENTER);code.setPadding(0,dp(20),0,dp(20));card.addView(code,new LinearLayout.LayoutParams(-1,-2));
-        verificationMark=button(t("verificationMark"),true);verificationMark.setOnClickListener(v->new AlertDialog.Builder(this).setTitle(t("verifyIdentity")).setMessage(t("verificationConfirm")).setPositiveButton(t("verificationMark"),(d,w)->saveVerification(expected,null)).setNegativeButton(t("cancel"),null).show());card.addView(verificationMark,new LinearLayout.LayoutParams(-1,-2));
+        verificationMark=button(t("verificationMark"),true);verificationMark.setOnClickListener(v->new AdaptiveDialogBuilder().setTitle(t("verifyIdentity")).setMessage(t("verificationConfirm")).setPositiveButton(t("verificationMark"),(d,w)->saveVerification(expected,null)).setNegativeButton(t("cancel"),null).show());card.addView(verificationMark,new LinearLayout.LayoutParams(-1,-2));
         verificationScan=verificationAction("verificationScan",R.drawable.outline_qr_code_scanner_24,()->{pendingVerification=expected;verificationBusy=true;updateVerificationDialog();startActivityForResult(new Intent(this,QrScanActivity.class),955);});body.addView(verificationScan,new LinearLayout.LayoutParams(-1,-2));
-        verificationImage=verificationAction("verificationImage",R.drawable.outline_photo_24,()->new AlertDialog.Builder(this).setTitle(t("verificationImage")).setMessage(t("verificationExplain")).setPositiveButton(t("gotIt"),(d,w)->{pendingVerification=expected;verificationBusy=true;updateVerificationDialog();Intent pick=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("image/*").addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(pick,956);}).setNegativeButton(t("cancel"),null).show());body.addView(verificationImage,new LinearLayout.LayoutParams(-1,-2));
+        verificationImage=verificationAction("verificationImage",R.drawable.outline_photo_24,()->new AdaptiveDialogBuilder().setTitle(t("verificationImage")).setMessage(t("verificationExplain")).setPositiveButton(t("gotIt"),(d,w)->{pendingVerification=expected;verificationBusy=true;updateVerificationDialog();Intent pick=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("image/*").addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(pick,956);}).setNegativeButton(t("cancel"),null).show());body.addView(verificationImage,new LinearLayout.LayoutParams(-1,-2));
         Button copy=iconButton(R.drawable.outline_content_copy_24,t("verificationCopy"),ink);copy.setOnClickListener(v->{((ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText(t("verificationTitle"),expected.code.display()));toast(t("verificationCopyDone"));});toolbar.addView(copy,new LinearLayout.LayoutParams(dp(44),dp(48)));
         verificationExport=iconButton(R.drawable.outline_file_download_24,t("verificationSaveQr"),ink);verificationExport.setOnClickListener(v->{pendingVerification=expected;verificationBusy=true;updateVerificationDialog();startActivityForResult(new Intent(Intent.ACTION_CREATE_DOCUMENT).setType("image/png").addCategory(Intent.CATEGORY_OPENABLE).putExtra(Intent.EXTRA_TITLE,"wozai-safety-code.png"),957);});toolbar.addView(verificationExport,new LinearLayout.LayoutParams(dp(44),dp(48)));
         verificationNotice=label("",14,muted);body.addView(verificationNotice);body.addView(label(t("verificationExplain"),14,muted));body.addView(label(t("verificationLocalOnly"),13,muted));
-        dialog.setContentView(scroll);dialog.setOnDismissListener(d->{qr.setImageDrawable(null);if(verificationDialog==dialog){verificationDialog=null;verificationSnapshot=null;verificationConnection=null;verificationIdentity=null;verificationNotice=null;verificationMark=null;verificationScan=null;verificationImage=null;verificationExport=null;pendingVerification=null;pendingVerificationCode=null;verificationBusy=false;}});dialog.show();dialog.getWindow().setLayout(-1,-1);dialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(background));updateVerificationDialog();
+        dialog.setContentView(scroll);dialog.setOnDismissListener(d->{qr.setImageDrawable(null);if(verificationDialog==dialog){verificationDialog=null;verificationSnapshot=null;verificationConnection=null;verificationIdentity=null;verificationNotice=null;verificationMark=null;verificationScan=null;verificationImage=null;verificationExport=null;pendingVerification=null;pendingVerificationCode=null;verificationBusy=false;}});dialog.show();adaptiveDialogs.put(dialog,true);fitAdaptiveDialog(dialog,true);dialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(background));updateVerificationDialog();
     }
     private void updateVerificationDialog(){
         if(verificationDialog==null||verificationSnapshot==null||verificationMark==null)return;boolean current=controller!=null&&controller.verificationCurrent(verificationSnapshot),verified=current&&controller.identityVerified(verificationSnapshot.peerId);
@@ -1192,13 +1208,13 @@ public final class MainActivity extends Activity {
     }
     private void clearConversation() {
         if (controller == null || controller.selectedId == null) return; String selected = controller.selectedId;
-        new AlertDialog.Builder(this).setTitle(t("clearAndroidTitle", safe(controller.selectedName))).setMessage(t("clearHistoryWarning"))
+        new AdaptiveDialogBuilder().setTitle(t("clearAndroidTitle", safe(controller.selectedName))).setMessage(t("clearHistoryWarning"))
             .setPositiveButton(t("clearHistoryAction"), (d, w) -> { if (controller != null && Objects.equals(selected, controller.selectedId)) { deferredScrollPeer = null; historyPositions.remove(selected); controller.clearConversation(); } })
             .setNegativeButton(t("cancel"), null).show();
     }
     private void deviceInfo(String id, String name) {
         if (controller == null || id == null) return; boolean trusted = controller.isTrusted(id);
-        AlertDialog.Builder builder = new AlertDialog.Builder(this).setTitle(safe(name)).setMessage(t(trusted ? "deviceInfoTrusted" : "deviceInfoUntrusted", id)).setNegativeButton(t("close"), null);
+        AlertDialog.Builder builder = new AdaptiveDialogBuilder().setTitle(safe(name)).setMessage(t(trusted ? "deviceInfoTrusted" : "deviceInfoUntrusted", id)).setNegativeButton(t("close"), null);
         LinearLayout identity=vertical();identity.setGravity(Gravity.CENTER_HORIZONTAL);identity.setPadding(dp(24),dp(12),dp(24),dp(12));identity.addView(avatar(id,name,88),new LinearLayout.LayoutParams(dp(88),dp(88)));builder.setView(identity);
         if (trusted) {
             builder.setPositiveButton(t("revoke"), (d, w) -> confirmRevoke(id, name, false));
@@ -1207,7 +1223,7 @@ public final class MainActivity extends Activity {
         builder.show();
     }
     private void confirmRevoke(String id, String name, boolean disconnect) {
-        new AlertDialog.Builder(this).setTitle(t("revokeAndroidTitle", safe(name))).setMessage(t("revokeAndroidBody"))
+        new AdaptiveDialogBuilder().setTitle(t("revokeAndroidTitle", safe(name))).setMessage(t("revokeAndroidBody"))
             .setPositiveButton(disconnect ? t("revokeAndDisconnect") : t("revoke"), (d, w) -> { if (controller != null) { controller.revokeTrust(id); if (disconnect && Objects.equals(id, controller.connectedPeerId)) controller.disconnect(); } })
             .setNegativeButton(t("back"), null).show();
     }
@@ -1216,7 +1232,7 @@ public final class MainActivity extends Activity {
         selections.add(LanguageRegistry.SYSTEM); labels.add(t("systemLanguage"));
         for (LanguageRegistry.Language language : LanguageRegistry.languages()) { selections.add(language.tag); labels.add(language.nativeName); }
         int selected = selections.indexOf(AppLanguage.selection(this));
-        new AlertDialog.Builder(this).setTitle(t("language")).setSingleChoiceItems(labels.toArray(new String[0]), selected, (dialog, which) -> {
+        new AdaptiveDialogBuilder().setTitle(t("language")).setSingleChoiceItems(labels.toArray(new String[0]), selected, (dialog, which) -> {
             String selection = selections.get(which); dialog.dismiss();
             if (selection.equals(AppLanguage.selection(this))) return;
             saveDraftAndPosition(); AppLanguage.select(this, selection);
@@ -1229,10 +1245,10 @@ public final class MainActivity extends Activity {
     private void editNickname() {
         if (controller == null) return; EditText name = new EditText(this); name.setText(controller.nickname); name.setSingleLine(true); name.setSelectAllOnFocus(true); name.setFilters(new InputFilter[]{new InputFilter.LengthFilter(32)});
         LinearLayout box = vertical(); box.setPadding(dp(24), dp(8), dp(24), 0); box.addView(name);
-        new AlertDialog.Builder(this).setTitle(t("yourNickname")).setView(box).setPositiveButton(t("save"), (d, w) -> { if (controller != null) controller.setNickname(name.getText().toString()); }).setNegativeButton(t("cancel"), null).show();
+        new AdaptiveDialogBuilder().setTitle(t("yourNickname")).setView(box).setPositiveButton(t("save"), (d, w) -> { if (controller != null) controller.setNickname(name.getText().toString()); }).setNegativeButton(t("cancel"), null).show();
     }
     private void showHelp() {
-        new AlertDialog.Builder(this).setTitle(t("help")).setMessage(t("androidHelpBody"))
+        new AdaptiveDialogBuilder().setTitle(t("help")).setMessage(t("androidHelpBody"))
             .setPositiveButton(t("gotIt"), null).show();
     }
     private LinearLayout settingsRow(String title, TextView detailView, Runnable action) {
@@ -1247,6 +1263,18 @@ public final class MainActivity extends Activity {
     }
     private void hideKeyboard() { ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(root.getWindowToken(), 0); root.requestFocus(); }
     private void appSettings() { startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName()))); }
+    private final class AdaptiveDialogBuilder extends AlertDialog.Builder {
+        AdaptiveDialogBuilder(){super(MainActivity.this);}
+        public AlertDialog create(){AlertDialog dialog=super.create();dialog.setOnShowListener(ignored->{adaptiveDialogs.put(dialog,false);fitAdaptiveDialog(dialog,false);});return dialog;}
+        public AlertDialog show(){AlertDialog dialog=create();dialog.show();return dialog;}
+    }
+    private void fitOpenDialogs(){for(var entry:new ArrayList<>(adaptiveDialogs.entrySet()))if(entry.getKey()!=null&&entry.getKey().isShowing())fitAdaptiveDialog(entry.getKey(),entry.getValue());}
+    private void fitAdaptiveDialog(android.app.Dialog dialog,boolean full){
+        Window window=dialog.getWindow();if(window==null||root==null||root.getWidth()==0)return;
+        android.graphics.Rect safe=root.dialogBounds();int margin=full?0:dp(12),width=Math.max(1,Math.min(full?safe.width():dp(560),safe.width()-2*margin)),maxHeight=Math.max(1,safe.height()-2*margin);
+        View decor=window.getDecorView();decor.measure(View.MeasureSpec.makeMeasureSpec(width,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(maxHeight,full?View.MeasureSpec.EXACTLY:View.MeasureSpec.AT_MOST));
+        WindowManager.LayoutParams params=window.getAttributes();params.gravity=Gravity.CENTER;params.x=safe.centerX()-root.getWidth()/2;params.y=safe.centerY()-root.getHeight()/2;params.width=width;params.height=full?maxHeight:Math.min(maxHeight,decor.getMeasuredHeight());window.setAttributes(params);
+    }
     private void toast(String message) { Toast.makeText(this, message, Toast.LENGTH_SHORT).show(); }
     private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
     private int color(String value) { return Color.parseColor(value); }

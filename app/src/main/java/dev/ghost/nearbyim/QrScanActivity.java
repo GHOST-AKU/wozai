@@ -20,6 +20,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /** Camera exists only while this internal scanner is visible; no frame is saved or sent. */
 @SuppressWarnings("deprecation")
 public final class QrScanActivity extends Activity implements SurfaceHolder.Callback {
+    private FoldWindow.SafeArea foldArea;
     private SurfaceView preview;
     private FrameLayout holder;
     private TextView status;
@@ -32,17 +33,22 @@ public final class QrScanActivity extends Activity implements SurfaceHolder.Call
     private boolean resumed;
     private int previewWidth,previewHeight,displayRotation;
     private boolean frontFacing;
+    private int sensorOrientation;
+    private android.hardware.display.DisplayManager displays;
+    private final android.hardware.display.DisplayManager.DisplayListener displayListener=new android.hardware.display.DisplayManager.DisplayListener(){public void onDisplayAdded(int id){}public void onDisplayRemoved(int id){}public void onDisplayChanged(int id){updatePreviewGeometry();}};
     private float pendingTapX=Float.NaN,pendingTapY=Float.NaN,focusTapX,focusTapY;
     private long lastFrame;
     private final AtomicBoolean decoding=new AtomicBoolean();
     private final ExecutorService worker=Executors.newSingleThreadExecutor();
+    protected void onStart(){super.onStart();if(foldArea!=null)foldArea.start();displays=getSystemService(android.hardware.display.DisplayManager.class);if(displays!=null)displays.registerDisplayListener(displayListener,focusHandler);}
+    protected void onStop(){if(displays!=null)displays.unregisterDisplayListener(displayListener);if(foldArea!=null)foldArea.stop();super.onStop();}
     protected void attachBaseContext(Context context){super.attachBaseContext(AppLanguage.wrap(context));}
     public void onCreate(Bundle saved){
         super.onCreate(saved);LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(Color.BLACK);
-        root.setOnApplyWindowInsetsListener((v,insets)->{if(Build.VERSION.SDK_INT>=30){android.graphics.Insets bars=insets.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.displayCutout());v.setPadding(bars.left,bars.top,bars.right,bars.bottom);}else v.setPadding(insets.getSystemWindowInsetLeft(),insets.getSystemWindowInsetTop(),insets.getSystemWindowInsetRight(),insets.getSystemWindowInsetBottom());return insets;});
+        foldArea=new FoldWindow.SafeArea(this,root);root.setOnApplyWindowInsetsListener((v,insets)->foldArea.windowInsets(insets,0,0,0,0));
         LinearLayout toolbar=new LinearLayout(this);toolbar.setGravity(Gravity.CENTER_VERTICAL);ImageButton back=new ImageButton(this);back.setImageResource(R.drawable.outline_arrow_back_24);back.setImageTintList(android.content.res.ColorStateList.valueOf(Color.WHITE));back.setBackgroundColor(Color.TRANSPARENT);back.setContentDescription(text("close"));back.setOnClickListener(v->finish());toolbar.addView(back,new LinearLayout.LayoutParams(dp(48),dp(56)));
         TextView title=new TextView(this);title.setText(text("verificationScan"));title.setTextColor(Color.WHITE);title.setTextSize(20);toolbar.addView(title);root.addView(toolbar);
-        holder=new FrameLayout(this);preview=new SurfaceView(this);preview.setTag("qrPreview");preview.getHolder().addCallback(this);preview.setContentDescription(text("verificationFocusHint"));preview.setFocusable(true);
+        holder=new FrameLayout(this);holder.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->{if(r-l!=or-ol||b-t!=ob-ot)updatePreviewGeometry();});preview=new SurfaceView(this);preview.setTag("qrPreview");preview.getHolder().addCallback(this);preview.setContentDescription(text("verificationFocusHint"));preview.setFocusable(true);
         preview.setOnClickListener(v->{float x=Float.isNaN(pendingTapX)?preview.getWidth()/2f:pendingTapX,y=Float.isNaN(pendingTapY)?preview.getHeight()/2f:pendingTapY;pendingTapX=pendingTapY=Float.NaN;focusAt(x,y);});
         preview.setOnTouchListener((v,event)->{if(event.getActionMasked()==MotionEvent.ACTION_UP){pendingTapX=event.getX();pendingTapY=event.getY();v.performClick();}else if(event.getActionMasked()==MotionEvent.ACTION_CANCEL){pendingTapX=pendingTapY=Float.NaN;}return true;});
         holder.addView(preview,new FrameLayout.LayoutParams(-1,-1));focusIndicator=new View(this);focusIndicator.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);focusIndicator.setVisibility(View.INVISIBLE);holder.addView(focusIndicator,new FrameLayout.LayoutParams(dp(72),dp(72)));root.addView(holder,new LinearLayout.LayoutParams(-1,0,1));
@@ -56,8 +62,21 @@ public final class QrScanActivity extends Activity implements SurfaceHolder.Call
     protected void onDestroy(){stopCamera();worker.shutdownNow();super.onDestroy();}
     public void onRequestPermissionsResult(int request,String[] permissions,int[] grants){super.onRequestPermissionsResult(request,permissions,grants);if(request==1){if(grants.length>0&&grants[0]==PackageManager.PERMISSION_GRANTED)startCamera();else status.setText(text("verificationCameraPermission"));}}
     public void surfaceCreated(SurfaceHolder surface){startCamera();}
-    public void surfaceChanged(SurfaceHolder surface,int format,int width,int height){}
+    public void surfaceChanged(SurfaceHolder surface,int format,int width,int height){updatePreviewGeometry();}
     public void surfaceDestroyed(SurfaceHolder surface){stopCamera();}
+    private void updatePreviewGeometry(){
+        Camera selected=camera;if(selected==null||holder==null||previewWidth<=0||previewHeight<=0)return;
+        int degrees=getWindowManager().getDefaultDisplay().getRotation()*90;
+        int rotation=frontFacing?(360-(sensorOrientation+degrees)%360)%360:(sensorOrientation-degrees+360)%360;
+        var fit=QrPreviewGeometry.fit(holder.getWidth(),holder.getHeight(),previewWidth,previewHeight,rotation);
+        if(fit.width()==0)return;
+        try{if(rotation!=displayRotation){selected.setDisplayOrientation(rotation);displayRotation=rotation;}}
+        catch(RuntimeException unavailable){return;}
+        ViewGroup.LayoutParams previous=preview.getLayoutParams();
+        if(previous.width!=fit.width()||previous.height!=fit.height()){
+            preview.setLayoutParams(new FrameLayout.LayoutParams(fit.width(),fit.height(),Gravity.CENTER));focusIndicator.setVisibility(View.INVISIBLE);pendingTapX=pendingTapY=Float.NaN;
+        }
+    }
     @android.annotation.SuppressLint("MissingPermission")
     private void startCamera(){
         if(!resumed||camera!=null||!preview.getHolder().getSurface().isValid()||checkSelfPermission(Manifest.permission.CAMERA)!=PackageManager.PERMISSION_GRANTED)return;
@@ -78,8 +97,8 @@ public final class QrScanActivity extends Activity implements SurfaceHolder.Call
                 public void remove(Runnable task){focusHandler.removeCallbacks(task);}
             },(state,area)->{if(camera==opened&&resumed)showFocusState(state,area);});cameraFocus=focus;focus.configure();
             int degrees=getWindowManager().getDefaultDisplay().getRotation()*90;int rotation=chosen.facing==Camera.CameraInfo.CAMERA_FACING_FRONT?(360-(chosen.orientation+degrees)%360)%360:(chosen.orientation-degrees+360)%360;opened.setDisplayOrientation(rotation);
-            previewWidth=size.width;previewHeight=size.height;displayRotation=rotation;frontFacing=chosen.facing==Camera.CameraInfo.CAMERA_FACING_FRONT;
-            int width=size.width,height=size.height;boolean swap=rotation%180!=0;float ratio=swap?(float)height/width:(float)width/height;holder.post(()->{if(camera==opened){int availableW=holder.getWidth(),availableH=holder.getHeight();int w=Math.min(availableW,Math.round(availableH*ratio));preview.setLayoutParams(new FrameLayout.LayoutParams(w,Math.round(w/ratio),Gravity.CENTER));}});
+            sensorOrientation=chosen.orientation;previewWidth=size.width;previewHeight=size.height;displayRotation=rotation;frontFacing=chosen.facing==Camera.CameraInfo.CAMERA_FACING_FRONT;
+            int width=size.width,height=size.height;holder.post(this::updatePreviewGeometry);
             opened.setPreviewDisplay(preview.getHolder());opened.setPreviewCallbackWithBuffer((data,source)->{
                 long now=SystemClock.elapsedRealtime();if(data!=null&&data.length>=width*height&&now-lastFrame>=250&&decoding.compareAndSet(false,true)){
                     lastFrame=now;byte[] luma=Arrays.copyOf(data,width*height);

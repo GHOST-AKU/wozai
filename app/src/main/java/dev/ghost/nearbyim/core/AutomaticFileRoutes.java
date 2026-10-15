@@ -9,7 +9,9 @@ import java.util.function.*;
 
 /** One authenticated FILE route for an approved chat; chat and engine generations never change. */
 public final class AutomaticFileRoutes implements AutoCloseable {
-    /** Native discovery/group/socket budget; identity binding gets a separate deadline. */
+    /** Target discovery after service advertising, without extending on duplicate callbacks. */
+    public static final long DIRECT_DISCOVERY_TIMEOUT_MS=5_000;
+    /** Total native startup/group/socket budget; identity binding gets a separate deadline. */
     public static final long DIRECT_OPEN_TIMEOUT_MS=50_000;
     private static final long LANE_HANDSHAKE_TIMEOUT_MS=15_000;
     public enum Route { WIFI_DIRECT, LAN, BLUETOOTH }

@@ -27,6 +27,8 @@ try {
     if($LASTEXITCODE -ne 0) { throw 'Attachment export location tests failed' }
     & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.TransferPathTests
     if($LASTEXITCODE -ne 0) { throw 'Transfer path tests failed' }
+    & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AdaptiveLayoutTests
+    if($LASTEXITCODE -ne 0) { throw 'Adaptive layout tests failed' }
     & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AutomaticFileRoutesTests
     if($LASTEXITCODE -ne 0) { throw 'Automatic file route tests failed' }
     & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentRouteDisconnectTests

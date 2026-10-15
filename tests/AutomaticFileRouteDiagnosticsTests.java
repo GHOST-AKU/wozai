@@ -6,6 +6,7 @@ import java.util.concurrent.*;
 public final class AutomaticFileRouteDiagnosticsTests {
     private static void check(boolean ok,String message){if(!ok)throw new AssertionError(message);}
     public static void main(String[] args)throws Exception {
+        check(AutomaticFileRoutes.class.getField("DIRECT_DISCOVERY_TIMEOUT_MS").getLong(null)==5_000,"Advertising without a target must fall back within five seconds");
         if(args.length>0&&args[0].equals("--slow-direct")){slowDirect();return;}
         try(AutomaticFileRoutesTests.Pair p=new AutomaticFileRoutesTests.Pair("lan",false,false)){
             check(p.a.files.diagnostics().contains("file_route_state=idle\n"),"An idle chat must not look like a stuck FILE negotiation");
