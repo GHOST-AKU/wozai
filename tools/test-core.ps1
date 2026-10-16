@@ -31,6 +31,12 @@ try {
     if($LASTEXITCODE -ne 0) { throw 'Adaptive layout tests failed' }
     & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AutomaticFileRoutesTests
     if($LASTEXITCODE -ne 0) { throw 'Automatic file route tests failed' }
+    & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.ExistingWifiReuseTests
+    if($LASTEXITCODE -ne 0) { throw 'Existing Wi-Fi reuse tests failed' }
+    & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AutomaticFileRouteDiagnosticsTests
+    if($LASTEXITCODE -ne 0) { throw 'File route diagnostics tests failed' }
+    & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AutomaticFileRouteDiagnosticsTests --slow-direct
+    if($LASTEXITCODE -ne 0) { throw 'Slow direct Wi-Fi diagnostics tests failed' }
     & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentRouteDisconnectTests
     if($LASTEXITCODE -ne 0) { throw 'File route disconnect checkpoint tests failed' }
     & ./tools/test-wifi-direct.ps1
@@ -73,10 +79,12 @@ try {
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.SafetyCodeTests
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-    & java -m jdk.compiler/com.sun.tools.javac.Main -encoding UTF-8 -d build/core-tests app/src/main/java/dev/ghost/nearbyim/QrCameraFocus.java app/src/main/java/dev/ghost/nearbyim/QrFocusPoint.java tests/camera/QrCameraFocusTests.java tests/camera/QrFocusPointTests.java
+    & java -m jdk.compiler/com.sun.tools.javac.Main -encoding UTF-8 -d build/core-tests app/src/main/java/dev/ghost/nearbyim/QrCameraFocus.java app/src/main/java/dev/ghost/nearbyim/QrFocusPoint.java app/src/main/java/dev/ghost/nearbyim/QrPreviewGeometry.java tests/camera/QrCameraFocusTests.java tests/camera/QrFocusPointTests.java tests/camera/QrPreviewGeometryTests.java
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     & java -cp build/core-tests dev.ghost.nearbyim.QrCameraFocusTests
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     & java -cp build/core-tests dev.ghost.nearbyim.QrFocusPointTests
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    & java -cp build/core-tests dev.ghost.nearbyim.QrPreviewGeometryTests
     exit $LASTEXITCODE
 } finally { Pop-Location }

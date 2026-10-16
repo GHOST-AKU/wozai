@@ -4,6 +4,10 @@ try {
     New-Item -ItemType Directory -Force build/wifi-direct-tests | Out-Null
     $sources = @(
         "app/src/main/java/dev/ghost/nearbyim/core/StreamConnection.java",
+        "app/src/main/java/dev/ghost/nearbyim/core/SocketPath.java",
+        "app/src/main/java/dev/ghost/nearbyim/core/LocalEndpoint.java",
+        "app/src/main/java/dev/ghost/nearbyim/i18n/UiText.java",
+        "app/src/main/java/dev/ghost/nearbyim/i18n/LocalizedIllegalArgumentException.java",
         "app/src/main/java/dev/ghost/nearbyim/transport/Peer.java",
         "app/src/main/java/dev/ghost/nearbyim/transport/WifiDirectPolicy.java",
         "app/src/main/java/dev/ghost/nearbyim/transport/WifiDirectSockets.java"
