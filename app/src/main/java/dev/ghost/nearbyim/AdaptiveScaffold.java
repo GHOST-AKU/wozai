@@ -19,6 +19,7 @@ final class AdaptiveScaffold extends ViewGroup {
     private AdaptiveLayout.Fold fold;
     private AdaptiveLayout.Plan plan;
     Runnable geometryChanging,geometryChanged;private Rect previousDialogBounds;
+    java.util.function.Consumer<Boolean> navigationChanged;
     AdaptiveScaffold(Context context){super(context);setWillNotDraw(false);}
     void bind(View heading,View error,View home,View nearby,View settings,View chat,View empty,LinearLayout navigation,int lineColor){
         this.heading=heading;this.error=error;this.home=home;this.nearby=nearby;this.settings=settings;this.chat=chat;this.empty=empty;this.navigation=navigation;divider.setColor(lineColor);requestLayout();
@@ -32,8 +33,14 @@ final class AdaptiveScaffold extends ViewGroup {
         if(navigation.getOrientation()==(rail?LinearLayout.VERTICAL:LinearLayout.HORIZONTAL)&&railConfigured)return;
         railConfigured=true;navigation.setOrientation(rail?LinearLayout.VERTICAL:LinearLayout.HORIZONTAL);
         navigation.setGravity(rail?Gravity.TOP|Gravity.CENTER_HORIZONTAL:Gravity.CENTER);
-        navigation.setPadding(dp(rail?4:12),dp(rail?16:9),dp(rail?4:12),dp(7));
-        for(int i=0;i<navigation.getChildCount();i++)navigation.getChildAt(i).setLayoutParams(rail?new LinearLayout.LayoutParams(-1,-2):new LinearLayout.LayoutParams(0,-2,1));
+        navigation.setPadding(dp(rail?4:12),dp(rail?16:9),dp(rail?4:12),dp(rail?16:7));
+        for(int i=0;i<navigation.getChildCount();i++){
+            View child=navigation.getChildAt(i);Object tag=child.getTag();
+            if(tag instanceof Float weight){visible(child,rail);child.setLayoutParams(new LinearLayout.LayoutParams(-1,dp(16),weight));}
+            else if("railCompose".equals(tag)){visible(child,rail);child.setLayoutParams(new LinearLayout.LayoutParams(-1,-2));}
+            else child.setLayoutParams(rail?new LinearLayout.LayoutParams(-1,-2):new LinearLayout.LayoutParams(0,-2,1));
+        }
+        if(navigationChanged!=null)navigationChanged.accept(rail);
     }
     private int wrap(View view,int width,int maxHeight){
         if(view.getVisibility()==GONE)return 0;

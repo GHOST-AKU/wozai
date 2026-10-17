@@ -53,14 +53,28 @@ public final class AdaptiveInstrumentation extends Instrumentation {
             AdaptiveScaffold root=field(activity,"root");View home=field(activity,"homePage"),chat=field(activity,"chatPage");LinearLayout nav=field(activity,"bottomNav");
             String peer=UUID.randomUUID().toString();controller.selectConversation(new ChatStore.Conversation(peer,"Tablet peer",0));set(activity,"detail",true);invoke(activity,"render");
             EditText draft=field(activity,"composer");draft.setText("fold draft 中文");draft.setSelection(2,5);Object sameDraft=draft;
-            for(int width:new int[]{360,599,600,839,840,1280}){
+            for(int width:new int[]{360,599,600,727,728,800,839,840,1280}){
                 root.fold(null);measure(root,width,800);
-                check(root.dualPane()==(width>=840),"Actual panes follow "+width+"dp breakpoint");
-                check(home.getVisibility()==(width>=840?View.VISIBLE:View.GONE)&&chat.getVisibility()==View.VISIBLE,"List/chat visibility follows actual available space");
+                check(root.dualPane()==(width>=728),"Actual panes follow "+width+"dp breakpoint");
+                check(home.getVisibility()==(width>=728?View.VISIBLE:View.GONE)&&chat.getVisibility()==View.VISIBLE,"List/chat visibility follows actual available space");
                 check(width>=600?nav.getVisibility()==View.VISIBLE&&nav.getOrientation()==LinearLayout.VERTICAL:nav.getVisibility()==View.GONE,"Detail navigation adapts without rebuilding controls");
                 check(draft==sameDraft&&draft.getText().toString().equals("fold draft 中文")&&draft.getSelectionStart()==2&&draft.getSelectionEnd()==5,"Resize preserves composer and selected text");
-                if(width>=840)check(home.getRight()<=chat.getLeft(),"Actual child bounds do not overlap");
+                if(width>=728)check(home.getRight()<=chat.getLeft(),"Actual child bounds do not overlap");
+                if(width>=600){
+                    LinearLayout[] destinations=field(activity,"navItems");
+                    View compose=nav.findViewWithTag("railCompose");
+                    check(compose.getVisibility()==View.VISIBLE&&compose.getBottom()<destinations[0].getTop(),"New chat is separated from destinations");
+                    check(destinations[0].getBottom()+dp(16)<=destinations[1].getTop()&&destinations[1].getBottom()+dp(16)<=destinations[2].getTop(),"Rail destinations have real space between targets");
+                    check(destinations[2].getBottom()<=nav.getHeight()-dp(16),"Settings stays inside the rail bottom inset");
+                    View pill=destinations[0].findViewWithTag("pill");destinations[0].setPressed(true);
+                    check(android.util.StateSet.stateSetMatches(new int[]{android.R.attr.state_pressed},pill.getDrawableState())&&pill.getForeground() instanceof android.graphics.drawable.RippleDrawable&&destinations[0].getBackground()==null,"Only the small capsule draws press feedback");
+                    destinations[0].setPressed(false);
+                }
             }
+            set(activity,"detail",false);invoke(activity,"render");measure(root,360,800);
+            check(nav.findViewWithTag("railCompose").getVisibility()==View.GONE&&nav.getOrientation()==LinearLayout.HORIZONTAL,"Phone navigation omits rail-only action and gaps");
+            set(activity,"detail",true);invoke(activity,"render");
+            reconnectGeometry();
             int unit=dp(1);root.fold(new AdaptiveLayout.Fold(dp(480),0,dp(520),dp(800),true,true,true));measure(root,1000,800);
             check(home.getRight()<=dp(480)&&chat.getLeft()>=dp(520),"Native views avoid the simulated hinge");
             root.fold(new AdaptiveLayout.Fold(0,dp(400),dp(1000),dp(440),false,true,false));measure(root,1000,900);
@@ -73,6 +87,19 @@ public final class AdaptiveInstrumentation extends Instrumentation {
         });
         waitForIdleSync();screenshot("tablet-layout.png");
     }
+    private void reconnectGeometry(){
+        AdaptiveReconnectActions row=new AdaptiveReconnectActions(activity);
+        TextView hint=new TextView(activity);hint.setText("Remembered device. The other device needs to enable reception. 已记住设备，对方需要开启接收。");
+        Button connect=new Button(activity);connect.setText("Connect 连接");Button nearby=new Button(activity);nearby.setText("Find nearby 去附近查找");
+        row.addView(hint);row.addView(connect);row.addView(nearby);
+        for(float size:new float[]{13,26})for(int width:new int[]{240,360,480,900})for(int direction:new int[]{View.LAYOUT_DIRECTION_LTR,View.LAYOUT_DIRECTION_RTL}){
+            hint.setTextSize(size);connect.setTextSize(size);nearby.setTextSize(size);row.setLayoutDirection(direction);
+            row.measure(View.MeasureSpec.makeMeasureSpec(dp(width),View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(0,View.MeasureSpec.UNSPECIFIED));row.layout(0,0,row.getMeasuredWidth(),row.getMeasuredHeight());
+            for(View child:new View[]{hint,connect,nearby})check(child.getLeft()>=0&&child.getRight()<=row.getWidth()&&child.getTop()>=0&&child.getBottom()<=row.getHeight(),"Connection hint/action bounds fit at "+width+"dp and "+size+"sp");
+            check(!android.graphics.Rect.intersects(bounds(hint),bounds(connect))&&!android.graphics.Rect.intersects(bounds(connect),bounds(nearby)),"Connection actions never overlap wrapped text or each other");
+        }
+    }
+    private android.graphics.Rect bounds(View view){return new android.graphics.Rect(view.getLeft(),view.getTop(),view.getRight(),view.getBottom());}
     private void liveContinuity()throws Exception {
         onMain(()->{Method start=MainActivity.class.getDeclaredMethod("startTransport",int.class);start.setAccessible(true);start.invoke(activity,Peer.LAN);return null;});
         await(()->onMain(()->{Object service=field(activity,"service");return service!=null&&Boolean.TRUE.equals(field(service,"foreground"));}),"Production start action retains a foreground service before recreation");

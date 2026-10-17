@@ -269,12 +269,12 @@ public final class MainActivity extends Activity {
             if (r - l != oldR - oldL) { applyRootPadding(); updateMessageWidths(); }
         });
         header = horizontal(); header.setGravity(Gravity.CENTER_VERTICAL); header.setPadding(dp(16), dp(14), dp(16), dp(10));
-        pageTitle = label(t("app"), 32, ink); pageTitle.setTypeface(null, Typeface.BOLD); header.addView(pageTitle, new LinearLayout.LayoutParams(0, -2, 1));
+        pageTitle = label(t("app"), 32, ink); pageTitle.setTypeface(null, Typeface.BOLD); singleLine(pageTitle); header.addView(pageTitle, new LinearLayout.LayoutParams(0, -2, 1));
         LinearLayout indicator = horizontal(); indicator.setGravity(Gravity.CENTER_VERTICAL); networkIcon = icon(R.drawable.outline_wifi_24, accent, "");
         networkIcon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO); indicator.addView(networkIcon, new LinearLayout.LayoutParams(dp(28), dp(28)));
-        LinearLayout networkText = vertical(); networkText.setPadding(dp(6), 0, 0, 0); networkName = label("", 13, ink); networkName.setTypeface(null, Typeface.BOLD);
-        networkState = label(t("idle"), 12, muted); networkText.addView(networkName); networkText.addView(networkState); indicator.addView(networkText);
-        indicator.setPadding(dp(8), dp(4), 0, dp(4)); header.addView(indicator); root.addView(header);
+        LinearLayout networkText = vertical(); networkText.setPaddingRelative(dp(6), 0, 0, 0); networkName = label("", 13, ink); networkName.setTypeface(null, Typeface.BOLD);
+        networkState = label(t("idle"), 12, muted); singleLine(networkName);singleLine(networkState);networkName.setMaxWidth(dp(112));networkState.setMaxWidth(dp(112)); networkText.addView(networkName); networkText.addView(networkState); indicator.addView(networkText);
+        indicator.setPaddingRelative(dp(8), dp(4), 0, dp(4)); header.addView(indicator); root.addView(header);
         errorView = label("", 13, ink); errorView.setPadding(dp(16), dp(10), dp(16), dp(10)); errorView.setBackgroundColor(tonal);
         errorView.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE); root.addView(errorView);
         homePage = vertical(); nearbyPage = vertical(); settingsPage = vertical(); chatPage = vertical();
@@ -283,6 +283,11 @@ public final class MainActivity extends Activity {
         buildHome(); buildNearby(); buildSettings(); buildChat(); buildNavigation();
         LinearLayout placeholder=empty(t("chats"),t("noMessageTitle"));root.addView(placeholder);
         root.bind(header,errorView,homePage,nearbyPage,settingsPage,chatPage,placeholder,bottomNav,line);
+        root.navigationChanged=rail->{
+            bottomNav.setBackground(shape(rail?surface:background,0));
+            pageTitle.setTextSize(rail?24:32);header.setPadding(dp(16),dp(rail?8:14),dp(16),dp(rail?8:10));
+            updateHomeActionPlacement(rail);
+        };
         root.geometryChanging=()->{if(!rebuildingMessages&&chatPage.getVisibility()==View.VISIBLE&&renderedPeer!=null&&messageScroll.getWidth()>0)pendingTimelinePosition=captureTimelinePosition();};
         root.geometryChanged=()->{fitOpenDialogs();if(pendingTimelinePosition!=null){messageScroll.removeCallbacks(restoreTimelinePosition);messageScroll.post(restoreTimelinePosition);}};foldWindow=new FoldWindow(this,root::fold);root.requestApplyInsets();
     }
@@ -292,16 +297,30 @@ public final class MainActivity extends Activity {
     private void buildNavigation() {
         bottomNav = horizontal(); bottomNav.setGravity(Gravity.CENTER); bottomNav.setPadding(dp(12), dp(9), dp(12), dp(7));
         GradientDrawable navSurface = shape(background, 0); bottomNav.setBackground(navSurface);
+        LinearLayout compose = vertical();compose.setTag("railCompose");compose.setGravity(Gravity.CENTER);
+        Button composeAction=iconButton(R.drawable.outline_add_24,t("newChat"),accentInk);composeAction.setBackground(ripple(accent,18));
+        composeAction.setOnClickListener(v->navigate(1));compose.addView(composeAction,new LinearLayout.LayoutParams(dp(56),dp(56)));
+        TextView composeLabel=label(t("newChat"),13,muted);composeLabel.setGravity(Gravity.CENTER);composeLabel.setMaxLines(2);composeLabel.setEllipsize(TextUtils.TruncateAt.END);compose.addView(composeLabel);
+        bottomNav.addView(compose);navigationGap(1);
         String[] labels = {t("chats"), t("nearby"), t("settings")}; int[] icons = {R.drawable.outline_chat_bubble_24, R.drawable.outline_wifi_tethering_24, R.drawable.outline_settings_24};
         for (int i = 0; i < 3; i++) {
             final int selected = i; LinearLayout item = vertical(); item.setGravity(Gravity.CENTER); item.setMinimumHeight(dp(64)); item.setContentDescription(labels[i]);
-            item.setFocusable(true); item.setClickable(true); item.setOnClickListener(v -> navigate(selected)); item.setBackground(ripple(background, 16));
+            item.setFocusable(true); item.setClickable(true); item.setOnClickListener(v -> navigate(selected));
             FrameLayout pill = new FrameLayout(this); pill.setTag("pill"); ImageView icon = icon(icons[i], muted, ""); icon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            pill.setDuplicateParentStateEnabled(true);pill.setForeground(ripple(Color.TRANSPARENT,20));
             FrameLayout.LayoutParams imageParams = new FrameLayout.LayoutParams(dp(25), dp(25), Gravity.CENTER); pill.addView(icon, imageParams);
             item.addView(pill, new LinearLayout.LayoutParams(dp(72), dp(32))); TextView text = label(labels[i], 13, muted); text.setGravity(Gravity.CENTER);
+            text.setMaxLines(2);text.setEllipsize(TextUtils.TruncateAt.END);
             item.addView(text); navItems[i] = item; navIcons[i] = icon; navLabels[i] = text; bottomNav.addView(item, new LinearLayout.LayoutParams(0, -2, 1));
+            if(i<2)navigationGap(i==0?1:3);
         }
         root.addView(bottomNav);
+    }
+    private void navigationGap(float weight){View gap=new View(this);gap.setTag(Float.valueOf(weight));gap.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);bottomNav.addView(gap);}
+    private void updateHomeActionPlacement(boolean rail){
+        boolean show=!rail&&controller!=null&&!controller.conversations.isEmpty();
+        newChatButton.setVisibility(show?View.VISIBLE:View.GONE);
+        historyScroll.setPadding(dp(16),0,dp(16),dp(show?88:16));
     }
     static int normalizeChatMode(int mode){return mode==Peer.BLUETOOTH?Peer.BLUETOOTH:Peer.LAN;}
     private void chooseMode(int chosen) {
@@ -309,7 +328,6 @@ public final class MainActivity extends Activity {
     }
     private void navigate(int selected) {
         saveDraftAndPosition(); detail = false; page = selected; hideKeyboard(); render();
-        animatePage(selected == 0 ? homePage : selected == 1 ? nearbyPage : settingsPage);
     }
     private void buildHome() {
         LinearLayout searchRow = horizontal(); searchRow.setGravity(Gravity.CENTER_VERTICAL); searchRow.setPadding(dp(14), 0, dp(4), 0); searchRow.setBackground(shape(surface, 28)); searchRow.setMinimumHeight(dp(48));
@@ -398,13 +416,13 @@ public final class MainActivity extends Activity {
         LinearLayout chatHeader = horizontal(); chatHeader.setGravity(Gravity.CENTER_VERTICAL); chatHeader.setPadding(dp(8), dp(8), dp(8), dp(8));
         Button back = iconButton(R.drawable.outline_arrow_back_24, t("backToChats"), ink); back.setOnClickListener(v -> handleBack()); chatHeader.addView(back, new LinearLayout.LayoutParams(dp(48), dp(48)));
         chatAvatarBox = vertical(); chatHeader.addView(chatAvatarBox, new LinearLayout.LayoutParams(dp(40), dp(40)));
-        LinearLayout names = vertical(); names.setPadding(dp(12), 0, dp(4), 0); chatName = label("", 18, ink); chatName.setTypeface(null, Typeface.BOLD); singleLine(chatName);
+        LinearLayout names = vertical(); names.setPaddingRelative(dp(12), 0, dp(4), 0); chatName = label("", 18, ink); chatName.setTypeface(null, Typeface.BOLD); singleLine(chatName);
         chatStatus = label(t("idle"), 12, muted); names.addView(chatName); names.addView(chatStatus); chatHeader.addView(names, new LinearLayout.LayoutParams(0, -2, 1));
         Button more = iconButton(R.drawable.outline_more_vert_24, t("more"), ink); more.setOnClickListener(this::chatMenu); chatHeader.addView(more, new LinearLayout.LayoutParams(dp(48), dp(48))); chatPage.addView(chatHeader);
-        reconnectRow = vertical(); reconnectRow.setPadding(dp(16), dp(4), dp(16), dp(10)); reconnectHint = label("", 13, muted); reconnectRow.addView(reconnectHint);
-        LinearLayout reconnectActions = horizontal(); reconnectButton = button(t("reconnect"), true); reconnectButton.setOnClickListener(v -> { if (controller != null && outgoingRequest && (controller.connecting || controller.hasSession() && !controller.connected)) { outgoingRequest = false; controller.disconnect(); } else reconnectSelected(); });
-        reconnectActions.addView(reconnectButton, new LinearLayout.LayoutParams(0, -2, 1)); Button find = button(t("findNearby"), false); find.setOnClickListener(v -> navigate(1));
-        LinearLayout.LayoutParams findParams = new LinearLayout.LayoutParams(0, -2, 1); findParams.setMarginStart(dp(8)); reconnectActions.addView(find, findParams); reconnectRow.addView(reconnectActions); chatPage.addView(reconnectRow);
+        reconnectRow = vertical(); reconnectRow.setPadding(dp(16), dp(4), dp(16), dp(10)); reconnectHint = label("", 13, muted);
+        AdaptiveReconnectActions reconnectActions = new AdaptiveReconnectActions(this);reconnectActions.addView(reconnectHint); reconnectButton = button(t("reconnect"), true); reconnectButton.setOnClickListener(v -> { if (controller != null && outgoingRequest && (controller.connecting || controller.hasSession() && !controller.connected)) { outgoingRequest = false; controller.disconnect(); } else reconnectSelected(); });
+        reconnectActions.addView(reconnectButton); Button find = button(t("findNearby"), false); find.setOnClickListener(v -> navigate(1));
+        reconnectActions.addView(find); reconnectRow.addView(reconnectActions); chatPage.addView(reconnectRow);
         messageScroll = new ScrollView(this); messageScroll.setFillViewport(true); messageScroll.setClipToPadding(false); messageScroll.setPadding(dp(16), 0, dp(16), 0);
         bubbles = vertical(); bubbles.setPadding(0, dp(8), 0, dp(12)); messageScroll.addView(bubbles); chatPage.addView(messageScroll, new LinearLayout.LayoutParams(-1, 0, 1));
         messageScroll.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
@@ -495,8 +513,7 @@ public final class MainActivity extends Activity {
             TextView time = label(conversation.time > 0 ? listTime(conversation.time) : "", 12, muted); time.setGravity(Gravity.END); row.addView(time);
             row.setFocusable(true); row.setClickable(true); row.setOnClickListener(v -> openConversation(conversation)); historyList.addView(row);
         }
-        boolean emptyHistory = conversations.isEmpty(); newChatButton.setVisibility(emptyHistory ? View.GONE : View.VISIBLE);
-        historyScroll.setPadding(dp(16), 0, dp(16), emptyHistory ? dp(16) : dp(88));
+        boolean emptyHistory = conversations.isEmpty(); updateHomeActionPlacement(bottomNav.getOrientation()==LinearLayout.VERTICAL);
         if (count == 0) {
             if (emptyHistory && query.isEmpty()) {
                 LinearLayout empty = empty(t("noChatsTitle"), t("noChatsBody")); Button find = button(t("findPeopleNearby"), true); find.setOnClickListener(v -> navigate(1)); empty.addView(find, topSpace()); historyList.addView(empty);

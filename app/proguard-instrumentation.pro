@@ -119,6 +119,7 @@
 
 # Targeted adaptive-window suite measures existing Views and preserves its synthetic hinge API.
 -keep class dev.ghost.nearbyim.AdaptiveScaffold { *; }
+-keep class dev.ghost.nearbyim.AdaptiveReconnectActions { *; }
 -keep class dev.ghost.nearbyim.core.AdaptiveLayout { public *; }
 -keep class dev.ghost.nearbyim.core.AdaptiveLayout$* { public *; }
 -keepclassmembers class dev.ghost.nearbyim.ChatController {
