@@ -120,6 +120,19 @@
     dev.ghost.nearbyim.transport.TransportListener listener;
 }
 -keep class dev.ghost.nearbyim.core.DirectGroupCredentials { public *; }
+# Native API34 group snapshots exercise the real handler and queued-cancel lifecycle.
+-keepclassmembers class dev.ghost.nearbyim.transport.WifiDirectTransport {
+    dev.ghost.nearbyim.transport.WifiDirectPolicy$Lifecycle lifecycle;
+    dev.ghost.nearbyim.transport.WifiDirectTransport$CoordinatedGroup coordinated;
+    long run;
+    long attempt;
+    void handleCoordinatedGroup(long,android.net.wifi.p2p.WifiP2pInfo,android.net.wifi.p2p.WifiP2pGroup);
+}
+-keep class dev.ghost.nearbyim.transport.WifiDirectTransport$CoordinatedGroup { *; }
+-keep class dev.ghost.nearbyim.transport.WifiDirectPolicy$KnownGroup { *; }
+-keep class dev.ghost.nearbyim.transport.WifiDirectPolicy$GroupReadiness { *; }
+-keep enum dev.ghost.nearbyim.transport.WifiDirectPolicy$GroupReadiness$State { *; }
+-keep class dev.ghost.nearbyim.transport.WifiDirectPolicy$Lifecycle { *; }
 
 # Targeted adaptive-window suite measures existing Views and preserves its synthetic hinge API.
 -keep class dev.ghost.nearbyim.AdaptiveScaffold { *; }

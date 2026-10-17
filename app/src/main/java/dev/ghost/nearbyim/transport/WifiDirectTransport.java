@@ -52,7 +52,8 @@ public final class WifiDirectTransport {
     private static final class CoordinatedGroup {
         final boolean owner;final String peerId;final DirectGroupCredentials parameters;final WifiDirectPolicy.KnownGroup policy;
         final java.util.function.Consumer<DirectGroupCredentials> ready;
-        boolean observed;
+        final WifiDirectPolicy.GroupReadiness readiness=new WifiDirectPolicy.GroupReadiness(INTERFACE_MS);
+        boolean observed;Runnable retry,timeout;
         CoordinatedGroup(String peerId,boolean owner,boolean prefer5,DirectGroupCredentials parameters,java.util.function.Consumer<DirectGroupCredentials> ready){
             this.peerId=peerId;this.owner=owner;this.parameters=parameters;this.ready=ready;policy=new WifiDirectPolicy.KnownGroup(parameters.ssid,owner,prefer5);
         }
@@ -429,7 +430,7 @@ public final class WifiDirectTransport {
     public void cancelConnect() { onMain(() -> { if (queuedConnect) { afterCleanup = null; queuedConnect = false; } cancelInternal(); }); }
     private void cancelInternal() {
         if (!lifecycle.pending()) return;
-        if(coordinated!=null)coordinated.policy.stop();
+        stopCoordinated();
         WifiDirectPolicy.Release release = authority.release(true, false, now());
         lifecycle.cancelAttempt(); selected = null;
         clearDeadline(); invalidateInspection(); closeGroupStreams(); forgetObservedGroup();
@@ -442,7 +443,7 @@ public final class WifiDirectTransport {
     }
     private void rejectAttempt(String key) {
         if (!lifecycle.pending()) return;
-        if(coordinated!=null)coordinated.policy.stop();
+        stopCoordinated();
         // Rejection changes this attempt only; native radio state belongs to the system.
         WifiDirectPolicy.Release release = authority.release(true, false, now());
         lifecycle.cancelAttempt(); selected = null;
@@ -563,21 +564,48 @@ public final class WifiDirectTransport {
     }
     private void handleCoordinatedGroup(long started,WifiP2pInfo info,WifiP2pGroup group){
         CoordinatedGroup current=coordinated;
-        if(info==null||!info.groupFormed||group==null){if(current.observed)routeFailure("directGroupLost");return;}
+        if((info==null||!info.groupFormed||group==null)&&current.observed){routeFailure("directGroupLost");return;}
+        if(group==null){
+            // The native connect/create budget still bounds group formation. Once IP setup has
+            // begun, a disappearing snapshot must also retain that original readiness deadline.
+            waitCoordinated(started,current,current.readiness.waiting()?current.readiness.observe(now(),false,false,false,false):WifiDirectPolicy.GroupReadiness.State.WAIT_GROUP);return;
+        }
         // ACK, SSID and role identify this fresh network; the later Noise lane proves the peer.
         if(!current.policy.matches(group.getNetworkName(),group.isGroupOwner())){
             if(!current.parameters.ssid.equals(group.getNetworkName())||current.owner!=group.isGroupOwner())routeFailure("directForeignGroup");
             return;
         }
-        if(info.isGroupOwner!=current.owner||info.groupOwnerAddress==null){routeFailure("directInterfaceUnavailable");return;}
-        current.observed=true;diagnostics.recordOnce(WifiDirectDiagnostics.Event.GROUP_OBSERVED);lastStage="group_observed";
         if(Build.VERSION.SDK_INT>=29){int frequency=group.getFrequency();groupFrequency=frequency>=2400&&frequency<=2500||frequency>=4900&&frequency<=7125?frequency:0;}
+        WifiDirectPolicy.GroupReadiness.State readiness=current.readiness.observe(now(),info!=null&&info.groupFormed,info!=null&&info.isGroupOwner==current.owner,
+                info!=null&&info.groupOwnerAddress!=null&&!info.groupOwnerAddress.isAnyLocalAddress(),group.getInterface()!=null&&!group.getInterface().isEmpty());
+        if(readiness!=WifiDirectPolicy.GroupReadiness.State.READY){waitCoordinated(started,current,readiness);return;}
+        clearCoordinatedRetry(current);
+        current.observed=true;diagnostics.recordOnce(WifiDirectDiagnostics.Event.GROUP_OBSERVED);lastStage="group_observed";
         coordinatedInterface=group.getInterface();
         String key=group.getInterface()+"/"+group.getNetworkName()+"/"+current.owner+"/"+info.groupOwnerAddress.getHostAddress();
         if(key.equals(readyGroup))return;
         readyGroup=key;long generation=++groupGeneration;sockets.reset();unregisterNetwork();
         readyInterface(started,generation,lifecycle.pending()?attempt:0,group.getInterface(),info.groupOwnerAddress,current.owner,now()+INTERFACE_MS);
     }
+    private void waitCoordinated(long started,CoordinatedGroup group,WifiDirectPolicy.GroupReadiness.State state){
+        if(state==WifiDirectPolicy.GroupReadiness.State.RETIRED)return;
+        if(state==WifiDirectPolicy.GroupReadiness.State.EXPIRED){diagnostics.record(WifiDirectDiagnostics.Event.GROUP_READINESS_TIMEOUT);routeFailure("directInterfaceUnavailable");return;}
+        lastStage=state.name().toLowerCase(Locale.ROOT);
+        diagnostics.recordOnce(state==WifiDirectPolicy.GroupReadiness.State.WAIT_ADDRESS?WifiDirectDiagnostics.Event.GROUP_WAIT_ADDRESS:
+                state==WifiDirectPolicy.GroupReadiness.State.WAIT_ROLE?WifiDirectDiagnostics.Event.GROUP_WAIT_ROLE:
+                state==WifiDirectPolicy.GroupReadiness.State.WAIT_INTERFACE?WifiDirectDiagnostics.Event.GROUP_WAIT_INTERFACE:WifiDirectDiagnostics.Event.GROUP_WAIT_INFO);
+        long ticket=attempt;
+        // A missing native query callback must not turn the IP budget into the total connect budget.
+        if(group.readiness.waiting()&&group.timeout==null){
+            group.timeout=()->{group.timeout=null;if(coordinated==group&&lifecycle.validAttempt(started,ticket)&&!cleanup.blocked()&&group.readiness.waiting())waitCoordinated(started,group,group.readiness.observe(now(),false,false,false,false));};
+            main.postDelayed(group.timeout,group.readiness.remaining(now()));
+        }
+        if(group.retry!=null)return;
+        group.retry=()->{group.retry=null;if(coordinated==group&&lifecycle.validAttempt(started,ticket)&&!cleanup.blocked())inspectGroup();};
+        main.postDelayed(group.retry,250);
+    }
+    private void clearCoordinatedRetry(CoordinatedGroup group){if(group.retry!=null)main.removeCallbacks(group.retry);if(group.timeout!=null)main.removeCallbacks(group.timeout);group.retry=group.timeout=null;}
+    private void stopCoordinated(){if(coordinated!=null){coordinated.policy.stop();coordinated.readiness.stop();clearCoordinatedRetry(coordinated);}}
     private Peer verifiedCounterpart(WifiP2pGroup group) {
         if (observedGroup != null && observedGroup.matches(group)) {
             Peer retained = authority.currentPeer(observedGroup.peerId);
@@ -717,7 +745,7 @@ public final class WifiDirectTransport {
 
     public void stop() { onMain(this::stopInternal); }
     private void stopInternal() {
-        if(coordinated!=null){coordinated.policy.stop();coordinated=null;}coordinatedInterface=null;
+        stopCoordinated();coordinated=null;coordinatedInterface=null;
         fileAttempt.stop();
         operation++; afterCleanup = afterRequests = null; queuedConnect = false; automaticDiscovery = false; unprovenGroup = null; unprovenRetry = false; foreignReported = false;
         WifiDirectPolicy.Release release = authority.release(lifecycle.pending(), true, now());

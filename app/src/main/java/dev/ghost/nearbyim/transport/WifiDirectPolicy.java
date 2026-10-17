@@ -41,6 +41,22 @@ final class WifiDirectPolicy {
         boolean announce(){if(stopped||state!=2||!owner||announced)return false;announced=true;return true;}
         void stop(){stopped=true;}
     }
+    /** A formed GO may still be waiting for tethering/DHCP; repeated snapshots cannot extend this wait. */
+    static final class GroupReadiness {
+        enum State { WAIT_GROUP, WAIT_ROLE, WAIT_ADDRESS, WAIT_INTERFACE, READY, EXPIRED, RETIRED }
+        private final long timeoutMs;private long expires=-1;private boolean stopped;
+        GroupReadiness(long timeoutMs){this.timeoutMs=timeoutMs;}
+        State observe(long now,boolean formed,boolean roleMatches,boolean hasAddress,boolean hasInterface){
+            if(stopped)return State.RETIRED;
+            if(expires>=0&&now>=expires)return State.EXPIRED;
+            if(formed&&roleMatches&&hasAddress&&hasInterface){expires=-1;return State.READY;}
+            if(expires<0)expires=now+timeoutMs;
+            return !formed?State.WAIT_GROUP:!roleMatches?State.WAIT_ROLE:!hasAddress?State.WAIT_ADDRESS:State.WAIT_INTERFACE;
+        }
+        boolean waiting(){return !stopped&&expires>=0;}
+        long remaining(long now){return Math.max(0,expires-now);}
+        void stop(){stopped=true;}
+    }
     static final class Request<T> {
         final Object client; final long run, scan; final T value;
         private final long deadline;
