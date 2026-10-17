@@ -116,8 +116,10 @@
 -keep class dev.ghost.nearbyim.transport.WifiDirectPolicy$DiscoveryDeadline { *; }
 -keep class dev.ghost.nearbyim.transport.WifiDirectTransport {
     static android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceRequest discoveryRequest();
+    static android.net.wifi.p2p.WifiP2pConfig groupConfig(dev.ghost.nearbyim.core.DirectGroupCredentials, boolean);
     dev.ghost.nearbyim.transport.TransportListener listener;
 }
+-keep class dev.ghost.nearbyim.core.DirectGroupCredentials { public *; }
 
 # Targeted adaptive-window suite measures existing Views and preserves its synthetic hinge API.
 -keep class dev.ghost.nearbyim.AdaptiveScaffold { *; }
