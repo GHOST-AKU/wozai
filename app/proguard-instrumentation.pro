@@ -111,7 +111,9 @@
     *** directFailed;
     *** directOpened;
     *** discoveryTimeout;
+    *** discoveryBudget;
 }
+-keep class dev.ghost.nearbyim.transport.WifiDirectPolicy$DiscoveryDeadline { *; }
 -keep class dev.ghost.nearbyim.transport.WifiDirectTransport {
     static android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceRequest discoveryRequest();
     dev.ghost.nearbyim.transport.TransportListener listener;

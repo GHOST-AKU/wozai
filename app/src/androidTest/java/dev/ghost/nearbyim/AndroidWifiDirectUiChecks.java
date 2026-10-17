@@ -91,14 +91,15 @@ final class AndroidWifiDirectUiChecks {
         }finally{if(activity!=null){MainActivity current=activity;onMain(instrumentation,()->{current.finish();return null;});}SharedPreferences.Editor edit=prefs.edit();if(hadMode)edit.putInt("lastMode",previous);else edit.remove("lastMode");edit.commit();}
         return checks;
     }
-    private static void fileDiscoveryFailure(Instrumentation instrumentation)throws Exception {
+    static int fileDiscoveryFailure(Instrumentation instrumentation)throws Exception {
+        int before=checks;
         onMain(instrumentation,()->{
             Method request=dev.ghost.nearbyim.transport.WifiDirectTransport.class.getDeclaredMethod("discoveryRequest");request.setAccessible(true);
             Object query=request.invoke(null);
             check(query.equals(android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceRequest.newInstance()),"Request must obtain PTR and TXT records, not PTR only");
             check(!query.equals(android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceRequest.newInstance("_wozai-p2p._tcp")),"PTR-only request cannot satisfy the registry TXT requirement");
             String peer=UUID.randomUUID().toString();
-            for(String stage:List.of("error","stop","discovery","found")){
+            for(String stage:List.of("error","stop","preparation","discovery","found")){
                 var platform=new dev.ghost.nearbyim.transport.AndroidFilePlatform(instrumentation.getTargetContext(),UUID.randomUUID().toString(),"Phone",peer);
                 try{
                     AtomicInteger failures=new AtomicInteger();Field failed=platform.getClass().getDeclaredField("directFailed");failed.setAccessible(true);failed.set(platform,(java.util.function.Consumer<Throwable>)error->failures.incrementAndGet());
@@ -108,16 +109,22 @@ final class AndroidWifiDirectUiChecks {
                     else if(stage.equals("error"))listener.onError(Peer.WIFI_DIRECT,UiText.of("directDiscoveryFailed"),false);
                     else{
                         listener.onListening(Peer.WIFI_DIRECT,UiText.of("directAdvertising"));
-                        Runnable deadline=field(platform,"discoveryTimeout");check(deadline!=null,"Advertising arms a distinct peer discovery deadline");
+                        Runnable preparation=field(platform,"discoveryTimeout");check(preparation!=null,"Advertising arms bounded preparation, not scan time");
+                        if(!stage.equals("preparation"))listener.onServiceDiscoveryStarted(Peer.WIFI_DIRECT);
+                        Runnable deadline=field(platform,"discoveryTimeout");
                         listener.onPeer(Peer.wifiDirect(UUID.randomUUID().toString(),"Other","02:11:22:33:44:55"));
                         check(field(platform,"discoveryTimeout")==deadline,"An unrelated peer must not extend discovery");
                         if(stage.equals("found")){listener.onPeer(Peer.wifiDirect(peer,"Peer","02:11:22:33:44:66"));check(field(platform,"discoveryTimeout")==null,"Expected peer moves to the full group connection budget");}
-                        else deadline.run();
+                        else{Object budget=field(platform,"discoveryBudget");Field expiry=budget.getClass().getDeclaredField("expires");expiry.setAccessible(true);expiry.setLong(budget,android.os.SystemClock.elapsedRealtime());deadline.run();}
                     }
                     check(failures.get()==(stage.equals("found")?0:1),"Search failure must resolve FILE promptly; discovered peer retains connection budget");
+                    platform.stopDirect();String stopped=platform.diagnostics();
+                    listener.onConnectFailed(Peer.WIFI_DIRECT,UiText.of("directConnectFailed"));
+                    listener.onPeer(Peer.wifiDirect(peer,"Peer","02:11:22:33:44:66"));
+                    check(stopped.equals(platform.diagnostics()),"Stopped attempt diagnostics reject late errors and peer callbacks");
                 }finally{platform.close();}
             }return null;
-        });
+        });return checks-before;
     }
     private static void chatModeNormalization()throws Exception {
         Method normalize;try{normalize=MainActivity.class.getDeclaredMethod("normalizeChatMode",int.class);}catch(NoSuchMethodException missing){throw new AssertionError("Direct must no longer be restored as a chat mode",missing);}normalize.setAccessible(true);

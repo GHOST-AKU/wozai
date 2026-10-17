@@ -9,12 +9,18 @@ import java.util.function.*;
 
 /** One authenticated FILE route for an approved chat; chat and engine generations never change. */
 public final class AutomaticFileRoutes implements AutoCloseable {
-    /** Target discovery after service advertising, without extending on duplicate callbacks. */
+    /** Target discovery after this client's scan ACK, without extending on duplicate callbacks. */
     public static final long DIRECT_DISCOVERY_TIMEOUT_MS=5_000;
+    public static final long DIRECT_DISCOVERY_PREPARE_TIMEOUT_MS=5_000;
     /** Total native startup/group/socket budget; identity binding gets a separate deadline. */
     public static final long DIRECT_OPEN_TIMEOUT_MS=50_000;
     private static final long LANE_HANDSHAKE_TIMEOUT_MS=15_000;
     public enum Route { WIFI_DIRECT, LAN, BLUETOOTH }
+    public enum DirectFailureReason { DISCOVERY_PREPARE_TIMEOUT, DISCOVERY_TIMEOUT, OPEN_TIMEOUT }
+    public static final class DirectFailure extends IOException {
+        public final DirectFailureReason reason;
+        public DirectFailure(DirectFailureReason reason){super(reason.name());this.reason=reason;}
+    }
     public static final class Endpoint {
         public final String host;public final int port;
         public Endpoint(String host,int port){
@@ -33,6 +39,8 @@ public final class AutomaticFileRoutes implements AutoCloseable {
         void prepareLan(Consumer<List<Endpoint>> endpoints,Consumer<StreamConnection> accepted);
         void connectLan(List<Endpoint> endpoints,Consumer<StreamConnection> opened,Consumer<Throwable> failed);
         void openDirect(boolean dialer,Consumer<Opened> opened,Consumer<Throwable> failed);
+        default void openDirect(String attempt,boolean dialer,Consumer<Opened> opened,Consumer<Throwable> failed){openDirect(dialer,opened,failed);}
+        default void directPeerFallback(){}
         default List<Endpoint> currentLanEndpoints(){return null;}
         void stopDirect();void close();
     }
@@ -182,7 +190,7 @@ public final class AutomaticFileRoutes implements AutoCloseable {
             parentHotspot=false;verifiedPathNonce=null;
             directOutcome="attempting";directSkipReason="";
             if(!platform.directSupported()){directOutcome="skipped";directSkipReason=platform.directUnavailableReason();attemptFailed(new IOException("Direct unsupported"),"unavailable");return;}
-            platform.openDirect(lead,opened->opened(opened,token,Route.WIFI_DIRECT),error->post(()->{if(current(token,Route.WIFI_DIRECT))attemptFailed(asIo(error));}));
+            platform.openDirect(token,lead,opened->opened(opened,token,Route.WIFI_DIRECT),error->post(()->{if(current(token,Route.WIFI_DIRECT))attemptFailed(asIo(error));}));
         }else if(attempting==Route.LAN){
             if("lan".equals(chatRoute)){if(lead)select();}
             else sendEndpoints();
@@ -209,7 +217,7 @@ public final class AutomaticFileRoutes implements AutoCloseable {
             if(!ordered){fail(new IOException("Invalid FILE fallback provenance or order"),true);return;}
             parentHotspot=p.route==Route.LAN&&parentHotspot&&Objects.equals(verifiedPathNonce,p.nonce);
             if(previous==null){lastRouteFailure="";directSkipReason="";directOutcome=parentHotspot?"not_needed_existing_hotspot":p.route==Route.WIFI_DIRECT?"not_attempted":"peer_skipped";}
-            else if(previous==Route.WIFI_DIRECT&&p.route==Route.LAN&&directOutcome.equals("attempting")){directOutcome="failed";lastRouteFailure="peer_unavailable";}
+            else if(previous==Route.WIFI_DIRECT&&p.route==Route.LAN&&directOutcome.equals("attempting")){directOutcome="failed";lastRouteFailure="peer_unavailable";platform.directPeerFallback();}
             if(refreshing){synchronized(this){retireParent();selected=null;selectedRoute="";}finishRecheck();}resetCandidate();nonce=p.nonce;attempting=p.route;enter();return;
         }
         if(!Objects.equals(nonce,p.nonce)||p.route!=attempting)return;
@@ -221,7 +229,7 @@ public final class AutomaticFileRoutes implements AutoCloseable {
                     platform.connectLan(p.endpoints,connection->opened(new Opened(connection,false),token,Route.LAN),error->post(()->{if(current(token,Route.LAN))attemptFailed(asIo(error));}));
                 }break;
             case ABORT:fail(new IOException("Peer canceled FILE route"),false);break;
-            case FAIL:if(p.terminal)fail(new IOException("Peer rejected FILE identity binding"),true);else if(lead)attemptFailed(new IOException("Peer FILE route unavailable"),"peer_unavailable");break;
+            case FAIL:if(p.terminal)fail(new IOException("Peer rejected FILE identity binding"),true);else if(lead){if(attempting==Route.WIFI_DIRECT)platform.directPeerFallback();attemptFailed(new IOException("Peer FILE route unavailable"),"peer_unavailable");}break;
             case SELECT:
                 if(lead){fail(new IOException("Invalid FILE selector"),true);return;}
                 if(extra()&&!bound){fail(new IOException("Unbound FILE selection"),true);return;}
@@ -268,7 +276,7 @@ public final class AutomaticFileRoutes implements AutoCloseable {
         public void onFailure(IOException e){post(()->{if(live()&&(e instanceof NoiseRecordChannel.AuthenticationException))fail(e,true);});}
         public void onClosed(UiText reason){post(()->{if(!live()||refreshing)return;if(selected==wire)fail(new IOException("FILE lane interrupted"),false);else attemptFailed(new IOException("FILE lane handshake failed"),"handshake_failed");});}
     }
-    private void attemptFailed(IOException error){attemptFailed(error,"platform_error");}
+    private void attemptFailed(IOException error){attemptFailed(error,error instanceof DirectFailure?((DirectFailure)error).reason.name().toLowerCase(Locale.ROOT):"platform_error");}
     private void attemptFailed(IOException error,String reason){
         if(!valid()||selected!=null)return;
         lastRouteFailure=reason;if(attempting==Route.WIFI_DIRECT&&!directOutcome.equals("skipped"))directOutcome="failed";

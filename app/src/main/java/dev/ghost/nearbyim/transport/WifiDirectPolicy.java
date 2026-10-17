@@ -127,6 +127,18 @@ final class WifiDirectPolicy {
             return fresh ? Admission.NEGOTIATE : Admission.INVALID_PEER;
         }
     }
+    /** Preparation and scanning have separate bounds; duplicate callbacks never extend either. */
+    static final class DiscoveryDeadline {
+        private final long prepareMs,scanMs;private int state;private long expires;
+        DiscoveryDeadline(long prepareMs,long scanMs){this.prepareMs=prepareMs;this.scanMs=scanMs;}
+        boolean prepare(long now){if(state!=0)return false;state=1;expires=now+prepareMs;return true;}
+        boolean scan(long now){if(state>1||state==1&&now>=expires)return false;state=2;expires=now+scanMs;return true;}
+        String failure(long now){return now<expires?"":state==1?"discovery_prepare_timeout":state==2?"discovery_timeout":"";}
+        long expires(){return expires;}
+        void found(){state=3;}
+        void stop(){state=4;}
+        void reset(){state=0;expires=0;}
+    }
     static final class StartupDeadline {
         private final long run, deadline; private boolean ready;
         StartupDeadline(long run, long deadline) { this.run = run; this.deadline = deadline; }

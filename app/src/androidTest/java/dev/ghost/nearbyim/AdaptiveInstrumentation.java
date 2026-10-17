@@ -36,7 +36,7 @@ public final class AdaptiveInstrumentation extends Instrumentation {
         try{
             activity=(MainActivity)startActivitySync(new Intent(getTargetContext(),MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             await(()->onMain(()->field(activity,"controller")!=null),"Controller attached");controller=onMain(()->field(activity,"controller"));
-            nativeLayouts();progress("Native layout geometry completed");discoveryDeadline();progress("Five-second discovery deadline completed");liveContinuity();progress("Live file/window continuity completed");
+            nativeLayouts();progress("Native layout geometry completed");checks+=AndroidWifiDirectUiChecks.fileDiscoveryFailure(this);discoveryDeadline();progress("Prepared scan receives its own five-second discovery deadline");liveContinuity();progress("Live file/window continuity completed");
             results.putString("stream","Adaptive Android: "+checks+" checks passed\n");
         }catch(Throwable failure){result=Activity.RESULT_CANCELED;StringWriter trace=new StringWriter();failure.printStackTrace(new PrintWriter(trace));results.putString("stream",trace.toString());}
         finally{
@@ -155,14 +155,16 @@ public final class AdaptiveInstrumentation extends Instrumentation {
         onMain(()->{EditText composer=field(activity,"composer");input.beginBatchEdit();input.setSelection(0,composer.length());input.commitText("Committed keyboard message",1);input.endBatchEdit();composer.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN,KeyEvent.KEYCODE_ENTER));composer.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_UP,KeyEvent.KEYCODE_ENTER));return null;});await(()->remoteTexts.get()==1,"Hardware Enter sends one encrypted text");onMain(()->{input.closeConnection();return null;});
     }
     private void discoveryDeadline()throws Exception {
-        AtomicReference<AndroidFilePlatform> platform=new AtomicReference<>();CountDownLatch failed=new CountDownLatch(1);AtomicLong elapsed=new AtomicLong();long start=SystemClock.elapsedRealtime();
+        AtomicReference<AndroidFilePlatform> platform=new AtomicReference<>();CountDownLatch failed=new CountDownLatch(1);AtomicLong elapsed=new AtomicLong(),scanStarted=new AtomicLong();long start=SystemClock.elapsedRealtime();
         onMain(()->{
             AndroidFilePlatform p=new AndroidFilePlatform(getTargetContext(),UUID.randomUUID().toString(),"Test",UUID.randomUUID().toString());platform.set(p);
             set(p,"directFailed",(java.util.function.Consumer<Throwable>)e->{elapsed.set(SystemClock.elapsedRealtime()-start);failed.countDown();});set(p,"directOpened",(java.util.function.Consumer<AutomaticFileRoutes.Opened>)s->{});
             Object transport=field(p,"direct");TransportListener listener=field(transport,"listener");listener.onListening(Peer.WIFI_DIRECT,UiText.of("directAdvertising"));
-            new Handler(Looper.getMainLooper()).postDelayed(()->listener.onListening(Peer.WIFI_DIRECT,UiText.of("directAdvertising")),2000);return null;
+            new Handler(Looper.getMainLooper()).postDelayed(()->listener.onListening(Peer.WIFI_DIRECT,UiText.of("directAdvertising")),2000);
+            new Handler(Looper.getMainLooper()).postDelayed(()->{scanStarted.set(SystemClock.elapsedRealtime());listener.onServiceDiscoveryStarted(Peer.WIFI_DIRECT);},3000);
+            new Handler(Looper.getMainLooper()).postDelayed(()->listener.onServiceDiscoveryStarted(Peer.WIFI_DIRECT),4000);return null;
         });
-        try{check(failed.await(7,TimeUnit.SECONDS),"Five-second discovery deadline completes");check(elapsed.get()>=4900&&elapsed.get()<6500,"Duplicate advertising does not extend the five-second deadline: "+elapsed.get());}
+        try{check(failed.await(10,TimeUnit.SECONDS),"Preparation and five-second discovery deadline complete");long scanning=start+elapsed.get()-scanStarted.get();check(elapsed.get()>=7900&&scanning>=4900&&scanning<6500,"Preparation cannot steal scan time and duplicate ACK cannot extend it: total="+elapsed.get()+", scan="+scanning);}
         finally{onMain(()->{platform.get().close();return null;});}
     }
     private static String readingAnchor(MainActivity activity)throws Exception{Method method=MainActivity.class.getDeclaredMethod("captureTimelinePosition");method.setAccessible(true);Object position=method.invoke(activity);return field(position,"anchor");}

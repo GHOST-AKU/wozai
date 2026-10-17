@@ -6,7 +6,8 @@ import java.util.concurrent.*;
 public final class AutomaticFileRouteDiagnosticsTests {
     private static void check(boolean ok,String message){if(!ok)throw new AssertionError(message);}
     public static void main(String[] args)throws Exception {
-        check(AutomaticFileRoutes.class.getField("DIRECT_DISCOVERY_TIMEOUT_MS").getLong(null)==5_000,"Advertising without a target must fall back within five seconds");
+        check(AutomaticFileRoutes.class.getField("DIRECT_DISCOVERY_TIMEOUT_MS").getLong(null)==5_000,"An ACKed scan without a target has five seconds");
+        check(AutomaticFileRoutes.DIRECT_DISCOVERY_PREPARE_TIMEOUT_MS==5_000,"Scan preparation is independently bounded");
         if(args.length>0&&args[0].equals("--slow-direct")){slowDirect();return;}
         try(AutomaticFileRoutesTests.Pair p=new AutomaticFileRoutesTests.Pair("lan",false,false)){
             check(p.a.files.diagnostics().contains("file_route_state=idle\n"),"An idle chat must not look like a stuck FILE negotiation");
@@ -28,6 +29,13 @@ public final class AutomaticFileRouteDiagnosticsTests {
             p.a.files.ensureReady();
             check(p.a.platform.directCalled.await(3,TimeUnit.SECONDS),"Direct must start");
             check(AutomaticFileRoutes.class.getMethod("pendingPath").invoke(p.a.files)==TransferPath.PENDING_WIFI_DIRECT,"Queued bubbles must show the ongoing Direct attempt, not an unknown path");
+            check(p.b.platform.directCalled.await(3,TimeUnit.SECONDS)&&p.a.platform.attemptNonce.equals(p.b.platform.attemptNonce),"Both platforms receive the same FILE attempt correlation nonce");
+        }
+        for(var reason:AutomaticFileRoutes.DirectFailureReason.values())try(AutomaticFileRoutesTests.Pair p=new AutomaticFileRoutesTests.Pair("lan",true,false)){
+            p.a.platform.directFailure=new AutomaticFileRoutes.DirectFailure(reason);p.b.platform.delayDirect=true;
+            p.a.files.ensureReady().get(5,TimeUnit.SECONDS);
+            check(p.a.files.diagnostics().contains("file_route_last_failure="+reason.name().toLowerCase(java.util.Locale.ROOT)+"\n"),"Native phase timeout must retain its specific cause: "+reason);
+            p.transfer();
         }
         System.out.println("Automatic FILE route diagnostics passed");
     }
