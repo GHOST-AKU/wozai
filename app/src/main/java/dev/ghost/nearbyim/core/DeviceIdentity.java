@@ -30,10 +30,25 @@ public final class DeviceIdentity {
     }
 
     public String publicKey() { return publicKey; }
+    public String fingerprint(){try{return fingerprint(publicKey);}catch(GeneralSecurityException invalid){throw new IllegalStateException(invalid);}}
+    public static String fingerprint(String encoded)throws GeneralSecurityException {
+        byte[] bytes;try{bytes=Base64.getDecoder().decode(encoded);}catch(IllegalArgumentException error){throw new InvalidKeyException("Invalid root encoding",error);}
+        decodePublicKey(bytes);byte[] hash=MessageDigest.getInstance("SHA-256").digest(bytes);StringBuilder result=new StringBuilder(64);
+        for(byte value:hash)result.append(String.format(Locale.ROOT,"%02x",value&255));return result.toString();
+    }
 
     public byte[] sign(byte[] message) throws GeneralSecurityException {
         Signature signer = Signature.getInstance("SHA256withECDSA");
         signer.initSign(privateKey); signer.update(message); return signer.sign();
+    }
+
+    /** Verify a session proof using the same strict canonical P-256 identity rules. */
+    public static void verifyProof(byte[] publicKey,byte[] message,byte[] signature)throws GeneralSecurityException {
+        if(message==null||message.length>4096||signature==null||signature.length==0||signature.length>80)
+            throw new SignatureException("Invalid session proof size");
+        Signature verifier=Signature.getInstance("SHA256withECDSA");
+        verifier.initVerify(decodePublicKey(publicKey));verifier.update(message);
+        if(!verifier.verify(signature))throw new SignatureException("Session root proof does not verify");
     }
 
     static PublicKey decodePublicKey(byte[] encoded) throws GeneralSecurityException {

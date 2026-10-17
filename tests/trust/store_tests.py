@@ -12,8 +12,19 @@ CREATE_CONVERSATIONS, CREATE_MESSAGES, CREATE_INDEX, CREATE_TRUST, CONVERSATIONS
 LEGACY_MESSAGES=CREATE_MESSAGES.replace(' attachment TEXT,','')
 
 class AttachmentMigrationTests(unittest.TestCase):
+    def test_v4_upgrade_preserves_history_and_trust_without_granting_manual_verification(self):
+        self.assertGreaterEqual(version, 5, 'manual verification requires a lossless schema migration')
+        db=sqlite3.connect(':memory:')
+        for statement in (CREATE_CONVERSATIONS, CREATE_MESSAGES, CREATE_INDEX, CREATE_TRUST): db.execute(statement)
+        db.execute('INSERT INTO conversations VALUES (?,?,?)', ('peer','Old friend',12))
+        db.execute(REMEMBER, ('peer','pinned-root','Old friend',40,1,None))
+        before=db.execute('SELECT * FROM trusted_devices').fetchall()
+        output=subprocess.check_output(['java','-cp',classpath,'dev.ghost.nearbyim.storage.SchemaExport','4','5'],text=True)
+        for line in output.splitlines(): db.execute(base64.b64decode(line).decode())
+        self.assertEqual(before,db.execute('SELECT * FROM trusted_devices').fetchall())
+        self.assertEqual(0,db.execute('SELECT COUNT(*) FROM verified_identities').fetchone()[0])
     def test_v3_to_v4_preserves_text_and_adds_nullable_attachment_metadata(self):
-        self.assertEqual(4, version, 'attachments need a lossless schema migration')
+        self.assertGreaterEqual(version, 4, 'attachments need a lossless schema migration')
         db=sqlite3.connect(':memory:')
         db.execute("CREATE TABLE messages (peer_id TEXT NOT NULL,id TEXT NOT NULL,body TEXT NOT NULL,outgoing INTEGER NOT NULL,state TEXT NOT NULL,time INTEGER NOT NULL,received INTEGER NOT NULL,PRIMARY KEY(peer_id,id,outgoing))")
         db.execute('INSERT INTO messages VALUES (?,?,?,?,?,?,?)',('peer','id','old text',1,'delivered',1,2))
@@ -21,9 +32,34 @@ class AttachmentMigrationTests(unittest.TestCase):
         for line in export.splitlines(): db.execute(base64.b64decode(line).decode())
         self.assertEqual(('old text','delivered',None),db.execute('SELECT body,state,attachment FROM messages').fetchone())
 
+class FileRouteChatMigrationTests(unittest.TestCase):
+    def test_fresh_schema_rejects_direct_chat_mode(self):
+        db=sqlite3.connect(':memory:');db.execute(CREATE_TRUST)
+        with self.assertRaises(sqlite3.IntegrityError):db.execute(REMEMBER,('peer','root','Direct',50,3,None))
+
+    def test_v6_direct_chat_modes_normalize_to_lan_without_other_changes(self):
+        self.assertGreaterEqual(version,7,'Automatic file routing removes Direct chat mode')
+        db=sqlite3.connect(':memory:')
+        old_trust='CREATE TABLE trusted_devices (peer_id TEXT PRIMARY KEY,public_key TEXT NOT NULL,name TEXT NOT NULL,last_connected INTEGER NOT NULL,mode INTEGER NOT NULL CHECK(mode IN (1,2,3)),bluetooth_address TEXT)'
+        for statement in (CREATE_CONVERSATIONS,CREATE_MESSAGES,CREATE_INDEX,old_trust):db.execute(statement)
+        db.execute('CREATE TABLE verified_identities (peer_id TEXT PRIMARY KEY, local_key TEXT NOT NULL, public_key TEXT NOT NULL, verified_at INTEGER NOT NULL)')
+        db.execute('INSERT INTO conversations VALUES (?,?,?)',('peer','Friend',12))
+        db.execute('INSERT INTO messages VALUES (?,?,?,?,?,?,?,?)',('peer','id','original body',1,'delivered',1,2,'original metadata'))
+        for mode in (1,2,3):db.execute(REMEMBER,('peer'+str(mode),'root'+str(mode),'Friend',40,mode,'02:11:22:33:44:55'))
+        db.execute('INSERT INTO verified_identities VALUES (?,?,?,?)',('peer3','local-root','root3',20))
+        before={table:db.execute('SELECT * FROM '+table).fetchall() for table in ('conversations','messages','verified_identities')}
+        trust=db.execute('SELECT peer_id,public_key,name,last_connected,bluetooth_address FROM trusted_devices ORDER BY peer_id').fetchall()
+        export=subprocess.check_output(['java','-cp',classpath,'dev.ghost.nearbyim.storage.SchemaExport','6','7'],text=True)
+        with db:
+            for line in export.splitlines():db.execute(base64.b64decode(line).decode())
+        for table,rows in before.items():self.assertEqual(rows,db.execute('SELECT * FROM '+table).fetchall())
+        self.assertEqual(trust,db.execute('SELECT peer_id,public_key,name,last_connected,bluetooth_address FROM trusted_devices ORDER BY peer_id').fetchall())
+        self.assertEqual([1,2,1],[row[0] for row in db.execute('SELECT mode FROM trusted_devices ORDER BY peer_id')])
+        with self.assertRaises(sqlite3.IntegrityError):db.execute(REMEMBER,('bad','key','Invalid',1,3,None))
+
 class StoreTests(unittest.TestCase):
     def test_schema_supports_language_independent_status_upgrade(self):
-        self.assertEqual(4, version, "attachment schema includes earlier language-independent status migration")
+        self.assertGreaterEqual(version, 4, "attachment schema includes earlier language-independent status migration")
 
     def setUp(self):
         self.db = sqlite3.connect(':memory:')

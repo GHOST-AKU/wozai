@@ -63,8 +63,25 @@ public final class DesktopStore implements AutoCloseable {
         return new Peer(id, AtomicFiles.required(v, "name"), v.getProperty("key", ""), v.getProperty("endpoint", ""));
     }
     public synchronized void peer(Peer peer) throws IOException {
-        Properties v = new Properties(); v.setProperty("name", peer.name()); v.setProperty("key", peer.publicKey()); v.setProperty("endpoint", peer.endpoint());
+        Properties v = AtomicFiles.read(peerFile(peer.id()));
+        if(!peer.publicKey().equals(v.getProperty("key","")))clearVerification(v);
+        v.setProperty("name", peer.name()); v.setProperty("key", peer.publicKey()); v.setProperty("endpoint", peer.endpoint());
         AtomicFiles.write(peerFile(peer.id()), v);
+    }
+    private static void clearVerification(Properties values){values.remove("verifiedLocal");values.remove("verifiedRemote");values.remove("verifiedAt");}
+    public synchronized boolean isVerified(String id,String localRoot,String remoteRoot)throws IOException {
+        Properties values=AtomicFiles.read(peerFile(id));
+        return remoteRoot.equals(values.getProperty("key"))&&localRoot.equals(values.getProperty("verifiedLocal"))&&remoteRoot.equals(values.getProperty("verifiedRemote"))&&values.containsKey("verifiedAt");
+    }
+    public synchronized void markVerified(String id,String localRoot,String remoteRoot)throws IOException {
+        try{new dev.ghost.nearbyim.core.SafetyCode(localRoot,remoteRoot);}catch(java.security.GeneralSecurityException invalid){throw new IOException("Invalid verification identity",invalid);}
+        Properties values=AtomicFiles.read(peerFile(id));
+        if(!remoteRoot.equals(values.getProperty("key")))throw new IOException("Verification identity changed");
+        values.setProperty("verifiedLocal",localRoot);values.setProperty("verifiedRemote",remoteRoot);values.setProperty("verifiedAt",Long.toString(System.currentTimeMillis()));AtomicFiles.write(peerFile(id),values);
+    }
+    public synchronized void clearVerification(String id)throws IOException {Properties values=AtomicFiles.read(peerFile(id));if(values.containsKey("verifiedAt")){clearVerification(values);AtomicFiles.write(peerFile(id),values);}}
+    public synchronized void invalidateLocalVerifications(String localRoot)throws IOException {
+        for(Peer peer:peers()){Properties values=AtomicFiles.read(peerFile(peer.id()));if(values.containsKey("verifiedAt")&&!localRoot.equals(values.getProperty("verifiedLocal"))){clearVerification(values);AtomicFiles.write(peerFile(peer.id()),values);}}
     }
     public synchronized List<Peer> peers() throws IOException {
         Path path = root.resolve("peers"); if (!Files.exists(path)) return List.of();
@@ -148,12 +165,32 @@ public final class DesktopStore implements AutoCloseable {
         if(Files.isSymbolicLink(directory))throw new IOException("Unsafe attachment directory");return directory;
     }
     public synchronized Path attachmentFile(String peer,AttachmentInfo info)throws IOException {return AttachmentTransfer.file(attachmentDirectory(peer),info);}
+    public synchronized Path attachmentsRoot()throws IOException {Path base=root.resolve("attachments");if(Files.isSymbolicLink(base))throw new IOException("Unsafe attachment root");Files.createDirectories(base);AtomicFiles.privatePermissions(base,true);return base;}
     public synchronized Path attachmentFile(String peer,AttachmentInfo info,boolean outgoing)throws IOException {return AttachmentTransfer.file(attachmentDirectory(peer),info,outgoing);}
     public synchronized void attachment(String peer,AttachmentRecord record)throws IOException {
         Path file=messageFile(peer,record.info.id,record.outgoing);Message previous=Files.exists(file)?readMessage(file):null;
-        if(previous!=null&&(previous.attachment()==null||!previous.attachment().active()&&!previous.attachment().equals(record)))throw new IOException("Conflicting attachment ID");
+        if(previous!=null&&previous.attachment()!=null){
+            AttachmentRecord saved=previous.attachment();
+            // Identical terminal snapshots may replay on another lane; retain their original route.
+            if(!saved.active()&&!saved.resumable()){
+                AttachmentRecord snapshot=new AttachmentRecord(record.info,record.outgoing,record.state,record.transferred).withRoute(saved.route);
+                if(saved.equals(snapshot))record=saved;
+            }else if(record.route.isEmpty())record=record.withRoute(saved.route);
+        }
+        if(previous!=null&&(previous.attachment()==null||!previous.attachment().mayReplace(record)))throw new IOException("Conflicting attachment ID");
         String state=record.outgoing?(record.state.equals("delivered")?"delivered":record.active()?"pending":"unknown"):"received";
         writeMessage(file,new Message(record.info.id,record.info.name,previous==null?System.currentTimeMillis():previous.time(),record.outgoing,state,record.info.time,record));
+    }
+    private Path locationFile(String peer,AttachmentRecord record){return root.resolve("locations").resolve(uuid(peer)).resolve((record.outgoing?"out-":"in-")+uuid(record.info.id)+".properties");}
+    public synchronized void exportLocation(String peer,AttachmentRecord record,Path destination)throws IOException {
+        if(!record.state.equals("received")&&!record.state.equals("delivered"))throw new IOException("Attachment is not complete");
+        Properties values=new Properties();values.setProperty("path",destination.toAbsolutePath().normalize().toString());values.setProperty("hash",record.info.hash);
+        AtomicFiles.write(locationFile(peer,record),values);
+    }
+    public synchronized Path exportLocation(String peer,AttachmentRecord record)throws IOException {
+        Path file=locationFile(peer,record);if(!Files.exists(file))return null;Properties values=AtomicFiles.read(file);
+        if(!Objects.equals(record.info.hash,values.getProperty("hash")))throw new IOException("Export does not match completed attachment");
+        String value=AtomicFiles.required(values,"path");if(value.length()>8192)throw new IOException("Invalid export path");return Path.of(value).toAbsolutePath().normalize();
     }
     private void recoverAttachments(String peer)throws IOException {
         Set<String> received=new HashSet<>();Path directory=messagesPath(peer);
@@ -165,7 +202,8 @@ public final class DesktopStore implements AutoCloseable {
         Path contents=attachmentDirectory(peer);if(Files.exists(contents))AttachmentTransfer.clean(contents,received);
     }
     public synchronized void clear(String id) throws IOException {
-        Path contents=attachmentDirectory(id);if(Files.exists(contents))AttachmentTransfer.clean(contents,Set.of());
+        Path contents=attachmentDirectory(id);if(Files.exists(contents))AttachmentTransfer.clear(contents);
+        Path locations=root.resolve("locations").resolve(uuid(id));if(Files.exists(locations,LinkOption.NOFOLLOW_LINKS)){if(Files.isSymbolicLink(locations))throw new IOException("Unsafe export metadata");try(var files=Files.list(locations)){for(Path file:files.toList())Files.delete(file);}Files.delete(locations);}
         Path path = messagesPath(id); if (!Files.exists(path)) return;
         try (var files = Files.list(path)) { for (Path file : files.toList()) Files.delete(file); }
     }

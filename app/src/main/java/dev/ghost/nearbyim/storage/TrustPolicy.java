@@ -42,6 +42,14 @@ public final class TrustPolicy {
         write.run(); authorization.persisted = true; version++; return true;
     }
     public synchronized void cancel(Authorization authorization) { if (authorization != null) authorization.canceled = true; }
+    /** Explicit human/QR comparison; never inferred from ready or existing TOFU trust. */
+    public synchronized boolean canVerify(Authorization authorization) {
+        return current(authorization)&&authorization.approved&&authorization.ready&&authorization.decision!=Decision.IDENTITY_CHANGED;
+    }
+    public synchronized boolean verify(Authorization authorization,Runnable write) {
+        if(!canVerify(authorization))return false;
+        write.run();version++;return true;
+    }
     public synchronized void revoke(String id) { revisions.put(id, peerRevision(id) + 1); version++; }
     public synchronized long peerRevision(String id) { return revisions.getOrDefault(id, 0L); }
     public synchronized long version() { return version; }

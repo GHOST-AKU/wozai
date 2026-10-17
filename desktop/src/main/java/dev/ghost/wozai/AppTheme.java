@@ -8,6 +8,7 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import dev.ghost.nearbyim.core.Identicon;
 
 /** Android MainActivity's shared visual tokens, on accessible Swing controls. */
 final class AppTheme {
@@ -70,13 +71,24 @@ final class AppTheme {
         protected void paintComponent(Graphics g) { Graphics2D p=(Graphics2D)g.create(); p.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON); p.setColor(surface); p.fillRoundRect(0,0,getWidth(),getHeight(),52,52); p.dispose(); super.paintComponent(g); }
     }
     static final class Avatar extends JComponent {
-        private final String name;
-        Avatar(String name) { this.name = name; setPreferredSize(new Dimension(48,48)); }
+        private Identicon.Model model=Identicon.neutral();
+        private java.lang.ref.WeakReference<BufferedImage> photo=new java.lang.ref.WeakReference<>(null);
+        Avatar(String root) { this(root,null,Identicon.neutral()); }
+        Avatar(String root,BufferedImage photo) { this(root,photo,Identicon.neutral()); }
+        Avatar(String root,BufferedImage photo,Identicon.Model resolved) { set(root,photo,resolved);setPreferredSize(new Dimension(48,48)); }
+        void set(String root,BufferedImage photo,Identicon.Model resolved) {
+            model=resolved==null?Identicon.neutral():resolved;if(root==null||root.isEmpty()||model==Identicon.neutral()){model=Identicon.neutral();photo=null;}
+            this.photo=new java.lang.ref.WeakReference<>(photo);putClientProperty("wozai.avatar.root",root==null?"":root);repaint();
+        }
+        @Override public javax.accessibility.AccessibleContext getAccessibleContext(){if(accessibleContext==null)accessibleContext=new AccessibleJComponent(){};return accessibleContext;}
         protected void paintComponent(Graphics g) {
             Graphics2D p = (Graphics2D) g.create(); p.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            int size = Math.min(getWidth(), getHeight()); p.setColor(tonal); p.fillOval(0,0,size,size); p.setColor(accent);
-            p.setFont(getFont().deriveFont(Font.BOLD, 20f)); String initial = name.isBlank() ? "?" : name.substring(0, name.offsetByCodePoints(0,1));
-            FontMetrics m = getFontMetrics(p.getFont()); com.formdev.flatlaf.ui.FlatUIUtils.drawString(this, p, initial, (size-m.stringWidth(initial))/2, (size-m.getHeight())/2+m.getAscent()); p.dispose();
+            try{
+                int size=Math.min(getWidth(),getHeight()),x=(getWidth()-size)/2,y=(getHeight()-size)/2;boolean square=Boolean.TRUE.equals(getClientProperty("wozai.avatar.square"));
+                BufferedImage image=photo.get();p.clip(square?new Rectangle(x,y,size,size):image==null?new java.awt.geom.RoundRectangle2D.Double(x,y,size,size,size*.22,size*.22):new java.awt.geom.Ellipse2D.Double(x,y,size,size));p.setColor(new Color(model.background(dark),true));p.fillRect(x,y,size,size);
+                if(image!=null){p.setRenderingHint(RenderingHints.KEY_INTERPOLATION,RenderingHints.VALUE_INTERPOLATION_BICUBIC);p.drawImage(image,x,y,size,size,null);}
+                else{p.setColor(new Color(model.foreground(dark),true));double cell=size/9.0;for(int row=0;row<7;row++)for(int col=0;col<7;col++)if(model.filled(col,row)){int left=x+(int)Math.round((col+1)*cell),top=y+(int)Math.round((row+1)*cell);p.fillRect(left,top,(int)Math.round((col+2)*cell)+x-left,(int)Math.round((row+2)*cell)+y-top);}}
+            }finally{p.dispose();}
         }
     }
     private static final Map<String, BufferedImage> icons = new HashMap<>();
@@ -91,7 +103,7 @@ final class AppTheme {
             Color color=c.isEnabled()?c.getForeground():muted;
             BufferedImage tinted=tintedIcons.computeIfAbsent(new TintKey(name,color.getRGB()),key->{
                 BufferedImage image=new BufferedImage(96,96,BufferedImage.TYPE_INT_ARGB);Graphics2D t=image.createGraphics();
-                try{t.drawImage(source,0,0,null);t.setComposite(AlphaComposite.SrcIn);t.setColor(color);t.fillRect(0,0,96,96);}finally{t.dispose();}
+                try{t.drawImage(source,0,0,96,96,null);t.setComposite(AlphaComposite.SrcIn);t.setColor(color);t.fillRect(0,0,96,96);}finally{t.dispose();}
                 return image;
             });
             Graphics2D p=(Graphics2D)g.create(); p.setRenderingHint(RenderingHints.KEY_INTERPOLATION,RenderingHints.VALUE_INTERPOLATION_BICUBIC); p.drawImage(tinted,x,y,24,24,null); p.dispose();

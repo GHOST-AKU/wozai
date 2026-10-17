@@ -14,6 +14,7 @@ pin = json.loads((root / "tools/android-signing.json").read_text())
 password = os.environ.get("WOZAI_ANDROID_KEYSTORE_PASSWORD")
 encoded = os.environ.get("WOZAI_ANDROID_KEYSTORE_BASE64")
 local = os.environ.get("WOZAI_ANDROID_KEYSTORE")
+candidate_only = os.environ.get("WOZAI_ANDROID_CANDIDATE_ONLY") == "true"
 if not password or bool(encoded) == bool(local):
     raise SystemExit("Configure WOZAI_ANDROID_KEYSTORE_BASE64 and WOZAI_ANDROID_KEYSTORE_PASSWORD in repository Secrets, or supply a private local WOZAI_ANDROID_KEYSTORE path and password")
 code = int(re.search(r"versionCode\s*=\s*(\d+)", (root / "app/build.gradle.kts").read_text()).group(1))
@@ -44,15 +45,18 @@ with tempfile.TemporaryDirectory(prefix="wozai-signing-", dir=os.environ.get("RU
     fingerprint = re.search(r"SHA256:\s*([0-9A-F:]+)", certificate.stdout)
     if certificate.returncode or not fingerprint or fingerprint.group(1).replace(":", "").lower() != pin["certificate_sha256"]:
         raise SystemExit("Private keystore/password/alias does not match the persistent certificate; refusing to build")
+    tasks = [":app:assembleRelease", ":app:lintRelease"] if candidate_only else [
+        ":app:assembleRelease", ":app:assembleReleaseAndroidTest", ":app:assembleDebug", ":app:lintRelease"]
     subprocess.run([str(root / "gradlew"), "--no-daemon", "-PtestBuildType=release",
                     "-PtestInstrumentationRunner=dev.ghost.nearbyim.SigningUpgradeInstrumentation",
-                    ":app:assembleRelease", ":app:assembleReleaseAndroidTest", ":app:assembleDebug", ":app:lintRelease"],
+                    *tasks],
                    cwd=root, env=environment, check=True)
     folder = root / "build/signing-upgrade"
     folder.mkdir(parents=True, exist_ok=True)
-    files = [("app/build/outputs/apk/release/app-release.apk", "candidate.apk", []),
-             ("app/build/outputs/apk/androidTest/release/app-release-androidTest.apk", "test.apk", ["--test-apk"]),
-             ("app/build/outputs/apk/debug/app-debug.apk", "wrong.apk", ["--wrong-signer"])]
+    files = [("app/build/outputs/apk/release/app-release.apk", "candidate.apk", [])]
+    if not candidate_only:
+        files += [("app/build/outputs/apk/androidTest/release/app-release-androidTest.apk", "test.apk", ["--test-apk"]),
+                  ("app/build/outputs/apk/debug/app-debug.apk", "wrong.apk", ["--wrong-signer"])]
     for original, name, flags in files:
         shutil.copyfile(root / original, folder / name)
         if name == "candidate.apk":

@@ -13,7 +13,8 @@ parser.add_argument("mode", choices=["prepare", "verify"])
 args = parser.parse_args()
 folder = root / "build/signing-upgrade"
 source = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True, cwd=root).strip()
-names = {"candidate.apk", "test.apk", "baseline.apk", "wrong.apk"}
+maintenance_source = "c0855151a2012954f1b34a88eb9b8ca0b4c8355a"
+names = {"candidate.apk", "test.apk", "baseline.apk", "maintenance.apk", "wrong.apk"}
 
 
 def digest(path):
@@ -36,6 +37,7 @@ else:
         if digest(folder / name) != expected:
             raise SystemExit("Upgrade input digest mismatch: " + name)
 for name, flags in [("baseline.apk", ["--baseline"]), ("candidate.apk", ["--source-commit", source]),
+                    ("maintenance.apk", ["--maintenance", "--source-commit", maintenance_source]),
                     ("test.apk", ["--test-apk"]), ("wrong.apk", ["--wrong-signer"])]:
     subprocess.run(["python3", str(root / "tools/verify-android-signature.py"), str(folder / name), *flags], check=True)
 print("Upgrade inputs verified; published baseline and candidate provenance match")

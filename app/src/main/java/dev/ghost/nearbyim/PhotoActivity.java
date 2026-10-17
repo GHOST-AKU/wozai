@@ -12,30 +12,31 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.view.*;
 import android.widget.*;
-import dev.ghost.nearbyim.core.AttachmentInfo;
+import dev.ghost.nearbyim.core.*;
 import java.io.*;
 import java.util.concurrent.*;
 
 /** Internal, offline photo viewer; decoding and export never run on the main thread. */
 public final class PhotoActivity extends Activity {
+    private FoldWindow.SafeArea foldArea;
     private final ExecutorService worker=Executors.newSingleThreadExecutor();
     private Uri photo;
     private ZoomImage image;
     private TextView notice;
+    private View saveAction;
+    private String pendingExportPeer,pendingExportRecord;
+    protected void onStart(){super.onStart();if(foldArea!=null)foldArea.start();}
+    protected void onStop(){if(foldArea!=null)foldArea.stop();super.onStop();}
     protected void attachBaseContext(Context context){super.attachBaseContext(AppLanguage.wrap(context));}
     public void onCreate(Bundle state){
-        super.onCreate(state);photo=getIntent().getData();
+        super.onCreate(state);photo=getIntent().getData();if(state!=null){pendingExportPeer=state.getString("photoExportPeer");pendingExportRecord=state.getString("photoExportRecord");}
         if(photo==null||!"content".equals(photo.getScheme())||!(getPackageName()+".attachments").equals(photo.getAuthority())){finish();return;}
         LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(Color.BLACK);
-        root.setOnApplyWindowInsetsListener((view,insets)->{
-            if(android.os.Build.VERSION.SDK_INT>=30){android.graphics.Insets bars=insets.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.displayCutout());view.setPadding(bars.left,bars.top,bars.right,bars.bottom);}
-            else view.setPadding(insets.getSystemWindowInsetLeft(),insets.getSystemWindowInsetTop(),insets.getSystemWindowInsetRight(),insets.getSystemWindowInsetBottom());
-            return insets;
-        });
+        foldArea=new FoldWindow.SafeArea(this,root);root.setOnApplyWindowInsetsListener((v,insets)->foldArea.windowInsets(insets,0,0,0,0));
         LinearLayout toolbar=new LinearLayout(this);toolbar.setGravity(Gravity.CENTER_VERTICAL);
         toolbar.addView(action(R.drawable.outline_arrow_back_24,text("backToChats"),this::finish),new LinearLayout.LayoutParams(dp(48),dp(56)));
         TextView title=new TextView(this);title.setText(photo.getQueryParameter("name"));title.setTextColor(Color.WHITE);title.setTextSize(15);title.setSingleLine(true);title.setEllipsize(android.text.TextUtils.TruncateAt.END);toolbar.addView(title,new LinearLayout.LayoutParams(0,-2,1));
-        toolbar.addView(action(R.drawable.outline_file_download_24,text("attachmentSaveAs"),this::save),new LinearLayout.LayoutParams(dp(48),dp(56)));root.addView(toolbar);
+        saveAction=action(R.drawable.outline_file_download_24,text("gallerySave"),this::saveMenu);toolbar.addView(saveAction,new LinearLayout.LayoutParams(dp(48),dp(56)));root.addView(toolbar);
         FrameLayout canvas=new FrameLayout(this);image=new ZoomImage(this);image.setContentDescription(text("attachmentPhotoPreview",photo.getQueryParameter("name")));canvas.addView(image,new FrameLayout.LayoutParams(-1,-1));
         notice=new TextView(this);notice.setText(text("photoLoading"));notice.setTextColor(0xffbbbbbb);notice.setGravity(Gravity.CENTER);canvas.addView(notice,new FrameLayout.LayoutParams(-1,-1));root.addView(canvas,new LinearLayout.LayoutParams(-1,0,1));
         LinearLayout footer=new LinearLayout(this);footer.setGravity(Gravity.CENTER_VERTICAL);
@@ -51,19 +52,31 @@ public final class PhotoActivity extends Activity {
             catch(IOException|RuntimeException|OutOfMemoryError e){runOnUiThread(()->{if(!isDestroyed())notice.setText(text("photoUnavailable"));});}
         });
     }
+    private void saveMenu(){PopupMenu menu=new PopupMenu(this,saveAction);menu.getMenu().add(0,1,0,text("gallerySave"));menu.getMenu().add(0,2,1,text("attachmentSaveAs"));menu.setOnMenuItemClickListener(item->{if(item.getItemId()==1)gallerySave();else save();return true;});menu.show();}
+    private void gallerySave(){
+        if(android.os.Build.VERSION.SDK_INT<=28&&checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)!=android.content.pm.PackageManager.PERMISSION_GRANTED){requestPermissions(new String[]{android.Manifest.permission.WRITE_EXTERNAL_STORAGE},2);return;}
+        try{
+            String peer=getIntent().getStringExtra("peer"),encoded=getIntent().getStringExtra("record");if(peer==null||!peer.matches("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}")||encoded==null)throw new IOException("Missing completed photo");AttachmentRecord record=AttachmentRecord.decode(encoded);
+            java.nio.file.Path original=AttachmentTransfer.file(getFilesDir().toPath().resolve("attachments").resolve(peer),record.info,record.outgoing);
+            if(!photo.getPathSegments().equals(java.util.List.of(peer,original.getFileName().toString())))throw new IOException("Photo identity mismatch");
+            GalleryPublisher.get(this).export(peer,record,original,true).whenComplete((value,error)->runOnUiThread(()->{if(!isDestroyed())Toast.makeText(this,text(error==null?"gallerySaved":"gallerySaveFailed"),Toast.LENGTH_SHORT).show();}));
+        }catch(IOException|RuntimeException failure){Toast.makeText(this,text("gallerySaveFailed"),Toast.LENGTH_SHORT).show();}
+    }
+    public void onRequestPermissionsResult(int request,String[] permissions,int[] result){super.onRequestPermissionsResult(request,permissions,result);if(request==2){if(checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)==android.content.pm.PackageManager.PERMISSION_GRANTED)gallerySave();else Toast.makeText(this,text("gallerySavePermission"),Toast.LENGTH_SHORT).show();}}
     private void save(){
+        try{pendingExportPeer=getIntent().getStringExtra("peer");pendingExportRecord=getIntent().getStringExtra("record");if(pendingExportPeer==null||pendingExportRecord==null)throw new IOException("Missing completed photo");AttachmentExportStore.requireComplete(AttachmentRecord.decode(pendingExportRecord));}
+        catch(IOException invalid){Toast.makeText(this,text("attachmentFailed"),Toast.LENGTH_SHORT).show();return;}
         String name=photo.getQueryParameter("name");if(name==null)name=photo.getLastPathSegment();
         Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType(getContentResolver().getType(photo));intent.putExtra(Intent.EXTRA_TITLE,AttachmentInfo.safeName(name==null?"attachment":name));
-        try{startActivityForResult(intent,1);}catch(android.content.ActivityNotFoundException e){Toast.makeText(this,text("attachmentFailed"),Toast.LENGTH_SHORT).show();}
+        try{startActivityForResult(intent,1);}catch(android.content.ActivityNotFoundException e){pendingExportPeer=null;pendingExportRecord=null;Toast.makeText(this,text("attachmentFailed"),Toast.LENGTH_SHORT).show();}
     }
     protected void onActivityResult(int request,int result,Intent data){
-        super.onActivityResult(request,result,data);if(request!=1||result!=RESULT_OK||data==null||data.getData()==null)return;Uri destination=data.getData();
-        worker.execute(()->{
-            try(InputStream input=getContentResolver().openInputStream(photo);OutputStream output=getContentResolver().openOutputStream(destination,"wt")){
-                if(input==null||output==null)throw new IOException("Photo export unavailable");byte[] buffer=new byte[32768];int n;while((n=input.read(buffer))!=-1)output.write(buffer,0,n);
-            }catch(IOException|RuntimeException e){runOnUiThread(()->{if(!isDestroyed())Toast.makeText(this,text("attachmentFailed"),Toast.LENGTH_SHORT).show();});}
-        });
+        super.onActivityResult(request,result,data);if(request!=1)return;String peer=pendingExportPeer,encoded=pendingExportRecord;pendingExportPeer=null;pendingExportRecord=null;
+        if(result!=RESULT_OK||data==null||data.getData()==null||peer==null||encoded==null)return;Uri destination=data.getData();int flags=data.getFlags();
+        try{AttachmentLocations.get(this).export(peer,AttachmentRecord.decode(encoded),destination,flags).whenComplete((value,error)->{if(error!=null)runOnUiThread(()->{if(!isDestroyed())Toast.makeText(this,text("attachmentFailed"),Toast.LENGTH_SHORT).show();});});}
+        catch(IOException|RuntimeException invalid){Toast.makeText(this,text("attachmentFailed"),Toast.LENGTH_SHORT).show();}
     }
+    protected void onSaveInstanceState(Bundle state){state.putString("photoExportPeer",pendingExportPeer);state.putString("photoExportRecord",pendingExportRecord);super.onSaveInstanceState(state);}
     protected void onDestroy(){worker.shutdownNow();if(image!=null)image.setImageDrawable(null);super.onDestroy();}
     private int dp(int value){return Math.round(value*getResources().getDisplayMetrics().density);}
     private String text(String key,Object...args){return AndroidText.get(this,key,args);}

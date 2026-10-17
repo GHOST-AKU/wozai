@@ -11,6 +11,22 @@ final class DesktopPlatform {
         Path executable = root.resolve("bin/NearbyIM");
         Path icon = root.resolve("share/icons/hicolor/256x256/apps/nearbyim.png");
         if (!Files.isExecutable(executable) || !Files.isRegularFile(icon)) throw new IOException("This command requires a complete Linux package");
+        String appdir = System.getenv("APPDIR"), appimage = System.getenv("APPIMAGE");
+        if (appdir != null && root.equals(Path.of(appdir).toAbsolutePath().normalize().resolve("usr"))) {
+            if (appimage == null || !Files.isRegularFile(Path.of(appimage)) || !Files.isExecutable(Path.of(appimage)))
+                throw new IOException("The original AppImage is required for desktop registration");
+            executable = Path.of(appimage).toAbsolutePath().normalize();
+            // The mounted/extracted AppDir disappears after exit. Keep the icon
+            // and launcher outside it, without moving any private profile data.
+            Path saved = dataHome.toAbsolutePath().normalize().resolve("icons/hicolor/256x256/apps/nearbyim.png");
+            Files.createDirectories(saved.getParent());
+            Path temporary = Files.createTempFile(saved.getParent(), ".nearbyim-", ".png");
+            try {
+                Files.copy(icon, temporary, StandardCopyOption.REPLACE_EXISTING);
+                Files.move(temporary, saved, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            } finally { Files.deleteIfExists(temporary); }
+            icon = saved;
+        }
         String command = desktopValue(executable.toString().replace("\\", "\\\\")
                 .replace("\"", "\\\"").replace("$", "\\$").replace("`", "\\`").replace("%", "%%"));
         StringBuilder text = new StringBuilder("[Desktop Entry]\nType=Application\nName=NearbyIM\n");

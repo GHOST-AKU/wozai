@@ -1,5 +1,7 @@
 name: Build NearbyIM Linux client
 on:
+  pull_request:
+    branches: [main]
   workflow_dispatch:
     inputs:
       performance-baseline:
@@ -8,6 +10,9 @@ on:
         default: false
   workflow_call:
     inputs:
+      release-tag:
+        type: string
+        default: ''
       performance-baseline:
         type: boolean
         default: false
@@ -26,7 +31,7 @@ jobs:
       - name: Install Linux build and GUI verification dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config libglib2.0-dev dbus-x11 xvfb xauth x11-utils desktop-file-utils libasound2t64
+          sudo apt-get install -y build-essential pkg-config libglib2.0-dev dbus-x11 xvfb xauth x11-utils desktop-file-utils libasound2t64 squashfs-tools
           python3 -m pip install Pillow
       - name: Read shared release version
         id: metadata
@@ -38,9 +43,13 @@ jobs:
           sh tools/test-trust.sh
           sh tools/check-source.sh
       - name: Test BlueZ JNI and build Linux packages
+        env:
+          WOZAI_RELEASE_TAG: ${{ inputs['release-tag'] }}
         run: sh desktop/tools/build.sh --package
       - name: Verify native GUI, bundled runtime, scaling, mDNS and actual packaged launcher
         run: xvfb-run -a -s '-screen 0 2560x1800x24' sh desktop/tools/test-linux-gui.sh
+      - name: Verify actual AppImage without FUSE and its persistent desktop entry
+        run: xvfb-run -a -s '-screen 0 2560x1800x24' python3 desktop/tools/test-linux-appimage.py
       - name: Measure desktop performance baseline
         if: inputs['performance-baseline']
         run: |
@@ -60,6 +69,7 @@ jobs:
           path: |
             desktop/build/NearbyIM-*-linux-x64.tar.gz
             desktop/build/NearbyIM-*-linux-x64.deb
+            desktop/build/NearbyIM-*-linux-x64.AppImage
             desktop/build/linux-checksums.txt
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
@@ -68,6 +78,9 @@ jobs:
           name: linux-preview-verification
           path: |
             desktop/build/gui-linux*.png
+            desktop/build/gui-attachments-linux*.png
             desktop/build/linux-package*.png
             desktop/build/linux-package*.txt
+            desktop/build/linux-appimage*.png
+            desktop/build/linux-appimage*.txt
           if-no-files-found: ignore

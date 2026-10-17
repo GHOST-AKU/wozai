@@ -1,0 +1,10 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Synthetic fixtures only; this provider is absent from every client APK. -->
+        <provider android:name="dev.ghost.nearbyim.SourceTestProvider" android:authorities="dev.ghost.nearbyim.test.sources" android:exported="true" android:grantUriPermissions="true">
+            <!-- This fixture requires an actual URI grant; the client never requests this signature permission. -->
+            <path-permission android:path="/export/location" android:readPermission="android.permission.MANAGE_DOCUMENTS" />
+        </provider>
+        <provider android:name="dev.ghost.nearbyim.AvatarTestProvider" android:authorities="dev.ghost.nearbyim.test.avatars" android:exported="true" />
+    </application>
+</manifest>

@@ -1,0 +1,30 @@
+{
+  "test": "AttachmentFeedbackTests.slowStorage",
+  "environment": "controlled in-process wire; not a network/phone benchmark",
+  "payload_bytes": 262144,
+  "simulated_history_save_ms": 300,
+  "baseline_commit": "ce99ad13dacd3b11639fba99fc4b039a1dd14ca0",
+  "after_source_sha256": {
+    "app/src/main/java/dev/ghost/nearbyim/core/AttachmentTransferV2.java": "2f95b88ced1bfe6a6c75cf96dbdfe06cf736a135451d07570668487c2ce98ee0",
+    "app/src/main/java/dev/ghost/nearbyim/core/TransferCheckpointStore.java": "be87c5cfbc4cce6488cda3befcbc01fd1d7030b128087135cf807c99a3ac3da5",
+    "app/src/main/java/dev/ghost/nearbyim/core/TransferProgress.java": "e6c0badb353609252a4aba9a75517e76fb1b2460e897e422b5450d1ce3ac9ea0"
+  },
+  "rounds": [
+    {
+      "variant": "before",
+      "active_history_writes": 9,
+      "complete_seconds": 2.90798521,
+      "complete_mib_s": 0.08597017589370752,
+      "log": "Picked up JAVA_TOOL_OPTIONS:  -Dhttps.proxyHost=proxy -Dhttps.proxyPort=8080 -Dhttp.proxyHost=proxy -Dhttp.proxyPort=8080 -Dhttp.nonProxyHosts=localhost|127.*|[::1] -Djavax.net.ssl.trustStore=/etc/ssl/certs/java/cacerts\nSynthetic 300 ms history save: 9 active writes, 2.90798521s complete, 0.08597017589370752 MiB/s (controlled storage, not phone speed)\nException in thread \"main\" java.lang.AssertionError: Slow history save made every DATA packet persist progress: 9 writes; expected only the transfer-state transition before the final commit\n\tat dev.ghost.nearbyim.core.AttachmentFeedbackTests.slowStorage(AttachmentFeedbackTests.java:36)\n\tat dev.ghost.nearbyim.core.AttachmentFeedbackTests.main(AttachmentFeedbackTests.java:12)\n"
+    },
+    {
+      "variant": "after",
+      "active_history_writes": 1,
+      "complete_seconds": 0.525955373,
+      "complete_mib_s": 0.4753254987662233,
+      "log": "Picked up JAVA_TOOL_OPTIONS:  -Dhttps.proxyHost=proxy -Dhttps.proxyPort=8080 -Dhttp.proxyHost=proxy -Dhttp.proxyPort=8080 -Dhttp.nonProxyHosts=localhost|127.*|[::1] -Djavax.net.ssl.trustStore=/etc/ssl/certs/java/cacerts\nSynthetic 300 ms history save: 1 active writes, 0.525955373s complete, 0.4753254987662233 MiB/s (controlled storage, not phone speed)\nSlow-storage feedback: progress avoids per-packet durable-history writes; final content/history receipt verified\nLive transfer updates continue while durable history is coalesced to state/checkpoint changes\nSame-session pause/resume: full content verified with continuing prefix-check feedback\n"
+    }
+  ],
+  "integrity": "complete file bytes, SHA-256 and persisted completion receipt verified by test; before fails history-write regression, after passes",
+  "limitations": "one controlled sample each; cannot establish real Android/Windows throughput or resolve the reported indefinite resume wait"
+}

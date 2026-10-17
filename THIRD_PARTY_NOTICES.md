@@ -6,7 +6,16 @@ https://github.com/gradle/gradle/tree/v8.13.0
 
 Copyright 2015 the original author or authors. Licensed under Apache License, Version 2.0; see `licenses/Gradle-Apache-2.0.txt`. The original script headers are retained. The wrapper JAR SHA-256 is `81a82aaea5abcc8ff68b3dfcb58b3c3c429378efd98e7433460610fecd7ae45f`, verified against https://gradle.org/release-checksums/.
 
-No third-party Android UI or networking library is bundled with application source.
+Android uses its native Views UI. Adaptive-window support links the official AndroidX WindowManager libraries listed below; no third-party networking library is added.
+
+## Android adaptive-window support
+
+- AndroidX WindowManager `window` / `window-java` 1.5.1, and AndroidX Core 1.8.0: https://developer.android.com/jetpack/androidx/releases/window and https://android.googlesource.com/platform/frameworks/support/. Copyright The Android Open Source Project. Apache License 2.0 (the full license is retained at `licenses/Gradle-Apache-2.0.txt`). Other transitive AndroidX lifecycle, startup, annotation and concurrent-futures components use the same license.
+- Kotlin standard library 2.0.21: https://github.com/JetBrains/kotlin/tree/v2.0.21. Copyright JetBrains s.r.o. and Kotlin Programming Language contributors. Apache License 2.0.
+- kotlinx.coroutines 1.8.1: https://github.com/Kotlin/kotlinx.coroutines/tree/1.8.1. Copyright JetBrains s.r.o. and Kotlin contributors. Apache License 2.0.
+- Transitive `listenablefuture` 1.0 from Google Guava: https://github.com/google/guava. Copyright The Guava Authors. Apache License 2.0.
+
+These libraries support window layout and lifecycle callbacks. Application and transport implementation remain Java; no Compose toolkit is included. Release builds shrink unused code with R8. Upstream license resources remain in their artifacts; Android also retains the Apache 2.0 text in application assets.
 
 ## Desktop interface and networking
 
@@ -21,6 +30,32 @@ The Windows and Linux desktop builds download these pinned artifacts, with SHA-2
 Windows and Linux packaging include a linked Eclipse Temurin OpenJDK 17 runtime. Its legal notices remain in the bundled runtime's `legal/` directory; OpenJDK components use GPL-2.0 with the Classpath Exception and their included third-party licenses. The source build does not redistribute a JDK. These desktop dependencies do not change Android runtime dependencies.
 
 The Linux Bluetooth bridge dynamically links the distribution's GLib/GIO libraries (LGPL-2.1-or-later, https://gitlab.gnome.org/GNOME/glib) and uses the system BlueZ D-Bus service (https://www.bluez.org/). These system libraries and bluetoothd are not included in the application package. The Linux native launcher and BlueZ bridge are application source; no BlueZ implementation source is copied into them.
+
+## Linux AppImage runtime
+
+AppImages embed the unmodified official AppImage type-2 runtime at commit
+`8f39b89e2ac31e1640b3d3f7e9a5108e6ce805fa`; its immutable asset ID, byte count and
+SHA-256 are pinned in `desktop/appimage-runtime.json`. Its MIT license and upstream
+notices for statically linked musl, libfuse, squashfuse, zstd and zlib are retained
+in `licenses/AppImage-runtime-LICENSE.txt`. Runtime source, dependency build scripts
+and patches are available at https://github.com/AppImage/type2-runtime/tree/8f39b89e2ac31e1640b3d3f7e9a5108e6ce805fa.
+The AppImage payload is the same application/JVM/BlueZ JNI used by tar.gz and deb;
+it still uses the host's graphical and BlueZ system libraries. No runtime is
+downloaded by the installed application.
+
+## Noise protocol implementation
+
+The sources under `third_party/noise-java/src` come from Southern Storm Software's
+MIT-licensed [rweather/noise-java](https://github.com/rweather/noise-java), pinned
+to commit `49377b6dfc6a1e75740bce2318118291a57c0d6e`. The complete license is in
+`licenses/noise-java-MIT.txt` and the Android APK's `assets/noise-java-MIT.txt`.
+Source manifests and the explicit three-file system-cipher/RFC 7748/DH validation
+patch are retained under `tests/noise-candidate/`. The first-party adapter uses
+the system AES/GCM implementation. This source provenance and compatibility
+testing do not constitute an independent cryptographic security audit.
+
+The test-only Cacophony vectors are public domain under their included Unlicense;
+they are not packaged into production applications.
 
 ## Google Material Icons
 
@@ -50,5 +85,16 @@ Licensed under Apache License, Version 2.0. The upstream license is retained at 
 | `outline_file_download_24.xml` | `file/file_download/materialiconsoutlined/black/res/drawable` |
 | `outline_zoom_in_24.xml` | `action/zoom_in/materialiconsoutlined/black/res/drawable` |
 | `outline_zoom_out_24.xml` | `action/zoom_out/materialiconsoutlined/black/res/drawable` |
+| `outline_pause_24.xml` | `av/pause/materialiconsoutlined/black/res/drawable` |
+| `outline_play_arrow_24.xml` | `av/play_arrow/materialiconsoutlined/black/res/drawable` |
 
-The Windows and Linux resources under `desktop/src/main/resources/dev/ghost/wozai/icons/` rasterize sixteen of these same Android vector paths for runtime tinting. The original Material Icons license is also included in the Windows and Linux packages. The shared app artwork is maintained at `desktop/assets/icons/master/icon-master-1024.png`; `desktop/assets/icons/windows/nearbyim.ico` contains the Windows launcher sizes.
+The two playback controls were retrieved on 2026-10-09 from pinned upstream commit `49d4db35df873165d6bd6ba09b063c7dafbac2f4` (SHA-256 of upstream pause XML: `464af7751d0f67a1c900ce4809a308c41fbe4c585543b31f3227b21f94893b2f`; play-arrow XML: `7f9fb25ab5d4328b3128d424c44ccf2541c74a2d1bac7fda6670cd0e40252196`).
+
+The Windows and Linux resources under `desktop/src/main/resources/dev/ghost/wozai/icons/` rasterize eighteen of these same Android vector paths for runtime tinting. The original Material Icons license is also included in the Windows and Linux packages. The shared app artwork is maintained at `desktop/assets/icons/master/icon-master-1024.png`; `desktop/assets/icons/windows/nearbyim.ico` contains the Windows launcher sizes.
+
+The desktop file-location control also uses Google's outlined `folder_open` icon, retained at `desktop/assets/material/folder_open.svg` and rasterized without path changes to `icons/folder_open.png`. Retrieved on 2026-10-09 from `https://github.com/google/material-design-icons/blob/49d4db35df873165d6bd6ba09b063c7dafbac2f4/src/file/folder_open/materialiconsoutlined/24px.svg`; upstream SVG SHA-256: `d8f67d1736489be02387aed93d6952bf4f40312899d526ed8d70d91a20ee6b53`. The same Apache 2.0 license applies.
+# 身份核验二维码
+
+ZXing core 3.5.3（Apache-2.0），仅用于离线二维码生成与读取。桌面与 Android 固定同一版本，JAR SHA-256 固定在 desktop/dependencies.txt，并在构建时检查；Android 由 R8 裁剪。许可证随客户端分发于 licenses/zxing-Apache-2.0.txt／Android assets。没有加入网络、分析或云端扫码服务。
+
+核验页新增的 lock、qr_code_scanner、content_copy 使用 Google Material Icons Outlined（Apache-2.0）。来源和原始文件摘要见 docs/licenses/material-verification-icons-sources.txt，许可沿用 docs/licenses/material-icons-LICENSE.txt。
