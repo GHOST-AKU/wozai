@@ -36,7 +36,7 @@ public final class AdaptiveInstrumentation extends Instrumentation {
         try{
             activity=(MainActivity)startActivitySync(new Intent(getTargetContext(),MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             await(()->onMain(()->field(activity,"controller")!=null),"Controller attached");controller=onMain(()->field(activity,"controller"));
-            nativeLayouts();progress("Native layout geometry completed");checks+=AndroidWifiDirectUiChecks.fileDiscoveryFailure(this);discoveryDeadline();progress("Prepared scan receives its own five-second discovery deadline");liveContinuity();progress("Live file/window continuity completed");
+            nativeLayouts();progress("Native layout geometry completed");checks+=AndroidWifiDirectUiChecks.fileDiscoveryFailure(this);checks+=AndroidKnownGroupChecks.run(this);discoveryDeadline();progress("Known group builders/wait lifecycle and prepared scan deadline verified");liveContinuity();progress("Live file/window continuity completed");
             results.putString("stream","Adaptive Android: "+checks+" checks passed\n");
         }catch(Throwable failure){result=Activity.RESULT_CANCELED;StringWriter trace=new StringWriter();failure.printStackTrace(new PrintWriter(trace));results.putString("stream",trace.toString());}
         finally{

@@ -41,6 +41,11 @@ public final class AutomaticFileRoutes implements AutoCloseable {
         void openDirect(boolean dialer,Consumer<Opened> opened,Consumer<Throwable> failed);
         default void openDirect(String attempt,boolean dialer,Consumer<Opened> opened,Consumer<Throwable> failed){openDirect(dialer,opened,failed);}
         default void directPeerFallback(){}
+        default boolean directGroupsSupported(){return false;}
+        default boolean direct5GhzSupported(){return false;}
+        default void prepareDirectGroup(String attempt,boolean owner){}
+        default void createDirectGroup(String attempt,boolean prefer5Ghz,Consumer<DirectGroupCredentials> advertised,Consumer<Opened> opened,Consumer<Throwable> failed){failed.accept(new IOException("Explicit P2P groups unavailable"));}
+        default void joinDirectGroup(String attempt,DirectGroupCredentials group,Consumer<Opened> opened,Consumer<Throwable> failed){failed.accept(new IOException("Explicit P2P groups unavailable"));}
         default List<Endpoint> currentLanEndpoints(){return null;}
         void stopDirect();void close();
     }
@@ -59,6 +64,9 @@ public final class AutomaticFileRoutes implements AutoCloseable {
     private volatile CompletableFuture<Route> ready;
     private volatile String directOutcome="not_attempted",directSkipReason="",lastRouteFailure="";
     private volatile String pathProbe;private String verifiedPathNonce;private volatile boolean parentHotspot;private ScheduledFuture<?> pathDeadline;private SocketPath pathSnapshot;
+    private volatile String groupProbe,directMethod="";private ScheduledFuture<?> groupProbeDeadline;
+    private boolean groupAttempt,prefer5Ghz;private String groupGrant;private DirectGroupCredentials groupParameters;
+    private final Set<String> retiredGroups=new LinkedHashSet<>();
     private long retiredParentBytes;private int retiredParentControls;
     private volatile boolean refreshing;private String refreshRequest,recheckNonce;private ScheduledFuture<?> recheckDeadline;
     public AutomaticFileRoutes(FramedSession chat,String localId,String nickname,DeviceIdentity identity,byte[] noiseKey,String remoteId,String remoteKey,String chatRoute,BooleanSupplier approved,Platform platform,Listener listener){
@@ -134,11 +142,11 @@ public final class AutomaticFileRoutes implements AutoCloseable {
         resetCandidate();attempting=null;parentHotspot=false;verifiedPathNonce=null;
         SocketPath path="lan".equals(chatRoute)?chat.socketPath():null;
         if(!valid())return;
-        if(path==null){begin(initialRoute());return;}
+        if(path==null){beginInitial();return;}
         // ENDPOINTS with a version-3 UUID is a backwards-compatible path advertisement.
         // Legacy attempts use random version-4 UUIDs, so older peers safely ignore it.
         String token=UUID.nameUUIDFromBytes((generation+UUID.randomUUID()).getBytes(java.nio.charset.StandardCharsets.US_ASCII)).toString();
-        pathSnapshot=path;pathProbe=token;listener.changed();pathDeadline=actor.schedule(()->{if(Objects.equals(pathProbe,token)&&valid()){pathProbe=null;pathSnapshot=null;begin(initialRoute());}},3,TimeUnit.SECONDS);
+        pathSnapshot=path;pathProbe=token;listener.changed();pathDeadline=actor.schedule(()->{if(Objects.equals(pathProbe,token)&&valid()){pathProbe=null;pathSnapshot=null;beginInitial();}},3,TimeUnit.SECONDS);
         if(!control(FileRoutePacket.Kind.ENDPOINTS,token,Route.LAN,false,pathEndpoints(path)))fail(new IOException("FILE path probe unavailable"),false);
     }
     private boolean receivePath(FileRoutePacket p){
@@ -147,7 +155,7 @@ public final class AutomaticFileRoutes implements AutoCloseable {
         if(lead){
             if(!Objects.equals(pathProbe,p.nonce))return true;
             SocketPath path=pathSnapshot;parentHotspot=path!=null&&path.confirmsHotspot(decodePath(p.endpoints));verifiedPathNonce=parentHotspot?p.nonce:null;
-            pathProbe=null;pathSnapshot=null;if(pathDeadline!=null){pathDeadline.cancel(false);pathDeadline=null;}begin(initialRoute());
+            pathProbe=null;pathSnapshot=null;if(pathDeadline!=null){pathDeadline.cancel(false);pathDeadline=null;}beginInitial();
         }else{
             if(selected!=null&&!refreshing)return true;
             SocketPath path=chat.socketPath();if(!valid())return true;parentHotspot=path!=null&&path.confirmsHotspot(decodePath(p.endpoints));verifiedPathNonce=parentHotspot?p.nonce:null;
@@ -172,12 +180,38 @@ public final class AutomaticFileRoutes implements AutoCloseable {
         directOutcome="skipped";directSkipReason=platform.directUnavailableReason();return Route.LAN;
     }
     private Route selectedKind(){return selected==chat?parseRoute(chatRoute):parseRoute(selectedRoute);}
+    private String challenge(){return UUID.nameUUIDFromBytes((generation+UUID.randomUUID()).getBytes(java.nio.charset.StandardCharsets.US_ASCII)).toString();}
+    private void clearGroupProbe(){groupProbe=null;if(groupProbeDeadline!=null){groupProbeDeadline.cancel(false);groupProbeDeadline=null;}}
+    private void beginInitial(){
+        Route route=initialRoute();groupAttempt=false;
+        if(route!=Route.WIFI_DIRECT||!platform.directGroupsSupported()){begin(route);return;}
+        String token=challenge();groupProbe=token;listener.changed();
+        groupProbeDeadline=actor.schedule(()->{if(Objects.equals(groupProbe,token)&&valid()){clearGroupProbe();begin(Route.WIFI_DIRECT);}},1500,TimeUnit.MILLISECONDS);
+        // Older receivers already ignore version-3 ENDPOINTS on a non-LAN route.
+        if(!control(FileRoutePacket.Kind.ENDPOINTS,token,Route.WIFI_DIRECT,false,List.of()))fail(new IOException("Direct capability probe unavailable"),false);
+    }
+    private boolean receiveGroupProbe(FileRoutePacket packet){
+        if(packet.kind==FileRoutePacket.Kind.ENDPOINTS&&packet.route==Route.WIFI_DIRECT&&UUID.fromString(packet.nonce).version()==3){
+            if(!lead&&packet.endpoints.isEmpty()&&(selected==null&&attempting==null||refreshing)&&!retiredGroups.contains(packet.nonce)&&!listener.busy()&&platform.directSupported()&&platform.directGroupsSupported()){
+                groupGrant=packet.nonce;
+                if(!chat.sendFileRoute(FileRoutePacket.directCapabilities(packet.nonce,generation,platform.direct5GhzSupported())))fail(new IOException("Direct capability reply unavailable"),false);
+            }
+            return true;
+        }
+        if(packet.kind==FileRoutePacket.Kind.DIRECT_CAPABILITIES){
+            if(lead&&groupProbe!=null&&Objects.equals(groupProbe,packet.nonce)&&attempting==null){groupGrant=packet.nonce;clearGroupProbe();groupAttempt=true;prefer5Ghz=packet.supports5Ghz&&platform.direct5GhzSupported();begin(Route.WIFI_DIRECT);}
+            return true;
+        }
+        return false;
+    }
     private boolean dedicatedDirect(){return selected!=null&&selected!=chat&&"wifi-direct".equals(selectedRoute);}
     private static Route parseRoute(String route){return "wifi-direct".equals(route)?Route.WIFI_DIRECT:"lan".equals(route)?Route.LAN:Route.BLUETOOTH;}
     private static String name(Route r){return r==Route.WIFI_DIRECT?"wifi-direct":r==Route.LAN?"lan":"bluetooth";}
     private boolean control(FileRoutePacket.Kind kind,String token,Route route,boolean terminal,List<Endpoint> endpoints){return chat.sendFileRoute(new FileRoutePacket(kind,token,generation,route,terminal,endpoints));}
     private void begin(Route route){
-        resetCandidate();nonce=parentHotspot&&route==Route.LAN?verifiedPathNonce:UUID.randomUUID().toString();attempting=route;
+        if(route!=Route.WIFI_DIRECT)groupAttempt=false;
+        String nextNonce=parentHotspot&&route==Route.LAN?verifiedPathNonce:groupAttempt?Objects.requireNonNull(groupGrant):UUID.randomUUID().toString();
+        resetCandidate();nonce=nextNonce;attempting=route;
         if(!control(FileRoutePacket.Kind.BEGIN,nonce,route,false,Collections.emptyList())){fail(new IOException("FILE control unavailable"),true);return;}enter();
     }
     private void enter(){
@@ -190,7 +224,16 @@ public final class AutomaticFileRoutes implements AutoCloseable {
             parentHotspot=false;verifiedPathNonce=null;
             directOutcome="attempting";directSkipReason="";
             if(!platform.directSupported()){directOutcome="skipped";directSkipReason=platform.directUnavailableReason();attemptFailed(new IOException("Direct unsupported"),"unavailable");return;}
-            platform.openDirect(token,lead,opened->opened(opened,token,Route.WIFI_DIRECT),error->post(()->{if(current(token,Route.WIFI_DIRECT))attemptFailed(asIo(error));}));
+            directMethod=groupAttempt?"known_group":"dns_sd";
+            if(groupAttempt){
+                if(!platform.directGroupsSupported()){attemptFailed(new IOException("Known-group capability unavailable"),"unavailable");return;}
+                platform.prepareDirectGroup(token,lead);
+                if(lead)platform.createDirectGroup(token,prefer5Ghz,parameters->post(()->{
+                    if(!current(token,Route.WIFI_DIRECT)||!groupAttempt)return;
+                    if(groupParameters!=null){if(!groupParameters.equals(parameters))attemptFailed(new IOException("Local Direct group changed"));return;}
+                    groupParameters=parameters;if(!chat.sendFileRoute(FileRoutePacket.directGroup(token,generation,parameters)))fail(new IOException("Direct group control unavailable"),false);
+                }),opened->opened(opened,token,Route.WIFI_DIRECT),error->post(()->{if(current(token,Route.WIFI_DIRECT))attemptFailed(asIo(error));}));
+            }else platform.openDirect(token,lead,opened->opened(opened,token,Route.WIFI_DIRECT),error->post(()->{if(current(token,Route.WIFI_DIRECT))attemptFailed(asIo(error));}));
         }else if(attempting==Route.LAN){
             if("lan".equals(chatRoute)){if(lead)select();}
             else sendEndpoints();
@@ -206,22 +249,32 @@ public final class AutomaticFileRoutes implements AutoCloseable {
     private void receive(FileRoutePacket p){
         startActor();if(!valid())return;
         if(p==null||!generation.equals(p.generation)){fail(new IOException("FILE parent binding mismatch"),true);return;}
+        if(receiveGroupProbe(p))return;
         if(receivePath(p))return;
         if(receiveRecheck(p))return;
         if(p.kind==FileRoutePacket.Kind.REQUEST){if(lead&&selected==null&&attempting==null)chooseInitialRoute();return;}
         if(p.kind==FileRoutePacket.Kind.BEGIN){
             if(lead){fail(new IOException("Invalid FILE coordinator"),true);return;}
+            boolean knownGroup=p.route==Route.WIFI_DIRECT&&UUID.fromString(p.nonce).version()==3;
+            if(knownGroup&&(retiredGroups.contains(p.nonce)||groupAttempt&&Objects.equals(nonce,p.nonce)))return;
             if(selected!=null&&!refreshing)return;
             Route previous=refreshing?null:attempting;
             boolean ordered=p.route==Route.WIFI_DIRECT?previous==null:p.route==Route.LAN?previous==null||previous==Route.WIFI_DIRECT:previous==Route.LAN&&"bluetooth".equals(chatRoute);
             if(!ordered){fail(new IOException("Invalid FILE fallback provenance or order"),true);return;}
+            if(knownGroup&&(!Objects.equals(groupGrant,p.nonce)||!platform.directGroupsSupported())){fail(new IOException("Unnegotiated Direct group"),true);return;}
             parentHotspot=p.route==Route.LAN&&parentHotspot&&Objects.equals(verifiedPathNonce,p.nonce);
             if(previous==null){lastRouteFailure="";directSkipReason="";directOutcome=parentHotspot?"not_needed_existing_hotspot":p.route==Route.WIFI_DIRECT?"not_attempted":"peer_skipped";}
             else if(previous==Route.WIFI_DIRECT&&p.route==Route.LAN&&directOutcome.equals("attempting")){directOutcome="failed";lastRouteFailure="peer_unavailable";platform.directPeerFallback();}
-            if(refreshing){synchronized(this){retireParent();selected=null;selectedRoute="";}finishRecheck();}resetCandidate();nonce=p.nonce;attempting=p.route;enter();return;
+            if(refreshing){synchronized(this){retireParent();selected=null;selectedRoute="";}finishRecheck();}resetCandidate();groupAttempt=knownGroup;nonce=p.nonce;attempting=p.route;enter();return;
         }
         if(!Objects.equals(nonce,p.nonce)||p.route!=attempting)return;
         switch(p.kind){
+            case DIRECT_GROUP:
+                if(phaseFailed)return;
+                if(lead||!groupAttempt||attempting!=Route.WIFI_DIRECT){fail(new IOException("Unexpected Direct credentials"),true);return;}
+                if(groupParameters!=null){if(!groupParameters.equals(p.directGroup))fail(new IOException("Conflicting Direct credentials"),true);return;}
+                groupParameters=p.directGroup;String groupToken=nonce;
+                platform.joinDirectGroup(groupToken,p.directGroup,opened->opened(opened,groupToken,Route.WIFI_DIRECT),error->post(()->{if(current(groupToken,Route.WIFI_DIRECT))attemptFailed(asIo(error));}));break;
             case ENDPOINTS:
                 if(lead&&attempting==Route.LAN&&!"lan".equals(chatRoute)&&!dialed){
                     dialed=true;if(p.endpoints.isEmpty()){attemptFailed(new IOException("No LAN endpoints"));return;}
@@ -301,7 +354,12 @@ public final class AutomaticFileRoutes implements AutoCloseable {
         if(security)platform.close();if(retiring!=null&&!retiring.isDone())retiring.completeExceptionally(error);listener.failed(error);listener.changed();
     }
     private void cancelDeadline(){if(deadline!=null){deadline.cancel(false);deadline=null;}}
-    private void resetCandidate(){cancelDeadline();FramedSession old=candidate;candidate=null;bound=false;dialed=false;selecting=false;if(old!=null)old.close(UiText.EMPTY);platform.stopDirect();}
+    private void retireGroup(String token){if(token==null)return;retiredGroups.add(token);if(retiredGroups.size()>128)retiredGroups.remove(retiredGroups.iterator().next());}
+    private void resetCandidate(){
+        cancelDeadline();retireGroup(groupProbe);retireGroup(groupGrant);clearGroupProbe();groupGrant=null;groupParameters=null;
+        if(nonce!=null&&attempting==Route.WIFI_DIRECT&&UUID.fromString(nonce).version()==3)retireGroup(nonce);
+        FramedSession old=candidate;candidate=null;bound=false;dialed=false;selecting=false;if(old!=null)old.close(UiText.EMPTY);platform.stopDirect();
+    }
     public boolean send(TransferPacket packet){FramedSession wire=selected;if(wire==null||closed||terminal||!chat.isReady()||!approved.getAsBoolean()||packet==null||!Objects.equals(generation,packet.connectionGeneration))return false;return wire.sendTransfer(packet);}
     /** The shared parent has no per-attempt nonce. Retain only a finite discard allowance for its retired authorization. */
     private void retireParent(){
@@ -326,12 +384,12 @@ public final class AutomaticFileRoutes implements AutoCloseable {
     public TransferPath pendingPath(){
         if(closed||terminal)return TransferPath.DISCONNECTED;
         if(selected!=null&&!refreshing)return "wifi-direct".equals(selectedRoute)?TransferPath.WIFI_DIRECT:"lan".equals(selectedRoute)?TransferPath.LAN_UNCONFIRMED:TransferPath.BLUETOOTH;
-        if(pathProbe!=null||refreshing||attempting==null)return TransferPath.SELECTING;
+        if(pathProbe!=null||groupProbe!=null||refreshing||attempting==null)return TransferPath.SELECTING;
         return attempting==Route.WIFI_DIRECT?TransferPath.PENDING_WIFI_DIRECT:attempting==Route.LAN?TransferPath.PENDING_LAN:TransferPath.PENDING_BLUETOOTH;
     }
     public String diagnostics(){
-        String state=closed?"closed":terminal?"failed":pathProbe!=null?"checking_existing":selected!=null?(refreshing?"rechecking":"ready"):attempting!=null?"negotiating":ready!=null&&!ready.isDone()?"requesting":lastRouteFailure.isEmpty()?"idle":"failed";
-        return "file_transport="+selectedRoute+"\nfile_route_pending="+(selected==null)+"\nfile_route_state="+state+"\nfile_attempt_route="+(attempting==null?"":name(attempting))+"\nfile_direct_outcome="+directOutcome+"\nfile_direct_skip_reason="+directSkipReason+"\nfile_route_last_failure="+lastRouteFailure+"\nfile_existing_wifi="+(parentHotspot?"confirmed_hotspot":"unconfirmed")+"\n"+platform.diagnostics();
+        String state=closed?"closed":terminal?"failed":pathProbe!=null?"checking_existing":groupProbe!=null?"checking_direct":selected!=null?(refreshing?"rechecking":"ready"):attempting!=null?"negotiating":ready!=null&&!ready.isDone()?"requesting":lastRouteFailure.isEmpty()?"idle":"failed";
+        return "file_transport="+selectedRoute+"\nfile_route_pending="+(selected==null)+"\nfile_route_state="+state+"\nfile_attempt_route="+(attempting==null?"":name(attempting))+"\nfile_direct_outcome="+directOutcome+"\nfile_direct_method="+directMethod+"\nfile_direct_skip_reason="+directSkipReason+"\nfile_route_last_failure="+lastRouteFailure+"\nfile_existing_wifi="+(parentHotspot?"confirmed_hotspot":"unconfirmed")+"\n"+platform.diagnostics();
     }
     public void abort(){post(()->{String token=nonce;Route route=attempting;fail(new IOException("FILE route canceled"),false);if(valid()&&token!=null)control(FileRoutePacket.Kind.ABORT,token,route,false,Collections.emptyList());});}
     public void close(){

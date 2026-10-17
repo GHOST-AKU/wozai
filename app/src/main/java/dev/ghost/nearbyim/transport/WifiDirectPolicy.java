@@ -27,6 +27,20 @@ final class WifiDirectPolicy {
         }
         void stop() { expected = null; dialer = dialing = false; }
     }
+    /** A fresh known group is usable only after this command's ACK and exact role/name proof. */
+    static final class KnownGroup {
+        private final String ssid;private final boolean owner;
+        private boolean fiveGhz,stopped,announced;private int state; // 0 idle, 1 unknown ACK, 2 accepted, 3 rejected
+        KnownGroup(String ssid,boolean owner,boolean fiveGhz){this.ssid=Objects.requireNonNull(ssid);this.owner=owner;this.fiveGhz=fiveGhz;}
+        boolean begin(){if(stopped||state!=0)return false;state=1;return true;}
+        boolean ack(boolean accepted){if(stopped||state!=1)return false;state=accepted?2:3;return true;}
+        boolean mayFallback(){return !stopped&&owner&&fiveGhz&&state==3;}
+        boolean fallback(){if(!mayFallback())return false;fiveGhz=false;state=0;return true;}
+        boolean prefers5Ghz(){return fiveGhz;}
+        boolean matches(String network,boolean groupOwner){return !stopped&&state==2&&owner==groupOwner&&ssid.equals(network);}
+        boolean announce(){if(stopped||state!=2||!owner||announced)return false;announced=true;return true;}
+        void stop(){stopped=true;}
+    }
     static final class Request<T> {
         final Object client; final long run, scan; final T value;
         private final long deadline;

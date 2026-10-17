@@ -33,6 +33,10 @@ try {
     if($LASTEXITCODE -ne 0) { throw 'Automatic file route tests failed' }
     & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.ExistingWifiReuseTests
     if($LASTEXITCODE -ne 0) { throw 'Existing Wi-Fi reuse tests failed' }
+    & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.DirectGroupControlTests
+    if($LASTEXITCODE -ne 0) { throw 'Direct group control tests failed' }
+    & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.DirectGroupRoutingTests
+    if($LASTEXITCODE -ne 0) { throw 'Direct group routing tests failed' }
     & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AutomaticFileRouteDiagnosticsTests
     if($LASTEXITCODE -ne 0) { throw 'File route diagnostics tests failed' }
     & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AutomaticFileRouteDiagnosticsTests --slow-direct

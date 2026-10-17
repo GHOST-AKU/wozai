@@ -37,7 +37,8 @@ public final class AndroidFilePlatform implements AutomaticFileRoutes.Platform {
     private long directAttempt;
     private Runnable directTimeout,discoveryTimeout;
     private final WifiDirectPolicy.DiscoveryDeadline discoveryBudget=new WifiDirectPolicy.DiscoveryDeadline(AutomaticFileRoutes.DIRECT_DISCOVERY_PREPARE_TIMEOUT_MS,AutomaticFileRoutes.DIRECT_DISCOVERY_TIMEOUT_MS);
-    private boolean directStarted,directPeerSeen;
+    private boolean directStarted,directPeerSeen,directGroupMode;
+    private String preparedGroupNonce;
     private volatile String directLastEvent="idle",directLastError="";
 
     public AndroidFilePlatform(Context context,String localId,String nickname,String remoteId) {
@@ -67,6 +68,31 @@ public final class AndroidFilePlatform implements AutomaticFileRoutes.Platform {
         });
     }
     public boolean directSupported(){return directUnavailableReason().isEmpty();}
+    public boolean directGroupsSupported(){return Build.VERSION.SDK_INT>=29&&directSupported();}
+    public boolean direct5GhzSupported(){return direct.fiveGhzSupported();}
+    public void prepareDirectGroup(String nonce,boolean owner){onMain(()->prepareGroup(nonce,owner));}
+    private void prepareGroup(String nonce,boolean owner){
+        if(closed)return;stopDirect();direct.stop();directStarted=false;directGroupMode=true;preparedGroupNonce=nonce;
+        direct.beginKnownGroupDiagnostics(nonce,owner);directLastEvent=owner?"preparing_group":"waiting_group_parameters";directLastError="";
+    }
+    public void createDirectGroup(String nonce,boolean prefer5Ghz,Consumer<DirectGroupCredentials> advertised,Consumer<AutomaticFileRoutes.Opened> opened,Consumer<Throwable> failed){
+        openGroup(nonce,true,prefer5Ghz,DirectGroupCredentials.random(),advertised,opened,failed);
+    }
+    public void joinDirectGroup(String nonce,DirectGroupCredentials parameters,Consumer<AutomaticFileRoutes.Opened> opened,Consumer<Throwable> failed){
+        openGroup(nonce,false,false,parameters,unused->{},opened,failed);
+    }
+    private void openGroup(String nonce,boolean owner,boolean prefer5Ghz,DirectGroupCredentials parameters,Consumer<DirectGroupCredentials> advertised,Consumer<AutomaticFileRoutes.Opened> opened,Consumer<Throwable> failed){
+        onMain(()->{
+            if(closed||!directGroupsSupported()){failed.accept(new IOException("Explicit P2P group unavailable"));return;}
+            if(!nonce.equals(preparedGroupNonce))prepareGroup(nonce,owner);
+            directGroupMode=true;directStarted=true;
+            directOpened=opened;directFailed=failed;directPeerSeen=true;directLastEvent=owner?"creating_group":"joining_group";directLastError="";long ticket=++directAttempt;
+            if(!owner)direct.diagnostics.record(WifiDirectDiagnostics.Event.GROUP_PARAMETERS_RECEIVED);
+            directTimeout=()->{if(ticket==directAttempt&&directOpened!=null){directLastEvent="timeout";directLastError="timeout";direct.diagnostics.record(WifiDirectDiagnostics.Event.OPEN_TIMEOUT);failDirect(new AutomaticFileRoutes.DirectFailure(AutomaticFileRoutes.DirectFailureReason.OPEN_TIMEOUT));}};
+            main.postDelayed(directTimeout,AutomaticFileRoutes.DIRECT_OPEN_TIMEOUT_MS);
+            direct.startGroup(localId,nickname,remoteId,owner,prefer5Ghz,parameters,advertised);
+        });
+    }
     public String directUnavailableReason() {
         try{
             if(!direct.available())return "unsupported";
@@ -191,7 +217,7 @@ public final class AndroidFilePlatform implements AutomaticFileRoutes.Platform {
     private void clearDiscoveryTimeout(){if(discoveryTimeout!=null)main.removeCallbacks(discoveryTimeout);discoveryTimeout=null;}
     private void clearDirectTimeout(){if(directTimeout!=null)main.removeCallbacks(directTimeout);directTimeout=null;}
     public void directPeerFallback(){onMain(()->direct.diagnostics.record(WifiDirectDiagnostics.Event.PEER_FALLBACK));}
-    public void stopDirect(){onMain(()->{directAttempt++;discoveryBudget.stop();clearDiscoveryTimeout();clearDirectTimeout();directOpened=null;directFailed=null;direct.diagnostics.stop();direct.stopSearch();direct.disconnect();});}
+    public void stopDirect(){onMain(()->{directAttempt++;preparedGroupNonce=null;discoveryBudget.stop();clearDiscoveryTimeout();clearDirectTimeout();directOpened=null;directFailed=null;direct.diagnostics.stop();if(directGroupMode){directGroupMode=false;directStarted=false;direct.stop();}else{direct.stopSearch();direct.disconnect();}});}
     public void close(){onMain(()->{if(closed)return;closed=true;stopDirect();direct.destroy();lanDial.destroy();acceptedStreams.keySet().forEach(AndroidFilePlatform::closeStream);ConnectivityManager manager=context.getSystemService(ConnectivityManager.class);if(manager!=null&&networkCallback!=null)try{manager.unregisterNetworkCallback(networkCallback);}catch(RuntimeException ignored){}networkCallback=null;endpointUpdates=null;try{if(server!=null)server.close();}catch(IOException ignored){}acceptor.shutdownNow();});}
     private void onMain(Runnable action){if(Looper.myLooper()==main.getLooper())action.run();else main.post(action);}
     private static void closeStream(StreamConnection stream){try{stream.close();}catch(IOException ignored){}}
