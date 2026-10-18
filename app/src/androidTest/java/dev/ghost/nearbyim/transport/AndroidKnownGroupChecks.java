@@ -44,7 +44,7 @@ public final class AndroidKnownGroupChecks {
         int[] checks={0};AtomicReference<Throwable> failure=new AtomicReference<>();
         test.runOnMainSync(()->{
             try{
-                for(String stage:new String[]{"address","role","interface","timeout","cancel","foreign"}){
+                for(String stage:new String[]{"address","role","interface","frequency","timeout","cancel","foreign","band"}){
                     AndroidFilePlatform platform=new AndroidFilePlatform(test.getTargetContext(),UUID.randomUUID().toString(),"group-snapshot",UUID.randomUUID().toString());
                     try{
                         platform.prepareDirectGroup(UUID.randomUUID().toString(),true);WifiDirectTransport direct=(WifiDirectTransport)field(platform,"direct");
@@ -54,19 +54,22 @@ public final class AndroidKnownGroupChecks {
                         set(direct,"run",run);set(direct,"attempt",invoke(lifecycle,"beginAttempt",new Class<?>[]{}));
                         DirectGroupCredentials parameters=DirectGroupCredentials.random();
                         Class<?> type=Class.forName("dev.ghost.nearbyim.transport.WifiDirectTransport$CoordinatedGroup");
-                        Constructor<?> constructor=type.getDeclaredConstructor(String.class,boolean.class,boolean.class,DirectGroupCredentials.class,java.util.function.Consumer.class);constructor.setAccessible(true);
-                        Object attempt=constructor.newInstance(UUID.randomUUID().toString(),true,true,parameters,(java.util.function.Consumer<DirectGroupCredentials>)unused->{});set(direct,"coordinated",attempt);
+                        Constructor<?> constructor=type.getDeclaredConstructor(String.class,boolean.class,boolean.class,boolean.class,DirectGroupCredentials.class,java.util.function.Consumer.class);constructor.setAccessible(true);
+                        Object attempt=constructor.newInstance(UUID.randomUUID().toString(),true,true,false,parameters,(java.util.function.Consumer<DirectGroupCredentials>)unused->{});set(direct,"coordinated",attempt);
                         Object policy=field(attempt,"policy");invoke(policy,"begin",new Class<?>[]{});invoke(policy,"ack",new Class<?>[]{boolean.class},true);
                         WifiP2pInfo info=new WifiP2pInfo();info.groupFormed=true;info.isGroupOwner=!stage.equals("role");
-                        if(stage.equals("role")||stage.equals("interface")||stage.equals("foreign"))info.groupOwnerAddress=InetAddress.getByName("192.168.77.1");
-                        WifiP2pGroup group=group(stage.equals("foreign")?"DIRECT-ab-unrelated":parameters.ssid,stage.equals("interface")?null:"p2p-native-fixture");
+                        if(stage.equals("role")||stage.equals("interface")||stage.equals("foreign")||stage.equals("frequency")||stage.equals("band"))info.groupOwnerAddress=InetAddress.getByName("192.168.77.1");
+                        int actualFrequency=stage.equals("frequency")?0:stage.equals("band")?2412:5180;
+                        WifiP2pGroup group=group(stage.equals("foreign")?"DIRECT-ab-unrelated":parameters.ssid,stage.equals("interface")?null:"p2p-native-fixture",actualFrequency);
                         observe(direct,run,info,group);
                         if(stage.equals("foreign")){check(errors.get()==1,"A foreign group still fails immediately instead of waiting");checks[0]++;continue;}
+                        if(stage.equals("band")){check(errors.get()==1&&platform.diagnostics().contains("group_band_rejected")&&!(boolean)field(attempt,"observed"),"An actual 2.4GHz group is rejected before opening a FILE socket");checks[0]++;continue;}
                         check(errors.get()==0,"Incomplete native "+stage+" snapshot must not immediately fail");checks[0]++;
                         Runnable retry=(Runnable)field(attempt,"retry");check(retry!=null,"Incomplete group schedules a bounded reinspection");checks[0]++;
                         Runnable timeout=(Runnable)field(attempt,"timeout");check(timeout!=null,"IP readiness has an independent deadline even if a query callback never returns");checks[0]++;
                         observe(direct,run,info,group);check(field(attempt,"retry")==retry&&field(attempt,"timeout")==timeout,"Duplicate snapshots share one scheduled retry and deadline");checks[0]++;
-                        check(platform.diagnostics().contains("wifi_direct_group_frequency_mhz=5180\n"),"Known actual frequency is retained while IP setup waits");checks[0]++;
+                        check(platform.diagnostics().contains("wifi_direct_group_frequency_mhz="+actualFrequency+"\n"),"Actual frequency is retained while IP and band readiness wait");checks[0]++;
+                        if(stage.equals("frequency")){check(platform.diagnostics().contains("group_wait_frequency"),"Unknown frequency is explicitly diagnosed while waiting");checks[0]++;}
                         if(stage.equals("cancel")){
                             platform.stopDirect();String stopped=platform.diagnostics();retry.run();timeout.run();
                             check(field(direct,"coordinated")==null&&errors.get()==0&&stopped.equals(platform.diagnostics()),"A queued reinspection after cancel cannot reopen or rewrite this attempt");checks[0]++;continue;
@@ -84,10 +87,13 @@ public final class AndroidKnownGroupChecks {
         if(failure.get()!=null)throw new Exception("Native group readiness regression",failure.get());return checks[0];
     }
     private static WifiP2pGroup group(String name,String iface){
+        return group(name,iface,5180);
+    }
+    private static WifiP2pGroup group(String name,String iface,int frequency){
         // API34's public Parcelable layout, from Android14 WifiP2pGroup.CREATOR.
         Parcel parcel=Parcel.obtain();try{
             parcel.writeString(name);parcel.writeParcelable(new WifiP2pDevice(),0);parcel.writeByte((byte)1);parcel.writeInt(0);
-            parcel.writeString(null);parcel.writeString(iface);parcel.writeInt(WifiP2pGroup.NETWORK_ID_TEMPORARY);parcel.writeInt(5180);parcel.setDataPosition(0);
+            parcel.writeString(null);parcel.writeString(iface);parcel.writeInt(WifiP2pGroup.NETWORK_ID_TEMPORARY);parcel.writeInt(frequency);parcel.setDataPosition(0);
             return WifiP2pGroup.CREATOR.createFromParcel(parcel);
         }finally{parcel.recycle();}
     }

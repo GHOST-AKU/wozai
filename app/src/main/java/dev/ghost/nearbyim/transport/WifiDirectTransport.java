@@ -48,6 +48,7 @@ public final class WifiDirectTransport {
     private volatile String lastStage="idle";
     private volatile int serviceResponses,txtResponses;
     private volatile String directMethod="dns_sd",coordinatedInterface;private volatile int groupFrequency;
+    private volatile String bandPolicy="platform_default";
     private CoordinatedGroup coordinated;
     private static final class CoordinatedGroup {
         final boolean owner;final String peerId;final DirectGroupCredentials parameters;final WifiDirectPolicy.KnownGroup policy;
@@ -55,13 +56,16 @@ public final class WifiDirectTransport {
         final WifiDirectPolicy.GroupReadiness readiness=new WifiDirectPolicy.GroupReadiness(INTERFACE_MS);
         boolean observed;Runnable retry,timeout;
         CoordinatedGroup(String peerId,boolean owner,boolean prefer5,DirectGroupCredentials parameters,java.util.function.Consumer<DirectGroupCredentials> ready){
-            this.peerId=peerId;this.owner=owner;this.parameters=parameters;this.ready=ready;policy=new WifiDirectPolicy.KnownGroup(parameters.ssid,owner,prefer5);
+            this(peerId,owner,prefer5,true,parameters,ready);
+        }
+        CoordinatedGroup(String peerId,boolean owner,boolean prefer5,boolean allowAutoFallback,DirectGroupCredentials parameters,java.util.function.Consumer<DirectGroupCredentials> ready){
+            this.peerId=peerId;this.owner=owner;this.parameters=parameters;this.ready=ready;policy=new WifiDirectPolicy.KnownGroup(parameters.ssid,owner,prefer5,allowAutoFallback);
         }
     }
     final WifiDirectDiagnostics diagnostics=new WifiDirectDiagnostics(SystemClock::elapsedRealtime);
-    void beginFileAttemptDiagnostics(String nonce,boolean coordinator){diagnostics.begin(nonce,coordinator);serviceResponses=txtResponses=0;}
+    void beginFileAttemptDiagnostics(String nonce,boolean coordinator){diagnostics.begin(nonce,coordinator);serviceResponses=txtResponses=0;bandPolicy="platform_default";}
     void beginKnownGroupDiagnostics(String nonce,boolean owner){beginFileAttemptDiagnostics(nonce,owner);directMethod="known_group";groupFrequency=0;lastStage=owner?"preparing_group":"waiting_group_parameters";}
-    public String discoveryDiagnostics(){return "wifi_direct_phase="+lastStage+"\nwifi_direct_method="+directMethod+"\nwifi_direct_group_frequency_mhz="+groupFrequency+"\nwifi_direct_service_responses="+serviceResponses+"\nwifi_direct_txt_responses="+txtResponses+"\n"+diagnostics.snapshot();}
+    public String discoveryDiagnostics(){return "wifi_direct_phase="+lastStage+"\nwifi_direct_method="+directMethod+"\nwifi_direct_band_policy="+bandPolicy+"\nwifi_direct_group_frequency_mhz="+groupFrequency+"\nwifi_direct_service_responses="+serviceResponses+"\nwifi_direct_txt_responses="+txtResponses+"\n"+diagnostics.snapshot();}
     private long run, operation, scan, inspection, groupGeneration, attempt;
     private Runnable afterCleanup, afterRequests, connectDeadline, startupWatchdog;
     private boolean queuedConnect;
@@ -108,8 +112,11 @@ public final class WifiDirectTransport {
         startSession(localId,name,null);
     }
     public void startGroup(String localId,String name,String remoteId,boolean owner,boolean prefer5,DirectGroupCredentials parameters,java.util.function.Consumer<DirectGroupCredentials> ready){
+        startGroup(localId,name,remoteId,owner,prefer5,true,parameters,ready);
+    }
+    public void startGroup(String localId,String name,String remoteId,boolean owner,boolean prefer5,boolean allowAutoFallback,DirectGroupCredentials parameters,java.util.function.Consumer<DirectGroupCredentials> ready){
         if(Build.VERSION.SDK_INT<29){listener.onConnectFailed(Peer.WIFI_DIRECT,UiText.of("directUnavailable"));return;}
-        startSession(localId,name,new CoordinatedGroup(remoteId,owner,prefer5,parameters,ready));
+        startSession(localId,name,new CoordinatedGroup(remoteId,owner,prefer5,allowAutoFallback,parameters,ready));
     }
     private void startSession(String localId,String name,CoordinatedGroup group) {
         onMain(() -> {
@@ -214,6 +221,7 @@ public final class WifiDirectTransport {
         WifiDirectPolicy.NativeCommand command;
         try{command=authority.issue(started,ticket);}catch(IllegalStateException unresolved){rejectAttempt("directBusy");return;}
         lastStage=group.owner?"creating_group":"joining_group";
+        bandPolicy=!group.owner?"peer_frequency":group.policy.requires5Ghz()?"5ghz_only":group.policy.prefers5Ghz()?"5ghz_preferred":"auto";
         diagnostics.record(group.owner?WifiDirectDiagnostics.Event.CREATE_GROUP_SUBMIT:WifiDirectDiagnostics.Event.JOIN_GROUP_SUBMIT);
         try{
             WifiP2pConfig config=groupConfig(group.parameters,group.policy.prefers5Ghz());
@@ -576,8 +584,10 @@ public final class WifiDirectTransport {
             return;
         }
         if(Build.VERSION.SDK_INT>=29){int frequency=group.getFrequency();groupFrequency=frequency>=2400&&frequency<=2500||frequency>=4900&&frequency<=7125?frequency:0;}
+        boolean acceptedBand=current.policy.acceptsFrequency(groupFrequency);
+        if(!acceptedBand&&groupFrequency!=0){lastStage="band_mismatch";diagnostics.record(WifiDirectDiagnostics.Event.GROUP_BAND_REJECTED);routeFailure("directConnectFailed");return;}
         WifiDirectPolicy.GroupReadiness.State readiness=current.readiness.observe(now(),info!=null&&info.groupFormed,info!=null&&info.isGroupOwner==current.owner,
-                info!=null&&info.groupOwnerAddress!=null&&!info.groupOwnerAddress.isAnyLocalAddress(),group.getInterface()!=null&&!group.getInterface().isEmpty());
+                info!=null&&info.groupOwnerAddress!=null&&!info.groupOwnerAddress.isAnyLocalAddress(),group.getInterface()!=null&&!group.getInterface().isEmpty(),acceptedBand);
         if(readiness!=WifiDirectPolicy.GroupReadiness.State.READY){waitCoordinated(started,current,readiness);return;}
         clearCoordinatedRetry(current);
         current.observed=true;diagnostics.recordOnce(WifiDirectDiagnostics.Event.GROUP_OBSERVED);lastStage="group_observed";
@@ -593,7 +603,8 @@ public final class WifiDirectTransport {
         lastStage=state.name().toLowerCase(Locale.ROOT);
         diagnostics.recordOnce(state==WifiDirectPolicy.GroupReadiness.State.WAIT_ADDRESS?WifiDirectDiagnostics.Event.GROUP_WAIT_ADDRESS:
                 state==WifiDirectPolicy.GroupReadiness.State.WAIT_ROLE?WifiDirectDiagnostics.Event.GROUP_WAIT_ROLE:
-                state==WifiDirectPolicy.GroupReadiness.State.WAIT_INTERFACE?WifiDirectDiagnostics.Event.GROUP_WAIT_INTERFACE:WifiDirectDiagnostics.Event.GROUP_WAIT_INFO);
+                state==WifiDirectPolicy.GroupReadiness.State.WAIT_INTERFACE?WifiDirectDiagnostics.Event.GROUP_WAIT_INTERFACE:
+                state==WifiDirectPolicy.GroupReadiness.State.WAIT_FREQUENCY?WifiDirectDiagnostics.Event.GROUP_WAIT_FREQUENCY:WifiDirectDiagnostics.Event.GROUP_WAIT_INFO);
         long ticket=attempt;
         // A missing native query callback must not turn the IP budget into the total connect budget.
         if(group.readiness.waiting()&&group.timeout==null){

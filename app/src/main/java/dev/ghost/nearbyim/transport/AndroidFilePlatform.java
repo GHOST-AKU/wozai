@@ -76,12 +76,15 @@ public final class AndroidFilePlatform implements AutomaticFileRoutes.Platform {
         direct.beginKnownGroupDiagnostics(nonce,owner);directLastEvent=owner?"preparing_group":"waiting_group_parameters";directLastError="";
     }
     public void createDirectGroup(String nonce,boolean prefer5Ghz,Consumer<DirectGroupCredentials> advertised,Consumer<AutomaticFileRoutes.Opened> opened,Consumer<Throwable> failed){
-        openGroup(nonce,true,prefer5Ghz,DirectGroupCredentials.random(),advertised,opened,failed);
+        createDirectGroup(nonce,prefer5Ghz,true,advertised,opened,failed);
+    }
+    public void createDirectGroup(String nonce,boolean prefer5Ghz,boolean allowAutoFallback,Consumer<DirectGroupCredentials> advertised,Consumer<AutomaticFileRoutes.Opened> opened,Consumer<Throwable> failed){
+        openGroup(nonce,true,prefer5Ghz,allowAutoFallback,DirectGroupCredentials.random(),advertised,opened,failed);
     }
     public void joinDirectGroup(String nonce,DirectGroupCredentials parameters,Consumer<AutomaticFileRoutes.Opened> opened,Consumer<Throwable> failed){
-        openGroup(nonce,false,false,parameters,unused->{},opened,failed);
+        openGroup(nonce,false,parameters.frequency>=4900&&parameters.frequency<5925,false,parameters,unused->{},opened,failed);
     }
-    private void openGroup(String nonce,boolean owner,boolean prefer5Ghz,DirectGroupCredentials parameters,Consumer<DirectGroupCredentials> advertised,Consumer<AutomaticFileRoutes.Opened> opened,Consumer<Throwable> failed){
+    private void openGroup(String nonce,boolean owner,boolean prefer5Ghz,boolean allowAutoFallback,DirectGroupCredentials parameters,Consumer<DirectGroupCredentials> advertised,Consumer<AutomaticFileRoutes.Opened> opened,Consumer<Throwable> failed){
         onMain(()->{
             if(closed||!directGroupsSupported()){failed.accept(new IOException("Explicit P2P group unavailable"));return;}
             if(!nonce.equals(preparedGroupNonce))prepareGroup(nonce,owner);
@@ -90,7 +93,7 @@ public final class AndroidFilePlatform implements AutomaticFileRoutes.Platform {
             if(!owner)direct.diagnostics.record(WifiDirectDiagnostics.Event.GROUP_PARAMETERS_RECEIVED);
             directTimeout=()->{if(ticket==directAttempt&&directOpened!=null){directLastEvent="timeout";directLastError="timeout";direct.diagnostics.record(WifiDirectDiagnostics.Event.OPEN_TIMEOUT);failDirect(new AutomaticFileRoutes.DirectFailure(AutomaticFileRoutes.DirectFailureReason.OPEN_TIMEOUT));}};
             main.postDelayed(directTimeout,AutomaticFileRoutes.DIRECT_OPEN_TIMEOUT_MS);
-            direct.startGroup(localId,nickname,remoteId,owner,prefer5Ghz,parameters,advertised);
+            direct.startGroup(localId,nickname,remoteId,owner,prefer5Ghz,allowAutoFallback,parameters,advertised);
         });
     }
     public String directUnavailableReason() {

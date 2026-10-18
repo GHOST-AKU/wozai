@@ -16,7 +16,7 @@ public final class AutomaticFileRoutes implements AutoCloseable {
     public static final long DIRECT_OPEN_TIMEOUT_MS=50_000;
     private static final long LANE_HANDSHAKE_TIMEOUT_MS=15_000;
     public enum Route { WIFI_DIRECT, LAN, BLUETOOTH }
-    public enum DirectFailureReason { DISCOVERY_PREPARE_TIMEOUT, DISCOVERY_TIMEOUT, OPEN_TIMEOUT }
+    public enum DirectFailureReason { DISCOVERY_PREPARE_TIMEOUT, DISCOVERY_TIMEOUT, OPEN_TIMEOUT, FREQUENCY_UNCONFIRMED, BAND_MISMATCH }
     public static final class DirectFailure extends IOException {
         public final DirectFailureReason reason;
         public DirectFailure(DirectFailureReason reason){super(reason.name());this.reason=reason;}
@@ -45,6 +45,8 @@ public final class AutomaticFileRoutes implements AutoCloseable {
         default boolean direct5GhzSupported(){return false;}
         default void prepareDirectGroup(String attempt,boolean owner){}
         default void createDirectGroup(String attempt,boolean prefer5Ghz,Consumer<DirectGroupCredentials> advertised,Consumer<Opened> opened,Consumer<Throwable> failed){failed.accept(new IOException("Explicit P2P groups unavailable"));}
+        /** A working parent LAN must not be replaced by an unmeasured 2.4GHz group. */
+        default void createDirectGroup(String attempt,boolean prefer5Ghz,boolean allowAutoFallback,Consumer<DirectGroupCredentials> advertised,Consumer<Opened> opened,Consumer<Throwable> failed){createDirectGroup(attempt,prefer5Ghz,advertised,opened,failed);}
         default void joinDirectGroup(String attempt,DirectGroupCredentials group,Consumer<Opened> opened,Consumer<Throwable> failed){failed.accept(new IOException("Explicit P2P groups unavailable"));}
         default List<Endpoint> currentLanEndpoints(){return null;}
         void stopDirect();void close();
@@ -199,7 +201,11 @@ public final class AutomaticFileRoutes implements AutoCloseable {
             return true;
         }
         if(packet.kind==FileRoutePacket.Kind.DIRECT_CAPABILITIES){
-            if(lead&&groupProbe!=null&&Objects.equals(groupProbe,packet.nonce)&&attempting==null){groupGrant=packet.nonce;clearGroupProbe();groupAttempt=true;prefer5Ghz=packet.supports5Ghz&&platform.direct5GhzSupported();begin(Route.WIFI_DIRECT);}
+            if(lead&&groupProbe!=null&&Objects.equals(groupProbe,packet.nonce)&&attempting==null){
+                groupGrant=packet.nonce;clearGroupProbe();groupAttempt=true;prefer5Ghz=packet.supports5Ghz&&platform.direct5GhzSupported();
+                if("lan".equals(chatRoute)&&!prefer5Ghz){directOutcome="skipped";directSkipReason="5ghz_unavailable";begin(Route.LAN);}
+                else begin(Route.WIFI_DIRECT);
+            }
             return true;
         }
         return false;
@@ -228,9 +234,10 @@ public final class AutomaticFileRoutes implements AutoCloseable {
             if(groupAttempt){
                 if(!platform.directGroupsSupported()){attemptFailed(new IOException("Known-group capability unavailable"),"unavailable");return;}
                 platform.prepareDirectGroup(token,lead);
-                if(lead)platform.createDirectGroup(token,prefer5Ghz,parameters->post(()->{
+                if(lead)platform.createDirectGroup(token,prefer5Ghz,!"lan".equals(chatRoute),parameters->post(()->{
                     if(!current(token,Route.WIFI_DIRECT)||!groupAttempt)return;
                     if(groupParameters!=null){if(!groupParameters.equals(parameters))attemptFailed(new IOException("Local Direct group changed"));return;}
+                    if(!acceptGroupBand(parameters))return;
                     groupParameters=parameters;if(!chat.sendFileRoute(FileRoutePacket.directGroup(token,generation,parameters)))fail(new IOException("Direct group control unavailable"),false);
                 }),opened->opened(opened,token,Route.WIFI_DIRECT),error->post(()->{if(current(token,Route.WIFI_DIRECT))attemptFailed(asIo(error));}));
             }else platform.openDirect(token,lead,opened->opened(opened,token,Route.WIFI_DIRECT),error->post(()->{if(current(token,Route.WIFI_DIRECT))attemptFailed(asIo(error));}));
@@ -273,6 +280,7 @@ public final class AutomaticFileRoutes implements AutoCloseable {
                 if(phaseFailed)return;
                 if(lead||!groupAttempt||attempting!=Route.WIFI_DIRECT){fail(new IOException("Unexpected Direct credentials"),true);return;}
                 if(groupParameters!=null){if(!groupParameters.equals(p.directGroup))fail(new IOException("Conflicting Direct credentials"),true);return;}
+                if(!acceptGroupBand(p.directGroup))return;
                 groupParameters=p.directGroup;String groupToken=nonce;
                 platform.joinDirectGroup(groupToken,p.directGroup,opened->opened(opened,groupToken,Route.WIFI_DIRECT),error->post(()->{if(current(groupToken,Route.WIFI_DIRECT))attemptFailed(asIo(error));}));break;
             case ENDPOINTS:
@@ -290,6 +298,10 @@ public final class AutomaticFileRoutes implements AutoCloseable {
             case SELECT_ACK:if(lead&&selecting){selected=extra()?candidate:chat;selectedRoute=selected==chat?(parentHotspot?"wifi-direct":chatRoute):name(attempting);if(selected==chat)clearParentDrain();cancelDeadline();complete(attempting);}break;
             default:fail(new IOException("Unexpected parent FILE control"),true);
         }
+    }
+    private boolean acceptGroupBand(DirectGroupCredentials group){
+        if(!"lan".equals(chatRoute)||group.frequency>=4900&&group.frequency<5925)return true;
+        attemptFailed(new DirectFailure(group.frequency==0?DirectFailureReason.FREQUENCY_UNCONFIRMED:DirectFailureReason.BAND_MISMATCH));return false;
     }
     private boolean extra(){return attempting==Route.WIFI_DIRECT||attempting==Route.LAN&&!"lan".equals(chatRoute);}
     private boolean selection(FileRoutePacket.Kind kind){FileRoutePacket p=new FileRoutePacket(kind,nonce,generation,attempting,false,Collections.emptyList());return extra()?candidate!=null&&candidate.sendFileRoute(p):chat.sendFileRoute(p);}

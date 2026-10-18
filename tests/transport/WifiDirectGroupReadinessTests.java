@@ -27,11 +27,21 @@ public final class WifiDirectGroupReadinessTests {
         check(state(type,mixed,9000,true,true,false,true).equals("EXPIRED"),"Changing incomplete fields never restarts the readiness budget");
         Object canceled=create(type);state(type,canceled,1000,true,true,false,true);type.getDeclaredMethod("stop").invoke(canceled);
         check(state(type,canceled,2000,true,true,true,true).equals("RETIRED"),"Address completion after cancellation cannot reopen the attempt");
+        Object frequency=create(type);
+        check(bandState(type,frequency,1000,false).equals("WAIT_FREQUENCY"),"A complete IP snapshot cannot prove the requested 5GHz band when frequency is unknown");
+        check(bandState(type,frequency,8999,false).equals("WAIT_FREQUENCY"),"Duplicate unknown-frequency snapshots keep the original readiness deadline");
+        check(bandState(type,frequency,8999,true).equals("READY"),"Actual 5GHz frequency can finish readiness before its deadline");
+        Object neverReported=create(type);bandState(type,neverReported,1000,false);
+        check(bandState(type,neverReported,9000,true).equals("EXPIRED"),"A late frequency cannot bypass the readiness timeout");
         System.out.println("P2P group IP readiness: "+checks+" checks passed");
     }
     private static Object create(Class<?> type)throws Exception{return type.getDeclaredConstructor(long.class).newInstance(8000L);}
     private static String state(Class<?> type,Object value,long now,boolean formed,boolean role,boolean address,boolean iface)throws Exception{
         return type.getDeclaredMethod("observe",long.class,boolean.class,boolean.class,boolean.class,boolean.class).invoke(value,now,formed,role,address,iface).toString();
+    }
+    private static String bandState(Class<?> type,Object value,long now,boolean frequency)throws Exception{
+        try{return type.getDeclaredMethod("observe",long.class,boolean.class,boolean.class,boolean.class,boolean.class,boolean.class).invoke(value,now,true,true,true,true,frequency).toString();}
+        catch(NoSuchMethodException missing){throw new AssertionError("Group readiness must wait for actual band evidence",missing);}
     }
     private static void check(boolean ok,String message){if(!ok)throw new AssertionError(message);checks++;}
 }

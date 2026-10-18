@@ -161,14 +161,17 @@ public final class AutomaticFileRoutesTests {
     static byte[] key(){byte[] k=new byte[32];new java.security.SecureRandom().nextBytes(k);return k;}
     static StreamConnection[] sockets()throws Exception {try(ServerSocket s=new ServerSocket(0,1,InetAddress.getLoopbackAddress())){Socket a=new Socket(InetAddress.getLoopbackAddress(),s.getLocalPort()),b=s.accept();return new StreamConnection[]{SessionTests.connection(a),SessionTests.connection(b)};}}
     static final class TestPlatform implements AutomaticFileRoutes.Platform {
-        boolean groups,fiveGhz=true,createFailure,holdGroup;volatile int legacyOpens,groupCreates,groupJoins;boolean requestedFiveGhz;DirectGroupCredentials published;final CountDownLatch groupJoinEntered=new CountDownLatch(1);
+        boolean groups,fiveGhz=true,createFailure,holdGroup;volatile int legacyOpens,groupCreates,groupJoins;boolean requestedFiveGhz,autoFallback=true;int groupFrequency=-1;DirectGroupCredentials published;final CountDownLatch groupJoinEntered=new CountDownLatch(1);
         Consumer<AutomaticFileRoutes.Opened> groupOpened;Consumer<Throwable> groupFailed;
         public boolean directGroupsSupported(){return groups;}
         public boolean direct5GhzSupported(){return fiveGhz;}
         public void createDirectGroup(String nonce,boolean prefer5,Consumer<DirectGroupCredentials> advertised,Consumer<AutomaticFileRoutes.Opened> opened,Consumer<Throwable> failed){
             attemptNonce=nonce;groupCreates++;requestedFiveGhz=prefer5;groupOpened=opened;groupFailed=failed;
             if(createFailure){failed.accept(new IOException("Confirmed create failure"));return;}
-            published=DirectGroupCredentials.random().withFrequency(prefer5?5180:2412);advertised.accept(published);
+            published=DirectGroupCredentials.random().withFrequency(groupFrequency>=0?groupFrequency:prefer5?5180:2412);advertised.accept(published);
+        }
+        public void createDirectGroup(String nonce,boolean prefer5,boolean allowAutoFallback,Consumer<DirectGroupCredentials> advertised,Consumer<AutomaticFileRoutes.Opened> opened,Consumer<Throwable> failed){
+            autoFallback=allowAutoFallback;createDirectGroup(nonce,prefer5,advertised,opened,failed);
         }
         public void joinDirectGroup(String nonce,DirectGroupCredentials group,Consumer<AutomaticFileRoutes.Opened> opened,Consumer<Throwable> failed){
             attemptNonce=nonce;groupJoins++;groupOpened=opened;groupFailed=failed;groupJoinEntered.countDown();

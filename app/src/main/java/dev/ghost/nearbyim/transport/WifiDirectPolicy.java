@@ -29,29 +29,35 @@ final class WifiDirectPolicy {
     }
     /** A fresh known group is usable only after this command's ACK and exact role/name proof. */
     static final class KnownGroup {
-        private final String ssid;private final boolean owner;
+        private final String ssid;private final boolean owner,allowAutoFallback;
         private boolean fiveGhz,stopped,announced;private int state; // 0 idle, 1 unknown ACK, 2 accepted, 3 rejected
-        KnownGroup(String ssid,boolean owner,boolean fiveGhz){this.ssid=Objects.requireNonNull(ssid);this.owner=owner;this.fiveGhz=fiveGhz;}
+        KnownGroup(String ssid,boolean owner,boolean fiveGhz){this(ssid,owner,fiveGhz,true);}
+        KnownGroup(String ssid,boolean owner,boolean fiveGhz,boolean allowAutoFallback){this.ssid=Objects.requireNonNull(ssid);this.owner=owner;this.fiveGhz=fiveGhz;this.allowAutoFallback=allowAutoFallback;}
         boolean begin(){if(stopped||state!=0)return false;state=1;return true;}
         boolean ack(boolean accepted){if(stopped||state!=1)return false;state=accepted?2:3;return true;}
-        boolean mayFallback(){return !stopped&&owner&&fiveGhz&&state==3;}
+        boolean mayFallback(){return !stopped&&owner&&fiveGhz&&allowAutoFallback&&state==3;}
         boolean fallback(){if(!mayFallback())return false;fiveGhz=false;state=0;return true;}
         boolean prefers5Ghz(){return fiveGhz;}
+        boolean requires5Ghz(){return fiveGhz&&!allowAutoFallback;}
+        boolean acceptsFrequency(int frequency){return !requires5Ghz()||frequency>=4900&&frequency<5925;}
         boolean matches(String network,boolean groupOwner){return !stopped&&state==2&&owner==groupOwner&&ssid.equals(network);}
         boolean announce(){if(stopped||state!=2||!owner||announced)return false;announced=true;return true;}
         void stop(){stopped=true;}
     }
     /** A formed GO may still be waiting for tethering/DHCP; repeated snapshots cannot extend this wait. */
     static final class GroupReadiness {
-        enum State { WAIT_GROUP, WAIT_ROLE, WAIT_ADDRESS, WAIT_INTERFACE, READY, EXPIRED, RETIRED }
+        enum State { WAIT_GROUP, WAIT_ROLE, WAIT_ADDRESS, WAIT_INTERFACE, WAIT_FREQUENCY, READY, EXPIRED, RETIRED }
         private final long timeoutMs;private long expires=-1;private boolean stopped;
         GroupReadiness(long timeoutMs){this.timeoutMs=timeoutMs;}
         State observe(long now,boolean formed,boolean roleMatches,boolean hasAddress,boolean hasInterface){
+            return observe(now,formed,roleMatches,hasAddress,hasInterface,true);
+        }
+        State observe(long now,boolean formed,boolean roleMatches,boolean hasAddress,boolean hasInterface,boolean hasFrequency){
             if(stopped)return State.RETIRED;
             if(expires>=0&&now>=expires)return State.EXPIRED;
-            if(formed&&roleMatches&&hasAddress&&hasInterface){expires=-1;return State.READY;}
+            if(formed&&roleMatches&&hasAddress&&hasInterface&&hasFrequency){expires=-1;return State.READY;}
             if(expires<0)expires=now+timeoutMs;
-            return !formed?State.WAIT_GROUP:!roleMatches?State.WAIT_ROLE:!hasAddress?State.WAIT_ADDRESS:State.WAIT_INTERFACE;
+            return !formed?State.WAIT_GROUP:!roleMatches?State.WAIT_ROLE:!hasAddress?State.WAIT_ADDRESS:!hasInterface?State.WAIT_INTERFACE:State.WAIT_FREQUENCY;
         }
         boolean waiting(){return !stopped&&expires>=0;}
         long remaining(long now){return Math.max(0,expires-now);}

@@ -6,14 +6,40 @@ import static dev.ghost.nearbyim.core.AutomaticFileRoutesTests.*;
 public final class DirectGroupRoutingTests {
     public static void main(String[] args)throws Exception {
         int before=checks;
-        for(boolean peerFive:new boolean[]{false,true})try(Pair p=new Pair("lan",true,false)){
+        for(boolean localFive:new boolean[]{false,true})for(boolean peerFive:new boolean[]{false,true})try(Pair p=new Pair("lan",true,false)){
+            p.a.platform.groups=p.b.platform.groups=true;p.a.platform.fiveGhz=localFive;p.b.platform.fiveGhz=peerFive;
+            AutomaticFileRoutes.Route expected=localFive&&peerFive?AutomaticFileRoutes.Route.WIFI_DIRECT:AutomaticFileRoutes.Route.LAN;
+            check(p.b.files.ensureReady().get(5,TimeUnit.SECONDS)==expected,"An existing LAN is upgraded only when both peers support 5GHz");
+            if(expected==AutomaticFileRoutes.Route.LAN){
+                check(p.a.platform.groupCreates+p.b.platform.groupJoins==0,"No 2.4GHz group is created over a working LAN");
+                check(p.a.files.diagnostics().contains("file_direct_skip_reason=5ghz_unavailable\n"),"Band capability skip remains visible");
+            }else check(p.a.platform.requestedFiveGhz&&!p.a.platform.autoFallback,"LAN upgrade requests 5GHz without AUTO downgrade");
+            p.transfer();
+        }
+        for(int frequency:new int[]{0,2412,6015})try(Pair p=new Pair("lan",true,false)){
+            p.a.platform.groups=p.b.platform.groups=true;p.a.platform.groupFrequency=frequency;
+            check(p.a.files.ensureReady().get(5,TimeUnit.SECONDS)==AutomaticFileRoutes.Route.LAN,"Unknown or non-5GHz group cannot replace the parent LAN");
+            check(p.b.platform.groupJoins==0,"Rejected band is not advertised to the joiner");
+            check(p.a.files.diagnostics().contains("file_route_last_failure="+(frequency==0?"frequency_unconfirmed":"band_mismatch")+"\n"),"Actual-band rejection has a specific diagnostic");p.transfer();
+        }
+        for(boolean peerFive:new boolean[]{false,true})try(Pair p=new Pair("bluetooth",true,false)){
             p.a.platform.groups=p.b.platform.groups=true;p.b.platform.fiveGhz=peerFive;
             check(p.b.files.ensureReady().get(5,TimeUnit.SECONDS)==AutomaticFileRoutes.Route.WIFI_DIRECT,"Both capable peers must establish a known group without DNS-SD responses");
             check(p.a.platform.legacyOpens==0&&p.b.platform.legacyOpens==0,"Known-group route does not start legacy service discovery");
             check(p.a.platform.groupCreates==1&&p.b.platform.groupJoins==1,"Exactly one group owner and one joiner");
             check(p.a.platform.requestedFiveGhz==peerFive,"5GHz preference respects both peers' capabilities");
+            check(p.a.platform.autoFallback,"Without a connected LAN, an AUTO fallback remains available");
             check(p.a.platform.attemptNonce.equals(p.b.platform.attemptNonce),"Group parameters retain the same authenticated attempt");
             p.transfer();check(p.a.wire.isReady()&&p.b.wire.isReady(),"Independent group file lane preserves encrypted parent chat");
+        }
+        for(int frequency:new int[]{0,2412})try(Pair p=new Pair("lan",true,false)){
+            p.b.platform.groups=true;
+            String probe=java.util.UUID.nameUUIDFromBytes(new byte[]{20,21,22}).toString(),generation=p.a.wire.connectionGeneration();
+            check(p.a.wire.sendFileRoute(new FileRoutePacket(FileRoutePacket.Kind.ENDPOINTS,probe,generation,AutomaticFileRoutes.Route.WIFI_DIRECT,false,java.util.List.of()))&&p.a.groupCapabilities.poll(3,TimeUnit.SECONDS)!=null,"Peer capability probe authorizes an old coordinator's attempt");
+            check(p.a.wire.sendFileRoute(new FileRoutePacket(FileRoutePacket.Kind.BEGIN,probe,generation,AutomaticFileRoutes.Route.WIFI_DIRECT,false,java.util.List.of())),"Old coordinator begins a negotiated group");
+            check(p.a.wire.sendFileRoute(FileRoutePacket.directGroup(probe,generation,DirectGroupCredentials.random().withFrequency(frequency))),"Old coordinator advertises unknown or 2.4GHz group");
+            check(p.b.groupControls.poll(3,TimeUnit.SECONDS)!=null,"Old group credentials decoded through Noise");drainActor(p.b.files);
+            check(p.b.platform.groupJoins==0&&p.b.files.diagnostics().contains("file_route_last_failure="+(frequency==0?"frequency_unconfirmed":"band_mismatch")+"\n"),"Joiner refuses a legacy downgrade before changing Wi-Fi");
         }
         for(boolean leadCapable:new boolean[]{false,true})try(Pair p=new Pair("lan",true,false)){
             p.a.platform.groups=leadCapable;p.b.platform.groups=!leadCapable;p.a.platform.directSuccess=p.b.platform.directSuccess=true;

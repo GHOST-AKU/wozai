@@ -26,6 +26,14 @@ public final class WifiDirectKnownGroupTests {
         Object late=type.getDeclaredConstructor(String.class,boolean.class,boolean.class).newInstance("DIRECT-ab-wozai-12345678",true,true);
         call(type,late,"begin");type.getDeclaredMethod("stop").invoke(late);
         check(!call(type,late,"ack",new Class[]{boolean.class},true)&&!call(type,late,"announce"),"Late native success after cancellation grants no group authority");
+        Object strict;
+        try{strict=type.getDeclaredConstructor(String.class,boolean.class,boolean.class,boolean.class).newInstance("DIRECT-ab-wozai-12345678",true,true,false);}
+        catch(NoSuchMethodException missing){throw new AssertionError("A LAN upgrade needs a policy that forbids AUTO downgrade",missing);}
+        check(call(type,strict,"begin"),"Strict 5GHz starts one native command");
+        call(type,strict,"ack",new Class[]{boolean.class},false);
+        check(!call(type,strict,"mayFallback")&&!call(type,strict,"fallback")&&!call(type,strict,"begin"),"A rejected 5GHz LAN upgrade must not issue an AUTO command");
+        for(int frequency:new int[]{0,2412,2484,6015})check(!call(type,strict,"acceptsFrequency",new Class[]{int.class},frequency),"Strict group rejects unknown, 2.4GHz and 6GHz frequencies");
+        for(int frequency:new int[]{5180,5745,5825})check(call(type,strict,"acceptsFrequency",new Class[]{int.class},frequency),"Strict group accepts actual 5GHz channels");
         System.out.println("Known group policy: "+checks+" checks passed");
     }
     private static boolean call(Class<?> type,Object value,String method,Object... unused)throws Exception{return (boolean)type.getDeclaredMethod(method).invoke(value);}
