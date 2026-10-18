@@ -517,5 +517,16 @@
   "attachmentPathSelecting": "전송 경로 확인 중 · 전송 시작 전",
   "pathDetailsSelecting": "파일은 Wi-Fi Direct, LAN, Bluetooth 순서로 시도합니다. 채팅 연결 모드는 바뀌지 않습니다.",
   "systemTheme": "시스템 설정 따르기",
-  "attachmentSaveBeforeOpening": "이 파일을 열기 전에 다른 이름으로 저장해 주세요."
+  "attachmentSaveBeforeOpening": "이 파일을 열기 전에 다른 이름으로 저장해 주세요.",
+  "receiveFolder": "수신 폴더",
+  "receiveFolderPrivate": "앱 내부에만 저장",
+  "receiveFolderSummary": "수신이 완료된 파일과 사진의 사본을 선택한 폴더에 저장합니다. 채팅에는 앱 내부 사본이 유지됩니다. 폴더 변경은 이후 수신에 적용되며, 채팅을 지워도 저장된 파일은 삭제되지 않습니다.",
+  "receiveFolderChoose": "폴더 선택",
+  "receiveFolderStop": "앱 내부에만 저장",
+  "receiveFolderUnavailable": "이 폴더에 접근하거나 쓸 수 없습니다. 다시 선택해 주세요.",
+  "receiveFolderSaving": "수신 폴더에 저장 중…",
+  "receiveFolderSaved": "수신 폴더에 저장됨",
+  "receiveFolderFailed": "수신 폴더에 저장하지 못함",
+  "receiveFolderRetry": "폴더에 저장 다시 시도",
+  "receiveFolderSave": "수신 폴더에 저장"
 }

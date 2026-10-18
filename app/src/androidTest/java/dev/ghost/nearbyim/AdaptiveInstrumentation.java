@@ -37,6 +37,7 @@ public final class AdaptiveInstrumentation extends Instrumentation {
             activity=(MainActivity)startActivitySync(new Intent(getTargetContext(),MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             await(()->onMain(()->field(activity,"controller")!=null),"Controller attached");controller=onMain(()->field(activity,"controller"));
             nativeLayouts();progress("Native layout geometry completed");checks+=AndroidWifiDirectUiChecks.fileDiscoveryFailure(this);checks+=AndroidKnownGroupChecks.run(this);discoveryDeadline();progress("Known group builders/wait lifecycle and prepared scan deadline verified");liveContinuity();progress("Live file/window continuity completed");appearanceChoices();progress("Native theme overrides and recreation continuity completed");
+            checks+=AndroidReceiveDirectoryChecks.run(getTargetContext());receiveDirectoryUi();progress("Native receive-folder grants, copies, restart, deletion and real Noise receipt checks completed");
             results.putString("stream","Adaptive Android: "+checks+" checks passed\n");
         }catch(Throwable failure){result=Activity.RESULT_CANCELED;StringWriter trace=new StringWriter();failure.printStackTrace(new PrintWriter(trace));results.putString("stream",trace.toString());}
         finally{
@@ -48,6 +49,31 @@ public final class AdaptiveInstrumentation extends Instrumentation {
             app.unregisterActivityLifecycleCallbacks(lifecycle);
         }finish(result,results);
     }
+    private void receiveDirectoryUi()throws Exception {
+        Context context=getTargetContext();AttachmentLocations locations=AttachmentLocations.get(context);AttachmentLocations.Directory original=locations.directory();
+        AndroidReceiveDirectoryChecks.command(context,"directory-grant","two");Object service=onMain(()->field(activity,"service"));UriHolder destination=new UriHolder();String peer=onMain(()->controller.selectedId);
+        try{
+            onMain(()->{activity.onActivityResult(26,Activity.RESULT_OK,new Intent().setData(AndroidReceiveDirectoryChecks.tree("two")).addFlags(AndroidReceiveDirectoryChecks.FLAGS));return null;});
+            await(()->locations.directory()!=null&&locations.directory().uri().equals(AndroidReceiveDirectoryChecks.tree("two")),"Actual picker callback persists the chosen receive directory");
+            onMain(()->{invoke(activity,"renderSettings");check(((TextView)field(activity,"receiveFolderValue")).getText().toString().equals("two"),"Settings show the selected folder name");activity.onActivityResult(26,Activity.RESULT_CANCELED,null);return null;});
+            check(locations.directory().uri().equals(AndroidReceiveDirectoryChecks.tree("two")),"Canceling folder selection preserves the existing directory");
+            MainActivity previous=activity;onMain(()->{previous.recreate();return null;});await(()->latest.get()!=null&&latest.get()!=previous&&onMain(()->field(latest.get(),"controller")==controller),"Folder selection survives real Activity recreation");activity=latest.get();
+            check(onMain(()->field(activity,"service")==service&&controller.connected),"Folder selection and recreation preserve the live service and Noise connection");
+            Path source=context.getCacheDir().toPath().resolve("receive-folder-noise.bin");byte[] bytes=new byte[32769];new Random(29).nextBytes(bytes);Files.write(source,bytes);
+            String id=remoteFiles.offer(new FileAttachmentSource(source),"收到的原名.bin","application/octet-stream").get(10,TimeUnit.SECONDS);
+            await(()->onMain(()->controller.messages.stream().anyMatch(message->message.id.equals(id)&&message.attachment!=null&&!message.outgoing&&message.attachment.state.equals("received"))),"Real encrypted incoming file commits its original saved receipt");
+            AttachmentRecord record=onMain(()->controller.messages.stream().filter(message->message.id.equals(id)&&!message.outgoing).findFirst().orElseThrow().attachment);
+            await(()->locations.savedStatus(peer,record)!=null&&locations.savedStatus(peer,record).state()==AttachmentDirectoryStore.State.SAVED,"Production receipt callback automatically saves to the chosen folder");
+            AttachmentLocations.Location location=locations.locate(peer,record).get(10,TimeUnit.SECONDS);destination.uri=location.savedUri();check(location.kind()==AttachmentLocations.Kind.DOCUMENT&&location.availability()==AttachmentLocations.Availability.AVAILABLE,"Real received file advertises its public document location");
+            try(InputStream input=context.getContentResolver().openInputStream(destination.uri)){ByteArrayOutputStream output=new ByteArrayOutputStream();byte[] buffer=new byte[4096];int count;while((count=input.read(buffer))!=-1)output.write(buffer,0,count);check(Arrays.equals(bytes,output.toByteArray()),"Noise payload and public folder bytes agree");}
+            await(()->onMain(()->{View row=((LinearLayout)field(activity,"bubbles")).findViewWithTag("message:"+id+":false");TextView status=row==null?null:row.findViewWithTag("receiveFolderStatus");return status!=null&&status.getText().toString().equals(AndroidText.get(activity,"receiveFolderSaved"));}),"File bubble shows the successful folder save");
+        }finally{
+            if(destination.uri!=null)android.provider.DocumentsContract.deleteDocument(context.getContentResolver(),destination.uri);
+            if(original==null)locations.stopDirectory();else locations.selectDirectory(original.uri(),AndroidReceiveDirectoryChecks.FLAGS).get(10,TimeUnit.SECONDS);
+            locations.clearPeer(peer).get(10,TimeUnit.SECONDS);locations.finishClear(peer);AndroidReceiveDirectoryChecks.command(context,"directory-revoke","two");
+        }
+    }
+    private static final class UriHolder {android.net.Uri uri;}
     private void appearanceChoices()throws Exception {
         checks+=AndroidAppearanceChecks.run(getTargetContext());
         String original=AppAppearance.selection(getTargetContext());

@@ -25,6 +25,8 @@ try {
     if($LASTEXITCODE -ne 0) { throw 'Avatar sync tests failed' }
     & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentExportStoreTests
     if($LASTEXITCODE -ne 0) { throw 'Attachment export location tests failed' }
+    & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentDirectoryStoreTests
+    if($LASTEXITCODE -ne 0) { throw 'Receive-directory journal tests failed' }
     & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.TransferPathTests
     if($LASTEXITCODE -ne 0) { throw 'Transfer path tests failed' }
     & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AdaptiveLayoutTests

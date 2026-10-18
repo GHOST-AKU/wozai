@@ -406,6 +406,17 @@
     <string name="privacy" formatted="false">"无需账号或远程服务器。聊天与文件传输使用端到端加密，本机记录和附件不加密。首次连接请当面核对设备身份。"</string>
     <string name="quit" formatted="false">"退出"</string>
     <string name="ready" formatted="false">"已连接"</string>
+    <string name="receive_folder" formatted="false">"接收文件夹"</string>
+    <string name="receive_folder_choose" formatted="false">"选择文件夹"</string>
+    <string name="receive_folder_failed" formatted="false">"未能保存到接收文件夹"</string>
+    <string name="receive_folder_private" formatted="false">"仅保存在应用中"</string>
+    <string name="receive_folder_retry" formatted="false">"重试保存到文件夹"</string>
+    <string name="receive_folder_save" formatted="false">"保存到接收文件夹"</string>
+    <string name="receive_folder_saved" formatted="false">"已保存到接收文件夹"</string>
+    <string name="receive_folder_saving" formatted="false">"正在保存到接收文件夹…"</string>
+    <string name="receive_folder_stop" formatted="false">"仅保存在应用中"</string>
+    <string name="receive_folder_summary" formatted="false">"接收完成后，将文件和照片另存到所选文件夹，聊天中保留应用内副本。更换文件夹仅影响今后的文件；清空聊天不会删除已保存的文件。"</string>
+    <string name="receive_folder_unavailable" formatted="false">"无法访问或写入此文件夹，请重新选择。"</string>
     <string name="received" formatted="false">"已收到"</string>
     <string name="receiving" formatted="false">"正在接收"</string>
     <string name="reception_off" formatted="false">"接收已关闭"</string>

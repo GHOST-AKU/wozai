@@ -50,7 +50,7 @@ public final class MainActivity extends Activity {
     private LinearLayout historyList, peersList, trustedList, bubbles, reconnectRow, chatAvatarBox;
     private FrameLayout homeFrame;
     private TextView pageTitle, networkName, networkState, errorView, receiveStatus, connectionInfo, modeHint, bluetoothState, requestStatus;
-    private TextView chatName, chatStatus, nickname, reconnectHint, languageValue, themeValue;
+    private TextView chatName, chatStatus, nickname, reconnectHint, languageValue, themeValue, receiveFolderValue;
     private AvatarView chatAvatar, ownAvatar;
     private String renderedAvatarRoots;
     private List<ChatStore.TrustedDevice> renderedHistoryTrusted;
@@ -75,6 +75,8 @@ public final class MainActivity extends Activity {
     private Uri selectedExportUri;
     private int selectedExportFlags;
     private GalleryPublisher gallery;
+    private AttachmentLocations fileLocations;
+    private final AttachmentLocations.Listener fileLocationListener=this::attachmentVisualChanged;
     private String pendingGalleryPeer,pendingGalleryRecord;
     private final GalleryPublisher.Listener galleryListener=this::attachmentVisualChanged;
     private final Set<String> dirtyAttachmentRows=new HashSet<>();
@@ -141,6 +143,7 @@ public final class MainActivity extends Activity {
     public void onCreate(Bundle saved) {
         super.onCreate(saved);
         try{gallery=GalleryPublisher.get(this);gallery.listen(galleryListener);}catch(java.io.IOException unavailable){}
+        try{fileLocations=AttachmentLocations.get(this);fileLocations.listen(fileLocationListener);}catch(java.io.IOException unavailable){}
         if (saved == null) { SharedPreferences preferences = getSharedPreferences("ui", MODE_PRIVATE); mode = preferences.getInt("lastMode", Peer.LAN); rememberNext = preferences.getBoolean("rememberNext", true); }
         if (saved != null) {
             pendingGalleryPeer=saved.getString("pendingGalleryPeer");pendingGalleryRecord=saved.getString("pendingGalleryRecord");
@@ -181,13 +184,14 @@ public final class MainActivity extends Activity {
         render();
     }
     protected void onStart() {
-        super.onStart();if(foldWindow!=null)foldWindow.start();if(gallery!=null)gallery.listen(galleryListener); bound = bindService(new Intent(this, ChatService.class), binding, Context.BIND_AUTO_CREATE);
+        super.onStart();if(foldWindow!=null)foldWindow.start();if(gallery!=null)gallery.listen(galleryListener);if(fileLocations!=null)fileLocations.listen(fileLocationListener); bound = bindService(new Intent(this, ChatService.class), binding, Context.BIND_AUTO_CREATE);
         ui.post(discoverabilityTick);
     }
     protected void onResume() { super.onResume(); if (root != null) { if(controller!=null)AndroidAvatars.get(this).refresh(controller.localAvatarRoot()); resumePending(); render(); } }
     protected void onStop() {
         saveDraftAndPosition();if(foldWindow!=null)foldWindow.stop(); ui.removeCallbacks(discoverabilityTick);
         if(gallery!=null)gallery.unlisten(galleryListener);
+        if(fileLocations!=null)fileLocations.unlisten(fileLocationListener);
         if(attachmentActions!=null){attachmentActions.dismiss();attachmentActions=null;}
         if (controller != null) { restoredSelectedId = controller.selectedId; restoredSelectedName = controller.selectedName; controller.unobserve(renderObserver); }
         if (bound) { unbindService(binding); bound = false; } controller = null; service = null;
@@ -403,6 +407,7 @@ public final class MainActivity extends Activity {
         themeValue = label("", 14, muted); settingsContent.addView(settingsRow(t("theme"), themeValue, this::chooseTheme));
         settingsContent.addView(sectionHeading(t("trustedDevices"))); trustedList = vertical(); settingsContent.addView(trustedList);
         Switch automaticPhotos=new Switch(this);automaticPhotos.setText(t("galleryAutoSave"));automaticPhotos.setChecked(gallery==null||gallery.automatic());automaticPhotos.setPadding(dp(4),dp(12),dp(4),dp(12));automaticPhotos.setOnCheckedChangeListener((view,enabled)->{if(gallery!=null)gallery.automatic(enabled);});settingsContent.addView(automaticPhotos);
+        receiveFolderValue=label("",14,muted);settingsContent.addView(settingsRow(t("receiveFolder"),receiveFolderValue,this::chooseReceiveDirectory));
         settingsContent.addView(sectionHeading(t("appSection"))); settingsContent.addView(settingsRow(t("appPermissions"), label(t("permissionsSummary"), 13, muted), this::appSettings));
         settingsContent.addView(settingsRow(t("attachmentQuota"),null,()->{if(controller==null)return;long[] choices={16,32,64,128};String[] labels=new String[choices.length];int selected=1;for(int i=0;i<choices.length;i++){labels[i]=t("attachmentQuotaGiB",choices[i]);if(controller.attachmentQuota()==choices[i]*1024*1024*1024)selected=i;}new AdaptiveDialogBuilder().setTitle(t("attachmentQuota")).setSingleChoiceItems(labels,selected,(dialog,index)->{controller.attachmentQuota(choices[index]*1024*1024*1024).whenComplete((value,error)->ui.post(()->{if(!isDestroyed()&&error!=null)toast(t("attachmentQuotaInUse"));}));dialog.dismiss();}).setNegativeButton(t("cancel"),null).show();}));
         settingsContent.addView(settingsRow(t("stopAll"), label(t("stopConnectionsSummary"), 13, muted), () -> {
@@ -565,6 +570,19 @@ public final class MainActivity extends Activity {
         if (attached && restoredNearbyY >= 0) { final int y = restoredNearbyY; restoredNearbyY = -1; nearbyScroll.post(() -> nearbyScroll.scrollTo(0, y)); }
         if (count == 0) peersList.addView(empty(searching ? t("searchingNearby") : t("noDevicesTitle"), t(mode == Peer.LAN ? "lanNoDevicesBody" : "bluetoothNoDevicesBody")));
     }
+    private void chooseReceiveDirectory(){
+        if(fileLocations==null){toast(t("receiveFolderUnavailable"));return;}
+        AttachmentLocations.Directory selected=fileLocations.directory();
+        AlertDialog.Builder builder=new AdaptiveDialogBuilder().setTitle(t("receiveFolder")).setMessage(t("receiveFolderSummary"))
+                .setPositiveButton(t("receiveFolderChoose"),(dialog,which)->{try{startActivityForResult(AttachmentLocations.directoryPicker(selected),26);}catch(ActivityNotFoundException|SecurityException unavailable){toast(t("receiveFolderUnavailable"));}})
+                .setNegativeButton(t("cancel"),null);
+        if(selected!=null)builder.setNeutralButton(t("receiveFolderStop"),(dialog,which)->{fileLocations.stopDirectory();receiveDirectoryChanged();});builder.show();
+    }
+    private void receiveDirectoryChanged(){renderSettings();if(controller!=null){for(ChatStore.Message message:controller.messages)if(message.attachment!=null&&!message.outgoing&&message.attachment.state.equals("received"))dirtyAttachmentRows.add(messageKey(message));renderChat();}}
+    private void saveToReceiveDirectory(String peer,AttachmentRecord record){
+        if(fileLocations==null)return;if(fileLocations.directory()==null){chooseReceiveDirectory();return;}
+        fileLocations.saveReceived(peer,record,true).whenComplete((value,error)->ui.post(()->{if(!isDestroyed()&&error!=null)toast(t("receiveFolderUnavailable"));}));
+    }
     private void renderSettings() {
         if(ownAvatar!=null)AndroidAvatars.get(this).bind(ownAvatar,controller==null?null:controller.localAvatarRoot());
         nickname.setText(controller == null ? t("loading") : controller.nickname);
@@ -572,6 +590,7 @@ public final class MainActivity extends Activity {
         languageValue.setText(LanguageRegistry.SYSTEM.equals(selection) ? t("systemLanguage") : LanguageRegistry.resolve(selection, AppLanguage.systemLocale(this)).nativeName);
         String theme = AppAppearance.selection(this);
         themeValue.setText(t(AppAppearance.DARK.equals(theme) ? "darkTheme" : AppAppearance.LIGHT.equals(theme) ? "lightTheme" : "systemTheme"));
+        AttachmentLocations.Directory directory=fileLocations==null?null:fileLocations.directory();receiveFolderValue.setText(directory==null?t("receiveFolderPrivate"):directory.name());
         List<ChatStore.TrustedDevice> trusted = controller == null ? Collections.emptyList() : controller.trustedDevices;
         if (renderedTrusted == trusted) return; renderedTrusted = trusted; trustedList.removeAllViews();
         for (ChatStore.TrustedDevice device : trusted) {
@@ -792,6 +811,17 @@ public final class MainActivity extends Activity {
                 retry.setEnabled(controller.canSendAttachment()&&state!=AttachmentBatchQueue.RetryState.RETRYING&&state!=AttachmentBatchQueue.RetryState.RETRIED&&state!=AttachmentBatchQueue.RetryState.INELIGIBLE);retry.setOnClickListener(v->retryAttachment(peer,message.id));bubble.addView(retry,new LinearLayout.LayoutParams(-2,dp(48)));
             }
             if(photoAvailable(attachment)){
+                if(!attachment.outgoing&&fileLocations!=null){
+                    AttachmentLocations.SaveStatus exported=fileLocations.savedStatus(peer,attachment);
+                    if(exported==null)fileLocations.inspectReceived(peer,attachment);
+                    dev.ghost.nearbyim.core.AttachmentDirectoryStore.State state=exported==null?null:exported.state();
+                    if(state!=null){String status=state==dev.ghost.nearbyim.core.AttachmentDirectoryStore.State.SAVED?"receiveFolderSaved":state==dev.ghost.nearbyim.core.AttachmentDirectoryStore.State.PENDING||state==dev.ghost.nearbyim.core.AttachmentDirectoryStore.State.COPIED?"receiveFolderSaving":"receiveFolderFailed";
+                        TextView outcome=label(t(status),12,muted);outcome.setTag("receiveFolderStatus");outcome.setMaxWidth(dp(260));bubble.addView(outcome);
+                    }
+                    if(state==dev.ghost.nearbyim.core.AttachmentDirectoryStore.State.FAILED||state==dev.ghost.nearbyim.core.AttachmentDirectoryStore.State.MISSING||state==null&&fileLocations.directory()!=null){
+                        Button retry=button(t(state==null?"receiveFolderSave":"receiveFolderRetry"),false);retry.setTag("receiveFolderRetry");retry.setBackground(ripple(Color.TRANSPARENT,16));retry.setOnClickListener(v->saveToReceiveDirectory(peer,attachment));bubble.addView(retry,new LinearLayout.LayoutParams(-2,dp(48)));
+                    }
+                }
                 Button location=button(t("attachmentShowInFolder"),false);location.setTag("attachmentLocation");location.setBackground(ripple(Color.TRANSPARENT,16));location.setOnClickListener(v->showAttachmentLocation(peer,attachment));bubble.addView(location,new LinearLayout.LayoutParams(-2,dp(48)));
             }
             bubble.setOnLongClickListener(v->{attachmentMenu(bubble,peer,attachment);return true;});
@@ -1083,6 +1113,9 @@ public final class MainActivity extends Activity {
     }
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if(requestCode==26){
+            if(resultCode==RESULT_OK&&data!=null&&data.getData()!=null&&fileLocations!=null)fileLocations.selectDirectory(data.getData(),data.getFlags()).whenComplete((value,error)->ui.post(()->{if(isDestroyed())return;if(error!=null)toast(t("receiveFolderUnavailable"));receiveDirectoryChanged();}));return;
+        }
         if(requestCode==955){verificationBusy=false;if(resultCode==RESULT_OK&&data!=null){pendingVerificationCode=data.getStringExtra("code");resumeVerificationResult();}else pendingVerification=null;updateVerificationDialog();return;}
         if(requestCode==956){
             IdentityVerification expected=pendingVerification;android.app.Dialog expectedPage=verificationDialog;pendingVerification=null;

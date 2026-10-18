@@ -144,3 +144,7 @@
     dev.ghost.nearbyim.core.AutomaticFileRoutes fileRoutes;
 }
 -keep class dev.ghost.nearbyim.MainActivity$TimelinePosition { *; }
+
+# SAF receive-directory jobs are inspected by the separate native fixture.
+-keep class dev.ghost.nearbyim.core.AttachmentDirectoryStore { *; }
+-keep class dev.ghost.nearbyim.core.AttachmentDirectoryStore$* { *; }

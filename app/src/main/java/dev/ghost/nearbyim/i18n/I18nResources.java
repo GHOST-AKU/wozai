@@ -414,6 +414,17 @@ public final class I18nResources {
             case "privacy": return R.string.privacy;
             case "quit": return R.string.quit;
             case "ready": return R.string.ready;
+            case "receiveFolder": return R.string.receive_folder;
+            case "receiveFolderChoose": return R.string.receive_folder_choose;
+            case "receiveFolderFailed": return R.string.receive_folder_failed;
+            case "receiveFolderPrivate": return R.string.receive_folder_private;
+            case "receiveFolderRetry": return R.string.receive_folder_retry;
+            case "receiveFolderSave": return R.string.receive_folder_save;
+            case "receiveFolderSaved": return R.string.receive_folder_saved;
+            case "receiveFolderSaving": return R.string.receive_folder_saving;
+            case "receiveFolderStop": return R.string.receive_folder_stop;
+            case "receiveFolderSummary": return R.string.receive_folder_summary;
+            case "receiveFolderUnavailable": return R.string.receive_folder_unavailable;
             case "received": return R.string.received;
             case "receiving": return R.string.receiving;
             case "receptionOff": return R.string.reception_off;

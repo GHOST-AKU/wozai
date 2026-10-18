@@ -406,6 +406,17 @@
     <string name="privacy" formatted="false">"アカウントやリモートサーバーは不要です。チャットとファイル転送はエンドツーエンドで暗号化されますが、このデバイスの履歴と添付ファイルは暗号化されません。初回の接続時は相手のデバイス識別情報を直接確認してください。"</string>
     <string name="quit" formatted="false">"終了"</string>
     <string name="ready" formatted="false">"接続済み"</string>
+    <string name="receive_folder" formatted="false">"受信フォルダ"</string>
+    <string name="receive_folder_choose" formatted="false">"フォルダを選択"</string>
+    <string name="receive_folder_failed" formatted="false">"受信フォルダに保存できませんでした"</string>
+    <string name="receive_folder_private" formatted="false">"アプリ内にのみ保存"</string>
+    <string name="receive_folder_retry" formatted="false">"フォルダへの保存を再試行"</string>
+    <string name="receive_folder_save" formatted="false">"受信フォルダに保存"</string>
+    <string name="receive_folder_saved" formatted="false">"受信フォルダに保存済み"</string>
+    <string name="receive_folder_saving" formatted="false">"受信フォルダに保存中…"</string>
+    <string name="receive_folder_stop" formatted="false">"アプリ内にのみ保存"</string>
+    <string name="receive_folder_summary" formatted="false">"受信したファイルと写真のコピーを選択したフォルダに保存します。チャットにはアプリ内のコピーを保持します。フォルダの変更は今後の受信に適用され、チャットを消去しても保存済みファイルは削除されません。"</string>
+    <string name="receive_folder_unavailable" formatted="false">"このフォルダにアクセスまたは書き込みできません。選択し直してください。"</string>
     <string name="received" formatted="false">"受信済み"</string>
     <string name="receiving" formatted="false">"受信中"</string>
     <string name="reception_off" formatted="false">"受信は無効です"</string>

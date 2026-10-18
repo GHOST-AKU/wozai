@@ -446,6 +446,7 @@ public final class ChatController implements TransportListener {
                             try{storage.submit(()->store.attachment(hello.id,hello.body,record)).get(10,TimeUnit.SECONDS);}
                             catch(Exception failure){throw new IOException("Attachment metadata save failed",failure);}
                             if(!record.outgoing&&record.state.equals("received")&&record.info.mime.startsWith("image/"))try{GalleryPublisher.get(applicationContext).export(hello.id,record,AttachmentTransfer.file(directory,record.info,false),false);}catch(IOException exportFailure){main.post(()->{if(!destroyed)fail(UiText.of("gallerySaveFailed"));});}
+                            if(!record.outgoing&&record.state.equals("received"))try{AttachmentLocations.get(applicationContext).saveReceived(hello.id,record,false);}catch(IOException exportFailure){main.post(()->{if(!destroyed)fail(UiText.of("receiveFolderFailed"));});}
                             main.post(()->{if(!destroyed)refresh();});
                         }
                         public void progress(AttachmentRecord original,TransferProgress progress){

@@ -406,6 +406,17 @@
     <string name="privacy" formatted="false">"No account or remote server. Chat and file transfers are end-to-end encrypted; local history and attachments are not encrypted. Confirm the device identity in person on the first connection."</string>
     <string name="quit" formatted="false">"Quit"</string>
     <string name="ready" formatted="false">"Connected"</string>
+    <string name="receive_folder" formatted="false">"Receive folder"</string>
+    <string name="receive_folder_choose" formatted="false">"Choose folder"</string>
+    <string name="receive_folder_failed" formatted="false">"Could not save to receive folder"</string>
+    <string name="receive_folder_private" formatted="false">"App storage only"</string>
+    <string name="receive_folder_retry" formatted="false">"Retry saving to folder"</string>
+    <string name="receive_folder_save" formatted="false">"Save to receive folder"</string>
+    <string name="receive_folder_saved" formatted="false">"Saved to receive folder"</string>
+    <string name="receive_folder_saving" formatted="false">"Saving to receive folder…"</string>
+    <string name="receive_folder_stop" formatted="false">"Use app storage only"</string>
+    <string name="receive_folder_summary" formatted="false">"After each file or photo is received, save a copy in the selected folder. Chat keeps an app copy. Changing folders applies to future files; clearing chat does not delete these saved files."</string>
+    <string name="receive_folder_unavailable" formatted="false">"This folder is unavailable or write access was lost. Select it again."</string>
     <string name="received" formatted="false">"Received"</string>
     <string name="receiving" formatted="false">"Receiving"</string>
     <string name="reception_off" formatted="false">"Reception is off"</string>

@@ -517,5 +517,16 @@
   "attachmentPathSelecting": "正在檢查傳輸路徑 · 尚未傳輸",
   "pathDetailsSelecting": "檔案依序嘗試 Wi-Fi 直連、區域網路、藍牙；不會改變聊天連線模式。",
   "systemTheme": "跟隨系統",
-  "attachmentSaveBeforeOpening": "請先將此檔案另存新檔，再開啟。"
+  "attachmentSaveBeforeOpening": "請先將此檔案另存新檔，再開啟。",
+  "receiveFolder": "接收資料夾",
+  "receiveFolderPrivate": "僅儲存在應用程式中",
+  "receiveFolderSummary": "接收完成後，將檔案和相片另存至所選資料夾，聊天中保留應用程式內的副本。更換資料夾僅影響之後的檔案；清空聊天不會刪除已儲存的檔案。",
+  "receiveFolderChoose": "選擇資料夾",
+  "receiveFolderStop": "僅儲存在應用程式中",
+  "receiveFolderUnavailable": "無法存取或寫入此資料夾，請重新選擇。",
+  "receiveFolderSaving": "正在儲存至接收資料夾…",
+  "receiveFolderSaved": "已儲存至接收資料夾",
+  "receiveFolderFailed": "無法儲存至接收資料夾",
+  "receiveFolderRetry": "重試儲存至資料夾",
+  "receiveFolderSave": "儲存至接收資料夾"
 }

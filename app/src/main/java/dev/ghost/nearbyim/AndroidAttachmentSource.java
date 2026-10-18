@@ -19,6 +19,7 @@ public final class AndroidAttachmentSource implements AttachmentSource {
     static void retainSelections(List<Uri> uris){synchronized(OPEN){for(Uri uri:uris)OPEN.put(uri.toString(),OPEN.getOrDefault(uri.toString(),0)+1);}}
     static void releaseSelections(List<Uri> uris){synchronized(OPEN){for(Uri uri:uris){int left=OPEN.getOrDefault(uri.toString(),1)-1;if(left<=0)OPEN.remove(uri.toString());else OPEN.put(uri.toString(),left);}}}
     private final ContentResolver resolver;
+    private final Context context;
     private final Path attachments;
     private final AssetFileDescriptor asset;
     private final Uri uri;
@@ -30,7 +31,7 @@ public final class AndroidAttachmentSource implements AttachmentSource {
     public AndroidAttachmentSource(Context context,Uri uri)throws IOException {this(context,uri,UUID.randomUUID().toString());}
     public AndroidAttachmentSource(Context context,Uri uri,String generation)throws IOException {
         if(uri==null||!"content".equals(uri.getScheme())||generation==null||!generation.matches("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}"))throw new IOException("Invalid document source");
-        this.uri=uri;this.generation=generation;resolver=context.getContentResolver();attachments=context.getFilesDir().getCanonicalFile().toPath().resolve("attachments");AssetFileDescriptor opened=null;
+        this.context=context;this.uri=uri;this.generation=generation;resolver=context.getContentResolver();attachments=context.getFilesDir().getCanonicalFile().toPath().resolve("attachments");AssetFileDescriptor opened=null;
         try {
             String display="attachment";long queried=-1;
             try(Cursor cursor=resolver.query(uri,new String[]{OpenableColumns.DISPLAY_NAME,OpenableColumns.SIZE},null,null,null)) {
@@ -82,15 +83,16 @@ public final class AndroidAttachmentSource implements AttachmentSource {
     @android.annotation.TargetApi(27) private static String nanoseconds(StructStat stat){return ":"+stat.st_mtim.tv_nsec+":"+stat.st_ctim.tv_nsec;}
     public synchronized void close()throws IOException{if(closed)return;closed=true;synchronized(OPEN){int count=OPEN.getOrDefault(uri.toString(),1)-1;if(count==0)OPEN.remove(uri.toString());else OPEN.put(uri.toString(),count);}asset.close();}
     public void discard()throws IOException {
-        close();releaseUnused(resolver,attachments,uri);
+        close();releaseUnused(context,attachments,uri);
     }
     /** Run after canceled task journals are durable and their source handles have closed. */
     public static void releaseUnusedGrants(Context context)throws IOException {
         ContentResolver resolver=context.getContentResolver();Path attachments=context.getFilesDir().getCanonicalFile().toPath().resolve("attachments");
         Set<String> exported=AttachmentLocations.retainedUris(context);
-        for(UriPermission grant:resolver.getPersistedUriPermissions())if(grant.isReadPermission()&&!exported.contains(grant.getUri().toString()))releaseUnused(resolver,attachments,grant.getUri());
+        for(UriPermission grant:resolver.getPersistedUriPermissions())if(grant.isReadPermission()&&!exported.contains(grant.getUri().toString()))releaseUnused(context,attachments,grant.getUri());
     }
-    private static void releaseUnused(ContentResolver resolver,Path attachments,Uri uri)throws IOException {
+    private static void releaseUnused(Context context,Path attachments,Uri uri)throws IOException {
+        ContentResolver resolver=context.getContentResolver();
         synchronized(OPEN){if(OPEN.containsKey(uri.toString()))return;}
         if(Files.isSymbolicLink(attachments))throw new IOException("Unsafe attachment directory");
         if(Files.exists(attachments,LinkOption.NOFOLLOW_LINKS))try(var directories=Files.list(attachments)){for(Path peer:(Iterable<Path>)directories::iterator){
@@ -98,6 +100,6 @@ public final class AndroidAttachmentSource implements AttachmentSource {
             for(TransferCheckpoint saved:new TransferCheckpointStore(journal).list())if(saved.state()!=TransferCheckpoint.State.COMPLETE&&saved.state()!=TransferCheckpoint.State.CANCELED&&saved.sourceReference().startsWith(uri+"\n"))return;
             for(String reference:AttachmentBatchQueue.pendingReferences(peer))if(reference.startsWith(uri+"\n")||reference.equals(uri.toString()))return;
         }}
-        synchronized(OPEN){if(OPEN.containsKey(uri.toString()))return;if(new AttachmentExportStore(attachments.getParent().resolve("attachment-exports")).retainedUris().contains(uri.toString()))return;try{resolver.releasePersistableUriPermission(uri,Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(SecurityException absent){}}
+        synchronized(OPEN){if(OPEN.containsKey(uri.toString()))return;if(AttachmentLocations.retainedUris(context).contains(uri.toString()))return;for(UriPermission grant:resolver.getPersistedUriPermissions())if(uri.equals(grant.getUri()))try{resolver.releasePersistableUriPermission(uri,(grant.isReadPermission()?Intent.FLAG_GRANT_READ_URI_PERMISSION:0)|(grant.isWritePermission()?Intent.FLAG_GRANT_WRITE_URI_PERMISSION:0));}catch(SecurityException absent){}}
     }
 }

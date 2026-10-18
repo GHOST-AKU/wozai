@@ -517,5 +517,16 @@
   "attachmentPathSelecting": "Checking transfer paths · not transferring yet",
   "pathDetailsSelecting": "Files try Wi-Fi Direct, LAN, then Bluetooth. This does not change the chat connection mode.",
   "systemTheme": "Follow system",
-  "attachmentSaveBeforeOpening": "Save a copy before opening this file."
+  "attachmentSaveBeforeOpening": "Save a copy before opening this file.",
+  "receiveFolder": "Receive folder",
+  "receiveFolderPrivate": "App storage only",
+  "receiveFolderSummary": "After each file or photo is received, save a copy in the selected folder. Chat keeps an app copy. Changing folders applies to future files; clearing chat does not delete these saved files.",
+  "receiveFolderChoose": "Choose folder",
+  "receiveFolderStop": "Use app storage only",
+  "receiveFolderUnavailable": "This folder is unavailable or write access was lost. Select it again.",
+  "receiveFolderSaving": "Saving to receive folder…",
+  "receiveFolderSaved": "Saved to receive folder",
+  "receiveFolderFailed": "Could not save to receive folder",
+  "receiveFolderRetry": "Retry saving to folder",
+  "receiveFolderSave": "Save to receive folder"
 }

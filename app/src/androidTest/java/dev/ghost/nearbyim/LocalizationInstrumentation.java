@@ -86,6 +86,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
             checks+=AndroidAttachmentExperienceChecks.run(getTargetContext());
             checks+=AndroidGalleryExportChecks.run(this);
             checks+=AndroidAttachmentLocationChecks.run(getTargetContext());
+            checks+=AndroidReceiveDirectoryChecks.run(getTargetContext());
             checks+=AndroidAttachmentV2Checks.run(getTargetContext());
             checks+=dev.ghost.nearbyim.noise.NoiseLibraryChecks.run();
             checks+=dev.ghost.nearbyim.noise.NoiseChannelChecks.run();

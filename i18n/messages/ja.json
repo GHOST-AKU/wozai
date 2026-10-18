@@ -517,5 +517,16 @@
   "attachmentPathSelecting": "転送経路を確認中 · 転送は未開始",
   "pathDetailsSelecting": "ファイルは Wi-Fi Direct、LAN、Bluetooth の順に試します。チャットの接続モードは変更されません。",
   "systemTheme": "システム設定に従う",
-  "attachmentSaveBeforeOpening": "このファイルを開く前に、名前を付けて保存してください。"
+  "attachmentSaveBeforeOpening": "このファイルを開く前に、名前を付けて保存してください。",
+  "receiveFolder": "受信フォルダ",
+  "receiveFolderPrivate": "アプリ内にのみ保存",
+  "receiveFolderSummary": "受信したファイルと写真のコピーを選択したフォルダに保存します。チャットにはアプリ内のコピーを保持します。フォルダの変更は今後の受信に適用され、チャットを消去しても保存済みファイルは削除されません。",
+  "receiveFolderChoose": "フォルダを選択",
+  "receiveFolderStop": "アプリ内にのみ保存",
+  "receiveFolderUnavailable": "このフォルダにアクセスまたは書き込みできません。選択し直してください。",
+  "receiveFolderSaving": "受信フォルダに保存中…",
+  "receiveFolderSaved": "受信フォルダに保存済み",
+  "receiveFolderFailed": "受信フォルダに保存できませんでした",
+  "receiveFolderRetry": "フォルダへの保存を再試行",
+  "receiveFolderSave": "受信フォルダに保存"
 }

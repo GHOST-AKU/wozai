@@ -6,5 +6,8 @@
             <path-permission android:path="/export/location" android:readPermission="android.permission.MANAGE_DOCUMENTS" />
         </provider>
         <provider android:name="dev.ghost.nearbyim.AvatarTestProvider" android:authorities="dev.ghost.nearbyim.test.avatars" android:exported="true" />
+        <provider android:name="dev.ghost.nearbyim.DirectoryTestProvider" android:authorities="dev.ghost.nearbyim.test.directories" android:exported="true" android:grantUriPermissions="true" android:permission="android.permission.MANAGE_DOCUMENTS">
+            <intent-filter><action android:name="android.content.action.DOCUMENTS_PROVIDER" /></intent-filter>
+        </provider>
     </application>
 </manifest>
