@@ -6,6 +6,7 @@
 # Instrumentation is a separate APK. Its public entry points cannot be removed
 # or merged into other classes, even when test R8 applies the app's name mapping.
 -keep class dev.ghost.nearbyim.AppLanguage { public *; }
+-keep class dev.ghost.nearbyim.AppAppearance { public *; }
 -keep class dev.ghost.nearbyim.AndroidText { public *; }
 -keep class dev.ghost.nearbyim.ChatController { public *; }
 # The separate test APK supplies its own Hooks implementations. Keep this API open

@@ -36,7 +36,7 @@ public final class AdaptiveInstrumentation extends Instrumentation {
         try{
             activity=(MainActivity)startActivitySync(new Intent(getTargetContext(),MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             await(()->onMain(()->field(activity,"controller")!=null),"Controller attached");controller=onMain(()->field(activity,"controller"));
-            nativeLayouts();progress("Native layout geometry completed");checks+=AndroidWifiDirectUiChecks.fileDiscoveryFailure(this);checks+=AndroidKnownGroupChecks.run(this);discoveryDeadline();progress("Known group builders/wait lifecycle and prepared scan deadline verified");liveContinuity();progress("Live file/window continuity completed");
+            nativeLayouts();progress("Native layout geometry completed");checks+=AndroidWifiDirectUiChecks.fileDiscoveryFailure(this);checks+=AndroidKnownGroupChecks.run(this);discoveryDeadline();progress("Known group builders/wait lifecycle and prepared scan deadline verified");liveContinuity();progress("Live file/window continuity completed");appearanceChoices();progress("Native theme overrides and recreation continuity completed");
             results.putString("stream","Adaptive Android: "+checks+" checks passed\n");
         }catch(Throwable failure){result=Activity.RESULT_CANCELED;StringWriter trace=new StringWriter();failure.printStackTrace(new PrintWriter(trace));results.putString("stream",trace.toString());}
         finally{
@@ -47,6 +47,28 @@ public final class AdaptiveInstrumentation extends Instrumentation {
             try{onMain(()->{if(controller!=null)controller.stopAll();MainActivity m=latest.get();if(m!=null)m.finish();return null;});}catch(Exception ignored){}
             app.unregisterActivityLifecycleCallbacks(lifecycle);
         }finish(result,results);
+    }
+    private void appearanceChoices()throws Exception {
+        checks+=AndroidAppearanceChecks.run(getTargetContext());
+        String original=AppAppearance.selection(getTargetContext());
+        Object service=onMain(()->field(activity,"service"));
+        String draft=onMain(()->((EditText)field(activity,"composer")).getText().toString());
+        int start=onMain(()->((EditText)field(activity,"composer")).getSelectionStart()),end=onMain(()->((EditText)field(activity,"composer")).getSelectionEnd());
+        boolean connected=onMain(()->controller.connected);
+        try{
+            for(String choice:new String[]{AppAppearance.LIGHT,AppAppearance.DARK,AppAppearance.SYSTEM}){
+                if(!choice.equals(AppAppearance.selection(getTargetContext()))){
+                    MainActivity previous=activity;latest.set(null);onMain(()->{invoke(previous,"selectTheme",new Class<?>[]{String.class},choice);return null;});
+                    await(()->latest.get()!=null&&latest.get()!=previous,"Theme selection recreates the main activity");activity=latest.get();
+                    await(()->onMain(()->field(activity,"controller")==controller),"Theme recreation rebinds the surviving controller");waitForIdleSync();
+                }
+                int expected=choice.equals(AppAppearance.SYSTEM)?getTargetContext().getResources().getConfiguration().uiMode&android.content.res.Configuration.UI_MODE_NIGHT_MASK:choice.equals(AppAppearance.DARK)?android.content.res.Configuration.UI_MODE_NIGHT_YES:android.content.res.Configuration.UI_MODE_NIGHT_NO;
+                check(onMain(()->(activity.getResources().getConfiguration().uiMode&android.content.res.Configuration.UI_MODE_NIGHT_MASK)==expected),"Activity resources use the selected theme");
+                check(onMain(()->field(activity,"service")==service&&controller.connected==connected),"Theme change preserves the same service and connection state");
+                check(onMain(()->{EditText composer=field(activity,"composer");return composer.getText().toString().equals(draft)&&composer.getSelectionStart()==start&&composer.getSelectionEnd()==end;}),"Theme recreation preserves draft and selection");
+                check(onMain(()->((TextView)field(activity,"themeValue")).getText().toString().equals(AndroidText.get(activity,choice.equals(AppAppearance.SYSTEM)?"systemTheme":choice.equals(AppAppearance.DARK)?"darkTheme":"lightTheme"))),"Settings show the persisted appearance choice");
+            }
+        }finally{AppAppearance.select(getTargetContext(),original);}
     }
     private void nativeLayouts()throws Exception {
         onMain(()->{
@@ -179,6 +201,7 @@ public final class AdaptiveInstrumentation extends Instrumentation {
     private void check(boolean value,String message){if(!value)throw new AssertionError(message);checks++;}
     @SuppressWarnings("unchecked")private static <T>T field(Object o,String name)throws Exception{Field f=o.getClass().getDeclaredField(name);f.setAccessible(true);return (T)f.get(o);}
     private static void set(Object o,String name,Object value)throws Exception{Field f=o.getClass().getDeclaredField(name);f.setAccessible(true);f.set(o,value);}
-    private static void invoke(Object o,String name)throws Exception{Method m=o.getClass().getDeclaredMethod(name);m.setAccessible(true);m.invoke(o);}
+    private static void invoke(Object o,String name)throws Exception{invoke(o,name,new Class<?>[]{});}
+    private static void invoke(Object o,String name,Class<?>[] types,Object...args)throws Exception{Method m=o.getClass().getDeclaredMethod(name,types);m.setAccessible(true);m.invoke(o,args);}
     private static StreamConnection stream(Socket socket){return new StreamConnection(){public InputStream input()throws IOException{return socket.getInputStream();}public OutputStream output()throws IOException{return socket.getOutputStream();}public String label(){return "adaptive loopback";}public void close()throws IOException{socket.close();}};}
 }

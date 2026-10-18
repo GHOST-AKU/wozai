@@ -113,7 +113,9 @@ public final class AttachmentStoreTests {
             checkTextAckPerformance(overlapping,p95);
             await(()->record(as,bi.id(),ab).state.equals("delivered")&&record(bs,ai.id(),ba).state.equals("delivered"));
             if(Files.mismatch(large,bc.attachmentPath(ai.id(),record(bs,ai.id(),ab)).get())!=-1||Files.mismatch(large,ac.attachmentPath(bi.id(),record(as,bi.id(),ba)).get())!=-1)throw new AssertionError("Duplex file content changed");
-            String canceled=ac.sendAttachment(bi.id(),large).get(10,TimeUnit.SECONDS);long cancelBegin=System.nanoTime();
+            String canceled=ac.sendAttachment(bi.id(),large).get(10,TimeUnit.SECONDS);
+            // Measure cancellation of a published offer; before publication no remote row exists.
+            await(()->record(bs,ai.id(),canceled)!=null);long cancelBegin=System.nanoTime();
             ac.attachmentAction(bi.id(),canceled,true,"cancel").get(1,TimeUnit.SECONDS);
             double cancelMs=(System.nanoTime()-cancelBegin)/1e6;
             await(()->record(as,bi.id(),canceled).state.equals("canceled")&&record(bs,ai.id(),canceled).state.equals("canceled"));

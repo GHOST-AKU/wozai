@@ -413,13 +413,16 @@ public final class DesktopClient implements AutoCloseable {
     public CompletableFuture<java.nio.file.Path> attachmentLocation(String peerId,AttachmentRecord record){return submit(()->{
         java.nio.file.Path exported=store.exportLocation(peerId,record);
         if(exported!=null){if(!java.nio.file.Files.isRegularFile(exported))throw new LocalizedIOException(UiText.of("attachmentSavedFileMissing"));return exported;}
-        return store.attachmentFile(peerId,record.info,record.outgoing);
+        return store.attachmentNamedFile(peerId,record);
     });}
+    public CompletableFuture<java.nio.file.Path> attachmentOpenPath(String peerId,AttachmentRecord record){return submit(()->store.attachmentNamedFile(peerId,record));}
     public CompletableFuture<Void> exportAttachment(String peerId,AttachmentRecord record,java.nio.file.Path destination){
         java.nio.file.Path target=destination.toAbsolutePath().normalize();
         return attachmentPath(peerId,record).thenAcceptAsync(source->{try{
             if(closed)throw new IOException("Client closed");
-            if(source.equals(target)){VerifiedAttachmentCopy.copy(source,OutputStream.nullOutputStream(),record.info,()->closed);return;}
+            if(source.equals(target)||java.nio.file.Files.exists(target,java.nio.file.LinkOption.NOFOLLOW_LINKS)&&!java.nio.file.Files.isSymbolicLink(target)&&java.nio.file.Files.isSameFile(source,target)){
+                VerifiedAttachmentCopy.copy(source,OutputStream.nullOutputStream(),record.info,()->closed);store.exportLocation(peerId,record,target);return;
+            }
             java.nio.file.Path temporary=java.nio.file.Files.createTempFile(target.getParent(),".wozai-export-",".tmp");
             try{
                 AtomicFiles.privatePermissions(temporary,false);

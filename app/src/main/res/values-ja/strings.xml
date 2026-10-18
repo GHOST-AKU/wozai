@@ -83,6 +83,7 @@
     <string name="attachment_retrying" formatted="false">"再送中…"</string>
     <string name="attachment_save_again" formatted="false">"別のコピーを保存"</string>
     <string name="attachment_save_as" formatted="false">"名前を付けて保存"</string>
+    <string name="attachment_save_before_opening" formatted="false">"このファイルを開く前に、名前を付けて保存してください。"</string>
     <string name="attachment_saved_file_missing" formatted="false">"保存したファイルは移動または削除されています。"</string>
     <string name="attachment_selection_count" formatted="false">"{0} 件を選択"</string>
     <string name="attachment_show_in_folder" formatted="false">"保存先を開く"</string>
@@ -464,6 +465,7 @@
     <string name="stop_search" formatted="false">"検索を停止"</string>
     <string name="storage_failure" formatted="false">"ローカルデータを保存できず、接続を停止しました。ディスクの空き容量とフォルダーの権限を確認してください。"</string>
     <string name="system_language" formatted="false">"システムに合わせる"</string>
+    <string name="system_theme" formatted="false">"システム設定に従う"</string>
     <string name="theme" formatted="false">"テーマ"</string>
     <string name="today" formatted="false">"今日"</string>
     <string name="transfer_diagnostics" formatted="false">"転送診断をコピー"</string>

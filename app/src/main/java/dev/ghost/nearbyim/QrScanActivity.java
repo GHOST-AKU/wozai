@@ -42,7 +42,7 @@ public final class QrScanActivity extends Activity implements SurfaceHolder.Call
     private final ExecutorService worker=Executors.newSingleThreadExecutor();
     protected void onStart(){super.onStart();if(foldArea!=null)foldArea.start();displays=getSystemService(android.hardware.display.DisplayManager.class);if(displays!=null)displays.registerDisplayListener(displayListener,focusHandler);}
     protected void onStop(){if(displays!=null)displays.unregisterDisplayListener(displayListener);if(foldArea!=null)foldArea.stop();super.onStop();}
-    protected void attachBaseContext(Context context){super.attachBaseContext(AppLanguage.wrap(context));}
+    protected void attachBaseContext(Context context){super.attachBaseContext(AppAppearance.wrap(AppLanguage.wrap(context)));}
     public void onCreate(Bundle saved){
         super.onCreate(saved);LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(Color.BLACK);
         foldArea=new FoldWindow.SafeArea(this,root);root.setOnApplyWindowInsetsListener((v,insets)->foldArea.windowInsets(insets,0,0,0,0));

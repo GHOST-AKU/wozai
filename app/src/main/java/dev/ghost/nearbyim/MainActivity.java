@@ -50,7 +50,7 @@ public final class MainActivity extends Activity {
     private LinearLayout historyList, peersList, trustedList, bubbles, reconnectRow, chatAvatarBox;
     private FrameLayout homeFrame;
     private TextView pageTitle, networkName, networkState, errorView, receiveStatus, connectionInfo, modeHint, bluetoothState, requestStatus;
-    private TextView chatName, chatStatus, nickname, reconnectHint, languageValue;
+    private TextView chatName, chatStatus, nickname, reconnectHint, languageValue, themeValue;
     private AvatarView chatAvatar, ownAvatar;
     private String renderedAvatarRoots;
     private List<ChatStore.TrustedDevice> renderedHistoryTrusted;
@@ -137,7 +137,7 @@ public final class MainActivity extends Activity {
         }
         public void onServiceDisconnected(ComponentName name) { service = null; controller = null; render(); }
     };
-    protected void attachBaseContext(Context base) { super.attachBaseContext(AppLanguage.wrap(base)); }
+    protected void attachBaseContext(Context base) { super.attachBaseContext(AppAppearance.wrap(AppLanguage.wrap(base))); }
     public void onCreate(Bundle saved) {
         super.onCreate(saved);
         try{gallery=GalleryPublisher.get(this);gallery.listen(galleryListener);}catch(java.io.IOException unavailable){}
@@ -398,7 +398,9 @@ public final class MainActivity extends Activity {
         LinearLayout avatarSetting=horizontal();avatarSetting.setGravity(Gravity.CENTER_VERTICAL);avatarSetting.setPadding(dp(2),dp(12),dp(2),dp(12));avatarSetting.addView(ownAvatar,new LinearLayout.LayoutParams(dp(64),dp(64)));
         LinearLayout avatarText=vertical();avatarText.setPadding(dp(14),0,0,0);avatarText.addView(label(t("avatarTitle"),16,ink));avatarText.addView(label(t("avatarSavedOnDevice"),13,muted));avatarSetting.addView(avatarText,new LinearLayout.LayoutParams(0,-2,1));avatarSetting.setFocusable(true);avatarSetting.setClickable(true);avatarSetting.setBackground(ripple(background,12));avatarSetting.setOnClickListener(v->startActivity(new Intent(this,AvatarActivity.class)));settingsContent.addView(avatarSetting);
         nickname = label("", 14, muted); settingsContent.addView(settingsRow(t("nickname"), nickname, this::editNickname));
+        settingsContent.addView(sectionHeading(t("appearanceSection")));
         languageValue = label("", 14, muted); settingsContent.addView(settingsRow(t("language"), languageValue, this::chooseLanguage));
+        themeValue = label("", 14, muted); settingsContent.addView(settingsRow(t("theme"), themeValue, this::chooseTheme));
         settingsContent.addView(sectionHeading(t("trustedDevices"))); trustedList = vertical(); settingsContent.addView(trustedList);
         Switch automaticPhotos=new Switch(this);automaticPhotos.setText(t("galleryAutoSave"));automaticPhotos.setChecked(gallery==null||gallery.automatic());automaticPhotos.setPadding(dp(4),dp(12),dp(4),dp(12));automaticPhotos.setOnCheckedChangeListener((view,enabled)->{if(gallery!=null)gallery.automatic(enabled);});settingsContent.addView(automaticPhotos);
         settingsContent.addView(sectionHeading(t("appSection"))); settingsContent.addView(settingsRow(t("appPermissions"), label(t("permissionsSummary"), 13, muted), this::appSettings));
@@ -568,6 +570,8 @@ public final class MainActivity extends Activity {
         nickname.setText(controller == null ? t("loading") : controller.nickname);
         String selection = AppLanguage.selection(this);
         languageValue.setText(LanguageRegistry.SYSTEM.equals(selection) ? t("systemLanguage") : LanguageRegistry.resolve(selection, AppLanguage.systemLocale(this)).nativeName);
+        String theme = AppAppearance.selection(this);
+        themeValue.setText(t(AppAppearance.DARK.equals(theme) ? "darkTheme" : AppAppearance.LIGHT.equals(theme) ? "lightTheme" : "systemTheme"));
         List<ChatStore.TrustedDevice> trusted = controller == null ? Collections.emptyList() : controller.trustedDevices;
         if (renderedTrusted == trusted) return; renderedTrusted = trusted; trustedList.removeAllViews();
         for (ChatStore.TrustedDevice device : trusted) {
@@ -1257,6 +1261,19 @@ public final class MainActivity extends Activity {
             if (Build.VERSION.SDK_INT < 33) recreate();
             else renderSettings();
         }).setNegativeButton(t("cancel"), null).show();
+    }
+    private void chooseTheme() {
+        List<String> choices = List.of(AppAppearance.SYSTEM, AppAppearance.LIGHT, AppAppearance.DARK);
+        new AdaptiveDialogBuilder().setTitle(t("theme"))
+            .setSingleChoiceItems(new String[]{t("systemTheme"), t("lightTheme"), t("darkTheme")},
+                choices.indexOf(AppAppearance.selection(this)), (dialog, which) -> {
+                    dialog.dismiss(); selectTheme(choices.get(which));
+                })
+            .setNegativeButton(t("cancel"), null).show();
+    }
+    private void selectTheme(String choice) {
+        if (choice.equals(AppAppearance.selection(this))) return;
+        saveDraftAndPosition(); AppAppearance.select(this, choice); recreate();
     }
     private String peerName(Peer peer) { return peer.name == null || peer.name.trim().isEmpty() ? t("unnamedDevice") : peer.name; }
     private void editNickname() {

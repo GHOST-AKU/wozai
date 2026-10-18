@@ -83,6 +83,7 @@
     <string name="attachment_retrying" formatted="false">"正在重發…"</string>
     <string name="attachment_save_again" formatted="false">"重新另存為"</string>
     <string name="attachment_save_as" formatted="false">"另存新檔"</string>
+    <string name="attachment_save_before_opening" formatted="false">"請先將此檔案另存新檔，再開啟。"</string>
     <string name="attachment_saved_file_missing" formatted="false">"儲存的檔案已被移動或刪除。"</string>
     <string name="attachment_selection_count" formatted="false">"已選 {0} 項"</string>
     <string name="attachment_show_in_folder" formatted="false">"開啟所在位置"</string>
@@ -464,6 +465,7 @@
     <string name="stop_search" formatted="false">"停止搜尋"</string>
     <string name="storage_failure" formatted="false">"無法儲存本機資料，連線已停止。請檢查磁碟空間和目錄權限。"</string>
     <string name="system_language" formatted="false">"跟隨系統"</string>
+    <string name="system_theme" formatted="false">"跟隨系統"</string>
     <string name="theme" formatted="false">"主題"</string>
     <string name="today" formatted="false">"今天"</string>
     <string name="transfer_diagnostics" formatted="false">"複製傳輸診斷"</string>

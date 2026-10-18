@@ -83,6 +83,7 @@
     <string name="attachment_retrying" formatted="false">"Retrying…"</string>
     <string name="attachment_save_again" formatted="false">"Save another copy"</string>
     <string name="attachment_save_as" formatted="false">"Save as"</string>
+    <string name="attachment_save_before_opening" formatted="false">"Save a copy before opening this file."</string>
     <string name="attachment_saved_file_missing" formatted="false">"The saved file has been moved or deleted."</string>
     <string name="attachment_selection_count" formatted="false">"{0} selected"</string>
     <string name="attachment_show_in_folder" formatted="false">"Show in folder"</string>
@@ -464,6 +465,7 @@
     <string name="stop_search" formatted="false">"Stop search"</string>
     <string name="storage_failure" formatted="false">"Local data could not be saved. The connection was stopped. Check disk space and folder permissions."</string>
     <string name="system_language" formatted="false">"Follow system"</string>
+    <string name="system_theme" formatted="false">"Follow system"</string>
     <string name="theme" formatted="false">"Theme"</string>
     <string name="today" formatted="false">"Today"</string>
     <string name="transfer_diagnostics" formatted="false">"Copy transfer diagnostics"</string>

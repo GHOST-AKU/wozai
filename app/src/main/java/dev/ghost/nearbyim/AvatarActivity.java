@@ -37,7 +37,7 @@ public final class AvatarActivity extends Activity {
     private int ink, muted, background, surface, accent;
     protected void onStart(){super.onStart();if(foldArea!=null)foldArea.start();}
     protected void onStop(){if(foldArea!=null)foldArea.stop();super.onStop();}
-    protected void attachBaseContext(Context context) { super.attachBaseContext(AppLanguage.wrap(context)); }
+    protected void attachBaseContext(Context context) { super.attachBaseContext(AppAppearance.wrap(AppLanguage.wrap(context))); }
     public void onCreate(Bundle state) {
         super.onCreate(state);if(state!=null){String uri=state.getString("avatarSelection");selection=uri==null?null:Uri.parse(uri);float[] square=state.getFloatArray("avatarCrop");if(square!=null&&square.length==4)restoredCrop=new RectF(square[0],square[1],square[2],square[3]);} palette(); build(); load();
         if (Build.VERSION.SDK_INT >= 33) getOnBackInvokedDispatcher().registerOnBackInvokedCallback(0, this::cancel);

@@ -38,6 +38,11 @@ public final class DesktopBatchTests {
             if(!a.endToEndEncrypted(bi.id())||!b.endToEndEncrypted(ai.id()))throw new AssertionError("Batch left the production encrypted session");
             AttachmentRecord received=bs.messages(ai.id()).stream().map(DesktopStore.Message::attachment).filter(r->r!=null&&r.info.name.equals("第二份.txt")).findFirst().orElse(null);
             if(received==null)received=bs.messages(ai.id()).stream().map(DesktopStore.Message::attachment).filter(r->r!=null&&r.info.name.equals("second.txt")).findFirst().orElseThrow();
+            Path named=(Path)((CompletableFuture<?>)location.invoke(b,ai.id(),received)).get(10,TimeUnit.SECONDS);
+            if(!named.getFileName().toString().equals(received.info.name))throw new AssertionError("Opening the received file location exposes its internal UUID instead of the original filename");
+            if(!Files.isSameFile(named,b.attachmentPath(ai.id(),received).get(5,TimeUnit.SECONDS)))throw new AssertionError("Named view duplicates received content instead of linking it");
+            ((CompletableFuture<?>)export.invoke(b,ai.id(),received,named)).get(10,TimeUnit.SECONDS);
+            if(!Files.isSameFile(named,b.attachmentPath(ai.id(),received).get(5,TimeUnit.SECONDS)))throw new AssertionError("Saving to the existing original-name entry replaced it with a redundant copy");
             Path destination=root.resolve("用户保存位置").resolve("new name.txt");Files.createDirectories(destination.getParent());
             ((CompletableFuture<?>)export.invoke(b,ai.id(),received,destination)).get(10,TimeUnit.SECONDS);
             Path actual=(Path)((CompletableFuture<?>)location.invoke(b,ai.id(),received)).get(10,TimeUnit.SECONDS);

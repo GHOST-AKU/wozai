@@ -7,6 +7,8 @@ import java.io.*;
 import dev.ghost.nearbyim.core.AttachmentInfo;
 import dev.ghost.nearbyim.core.AttachmentRecord;
 import dev.ghost.nearbyim.core.AttachmentTransfer;
+import dev.ghost.nearbyim.core.AttachmentExportStore;
+import dev.ghost.nearbyim.core.PrivateMetadata;
 import java.nio.channels.*;
 import java.nio.file.*;
 import java.util.*;
@@ -167,6 +169,36 @@ public final class DesktopStore implements AutoCloseable {
     public synchronized Path attachmentFile(String peer,AttachmentInfo info)throws IOException {return AttachmentTransfer.file(attachmentDirectory(peer),info);}
     public synchronized Path attachmentsRoot()throws IOException {Path base=root.resolve("attachments");if(Files.isSymbolicLink(base))throw new IOException("Unsafe attachment root");Files.createDirectories(base);AtomicFiles.privatePermissions(base,true);return base;}
     public synchronized Path attachmentFile(String peer,AttachmentInfo info,boolean outgoing)throws IOException {return AttachmentTransfer.file(attachmentDirectory(peer),info,outgoing);}
+    /** Give external applications the original basename without copying a multi-GiB payload. */
+    public synchronized Path attachmentNamedFile(String peer, AttachmentRecord record) throws IOException {
+        AttachmentExportStore.requireComplete(record);
+        Path source = attachmentFile(peer, record.info, record.outgoing);
+        if (!Files.isRegularFile(source, LinkOption.NOFOLLOW_LINKS)) throw new LocalizedIOException(UiText.of("attachmentUnavailable"));
+        Path directory = root.resolve("attachment-names").resolve(uuid(peer))
+            .resolve((record.outgoing ? "out-" : "in-") + uuid(record.info.id));
+        PrivateMetadata.directory(directory);
+        Path named = directory.resolve(AttachmentInfo.safeName(record.info.name));
+        if (Files.exists(named, LinkOption.NOFOLLOW_LINKS)) {
+            if (Files.isSymbolicLink(named) || !Files.isRegularFile(named, LinkOption.NOFOLLOW_LINKS) || !Files.isSameFile(named, source))
+                throw new IOException("Conflicting attachment name entry");
+        } else {
+            try { Files.createLink(named, source); }
+            catch (UnsupportedOperationException | IOException unsupported) {
+                throw new LocalizedIOException(UiText.of("attachmentSaveBeforeOpening"), unsupported);
+            }
+        }
+        return named;
+    }
+    private void clearAttachmentNames(String peer) throws IOException {
+        Path directory = root.resolve("attachment-names").resolve(uuid(peer));
+        if (!Files.exists(directory, LinkOption.NOFOLLOW_LINKS)) return;
+        PrivateMetadata.directory(directory);
+        try (var paths = Files.walk(directory)) {
+            List<Path> entries = paths.sorted(Comparator.reverseOrder()).toList();
+            for (Path entry : entries) if (Files.isSymbolicLink(entry)) throw new IOException("Unsafe attachment name entry");
+            for (Path entry : entries) Files.delete(entry);
+        }
+    }
     public synchronized void attachment(String peer,AttachmentRecord record)throws IOException {
         Path file=messageFile(peer,record.info.id,record.outgoing);Message previous=Files.exists(file)?readMessage(file):null;
         if(previous!=null&&previous.attachment()!=null){
@@ -202,6 +234,7 @@ public final class DesktopStore implements AutoCloseable {
         Path contents=attachmentDirectory(peer);if(Files.exists(contents))AttachmentTransfer.clean(contents,received);
     }
     public synchronized void clear(String id) throws IOException {
+        clearAttachmentNames(id);
         Path contents=attachmentDirectory(id);if(Files.exists(contents))AttachmentTransfer.clear(contents);
         Path locations=root.resolve("locations").resolve(uuid(id));if(Files.exists(locations,LinkOption.NOFOLLOW_LINKS)){if(Files.isSymbolicLink(locations))throw new IOException("Unsafe export metadata");try(var files=Files.list(locations)){for(Path file:files.toList())Files.delete(file);}Files.delete(locations);}
         Path path = messagesPath(id); if (!Files.exists(path)) return;

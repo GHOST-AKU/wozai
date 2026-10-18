@@ -515,5 +515,7 @@
   "directCleanupFailed": "Wi-Fi Direct 시스템 작업의 완료를 확인하지 못했습니다. 새 직접 연결 시도가 일시 중지되었습니다. Wi-Fi 설정을 확인하고 앱을 다시 시작한 후 시도하세요.",
   "directPeerHint": "연결 후 안전 코드를 확인하세요. 취소하거나 연결을 끊은 후에는 양쪽 기기에서 연결을 눌러 다시 시도하세요.",
   "attachmentPathSelecting": "전송 경로 확인 중 · 전송 시작 전",
-  "pathDetailsSelecting": "파일은 Wi-Fi Direct, LAN, Bluetooth 순서로 시도합니다. 채팅 연결 모드는 바뀌지 않습니다."
+  "pathDetailsSelecting": "파일은 Wi-Fi Direct, LAN, Bluetooth 순서로 시도합니다. 채팅 연결 모드는 바뀌지 않습니다.",
+  "systemTheme": "시스템 설정 따르기",
+  "attachmentSaveBeforeOpening": "이 파일을 열기 전에 다른 이름으로 저장해 주세요."
 }

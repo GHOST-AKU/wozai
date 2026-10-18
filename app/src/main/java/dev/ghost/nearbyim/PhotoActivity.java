@@ -27,7 +27,7 @@ public final class PhotoActivity extends Activity {
     private String pendingExportPeer,pendingExportRecord;
     protected void onStart(){super.onStart();if(foldArea!=null)foldArea.start();}
     protected void onStop(){if(foldArea!=null)foldArea.stop();super.onStop();}
-    protected void attachBaseContext(Context context){super.attachBaseContext(AppLanguage.wrap(context));}
+    protected void attachBaseContext(Context context){super.attachBaseContext(AppAppearance.wrap(AppLanguage.wrap(context)));}
     public void onCreate(Bundle state){
         super.onCreate(state);photo=getIntent().getData();if(state!=null){pendingExportPeer=state.getString("photoExportPeer");pendingExportRecord=state.getString("photoExportRecord");}
         if(photo==null||!"content".equals(photo.getScheme())||!(getPackageName()+".attachments").equals(photo.getAuthority())){finish();return;}

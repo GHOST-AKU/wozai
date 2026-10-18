@@ -91,6 +91,7 @@ public final class I18nResources {
             case "attachmentRetrying": return R.string.attachment_retrying;
             case "attachmentSaveAgain": return R.string.attachment_save_again;
             case "attachmentSaveAs": return R.string.attachment_save_as;
+            case "attachmentSaveBeforeOpening": return R.string.attachment_save_before_opening;
             case "attachmentSavedFileMissing": return R.string.attachment_saved_file_missing;
             case "attachmentSelectionCount": return R.string.attachment_selection_count;
             case "attachmentShowInFolder": return R.string.attachment_show_in_folder;
@@ -472,6 +473,7 @@ public final class I18nResources {
             case "stopSearch": return R.string.stop_search;
             case "storageFailure": return R.string.storage_failure;
             case "systemLanguage": return R.string.system_language;
+            case "systemTheme": return R.string.system_theme;
             case "theme": return R.string.theme;
             case "today": return R.string.today;
             case "transferDiagnostics": return R.string.transfer_diagnostics;

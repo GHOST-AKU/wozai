@@ -515,5 +515,7 @@
   "directCleanupFailed": "Wi-Fi 直連的系統操作尚未確認完成，新的直連嘗試已暫停。請檢查 Wi-Fi 設定，然後重新啟動應用程式再試。",
   "directPeerHint": "連線後請核對安全碼。 取消或中斷後，請雙方都點選連線以重試。",
   "attachmentPathSelecting": "正在檢查傳輸路徑 · 尚未傳輸",
-  "pathDetailsSelecting": "檔案依序嘗試 Wi-Fi 直連、區域網路、藍牙；不會改變聊天連線模式。"
+  "pathDetailsSelecting": "檔案依序嘗試 Wi-Fi 直連、區域網路、藍牙；不會改變聊天連線模式。",
+  "systemTheme": "跟隨系統",
+  "attachmentSaveBeforeOpening": "請先將此檔案另存新檔，再開啟。"
 }

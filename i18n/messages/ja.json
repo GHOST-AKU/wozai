@@ -515,5 +515,7 @@
   "directCleanupFailed": "Wi-Fi Direct のシステム操作が完了したことを確認できません。新しい接続は停止されています。Wi-Fi 設定を確認し、アプリを再起動して再試行してください。",
   "directPeerHint": "接続後に安全コードを確認してください。 キャンセルや切断の後は、両方の端末で接続を押して再試行してください。",
   "attachmentPathSelecting": "転送経路を確認中 · 転送は未開始",
-  "pathDetailsSelecting": "ファイルは Wi-Fi Direct、LAN、Bluetooth の順に試します。チャットの接続モードは変更されません。"
+  "pathDetailsSelecting": "ファイルは Wi-Fi Direct、LAN、Bluetooth の順に試します。チャットの接続モードは変更されません。",
+  "systemTheme": "システム設定に従う",
+  "attachmentSaveBeforeOpening": "このファイルを開く前に、名前を付けて保存してください。"
 }

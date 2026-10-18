@@ -26,9 +26,9 @@ public final class GalleryActivity extends Activity {
     private GridView grid;private Adapter adapter;private TextView notice;private Button confirm,more,access;private boolean loading,exhausted;
     protected void onStart(){super.onStart();if(foldArea!=null)foldArea.start();}
     protected void onStop(){if(foldArea!=null)foldArea.stop();super.onStop();}
-    protected void attachBaseContext(Context base){super.attachBaseContext(AppLanguage.wrap(base));}
+    protected void attachBaseContext(Context base){super.attachBaseContext(AppAppearance.wrap(AppLanguage.wrap(base)));}
     public void onCreate(Bundle saved){super.onCreate(saved);if(saved!=null){ArrayList<Uri> restored=saved.getParcelableArrayList("selected");if(restored!=null&&restored.size()<=AttachmentBatchQueue.MAX_PENDING)selected.addAll(restored);}thumbnails=new SelectionThumbnails(getContentResolver());
-        LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(0xfff7faf7);root.setPadding(dp(12),dp(12),dp(12),dp(12));
+        LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(AppAppearance.isDark(this)?0xff101619:0xfff7faf7);root.setPadding(dp(12),dp(12),dp(12),dp(12));
         foldArea=new FoldWindow.SafeArea(this,root);root.setOnApplyWindowInsetsListener((v,insets)->foldArea.windowInsets(insets,dp(12),dp(12),dp(12),dp(12)));
         LinearLayout toolbar=new LinearLayout(this);toolbar.setGravity(Gravity.CENTER_VERTICAL);Button back=new Button(this);back.setText(text("cancel"));back.setOnClickListener(v->finish());toolbar.addView(back);TextView title=new TextView(this);title.setText(text("galleryTitle"));title.setTextSize(20);toolbar.addView(title,new LinearLayout.LayoutParams(0,-2,1));confirm=new Button(this);confirm.setOnClickListener(v->{setResult(RESULT_OK,AttachmentSelection.result(List.copyOf(selected)));finish();});toolbar.addView(confirm);root.addView(toolbar);
         notice=new TextView(this);notice.setTextColor(Color.DKGRAY);root.addView(notice);access=new Button(this);access.setText(text("galleryAccess"));access.setOnClickListener(v->permission());root.addView(access);

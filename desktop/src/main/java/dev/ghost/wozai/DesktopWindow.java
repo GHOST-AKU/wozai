@@ -482,7 +482,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         if(action.equals("save")){JFileChooser chooser=new JFileChooser();chooser.setSelectedFile(new java.io.File(AttachmentInfo.safeName(record.info.name)));if(chooser.showSaveDialog(this)!=JFileChooser.APPROVE_OPTION)return;destination=chooser.getSelectedFile().toPath();if(Files.exists(destination)&&JOptionPane.showConfirmDialog(this,strings.text("attachmentOverwrite"),strings.text("attachmentSaveAs"),JOptionPane.YES_NO_OPTION)!=JOptionPane.YES_OPTION)return;}
         Path target=destination;
         if(target!=null){handle(client.exportAttachment(peer,record,target),"attachmentFailed");return;}
-        handle(client.attachmentPath(peer,record).thenAcceptAsync(path->{try{Desktop.getDesktop().open(path.toFile());}catch(IOException e){throw new java.util.concurrent.CompletionException(e);}},attachmentWorker),"attachmentFailed");
+        handle(client.attachmentOpenPath(peer,record).thenAcceptAsync(path->{try{Desktop.getDesktop().open(path.toFile());}catch(IOException e){throw new java.util.concurrent.CompletionException(e);}},attachmentWorker),"attachmentFailed");
     }
     private AttachmentBatchQueue.RetryState retryState(String peer,DesktopStore.Message message){
         return pendingRetries.contains(peer+":"+message.id())?AttachmentBatchQueue.RetryState.RETRYING:client.retryState(peer,message.id());

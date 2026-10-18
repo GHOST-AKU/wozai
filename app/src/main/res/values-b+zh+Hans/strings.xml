@@ -83,6 +83,7 @@
     <string name="attachment_retrying" formatted="false">"正在重发…"</string>
     <string name="attachment_save_again" formatted="false">"重新另存为"</string>
     <string name="attachment_save_as" formatted="false">"另存为"</string>
+    <string name="attachment_save_before_opening" formatted="false">"请先将此文件另存为，再打开。"</string>
     <string name="attachment_saved_file_missing" formatted="false">"保存的文件已被移动或删除。"</string>
     <string name="attachment_selection_count" formatted="false">"已选 {0} 项"</string>
     <string name="attachment_show_in_folder" formatted="false">"打开所在位置"</string>
@@ -464,6 +465,7 @@
     <string name="stop_search" formatted="false">"停止搜索"</string>
     <string name="storage_failure" formatted="false">"无法保存本地数据，连接已停止。请检查磁盘空间和目录权限。"</string>
     <string name="system_language" formatted="false">"跟随系统"</string>
+    <string name="system_theme" formatted="false">"跟随系统"</string>
     <string name="theme" formatted="false">"主题"</string>
     <string name="today" formatted="false">"今天"</string>
     <string name="transfer_diagnostics" formatted="false">"复制传输诊断"</string>

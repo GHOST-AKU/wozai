@@ -515,5 +515,7 @@
   "directCleanupFailed": "The Wi-Fi Direct system operation has not been confirmed complete. New Direct attempts are paused. Check Wi-Fi settings, then restart the app and retry.",
   "directPeerHint": "Verify the safety code after connecting. After cancellation or disconnection, both peers should tap Connect to retry.",
   "attachmentPathSelecting": "Checking transfer paths · not transferring yet",
-  "pathDetailsSelecting": "Files try Wi-Fi Direct, LAN, then Bluetooth. This does not change the chat connection mode."
+  "pathDetailsSelecting": "Files try Wi-Fi Direct, LAN, then Bluetooth. This does not change the chat connection mode.",
+  "systemTheme": "Follow system",
+  "attachmentSaveBeforeOpening": "Save a copy before opening this file."
 }
