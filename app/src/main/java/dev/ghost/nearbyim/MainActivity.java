@@ -135,6 +135,8 @@ public final class MainActivity extends Activity {
             service = ((ChatService.LocalBinder) binder).service(); controller = service.controller;
             if (controller.selectedId == null && restoredSelectedId != null)
                 controller.selectConversation(new ChatStore.Conversation(restoredSelectedId, restoredSelectedName, 0));
+            // Publication may finish while a system picker or another Activity has this page stopped.
+            for(ChatStore.Message message:controller.messages)if(message.attachment!=null&&!message.outgoing&&message.attachment.state.equals("received"))dirtyAttachmentRows.add(messageKey(message));
             controller.observe(renderObserver); resumePending(); resumeAttachmentSelection();resumeVerificationResult();
         }
         public void onServiceDisconnected(ComponentName name) { service = null; controller = null; render(); }

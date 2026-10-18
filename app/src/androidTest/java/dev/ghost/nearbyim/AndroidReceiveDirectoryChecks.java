@@ -43,8 +43,14 @@ final class AndroidReceiveDirectoryChecks {
                 check(locations.directory().uri().equals(tree("one")),"Rejected folder replaced the valid selection");
                 Intent picker=AttachmentLocations.directoryPicker(locations.directory());check(Intent.ACTION_OPEN_DOCUMENT_TREE.equals(picker.getAction())&&(picker.getFlags()&FLAGS)==FLAGS&&tree("one").equals(picker.getParcelableExtra(DocumentsContract.EXTRA_INITIAL_URI)),"Folder picker did not request a persisted read/write tree");
                 AndroidAttachmentSource.releaseUnusedGrants(context);check(persisted(context,"one"),"Source cleanup revoked the selected receive tree");
-                check(locations.saveReceived(peer,record,false).get(10,TimeUnit.SECONDS)==AttachmentDirectoryStore.State.SAVED,"Received document was not saved");
+                // Hold the serial worker so the history lookup definitely precedes the receipt callback.
+                var workerField=AttachmentLocations.class.getDeclaredField("worker");workerField.setAccessible(true);CountDownLatch entered=new CountDownLatch(1),release=new CountDownLatch(1);
+                ((ThreadPoolExecutor)workerField.get(locations)).execute(()->{entered.countDown();try{if(!release.await(10,TimeUnit.SECONDS))throw new AssertionError("Lookup race gate timed out");}catch(InterruptedException interrupted){Thread.currentThread().interrupt();}});
+                check(entered.await(10,TimeUnit.SECONDS),"Directory worker race gate did not start");CompletableFuture<AttachmentDirectoryStore.State> automatic;
+                try{locations.inspectReceived(peer,record);automatic=locations.saveReceived(peer,record,false);locations.selectDirectory(tree("two"),FLAGS).get(10,TimeUnit.SECONDS);}finally{release.countDown();}
+                check(automatic.get(10,TimeUnit.SECONDS)==AttachmentDirectoryStore.State.SAVED,"History lookup swallowed the automatic receipt save");
                 var location=locations.locate(peer,record).get(10,TimeUnit.SECONDS);first=location.savedUri();check(location.kind()==AttachmentLocations.Kind.DOCUMENT&&location.availability()==AttachmentLocations.Availability.AVAILABLE,"Location still points to app-private storage");
+                check(DocumentsContract.getTreeDocumentId(first).equals("one")&&locations.directory().uri().equals(tree("two")),"Changing folders redirected an already scheduled receipt");locations.selectDirectory(tree("one"),FLAGS).get(10,TimeUnit.SECONDS);
                 check(Arrays.equals(bytes,read(context,first)),"Public document changed received bytes");check(name(context,first).equals(record.info.name),"Public document lost its original name");
                 locations.saveReceived(peer,record,false).get(10,TimeUnit.SECONDS);check(count(context,"one")==1,"Receipt replay duplicated a saved document");
                 AttachmentRecord second=received(store,peer,record.info.name,bytes);locations.saveReceived(peer,second,false).get(10,TimeUnit.SECONDS);Uri secondUri=locations.locate(peer,second).get(10,TimeUnit.SECONDS).savedUri();

@@ -37,6 +37,7 @@ public final class AttachmentLocations implements AutoCloseable {
     private final Set<Listener> listeners=new CopyOnWriteArraySet<>();
     private final Map<String,SaveStatus> saved=Collections.synchronizedMap(new LinkedHashMap<String,SaveStatus>(32,.75f,true){protected boolean removeEldestEntry(Map.Entry<String,SaveStatus> entry){return size()>256;}});
     private final Map<String,CompletableFuture<AttachmentDirectoryStore.State>> saving=new HashMap<>();
+    private final Map<String,CompletableFuture<AttachmentDirectoryStore.State>> inspecting=new HashMap<>();
     private final ConcurrentHashMap<String,AtomicLong> generations=new ConcurrentHashMap<>();
     private final Set<String> clearing=ConcurrentHashMap.newKeySet();
     private final ThreadPoolExecutor worker=new ThreadPoolExecutor(0,1,15,TimeUnit.SECONDS,new ArrayBlockingQueue<>(256),r->{Thread thread=new Thread(r,"attachment-save");thread.setDaemon(true);return thread;},new ThreadPoolExecutor.AbortPolicy());
@@ -87,18 +88,22 @@ public final class AttachmentLocations implements AutoCloseable {
         SaveStatus known=savedStatus(peer,record);if(known!=null)return CompletableFuture.completedFuture(known.state());
         String key;try{key=AttachmentExportStore.key(peer,record);if(record.outgoing)throw new IOException("Not received");}catch(IOException error){return failed(error);}
         CompletableFuture<AttachmentDirectoryStore.State> active=saving.get(key);if(active!=null)return active;
+        active=inspecting.get(key);if(active!=null)return active;
         long token=generation(peer);CompletableFuture<AttachmentDirectoryStore.State> future=submit(()->{
             if(canceled(peer,token))throw new IOException("Directory save canceled");AttachmentDirectoryStore.Entry entry=directoryJobs.load(peer,record);
             if(entry!=null&&(entry.state()==AttachmentDirectoryStore.State.PENDING||entry.state()==AttachmentDirectoryStore.State.COPIED))return saveReceivedNow(peer,record,entry,token);
             if(entry!=null&&entry.state()==AttachmentDirectoryStore.State.SAVED&&probe(Kind.DOCUMENT,Uri.parse(entry.documentUri()),record).availability()!=Availability.AVAILABLE){entry=new AttachmentDirectoryStore.Entry(AttachmentDirectoryStore.State.MISSING,entry.treeUri(),entry.documentUri());directoryJobs.save(peer,record,entry);}
             return saved(peer,record,entry==null?null:entry.state());
-        });return trackSave(key,peer,record,future);
+        });return trackSave(inspecting,key,peer,record,future);
     }
     public synchronized CompletableFuture<AttachmentDirectoryStore.State> saveReceived(String peer,AttachmentRecord record,boolean retry){
         String key;AttachmentDirectoryStore.Entry entry;long token=generation(peer);
         try{
             key=AttachmentExportStore.key(peer,record);if(record.outgoing||canceled(peer,token))throw new IOException("Not an active received file");
             CompletableFuture<AttachmentDirectoryStore.State> active=saving.get(key);if(active!=null)return active;
+            CompletableFuture<AttachmentDirectoryStore.State> inspection=inspecting.get(key);
+            if(inspection!=null&&inspection.isDone()){inspecting.remove(key,inspection);inspection=null;}
+            if(retry&&inspection!=null)return inspection.handle((value,error)->null).thenCompose(ignored->saveReceived(peer,record,true));
             entry=directoryJobs.load(peer,record);
             if(!retry&&entry!=null&&entry.state()!=AttachmentDirectoryStore.State.PENDING&&entry.state()!=AttachmentDirectoryStore.State.COPIED)return CompletableFuture.completedFuture(saved(peer,record,entry.state()));
             if(retry||entry==null){Directory selected=directory();if(selected==null){if(retry)throw new IOException("Choose a receive folder first");return CompletableFuture.completedFuture(null);}
@@ -111,11 +116,13 @@ public final class AttachmentLocations implements AutoCloseable {
                 directoryJobs.save(peer,record,entry);
             }
             saved(peer,record,AttachmentDirectoryStore.State.PENDING);
+            // Schedule the original folder durably even if a history inspection got here first.
+            if(inspection!=null)return inspection.handle((value,error)->null).thenCompose(ignored->saveReceived(peer,record,false));
         }catch(IOException|RuntimeException error){if(directory()!=null&&!canceled(peer,token)&&record!=null&&!record.outgoing)try{saved(peer,record,AttachmentDirectoryStore.State.FAILED);}catch(IOException ignored){}return failed(error);}
-        AttachmentDirectoryStore.Entry scheduled=entry;return trackSave(key,peer,record,submit(()->saveReceivedNow(peer,record,scheduled,token)));
+        AttachmentDirectoryStore.Entry scheduled=entry;return trackSave(saving,key,peer,record,submit(()->saveReceivedNow(peer,record,scheduled,token)));
     }
-    private synchronized CompletableFuture<AttachmentDirectoryStore.State> trackSave(String key,String peer,AttachmentRecord record,CompletableFuture<AttachmentDirectoryStore.State> future){
-        saving.put(key,future);future.whenComplete((value,error)->{synchronized(AttachmentLocations.this){saving.remove(key,future);}if(error!=null&&!clearing.contains(peer))try{saved(peer,record,AttachmentDirectoryStore.State.FAILED);}catch(IOException ignored){}});return future;
+    private synchronized CompletableFuture<AttachmentDirectoryStore.State> trackSave(Map<String,CompletableFuture<AttachmentDirectoryStore.State>> tasks,String key,String peer,AttachmentRecord record,CompletableFuture<AttachmentDirectoryStore.State> future){
+        tasks.put(key,future);future.whenComplete((value,error)->{synchronized(AttachmentLocations.this){tasks.remove(key,future);}if(error!=null&&!clearing.contains(peer))try{saved(peer,record,AttachmentDirectoryStore.State.FAILED);}catch(IOException ignored){}});return future;
     }
     private AttachmentDirectoryStore.State saveReceivedNow(String peer,AttachmentRecord expected,AttachmentDirectoryStore.Entry entry,long token)throws Exception {
         Uri destination=entry.documentUri().isEmpty()?null:Uri.parse(entry.documentUri());boolean copied=entry.state()==AttachmentDirectoryStore.State.COPIED,owned=false;
