@@ -332,7 +332,23 @@ final class WifiDirectPolicy {
         boolean accepts(InetAddress remote) { return ipv4(remote) && !local.equals(remote) && subnet(local, remote, prefix) && hostAddress(remote, prefix); }
     }
     static Route prove(String name, InetAddress owner, boolean go, List<InterfaceRoute> routes, boolean exactNetwork, boolean vpn) {
-        if (name == null || name.isEmpty() || !ipv4(owner) || (!exactNetwork && vpn)) return null;
+        // Only the dialer uses Network.bindSocket. The GO binds a listening socket to
+        // its own P2P address; Android marks accepted connections for the ingress
+        // network, including VPN protection (netd RouteController). VPN presence
+        // alone must not prevent that listener from accepting a P2P connection.
+        boolean boundNetwork = !go && exactNetwork;
+        if (!go && !boundNetwork && vpn) return null;
+        Route selected = localRoute(name, owner, go, routes);
+        if (selected == null) return null;
+        if (!boundNetwork) for (InterfaceRoute other : routes) {
+            if (!name.equals(other.name) && ipv4(other.local) && other.prefix >= 0 && other.prefix <= 32 &&
+                    subnet(selected.local, other.local, Math.min(selected.prefix, other.prefix))) return null;
+        }
+        return selected;
+    }
+    /** Interface readiness only; callers must still prove the socket's route before opening it. */
+    static Route localRoute(String name, InetAddress owner, boolean go, List<InterfaceRoute> routes) {
+        if (name == null || name.isEmpty() || !ipv4(owner)) return null;
         InterfaceRoute selected = null;
         for (InterfaceRoute route : routes) {
             if (!name.equals(route.name) || !ipv4(route.local) || route.prefix < 1 || route.prefix > 30 || !hostAddress(route.local, route.prefix)) continue;
@@ -341,10 +357,6 @@ final class WifiDirectPolicy {
             }
         }
         if (selected == null) return null;
-        if (!exactNetwork) for (InterfaceRoute other : routes) {
-            if (!name.equals(other.name) && ipv4(other.local) && other.prefix >= 0 && other.prefix <= 32 &&
-                    subnet(selected.local, other.local, Math.min(selected.prefix, other.prefix))) return null;
-        }
         return new Route(selected);
     }
     private static boolean ipv4(InetAddress address) { return address instanceof Inet4Address && !address.isAnyLocalAddress() && !address.isLoopbackAddress() && !address.isMulticastAddress(); }

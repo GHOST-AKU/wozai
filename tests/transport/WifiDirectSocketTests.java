@@ -17,6 +17,11 @@ public final class WifiDirectSocketTests {
             owner.listen(go, InetAddress.getByName("127.0.0.1"), 0, remote -> remote.getHostAddress().equals("127.0.0.2"), events(ports, accepted, true, error));
             Integer port = ports.poll(2, TimeUnit.SECONDS);
             truth(port != null, "GO must publish readiness only after binding an actual listening socket");
+            try (Socket unrelated = new Socket("127.0.0.1", port)) {
+                unrelated.setSoTimeout(2000);
+                equal(-1, unrelated.getInputStream().read(), "GO rejects a connection whose source is outside the admitted P2P peers");
+                truth(accepted.isEmpty(), "Rejected traffic cannot publish a Direct session or consume the listener");
+            }
             client.connect(gc, InetAddress.getByName("127.0.0.2"), InetAddress.getByName("127.0.0.1"), port,
                     socket -> sourceBinding.set(!socket.isBound() && !socket.isConnected()), events(null, connected, false, error));
             StreamConnection responder = accepted.poll(2, TimeUnit.SECONDS), initiator = connected.poll(2, TimeUnit.SECONDS);

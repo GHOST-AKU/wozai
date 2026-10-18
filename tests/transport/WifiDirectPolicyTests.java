@@ -231,6 +231,26 @@ public final class WifiDirectPolicyTests {
             truth(WifiDirectPolicy.prove("p2p0", address("10.42.9.1"), false, routes, true, true) != null, "Exact bound P2P Network resolves competing routes");
             equal(null, WifiDirectPolicy.prove("p2p0", address("fe80::1"), false, routes, false, false), "Scoped IPv6 needs visible unsupported failure");
         });
+        check("GO listens on its own P2P address while a separate VPN is active", () -> {
+            var owner = address("192.168.49.1");
+            var routes = List.of(new WifiDirectPolicy.InterfaceRoute("p2p0", owner, 24),
+                    new WifiDirectPolicy.InterfaceRoute("wlan0", address("192.168.31.5"), 24),
+                    new WifiDirectPolicy.InterfaceRoute("tun0", address("10.8.0.2"), 32));
+            var listener = WifiDirectPolicy.prove("p2p0", owner, true, routes, false, true);
+            truth(listener != null && owner.equals(listener.local), "VPN presence alone must not reject the P2P-bound listener");
+            truth(listener.accepts(address("192.168.49.2")) && !listener.accepts(address("192.168.31.6")), "Only connections from the observed group subnet are admitted");
+            equal(null, WifiDirectPolicy.prove("p2p0", address("192.168.49.2"), true, routes, false, true), "VPN exception cannot invent a local GO address");
+        });
+        check("GO VPN coexistence still rejects competing interface addresses", () -> {
+            var owner = address("192.168.49.1");
+            var group = new WifiDirectPolicy.InterfaceRoute("p2p0", owner, 24);
+            for (String other : List.of("192.168.49.1", "192.168.49.8")) {
+                var routes = List.of(group, new WifiDirectPolicy.InterfaceRoute("wlan0", address(other), 24));
+                truth(WifiDirectPolicy.localRoute("p2p0", owner, true, routes) != null, "An assigned but conflicting interface is not misreported as still waiting for an IP");
+                equal(null, WifiDirectPolicy.prove("p2p0", owner, true, routes, false, true), "GO does not use a client Network proof to bypass competing return paths");
+                equal(null, WifiDirectPolicy.prove("p2p0", owner, true, routes, true, true), "An available Network cannot bypass GO interface overlap checks");
+            }
+        });
         if (failures != 0) throw new AssertionError(failures + " Wi-Fi Direct policy checks failed");
         System.out.println("Wi-Fi Direct lifecycle, discovery and route checks passed");
     }

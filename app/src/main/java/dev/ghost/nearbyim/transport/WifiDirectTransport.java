@@ -651,6 +651,7 @@ public final class WifiDirectTransport {
                 RouteSnapshot snapshot = inspectRoute(iface, owner, go);
                 onMain(() -> {
                     if (!groupCurrent(started, generation, ticket)) return;
+                    if (snapshot.event != null) diagnostics.recordOnce(snapshot.event);
                     if (snapshot.route != null) openSockets(started, generation, ticket, snapshot, owner, go);
                     else if (snapshot.failure != null) routeFailure(snapshot.failure);
                     else if (now() >= deadline) routeFailure("directInterfaceUnavailable");
@@ -663,8 +664,9 @@ public final class WifiDirectTransport {
         if(coordinated!=null)return lifecycle.valid(started)&&generation==groupGeneration&&!cleanup.blocked()&&coordinated.observed&&coordinated.policy.matches(coordinated.parameters.ssid,coordinated.owner)&&(ticket==0||lifecycle.validAttempt(started,ticket));
         return lifecycle.valid(started) && generation == groupGeneration && !cleanup.blocked() && authority.mayOpen(lifecycle.pending()) && (ticket == 0 || lifecycle.validAttempt(started, ticket));
     }
-    private static final class RouteSnapshot { final WifiDirectPolicy.Route route; final Network network; final String failure;
-        RouteSnapshot(WifiDirectPolicy.Route route, Network network, String failure) { this.route = route; this.network = network; this.failure = failure; }
+    private static final class RouteSnapshot { final WifiDirectPolicy.Route route; final Network network; final String failure; final WifiDirectDiagnostics.Event event;
+        RouteSnapshot(WifiDirectPolicy.Route route, Network network, String failure) { this(route, network, failure, null); }
+        RouteSnapshot(WifiDirectPolicy.Route route, Network network, String failure, WifiDirectDiagnostics.Event event) { this.route = route; this.network = network; this.failure = failure; this.event = event; }
     }
     private RouteSnapshot inspectRoute(String iface, InetAddress owner, boolean go) {
         if (!(owner instanceof Inet4Address)) return new RouteSnapshot(null, null, "directIpv6Unsupported");
@@ -674,8 +676,8 @@ public final class WifiDirectTransport {
                 if (!networkInterface.isUp() || networkInterface.isLoopback()) continue;
                 for (InterfaceAddress address : networkInterface.getInterfaceAddresses()) interfaces.add(new WifiDirectPolicy.InterfaceRoute(networkInterface.getName(), address.getAddress(), address.getNetworkPrefixLength()));
             }
-            WifiDirectPolicy.Route proof = WifiDirectPolicy.prove(iface, owner, go, interfaces, true, false);
-            if (proof == null) return new RouteSnapshot(null, null, null); // The actual interface is not assigned yet.
+            WifiDirectPolicy.Route proof = WifiDirectPolicy.localRoute(iface, owner, go, interfaces);
+            if (proof == null) return new RouteSnapshot(null, null, null, WifiDirectDiagnostics.Event.ROUTE_WAIT_INTERFACE); // The actual interface is not assigned yet.
             Network matching = null; boolean vpn = false;
             for (NetworkInterface networkInterface : Collections.list(NetworkInterface.getNetworkInterfaces())) {
                 if (networkInterface.isUp() && !networkInterface.isLoopback() && networkInterface.isPointToPoint()) vpn = true;
@@ -684,16 +686,24 @@ public final class WifiDirectTransport {
                 NetworkCapabilities capabilities = connectivity.getNetworkCapabilities(network); LinkProperties properties = connectivity.getLinkProperties(network);
                 if (capabilities == null) continue;
                 vpn |= capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN);
+                // The GO is a passive, address-bound listener. It needs no Network
+                // object and must not depend on how ConnectivityService exposes P2P.
+                if (go) continue;
                 if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN) || !capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) || properties == null || !Objects.equals(iface, properties.getInterfaceName())) continue;
                 boolean local = false, route = false;
                 for (LinkAddress address : properties.getLinkAddresses()) if (proof.local.equals(address.getAddress()) && proof.prefix == address.getPrefixLength()) local = true;
                 for (RouteInfo candidate : properties.getRoutes()) if (candidate.getDestination().getPrefixLength() > 0 && candidate.getDestination().contains(owner)) route = true;
-                if (local && route) { if (matching != null) return new RouteSnapshot(null, null, "directRouteAmbiguous"); matching = network; }
+                if (local && route) { if (matching != null) return new RouteSnapshot(null, null, "directRouteAmbiguous", WifiDirectDiagnostics.Event.ROUTE_NETWORK_AMBIGUOUS); matching = network; }
             }
-            // ServerSocket has no public Android Network binding. A matching Network alone
-            // cannot disambiguate a GO return route; only the GC actually binds its socket.
+            // The GC's outgoing socket needs an exact Network when a VPN is present.
+            // GO accepted sockets keep Android's ingress-network mark; still reject
+            // competing interface subnets before listening on the actual owner IP.
             WifiDirectPolicy.Route accepted = WifiDirectPolicy.prove(iface, owner, go, interfaces, !go && matching != null, vpn);
-            return new RouteSnapshot(accepted, matching, accepted == null ? "directRouteAmbiguous" : null);
+            WifiDirectDiagnostics.Event event;
+            if (accepted == null) event = !go && vpn && matching == null ? WifiDirectDiagnostics.Event.ROUTE_VPN_UNBOUND : WifiDirectDiagnostics.Event.ROUTE_SUBNET_OVERLAP;
+            else if (go) event = vpn ? WifiDirectDiagnostics.Event.ROUTE_OWNER_VPN_LISTENER : WifiDirectDiagnostics.Event.ROUTE_OWNER_LISTENER;
+            else event = matching != null ? WifiDirectDiagnostics.Event.ROUTE_NETWORK_BOUND : WifiDirectDiagnostics.Event.ROUTE_SOURCE_BOUND;
+            return new RouteSnapshot(accepted, matching, accepted == null ? "directRouteAmbiguous" : null, event);
         } catch (SecurityException denied) { return new RouteSnapshot(null, null, "directPermissionRequired"); }
         catch (SocketException | RuntimeException unavailable) { return new RouteSnapshot(null, null, null); }
     }
@@ -701,7 +711,7 @@ public final class WifiDirectTransport {
         if (!groupCurrent(started, generation, ticket)) return;
         lastStage="opening_socket";
         final long socketGeneration = sockets.reset();
-        try { monitorNetwork(started, generation, route.network); } catch (RuntimeException denied) { routeFailure(permissionReason(denied, "directRouteAmbiguous")); return; }
+        try { monitorNetwork(started, generation, route.network); } catch (RuntimeException denied) { diagnostics.recordOnce(WifiDirectDiagnostics.Event.ROUTE_MONITOR_FAILED); routeFailure(permissionReason(denied, "directRouteAmbiguous")); return; }
         WifiDirectSockets.Events events = new WifiDirectSockets.Events() {
             public void onReady(int port) { onMain(() -> {
                 if (groupCurrent(started, generation, ticket) && sockets.current(socketGeneration)) {
