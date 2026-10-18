@@ -92,7 +92,7 @@ final class DesktopFileRoutes implements AutomaticFileRoutes.Platform {
         String value=name.toLowerCase(Locale.ROOT);
         return !value.startsWith("p2p")&&!value.contains("p2p-")&&!value.startsWith("tun")&&!value.startsWith("utun")&&!value.startsWith("tap")&&!value.startsWith("wg")&&!value.startsWith("tailscale")&&!value.startsWith("zt")&&!value.startsWith("vpn")&&!value.contains("wireguard")&&!value.contains("openvpn")&&!value.contains("wi-fi direct")&&!value.contains("wifi direct")&&!value.contains("wifi-direct")&&!value.contains("wifi_direct");
     }
-    private static boolean ordinary(NetworkInterface iface)throws SocketException{
+    static boolean ordinary(NetworkInterface iface)throws SocketException{
         return iface.isUp()&&!iface.isLoopback()&&!iface.isPointToPoint()&&!iface.isVirtual()&&ordinaryName(iface.getName())&&ordinaryName(iface.getDisplayName()==null?iface.getName():iface.getDisplayName());
     }
     static boolean sameNetwork(InetAddress local,short prefix,InetAddress remote){
