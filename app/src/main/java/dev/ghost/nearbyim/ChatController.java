@@ -440,6 +440,7 @@ public final class ChatController implements TransportListener {
                     AttachmentTransferV2 engine=new AttachmentTransferV2(directory,localRoot,remoteRoot,wire.connectionGeneration(),rfcomm,new AttachmentTransferV2.Wire(){
                         public boolean send(TransferPacket packet){AutomaticFileRoutes routes=fileRoutes;return active==wire&&routes!=null&&routes.send(packet);}public void abort(){AutomaticFileRoutes routes=fileRoutes;if(active==wire&&routes!=null)routes.abort();}
                         public boolean recoverableDisconnect(){return true;}
+                        public boolean highBandwidth(){AutomaticFileRoutes routes=fileRoutes;return active==wire&&routes!=null&&routes.highBandwidth();}
                     },new AttachmentTransferV2.Listener(){
                         public void changed(AttachmentRecord original)throws IOException {
                             AttachmentRecord record=decorateFileRoute(original);

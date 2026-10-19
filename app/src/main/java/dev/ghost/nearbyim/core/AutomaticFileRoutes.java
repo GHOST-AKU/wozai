@@ -373,6 +373,7 @@ public final class AutomaticFileRoutes implements AutoCloseable {
         FramedSession old=candidate;candidate=null;bound=false;dialed=false;selecting=false;if(old!=null)old.close(UiText.EMPTY);platform.stopDirect();
     }
     public boolean send(TransferPacket packet){FramedSession wire=selected;if(wire==null||closed||terminal||!chat.isReady()||!approved.getAsBoolean()||packet==null||!Objects.equals(generation,packet.connectionGeneration))return false;return wire.sendTransfer(packet);}
+    public boolean highBandwidth(){return selected!=null&&!closed&&!terminal&&("wifi-direct".equals(selectedRoute)||"lan".equals(selectedRoute));}
     /** The shared parent has no per-attempt nonce. Retain only a finite discard allowance for its retired authorization. */
     private void retireParent(){
         if(selected==chat&&chat.automaticFilesSupported()){
@@ -401,7 +402,10 @@ public final class AutomaticFileRoutes implements AutoCloseable {
     }
     public String diagnostics(){
         String state=closed?"closed":terminal?"failed":pathProbe!=null?"checking_existing":groupProbe!=null?"checking_direct":selected!=null?(refreshing?"rechecking":"ready"):attempting!=null?"negotiating":ready!=null&&!ready.isDone()?"requesting":lastRouteFailure.isEmpty()?"idle":"failed";
-        return "file_transport="+selectedRoute+"\nfile_route_pending="+(selected==null)+"\nfile_route_state="+state+"\nfile_attempt_route="+(attempting==null?"":name(attempting))+"\nfile_direct_outcome="+directOutcome+"\nfile_direct_method="+directMethod+"\nfile_direct_skip_reason="+directSkipReason+"\nfile_route_last_failure="+lastRouteFailure+"\nfile_existing_wifi="+(parentHotspot?"confirmed_hotspot":"unconfirmed")+"\n"+platform.diagnostics();
+        FramedSession wire=selected;
+        StringBuilder wireReport=new StringBuilder("file_wire_schema=1\nfile_wire_kind="+(wire==null?"none":wire==chat?"chat":"dedicated")+"\n");
+        if(wire!=null)for(String line:wire.diagnostics().split("\n"))if(!line.isEmpty())wireReport.append("file_wire_").append(line).append('\n');
+        return "file_transport="+selectedRoute+"\nfile_route_pending="+(selected==null)+"\nfile_route_state="+state+"\nfile_attempt_route="+(attempting==null?"":name(attempting))+"\nfile_direct_outcome="+directOutcome+"\nfile_direct_method="+directMethod+"\nfile_direct_skip_reason="+directSkipReason+"\nfile_route_last_failure="+lastRouteFailure+"\nfile_existing_wifi="+(parentHotspot?"confirmed_hotspot":"unconfirmed")+"\n"+wireReport+platform.diagnostics();
     }
     public void abort(){post(()->{String token=nonce;Route route=attempting;fail(new IOException("FILE route canceled"),false);if(valid()&&token!=null)control(FileRoutePacket.Kind.ABORT,token,route,false,Collections.emptyList());});}
     public void close(){

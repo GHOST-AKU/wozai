@@ -218,6 +218,7 @@ public final class DesktopClient implements AutoCloseable {
                             });
                     AttachmentTransferV2 engine=new AttachmentTransferV2(directory,localRoot,remoteRoot,wire.connectionGeneration(),transport.equals("bluetooth"),new AttachmentTransferV2.Wire(){
                         public boolean send(TransferPacket packet){return files.send(packet);}public void abort(){files.abort();}public boolean recoverableDisconnect(){return true;}
+                        public boolean highBandwidth(){return files.highBandwidth();}
                     },new AttachmentTransferV2.Listener(){
                         public void changed(AttachmentRecord record)throws IOException{store.attachment(peer.id(),routed(record));event(()->publish());}
                         public void progress(AttachmentRecord record,TransferProgress progress){
