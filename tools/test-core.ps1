@@ -45,6 +45,8 @@ try {
     if($LASTEXITCODE -ne 0) { throw 'Slow direct Wi-Fi diagnostics tests failed' }
     & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentRouteDisconnectTests
     if($LASTEXITCODE -ne 0) { throw 'File route disconnect checkpoint tests failed' }
+    & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentRouteRecoveryTests
+    if($LASTEXITCODE -ne 0) { throw 'Automatic file route recovery tests failed' }
     & ./tools/test-wifi-direct.ps1
     if($LASTEXITCODE -ne 0) { throw 'Direct Wi-Fi policy/socket tests failed' }
     & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentBenchmarkTests

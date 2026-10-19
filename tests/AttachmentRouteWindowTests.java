@@ -80,7 +80,8 @@ public final class AttachmentRouteWindowTests {
             Path source=root.resolve("resume.bin");Files.write(source,content);holdCredits=true;
             String id=engines[0].offer(new FileAttachmentSource(source),"resume.bin","application/octet-stream").get(3,TimeUnit.SECONDS);
             TransferPacket accept=accepted.poll(3,TimeUnit.SECONDS);check(accept!=null&&accept.windowBytes==65536,"Resume fixture must start with Bluetooth limits");
-            engines[0].pause(id,true).get(3,TimeUnit.SECONDS);engines[1].pause(id,false).get(3,TimeUnit.SECONDS);
+            // Only the sender is manually paused; its peer is quiesced by the route loss.
+            engines[0].pause(id,true).get(3,TimeUnit.SECONDS);engines[1].pauseOnDisconnect(id,false).get(3,TimeUnit.SECONDS);
             wifi.set(true);credits.clear();
             engines[0].resume(engines[0].taskIdentity(id,accept.sourceGeneration),new FileAttachmentSource(source,accept.sourceGeneration)).get(3,TimeUnit.SECONDS);
             TransferPacket resume=accepted.poll(3,TimeUnit.SECONDS);
