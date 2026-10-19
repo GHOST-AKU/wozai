@@ -835,7 +835,7 @@ public final class WifiDirectTransport {
     private void beginRetirement(WifiP2pManager.Channel old, WifiDirectPolicy.Release release, boolean closeClient, KnownGroupClaim claim) {
         if (old == null) return;
         if (cleanup.blocked()) {
-            if (cleanupWork != null && cleanupWork.channel == old) cleanupWork.closeChannel |= closeClient;
+            if (cleanupWork != null && cleanupWork.channel == old) cleanupWork.requestClose(closeClient, () -> closeChannel(old));
             return;
         }
         if (release == WifiDirectPolicy.Release.LOCAL_ONLY && claim == null) { if (closeClient) closeChannel(old); return; }
@@ -934,6 +934,12 @@ public final class WifiDirectTransport {
         CleanupWork(long token, WifiP2pManager.Channel channel, WifiDirectPolicy.NativeCommand command, boolean closeChannel) {
             this.token = token; this.channel = channel; this.command = command; this.closeChannel = closeChannel;
         }
+        void requestClose(boolean requested, Runnable close) {
+            closeChannel |= requested;
+            // The ACK watchdog may already have fired before stop/destroy asks
+            // to retire the client. No future watchdog would close it for us.
+            if (failed && closeChannel) close.run();
+        }
     }
     private static boolean groupHasPeer(WifiP2pGroup group, String address) {
         if (group == null || address == null) return false;
@@ -948,7 +954,13 @@ public final class WifiDirectTransport {
             requests.closed(client); requestsSettled();
         } catch (RuntimeException ignored) {} // Unsupported/failed close cannot settle an uncertain slot.
     }
-    public void destroy() { onMain(() -> { if (destroyed) return; stopInternal(); destroyed = true; sockets.close(); routes.shutdownNow(); }); }
+    public void destroy() { onMain(() -> {
+        if (destroyed) return;
+        stopInternal(); destroyed = true;
+        CleanupWork work = cleanupWork;
+        if (work != null && work.failed) work.requestClose(true, () -> closeChannel(work.channel));
+        sockets.close(); routes.shutdownNow();
+    }); }
     private interface Failure { void failed(int code); }
     private WifiP2pManager.ActionListener action(long started, Runnable success, Failure failure) {
         return new WifiP2pManager.ActionListener() {

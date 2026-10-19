@@ -111,6 +111,15 @@ public final class AndroidKnownGroupChecks {
                 WifiDirectPolicy.NativeCommand rejected=authority.issue(2,2);authority.release(true,true,0);set(direct,"retainedGroup",null);
                 invoke(direct,"coordinatedReply",new Class<?>[]{WifiDirectPolicy.NativeCommand.class,groupType,boolean.class,int.class},rejected,group,false,2);
                 check(field(direct,"retainedGroup")==null,"A rejected command grants no cleanup claim");checks[0]++;
+                Object lateClose=workConstructor.newInstance(0L,null,command,false);set(lateClose,"failed",true);
+                AtomicInteger closed=new AtomicInteger();Runnable close=closed::incrementAndGet;
+                invoke(lateClose,"requestClose",new Class<?>[]{boolean.class,Runnable.class},true,close);
+                check(closed.get()==1,"Stop after an expired ACK watchdog immediately closes its own client");checks[0]++;
+                Object pendingClose=workConstructor.newInstance(0L,null,command,false);
+                invoke(pendingClose,"requestClose",new Class<?>[]{boolean.class,Runnable.class},true,close);
+                check(closed.get()==1&&(boolean)field(pendingClose,"closeChannel"),"Stop before the ACK watchdog preserves the pending retirement fence");checks[0]++;
+                set(pendingClose,"failed",true);invoke(pendingClose,"requestClose",new Class<?>[]{boolean.class,Runnable.class},false,close);
+                check(closed.get()==2,"A later merge cannot abandon the already requested close after timeout");checks[0]++;
             }catch(Throwable error){failure.set(error);}
             finally{platform.close();}
         });

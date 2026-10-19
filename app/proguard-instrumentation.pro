@@ -118,6 +118,7 @@
 -keep class dev.ghost.nearbyim.transport.WifiDirectTransport {
     static android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceRequest discoveryRequest();
     static android.net.wifi.p2p.WifiP2pConfig groupConfig(dev.ghost.nearbyim.core.DirectGroupCredentials, boolean);
+    public void stop();
     dev.ghost.nearbyim.transport.TransportListener listener;
 }
 -keep class dev.ghost.nearbyim.core.DirectGroupCredentials { public *; }
