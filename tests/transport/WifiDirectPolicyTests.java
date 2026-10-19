@@ -217,29 +217,29 @@ public final class WifiDirectPolicyTests {
         check("actual group interface and owner address prove each role", () -> {
             var local = address("10.42.9.7"); var owner = address("10.42.9.1");
             var routes = List.of(new WifiDirectPolicy.InterfaceRoute("p2p-wlan0-0", local, 24));
-            var client = WifiDirectPolicy.prove("p2p-wlan0-0", owner, false, routes, false, false);
+            var client = WifiDirectPolicy.prove("p2p-wlan0-0", owner, false, routes, false, WifiDirectPolicy.VpnScope.ABSENT);
             truth(client != null && local.equals(client.local), "Client binds the actual interface source");
             truth(client.accepts(address("10.42.9.23")) && !client.accepts(address("10.42.8.23")), "TCP remote must use the group subnet");
-            truth(WifiDirectPolicy.prove("p2p-wlan0-0", local, true, routes, false, false) != null, "GO binds actual owner address");
-            equal(null, WifiDirectPolicy.prove("p2p-missing", owner, false, routes, false, false), "No interface means not ready");
-            equal(null, WifiDirectPolicy.prove("p2p-wlan0-0", owner, true, routes, false, false), "GO owner address must be assigned locally");
+            truth(WifiDirectPolicy.prove("p2p-wlan0-0", local, true, routes, false, WifiDirectPolicy.VpnScope.ABSENT) != null, "GO binds actual owner address");
+            equal(null, WifiDirectPolicy.prove("p2p-missing", owner, false, routes, false, WifiDirectPolicy.VpnScope.ABSENT), "No interface means not ready");
+            equal(null, WifiDirectPolicy.prove("p2p-wlan0-0", owner, true, routes, false, WifiDirectPolicy.VpnScope.ABSENT), "GO owner address must be assigned locally");
         });
         check("fallback rejects VPN, overlapping routes and unsupported IPv6", () -> {
             var routes = List.of(new WifiDirectPolicy.InterfaceRoute("p2p0", address("10.42.9.7"), 24), new WifiDirectPolicy.InterfaceRoute("wlan0", address("10.42.9.8"), 24));
-            equal(null, WifiDirectPolicy.prove("p2p0", address("10.42.9.1"), false, routes, false, false), "Overlapping LAN cannot be labelled Direct");
-            equal(null, WifiDirectPolicy.prove("p2p0", address("10.42.9.1"), false, routes.subList(0,1), false, true), "Unbound VPN path is ambiguous");
-            truth(WifiDirectPolicy.prove("p2p0", address("10.42.9.1"), false, routes, true, true) != null, "Exact bound P2P Network resolves competing routes");
-            equal(null, WifiDirectPolicy.prove("p2p0", address("fe80::1"), false, routes, false, false), "Scoped IPv6 needs visible unsupported failure");
+            equal(null, WifiDirectPolicy.prove("p2p0", address("10.42.9.1"), false, routes, false, WifiDirectPolicy.VpnScope.ABSENT), "Overlapping LAN cannot be labelled Direct");
+            equal(null, WifiDirectPolicy.prove("p2p0", address("10.42.9.1"), false, routes.subList(0,1), false, WifiDirectPolicy.VpnScope.APPLIES), "Unbound VPN path is ambiguous");
+            truth(WifiDirectPolicy.prove("p2p0", address("10.42.9.1"), false, routes, true, WifiDirectPolicy.VpnScope.APPLIES) != null, "Exact bound P2P Network resolves competing routes");
+            equal(null, WifiDirectPolicy.prove("p2p0", address("fe80::1"), false, routes, false, WifiDirectPolicy.VpnScope.ABSENT), "Scoped IPv6 needs visible unsupported failure");
         });
         check("GO listens on its own P2P address while a separate VPN is active", () -> {
             var owner = address("192.168.49.1");
             var routes = List.of(new WifiDirectPolicy.InterfaceRoute("p2p0", owner, 24),
                     new WifiDirectPolicy.InterfaceRoute("wlan0", address("192.168.31.5"), 24),
                     new WifiDirectPolicy.InterfaceRoute("tun0", address("10.8.0.2"), 32));
-            var listener = WifiDirectPolicy.prove("p2p0", owner, true, routes, false, true);
+            var listener = WifiDirectPolicy.prove("p2p0", owner, true, routes, false, WifiDirectPolicy.VpnScope.APPLIES);
             truth(listener != null && owner.equals(listener.local), "VPN presence alone must not reject the P2P-bound listener");
             truth(listener.accepts(address("192.168.49.2")) && !listener.accepts(address("192.168.31.6")), "Only connections from the observed group subnet are admitted");
-            equal(null, WifiDirectPolicy.prove("p2p0", address("192.168.49.2"), true, routes, false, true), "VPN exception cannot invent a local GO address");
+            equal(null, WifiDirectPolicy.prove("p2p0", address("192.168.49.2"), true, routes, false, WifiDirectPolicy.VpnScope.APPLIES), "VPN exception cannot invent a local GO address");
         });
         check("GO VPN coexistence still rejects competing interface addresses", () -> {
             var owner = address("192.168.49.1");
@@ -247,8 +247,8 @@ public final class WifiDirectPolicyTests {
             for (String other : List.of("192.168.49.1", "192.168.49.8")) {
                 var routes = List.of(group, new WifiDirectPolicy.InterfaceRoute("wlan0", address(other), 24));
                 truth(WifiDirectPolicy.localRoute("p2p0", owner, true, routes) != null, "An assigned but conflicting interface is not misreported as still waiting for an IP");
-                equal(null, WifiDirectPolicy.prove("p2p0", owner, true, routes, false, true), "GO does not use a client Network proof to bypass competing return paths");
-                equal(null, WifiDirectPolicy.prove("p2p0", owner, true, routes, true, true), "An available Network cannot bypass GO interface overlap checks");
+                equal(null, WifiDirectPolicy.prove("p2p0", owner, true, routes, false, WifiDirectPolicy.VpnScope.APPLIES), "GO does not use a client Network proof to bypass competing return paths");
+                equal(null, WifiDirectPolicy.prove("p2p0", owner, true, routes, true, WifiDirectPolicy.VpnScope.APPLIES), "An available Network cannot bypass GO interface overlap checks");
             }
         });
         if (failures != 0) throw new AssertionError(failures + " Wi-Fi Direct policy checks failed");

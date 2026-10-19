@@ -49,7 +49,19 @@ public final class WifiDirectTransport {
     private volatile int serviceResponses,txtResponses;
     private volatile String directMethod="dns_sd",coordinatedInterface;private volatile int groupFrequency;
     private volatile String bandPolicy="platform_default";
+    private volatile String appVpnState="unknown", cleanupState="idle";
     private CoordinatedGroup coordinated;
+    private KnownGroupClaim retainedGroup;
+    private static final class KnownGroupClaim {
+        final WifiDirectPolicy.NativeCommand command;
+        final DirectGroupCredentials parameters;
+        final boolean owner;
+        String iface;
+        KnownGroupClaim(WifiDirectPolicy.NativeCommand command, CoordinatedGroup group) { this.command = command; parameters = group.parameters; owner = group.owner; }
+        WifiDirectPolicy.GroupRetirement retirement(long deadline) {
+            return new WifiDirectPolicy.GroupRetirement(parameters.ssid, parameters.password, owner, iface, deadline);
+        }
+    }
     private static final class CoordinatedGroup {
         final boolean owner;final String peerId;final DirectGroupCredentials parameters;final WifiDirectPolicy.KnownGroup policy;
         final java.util.function.Consumer<DirectGroupCredentials> ready;
@@ -63,9 +75,9 @@ public final class WifiDirectTransport {
         }
     }
     final WifiDirectDiagnostics diagnostics=new WifiDirectDiagnostics(SystemClock::elapsedRealtime);
-    void beginFileAttemptDiagnostics(String nonce,boolean coordinator){diagnostics.begin(nonce,coordinator);serviceResponses=txtResponses=0;bandPolicy="platform_default";}
+    void beginFileAttemptDiagnostics(String nonce,boolean coordinator){diagnostics.begin(nonce,coordinator);serviceResponses=txtResponses=0;bandPolicy="platform_default";appVpnState="unknown";}
     void beginKnownGroupDiagnostics(String nonce,boolean owner){beginFileAttemptDiagnostics(nonce,owner);directMethod="known_group";groupFrequency=0;lastStage=owner?"preparing_group":"waiting_group_parameters";}
-    public String discoveryDiagnostics(){return "wifi_direct_phase="+lastStage+"\nwifi_direct_method="+directMethod+"\nwifi_direct_band_policy="+bandPolicy+"\nwifi_direct_group_frequency_mhz="+groupFrequency+"\nwifi_direct_service_responses="+serviceResponses+"\nwifi_direct_txt_responses="+txtResponses+"\n"+diagnostics.snapshot();}
+    public String discoveryDiagnostics(){return "wifi_direct_phase="+lastStage+"\nwifi_direct_method="+directMethod+"\nwifi_direct_band_policy="+bandPolicy+"\nwifi_direct_group_frequency_mhz="+groupFrequency+"\nwifi_direct_app_vpn_scope="+appVpnState+"\nwifi_direct_cleanup_state="+cleanupState+"\nwifi_direct_service_responses="+serviceResponses+"\nwifi_direct_txt_responses="+txtResponses+"\n"+diagnostics.snapshot();}
     private long run, operation, scan, inspection, groupGeneration, attempt;
     private Runnable afterCleanup, afterRequests, connectDeadline, startupWatchdog;
     private boolean queuedConnect;
@@ -201,7 +213,16 @@ public final class WifiDirectTransport {
         CoordinatedGroup group=coordinated;
         try{manager.requestGroupInfo(channel,current->onMain(()->{
             if(!lifecycle.valid(started)||coordinated!=group)return;
-            if(current!=null){stopInternal();error("directForeignGroup",true);return;}
+            if(current!=null){
+                KnownGroupClaim residue=retainedGroup;
+                WifiDirectPolicy.GroupRetirement.State state=residue==null?WifiDirectPolicy.GroupRetirement.State.FOREIGN:retirementState(residue.retirement(now()+4_000),current);
+                if(state==WifiDirectPolicy.GroupRetirement.State.REMOVE||state==WifiDirectPolicy.GroupRetirement.State.WAIT){
+                    afterCleanup=()->{if(lifecycle.valid(started)&&coordinated==group)beginCoordinated(started,startup);};
+                    beginRetirement(channel,WifiDirectPolicy.Release.LOCAL_ONLY,false,residue);
+                }else{stopInternal();error("directForeignGroup",true);}
+                return;
+            }
+            retainedGroup=null;
             initialized=true;fileAttempt.arm(group.peerId,false);authority.rearmFile();
             startup.acknowledge(started);clearStartupWatchdog();attempt=lifecycle.beginAttempt();long ticket=attempt;
             connectDeadline=()->{if(lifecycle.validAttempt(started,ticket)&&lifecycle.pending())failAttempt("directConnectTimeout");};
@@ -233,7 +254,10 @@ public final class WifiDirectTransport {
         }catch(RuntimeException failure){authority.reply(command,false);group.policy.ack(false);rejectAttempt(permissionReason(failure,"directConnectFailed"));}
     }
     private void coordinatedReply(WifiDirectPolicy.NativeCommand command,CoordinatedGroup group,boolean accepted,int code){
-        boolean live=authority.reply(command,accepted);completeRetirement(command);
+        boolean first=authority.awaiting(command);
+        boolean live=authority.reply(command,accepted);
+        if(first&&accepted&&authority.accepted(command))retainedGroup=new KnownGroupClaim(command,group);
+        completeRetirement(command);
         if(!live||coordinated!=group||!lifecycle.validAttempt(command.run,command.attempt)||!lifecycle.pending()||!group.policy.ack(accepted))return;
         diagnostics.record(group.owner?(accepted?WifiDirectDiagnostics.Event.CREATE_GROUP_ACK:WifiDirectDiagnostics.Event.CREATE_GROUP_FAILED):(accepted?WifiDirectDiagnostics.Event.JOIN_GROUP_ACK:WifiDirectDiagnostics.Event.JOIN_GROUP_FAILED),code);
         if(accepted){lastStage="awaiting_group";inspectGroup();return;}
@@ -583,6 +607,7 @@ public final class WifiDirectTransport {
             if(!current.parameters.ssid.equals(group.getNetworkName())||current.owner!=group.isGroupOwner())routeFailure("directForeignGroup");
             return;
         }
+        if(retainedGroup!=null&&retainedGroup.command==authority.currentCommand()&&group.getInterface()!=null&&!group.getInterface().isEmpty())retainedGroup.iface=group.getInterface();
         if(Build.VERSION.SDK_INT>=29){int frequency=group.getFrequency();groupFrequency=frequency>=2400&&frequency<=2500||frequency>=4900&&frequency<=7125?frequency:0;}
         boolean acceptedBand=current.policy.acceptsFrequency(groupFrequency);
         if(!acceptedBand&&groupFrequency!=0){lastStage="band_mismatch";diagnostics.record(WifiDirectDiagnostics.Event.GROUP_BAND_REJECTED);routeFailure("directConnectFailed");return;}
@@ -651,6 +676,7 @@ public final class WifiDirectTransport {
                 RouteSnapshot snapshot = inspectRoute(iface, owner, go);
                 onMain(() -> {
                     if (!groupCurrent(started, generation, ticket)) return;
+                    if (snapshot.scope != null) appVpnState = snapshot.scope.name().toLowerCase(Locale.ROOT);
                     if (snapshot.event != null) diagnostics.recordOnce(snapshot.event);
                     if (snapshot.route != null) openSockets(started, generation, ticket, snapshot, owner, go);
                     else if (snapshot.failure != null) routeFailure(snapshot.failure);
@@ -664,28 +690,39 @@ public final class WifiDirectTransport {
         if(coordinated!=null)return lifecycle.valid(started)&&generation==groupGeneration&&!cleanup.blocked()&&coordinated.observed&&coordinated.policy.matches(coordinated.parameters.ssid,coordinated.owner)&&(ticket==0||lifecycle.validAttempt(started,ticket));
         return lifecycle.valid(started) && generation == groupGeneration && !cleanup.blocked() && authority.mayOpen(lifecycle.pending()) && (ticket == 0 || lifecycle.validAttempt(started, ticket));
     }
-    private static final class RouteSnapshot { final WifiDirectPolicy.Route route; final Network network; final String failure; final WifiDirectDiagnostics.Event event;
+    private static final class RouteSnapshot { final WifiDirectPolicy.Route route; final Network network; final String failure; final WifiDirectDiagnostics.Event event; final WifiDirectPolicy.VpnScope scope;
         RouteSnapshot(WifiDirectPolicy.Route route, Network network, String failure) { this(route, network, failure, null); }
-        RouteSnapshot(WifiDirectPolicy.Route route, Network network, String failure, WifiDirectDiagnostics.Event event) { this.route = route; this.network = network; this.failure = failure; this.event = event; }
+        RouteSnapshot(WifiDirectPolicy.Route route, Network network, String failure, WifiDirectDiagnostics.Event event) { this(route, network, failure, event, null); }
+        RouteSnapshot(WifiDirectPolicy.Route route, Network network, String failure, WifiDirectDiagnostics.Event event, WifiDirectPolicy.VpnScope scope) { this.route = route; this.network = network; this.failure = failure; this.event = event; this.scope = scope; }
     }
     private RouteSnapshot inspectRoute(String iface, InetAddress owner, boolean go) {
         if (!(owner instanceof Inet4Address)) return new RouteSnapshot(null, null, "directIpv6Unsupported");
         try {
             List<WifiDirectPolicy.InterfaceRoute> interfaces = new ArrayList<>();
+            boolean tunnelObserved = false;
             for (NetworkInterface networkInterface : Collections.list(NetworkInterface.getNetworkInterfaces())) {
                 if (!networkInterface.isUp() || networkInterface.isLoopback()) continue;
+                // A point-to-point interface is only uncertainty evidence, not proof
+                // that a VPN covers this UID. The actual P2P interface is not a VPN.
+                if (!iface.equals(networkInterface.getName()) && networkInterface.isPointToPoint()) tunnelObserved = true;
                 for (InterfaceAddress address : networkInterface.getInterfaceAddresses()) interfaces.add(new WifiDirectPolicy.InterfaceRoute(networkInterface.getName(), address.getAddress(), address.getNetworkPrefixLength()));
             }
             WifiDirectPolicy.Route proof = WifiDirectPolicy.localRoute(iface, owner, go, interfaces);
             if (proof == null) return new RouteSnapshot(null, null, null, WifiDirectDiagnostics.Event.ROUTE_WAIT_INTERFACE); // The actual interface is not assigned yet.
-            Network matching = null; boolean vpn = false;
-            for (NetworkInterface networkInterface : Collections.list(NetworkInterface.getNetworkInterfaces())) {
-                if (networkInterface.isUp() && !networkInterface.isLoopback() && networkInterface.isPointToPoint()) vpn = true;
+            Network matching = null;
+            WifiDirectPolicy.VpnScope scope = WifiDirectPolicy.VpnScope.UNKNOWN;
+            boolean networksKnown = connectivity != null;
+            if (connectivity != null) {
+                // getActiveNetwork is scoped to the calling UID, including per-app
+                // VPN exclusions. Enumerating all Networks is not an equivalent query.
+                Network active = connectivity.getActiveNetwork();
+                scope = appVpnScope(active == null ? null : connectivity.getNetworkCapabilities(active));
             }
             if (connectivity != null) for (Network network : connectivity.getAllNetworks()) {
                 NetworkCapabilities capabilities = connectivity.getNetworkCapabilities(network); LinkProperties properties = connectivity.getLinkProperties(network);
-                if (capabilities == null) continue;
-                vpn |= capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN);
+                if (capabilities == null) { networksKnown = false; continue; }
+                tunnelObserved |= capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN);
+                if (!capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN) && !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)) networksKnown = false;
                 // The GO is a passive, address-bound listener. It needs no Network
                 // object and must not depend on how ConnectivityService exposes P2P.
                 if (go) continue;
@@ -695,17 +732,26 @@ public final class WifiDirectTransport {
                 for (RouteInfo candidate : properties.getRoutes()) if (candidate.getDestination().getPrefixLength() > 0 && candidate.getDestination().contains(owner)) route = true;
                 if (local && route) { if (matching != null) return new RouteSnapshot(null, null, "directRouteAmbiguous", WifiDirectDiagnostics.Event.ROUTE_NETWORK_AMBIGUOUS); matching = network; }
             }
-            // The GC's outgoing socket needs an exact Network when a VPN is present.
+            // Offline P2P need not have a default Network. Preserve that case only
+            // after a complete network/interface enumeration with no tunnel evidence;
+            // a null active Network on its own never means "VPN off".
+            scope = scope.complete(networksKnown, tunnelObserved);
+            // The GC needs an exact Network when a VPN applies or remains uncertain.
             // GO accepted sockets keep Android's ingress-network mark; still reject
             // competing interface subnets before listening on the actual owner IP.
-            WifiDirectPolicy.Route accepted = WifiDirectPolicy.prove(iface, owner, go, interfaces, !go && matching != null, vpn);
+            WifiDirectPolicy.Route accepted = WifiDirectPolicy.prove(iface, owner, go, interfaces, !go && matching != null, scope);
             WifiDirectDiagnostics.Event event;
-            if (accepted == null) event = !go && vpn && matching == null ? WifiDirectDiagnostics.Event.ROUTE_VPN_UNBOUND : WifiDirectDiagnostics.Event.ROUTE_SUBNET_OVERLAP;
-            else if (go) event = vpn ? WifiDirectDiagnostics.Event.ROUTE_OWNER_VPN_LISTENER : WifiDirectDiagnostics.Event.ROUTE_OWNER_LISTENER;
+            boolean needsBinding = scope == WifiDirectPolicy.VpnScope.APPLIES || scope == WifiDirectPolicy.VpnScope.UNKNOWN;
+            if (accepted == null) event = !go && needsBinding && matching == null ? WifiDirectDiagnostics.Event.ROUTE_VPN_UNBOUND : WifiDirectDiagnostics.Event.ROUTE_SUBNET_OVERLAP;
+            else if (go) event = tunnelObserved ? WifiDirectDiagnostics.Event.ROUTE_OWNER_VPN_LISTENER : WifiDirectDiagnostics.Event.ROUTE_OWNER_LISTENER;
             else event = matching != null ? WifiDirectDiagnostics.Event.ROUTE_NETWORK_BOUND : WifiDirectDiagnostics.Event.ROUTE_SOURCE_BOUND;
-            return new RouteSnapshot(accepted, matching, accepted == null ? "directRouteAmbiguous" : null, event);
+            return new RouteSnapshot(accepted, matching, accepted == null ? "directRouteAmbiguous" : null, event, scope);
         } catch (SecurityException denied) { return new RouteSnapshot(null, null, "directPermissionRequired"); }
         catch (SocketException | RuntimeException unavailable) { return new RouteSnapshot(null, null, null); }
+    }
+    static WifiDirectPolicy.VpnScope appVpnScope(NetworkCapabilities active) {
+        return WifiDirectPolicy.VpnScope.observe(active != null, active != null && active.hasTransport(NetworkCapabilities.TRANSPORT_VPN),
+                active != null && active.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN));
     }
     private void openSockets(long started, long generation, long ticket, RouteSnapshot route, InetAddress owner, boolean go) {
         if (!groupCurrent(started, generation, ticket)) return;
@@ -766,6 +812,7 @@ public final class WifiDirectTransport {
 
     public void stop() { onMain(this::stopInternal); }
     private void stopInternal() {
+        KnownGroupClaim retiring = retainedGroup;
         stopCoordinated();coordinated=null;coordinatedInterface=null;
         fileAttempt.stop();
         operation++; afterCleanup = afterRequests = null; queuedConnect = false; automaticDiscovery = false; unprovenGroup = null; unprovenRetry = false; foreignReported = false;
@@ -777,39 +824,113 @@ public final class WifiDirectTransport {
         if (requests.occupied()) clearRequests();
         if (previous != null) {
             if (service != null) try { manager.removeLocalService(previous, service, null); } catch (RuntimeException ignored) {}
-            beginRetirement(previous, release, true);
+            beginRetirement(previous, release, true, retiring);
         }
         listener.onSearching(Peer.WIFI_DIRECT, false);
     }
-    /** Retire our command/client, never globally cancel negotiation or remove an observed group. */
+    /** Passive observations grant no cleanup authority; explicit known-group claims require a fresh proof. */
     private void beginRetirement(WifiP2pManager.Channel old, WifiDirectPolicy.Release release, boolean closeClient) {
+        beginRetirement(old, release, closeClient, coordinated == null ? null : retainedGroup);
+    }
+    private void beginRetirement(WifiP2pManager.Channel old, WifiDirectPolicy.Release release, boolean closeClient, KnownGroupClaim claim) {
         if (old == null) return;
         if (cleanup.blocked()) {
             if (cleanupWork != null && cleanupWork.channel == old) cleanupWork.closeChannel |= closeClient;
             return;
         }
-        if (release == WifiDirectPolicy.Release.LOCAL_ONLY) { if (closeClient) closeChannel(old); return; }
+        if (release == WifiDirectPolicy.Release.LOCAL_ONLY && claim == null) { if (closeClient) closeChannel(old); return; }
         long token = cleanup.begin();
         CleanupWork work = cleanupWork = new CleanupWork(token, old, authority.currentCommand(), closeClient);
-        main.postDelayed(() -> {
+        work.claim = claim;
+        if (release == WifiDirectPolicy.Release.LOCAL_ONLY) { continueRetirement(work); return; }
+        cleanupState = "waiting_command_ack";
+        work.watchdog = () -> {
             if (!cleanup.current(token) || cleanupWork != work || !authority.timeout(work.command, now())) return;
             work.failed = true; afterCleanup = null; queuedConnect = false;
+            cleanupState = "command_ack_unknown";
             if (work.closeChannel) closeChannel(old);
             error("directCleanupFailed", false);
-        }, 4_000);
+        };
+        main.postDelayed(work.watchdog, 4_000);
     }
     private void completeRetirement(WifiDirectPolicy.NativeCommand command) {
         CleanupWork work = cleanupWork;
-        if (work == null || work.command != command || authority.blocked() || !cleanup.current(work.token)) return;
+        if (work == null || work.command != command || authority.blocked() || !cleanup.current(work.token) || work.retirement != null) return;
+        if (retainedGroup != null && retainedGroup.command == command) work.claim = retainedGroup;
+        if (work.watchdog != null) main.removeCallbacks(work.watchdog);
+        // A channel already closed after an unknown-ACK timeout cannot be queried.
+        // Retain the late accepted claim for the next start's exact-group preflight.
+        if (work.failed) { finishRetirement(work, false); return; }
+        continueRetirement(work);
+    }
+    private void continueRetirement(CleanupWork work) {
+        if (work.claim == null) { finishRetirement(work, false); return; }
+        if (work.retirement != null) return;
+        work.retirement = work.claim.retirement(now() + 4_000);
+        work.watchdog = () -> { if (cleanupCurrent(work)) finishRetirement(work, true); };
+        main.postDelayed(work.watchdog, 4_000);
+        inspectRetirement(work);
+    }
+    private boolean cleanupCurrent(CleanupWork work) { return cleanupWork == work && cleanup.current(work.token); }
+    private WifiDirectPolicy.GroupRetirement.State retirementState(WifiDirectPolicy.GroupRetirement retirement, WifiP2pGroup group) {
+        return group == null ? retirement.observe(null, null, false, null, now())
+                : retirement.observe(Objects.toString(group.getNetworkName(), ""), group.getPassphrase(), group.isGroupOwner(), group.getInterface(), now());
+    }
+    private void inspectRetirement(CleanupWork work) {
+        if (!cleanupCurrent(work)) return;
+        if (!permitted()) { finishRetirement(work, true); return; }
+        cleanupState = work.removing ? "waiting_group_absent" : "checking_known_group";
+        final long query = ++work.query;
+        try { manager.requestGroupInfo(work.channel, group -> onMain(() -> {
+            if (!cleanupCurrent(work) || work.query != query) return;
+            if (!permitted()) { finishRetirement(work, true); return; }
+            WifiDirectPolicy.GroupRetirement.State state = retirementState(work.retirement, group);
+            switch (state) {
+                case ABSENT:
+                    if (retainedGroup == work.claim) retainedGroup = null;
+                    cleanupState = "group_absent"; finishRetirement(work, false); break;
+                case FOREIGN:
+                    cleanupState = "foreign_group_preserved"; finishRetirement(work, false); break;
+                case EXPIRED: finishRetirement(work, true); break;
+                case WAIT: main.postDelayed(() -> inspectRetirement(work), 250); break;
+                case REMOVE:
+                    // Public removeGroup is not client-scoped. Only an accepted
+                    // explicit command plus this fresh exact-group proof permits it.
+                    work.retirement.removing(); work.removing = true; cleanupState = "removing_known_group";
+                    diagnostics.record(WifiDirectDiagnostics.Event.GROUP_REMOVE_SUBMIT);
+                    manager.removeGroup(work.channel, new WifiP2pManager.ActionListener() {
+                        public void onSuccess() { onMain(() -> {
+                            if (!cleanupCurrent(work)) return;
+                            diagnostics.record(WifiDirectDiagnostics.Event.GROUP_REMOVE_ACK);
+                            inspectRetirement(work); // ACK is not proof that the group disappeared.
+                        }); }
+                        public void onFailure(int code) { onMain(() -> {
+                            if (!cleanupCurrent(work)) return;
+                            diagnostics.record(WifiDirectDiagnostics.Event.GROUP_REMOVE_FAILED, code);
+                            finishRetirement(work, true);
+                        }); }
+                    }); break;
+            }
+        })); } catch (RuntimeException failure) { if (cleanupCurrent(work)) finishRetirement(work, true); }
+    }
+    private void finishRetirement(CleanupWork work, boolean failed) {
+        if (!cleanupCurrent(work)) return;
+        if (work.watchdog != null) main.removeCallbacks(work.watchdog);
+        if (failed) { cleanupState = "group_retirement_failed"; afterCleanup = null; queuedConnect = false; }
         if (work.closeChannel) closeChannel(work.channel);
         if (!cleanup.complete(work.token)) return;
         cleanupWork = null;
+        if (failed) { error("directCleanupFailed", false); return; }
         if(fileAttempt.armed())authority.rearmFile();
         if (!finishDeferredAction() && afterCleanup == null && lifecycle.valid(run)) { listener.onListening(Peer.WIFI_DIRECT, UiText.of("directAdvertising")); scheduleIdleDiscovery(run, scan); }
     }
     private static final class CleanupWork {
         final long token; final WifiP2pManager.Channel channel; final WifiDirectPolicy.NativeCommand command;
-        boolean closeChannel, failed;
+        boolean closeChannel, failed, removing;
+        long query;
+        KnownGroupClaim claim;
+        WifiDirectPolicy.GroupRetirement retirement;
+        Runnable watchdog;
         CleanupWork(long token, WifiP2pManager.Channel channel, WifiDirectPolicy.NativeCommand command, boolean closeChannel) {
             this.token = token; this.channel = channel; this.command = command; this.closeChannel = closeChannel;
         }
@@ -827,7 +948,7 @@ public final class WifiDirectTransport {
             requests.closed(client); requestsSettled();
         } catch (RuntimeException ignored) {} // Unsupported/failed close cannot settle an uncertain slot.
     }
-    public void destroy() { onMain(() -> { if (destroyed) return; stopInternal(); destroyed = true; if (cleanupWork != null) closeChannel(cleanupWork.channel); sockets.close(); routes.shutdownNow(); }); }
+    public void destroy() { onMain(() -> { if (destroyed) return; stopInternal(); destroyed = true; sockets.close(); routes.shutdownNow(); }); }
     private interface Failure { void failed(int code); }
     private WifiP2pManager.ActionListener action(long started, Runnable success, Failure failure) {
         return new WifiP2pManager.ActionListener() {

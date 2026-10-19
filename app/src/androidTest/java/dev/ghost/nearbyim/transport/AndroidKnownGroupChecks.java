@@ -1,11 +1,13 @@
 package dev.ghost.nearbyim.transport;
 
 import android.app.Instrumentation;
+import android.net.NetworkCapabilities;
 import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pGroup;
 import android.net.wifi.p2p.WifiP2pInfo;
 import android.os.Parcel;
+import android.os.Handler;
 import android.os.SystemClock;
 import dev.ghost.nearbyim.core.DirectGroupCredentials;
 import dev.ghost.nearbyim.core.AutomaticFileRoutes;
@@ -37,7 +39,82 @@ public final class AndroidKnownGroupChecks {
             instrumentation.runOnMainSync(()->platform.get().stopDirect());
             check(platform.get().diagnostics().contains(":stop"),"Canceled parameter wait freezes its timeline");checks++;
         }finally{instrumentation.runOnMainSync(()->platform.get().close());}
-        return checks+groupSnapshots(instrumentation);
+        return checks+groupSnapshots(instrumentation)+routeScopes()+retirementLifecycle(instrumentation);
+    }
+    private static int routeScopes() throws Exception {
+        int checks=0;
+        NetworkCapabilities physical=capabilities(NetworkCapabilities.TRANSPORT_WIFI,true);
+        NetworkCapabilities vpn=capabilities(NetworkCapabilities.TRANSPORT_VPN,false);
+        NetworkCapabilities unknown=capabilities(NetworkCapabilities.TRANSPORT_WIFI,false);
+        check(WifiDirectTransport.appVpnScope(physical)==WifiDirectPolicy.VpnScope.EXCLUDED,"Framework NOT_VPN capabilities describe the caller's physical default network");checks++;
+        check(WifiDirectTransport.appVpnScope(vpn)==WifiDirectPolicy.VpnScope.APPLIES,"Framework VPN transport covers the app");checks++;
+        check(WifiDirectTransport.appVpnScope(unknown)==WifiDirectPolicy.VpnScope.UNKNOWN&&WifiDirectTransport.appVpnScope(null)==WifiDirectPolicy.VpnScope.UNKNOWN,"Missing capabilities cannot invent a VPN exclusion");checks++;
+        var owner=InetAddress.getByName("192.168.49.1");
+        var routes=java.util.List.of(new WifiDirectPolicy.InterfaceRoute("p2p0",InetAddress.getByName("192.168.49.2"),24),new WifiDirectPolicy.InterfaceRoute("tun0",InetAddress.getByName("198.18.0.1"),30));
+        check(WifiDirectPolicy.prove("p2p0",owner,false,routes,false,WifiDirectTransport.appVpnScope(physical))!=null,"Actual framework VPN-exclusion observation admits a GC despite another tunnel interface");checks++;
+        check(WifiDirectPolicy.prove("p2p0",owner,false,routes,false,WifiDirectTransport.appVpnScope(vpn))==null,"Actual framework VPN-covered observation still rejects an unbound GC");checks++;
+        return checks;
+    }
+    private static NetworkCapabilities capabilities(int transport,boolean notVpn) {
+        // API34's public Parcelable format starts with capabilities, forbidden
+        // capabilities, transports. Keep the default framework-written tail intact.
+        Parcel parcel=Parcel.obtain();try {
+            new NetworkCapabilities().writeToParcel(parcel,0);parcel.setDataPosition(0);
+            long bits=parcel.readLong(),flag=1L<<NetworkCapabilities.NET_CAPABILITY_NOT_VPN;
+            parcel.setDataPosition(0);parcel.writeLong(notVpn?bits|flag:bits&~flag);
+            parcel.readLong();parcel.writeLong(1L<<transport);parcel.setDataPosition(0);
+            return NetworkCapabilities.CREATOR.createFromParcel(parcel);
+        }finally{parcel.recycle();}
+    }
+    /** Executes the adapter's ACK/generation/Handler retirement guards without invoking a radio command. */
+    private static int retirementLifecycle(Instrumentation test) throws Exception {
+        AtomicReference<Throwable> failure=new AtomicReference<>();int[] checks={0};
+        test.runOnMainSync(()->{
+            AndroidFilePlatform platform=new AndroidFilePlatform(test.getTargetContext(),UUID.randomUUID().toString(),"retirement-check",UUID.randomUUID().toString());
+            try {
+                WifiDirectTransport direct=(WifiDirectTransport)field(platform,"direct");
+                WifiDirectPolicy.SessionAuthority authority=(WifiDirectPolicy.SessionAuthority)field(direct,"authority");
+                WifiDirectPolicy.CleanupGate gate=(WifiDirectPolicy.CleanupGate)field(direct,"cleanup");
+                Class<?> groupType=Class.forName("dev.ghost.nearbyim.transport.WifiDirectTransport$CoordinatedGroup");
+                Constructor<?> groupConstructor=groupType.getDeclaredConstructor(String.class,boolean.class,boolean.class,boolean.class,DirectGroupCredentials.class,java.util.function.Consumer.class);groupConstructor.setAccessible(true);
+                DirectGroupCredentials credentials=DirectGroupCredentials.random();
+                Object group=groupConstructor.newInstance(UUID.randomUUID().toString(),true,true,false,credentials,(java.util.function.Consumer<DirectGroupCredentials>)unused->{});
+                WifiDirectPolicy.NativeCommand command=authority.issue(1,1);authority.release(true,true,0);
+                check(field(direct,"retainedGroup")==null,"An unacknowledged create grants no cleanup claim");checks[0]++;
+                invoke(direct,"coordinatedReply",new Class<?>[]{WifiDirectPolicy.NativeCommand.class,groupType,boolean.class,int.class},command,group,true,0);
+                Object claim=field(direct,"retainedGroup");
+                check(claim!=null&&!authority.blocked(),"A late accepted explicit command is retained for cleanup without reopening a canceled run");checks[0]++;
+                invoke(direct,"coordinatedReply",new Class<?>[]{WifiDirectPolicy.NativeCommand.class,groupType,boolean.class,int.class},command,group,true,0);
+                check(field(direct,"retainedGroup")==claim,"Duplicate ACK cannot replace a retained claim");checks[0]++;
+                var retirement=new WifiDirectPolicy.GroupRetirement(credentials.ssid,credentials.password,true,"p2p0",SystemClock.elapsedRealtime()+4000);
+                Class<?> workType=Class.forName("dev.ghost.nearbyim.transport.WifiDirectTransport$CleanupWork");
+                Constructor<?> workConstructor=workType.getDeclaredConstructor(long.class,android.net.wifi.p2p.WifiP2pManager.Channel.class,WifiDirectPolicy.NativeCommand.class,boolean.class);workConstructor.setAccessible(true);
+                long token=gate.begin();Object work=workConstructor.newInstance(token,null,command,false);set(work,"retirement",retirement);set(direct,"cleanupWork",work);
+                Handler handler=(Handler)field(direct,"main");Runnable watchdog=()->{};set(work,"watchdog",watchdog);handler.postDelayed(watchdog,60_000);
+                AtomicInteger resumed=new AtomicInteger();set(direct,"afterCleanup",(Runnable)resumed::incrementAndGet);
+                invoke(direct,"completeRetirement",new Class<?>[]{WifiDirectPolicy.NativeCommand.class},command);
+                check(handler.hasCallbacks(watchdog)&&gate.blocked()&&resumed.get()==0,"Duplicate command ACK during group retirement preserves the deadline and retry fence");checks[0]++;
+                invoke(direct,"finishRetirement",new Class<?>[]{workType,boolean.class},work,false);
+                check(!handler.hasCallbacks(watchdog)&&!gate.blocked()&&resumed.get()==1,"Confirmed retirement releases one waiting start and removes its watchdog");checks[0]++;
+                Object next=workConstructor.newInstance(gate.begin(),null,command,false);set(next,"retirement",retirement);set(direct,"cleanupWork",next);
+                invoke(direct,"finishRetirement",new Class<?>[]{workType,boolean.class},work,false);
+                check(gate.blocked()&&field(direct,"cleanupWork")==next,"A late old cleanup cannot release a newer retirement");checks[0]++;
+                set(direct,"afterCleanup",(Runnable)resumed::incrementAndGet);direct.stop();
+                invoke(direct,"finishRetirement",new Class<?>[]{workType,boolean.class},next,false);
+                check(!gate.blocked()&&resumed.get()==1,"Canceling the queued start cannot be undone by a late cleanup completion");checks[0]++;
+                Method snapshot=WifiDirectTransport.class.getDeclaredMethod("retirementState",WifiDirectPolicy.GroupRetirement.class,WifiP2pGroup.class);snapshot.setAccessible(true);
+                Object own=snapshot.invoke(direct,retirement,group(credentials.ssid,"p2p0",5180,true,credentials.password));
+                check(own==WifiDirectPolicy.GroupRetirement.State.REMOVE,"Public Parcelable group credentials and role identify only the owned residue");checks[0]++;
+                Object foreign=snapshot.invoke(direct,retirement,group(credentials.ssid,"p2p0",5180,true,"another-secret"));
+                check(foreign==WifiDirectPolicy.GroupRetirement.State.FOREIGN,"Same SSID with a different secret cannot authorize removal");checks[0]++;
+                check(snapshot.invoke(direct,retirement,group(null,"p2p0",5180,true,credentials.password))==WifiDirectPolicy.GroupRetirement.State.FOREIGN,"A non-null incomplete native group is never mistaken for group absence");checks[0]++;
+                WifiDirectPolicy.NativeCommand rejected=authority.issue(2,2);authority.release(true,true,0);set(direct,"retainedGroup",null);
+                invoke(direct,"coordinatedReply",new Class<?>[]{WifiDirectPolicy.NativeCommand.class,groupType,boolean.class,int.class},rejected,group,false,2);
+                check(field(direct,"retainedGroup")==null,"A rejected command grants no cleanup claim");checks[0]++;
+            }catch(Throwable error){failure.set(error);}
+            finally{platform.close();}
+        });
+        if(failure.get()!=null)throw new Exception("Native retirement regression",failure.get());return checks[0];
     }
     /** Public API34 Parcelables enter the actual adapter handler; no RF or fake transport is used. */
     private static int groupSnapshots(Instrumentation test)throws Exception {
@@ -90,10 +167,13 @@ public final class AndroidKnownGroupChecks {
         return group(name,iface,5180);
     }
     private static WifiP2pGroup group(String name,String iface,int frequency){
+        return group(name,iface,frequency,true,null);
+    }
+    private static WifiP2pGroup group(String name,String iface,int frequency,boolean owner,String password){
         // API34's public Parcelable layout, from Android14 WifiP2pGroup.CREATOR.
         Parcel parcel=Parcel.obtain();try{
-            parcel.writeString(name);parcel.writeParcelable(new WifiP2pDevice(),0);parcel.writeByte((byte)1);parcel.writeInt(0);
-            parcel.writeString(null);parcel.writeString(iface);parcel.writeInt(WifiP2pGroup.NETWORK_ID_TEMPORARY);parcel.writeInt(frequency);parcel.setDataPosition(0);
+            parcel.writeString(name);parcel.writeParcelable(new WifiP2pDevice(),0);parcel.writeByte((byte)(owner?1:0));parcel.writeInt(0);
+            parcel.writeString(password);parcel.writeString(iface);parcel.writeInt(WifiP2pGroup.NETWORK_ID_TEMPORARY);parcel.writeInt(frequency);parcel.setDataPosition(0);
             return WifiP2pGroup.CREATOR.createFromParcel(parcel);
         }finally{parcel.recycle();}
     }

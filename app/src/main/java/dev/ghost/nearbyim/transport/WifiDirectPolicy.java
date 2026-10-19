@@ -63,6 +63,27 @@ final class WifiDirectPolicy {
         long remaining(long now){return Math.max(0,expires-now);}
         void stop(){stopped=true;}
     }
+    /** Only an accepted explicit known-group command may create this retirement target. */
+    static final class GroupRetirement {
+        enum State { ABSENT, FOREIGN, REMOVE, WAIT, EXPIRED }
+        private final String ssid, password, iface;
+        private final boolean owner;
+        private final long deadline;
+        private boolean removing;
+        GroupRetirement(String ssid, String password, boolean owner, String iface, long deadline) {
+            this.ssid = Objects.requireNonNull(ssid); this.password = Objects.requireNonNull(password);
+            this.owner = owner; this.iface = iface; this.deadline = deadline;
+        }
+        State observe(String network, String secret, boolean groupOwner, String currentInterface, long now) {
+            if (network == null) return State.ABSENT;
+            if (!ssid.equals(network) || owner != groupOwner || owner && !password.equals(secret)
+                    || iface != null && currentInterface != null && !iface.equals(currentInterface)) return State.FOREIGN;
+            if (now >= deadline) return State.EXPIRED;
+            if (removing || currentInterface == null || currentInterface.isEmpty()) return State.WAIT;
+            return State.REMOVE;
+        }
+        void removing() { removing = true; }
+    }
     static final class Request<T> {
         final Object client; final long run, scan; final T value;
         private final long deadline;
@@ -131,6 +152,8 @@ final class WifiDirectPolicy {
         void loseGroup() { peer = null; }
         Peer currentPeer(String id) { Peer current = peer; return current != null && current.peerId.equals(uuid(id)) ? current : null; }
         NativeCommand currentCommand() { return command; }
+        boolean awaiting(NativeCommand candidate) { return candidate != null && candidate == command && candidate.reply == 0; }
+        boolean accepted(NativeCommand candidate) { return candidate != null && candidate == command && candidate.reply == 1; }
         NativeCommand issue(long run, long attempt) {
             if (command != null && command.reply == 0) throw new IllegalStateException("Native connect acknowledgement unresolved");
             return command = new NativeCommand(run, attempt);
@@ -331,13 +354,24 @@ final class WifiDirectPolicy {
         Route(InterfaceRoute route) { name = route.name; local = route.local; prefix = route.prefix; }
         boolean accepts(InetAddress remote) { return ipv4(remote) && !local.equals(remote) && subnet(local, remote, prefix) && hostAddress(remote, prefix); }
     }
-    static Route prove(String name, InetAddress owner, boolean go, List<InterfaceRoute> routes, boolean exactNetwork, boolean vpn) {
+    enum VpnScope {
+        EXCLUDED, ABSENT, APPLIES, UNKNOWN;
+        static VpnScope observe(boolean capabilitiesKnown, boolean vpnTransport, boolean notVpn) {
+            if (!capabilitiesKnown) return UNKNOWN;
+            if (vpnTransport) return APPLIES;
+            return notVpn ? EXCLUDED : UNKNOWN;
+        }
+        VpnScope complete(boolean networksKnown, boolean tunnelObserved) {
+            return this == UNKNOWN && networksKnown && !tunnelObserved ? ABSENT : this;
+        }
+    }
+    static Route prove(String name, InetAddress owner, boolean go, List<InterfaceRoute> routes, boolean exactNetwork, VpnScope scope) {
         // Only the dialer uses Network.bindSocket. The GO binds a listening socket to
         // its own P2P address; Android marks accepted connections for the ingress
         // network, including VPN protection (netd RouteController). VPN presence
         // alone must not prevent that listener from accepting a P2P connection.
         boolean boundNetwork = !go && exactNetwork;
-        if (!go && !boundNetwork && vpn) return null;
+        if (!go && !boundNetwork && scope != VpnScope.EXCLUDED && scope != VpnScope.ABSENT) return null;
         Route selected = localRoute(name, owner, go, routes);
         if (selected == null) return null;
         if (!boundNetwork) for (InterfaceRoute other : routes) {

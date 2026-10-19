@@ -134,6 +134,33 @@
 -keep class dev.ghost.nearbyim.transport.WifiDirectPolicy$GroupReadiness { *; }
 -keep enum dev.ghost.nearbyim.transport.WifiDirectPolicy$GroupReadiness$State { *; }
 -keep class dev.ghost.nearbyim.transport.WifiDirectPolicy$Lifecycle { *; }
+# Preview-only native UID scope and retirement callback fixtures.
+-keepclassmembers class dev.ghost.nearbyim.transport.WifiDirectTransport {
+    static dev.ghost.nearbyim.transport.WifiDirectPolicy$VpnScope appVpnScope(android.net.NetworkCapabilities);
+    dev.ghost.nearbyim.transport.WifiDirectPolicy$SessionAuthority authority;
+    dev.ghost.nearbyim.transport.WifiDirectPolicy$CleanupGate cleanup;
+    dev.ghost.nearbyim.transport.WifiDirectTransport$KnownGroupClaim retainedGroup;
+    dev.ghost.nearbyim.transport.WifiDirectTransport$CleanupWork cleanupWork;
+    android.os.Handler main;
+    java.lang.Runnable afterCleanup;
+    void coordinatedReply(dev.ghost.nearbyim.transport.WifiDirectPolicy$NativeCommand,dev.ghost.nearbyim.transport.WifiDirectTransport$CoordinatedGroup,boolean,int);
+    void completeRetirement(dev.ghost.nearbyim.transport.WifiDirectPolicy$NativeCommand);
+    void finishRetirement(dev.ghost.nearbyim.transport.WifiDirectTransport$CleanupWork,boolean);
+    dev.ghost.nearbyim.transport.WifiDirectPolicy$GroupRetirement$State retirementState(dev.ghost.nearbyim.transport.WifiDirectPolicy$GroupRetirement,android.net.wifi.p2p.WifiP2pGroup);
+}
+-keep class dev.ghost.nearbyim.transport.WifiDirectTransport$KnownGroupClaim { *; }
+-keep class dev.ghost.nearbyim.transport.WifiDirectTransport$CleanupWork { *; }
+-keep class dev.ghost.nearbyim.transport.WifiDirectPolicy$SessionAuthority { *; }
+-keep class dev.ghost.nearbyim.transport.WifiDirectPolicy$NativeCommand { *; }
+-keep class dev.ghost.nearbyim.transport.WifiDirectPolicy$CleanupGate { *; }
+-keep class dev.ghost.nearbyim.transport.WifiDirectPolicy$GroupRetirement { *; }
+-keep enum dev.ghost.nearbyim.transport.WifiDirectPolicy$GroupRetirement$State { *; }
+-keep enum dev.ghost.nearbyim.transport.WifiDirectPolicy$VpnScope { *; }
+-keep class dev.ghost.nearbyim.transport.WifiDirectPolicy$InterfaceRoute { *; }
+-keep class dev.ghost.nearbyim.transport.WifiDirectPolicy$Route { *; }
+-keepclassmembers class dev.ghost.nearbyim.transport.WifiDirectPolicy {
+    static dev.ghost.nearbyim.transport.WifiDirectPolicy$Route prove(java.lang.String,java.net.InetAddress,boolean,java.util.List,boolean,dev.ghost.nearbyim.transport.WifiDirectPolicy$VpnScope);
+}
 
 # Targeted adaptive-window suite measures existing Views and preserves its synthetic hinge API.
 -keep class dev.ghost.nearbyim.AdaptiveScaffold { *; }
