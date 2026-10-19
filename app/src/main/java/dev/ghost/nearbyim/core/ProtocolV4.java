@@ -10,10 +10,12 @@ public final class ProtocolV4 {
     private static final int MAGIC=0x4e494d34;
     private ProtocolV4(){}
     public static final class Record {
-        public final Frame frame;public final TransferPacket transfer;public final AvatarPacket avatar;public final FileRoutePacket fileRoute;
-        private Record(Frame frame,TransferPacket transfer,AvatarPacket avatar){this.frame=frame;this.transfer=transfer;this.avatar=avatar;this.fileRoute=null;}
-        private Record(FileRoutePacket packet){frame=null;transfer=null;avatar=null;fileRoute=packet;}
+        public final Frame frame;public final TransferPacket transfer;public final AvatarPacket avatar;public final FileRoutePacket fileRoute;public final FileLinkPacket fileLink;
+        private Record(Frame frame,TransferPacket transfer,AvatarPacket avatar){this.frame=frame;this.transfer=transfer;this.avatar=avatar;this.fileRoute=null;fileLink=null;}
+        private Record(FileRoutePacket packet){frame=null;transfer=null;avatar=null;fileRoute=packet;fileLink=null;}
+        private Record(FileLinkPacket packet){frame=null;transfer=null;avatar=null;fileRoute=null;fileLink=packet;}
     }
+    public static byte[] encodeFileLink(FileLinkPacket packet)throws IOException{return encode(new Frame(Frame.FILE_LINK,"","",0,0,FileLinkCodec.encode(packet)));}
     public static byte[] encodeFileRoute(FileRoutePacket packet)throws IOException {return encode(new Frame(Frame.FILE_ROUTE,"","",0,0,FileRouteCodec.encode(packet)));}
     public static byte[] encodeAvatar(AvatarPacket packet)throws IOException {
         return encode(new Frame(Frame.AVATAR,"","",0,0,AvatarCodec.encode(packet)));
@@ -29,6 +31,7 @@ public final class ProtocolV4 {
     public static Record decodeRecord(byte[] bytes)throws IOException {
         if(bytes==null||bytes.length<22||bytes.length>MAX_PLAINTEXT_BYTES)throw new IOException("Invalid NIM4 plaintext size");
         int type=bytes[5]&255;
+        if(type==Frame.FILE_LINK){Frame frame=decode(bytes);return new Record(FileLinkCodec.decode(frame.data));}
         if(type==Frame.FILE_ROUTE){Frame frame=decode(bytes);return new Record(FileRouteCodec.decode(frame.data));}
         if(type==Frame.AVATAR){Frame frame=decode(bytes);return new Record(null,null,AvatarCodec.decode(frame.data));}
         if(type!=Frame.ATTACHMENT_V2)return new Record(decode(bytes),null,null);
@@ -40,22 +43,22 @@ public final class ProtocolV4 {
     public static byte[] encode(Frame frame)throws IOException {
         validate(frame);ByteArrayOutputStream bytes=new ByteArrayOutputStream();DataOutputStream out=new DataOutputStream(bytes);
         out.writeInt(MAGIC);out.writeByte(4);out.writeByte(frame.type);out.writeLong(frame.timestamp);text(out,frame.id);text(out,frame.body);
-        if(frame.type==Frame.ATTACHMENT_V2||frame.type==Frame.AVATAR||frame.type==Frame.FILE_ROUTE){out.writeInt(frame.data.length);out.write(frame.data);}
+        if(frame.type==Frame.ATTACHMENT_V2||frame.type==Frame.AVATAR||frame.type==Frame.FILE_ROUTE||frame.type==Frame.FILE_LINK){out.writeInt(frame.data.length);out.write(frame.data);}
         if(bytes.size()>MAX_PLAINTEXT_BYTES)throw new IOException("NIM4 plaintext too large");return bytes.toByteArray();
     }
     public static Frame decode(byte[] bytes)throws IOException {
         if(bytes==null||bytes.length<22||bytes.length>MAX_PLAINTEXT_BYTES)throw new IOException("Invalid NIM4 plaintext size");
         DataInputStream in=new DataInputStream(new ByteArrayInputStream(bytes));if(in.readInt()!=MAGIC||in.readUnsignedByte()!=4)throw new IOException("Unsupported NIM4 plaintext");
         int type=in.readUnsignedByte();long timestamp=in.readLong();String id=text(in,64),body=text(in,Protocol.MAX_TEXT_BYTES);byte[] data=new byte[0];
-        if(type==Frame.ATTACHMENT_V2||type==Frame.AVATAR||type==Frame.FILE_ROUTE){int size=in.readInt();int maximum=type==Frame.AVATAR?AvatarCodec.MAX_PACKET_BYTES:type==Frame.FILE_ROUTE?FileRouteCodec.MAX_PACKET_BYTES:TransferCodec.MAX_PACKET_BYTES;if(size<0||size>maximum||size>in.available())throw new IOException("Invalid binary packet size");data=new byte[size];in.readFully(data);}
+        if(type==Frame.ATTACHMENT_V2||type==Frame.AVATAR||type==Frame.FILE_ROUTE||type==Frame.FILE_LINK){int size=in.readInt();int maximum=type==Frame.FILE_LINK?FileLinkCodec.MAX_PACKET_BYTES:type==Frame.AVATAR?AvatarCodec.MAX_PACKET_BYTES:type==Frame.FILE_ROUTE?FileRouteCodec.MAX_PACKET_BYTES:TransferCodec.MAX_PACKET_BYTES;if(size<0||size>maximum||size>in.available())throw new IOException("Invalid binary packet size");data=new byte[size];in.readFully(data);}
         if(in.available()!=0)throw new IOException("Trailing NIM4 plaintext");Frame frame=new Frame(type,id,body,timestamp,0,data);validate(frame);return frame;
     }
     private static void validate(Frame frame)throws IOException {
         if(frame==null||frame.id==null||frame.body==null||frame.data==null||frame.timestamp<0||frame.offset!=0)throw new IOException("Invalid NIM4 frame");
-        if(frame.type==Frame.ATTACHMENT_V2||frame.type==Frame.AVATAR||frame.type==Frame.FILE_ROUTE) {
-            int maximum=frame.type==Frame.AVATAR?AvatarCodec.MAX_PACKET_BYTES:frame.type==Frame.FILE_ROUTE?FileRouteCodec.MAX_PACKET_BYTES:TransferCodec.MAX_PACKET_BYTES;
+        if(frame.type==Frame.ATTACHMENT_V2||frame.type==Frame.AVATAR||frame.type==Frame.FILE_ROUTE||frame.type==Frame.FILE_LINK) {
+            int maximum=frame.type==Frame.FILE_LINK?FileLinkCodec.MAX_PACKET_BYTES:frame.type==Frame.AVATAR?AvatarCodec.MAX_PACKET_BYTES:frame.type==Frame.FILE_ROUTE?FileRouteCodec.MAX_PACKET_BYTES:TransferCodec.MAX_PACKET_BYTES;
             if(!frame.id.isEmpty()||!frame.body.isEmpty()||frame.timestamp!=0||frame.data.length>maximum)throw new IOException("Invalid binary frame metadata");
-            if(frame.type==Frame.AVATAR)AvatarCodec.decode(frame.data);else if(frame.type==Frame.FILE_ROUTE)FileRouteCodec.decode(frame.data);else TransferCodec.decode(frame.data,0,frame.data.length);
+            if(frame.type==Frame.FILE_LINK)FileLinkCodec.decode(frame.data);else if(frame.type==Frame.AVATAR)AvatarCodec.decode(frame.data);else if(frame.type==Frame.FILE_ROUTE)FileRouteCodec.decode(frame.data);else TransferCodec.decode(frame.data,0,frame.data.length);
         }else {
             if(frame.type<Frame.READY||frame.type>Frame.PONG)throw new IOException("Unsupported NIM4 record type");
             Protocol.validate(frame);

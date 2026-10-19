@@ -12,6 +12,7 @@ public final class FramedSession {
         default void onAttachment(Frame frame) { throw new IllegalStateException("Attachments unavailable"); }
         default void onTransfer(TransferPacket packet) { throw new IllegalStateException("Encrypted attachments unavailable"); }
         default void onFileRoute(FileRoutePacket packet) { throw new IllegalStateException("Automatic file routes unavailable"); }
+        default void onFileLink(FileLinkPacket packet) { throw new IllegalStateException("FILE migration unavailable"); }
         default void onFailure(IOException error) {}
         default void onAvatar(AvatarPacket packet) { throw new IllegalStateException("Avatars unavailable"); }
         void onHello(Frame hello); void onReady(); void onText(Frame frame); void onAck(String id); void onClosed(UiText reason);
@@ -25,7 +26,7 @@ public final class FramedSession {
     private final FairRecordWriter writer=new FairRecordWriter(error->close(UiText.of("sendInterrupted")));
     private final ScheduledExecutorService timer = Executors.newSingleThreadScheduledExecutor(r -> daemon(r, "nearby-timeout"));
     private volatile boolean greeted, approved, remoteReady;
-    private boolean fileLane;
+    private boolean fileLane;private volatile boolean fileLinkEnabled;
     private volatile OutputStream output;
     private volatile long lastReadNanos = System.nanoTime();
     private final Map<String, Integer> receiving = new HashMap<>();
@@ -56,6 +57,8 @@ public final class FramedSession {
     }
     /** Dedicated FILE streams accept no chat text, receipts, or avatar profile traffic. */
     void restrictToFileLane(){if(started.get())throw new IllegalStateException("FILE lane already started");fileLane=true;}
+    /** Call only after the parent-bound, legacy-safe capability exchange succeeded. */
+    void enableFileLink(){fileLinkEnabled=true;}
     private static Thread daemon(Runnable runnable, String name) { Thread t = new Thread(runnable, name); t.setDaemon(true); return t; }
     public void start() {
         if (!started.compareAndSet(false, true) || closed.get()) return;
@@ -78,6 +81,7 @@ public final class FramedSession {
                 if(noise==null)frame=channel.read(input);
                 else {
                     ProtocolV4.Record record=ProtocolV4.decodeRecord(noise.read());lastReadNanos=System.nanoTime();
+                    if(record.fileLink!=null){if(!automaticFilesSupported())throw new NoiseRecordChannel.AuthenticationException("FILE migration before approval");listener.onFileLink(record.fileLink);continue;}
                     if(record.fileRoute!=null){if(!automaticFilesSupported())throw new IOException("File routing before negotiated approval");listener.onFileRoute(record.fileRoute);continue;}
                     if(record.transfer!=null){if(!isReady())throw new NoiseRecordChannel.AuthenticationException("File before approval");listener.onTransfer(record.transfer);continue;}
                     if(record.avatar!=null){if(fileLane)throw new NoiseRecordChannel.AuthenticationException("Avatar on FILE lane");if(!avatarsSupported())throw new IOException("Avatar before negotiated approval");
@@ -151,6 +155,13 @@ public final class FramedSession {
     public boolean sendFileRoute(FileRoutePacket packet){
         if(!automaticFilesSupported())return false;
         try{byte[] bytes=ProtocolV4.encodeFileRoute(packet);return enqueue(()->noise.write(bytes),bytes.length+256,false);}catch(IOException|IllegalArgumentException invalid){return false;}
+    }
+    public boolean sendFileLink(FileLinkPacket packet){return sendFileLink(packet,()->true);}
+    boolean sendFileLink(FileLinkPacket packet,java.util.function.BooleanSupplier current){
+        if(!fileLinkEnabled||!automaticFilesSupported())return false;
+        try{byte[] bytes=ProtocolV4.encodeFileLink(packet);boolean fifo=packet.kind==FileLinkPacket.Kind.PROBE_DATA||packet.kind==FileLinkPacket.Kind.PROBE_END;
+            return enqueue(()->{if(current.getAsBoolean())noise.write(bytes);},bytes.length+256,fifo);
+        }catch(IOException invalid){return false;}
     }
     public String connectionGeneration(){return noise==null?null:noise.connectionGeneration();}
     public SocketPath socketPath(){return isReady()&&!fileLane?connection.socketPath():null;}
