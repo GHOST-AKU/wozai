@@ -6,7 +6,7 @@ label="$2"
 mkdir -p build/apple-ui
 xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM -destination "$destination" \
   -configuration Debug -derivedDataPath "apple/UITestBuild-$label" \
-  CODE_SIGNING_ALLOWED=NO build-for-testing > "build/apple-ui/$label-build.log" 2>&1
+  CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- build-for-testing > "build/apple-ui/$label-build.log" 2>&1
 port_file="build/apple-ui/$label.port"
 rm -f "$port_file"
 java -cp build/apple-interop/java dev.ghost.nearbyim.core.AppleInteropPeer ui-server "$port_file" > "build/apple-ui/$label-java.log" 2>&1 &
@@ -25,6 +25,6 @@ PY
 xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM -destination "$destination" \
   -configuration Debug -derivedDataPath "apple/UITestBuild-$label" \
   -resultBundlePath "build/apple-ui/$label.xcresult" \
-  CODE_SIGNING_ALLOWED=NO test-without-building | tee "build/apple-ui/$label-xcodebuild.log"
+  CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- test-without-building | tee "build/apple-ui/$label-xcodebuild.log"
 wait "$peer_pid"
 cat "build/apple-ui/$label-java.log"

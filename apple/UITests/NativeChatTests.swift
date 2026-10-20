@@ -10,7 +10,11 @@ final class NativeChatTests: XCTestCase {
         if !host.waitForExistence(timeout: 8) {
             if app.tabBars.buttons["Nearby"].exists { app.tabBars.buttons["Nearby"].tap() }
             else if app.buttons["Nearby"].firstMatch.exists { app.buttons["Nearby"].firstMatch.tap() }
-            else { app.staticTexts["Nearby"].firstMatch.tap() }
+            else {
+                let destination = app.staticTexts["Nearby"].firstMatch
+                XCTAssertTrue(destination.exists, app.debugDescription)
+                destination.tap()
+            }
         }
         XCTAssertTrue(host.waitForExistence(timeout: 8))
         host.tap(); host.typeText("127.0.0.1")

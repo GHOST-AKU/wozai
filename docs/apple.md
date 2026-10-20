@@ -51,7 +51,7 @@ xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM \
 
 互通测试需要 JDK 17 及以上，只编译现有 Java 核心和测试对端，不重建 APK 或桌面安装包。测试对端使用生产 `NoiseRecordChannel` / `ProtocolV4`，与 Swift `ChatSession` 分别充当 TCP 发起方和接收方，检查双向文字、保存回执、安全码、文件拒绝和 heartbeat。SwiftPM 的 `WozaiInterop` 可执行产品只用于开发验证，不链接进 app。
 
-原生 UI 测试使用固定回环端口 47831 的独立 Java 对端，通过 app 正常的地址输入、认可按钮和消息输入框收发内容。生产 app 不读取测试环境变量，也不内置演示消息或跳过认可的测试后门：
+原生 UI 测试使用固定回环端口 47831 的独立 Java 对端，通过 app 正常的地址输入、认可按钮和消息输入框收发内容。测试使用 Xcode 的 ad-hoc 签名，以生成模拟器 Keychain 所需的身份权限；它不需要开发者证书，也不能用于真机分发。生产 app 不读取测试环境变量，也不内置演示消息或跳过认可的测试后门：
 
 ```sh
 bash tools/test-apple-interop.sh --compile-java
