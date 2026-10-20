@@ -3,6 +3,7 @@
   "upstream": "https://github.com/AppImage/type2-runtime",
   "source_commit": "8f39b89e2ac31e1640b3d3f7e9a5108e6ce805fa",
   "url": "https://api.github.com/repos/AppImage/type2-runtime/releases/assets/596078161",
+  "archive_url": "https://github.com/GHOST-AKU/wozai/releases/download/v0.3.2-preview.1/NearbyIM-0.3.2-linux-x64.AppImage",
   "sha256": "156f4bdbde9c52d01814600013e0a273f0118dc2de98975f3c8c63427ec79074",
   "bytes": 944632
 }

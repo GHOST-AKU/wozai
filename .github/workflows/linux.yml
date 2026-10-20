@@ -38,6 +38,7 @@ jobs:
         run: python3 -c 'import json; print("version=" + json.load(open("i18n/config.json"))["appVersion"])' >> "$GITHUB_OUTPUT"
       - name: Verify protocol, trust and generated translations
         run: |
+          python3 tests/test_appimage_runtime.py
           sh tools/test-i18n.sh
           sh tools/test-core.sh
           sh tools/test-trust.sh

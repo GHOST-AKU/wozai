@@ -7,11 +7,31 @@ from pathlib import Path
 import platform
 import shutil
 import subprocess
+import urllib.error
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[2]
 DESKTOP = ROOT / "desktop"
 BUILD = DESKTOP / "build"
+
+
+def download_runtime(spec):
+    headers = {"Accept": "application/octet-stream", "User-Agent": "NearbyIM-build"}
+    request = urllib.request.Request(spec["url"], headers=headers)
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            content = response.read(spec["bytes"] + 1)
+    except urllib.error.HTTPError as error:
+        if error.code not in (404, 410) or not spec.get("archive_url"):
+            raise
+        # Recover the identical pinned runtime from the prefix of an archived AppImage.
+        headers["Range"] = f"bytes=0-{spec['bytes'] - 1}"
+        request = urllib.request.Request(spec["archive_url"], headers=headers)
+        with urllib.request.urlopen(request, timeout=60) as response:
+            content = response.read(spec["bytes"])
+    if len(content) != spec["bytes"] or hashlib.sha256(content).hexdigest() != spec["sha256"]:
+        raise SystemExit("AppImage runtime size/SHA-256 mismatch")
+    return content
 
 
 def main():
@@ -25,12 +45,7 @@ def main():
     runtime = BUILD / "appimage-tools/runtime-x86_64"
     runtime.parent.mkdir(parents=True, exist_ok=True)
     if not runtime.is_file() or hashlib.sha256(runtime.read_bytes()).hexdigest() != spec["sha256"]:
-        request = urllib.request.Request(spec["url"], headers={"Accept": "application/octet-stream", "User-Agent": "NearbyIM-build"})
-        with urllib.request.urlopen(request, timeout=60) as response:
-            content = response.read(spec["bytes"] + 1)
-        if len(content) != spec["bytes"] or hashlib.sha256(content).hexdigest() != spec["sha256"]:
-            raise SystemExit("AppImage runtime size/SHA-256 mismatch")
-        runtime.write_bytes(content)
+        runtime.write_bytes(download_runtime(spec))
     if runtime.read_bytes()[8:11] != b"AI\x02":
         raise SystemExit("Expected an official type-2 AppImage runtime")
     appdir = BUILD / "NearbyIM.AppDir"
