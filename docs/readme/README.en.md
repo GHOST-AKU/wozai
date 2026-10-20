@@ -78,9 +78,18 @@ Please note:
 
 The implementation has standard-vector, cross-implementation and negative tests; it has not completed a formal cryptographic security audit or physical Bluetooth acceptance.
 
-## 🧩 NIM4
+## 🧩 NIM protocol versions
 
-The clients share **NIM4 encrypted records** and never fall back to NIM3 or plaintext. Both endpoints must upgrade to compatible NIM4 versions. Historical records remain readable and root identities are unchanged.
+NIM identifies the application-layer protocol that NearbyIM uses to exchange messages and attachments. It defines framing, authentication, receipts, and file-transfer rules. LAN, Bluetooth, and Wi-Fi Direct are transport paths, not separate NIM versions. Protocol versions are also distinct from app version numbers.
+
+| Protocol | Used in | Main capabilities and security boundary |
+| --- | --- | --- |
+| NIM1 | Early prototypes | Basic message framing, without the device-identity signatures or end-to-end encryption of later versions. |
+| NIM2 | Early releases starting with 0.2.0 | P-256 device identities, challenge handshakes, signed records, and replay protection; contents remain plaintext. [Historical wire format](../protocol-v2.md) |
+| NIM3 | Stable 0.3.1 | Binary attachment chunks, flow control, SHA-256 verification, and durable save receipts; signatures do not encrypt contents. |
+| **NIM4** | **Stable 0.3.2** | **Noise end-to-end encryption**, retained device root identities, safety-code verification, streaming large files, and durable resume. |
+
+Android, Windows, and Linux now share **NIM4** and never automatically fall back to NIM3 or plaintext. 0.3.2 cannot communicate directly with 0.3.1; upgrade both peers. Different NIM4 builds must also pass capability checks. Historical records and device root identities survive the upgrade, which does not imply compatibility with old clients.
 
 Text, images, and files are currently supported; group chats, voice, internet relays, and automatic message retransmission are not yet included.
 
