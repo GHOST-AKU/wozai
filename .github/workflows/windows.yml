@@ -2,6 +2,15 @@ name: Build NearbyIM Windows client
 on:
   pull_request:
     branches: [main]
+    paths-ignore:
+      - 'apple/**'
+      - '.github/workflows/apple.yml'
+      - 'tools/test-apple-*.sh'
+      - 'tests/apple/**'
+      - 'docs/apple.md'
+      - 'README.md'
+      - 'docs/readme/README.en.md'
+      - '.gitignore'
   workflow_dispatch:
     inputs:
       android-run-id:
