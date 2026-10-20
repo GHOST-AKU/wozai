@@ -17,6 +17,8 @@ public actor NIMChannel {
     private var started = false
     private var established = false
     private var ended = false
+    private var writer: Task<Void, Error>?
+    private var writeSequence: UInt64 = 0
 
     public init(stream: any ByteStream, identity: DeviceIdentity, nickname: String, initiator: Bool) {
         self.stream = stream; self.identity = identity; self.nickname = nickname; self.initiator = initiator
@@ -71,7 +73,7 @@ public actor NIMChannel {
 
     private func sendEnvelope(_ kind: Envelope.Kind, bytes: Data) async throws {
         guard !ended else { throw WozaiError.closed }
-        try await stream.write(Envelope.header(kind: kind, payloadSize: bytes.count) + bytes)
+        try await writeOrdered(Envelope.header(kind: kind, payloadSize: bytes.count) + bytes)
     }
 
     private func readEnvelope(_ kind: Envelope.Kind) async throws -> Data {
@@ -90,7 +92,30 @@ public actor NIMChannel {
         let header = try Envelope.header(kind: kind, payloadSize: plaintext.count + 16)
         let ciphertext = try state.sending.seal(plaintext, authenticating: header)
         transport = state
-        try await stream.write(header + ciphertext)
+        try await writeOrdered(header + ciphertext)
+    }
+
+    private func writeOrdered(_ bytes: Data) async throws {
+        guard !ended else { throw WozaiError.closed }
+        let previous = writer, stream = self.stream
+        writeSequence &+= 1
+        let sequence = writeSequence
+        // Reserve FIFO order before suspension; actor isolation alone does not order I/O.
+        let task = Task {
+            if let previous { try await previous.value }
+            try Task.checkCancellation()
+            try await stream.write(bytes)
+        }
+        writer = task
+        do {
+            try await withTaskCancellationHandler {
+                try await task.value
+            } onCancel: {
+                task.cancel()
+                stream.close()
+            }
+            if writeSequence == sequence { writer = nil }
+        } catch { close(); throw error }
     }
 
     private func readEncrypted(_ kind: Envelope.Kind) async throws -> Data {
@@ -111,5 +136,9 @@ public actor NIMChannel {
         do { return try NIMFrame.decode(await readEncrypted(.record)) } catch { close(); throw error }
     }
 
-    public func close() { ended = true; established = false; transport = nil; stream.close() }
+    public func close() {
+        ended = true; established = false; transport = nil
+        writer?.cancel(); writer = nil
+        stream.close()
+    }
 }
