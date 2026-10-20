@@ -51,8 +51,15 @@
     <string name="attachment_open" formatted="false">"열기"</string>
     <string name="attachment_open_saved" formatted="false">"저장된 파일 열기"</string>
     <string name="attachment_overwrite" formatted="false">"파일이 이미 있습니다. 바꾸시겠습니까?"</string>
+    <string name="attachment_path_all_links" formatted="false">"전송 경로: Wi-Fi Direct, LAN, Bluetooth"</string>
     <string name="attachment_path_bluetooth" formatted="false">"전송 경로: 블루투스"</string>
+    <string name="attachment_path_bluetooth_direct" formatted="false">"전송 경로: Bluetooth → Wi-Fi Direct"</string>
+    <string name="attachment_path_bluetooth_lan" formatted="false">"전송 경로: Bluetooth → LAN"</string>
+    <string name="attachment_path_direct_bluetooth" formatted="false">"전송 경로: Wi-Fi Direct → Bluetooth"</string>
+    <string name="attachment_path_direct_lan" formatted="false">"전송 경로: Wi-Fi Direct → LAN"</string>
     <string name="attachment_path_disconnected" formatted="false">"전송 경로: 연결되지 않음"</string>
+    <string name="attachment_path_lan_bluetooth" formatted="false">"전송 경로: LAN → Bluetooth"</string>
+    <string name="attachment_path_lan_direct" formatted="false">"전송 경로: LAN → Wi-Fi Direct"</string>
     <string name="attachment_path_lan_unconfirmed" formatted="false">"전송 경로: LAN"</string>
     <string name="attachment_path_pending_bluetooth" formatted="false">"블루투스 연결 중 · 전송 시작 전"</string>
     <string name="attachment_path_pending_lan" formatted="false">"LAN 연결 중 · 전송 시작 전"</string>
@@ -281,6 +288,8 @@
     <string name="endpoint_required" formatted="false">"LAN IP 주소와 포트를 입력하세요."</string>
     <string name="error" formatted="false">"작업을 완료하지 못했습니다"</string>
     <string name="feedback" formatted="false">"작업 상태 및 안내"</string>
+    <string name="file_comparing_links" formatted="false">"Wi-Fi Direct와 LAN 비교 중…"</string>
+    <string name="file_recovering_lan" formatted="false">"LAN으로 전송 복구 중…"</string>
     <string name="find_nearby" formatted="false">"근처 기기 찾기"</string>
     <string name="find_people_nearby" formatted="false">"근처 사람 찾기"</string>
     <string name="finding_remembered" formatted="false">"기억한 기기를 찾는 중…"</string>

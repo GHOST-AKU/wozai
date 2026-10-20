@@ -528,5 +528,14 @@
   "receiveFolderSaved": "受信フォルダに保存済み",
   "receiveFolderFailed": "受信フォルダに保存できませんでした",
   "receiveFolderRetry": "フォルダへの保存を再試行",
-  "receiveFolderSave": "受信フォルダに保存"
+  "receiveFolderSave": "受信フォルダに保存",
+  "fileRecoveringLan": "LAN 経由で転送を再開しています…",
+  "fileComparingLinks": "Wi-Fi Direct と LAN を比較しています…",
+  "attachmentPathDirectLan": "転送経路：Wi-Fi Direct → LAN",
+  "attachmentPathDirectBluetooth": "転送経路：Wi-Fi Direct → Bluetooth",
+  "attachmentPathLanBluetooth": "転送経路：LAN → Bluetooth",
+  "attachmentPathLanDirect": "転送経路：LAN → Wi-Fi Direct",
+  "attachmentPathBluetoothDirect": "転送経路：Bluetooth → Wi-Fi Direct",
+  "attachmentPathBluetoothLan": "転送経路：Bluetooth → LAN",
+  "attachmentPathAllLinks": "転送経路：Wi-Fi Direct、LAN、Bluetooth"
 }

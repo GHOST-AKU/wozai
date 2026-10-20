@@ -528,5 +528,14 @@
   "receiveFolderSaved": "Saved to receive folder",
   "receiveFolderFailed": "Could not save to receive folder",
   "receiveFolderRetry": "Retry saving to folder",
-  "receiveFolderSave": "Save to receive folder"
+  "receiveFolderSave": "Save to receive folder",
+  "fileRecoveringLan": "Recovering over LAN…",
+  "fileComparingLinks": "Comparing Wi-Fi Direct and LAN…",
+  "attachmentPathDirectLan": "Transfer path: Wi-Fi Direct → LAN",
+  "attachmentPathDirectBluetooth": "Transfer path: Wi-Fi Direct → Bluetooth",
+  "attachmentPathLanBluetooth": "Transfer path: LAN → Bluetooth",
+  "attachmentPathLanDirect": "Transfer path: LAN → Wi-Fi Direct",
+  "attachmentPathBluetoothDirect": "Transfer path: Bluetooth → Wi-Fi Direct",
+  "attachmentPathBluetoothLan": "Transfer path: Bluetooth → LAN",
+  "attachmentPathAllLinks": "Transfer paths: Wi-Fi Direct, LAN, Bluetooth"
 }

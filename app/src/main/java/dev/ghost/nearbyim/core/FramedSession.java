@@ -122,6 +122,7 @@ public final class FramedSession {
             }
         } catch (UnsupportedProtocolException error) { close(UiText.of("attachmentUpgradeRequired")); }
         catch (IOException | RuntimeException error) {
+            if(closed.get())return;
             IOException failure=error instanceof IOException?(IOException)error:new IOException(error);
             if(fileLane&&noise!=null&&noise.verified()&&!(failure instanceof NoiseRecordChannel.AuthenticationException))failure=new NoiseRecordChannel.AuthenticationException("Invalid authenticated FILE record",failure);
             listener.onFailure(failure);close(UiText.of("disconnected"));
@@ -159,7 +160,7 @@ public final class FramedSession {
     public boolean sendFileLink(FileLinkPacket packet){return sendFileLink(packet,()->true);}
     boolean sendFileLink(FileLinkPacket packet,java.util.function.BooleanSupplier current){
         if(!fileLinkEnabled||!automaticFilesSupported())return false;
-        try{byte[] bytes=ProtocolV4.encodeFileLink(packet);boolean fifo=packet.kind==FileLinkPacket.Kind.PROBE_DATA||packet.kind==FileLinkPacket.Kind.PROBE_END;
+        try{byte[] bytes=ProtocolV4.encodeFileLink(packet);boolean fifo=packet.kind==FileLinkPacket.Kind.PROBE_START||packet.kind==FileLinkPacket.Kind.PROBE_DATA||packet.kind==FileLinkPacket.Kind.PROBE_END||packet.kind==FileLinkPacket.Kind.PAUSE;
             return enqueue(()->{if(current.getAsBoolean())noise.write(bytes);},bytes.length+256,fifo);
         }catch(IOException invalid){return false;}
     }
@@ -171,9 +172,10 @@ public final class FramedSession {
         if(noise!=null||!attachmentsSupported() || frame.type<Frame.FILE_OFFER || frame.type>Frame.FILE_CANCEL)return false;
         return enqueueFrame(frame);
     }
-    public boolean sendTransfer(TransferPacket packet) {
+    public boolean sendTransfer(TransferPacket packet){return sendTransfer(packet,()->{});}
+    boolean sendTransfer(TransferPacket packet,Runnable written) {
         if(!attachmentsV2())return false;
-        try {byte[] plaintext=ProtocolV4.encodeTransfer(packet);return enqueue(()->noise.write(plaintext),plaintext.length+256,true);}
+        try {byte[] plaintext=ProtocolV4.encodeTransfer(packet);return enqueue(()->{noise.write(plaintext);written.run();},plaintext.length+256,true);}
         catch(IOException error){close(UiText.of("attachmentFailed"));return false;}
     }
     public boolean sendAvatar(AvatarPacket packet) {

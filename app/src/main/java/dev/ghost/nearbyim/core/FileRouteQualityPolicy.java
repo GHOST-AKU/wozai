@@ -21,6 +21,10 @@ public final class FileRouteQualityPolicy {
             &&fileBytesPerSecond>0&&remainingBytes/fileBytesPerSecond>=8;
     }
     public static boolean preferLan(Sample[] direct,Sample[] lan,long remainingBytes,long switchCostNanos){
+        return preferLan(direct,lan,remainingBytes,switchCostNanos,Double.POSITIVE_INFINITY);
+    }
+    public static boolean preferLan(Sample[] direct,Sample[] lan,long remainingBytes,long switchCostNanos,double capacity){
+        if(!(capacity>0))return false;
         if(direct==null||lan==null||direct.length!=2||lan.length!=2||remainingBytes<=0||switchCostNanos<0)return false;
         double fastestDirect=0,slowestLan=Double.POSITIVE_INFINITY;
         for(int i=0;i<2;i++){
@@ -28,7 +32,7 @@ public final class FileRouteQualityPolicy {
             if(lan[i].lowerRate()<direct[i].upperRate()*1.25)return false;
             fastestDirect=Math.max(fastestDirect,direct[i].upperRate());slowestLan=Math.min(slowestLan,lan[i].lowerRate());
         }
-        double gainSeconds=remainingBytes/fastestDirect-remainingBytes/slowestLan-switchCostNanos/1e9;
+        double gainSeconds=remainingBytes/Math.min(capacity,fastestDirect)-remainingBytes/Math.min(capacity,slowestLan)-switchCostNanos/1e9;
         return Double.isFinite(gainSeconds)&&gainSeconds>=2;
     }
 }

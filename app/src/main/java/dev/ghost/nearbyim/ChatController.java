@@ -51,7 +51,7 @@ public final class ChatController implements TransportListener {
     private volatile FramedSession active;
     private volatile ClientAttachmentTransfers transfers;
     private volatile AutomaticFileRoutes fileRoutes;
-    private record PendingFile(FramedSession wire,FileRoutePacket control,TransferPacket transfer){}
+    private record PendingFile(FramedSession wire,FileRoutePacket control,TransferPacket transfer,FileLinkPacket link){}
     private final ArrayBlockingQueue<PendingFile> pendingFiles=new ArrayBlockingQueue<>(8);
     private volatile CompletableFuture<Void> filePauseStopped=CompletableFuture.completedFuture(null);
     private volatile AvatarSync avatarSync;
@@ -331,6 +331,7 @@ public final class ChatController implements TransportListener {
             public void onAttachment(Frame frame){main.post(()->{if(active==reference[0]&&transfers!=null)transfers.receive(frame);});}
             public void onFileRoute(FileRoutePacket packet){receiveFile(reference[0],packet,null);}
             public void onTransfer(TransferPacket packet){receiveFile(reference[0],null,packet);}
+            public void onFileLink(FileLinkPacket packet){receiveFileLink(reference[0],packet);}
             public void onAvatar(AvatarPacket packet){
                 if(active!=reference[0]||!reference[0].avatarsSupported())return;
                 AvatarSync sync=avatarSync;
@@ -346,7 +347,15 @@ public final class ChatController implements TransportListener {
                 if (active != reference[0] || remoteHello == null) return;
                 String peerId = remoteHello.id; db(() -> store.delivered(peerId, id), ChatController.this::refresh);
             }); }
-            public void onClosed(UiText reason) { main.post(() -> releaseSession(reference[0], reason)); }
+            public void onFailure(IOException failure){AutomaticFileRoutes routes=fileRoutes;if(active==reference[0]&&routes!=null)routes.parentFailure(failure);}
+            public void onClosed(UiText reason) { main.post(() -> {
+                AutomaticFileRoutes routes=fileRoutes;
+                if(active==reference[0]&&routes!=null&&java.util.Set.of("disconnected","sendInterrupted","peerUnresponsive").contains(reason.key)&&routes.parentClosed()){
+                    connected=false;status=UiText.of("fileRecoveringLan");cancelOutgoing();changed();
+                    routes.parentRecoveryFinished().whenComplete((value,error)->main.post(()->{if(active==reference[0])releaseSession(reference[0],reason);}));return;
+                }
+                releaseSession(reference[0],reason);
+            }); }
         },true,true);}catch(IOException failure){close(connection);cancelOutgoing();status=UiText.of("connectionUnavailable");fail(UiText.of("identityUnavailableRestart"));return;}
         attachmentToken++;active = reference[0]; active.start(); changed();
     }
@@ -355,33 +364,34 @@ public final class ChatController implements TransportListener {
         Frame hello=remoteHello;long revision=trust.peerRevision(hello.id);
         filePauseStopped=CompletableFuture.completedFuture(null);
         AutomaticFileRoutes routes=new AutomaticFileRoutes(wire,localId,nickname,identity,noiseIdentity.getNow(null),hello.id,grant.publicKey,transportKey(),
-            ()->!destroyed&&active==wire&&wire.isReady()&&authorization==grant&&trust.ready(grant)&&trust.peerRevision(hello.id)==revision,
+            ()->!destroyed&&active==wire&&authorization==grant&&trust.ready(grant)&&trust.peerRevision(hello.id)==revision,
             new AndroidFilePlatform(applicationContext,localId,nickname,hello.id),new AutomaticFileRoutes.Listener(){
-                public void receive(TransferPacket packet){ClientAttachmentTransfers files=transfers;if(active!=wire||files==null)return;try{files.receive(packet);}catch(IOException failure){AutomaticFileRoutes current=fileRoutes;if(current!=null)current.abort();}}
+                public void receive(TransferPacket packet){receive(packet,()->true);}
+                public void receive(TransferPacket packet,java.util.function.BooleanSupplier current){ClientAttachmentTransfers files=transfers;if(active!=wire||files==null)return;try{files.receive(packet,()->active==wire&&current.getAsBoolean());}catch(IOException failure){if(active==wire&&current.getAsBoolean()){AutomaticFileRoutes routes=fileRoutes;if(routes!=null)routes.abort();}}}
                 public void changed(){main.post(()->{if(active==wire&&!destroyed)ChatController.this.changed();});}
                 public boolean busy(){ClientAttachmentTransfers files=transfers;return active==wire&&(!selectingSources.isEmpty()||files!=null&&files.routeBusy());}
                 public void failed(IOException failure){ClientAttachmentTransfers files=transfers;if(active!=wire||files==null)return;CompletableFuture<Void> stopped=files.pauseOnDisconnect();filePauseStopped=stopped;stopped.whenComplete((value,error)->main.post(()->{if(active==wire&&!destroyed)fail(attachmentError(error==null?failure:error));}));}
             });
-        fileRoutes=routes;routes.start();drainPendingFiles(wire);
+        fileRoutes=routes;storage.execute(()->{try{for(ChatStore.Message message:store.messages(hello.id))if(message.attachment!=null)routes.rememberHistory(message.attachment);}catch(RuntimeException ignored){}});if(transfers!=null)routes.attachFiles(transfers);routes.start();drainPendingFiles(wire);
     }
     private void receiveFile(FramedSession wire,FileRoutePacket control,TransferPacket packet){
         if(active!=wire)return;AutomaticFileRoutes routes=fileRoutes;
         if(routes!=null){if(control!=null)routes.receiveControl(control);else routes.receiveChatTransfer(packet);return;}
-        if(!pendingFiles.offer(new PendingFile(wire,control,packet))){wire.close(UiText.of("busy"));return;}
+        if(!pendingFiles.offer(new PendingFile(wire,control,packet,null))){wire.close(UiText.of("busy"));return;}
+        main.post(()->drainPendingFiles(wire));
+    }
+    private void receiveFileLink(FramedSession wire,FileLinkPacket packet){
+        if(active!=wire)return;AutomaticFileRoutes routes=fileRoutes;
+        if(routes!=null){routes.receiveFileLink(packet);return;}
+        if(!pendingFiles.offer(new PendingFile(wire,null,null,packet))){wire.close(UiText.of("busy"));return;}
         main.post(()->drainPendingFiles(wire));
     }
     private void drainPendingFiles(FramedSession wire){
         AutomaticFileRoutes routes=fileRoutes;if(active!=wire||routes==null)return;
-        PendingFile pending;while((pending=pendingFiles.poll())!=null)if(pending.wire()==wire){if(pending.control()!=null)routes.receiveControl(pending.control());else routes.receiveChatTransfer(pending.transfer());}
+        PendingFile pending;while((pending=pendingFiles.poll())!=null)if(pending.wire()==wire){if(pending.control()!=null)routes.receiveControl(pending.control());else if(pending.link()!=null)routes.receiveFileLink(pending.link());else routes.receiveChatTransfer(pending.transfer());}
     }
     private AttachmentRecord decorateFileRoute(AttachmentRecord record)throws IOException {
-        if(record.outgoing&&record.state.equals("queued"))return record;
-        AutomaticFileRoutes routes=fileRoutes;String route=routes==null?"":routes.route();
-        if(route.isEmpty()&&record.route.isEmpty()){
-            Feedback previous=transferProgress.get(connectedPeerId+":"+record.info.id+":"+record.outgoing);
-            if(previous!=null)route=previous.record().route;
-        }
-        return route.isEmpty()?record:record.withRoute(route);
+        AutomaticFileRoutes routes=fileRoutes;return routes==null?record:routes.decorate(record);
     }
     private CompletableFuture<AutomaticFileRoutes.Route> fileReady(ClientAttachmentTransfers expected,long token) {
         return fileReady(expected,token,false);
@@ -441,6 +451,7 @@ public final class ChatController implements TransportListener {
                         public boolean send(TransferPacket packet){AutomaticFileRoutes routes=fileRoutes;return active==wire&&routes!=null&&routes.send(packet);}public void abort(){AutomaticFileRoutes routes=fileRoutes;if(active==wire&&routes!=null)routes.abort();}
                         public boolean recoverableDisconnect(){return true;}
                         public boolean highBandwidth(){AutomaticFileRoutes routes=fileRoutes;return active==wire&&routes!=null&&routes.highBandwidth();}
+                        public boolean restoreOffer(TransferPacket packet){AutomaticFileRoutes routes=fileRoutes;return active==wire&&routes!=null&&routes.sendRecoveryOffer(packet);}
                     },new AttachmentTransferV2.Listener(){
                         public void changed(AttachmentRecord original)throws IOException {
                             AttachmentRecord record=decorateFileRoute(original);
@@ -525,6 +536,7 @@ public final class ChatController implements TransportListener {
         FramedSession wire=active;
         boolean ready=connected&&Objects.equals(peer,connectedPeerId)&&wire!=null&&wire.isReady()&&wire.attachmentsSupported();
         AutomaticFileRoutes routes=fileRoutes;
+        if(routes!=null&&Objects.equals(peer,connectedPeerId)&&(record.active()||record.resumable())&&routes.activityPath()!=null)return routes.activityPath();
         if(ready&&routes!=null&&record.outgoing&&record.route.isEmpty()&&(record.state.equals("queued")||record.state.equals("preparing")))return routes.pendingPath();
         return TransferPath.forAttachment(record.route,ready,record);
     }

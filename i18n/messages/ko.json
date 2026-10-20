@@ -528,5 +528,14 @@
   "receiveFolderSaved": "수신 폴더에 저장됨",
   "receiveFolderFailed": "수신 폴더에 저장하지 못함",
   "receiveFolderRetry": "폴더에 저장 다시 시도",
-  "receiveFolderSave": "수신 폴더에 저장"
+  "receiveFolderSave": "수신 폴더에 저장",
+  "fileRecoveringLan": "LAN으로 전송 복구 중…",
+  "fileComparingLinks": "Wi-Fi Direct와 LAN 비교 중…",
+  "attachmentPathDirectLan": "전송 경로: Wi-Fi Direct → LAN",
+  "attachmentPathDirectBluetooth": "전송 경로: Wi-Fi Direct → Bluetooth",
+  "attachmentPathLanBluetooth": "전송 경로: LAN → Bluetooth",
+  "attachmentPathLanDirect": "전송 경로: LAN → Wi-Fi Direct",
+  "attachmentPathBluetoothDirect": "전송 경로: Bluetooth → Wi-Fi Direct",
+  "attachmentPathBluetoothLan": "전송 경로: Bluetooth → LAN",
+  "attachmentPathAllLinks": "전송 경로: Wi-Fi Direct, LAN, Bluetooth"
 }

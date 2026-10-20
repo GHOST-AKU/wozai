@@ -21,6 +21,9 @@ public final class TransferDiagnostics {
         int i=stage.ordinal();counts.incrementAndGet(i);bytes.addAndGet(i,byteCount);totals.addAndGet(i,nanos);
         long old;do{old=maxima.get(i);if(nanos<=old)break;}while(!maxima.compareAndSet(i,old,nanos));
     }
+    public long bytes(Stage stage){return bytes.get(stage.ordinal());}
+    public long nanos(Stage stage){return totals.get(stage.ordinal());}
+    public boolean active(Stage... stages){for(Stage stage:stages)if(active.get(stage.ordinal())!=0)return true;return false;}
     /** Formatting happens only when requested, never in the DATA packet path. */
     public String snapshot() {
         StringBuilder report=new StringBuilder();long now=System.nanoTime();

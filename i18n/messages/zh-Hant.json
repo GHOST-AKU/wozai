@@ -528,5 +528,14 @@
   "receiveFolderSaved": "已儲存至接收資料夾",
   "receiveFolderFailed": "無法儲存至接收資料夾",
   "receiveFolderRetry": "重試儲存至資料夾",
-  "receiveFolderSave": "儲存至接收資料夾"
+  "receiveFolderSave": "儲存至接收資料夾",
+  "fileRecoveringLan": "正在透過區域網路恢復傳輸…",
+  "fileComparingLinks": "正在比較直連與區域網路…",
+  "attachmentPathDirectLan": "傳輸路徑：Wi-Fi 直連 → 區域網路",
+  "attachmentPathDirectBluetooth": "傳輸路徑：Wi-Fi 直連 → 藍牙",
+  "attachmentPathLanBluetooth": "傳輸路徑：區域網路 → 藍牙",
+  "attachmentPathLanDirect": "傳輸路徑：區域網路 → Wi-Fi 直連",
+  "attachmentPathBluetoothDirect": "傳輸路徑：藍牙 → Wi-Fi 直連",
+  "attachmentPathBluetoothLan": "傳輸路徑：藍牙 → 區域網路",
+  "attachmentPathAllLinks": "傳輸路徑：Wi-Fi 直連、區域網路、藍牙"
 }

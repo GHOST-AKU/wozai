@@ -12,13 +12,17 @@ public final class AttachmentRecord {
         this(info,outgoing,state,transferred,"");
     }
     private AttachmentRecord(AttachmentInfo info,boolean outgoing,String state,long transferred,String route)throws IOException {
-        if(!Arrays.asList("","wifi-direct","lan","bluetooth").contains(route))throw new IOException("Invalid attachment route");
+        if(!validRoute(route))throw new IOException("Invalid attachment route");
         if(!Arrays.asList("queued","preparing","offered","transferring","verifying","checking","paused","sourceUnavailable","awaitingReceipt","received","delivered","rejected","canceled","failed","interrupted","unknown").contains(state)||transferred<0||transferred>info.size)throw new IOException("Invalid attachment state");
         if(info.version==2&&Arrays.asList("received","delivered").contains(state)&&(info.hash==null||transferred!=info.size))throw new IOException("Completed attachment requires a final digest and length");
         this.info=info;this.outgoing=outgoing;this.state=state;this.transferred=transferred;this.route=route;
     }
+    private static boolean validRoute(String route){
+        if(route==null)return false;if(route.isEmpty())return true;
+        String[] parts=route.split(">",-1);return parts.length<=3&&new HashSet<>(Arrays.asList(parts)).size()==parts.length&&Arrays.stream(parts).allMatch(part->Arrays.asList("wifi-direct","lan","bluetooth").contains(part));
+    }
     public AttachmentRecord withRoute(String route)throws IOException {
-        if(!Arrays.asList("","wifi-direct","lan","bluetooth").contains(route))throw new IOException("Invalid attachment route");
+        if(!validRoute(route))throw new IOException("Invalid attachment route");
         return route.isEmpty()||this.route.equals(route)?this:new AttachmentRecord(info,outgoing,state,transferred,route);
     }
     public String stateKey(){return "attachmentState"+Character.toUpperCase(state.charAt(0))+state.substring(1);}

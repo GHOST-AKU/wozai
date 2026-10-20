@@ -51,8 +51,15 @@
     <string name="attachment_open" formatted="false">"Open"</string>
     <string name="attachment_open_saved" formatted="false">"Open saved file"</string>
     <string name="attachment_overwrite" formatted="false">"File exists. Replace it?"</string>
+    <string name="attachment_path_all_links" formatted="false">"Transfer paths: Wi-Fi Direct, LAN, Bluetooth"</string>
     <string name="attachment_path_bluetooth" formatted="false">"Transfer path: Bluetooth"</string>
+    <string name="attachment_path_bluetooth_direct" formatted="false">"Transfer path: Bluetooth → Wi-Fi Direct"</string>
+    <string name="attachment_path_bluetooth_lan" formatted="false">"Transfer path: Bluetooth → LAN"</string>
+    <string name="attachment_path_direct_bluetooth" formatted="false">"Transfer path: Wi-Fi Direct → Bluetooth"</string>
+    <string name="attachment_path_direct_lan" formatted="false">"Transfer path: Wi-Fi Direct → LAN"</string>
     <string name="attachment_path_disconnected" formatted="false">"Transfer path: disconnected"</string>
+    <string name="attachment_path_lan_bluetooth" formatted="false">"Transfer path: LAN → Bluetooth"</string>
+    <string name="attachment_path_lan_direct" formatted="false">"Transfer path: LAN → Wi-Fi Direct"</string>
     <string name="attachment_path_lan_unconfirmed" formatted="false">"Transfer path: LAN"</string>
     <string name="attachment_path_pending_bluetooth" formatted="false">"Connecting over Bluetooth · not transferring yet"</string>
     <string name="attachment_path_pending_lan" formatted="false">"Connecting over LAN · not transferring yet"</string>
@@ -281,6 +288,8 @@
     <string name="endpoint_required" formatted="false">"Enter a local IP address and port."</string>
     <string name="error" formatted="false">"Unable to complete action"</string>
     <string name="feedback" formatted="false">"Action status and notices"</string>
+    <string name="file_comparing_links" formatted="false">"Comparing Wi-Fi Direct and LAN…"</string>
+    <string name="file_recovering_lan" formatted="false">"Recovering over LAN…"</string>
     <string name="find_nearby" formatted="false">"Find devices in Nearby"</string>
     <string name="find_people_nearby" formatted="false">"Find people nearby"</string>
     <string name="finding_remembered" formatted="false">"Looking for the remembered device…"</string>

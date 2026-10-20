@@ -205,9 +205,10 @@ public final class DesktopClient implements AutoCloseable {
                         FileAttachmentSource source=new FileAttachmentSource(java.nio.file.Paths.get(java.net.URI.create(saved.split("\n",2)[0])),checkpoint.key().sourceGeneration());
                         if(!saved.equals(source.persistentReference())){source.close();throw new LocalizedIOException(UiText.of("attachmentSourceChanged"));}return source;};
                     files=new AutomaticFileRoutes(wire,identity.id(),store.nickname(),identity.signer(),noiseIdentity,peer.id(),authorization.publicKey,transport,
-                            ()->current==Session.this&&phase.equals("ready")&&policy.ready(authorization)&&wire.isReady()&&wire.endToEndEncrypted(),
+                            ()->current==Session.this&&phase.equals("ready")&&policy.ready(authorization)&&(!wire.isReady()||wire.endToEndEncrypted()),
                             new DesktopFileRoutes(),new AutomaticFileRoutes.Listener(){
-                                public void receive(TransferPacket packet){ClientAttachmentTransfers target=transfers;if(current!=Session.this||target==null)return;try{target.receive(packet);}catch(IOException failure){files.abort();}}
+                                public void receive(TransferPacket packet){receive(packet,()->true);}
+                                public void receive(TransferPacket packet,java.util.function.BooleanSupplier live){ClientAttachmentTransfers target=transfers;if(current!=Session.this||target==null)return;try{target.receive(packet,()->current==Session.this&&live.getAsBoolean());}catch(IOException failure){if(current==Session.this&&live.getAsBoolean())files.abort();}}
                                 public void changed(){if(current==Session.this&&peer!=null)listener.attachmentProgress(peer.id());}
                                 public boolean busy(){ClientAttachmentTransfers target=transfers;return selectionPreparing.get()!=0||target!=null&&target.hasActive();}
                                 public void failed(IOException failure){
@@ -219,6 +220,7 @@ public final class DesktopClient implements AutoCloseable {
                     AttachmentTransferV2 engine=new AttachmentTransferV2(directory,localRoot,remoteRoot,wire.connectionGeneration(),transport.equals("bluetooth"),new AttachmentTransferV2.Wire(){
                         public boolean send(TransferPacket packet){return files.send(packet);}public void abort(){files.abort();}public boolean recoverableDisconnect(){return true;}
                         public boolean highBandwidth(){return files.highBandwidth();}
+                        public boolean restoreOffer(TransferPacket packet){return files.sendRecoveryOffer(packet);}
                     },new AttachmentTransferV2.Listener(){
                         public void changed(AttachmentRecord record)throws IOException{store.attachment(peer.id(),routed(record));event(()->publish());}
                         public void progress(AttachmentRecord record,TransferProgress progress){
@@ -243,7 +245,7 @@ public final class DesktopClient implements AutoCloseable {
                 if(transfers==null||!transfers.v2())throw new IOException("File reader not prepared before approval");
                 identityVerified=store.isVerified(peer.id(),identity.signer().publicKey(),authorization.publicKey);
                 phase = "ready";
-                files.start();startAvatars();publish();
+                for(DesktopStore.Message message:store.messages(peer.id()))if(message.attachment()!=null)files.rememberHistory(message.attachment());files.attachFiles(transfers);files.start();startAvatars();publish();
             } catch (IOException e) { failure(); }
         }); }
         void startAvatars() {
@@ -263,8 +265,9 @@ public final class DesktopClient implements AutoCloseable {
             else if(!phase.equals("ready")){if(pendingAvatars.size()>=8)wire.close(UiText.of("busy"));else pendingAvatars.addLast(packet);}
         });}
         public void onAttachment(Frame frame){event(()->{if(current==this&&transfers!=null)transfers.receive(frame);});}
-        AttachmentRecord routed(AttachmentRecord record)throws IOException{String route=files==null?"":files.route();return route.isEmpty()?record:record.withRoute(route);}
-        public void onFileRoute(FileRoutePacket packet){AutomaticFileRoutes routes=files;if(current==this&&routes!=null)routes.receiveControl(packet);}
+        AttachmentRecord routed(AttachmentRecord record)throws IOException{return files==null?record:files.decorate(record);}
+        public void onFileLink(FileLinkPacket packet){event(()->{AutomaticFileRoutes routes=files;if(current==this&&routes!=null)routes.receiveFileLink(packet);});}
+        public void onFileRoute(FileRoutePacket packet){event(()->{AutomaticFileRoutes routes=files;if(current==this&&routes!=null)routes.receiveControl(packet);});}
         public void onTransfer(TransferPacket packet){AutomaticFileRoutes routes=files;if(current==this&&routes!=null)routes.receiveChatTransfer(packet);}
         public void onText(Frame frame) { event(() -> {
             if (current != this || peer == null || !wire.isReady()) return;
@@ -278,8 +281,13 @@ public final class DesktopClient implements AutoCloseable {
             try { store.acknowledge(peer.id(), id); publish(); }
             catch (IOException e) { failure(); }
         }); }
+        public void onFailure(IOException error){AutomaticFileRoutes routes=files;if(current==this&&routes!=null)routes.parentFailure(error);}
         public void onClosed(UiText reason) { event(() -> {
             if (current != this) return;
+            if(files!=null&&java.util.Set.of("disconnected","sendInterrupted","peerUnresponsive").contains(reason.key)&&files.parentClosed()){
+                publish();listener.notice(UiText.of("fileRecoveringLan"));
+                files.parentRecoveryFinished().whenComplete((value,error)->event(()->{if(current==Session.this){disconnectNow();publish();}}));return;
+            }
             disconnectNow(); publish(); listener.notice(reason.key.isEmpty() ? UiText.of("disconnected") : reason);
         }); }
         void reject(String key) { disconnectNow(); publish(); listener.notice(UiText.of(key)); }
@@ -460,6 +468,7 @@ public final class DesktopClient implements AutoCloseable {
     public TransferPath attachmentTransferPath(String peer,AttachmentRecord record){
         if(record==null)return TransferPath.NONE;
         Session session=current;boolean ready=session!=null&&session.peer!=null&&session.peer.id().equals(peer)&&phase.equals("ready")&&session.files!=null;
+        if(ready&&(record.active()||record.resumable())&&session.files.activityPath()!=null)return session.files.activityPath();
         return TransferPath.forAttachment(ready?session.files.route():"",ready,record);
     }
     public String fileTransport(String peer){Session session=current;return session!=null&&session.peer!=null&&session.peer.id().equals(peer)&&session.files!=null?session.files.route():"";}

@@ -46,9 +46,13 @@ public final class ClientAttachmentTransfers implements AutoCloseable {
     public CompletableFuture<String> retryWithSelection(String id,AttachmentBatchQueue.Selection replacement,java.util.function.BooleanSupplier valid){return batch==null?failed(new IOException("Retry requires V2")):batch.retryWithSelection(id,replacement,valid);}
     public java.util.List<AttachmentBatchQueue.Item> batchItems(){return batch==null?java.util.List.of():batch.items();}
     public CompletableFuture<Void> resumeBatch(){intent.resumeSending();return batch==null?failed(new IOException("Batch requires V2")):batch.resumeAll();}
+    public FileTransferActivity activity(){return streaming==null?FileTransferActivity.IDLE:streaming.activity();}
     public String diagnostics(){return metrics.snapshot()+(streaming==null?"attachment_v2=false\n":streaming.diagnostics());}
     public boolean v2(){return streaming!=null;}
+    boolean matches(String local,String remote,String generation){return streaming!=null&&streaming.matches(local,remote,generation);}
+    public void receiveRecoveryOffer(TransferPacket packet)throws IOException{if(streaming==null)throw new IOException("Recovery requires V2");streaming.receiveRecoveryOffer(packet,true);}
     public AttachmentSource prepareSource(AttachmentSource source)throws IOException {return streaming==null?source:streaming.prepareSource(source);}
+    boolean automaticActive(){return streaming!=null&&intent.alive.get()&&(streaming.automaticActive()||!batch.paused()&&batchItems().stream().anyMatch(item->!item.terminal()&&!java.util.Set.of("paused","sourceUnavailable","interrupted","unknown").contains(item.state())&&intent.allowed(item.info().id,true)));}
     public boolean hasActive(){return streaming!=null&&(streaming.hasActive()||batch.pending());}
     private void blockSending(){for(AttachmentBatchQueue.Item item:batchItems())if(!item.terminal())intent.block(item.info().id,true);}
     public CompletableFuture<Void> pauseBatch(){blockSending();return streaming==null?failed(new IOException("Pause requires V2")):batch.pauseAll();}
@@ -56,6 +60,7 @@ public final class ClientAttachmentTransfers implements AutoCloseable {
     public CompletableFuture<Void> pauseAll(){blockSending();if(routeResume!=null)routeResume.cancel();return streaming==null?failed(new IOException("Pause requires V2")):batch.pauseAll().thenCompose(value->streaming.pauseAll());}
     /** Preserve the batch and checkpoints without attempting to write PAUSE to a lost lane. */
     public CompletableFuture<Void> pauseOnDisconnect(){return streaming==null?failed(new IOException("Pause requires V2")):batch.pauseOnDisconnect().thenCompose(value->streaming.pauseOnDisconnect());}
+    CompletableFuture<Void> quiesceOutgoing(){return batch.freezeForRouteChange().thenCompose(ids->streaming.quiesceOutgoing());}
     public synchronized CompletableFuture<FileRouteResume> suspendForRouteChange(){
         if(streaming==null)return failed(new IOException("Recovery requires V2"));
         if(routeResume!=null&&routeResume.active()&&!routeResume.claimed.get())return CompletableFuture.completedFuture(routeResume);
@@ -94,6 +99,7 @@ public final class ClientAttachmentTransfers implements AutoCloseable {
     }
     public void receive(Frame frame){if(legacy==null)throw new IllegalStateException("Legacy attachment in V2 session");legacy.receive(frame,true);}
     public void receive(TransferPacket packet)throws IOException{if(streaming==null)throw new IOException("V2 attachment requires an encrypted V2 session");streaming.receive(packet,true);}
+    public void receive(TransferPacket packet,java.util.function.BooleanSupplier current)throws IOException{if(streaming==null)throw new IOException("V2 attachment requires an encrypted V2 session");streaming.receive(packet,true,current);}
     public CompletableFuture<Void> pause(String id,boolean outgoing){intent.block(id,outgoing);if(outgoing)blockSending();return streaming==null?failed(new IOException("Pause requires V2")):outgoing&&batchItems().stream().anyMatch(item->item.info().id.equals(id))?batch.pauseAll():streaming.pause(id,outgoing);}
     /** Called on the platform's file/model executor, never the Android/UI thread. */
     public CompletableFuture<Void> resume(String id,boolean outgoing)throws IOException {

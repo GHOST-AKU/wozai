@@ -35,6 +35,13 @@ java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentLifecycleRev
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.ProtocolV4Tests
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.FileLinkProtocolTests
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.FileLinkCapabilityTests
+java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.FileLinkProbeTests
+java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.SessionCloseRaceTests
+java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.FileLinkWriterOrderingTests
+java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.LateFileLanCallbackTests
+java -Xmx48m -cp build/core-tests dev.ghost.nearbyim.core.ExistingHotspotQualityTests
+java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.FileDataPathsTests
+java -Xmx48m -cp build/core-tests dev.ghost.nearbyim.core.AutomaticFileHandoverTests
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.FileRouteQualityPolicyTests
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.FairRecordWriterTests
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AutomaticFileRoutesTests

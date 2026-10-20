@@ -59,8 +59,15 @@ public final class I18nResources {
             case "attachmentOpen": return R.string.attachment_open;
             case "attachmentOpenSaved": return R.string.attachment_open_saved;
             case "attachmentOverwrite": return R.string.attachment_overwrite;
+            case "attachmentPathAllLinks": return R.string.attachment_path_all_links;
             case "attachmentPathBluetooth": return R.string.attachment_path_bluetooth;
+            case "attachmentPathBluetoothDirect": return R.string.attachment_path_bluetooth_direct;
+            case "attachmentPathBluetoothLan": return R.string.attachment_path_bluetooth_lan;
+            case "attachmentPathDirectBluetooth": return R.string.attachment_path_direct_bluetooth;
+            case "attachmentPathDirectLan": return R.string.attachment_path_direct_lan;
             case "attachmentPathDisconnected": return R.string.attachment_path_disconnected;
+            case "attachmentPathLanBluetooth": return R.string.attachment_path_lan_bluetooth;
+            case "attachmentPathLanDirect": return R.string.attachment_path_lan_direct;
             case "attachmentPathLanUnconfirmed": return R.string.attachment_path_lan_unconfirmed;
             case "attachmentPathPendingBluetooth": return R.string.attachment_path_pending_bluetooth;
             case "attachmentPathPendingLan": return R.string.attachment_path_pending_lan;
@@ -289,6 +296,8 @@ public final class I18nResources {
             case "endpointRequired": return R.string.endpoint_required;
             case "error": return R.string.error;
             case "feedback": return R.string.feedback;
+            case "fileComparingLinks": return R.string.file_comparing_links;
+            case "fileRecoveringLan": return R.string.file_recovering_lan;
             case "findNearby": return R.string.find_nearby;
             case "findPeopleNearby": return R.string.find_people_nearby;
             case "findingRemembered": return R.string.finding_remembered;

@@ -528,5 +528,14 @@
   "receiveFolderSaved": "已保存到接收文件夹",
   "receiveFolderFailed": "未能保存到接收文件夹",
   "receiveFolderRetry": "重试保存到文件夹",
-  "receiveFolderSave": "保存到接收文件夹"
+  "receiveFolderSave": "保存到接收文件夹",
+  "fileRecoveringLan": "正在通过局域网恢复传输…",
+  "fileComparingLinks": "正在比较直连与局域网…",
+  "attachmentPathDirectLan": "传输路径：Wi-Fi 直连 → 局域网",
+  "attachmentPathDirectBluetooth": "传输路径：Wi-Fi 直连 → 蓝牙",
+  "attachmentPathLanBluetooth": "传输路径：局域网 → 蓝牙",
+  "attachmentPathLanDirect": "传输路径：局域网 → Wi-Fi 直连",
+  "attachmentPathBluetoothDirect": "传输路径：蓝牙 → Wi-Fi 直连",
+  "attachmentPathBluetoothLan": "传输路径：蓝牙 → 局域网",
+  "attachmentPathAllLinks": "传输路径：Wi-Fi 直连、局域网、蓝牙"
 }

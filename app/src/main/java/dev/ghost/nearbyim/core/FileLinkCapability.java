@@ -6,7 +6,7 @@ import java.util.function.*;
 /** A reserved old-format envelope confirms extensions without adding a rejected Noise bit. */
 public final class FileLinkCapability {
     private final boolean lead;private final String generation;private final Consumer<FileRoutePacket> send;private final Runnable enabled;
-    private String token;private boolean supported;
+    private volatile String token;private volatile boolean supported;
     public FileLinkCapability(boolean lead,String generation,Consumer<FileRoutePacket> send,Runnable enabled){this.lead=lead;this.generation=Objects.requireNonNull(generation);this.send=Objects.requireNonNull(send);this.enabled=Objects.requireNonNull(enabled);}
     public void start(){
         if(!lead||token!=null)return;
@@ -16,7 +16,7 @@ public final class FileLinkCapability {
         if(packet==null||packet.kind!=FileRoutePacket.Kind.ENDPOINTS||packet.route!=AutomaticFileRoutes.Route.BLUETOOTH||UUID.fromString(packet.nonce).version()!=3)return false;
         if(!generation.equals(packet.generation)||!packet.endpoints.isEmpty()||packet.terminal)return true;
         if(lead){if(!supported&&Objects.equals(token,packet.nonce)){supported=true;enabled.run();}}
-        else if(!supported){token=packet.nonce;supported=true;enabled.run();send.accept(envelope(token));}
+        else if(!supported){token=packet.nonce;supported=true;send.accept(envelope(token));enabled.run();}
         else if(Objects.equals(token,packet.nonce))send.accept(envelope(token));
         return true;
     }

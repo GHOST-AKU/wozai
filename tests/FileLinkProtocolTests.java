@@ -29,6 +29,12 @@ public final class FileLinkProtocolTests {
         Object record=ProtocolV4.decodeRecord(plain);
         check(record.getClass().getField("fileLink").get(record)!=null,"NIM4 lost its separate migration envelope");
         check(((ProtocolV4.Record)record).transfer==null&&((ProtocolV4.Record)record).frame==null,"Probe entered the attachment or text path");
+        TransferPacket offer=TransferPacket.offer(AttachmentInfo.v2(UUID.randomUUID().toString(),"payload.bin","application/octet-stream",4096,null,1),UUID.randomUUID().toString(),generation);
+        var recovering=packet.getMethod("recoveryOffer",String.class,String.class,TransferPacket.class);
+        Object restoration=recovering.invoke(null,nonce,generation,offer);Object decodedRestore=decode.invoke(null,(Object)(byte[])encode.invoke(null,restoration));
+        byte[] restoreBytes=(byte[])packet.getField("data").get(decodedRestore);TransferPacket restored=TransferCodec.decode(restoreBytes,0,restoreBytes.length);
+        check(restored.kind==TransferPacket.Kind.OFFER&&restored.transferId.equals(offer.transferId),"Recovery offer lost original identity");
+        reject(()->recovering.invoke(null,nonce,"b".repeat(64),offer),"Recovery metadata escaped its parent generation");
         System.out.println("FILE link protocol: bounded data, immutable payload, budget/index/generation, malformed envelope and NIM4 isolation passed");
     }
     private interface Work{void run()throws Exception;}

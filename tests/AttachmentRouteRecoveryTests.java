@@ -53,6 +53,40 @@ public final class AttachmentRouteRecoveryTests {
             resume(p.files[1],b);resume(p.files[0],a);Thread.sleep(100);
             check(p.delivered.isEmpty()&&p.files[0].batchItems().get(0).state().equals("canceled"),"A stale recovery callback revived a canceled file");
         }
+        try(Pair p=new Pair()){
+            p.start();var actorField=AttachmentTransferV2.class.getDeclaredField("actor");actorField.setAccessible(true);
+            var actor=(ExecutorService)actorField.get(p.engines[1]);CountDownLatch entered=new CountDownLatch(1),release=new CountDownLatch(1);
+            CompletableFuture<Void> holding=CompletableFuture.runAsync(()->{try{actor.submit(()->{entered.countDown();try{release.await(3,TimeUnit.SECONDS);}catch(InterruptedException interrupted){Thread.currentThread().interrupt();}}).get();}catch(Exception failure){throw new CompletionException(failure);}});
+            check(entered.await(3,TimeUnit.SECONDS),"Receiver actor barrier did not start");
+            try{
+                var incoming=AttachmentTransferV2.class.getDeclaredField("incoming");incoming.setAccessible(true);Object task=incoming.get(p.engines[1]);
+                var output=task.getClass().getDeclaredField("output");output.setAccessible(true);java.nio.channels.FileChannel channel=(java.nio.channels.FileChannel)output.get(task);
+                CompletableFuture<FileRouteResume> suspended=p.files[1].suspendForRouteChange();
+                // Batch freezing precedes engine suspension; wait until cancellation is visible.
+                var canceled=task.getClass().getDeclaredField("canceled");canceled.setAccessible(true);long until=System.nanoTime()+TimeUnit.SECONDS.toNanos(2);
+                while(!((AtomicBoolean)canceled.get(task)).get()&&System.nanoTime()<until)Thread.sleep(2);
+                check(((AtomicBoolean)canceled.get(task)).get(),"Route suspension did not request receiver cancellation");
+                check(channel.isOpen(),"Route suspension closed the receiver file from outside its actor while a write could be active");
+                release.countDown();suspended.get(3,TimeUnit.SECONDS);holding.get(3,TimeUnit.SECONDS);
+                check(!channel.isOpen(),"Receiver actor did not close the old output handle after its checkpoint");
+            }finally{release.countDown();}
+        }
+        try(Pair p=new Pair()){
+            p.start();var actorField=AttachmentTransferV2.class.getDeclaredField("actor");actorField.setAccessible(true);var actor=(ExecutorService)actorField.get(p.engines[1]);
+            CountDownLatch entered=new CountDownLatch(1),release=new CountDownLatch(1);actor.submit(()->{entered.countDown();try{release.await(3,TimeUnit.SECONDS);}catch(InterruptedException interrupted){Thread.currentThread().interrupt();}});
+            check(entered.await(3,TimeUnit.SECONDS),"Stale-packet actor barrier did not start");
+            try{
+                TransferTaskKey key=new TransferCheckpointStore(p.root.resolve("p1/.tasks-v2")).list().get(0).key();
+                TransferPacket stale=TransferPacket.data(key.transferId(),key.sourceGeneration(),"c".repeat(64),p.content.length,0,new byte[]{1});AtomicBoolean current=new AtomicBoolean(true);
+                java.lang.reflect.Method receive;
+                try{receive=ClientAttachmentTransfers.class.getMethod("receive",TransferPacket.class,java.util.function.BooleanSupplier.class);}catch(NoSuchMethodException missing){throw new AssertionError("Queued FILE records cannot recheck their source-lane authorization",missing);}
+                receive.invoke(p.files[1],stale,(java.util.function.BooleanSupplier)current::get);current.set(false);release.countDown();actor.submit(()->{}).get(3,TimeUnit.SECONDS);
+                check(p.failure.get()==null,"An old FILE record reached a new/current transfer attempt");
+                p.holdCredits=false;p.engines[0].receive(p.heldCredit,true);p.verify();
+                p.files[1].shutdown().get(3,TimeUnit.SECONDS);
+                receive.invoke(p.files[1],stale,(java.util.function.BooleanSupplier)()->false);
+            }finally{release.countDown();}
+        }
         System.out.println("Selective FILE recovery: checkpoint resume, manual pause before/during migration, peer STATUS guard and canceled-task safety passed");
     }
     private static Object suspend(ClientAttachmentTransfers files)throws Exception{return ((CompletableFuture<?>)ClientAttachmentTransfers.class.getMethod("suspendForRouteChange").invoke(files)).get(5,TimeUnit.SECONDS);}

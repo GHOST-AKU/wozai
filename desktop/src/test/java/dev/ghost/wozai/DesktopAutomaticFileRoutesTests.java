@@ -71,12 +71,11 @@ public final class DesktopAutomaticFileRoutesTests {
             check(Files.mismatch(blockedFile,b.attachmentPath(ai.id(),resumed).get(5,TimeUnit.SECONDS))==-1,"Renegotiated FILE resume changed bytes");
             AutomaticFileRoutes aroutes=(AutomaticFileRoutes)field(session,"files"),broutes=(AutomaticFileRoutes)field(field(b,"current"),"files");
             Path flowing=root.resolve("flowing.bin");try(OutputStream output=Files.newOutputStream(flowing)){byte[] block=new byte[1024*1024];for(int n=0;n<128;n++)output.write(block);}
-            String flowingId=a.sendAttachment(bi.id(),flowing).get(15,TimeUnit.SECONDS);
+            String flowingId;try{flowingId=a.sendAttachment(bi.id(),flowing).get(15,TimeUnit.SECONDS);}catch(Exception error){throw new AssertionError(a.transferDiagnostics(bi.id())+"\nPEER\n"+b.transferDiagnostics(ai.id()),error);}
             until(()->b.liveMessages(ai.id(),bs.messages(ai.id())).stream().anyMatch(m->m.id().equals(flowingId)&&m.attachment().transferred>=1024*1024),"Unblocked FILE never started flowing");
             ((FramedSession)field(aroutes,"selected")).close(UiText.EMPTY);
-            until(()->as.messages(bi.id()).stream().anyMatch(m->m.id().equals(flowingId)&&m.attachment().state.equals("paused"))&&bs.messages(ai.id()).stream().anyMatch(m->m.id().equals(flowingId)&&m.attachment().state.equals("paused")),"Unblocked active socket loss failed to preserve paused work");
+            until(()->as.messages(bi.id()).stream().anyMatch(m->m.id().equals(flowingId)&&m.attachment().state.equals("delivered")),"Unblocked socket loss did not automatically resume and deliver");
             check(ready(ea)&&ready(eb),"Active FILE socket close ended healthy CHAT");
-            a.attachmentAction(bi.id(),flowingId,true,"resume").get(15,TimeUnit.SECONDS);
             until(()->as.messages(bi.id()).stream().anyMatch(m->m.id().equals(flowingId)&&m.attachment().state.equals("delivered")),"Unblocked socket-loss task could not resume on same engine");
             check(field(session,"transfers")==transfers,"Active FILE loss replaced original engine");
 

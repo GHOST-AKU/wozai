@@ -51,7 +51,7 @@ public final class AutomaticFileRoutes implements AutoCloseable {
         default List<Endpoint> currentLanEndpoints(){return null;}
         void stopDirect();void close();
     }
-    public interface Listener {void receive(TransferPacket packet);void changed();void failed(IOException error);default boolean busy(){return false;}}
+    public interface Listener {void receive(TransferPacket packet);default void receive(TransferPacket packet,BooleanSupplier current){if(current.getAsBoolean())receive(packet);}void changed();void failed(IOException error);default boolean busy(){return false;}}
     private final FramedSession chat;private final String localId,nickname,remoteId,remoteKey,chatRoute;
     private final DeviceIdentity identity;private final byte[] noiseKey;private final BooleanSupplier approved;private final Platform platform;private final Listener listener;
     private final boolean lead;
@@ -71,6 +71,13 @@ public final class AutomaticFileRoutes implements AutoCloseable {
     private final Set<String> retiredGroups=new LinkedHashSet<>();
     private long retiredParentBytes;private int retiredParentControls;
     private volatile boolean refreshing;private String refreshRequest,recheckNonce;private ScheduledFuture<?> recheckDeadline;
+    private final FileDataPaths dataPaths=new FileDataPaths();
+    private volatile ClientAttachmentTransfers attachedFiles;
+    private volatile FileRouteHandover handover;
+    private FileRoutePacket pendingLinkCapability;
+    private volatile boolean parentRecovery,parentSecurityFailure;
+    private volatile FramedSession retiredParentFile;
+    private final CompletableFuture<Void> parentFinished=new CompletableFuture<>();
     public AutomaticFileRoutes(FramedSession chat,String localId,String nickname,DeviceIdentity identity,byte[] noiseKey,String remoteId,String remoteKey,String chatRoute,BooleanSupplier approved,Platform platform,Listener listener){
         this.chat=Objects.requireNonNull(chat);this.localId=Objects.requireNonNull(localId).toLowerCase(Locale.ROOT);this.nickname=nickname;this.identity=Objects.requireNonNull(identity);this.noiseKey=noiseKey.clone();this.remoteId=Objects.requireNonNull(remoteId).toLowerCase(Locale.ROOT);this.remoteKey=Objects.requireNonNull(remoteKey);this.chatRoute=Objects.requireNonNull(chatRoute);this.approved=Objects.requireNonNull(approved);this.platform=Objects.requireNonNull(platform);this.listener=Objects.requireNonNull(listener);lead=this.localId.compareTo(this.remoteId)<0;actor.setRemoveOnCancelPolicy(true);
     }
@@ -79,16 +86,60 @@ public final class AutomaticFileRoutes implements AutoCloseable {
         if(!pending.tryAcquire()){close();listener.failed(new IOException("FILE control queue full"));return;}
         try{actor.execute(()->{try{if(!closed)action.run();}catch(RuntimeException e){fail(new IOException("FILE routing failed",e),true);}finally{pending.release();}});}catch(RejectedExecutionException ignored){pending.release();}
     }
-    private boolean valid(){return !closed&&!terminal&&chat.isReady()&&approved.getAsBoolean()&&Objects.equals(generation,chat.connectionGeneration());}
+    private boolean valid(){return !closed&&!terminal&&(chat.isReady()||parentRecovery)&&approved.getAsBoolean()&&(parentRecovery||Objects.equals(generation,chat.connectionGeneration()));}
     public void start(){post(this::startActor);}
+    public void attachFiles(ClientAttachmentTransfers files){
+        try{if(files==null||!files.matches(identity.fingerprint(),DeviceIdentity.fingerprint(remoteKey),chat.connectionGeneration()))throw new IllegalArgumentException("FILE engine identity mismatch");}
+        catch(java.security.GeneralSecurityException invalid){throw new IllegalArgumentException("Invalid FILE peer root",invalid);}
+        if(attachedFiles!=null&&attachedFiles!=files)throw new IllegalStateException("FILE engine already attached");
+        attachedFiles=files;post(()->{startActor();startHandover();});
+    }
+    private void startHandover(){
+        if(handover!=null||attachedFiles==null||!valid()||!chat.automaticFilesSupported())return;
+        handover=new FileRouteHandover(new FileRouteHandover.Host(){
+            public boolean valid(){return AutomaticFileRoutes.this.valid();}public boolean lead(){return lead;}
+            public boolean recoverParent(){return parentClosed();}public boolean parentLost(){return parentRecovery;}public void parentFinished(){parentFinished.complete(null);}
+            public String generation(){return generation;}public String routeToken(){return nonce;}public String parentRoute(){return chatRoute;}public String route(){return selectedRoute;}
+            public FramedSession parent(){return chat;}public FramedSession selected(){return selected;}public ClientAttachmentTransfers files(){return attachedFiles;}
+            public ScheduledExecutorService timer(){return actor;}public void post(Runnable work){AutomaticFileRoutes.this.post(work);}public void changed(){listener.changed();}
+            public List<Endpoint> lanEndpoints(){List<Endpoint> current=platform.currentLanEndpoints();return current!=null?current:endpointsPrepared?localEndpoints:null;}
+            public void dial(List<Endpoint> endpoints,Consumer<StreamConnection> opened,Consumer<Throwable> failed){platform.connectLan(endpoints,opened,failed);}
+            public FramedSession lane(StreamConnection connection,boolean initiator,FramedSession.Listener listener)throws IOException{FramedSession wire=FramedSession.secure(connection,localId,nickname,identity,noiseKey,initiator,listener,false,true);wire.restrictToFileLane();return wire;}
+            public boolean expectedPeer(FramedSession wire,Frame hello){return remoteId.equals(hello.id)&&remoteKey.equals(wire.remotePublicKey());}
+            public void install(FramedSession wire,String token,boolean fault,String route){installHandover(wire,token,fault,route);}
+            public void transfer(FramedSession source,String token,TransferPacket packet){deliver(packet,source,selectedRoute,token);}public void failure(IOException error,boolean security){fail(error,security);}
+        });
+        if(pendingLinkCapability!=null){handover.capability(pendingLinkCapability);pendingLinkCapability=null;}
+    }
+    private void installHandover(FramedSession wire,String token,boolean fault,String route){
+        FramedSession old=selected;String before=selectedRoute;String previous=nonce;
+        retireParent();retireGroup(previous);retireGroup(groupGrant);clearGroupProbe();groupGrant=null;groupParameters=null;cancelDeadline();
+        candidate=wire==chat?null:wire;selected=wire;selectedRoute=route;nonce=token;attempting=parseRoute(route);bound=true;dialed=true;selecting=false;refreshing=false;
+        if(before.equals("wifi-direct")){directOutcome=fault?"interrupted":"slower_than_lan";lastRouteFailure=fault?"direct_interrupted":"";}
+        if(old!=null&&old!=wire&&old!=chat)old.close(UiText.EMPTY);platform.stopDirect();listener.changed();
+    }
+    public void parentFailure(IOException error){if(!(error instanceof java.net.SocketException)&&!(error instanceof EOFException)&&!(error instanceof InterruptedIOException))parentSecurityFailure=true;}
+    /** Retain only the existing approved transfer scope; no new chat or app-restart consent. */
+    public boolean parentClosed(){
+        FileRouteHandover recovery=handover;ClientAttachmentTransfers files=attachedFiles;
+        if(parentRecovery)return true;
+        if(closed||terminal||parentSecurityFailure||recovery==null||!recovery.supported()||files==null||!files.automaticActive()&&!recovery.busy()||!approved.getAsBoolean())return false;
+        retiredParentFile=selected;parentRecovery=true;post(recovery::parentInterrupted);return true;
+    }
+    public CompletableFuture<Void> parentRecoveryFinished(){return parentFinished;}
+    public void receiveFileLink(FileLinkPacket packet){post(()->receiveFileLink(chat,packet));}
+    private void receiveFileLink(FramedSession wire,FileLinkPacket packet){startActor();startHandover();if(!valid())return;if(handover==null){fail(new IOException("FILE migration without attached engine"),true);return;}handover.receive(packet,wire);}
+    public boolean sendRecoveryOffer(TransferPacket packet){FileRouteHandover current=handover;return current!=null&&current.sendRecoveryOffer(packet);}
     private void startActor(){
         if(started)return;started=true;generation=chat.connectionGeneration();
         if(!valid()){fail(new IOException("Approved chat unavailable"),true);return;}
-        platform.prepareLan(endpoints->post(()->{if(endpoints==null||endpoints.size()>8){fail(new IOException("Too many FILE endpoints"),true);return;}endpointsPrepared=true;localEndpoints=Collections.unmodifiableList(new ArrayList<>(endpoints));if(attempting==Route.LAN)sendEndpoints();}),connection->postAccepted(connection));
-        actor.scheduleWithFixedDelay(()->{if(!closed&&!terminal&&!valid())fail(new IOException("Chat closed or approval revoked"),true);},1,1,TimeUnit.SECONDS);
+        platform.prepareLan(endpoints->post(()->{if(endpoints==null||endpoints.size()>8){fail(new IOException("Too many FILE endpoints"),true);return;}endpointsPrepared=true;localEndpoints=Collections.unmodifiableList(new ArrayList<>(endpoints));if(handover!=null)handover.lanPrepared();if(attempting==Route.LAN)sendEndpoints();}),connection->postAccepted(connection));
+        actor.scheduleWithFixedDelay(()->{if(!closed&&!terminal&&!valid()&&!parentClosed())fail(new IOException("Chat closed or approval revoked"),true);},1,1,TimeUnit.SECONDS);
+        startHandover();
     }
     public synchronized CompletableFuture<Route> ensureReady(){
         if(closed||terminal||!chat.isReady()||!approved.getAsBoolean())return failedFuture(new IOException("Approved FILE route unavailable"));
+        if(handover!=null&&handover.busy())return handover.ready();
         if(selected!=null&&!refreshing)return CompletableFuture.completedFuture(selectedKind());
         if(ready==null||ready.isDone()){ready=new CompletableFuture<>();post(()->{startActor();if(!valid())return;if(!chat.automaticFilesSupported()){selectLegacy();return;}if(lead){if(attempting==null)chooseInitialRoute();}else if(attempting==null)control(FileRoutePacket.Kind.REQUEST,UUID.randomUUID().toString(),Route.LAN,false,Collections.emptyList());});}
         return ready;
@@ -256,6 +307,7 @@ public final class AutomaticFileRoutes implements AutoCloseable {
     private void receive(FileRoutePacket p){
         startActor();if(!valid())return;
         if(p==null||!generation.equals(p.generation)){fail(new IOException("FILE parent binding mismatch"),true);return;}
+        if(p.kind==FileRoutePacket.Kind.ENDPOINTS&&p.route==Route.BLUETOOTH&&UUID.fromString(p.nonce).version()==3){startHandover();if(handover!=null)handover.capability(p);else if(!lead)pendingLinkCapability=p;return;}
         if(receiveGroupProbe(p))return;
         if(receivePath(p))return;
         if(receiveRecheck(p))return;
@@ -306,7 +358,10 @@ public final class AutomaticFileRoutes implements AutoCloseable {
     private boolean extra(){return attempting==Route.WIFI_DIRECT||attempting==Route.LAN&&!"lan".equals(chatRoute);}
     private boolean selection(FileRoutePacket.Kind kind){FileRoutePacket p=new FileRoutePacket(kind,nonce,generation,attempting,false,Collections.emptyList());return extra()?candidate!=null&&candidate.sendFileRoute(p):chat.sendFileRoute(p);}
     private void select(){selecting=true;if(!selection(FileRoutePacket.Kind.SELECT))fail(new IOException("FILE selection failed"),true);}
-    private void postAccepted(StreamConnection connection){String token=nonce;opened(new Opened(connection,true),token,Route.LAN);}
+    private void postAccepted(StreamConnection connection){
+        pendingConnections.add(connection);if(closed){pendingConnections.remove(connection);dispose(connection);return;}
+        post(()->{pendingConnections.remove(connection);if(handover!=null&&handover.accept(connection))return;String token=nonce;opened(new Opened(connection,true),token,Route.LAN);});
+    }
     private void opened(Opened opened,String token,Route route){
         pendingConnections.add(opened.connection);
         if(closed){pendingConnections.remove(opened.connection);dispose(opened.connection);return;}
@@ -314,6 +369,7 @@ public final class AutomaticFileRoutes implements AutoCloseable {
             try{
                 Lane listener=new Lane(token,route,!opened.incoming);
                 candidate=FramedSession.secure(opened.connection,localId,nickname,identity,noiseKey,!opened.incoming,listener,false,true);listener.wire=candidate;candidate.restrictToFileLane();
+                if(handover!=null&&handover.supported())candidate.enableFileLink();
                 cancelDeadline();deadline=actor.schedule(()->{if(current(token,route))attemptFailed(new IOException("FILE lane handshake timed out"),"handshake_timeout");},LANE_HANDSHAKE_TIMEOUT_MS,TimeUnit.MILLISECONDS);candidate.start();
             }catch(IOException e){dispose(opened.connection);attemptFailed(e);}
         });
@@ -334,12 +390,13 @@ public final class AutomaticFileRoutes implements AutoCloseable {
         }finally{processed.complete(null);}});try{processed.get(15,TimeUnit.SECONDS);}catch(Exception error){wire.close(UiText.EMPTY);}finally{laneTransitions.remove(processed);}}
         public void onTransfer(TransferPacket packet){
             if(!live())return;
-            if(selected==wire&&generation.equals(packet.connectionGeneration))listener.receive(packet);
+            if(selected==wire&&generation.equals(packet.connectionGeneration))deliver(packet,wire,route==Route.WIFI_DIRECT?"wifi-direct":route==Route.LAN?"lan":"bluetooth",token);
             else post(()->{if(live())fail(new IOException("FILE packet before selection or wrong generation"),true);});
         }
+        public void onFileLink(FileLinkPacket packet){post(()->{if(live())receiveFileLink(wire,packet);});}
         public void onText(Frame f){post(()->{if(live())fail(new IOException("Text on FILE lane"),true);});}public void onAck(String id){post(()->{if(live())fail(new IOException("Receipt on FILE lane"),true);});}
         public void onFailure(IOException e){post(()->{if(live()&&(e instanceof NoiseRecordChannel.AuthenticationException))fail(e,true);});}
-        public void onClosed(UiText reason){post(()->{if(!live()||refreshing)return;if(selected==wire)fail(new IOException("FILE lane interrupted"),false);else attemptFailed(new IOException("FILE lane handshake failed"),"handshake_failed");});}
+        public void onClosed(UiText reason){post(()->{if(!live()||refreshing)return;if(selected==wire){if(handover!=null&&handover.interrupted())return;fail(new IOException("FILE lane interrupted"),false);}else attemptFailed(new IOException("FILE lane handshake failed"),"handshake_failed");});}
     }
     private void attemptFailed(IOException error){attemptFailed(error,error instanceof DirectFailure?((DirectFailure)error).reason.name().toLowerCase(Locale.ROOT):"platform_error");}
     private void attemptFailed(IOException error,String reason){
@@ -349,7 +406,7 @@ public final class AutomaticFileRoutes implements AutoCloseable {
         Route next=attempting==Route.WIFI_DIRECT?Route.LAN:Route.BLUETOOTH;
         if(attempting==Route.BLUETOOTH){fail(error,false);return;}begin(next);
     }
-    private void complete(Route route){if(route==Route.WIFI_DIRECT)directOutcome="selected";synchronized(this){if(ready!=null&&!ready.isDone())ready.complete(route);}listener.changed();}
+    private void complete(Route route){if(route==Route.WIFI_DIRECT)directOutcome="selected";if(handover!=null)handover.selected();synchronized(this){if(ready!=null&&!ready.isDone())ready.complete(route);}listener.changed();}
     private void fail(IOException error,boolean security){
         CompletableFuture<Route> retiring;boolean notifyPeer;
         synchronized(this){
@@ -359,9 +416,10 @@ public final class AutomaticFileRoutes implements AutoCloseable {
             if(attempting==Route.WIFI_DIRECT&&directOutcome.equals("attempting"))directOutcome="failed";
             notifyPeer=security&&!terminal&&nonce!=null&&generation!=null&&chat.isReady();
             if(!security)retireParent();else{retiredParentBytes=0;retiredParentControls=0;}
-            terminal|=security;retiring=ready;ready=null;selected=null;selectedRoute="";refreshing=false;
+            if(parentRecovery)parentFinished.completeExceptionally(error);terminal|=security;retiring=ready;ready=null;selected=null;selectedRoute="";refreshing=false;
         }
         if(notifyPeer)control(FileRoutePacket.Kind.FAIL,nonce,attempting,true,Collections.emptyList());
+        if(handover!=null)handover.stop(error);
         finishRecheck();resetCandidate();attempting=null;nonce=null;
         if(security)platform.close();if(retiring!=null&&!retiring.isDone())retiring.completeExceptionally(error);listener.failed(error);listener.changed();
     }
@@ -372,7 +430,7 @@ public final class AutomaticFileRoutes implements AutoCloseable {
         if(nonce!=null&&attempting==Route.WIFI_DIRECT&&UUID.fromString(nonce).version()==3)retireGroup(nonce);
         FramedSession old=candidate;candidate=null;bound=false;dialed=false;selecting=false;if(old!=null)old.close(UiText.EMPTY);platform.stopDirect();
     }
-    public boolean send(TransferPacket packet){FramedSession wire=selected;if(wire==null||closed||terminal||!chat.isReady()||!approved.getAsBoolean()||packet==null||!Objects.equals(generation,packet.connectionGeneration))return false;return wire.sendTransfer(packet);}
+    public boolean send(TransferPacket packet){FramedSession wire=selected;if(wire==null||!currentFile(wire,nonce)||packet==null||!Objects.equals(generation,packet.connectionGeneration))return false;String path=selectedRoute;return wire.sendTransfer(packet,()->dataPaths.data(packet,true,path));}
     public boolean highBandwidth(){return selected!=null&&!closed&&!terminal&&("wifi-direct".equals(selectedRoute)||"lan".equals(selectedRoute));}
     /** The shared parent has no per-attempt nonce. Retain only a finite discard allowance for its retired authorization. */
     private void retireParent(){
@@ -388,10 +446,15 @@ public final class AutomaticFileRoutes implements AutoCloseable {
         return true;
     }
     public void receiveChatTransfer(TransferPacket packet){
-        if(valid()&&selected==chat&&packet!=null&&Objects.equals(generation,packet.connectionGeneration)){listener.receive(packet);return;}
+        if(valid()&&selected==chat&&packet!=null&&Objects.equals(generation,packet.connectionGeneration)){deliver(packet,chat,selectedRoute,nonce);return;}
         if(discardRetiredParent(packet))return;
-        post(()->{startActor();if(valid()&&selected==null&&!chat.automaticFilesSupported())selectLegacy();if(valid()&&selected==chat&&packet!=null&&Objects.equals(generation,packet.connectionGeneration))listener.receive(packet);else if(!discardRetiredParent(packet))fail(new IOException("Unexpected chat FILE packet"),true);});
+        post(()->{startActor();if(valid()&&selected==null&&!chat.automaticFilesSupported())selectLegacy();if(valid()&&selected==chat&&packet!=null&&Objects.equals(generation,packet.connectionGeneration))deliver(packet,chat,selectedRoute,nonce);else if(!discardRetiredParent(packet))fail(new IOException("Unexpected chat FILE packet"),true);});
     }
+    private boolean currentFile(FramedSession wire,String token){return wire!=null&&valid()&&selected==wire&&Objects.equals(nonce,token)&&(!parentRecovery||wire!=retiredParentFile);}
+    private void deliver(TransferPacket packet,FramedSession wire,String route,String token){BooleanSupplier current=()->currentFile(wire,token);if(!current.getAsBoolean())return;dataPaths.data(packet,false,route);listener.receive(packet,current);}
+    public void rememberHistory(AttachmentRecord record){dataPaths.remember(record);}
+    public AttachmentRecord decorate(AttachmentRecord record)throws IOException{return dataPaths.decorate(record);}
+    public TransferPath activityPath(){FileRouteHandover current=handover;return current!=null&&current.busy()?current.activityPath():null;}
     public String route(){return selectedRoute;}
     /** Live UI state only; pending routes are never persisted as completed data paths. */
     public TransferPath pendingPath(){
@@ -405,12 +468,12 @@ public final class AutomaticFileRoutes implements AutoCloseable {
         FramedSession wire=selected;
         StringBuilder wireReport=new StringBuilder("file_wire_schema=1\nfile_wire_kind="+(wire==null?"none":wire==chat?"chat":"dedicated")+"\n");
         if(wire!=null)for(String line:wire.diagnostics().split("\n"))if(!line.isEmpty())wireReport.append("file_wire_").append(line).append('\n');
-        return "file_transport="+selectedRoute+"\nfile_route_pending="+(selected==null)+"\nfile_route_state="+state+"\nfile_attempt_route="+(attempting==null?"":name(attempting))+"\nfile_direct_outcome="+directOutcome+"\nfile_direct_method="+directMethod+"\nfile_direct_skip_reason="+directSkipReason+"\nfile_route_last_failure="+lastRouteFailure+"\nfile_existing_wifi="+(parentHotspot?"confirmed_hotspot":"unconfirmed")+"\n"+wireReport+platform.diagnostics();
+        return "file_transport="+selectedRoute+"\nfile_route_pending="+(selected==null)+"\nfile_route_state="+state+"\nfile_attempt_route="+(attempting==null?"":name(attempting))+"\nfile_direct_outcome="+directOutcome+"\nfile_direct_method="+directMethod+"\nfile_direct_skip_reason="+directSkipReason+"\nfile_route_last_failure="+lastRouteFailure+"\nfile_existing_wifi="+(parentHotspot?"confirmed_hotspot":"unconfirmed")+"\n"+(handover==null?"file_handover_supported=false\n":handover.diagnostics())+wireReport+platform.diagnostics();
     }
     public void abort(){post(()->{String token=nonce;Route route=attempting;fail(new IOException("FILE route canceled"),false);if(valid()&&token!=null)control(FileRoutePacket.Kind.ABORT,token,route,false,Collections.emptyList());});}
     public void close(){
-        synchronized(this){if(closed)return;closed=true;pathProbe=null;pathSnapshot=null;parentHotspot=false;verifiedPathNonce=null;retiredParentBytes=0;retiredParentControls=0;if(ready!=null&&!ready.isDone())ready.completeExceptionally(new IOException("FILE routes closed"));}
-        selected=null;selectedRoute="";FramedSession old=candidate;if(old!=null)old.close(UiText.EMPTY);platform.close();for(StreamConnection connection:pendingConnections)dispose(connection);pendingConnections.clear();for(CompletableFuture<Void> transition:laneTransitions)transition.completeExceptionally(new IOException("FILE routes closed"));laneTransitions.clear();actor.shutdownNow();Arrays.fill(noiseKey,(byte)0);
+        synchronized(this){if(closed)return;closed=true;parentFinished.completeExceptionally(new IOException("FILE routes closed"));pathProbe=null;pathSnapshot=null;parentHotspot=false;verifiedPathNonce=null;retiredParentBytes=0;retiredParentControls=0;if(ready!=null&&!ready.isDone())ready.completeExceptionally(new IOException("FILE routes closed"));}
+        if(handover!=null)handover.close();selected=null;selectedRoute="";FramedSession old=candidate;if(old!=null)old.close(UiText.EMPTY);platform.close();for(StreamConnection connection:pendingConnections)dispose(connection);pendingConnections.clear();for(CompletableFuture<Void> transition:laneTransitions)transition.completeExceptionally(new IOException("FILE routes closed"));laneTransitions.clear();actor.shutdownNow();Arrays.fill(noiseKey,(byte)0);
     }
     private static IOException asIo(Throwable error){return error instanceof IOException?(IOException)error:new IOException("FILE transport unavailable",error);}
     private static void dispose(StreamConnection connection){try{connection.close();}catch(IOException ignored){}}

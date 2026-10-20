@@ -12,7 +12,7 @@ public final class FileLinkCapabilityTests {
         List<FileRoutePacket> fromLead=new ArrayList<>(),fromPeer=new ArrayList<>();String generation="a".repeat(64);
         var constructor=type.getConstructor(boolean.class,String.class,Consumer.class,Runnable.class);
         int[] enabled={0,0};Object lead=constructor.newInstance(true,generation,(Consumer<FileRoutePacket>)fromLead::add,(Runnable)()->enabled[0]++);
-        Object peer=constructor.newInstance(false,generation,(Consumer<FileRoutePacket>)fromPeer::add,(Runnable)()->enabled[1]++);
+        Object peer=constructor.newInstance(false,generation,(Consumer<FileRoutePacket>)fromPeer::add,(Runnable)()->{check(fromPeer.size()==1,"Extension traffic can overtake its capability echo");enabled[1]++;});
         type.getMethod("start").invoke(lead);
         check(fromLead.size()==1&&enabled[0]==0,"Sending a challenge cannot authorize extension traffic");
         FileRoutePacket request=FileRouteCodec.decode(FileRouteCodec.encode(fromLead.get(0)));

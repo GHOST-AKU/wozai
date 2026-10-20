@@ -163,7 +163,7 @@ public final class AttachmentBatchQueue implements AutoCloseable {
             for(Item item:added)listener.changed(item.record());
             routeReady.whenComplete((value,error)->later(()->{
                 routeGates.remove(batch);
-                if(error!=null){for(Item item:List.copyOf(items))if(item.batchId().equals(batch)&&!item.terminal()&&!resumableState(item.state()))try{state(new Item(item.batchId(),item.info(),item.selection(),"failed",item.transferred(),item.origin(),item.retryOf()));}catch(IOException storageFailure){paused=true;}}
+                if(error!=null){for(Item item:List.copyOf(items))if(item.batchId().equals(batch)&&!item.terminal()&&!resumableState(item.state()))try{state(new Item(item.batchId(),item.info(),item.selection(),routeSuspended?"paused":"failed",item.transferred(),item.origin(),item.retryOf()));}catch(IOException storageFailure){paused=true;}}
                 pump();
             }));later(this::pump);return batch;
         });

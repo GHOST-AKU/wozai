@@ -33,6 +33,20 @@ jobs:
         with:
           packages: platform-tools
       - run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
+      - name: Verify FILE migration and pinned legacy interoperability
+        run: |
+          mkdir -p build/file-handover
+          if ! git cat-file -e 2b7347e39d0360241055610c7c4e7aeeb049bff7^{commit}; then
+            git fetch --no-tags --depth=1 origin 2b7347e39d0360241055610c7c4e7aeeb049bff7
+          fi
+          sh tools/test-core.sh > build/file-handover/core.log 2>&1
+          sh tools/test-file-link-legacy.sh > build/file-handover/legacy.log 2>&1
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: file-migration-evidence
+          path: build/file-handover/*.log
+          if-no-files-found: warn
       - name: Build, lint and verify with the persistent signing secrets
         env:
           WOZAI_ANDROID_KEYSTORE_BASE64: ${{ secrets.WOZAI_ANDROID_KEYSTORE_BASE64 }}
