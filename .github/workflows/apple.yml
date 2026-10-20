@@ -21,5 +21,14 @@ jobs:
           swift --version
       - name: Test shared native core
         run: swift test --package-path apple
+      - name: Exchange encrypted records with the production Java implementation
+        run: bash tools/test-apple-interop.sh
       - name: Build native macOS app with Apple components
         run: xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM -destination 'platform=macOS' -configuration Debug -derivedDataPath apple/DerivedData CODE_SIGNING_ALLOWED=NO build
+      - name: Build native iPhone and iPad app for devices without distribution signing
+        run: xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM -destination 'generic/platform=iOS' -configuration Release -derivedDataPath apple/DeviceBuild CODE_SIGNING_ALLOWED=NO build
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: apple-native-evidence
+          path: build/apple-interop/*.log
