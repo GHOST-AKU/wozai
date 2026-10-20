@@ -16,7 +16,7 @@ public final class AppleInteropPeer {
             try (Socket socket = new Socket("127.0.0.1", Integer.parseInt(args[1]))) { exchange(socket, true, false); }
         } else {
             try (ServerSocket listener = new ServerSocket(ui ? 47831 : 0, 1, InetAddress.getByName("127.0.0.1"))) {
-                listener.setSoTimeout(ui ? 120_000 : 30_000);
+                listener.setSoTimeout(ui ? 300_000 : 30_000);
                 Files.writeString(Path.of(args[1]), Integer.toString(listener.getLocalPort()));
                 try (Socket socket = listener.accept()) { exchange(socket, false, ui); }
             }

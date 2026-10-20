@@ -7,6 +7,7 @@ struct ChatDetailView: View {
     let contact: Conversation
     @State private var messages: [ChatMessage] = []
     @State private var draft = ""
+    @State private var draftLoaded = false
     @State private var before: MessageCursor?
     @State private var sending = false
     @State private var safety = false
@@ -50,7 +51,11 @@ struct ChatDetailView: View {
             guard !Task.isCancelled else { return }
             messages = loaded
         }
-        .task(id: contact.id) { draft = await model.loadDraft(peerID: contact.id) }
+        .task(id: contact.id) {
+            let saved = await model.loadDraft(peerID: contact.id)
+            guard !Task.isCancelled else { return }
+            draft = saved; draftLoaded = true
+        }
         .onChange(of: draft) { _, text in model.saveDraft(peerID: contact.id, text: text) }
         .sheet(isPresented: $safety) {
             if let peer = model.activePeer, peer.id == contact.id {
@@ -79,13 +84,14 @@ struct ChatDetailView: View {
                 TextField("Message", text: $draft, axis: .vertical)
                     .lineLimit(1...6)
                     .textFieldStyle(.roundedBorder)
+                    .disabled(!draftLoaded)
                     .accessibilityIdentifier("composer")
                 Button { Task { await send() } } label: {
                     Label("Send", systemImage: "arrow.up.circle.fill").labelStyle(.iconOnly).font(.title2)
                 }
                 .keyboardShortcut(.return, modifiers: .command)
                 .help("Send message")
-                .disabled(!connected || sending || tooLong || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(!connected || !draftLoaded || sending || tooLong || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 .accessibilityIdentifier("sendMessage")
             }
         }

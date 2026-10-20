@@ -23,8 +23,14 @@ jobs:
         run: swift test --package-path apple
       - name: Exchange encrypted records with the production Java implementation
         run: bash tools/test-apple-interop.sh
-      - name: Build native macOS app with Apple components
-        run: xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM -destination 'platform=macOS' -configuration Debug -derivedDataPath apple/DerivedData CODE_SIGNING_ALLOWED=NO build
+      - name: Build universal native macOS Release and record footprint
+        run: |
+          mkdir -p build/apple-ui
+          xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM -destination 'platform=macOS' -configuration Release -derivedDataPath apple/DerivedData ONLY_ACTIVE_ARCH=NO 'ARCHS=arm64 x86_64' CODE_SIGNING_ALLOWED=NO build
+          app=apple/DerivedData/Build/Products/Release/NearbyIM.app
+          lipo -info "$app/Contents/MacOS/NearbyIM" | tee build/apple-ui/macos-release-footprint.log
+          du -sk "$app" | tee -a build/apple-ui/macos-release-footprint.log
+          otool -L "$app/Contents/MacOS/NearbyIM" | tee -a build/apple-ui/macos-release-footprint.log
       - name: Build native iPhone and iPad app for devices without distribution signing
         run: xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM -destination 'generic/platform=iOS' -configuration Release -derivedDataPath apple/DeviceBuild CODE_SIGNING_ALLOWED=NO build
       - name: Exercise native macOS consent, chat and receipts

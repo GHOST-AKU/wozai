@@ -33,5 +33,15 @@ final class NativeChatTests: XCTestCase {
         screenshot.name = "native-chat-with-production-java-peer"
         screenshot.lifetime = .keepAlways
         add(screenshot)
+        #if os(iOS)
+        XCUIDevice.shared.orientation = .landscapeLeft
+        defer { XCUIDevice.shared.orientation = .portrait }
+        XCTAssertTrue(app.staticTexts["Hello from Apple"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts["Hello from Java"].exists)
+        let landscape = XCTAttachment(screenshot: app.screenshot())
+        landscape.name = "native-chat-landscape"
+        landscape.lifetime = .keepAlways
+        add(landscape)
+        #endif
     }
 }
