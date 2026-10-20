@@ -69,7 +69,7 @@ private actor Harness {
             case .consent: try await session?.approve(remember: false)
             case .ready(let peer):
                 self.peer = peer
-                let code = try SafetyCode.make(rootA: identity.root, rootB: peer.root)
+                let code = try SafetyCode.make(identity.root, peer.root)
                 try await session?.sendText("Hello from Apple\n" + code)
             case .changed: break
             case .closed(let reason): closedNormally = reason == nil; failure = reason
@@ -79,7 +79,7 @@ private actor Harness {
     func verify() async throws {
         guard closedNormally, failure == nil, let peer else { throw NSError(domain: "Interop", code: 1, userInfo: [NSLocalizedDescriptionKey: failure ?? "Peer did not close normally"]) }
         let messages = try await store.messages(peerID: peer.id)
-        let code = try SafetyCode.make(rootA: identity.root, rootB: peer.root)
+        let code = try SafetyCode.make(identity.root, peer.root)
         guard messages.count == 2,
               messages.contains(where: { !$0.outgoing && $0.body == "Hello from Java\n" + code }),
               messages.contains(where: { $0.outgoing && $0.status == .delivered && $0.body == "Hello from Apple\n" + code }) else { throw WozaiError.protocolViolation }

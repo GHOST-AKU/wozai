@@ -2,17 +2,17 @@ name: Verify native Apple clients
 on:
   push:
     branches: [feat/apple-native]
-    paths: ['apple/**', '.github/workflows/apple.yml', 'tools/test-apple-interop.sh', 'tests/apple/**']
+    paths: ['apple/**', '.github/workflows/apple.yml', 'tools/test-apple-*.sh', 'tests/apple/**']
   pull_request:
     branches: [main]
-    paths: ['apple/**', '.github/workflows/apple.yml', 'tools/test-apple-interop.sh', 'tests/apple/**']
+    paths: ['apple/**', '.github/workflows/apple.yml', 'tools/test-apple-*.sh', 'tests/apple/**']
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   native:
     runs-on: macos-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - name: Record Apple toolchain
@@ -27,8 +27,28 @@ jobs:
         run: xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM -destination 'platform=macOS' -configuration Debug -derivedDataPath apple/DerivedData CODE_SIGNING_ALLOWED=NO build
       - name: Build native iPhone and iPad app for devices without distribution signing
         run: xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM -destination 'generic/platform=iOS' -configuration Release -derivedDataPath apple/DeviceBuild CODE_SIGNING_ALLOWED=NO build
+      - name: Exercise native macOS consent, chat and receipts
+        run: bash tools/test-apple-ui.sh 'platform=macOS' macos
+      - name: Select available iPhone and iPad simulators
+        id: simulators
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess
+          devices = json.loads(subprocess.check_output(['xcrun', 'simctl', 'list', 'devices', 'available', '--json']))['devices']
+          ios = [d for runtime, values in devices.items() if '.iOS-' in runtime for d in values]
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              for key, prefix in [('iphone', 'iPhone'), ('ipad', 'iPad')]:
+                  device = next(d for d in ios if d['name'].startswith(prefix))
+                  output.write(f"{key}={device['udid']}\n")
+          PY
+      - name: Exercise native iPhone consent, chat and receipts
+        run: bash tools/test-apple-ui.sh 'platform=iOS Simulator,id=${{ steps.simulators.outputs.iphone }}' iphone
+      - name: Exercise native iPad consent, chat and receipts
+        run: bash tools/test-apple-ui.sh 'platform=iOS Simulator,id=${{ steps.simulators.outputs.ipad }}' ipad
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: apple-native-evidence
-          path: build/apple-interop/*.log
+          path: |
+            build/apple-interop/*.log
+            build/apple-ui/

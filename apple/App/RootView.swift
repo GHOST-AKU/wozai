@@ -94,10 +94,10 @@ private struct ChatsView: View {
             .navigationSplitViewColumnWidth(min: 220, ideal: 300, max: 380)
         } detail: {
             if let contact = model.conversations.first(where: { $0.id == selection }) {
-                ChatDetailView(contact: contact)
+                ChatDetailView(contact: contact).id(contact.id)
             } else { ContentUnavailableView("Choose a conversation", systemImage: "bubble.left.and.bubble.right") }
         }
-        .onChange(of: model.connectionState) { _, value in if value == .connected { selection = model.activePeer?.id } }
+        .onChange(of: model.connectionState, initial: true) { _, value in if value == .connected { selection = model.activePeer?.id } }
     }
 }
 #endif
@@ -122,7 +122,7 @@ private struct MacNavigation: View {
             .navigationSplitViewColumnWidth(min: 180, ideal: 240, max: 340)
         } detail: {
             if let contact = model.conversations.first(where: { "chat:" + $0.id == selection }) {
-                ChatDetailView(contact: contact)
+                ChatDetailView(contact: contact).id(contact.id)
             } else { NearbyView() }
         }
         .frame(minWidth: 600, minHeight: 420)
