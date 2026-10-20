@@ -48,3 +48,17 @@ final class StoreTests: XCTestCase {
         XCTAssertNil(forgotten)
     }
 }
+
+extension StoreTests {
+    func testEmbeddedNullAndEmojiSurviveDurableRoundTrip() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = try ChatStore(url: directory.appendingPathComponent("chat.sqlite"))
+        let peer = UUID().uuidString.lowercased()
+        let body = "a\u{0000}b👩🏽‍💻"
+        let frame = NIMFrame(type: .text, id: UUID().uuidString.lowercased(), body: body, timestamp: 1)
+        _ = try await store.saveIncoming(peerID: peer, frame: frame)
+        let messages = try await store.messages(peerID: peer)
+        XCTAssertEqual(messages.first?.body, body, "SQLite must receive the explicit UTF-8 byte length, not strlen")
+    }
+}
