@@ -100,6 +100,8 @@ try {
     & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.FileDataPathsTests
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     & java -Xmx48m -cp build/core-tests dev.ghost.nearbyim.core.AutomaticFileHandoverTests
+    if($LASTEXITCODE -ne 0) { throw 'Automatic file handover tests failed' }
+    & java -Xmx48m -cp build/core-tests dev.ghost.nearbyim.core.PausedQueueDirectGroupTests
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     & java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.FileRouteQualityPolicyTests
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

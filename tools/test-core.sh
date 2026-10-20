@@ -42,6 +42,7 @@ java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.LateFileLanCallbackTes
 java -Xmx48m -cp build/core-tests dev.ghost.nearbyim.core.ExistingHotspotQualityTests
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.FileDataPathsTests
 java -Xmx48m -cp build/core-tests dev.ghost.nearbyim.core.AutomaticFileHandoverTests
+java -Xmx48m -cp build/core-tests dev.ghost.nearbyim.core.PausedQueueDirectGroupTests
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.FileRouteQualityPolicyTests
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.FairRecordWriterTests
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AutomaticFileRoutesTests

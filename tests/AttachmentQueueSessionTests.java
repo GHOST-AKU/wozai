@@ -50,6 +50,7 @@ public final class AttachmentQueueSessionTests {
             }
             try(var pair=new AttachmentV2Tests.Pair(root,false,"f".repeat(64));var sender=sender(pair)){
                 check(sender.batchItems().get(0).record().resumable(),"Recovered unoffered file hides Continue behind a queued state");
+                check(!sender.routeBusy(),"Recovered paused history blocks idle P2P negotiation");
                 sender.enqueue(List.of(AttachmentBatchQueue.selectFile(fresh))).get(3,TimeUnit.SECONDS);AttachmentRecord received=AttachmentV2Tests.waitFor(pair.bRecords,"received");AttachmentV2Tests.waitFor(pair.aRecords,"delivered");
                 check(!received.info.id.equals(oldId)&&received.info.name.equals("fresh.bin"),"Explicit fresh send restarted an older paused file");until(()->sender.batchItems().get(1).state().equals("delivered"));check(sender.batchItems().get(0).state().equals("paused"),"Recovered file lost its intentional pause");
                 sender.resumeBatch().get(3,TimeUnit.SECONDS);received(pair,sender,1);check(pair.completeCount.get()==2,"Recovered queue Continue duplicated a delivered fresh send");
@@ -65,7 +66,9 @@ public final class AttachmentQueueSessionTests {
     private static void pauseStopsFollowingFiles()throws Exception {
         try(var pair=new AttachmentV2Tests.Pair();var sender=sender(pair)){
             pair.dropComplete=true;Path one=pair.root.resolve("first.bin"),two=pair.root.resolve("second.bin");Files.write(one,new byte[]{9});Files.write(two,new byte[]{10});sender.enqueue(List.of(AttachmentBatchQueue.selectFile(one),AttachmentBatchQueue.selectFile(two))).get(3,TimeUnit.SECONDS);AttachmentV2Tests.waitFor(pair.bRecords,"received");
+            check(sender.routeBusy(),"An active transfer awaiting its receipt permits an idle route recheck");
             sender.pauseBatch().get(3,TimeUnit.SECONDS);until(()->sender.batchItems().get(0).record().resumable());check(sender.batchItems().get(1).record().resumable(),"Paused following file still exposes a non-working Pause button");check(pair.completeCount.get()==1,"Paused queue advanced beyond held receipt");
+            check(!sender.routeBusy(),"A completed manual pause still occupies the FILE lane");
             pair.dropComplete=false;sender.resumeBatch().get(3,TimeUnit.SECONDS);AttachmentV2Tests.waitFor(pair.aRecords,"delivered");received(pair,sender,1);check(pair.completeCount.get()>=2,"Continue did not deliver the following file");
         }
     }
@@ -84,6 +87,7 @@ public final class AttachmentQueueSessionTests {
                 sender.enqueue(List.of(AttachmentBatchQueue.selectFile(file))).get(3,TimeUnit.SECONDS);
                 AttachmentV2Tests.waitFor(pair.aRecords,"sourceUnavailable");until(()->sender.batchItems().get(0).state().equals("sourceUnavailable"));
                 check(sender.batchItems().get(0).record().resumable(),"Unavailable source did not expose Continue");
+                check(!sender.routeBusy(),"A dormant unavailable source blocks idle P2P negotiation");
                 unavailable.set(false);sender.resumeBatch().get(3,TimeUnit.SECONDS);received(pair,sender,1);
                 check(sender.batchItems().get(0).state().equals("delivered"),"Restored source did not continue after a temporary read error");
             }

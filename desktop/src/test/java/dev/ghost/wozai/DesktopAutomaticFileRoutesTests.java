@@ -74,7 +74,8 @@ public final class DesktopAutomaticFileRoutesTests {
             String flowingId;try{flowingId=a.sendAttachment(bi.id(),flowing).get(15,TimeUnit.SECONDS);}catch(Exception error){throw new AssertionError(a.transferDiagnostics(bi.id())+"\nPEER\n"+b.transferDiagnostics(ai.id()),error);}
             until(()->b.liveMessages(ai.id(),bs.messages(ai.id())).stream().anyMatch(m->m.id().equals(flowingId)&&m.attachment().transferred>=1024*1024),"Unblocked FILE never started flowing");
             ((FramedSession)field(aroutes,"selected")).close(UiText.EMPTY);
-            until(()->as.messages(bi.id()).stream().anyMatch(m->m.id().equals(flowingId)&&m.attachment().state.equals("delivered")),"Unblocked socket loss did not automatically resume and deliver");
+            try{until(()->as.messages(bi.id()).stream().anyMatch(m->m.id().equals(flowingId)&&m.attachment().state.equals("delivered")),"Unblocked socket loss did not automatically resume and deliver");}
+            catch(AssertionError failure){for(DesktopStore store:List.of(as,bs))for(DesktopStore.Message message:store.messages(store==as?bi.id():ai.id()))if(message.id().equals(flowingId))System.err.println((store==as?"sender":"receiver")+" state="+message.attachment().state+" route="+message.attachment().route+" transferred="+message.attachment().transferred);System.err.println("sender notice="+ea.notice+" "+a.transferDiagnostics(bi.id())+"receiver notice="+eb.notice+" "+b.transferDiagnostics(ai.id()));throw failure;}
             check(ready(ea)&&ready(eb),"Active FILE socket close ended healthy CHAT");
             until(()->as.messages(bi.id()).stream().anyMatch(m->m.id().equals(flowingId)&&m.attachment().state.equals("delivered")),"Unblocked socket-loss task could not resume on same engine");
             check(field(session,"transfers")==transfers,"Active FILE loss replaced original engine");

@@ -67,8 +67,8 @@ public final class AttachmentBatchQueue implements AutoCloseable {
     public List<Item> items(){return snapshot;}
     public boolean pending(){return snapshot.stream().anyMatch(item->!item.terminal());}
     public boolean paused(){return paused;}
-    /** Queued selections waiting for routing must not block the idle route handshake. */
-    public boolean routeBusy(){return snapshot.stream().anyMatch(item->{CompletableFuture<?> gate=routeGates.get(item.batchId());return !item.terminal()&&(gate==null||gate.isDone());});}
+    /** Dormant records and selections awaiting routing do not occupy a live FILE lane. */
+    public boolean routeBusy(){return snapshot.stream().anyMatch(item->{CompletableFuture<?> gate=routeGates.get(item.batchId());return !item.terminal()&&!resumableState(item.state())&&(gate==null||gate.isDone());});}
     private static String retryRoot(Item item){return item.retryOf().isEmpty()?item.info().id:item.retryOf();}
     private static Item latest(List<Item> values,String id){
         Item parent=values.stream().filter(i->i.info().id.equals(id)).findFirst().orElse(null);
