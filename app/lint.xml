@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<lint>
+    <!-- Exact pinned upstream files mix tabs/spaces in two consecutive bounds
+         checks. Both if/throw pairs are independent; preserve upstream bytes. -->
+    <issue id="SuspiciousIndentation">
+        <ignore path="../third_party/noise-java/src/com/southernstorm/noise/protocol/AESGCMFallbackCipherState.java" />
+        <ignore path="../third_party/noise-java/src/com/southernstorm/noise/protocol/AESGCMOnCtrCipherState.java" />
+    </issue>
+</lint>

@@ -49,6 +49,7 @@ public final class ChatStore extends SQLiteOpenHelper {
         db.execSQL(StoreSchema.CREATE_MESSAGES);
         db.execSQL(StoreSchema.CREATE_MESSAGE_INDEX);
         db.execSQL(StoreSchema.CREATE_TRUST);
+        db.execSQL(StoreSchema.CREATE_VERIFICATION);
     }
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
         for (String statement : StoreSchema.upgradeStatements(oldVersion, newVersion)) db.execSQL(statement);
@@ -106,13 +107,35 @@ public final class ChatStore extends SQLiteOpenHelper {
         Files.createDirectories(attachments);Path directory=attachments.resolve(peer);if(Files.isSymbolicLink(directory))throw new IOException("Unsafe attachment directory");return directory;
     }
     public Path attachmentFile(String peer,AttachmentInfo info)throws IOException{return AttachmentTransfer.file(attachmentDirectory(peer),info);}
+    public Path attachmentsRoot(){return attachments;}
     public Path attachmentFile(String peer,AttachmentInfo info,boolean outgoing)throws IOException{return AttachmentTransfer.file(attachmentDirectory(peer),info,outgoing);}
+    /** Resolve the exact immutable receipt before using or exporting attachment content. */
+    public AttachmentRecord completedAttachment(String peer,AttachmentRecord expected)throws IOException {
+        AttachmentExportStore.requireComplete(expected);
+        AttachmentRecord stored=completedAttachment(peer,expected.info.id,expected.outgoing);
+        if(!stored.equals(expected))throw new IOException("Attachment history changed");return stored;
+    }
+    public AttachmentRecord completedAttachment(String peer,String id,boolean outgoing)throws IOException {
+        try(Cursor cursor=getReadableDatabase().query("messages",new String[]{"attachment"},"peer_id=? AND id=? AND outgoing=?",new String[]{peer,id,outgoing?"1":"0"},null,null,null)){
+            if(!cursor.moveToFirst()||cursor.isNull(0))throw new IOException("Attachment unavailable");
+            AttachmentRecord record=decodeAttachment(cursor.getString(0));AttachmentExportStore.requireComplete(record);return record;
+        }
+    }
     public void attachment(String peer,String name,AttachmentRecord record){
         SQLiteDatabase db=getWritableDatabase();db.beginTransaction();try{
             touch(peer,name);ContentValues values=new ContentValues();values.put("attachment",encodeAttachment(record));values.put("state",record.outgoing?(record.state.equals("delivered")?DELIVERED:record.active()?PENDING:UNKNOWN):"");
             try(Cursor cursor=db.query("messages",new String[]{"attachment"},"peer_id=? AND id=? AND outgoing=?",new String[]{peer,record.info.id,record.outgoing?"1":"0"},null,null,null)){
                 if(cursor.moveToFirst()){
-                    AttachmentRecord previous=decodeAttachment(cursor.getString(0));if(previous==null||!previous.active()&&!previous.equals(record))throw new SQLiteException("Conflicting attachment ID");
+                    AttachmentRecord previous=decodeAttachment(cursor.getString(0));
+                    if(previous!=null)try{
+                        // Identical terminal snapshots may replay on another lane; retain their original route.
+                        if(!previous.active()&&!previous.resumable()){
+                            AttachmentRecord snapshot=new AttachmentRecord(record.info,record.outgoing,record.state,record.transferred).withRoute(previous.route);
+                            if(previous.equals(snapshot))record=previous;
+                        }else if(record.route.isEmpty())record=record.withRoute(previous.route);
+                        values.put("attachment",encodeAttachment(record));
+                    }catch(IOException invalid){throw new SQLiteException("Invalid attachment route");}
+                    if(previous==null||!previous.mayReplace(record))throw new SQLiteException("Conflicting attachment ID");
                     db.update("messages",values,"peer_id=? AND id=? AND outgoing=?",new String[]{peer,record.info.id,record.outgoing?"1":"0"});
                 }else{
                     values.put("peer_id",peer);values.put("id",record.info.id);values.put("body",record.info.name);values.put("outgoing",record.outgoing?1:0);values.put("time",System.currentTimeMillis());values.put("received",System.currentTimeMillis());db.insertOrThrow("messages",null,values);
@@ -138,7 +161,7 @@ public final class ChatStore extends SQLiteOpenHelper {
         return list;
     }
     public void clear(String peerId) {
-        try{Path directory=attachmentDirectory(peerId);if(Files.exists(directory))AttachmentTransfer.clean(directory,Collections.emptySet());}catch(IOException e){throw new IllegalStateException(e);}
+        try{Path directory=attachmentDirectory(peerId);if(Files.exists(directory))AttachmentTransfer.clear(directory);}catch(IOException e){throw new IllegalStateException(e);}
         getWritableDatabase().execSQL(StoreSchema.CLEAR_MESSAGES, new Object[]{peerId});
     }
     public TrustedDevice trusted(String peerId) {
@@ -171,7 +194,23 @@ public final class ChatStore extends SQLiteOpenHelper {
         } finally { db.endTransaction(); }
     }
     public void revokeTrust(String peerId) {
-        getWritableDatabase().execSQL(StoreSchema.REVOKE_TRUST, new Object[]{peerId});
+        SQLiteDatabase db=getWritableDatabase();db.beginTransaction();try{clearVerification(peerId);db.execSQL(StoreSchema.REVOKE_TRUST,new Object[]{peerId});db.setTransactionSuccessful();}finally{db.endTransaction();}
     }
+    public boolean isVerified(String peerId,String localRoot,String remoteRoot){
+        TrustedDevice pin=trusted(peerId);if(pin==null||!remoteRoot.equals(pin.publicKey))return false;
+        try(Cursor rows=getReadableDatabase().query("verified_identities",new String[]{"local_key","public_key"},"peer_id=?",new String[]{peerId},null,null,null)){
+            return rows.moveToFirst()&&localRoot.equals(rows.getString(0))&&remoteRoot.equals(rows.getString(1));
+        }
+    }
+    public void markVerified(String peerId,String localRoot,String remoteRoot){
+        try{new SafetyCode(localRoot,remoteRoot);}catch(java.security.GeneralSecurityException invalid){throw new IllegalArgumentException("Invalid verification identity",invalid);}
+        SQLiteDatabase db=getWritableDatabase();db.beginTransaction();try{
+            TrustedDevice pin=trusted(peerId);if(pin==null||!remoteRoot.equals(pin.publicKey))throw new SQLiteException("Verification identity changed");
+            ContentValues values=new ContentValues();values.put("peer_id",peerId);values.put("local_key",localRoot);values.put("public_key",remoteRoot);values.put("verified_at",System.currentTimeMillis());
+            if(db.insertWithOnConflict("verified_identities",null,values,SQLiteDatabase.CONFLICT_REPLACE)<0)throw new SQLiteException("Verification save failed");db.setTransactionSuccessful();
+        }finally{db.endTransaction();}
+    }
+    public void clearVerification(String peerId){getWritableDatabase().delete("verified_identities","peer_id=?",new String[]{peerId});}
+    public void invalidateLocalVerifications(String localRoot){getWritableDatabase().delete("verified_identities","local_key<>?",new String[]{localRoot});}
 
 }

@@ -1,0 +1,16 @@
+{
+  "environment_kind": "virtual",
+  "kind": "JFR 20s profile during one JVM plaintext file-v2 10 GiB capacity run",
+  "source_base": "bac3589+dirty",
+  "profile_sha256": "9ff2fc1bf0f9b41e6027a8c35ae7c8e05fc15257996a807ce72194ec56c75e30",
+  "sample_stack_counts_overlapping": {
+    "java/util/regex": 33,
+    "sun/security/provider": 30,
+    "TransferCodec": 12,
+    "AttachmentTransferV2": 9,
+    "java/security": 8,
+    "FileDispatcherImpl": 1
+  },
+  "finding": "Repeated Pattern compilation occurs in per-packet metadata validation. Precompile unchanged patterns; retain all validation.",
+  "limits": "Execution samples are sparse and overlap; not an exact CPU percentage. The 10 GiB throughput includes JFR overhead and is not encrypted or phone acceptance."
+}

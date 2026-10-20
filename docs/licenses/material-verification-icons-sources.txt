@@ -1,0 +1,6 @@
+lock SVG befa5bc9f2b296dece0f0c716226cdbfbfbd9ff2d25a61d6077dfe9581452124 https://raw.githubusercontent.com/google/material-design-icons/master/src/action/lock/materialiconsoutlined/24px.svg
+lock PNG 3e558c14bf76760458d93f8d3da77a52c610cb51ffd6b1ad7e3f79658fd47baf https://raw.githubusercontent.com/google/material-design-icons/master/png/action/lock/materialiconsoutlined/24dp/1x/outline_lock_black_24dp.png
+qr_code_scanner SVG dbd3f5c25c9a684179cff445ab44bed3ac9b7d3148415e7e6543ff4ef1a307a0 https://raw.githubusercontent.com/google/material-design-icons/master/src/communication/qr_code_scanner/materialiconsoutlined/24px.svg
+qr_code_scanner PNG dc2dab6c17ccac4e8c2a2ad1db70dcd29e9f5bbb5d147025eb5ca8799be962fa https://raw.githubusercontent.com/google/material-design-icons/master/png/communication/qr_code_scanner/materialiconsoutlined/24dp/1x/outline_qr_code_scanner_black_24dp.png
+content_copy SVG a978f7983cb6c8abffb09a1c71081ef2a038003114bccc7a06c1026198b17888 https://raw.githubusercontent.com/google/material-design-icons/master/src/content/content_copy/materialiconsoutlined/24px.svg
+content_copy PNG c325f3b01d7e8ed41c46898a539805ae8d804d96e5a13c9862f24eecde00ec74 https://raw.githubusercontent.com/google/material-design-icons/master/png/content/content_copy/materialiconsoutlined/24dp/1x/outline_content_copy_black_24dp.png

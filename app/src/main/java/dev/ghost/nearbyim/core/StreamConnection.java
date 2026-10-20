@@ -9,4 +9,5 @@ public interface StreamConnection extends Closeable {
     InputStream input() throws IOException;
     OutputStream output() throws IOException;
     String label();
+    default SocketPath socketPath(){return null;}
 }

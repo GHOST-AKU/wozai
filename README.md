@@ -6,8 +6,10 @@
 
 我在（NearbyIM）是一款面向近距离通信的开源聊天应用。它让 Android、Windows 和 Linux 设备通过 **同一局域网** 或 **经典蓝牙** 直接建立连接，无需注册账号，也不依赖云端聊天服务器。
 
-> 当前版本：**0.3.1** · Android / Windows / Linux  
-> [下载最新版本](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.1) · [查看 Issues](https://github.com/GHOST-AKU/wozai/issues)
+> 最新正式版：**0.3.2** · Android / Windows / Linux
+> [下载最新版本](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.2) · [查看 Issues](https://github.com/GHOST-AKU/wozai/issues)
+
+**0.3.2 正式版已发布**，Android、Windows、Linux 同步更新协议与界面，Linux 提供 AppImage / deb / tar.gz。新增 Noise 端到端加密、最大 10 GiB 的流式附件与持久续传、自动文件选路、Android 接收文件夹及平板/折叠基础适配。完整变化与验收范围见 [0.3.2 发布说明](docs/releases/0.3.2.md)；P2P 稳定性、真实速度/距离恢复、长期内存及正式性能继续在 [#23](https://github.com/GHOST-AKU/wozai/issues/23)、[#9](https://github.com/GHOST-AKU/wozai/issues/9) 跟进。
 
 ## 🌱 为什么做「我在」
 
@@ -21,8 +23,10 @@
 
 - **局域网直连**：NSD / mDNS 自动发现，也支持 IP + 端口直连
 - **经典蓝牙通信**：使用安全 RFCOMM，可搜索、配对和重连
-- **跨平台聊天**：Android、Windows、Linux 共用 NIM3 协议
-- **文字、图片和文件**：支持图片气泡、应用内查看与最大 1 GiB 的单文件传输
+- **跨平台聊天**：Android、Windows、Linux 共用 NIM4 加密协议
+- **文字、图片和文件**：支持图片气泡、应用内查看、最大 10 GiB 的有界流式传输、多选队列、暂停/续传和失败重发
+- **自动文件选路**：复用端点热点、尝试临时 P2P、LAN、已有蓝牙；按质量选择 LAN，断路后按检查点继续，气泡显示实际路径
+- **保存位置**：Android 可选择文件管理器能访问的接收文件夹；桌面支持原名打开与另存为
 - **可信重连**：首次认可设备后记录其长期身份，后续连接验证同一设备
 - **送达回执**：对方成功保存消息后确认送达
 - **本地记录与草稿**：聊天记录留在设备本地，不依赖云同步
@@ -60,32 +64,29 @@
 
 ## 🔐 安全与隐私
 
-「我在」的目标是让通信路径尽可能直接和可理解，但 **0.3.1 还不是端到端加密聊天工具**。
-
-当前 NIM3 使用本机长期 P-256 设备身份、认证握手、消息签名、方向与序列信息来验证设备身份连续性和消息完整性。首次认可的公钥会保存在本地信任记录中。
+0.3.2 使用 **Noise XX / X25519 / 系统 AES-256-GCM / SHA-256** 保护端点间的文字与附件。原有 P-256 设备根身份证明绑定双方身份、Noise 公钥、握手转录与能力，保留既有设备 UUID 和信任记录。新连接建立全新会话，认证、完整性校验或版本失败时关闭连接。
 
 需要注意：
 
-- **局域网消息内容目前仍为明文**，不要把它视为适合不可信网络的 E2EE 通信。
-- 蓝牙使用系统安全 RFCOMM 配对与链路加密，但应用层尚未增加端到端加密。
-- 昵称不等于经过认证的真实身份；首次连接陌生设备时仍应自行确认对方。
-- 聊天记录、设备身份与信任记录保存在本机；应用关闭系统自动备份。
+- **已发布 0.3.1 的局域网内容仍是明文**；该版本只有 NIM3 认证与签名，蓝牙另有系统 RFCOMM 链路保护。
+- 昵称不等于经过认证的真实身份；首次认可（TOFU）表示接受设备公钥，仍需当面或通过可信渠道核对对方身份。
+- 聊天记录与附件仍以未加密内容保存在本机；传输加密不等于磁盘加密。应用关闭系统自动备份。
 - 清空聊天记录不会自动取消设备信任，可在设备信息或设置中单独取消信任。
 
-端到端加密与更进一步的组网能力仍处于后续设计 / 预研阶段。
+实现有标准向量、跨实现互操作与负向测试；尚未完成正式密码安全审计或蓝牙真机验收。
 
-## 🧩 NIM3
+## 🧩 NIM4
 
-Android、Windows 与 Linux 客户端共用 **NIM3 认证封装协议**。NIM3 不向 NIM2 或无认证连接降级，因此通信双方都需要使用支持 NIM3 的版本。
+Android、Windows 与 Linux 客户端共用 **NIM4 加密封装协议**。不会回退到 NIM3 或明文，因此通信双方都需要升级到兼容的 NIM4 版本。保留旧历史记录读取，升级不改变原有根身份。
 
 当前支持文字、图片和文件；暂不包含群聊、语音、互联网中继或消息自动重发。
 
 ## 📦 下载与版本说明
 
-当前正式版为 **0.3.1**：
+当前正式版为 **0.3.2**：
 
-- [GitHub Release v0.3.1](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.1)
-- [0.3.1 发布说明](docs/releases/0.3.1.md)
+- [GitHub Release v0.3.2](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.2)
+- [0.3.2 发布说明](docs/releases/0.3.2.md)
 - [Android 签名与升级](docs/android-signing.md)
 - [Android 真机测试](docs/device-test.md)
 - [验证记录](docs/verification.md)
@@ -132,8 +133,8 @@ sh tools/check-source.sh
 Windows PowerShell：
 
 ```powershell
-.\tools\test-i18n.ps1
-.\tools\test-core.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\test-i18n.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\test-core.ps1
 ```
 
 这些检查不等同于 Android 完整编译或真实设备验收。完整步骤见 [设备测试说明](docs/device-test.md)。
@@ -157,8 +158,8 @@ Windows PowerShell：
 
 - 群聊与多人同时私聊
 - 更完整的桌面端蓝牙真机验证
-- Android 稳定签名与升级链路
-- 端到端加密
+- 更多设备上的覆盖升级与存储兼容验证
+- 独立密码学审计与安全体验完善
 - Mesh / 多跳组网的可行性研究
 - 更多语言、无障碍与不同尺寸设备体验
 

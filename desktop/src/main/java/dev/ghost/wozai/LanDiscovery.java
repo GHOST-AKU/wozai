@@ -25,11 +25,11 @@ public final class LanDiscovery implements AutoCloseable {
             try {
                 List<InetAddress> addresses = new ArrayList<>();
                 for (NetworkInterface iface : Collections.list(NetworkInterface.getNetworkInterfaces())) {
-                    if (!iface.isUp() || iface.isLoopback() || iface.isVirtual()) continue;
+                    if (!DesktopFileRoutes.ordinary(iface)) continue;
                     for (InetAddress address : Collections.list(iface.getInetAddresses()))
                         if (address instanceof Inet4Address && LocalEndpoint.isLocal(address)) addresses.add(address);
                 }
-                for (InetAddress address : addresses.stream().limit(4).toList()) {
+                for (InetAddress address : new LinkedHashSet<>(addresses)) {
                     if (epoch.get() != run) return;
                     JmDNS dns = null;
                     try {

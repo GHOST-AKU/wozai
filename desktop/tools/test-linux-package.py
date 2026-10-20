@@ -113,8 +113,9 @@ def launch_desktop(entry, environment):
     gobject = c.CDLL(ctypes.util.find_library('gobject-2.0'))
     gobject.g_object_unref.argtypes = [c.c_void_p]
     try:
-        for key in ('JAVA_TOOL_OPTIONS', 'XDG_DATA_HOME', 'DISPLAY'):
-            gio.g_app_launch_context_setenv(context, key.encode(), environment[key].encode())
+        for key in ('JAVA_TOOL_OPTIONS', 'XDG_DATA_HOME', 'DISPLAY', 'APPIMAGE_EXTRACT_AND_RUN'):
+            if key in environment:
+                gio.g_app_launch_context_setenv(context, key.encode(), environment[key].encode())
         error = c.c_void_p()
         if not gio.g_app_info_launch(app, None, context, c.byref(error)):
             raise AssertionError('GIO could not execute the desktop entry')

@@ -6,7 +6,7 @@
     <string name="about_body_windows" formatted="false">"我在 · NearbyIM\nWindows 預覽版 {0}\n\n無需帳號的附近文字聊天。\n\n透過區域網路或藍牙進行一對一文字聊天。訊息儲存在本機，刪除本機資料會刪除記錄與裝置信任。"</string>
     <string name="address_copied" formatted="false">"位址已複製"</string>
     <string name="allow_discoverable" formatted="false">"允許被發現 120 秒"</string>
-    <string name="android_about_body" formatted="false">"我在 · NearbyIM\nAndroid {0}\n\n透過區域網路或藍牙進行一對一文字聊天。訊息儲存在本機，解除安裝或清除應用程式資料會刪除記錄與裝置信任。"</string>
+    <string name="android_about_body" formatted="false">"我在 · NearbyIM\nAndroid {0}\n\n透過 Android Wi-Fi 直連、區域網路或藍牙進行一對一文字聊天。訊息儲存在本機，解除安裝或清除應用程式資料會刪除記錄與裝置信任。"</string>
     <string name="android_about_summary" formatted="false">"Android · {0}\n無需帳號的附近文字聊天"</string>
     <string name="android_bluetooth_connect_failed" formatted="false">"藍牙連線失敗：確認對方安裝我在並開啟接收；配對提示需要雙方確認"</string>
     <string name="android_bluetooth_hint" formatted="false">"對方開啟接收並允許被發現後，再開始搜尋。首次連線由系統處理配對。"</string>
@@ -14,45 +14,140 @@
     <string name="android_bluetooth_search_not_started" formatted="false">"搜尋沒有啟動，可嘗試已配對裝置；Android 11 及以前需開啟系統定位"</string>
     <string name="android_bluetooth_unavailable" formatted="false">"這部裝置不支援藍牙，可切換區域網路。"</string>
     <string name="android_composer" formatted="false">"說點什麼…"</string>
-    <string name="android_direct_body" formatted="false">"輸入對方顯示的完整位址和連接埠。區域網路訊息以明文傳輸，請使用可信網路。"</string>
-    <string name="android_help_body" formatted="false">"區域網路：雙方連線同一個 Wi-Fi 或熱點，開啟接收後搜尋，也可輸入完整 IP 位址和連接埠。區域網路文字以明文傳輸，請使用可信網路。\n\n藍牙：對方開啟接收並允許被發現後搜尋，首次連線按系統提示配對。已記住裝置可透過歷史直接連線，對方仍需開啟藍牙和接收服務。\n\n首次聊天可選擇記住裝置或僅本次。記住後驗證同一裝置身分再直接連線；可在設定中取消信任。\n\n待確認表示尚未收到儲存回條，已送達表示對方已儲存，未確認表示結果未知，不能表示已讀。\n\n聊天記錄儲存在本機。草稿在會話切換和介面重建時保留，停止應用程式後不保證保留。系統結束應用程式後需要重新開啟接收。"</string>
+    <string name="android_direct_body" formatted="false">"輸入對方顯示的完整位址和連接埠。"</string>
+    <string name="android_help_body" formatted="false">"Wi-Fi 直連：Android 手機和平板可無需路由器連線。雙方選擇 Wi-Fi 直連、啟用接收並搜尋，並接受系統連線提示。連線至 Windows 或 Linux 時，雙方切換至區域網路並加入同一 Wi-Fi 或熱點。 取消或中斷後，請雙方都點選連線以重試。\n\n區域網路：雙方連線同一個 Wi-Fi 或熱點，開啟接收後搜尋，也可輸入完整 IP 位址和連接埠。聊天與檔案傳輸使用端對端加密。本機聊天記錄和附件不加密。\n\n藍牙：對方開啟接收並允許被發現後搜尋，首次連線按系統提示配對。已記住裝置可透過歷史直接連線，對方仍需開啟藍牙和接收服務。\n\n首次聊天可選擇記住裝置或僅本次。記住後驗證同一裝置身分再直接連線；可在設定中取消信任。\n\n待確認表示尚未收到儲存回條，已送達表示對方已儲存，未確認表示結果未知，不能表示已讀。\n\n聊天記錄儲存在本機。草稿在會話切換和介面重建時保留，停止應用程式後不保證保留。系統結束應用程式後需要重新開啟接收。"</string>
     <string name="android_identity_changed" formatted="false">"此裝置的身分金鑰已變化。如確認需要重新認識，請先在設定中取消該裝置信任，再重新連線"</string>
-    <string name="android_lan_hint" formatted="false">"兩部裝置連線同一 Wi-Fi，或加入同一個熱點。區域網路訊息以明文傳輸，請使用可信網路。"</string>
+    <string name="android_lan_hint" formatted="false">"兩部裝置連線同一 Wi-Fi，或加入同一個熱點。"</string>
     <string name="android_request_body" formatted="false">"{0}連線。記住後，下次可以直接連線。可在裝置資訊中取消信任。\n\n暱稱由對方填寫，裝置信任不認證真實姓名。"</string>
-    <string name="android_request_lan_body" formatted="false">"{0}連線。記住後，下次可以直接連線。可在裝置資訊中取消信任。\n\n暱稱由對方填寫，裝置信任不認證真實姓名。區域網路訊息以明文傳輸，請使用可信網路。"</string>
+    <string name="android_request_lan_body" formatted="false">"{0}連線。記住後，下次可以直接連線。可在裝置資訊中取消信任。\n\n暱稱由對方填寫，裝置信任不認證真實姓名。聊天與檔案傳輸使用端對端加密。本機聊天記錄和附件不加密。"</string>
     <string name="android_storage_failure" formatted="false">"本機記錄讀寫失敗，請重試；若問題持續，請回報錯誤"</string>
     <string name="android_storage_stopped" formatted="false">"本機記錄儲存失敗，連線已停止"</string>
+    <string name="android_wifi_direct_hint" formatted="false">"Android 手機和平板可透過 Wi-Fi 直連連線，無需路由器。雙方都需選擇 Wi-Fi 直連、啟用接收並搜尋。連線至 Windows 或 Linux 時，請雙方選擇區域網路，並加入同一 Wi-Fi 或熱點。 取消或中斷後，請雙方都點選連線以重試。"</string>
     <string name="app" formatted="false">"我在"</string>
     <string name="app_permissions" formatted="false">"應用程式權限"</string>
     <string name="app_section" formatted="false">"應用程式"</string>
     <string name="app_settings" formatted="false">"應用程式設定"</string>
     <string name="appearance_section" formatted="false">"外觀"</string>
     <string name="attachment_accept" formatted="false">"接收"</string>
+    <string name="attachment_batch_cancel" formatted="false">"取消全部待傳檔案"</string>
+    <string name="attachment_batch_limit" formatted="false">"每批最多選擇 {0} 個檔案。"</string>
+    <string name="attachment_batch_pause" formatted="false">"暫停全部待傳檔案"</string>
+    <string name="attachment_batch_resume" formatted="false">"繼續待傳檔案"</string>
+    <string name="attachment_browse_saved" formatted="false">"在系統檔案中尋找"</string>
+    <string name="attachment_checking_progress" formatted="false">"驗證續傳資料：{0} / {1} · {2}%"</string>
     <string name="attachment_details" formatted="false">"{0} · {1,number} / {2,number} 位元組 · {3}"</string>
     <string name="attachment_failed" formatted="false">"檔案操作失敗，請檢查檔案授權及可用空間。"</string>
     <string name="attachment_hint" formatted="false">"單檔最大 1 GiB；內容未加密。"</string>
+    <string name="attachment_hint_v2" formatted="false">"單一檔案最大 10 GiB。"</string>
+    <string name="attachment_location_access_lost" formatted="false">"無法存取已儲存位置，系統授權可能已失效。"</string>
+    <string name="attachment_location_document" formatted="false">"已另存到系統檔案"</string>
+    <string name="attachment_location_gallery" formatted="false">"已儲存到系統相簿"</string>
+    <string name="attachment_location_missing" formatted="false">"已儲存的檔案已被移動或刪除。"</string>
+    <string name="attachment_location_private" formatted="false">"檔案儲存在我在應用程式內，可檢視或另存到系統檔案。"</string>
+    <string name="attachment_location_title" formatted="false">"檔案儲存位置"</string>
+    <string name="attachment_location_unavailable" formatted="false">"暫時無法讀取儲存位置。"</string>
+    <string name="attachment_move_down" formatted="false">"下移"</string>
+    <string name="attachment_move_up" formatted="false">"上移"</string>
     <string name="attachment_open" formatted="false">"開啟"</string>
+    <string name="attachment_open_saved" formatted="false">"開啟已儲存的檔案"</string>
     <string name="attachment_overwrite" formatted="false">"檔案已存在，是否取代？"</string>
+    <string name="attachment_path_all_links" formatted="false">"傳輸路徑：Wi-Fi 直連、區域網路、藍牙"</string>
+    <string name="attachment_path_bluetooth" formatted="false">"傳輸路徑：藍牙"</string>
+    <string name="attachment_path_bluetooth_direct" formatted="false">"傳輸路徑：藍牙 → Wi-Fi 直連"</string>
+    <string name="attachment_path_bluetooth_lan" formatted="false">"傳輸路徑：藍牙 → 區域網路"</string>
+    <string name="attachment_path_direct_bluetooth" formatted="false">"傳輸路徑：Wi-Fi 直連 → 藍牙"</string>
+    <string name="attachment_path_direct_lan" formatted="false">"傳輸路徑：Wi-Fi 直連 → 區域網路"</string>
+    <string name="attachment_path_disconnected" formatted="false">"傳輸路徑：未連線"</string>
+    <string name="attachment_path_lan_bluetooth" formatted="false">"傳輸路徑：區域網路 → 藍牙"</string>
+    <string name="attachment_path_lan_direct" formatted="false">"傳輸路徑：區域網路 → Wi-Fi 直連"</string>
+    <string name="attachment_path_lan_unconfirmed" formatted="false">"傳輸路徑：區域網路"</string>
+    <string name="attachment_path_pending_bluetooth" formatted="false">"正在連接藍牙 · 尚未傳輸"</string>
+    <string name="attachment_path_pending_lan" formatted="false">"正在連接區域網路 · 尚未傳輸"</string>
+    <string name="attachment_path_pending_wifi_direct" formatted="false">"正在建立 Wi-Fi 直連 · 尚未傳輸"</string>
+    <string name="attachment_path_selecting" formatted="false">"正在檢查傳輸路徑 · 尚未傳輸"</string>
+    <string name="attachment_path_unknown" formatted="false">"傳輸路徑：暫時無法確認"</string>
+    <string name="attachment_path_wifi_direct" formatted="false">"傳輸路徑：Wi-Fi 直連"</string>
+    <string name="attachment_pause" formatted="false">"暫停傳輸"</string>
     <string name="attachment_photo_preview" formatted="false">"照片預覽：{0}"</string>
+    <string name="attachment_preview" formatted="false">"傳送前預覽"</string>
     <string name="attachment_progress" formatted="false">"傳輸進度：{0,number}%；{1}"</string>
+    <string name="attachment_quota" formatted="false">"附件空間配額"</string>
+    <string name="attachment_quota_exceeded" formatted="false">"附件空間配額不足。"</string>
+    <string name="attachment_quota_gi_b" formatted="false">"{0,number} GiB"</string>
+    <string name="attachment_quota_in_use" formatted="false">"新的配額不能小於已使用及預留空間。"</string>
     <string name="attachment_reject" formatted="false">"拒絕"</string>
+    <string name="attachment_remove" formatted="false">"移除"</string>
+    <string name="attachment_reselect" formatted="false">"重新選擇"</string>
+    <string name="attachment_resume" formatted="false">"繼續傳輸"</string>
+    <string name="attachment_retried" formatted="false">"已重發"</string>
+    <string name="attachment_retry" formatted="false">"重發"</string>
+    <string name="attachment_retry_batch" formatted="false">"重發本批失敗項"</string>
+    <string name="attachment_retry_ineligible" formatted="false">"此項不可重發"</string>
+    <string name="attachment_retry_none" formatted="false">"本批已沒有需要重發的失敗檔案。"</string>
+    <string name="attachment_retry_partial" formatted="false">"{0} 個檔案已加入重發佇列，{1} 個檔案需重新選擇。"</string>
+    <string name="attachment_retry_queued" formatted="false">"已加入重發佇列。"</string>
+    <string name="attachment_retry_select_again" formatted="false">"原檔案無法讀取，請重新選擇後重發。"</string>
+    <string name="attachment_retrying" formatted="false">"正在重發…"</string>
+    <string name="attachment_save_again" formatted="false">"重新另存為"</string>
     <string name="attachment_save_as" formatted="false">"另存新檔"</string>
+    <string name="attachment_save_before_opening" formatted="false">"請先將此檔案另存新檔，再開啟。"</string>
+    <string name="attachment_saved_file_missing" formatted="false">"儲存的檔案已被移動或刪除。"</string>
+    <string name="attachment_selection_count" formatted="false">"已選 {0} 項"</string>
+    <string name="attachment_show_in_folder" formatted="false">"開啟所在位置"</string>
+    <string name="attachment_source_changed" formatted="false">"來源檔案已變更，請重新傳送。"</string>
+    <string name="attachment_source_permission" formatted="false">"檔案讀取授權已失效，請重新選擇。"</string>
+    <string name="attachment_source_unavailable" formatted="false">"無法讀取來源檔案，請重新選擇。"</string>
+    <string name="attachment_speed_eta" formatted="false">"{0}/秒 · 剩餘約 {1,number} 秒"</string>
     <string name="attachment_state_awaiting_receipt" formatted="false">"等待儲存回執"</string>
     <string name="attachment_state_canceled" formatted="false">"已取消"</string>
+    <string name="attachment_state_checking" formatted="false">"檢查續傳資料"</string>
     <string name="attachment_state_delivered" formatted="false">"已送達"</string>
     <string name="attachment_state_failed" formatted="false">"傳輸失敗"</string>
     <string name="attachment_state_interrupted" formatted="false">"傳輸中斷"</string>
     <string name="attachment_state_offered" formatted="false">"等待接收"</string>
+    <string name="attachment_state_paused" formatted="false">"已暫停"</string>
     <string name="attachment_state_preparing" formatted="false">"準備中"</string>
+    <string name="attachment_state_queued" formatted="false">"排隊中"</string>
     <string name="attachment_state_received" formatted="false">"已接收"</string>
     <string name="attachment_state_rejected" formatted="false">"已拒絕"</string>
+    <string name="attachment_state_source_unavailable" formatted="false">"已暫停：來源檔案暫時無法讀取，恢復存取後可續傳"</string>
     <string name="attachment_state_transferring" formatted="false">"傳輸中"</string>
     <string name="attachment_state_unknown" formatted="false">"結果未知，對方可能已儲存"</string>
     <string name="attachment_state_verifying" formatted="false">"驗證及儲存中"</string>
+    <string name="attachment_storage_full" formatted="false">"可用儲存空間不足。"</string>
     <string name="attachment_summary" formatted="false">"{0} · {1}"</string>
+    <string name="attachment_too_large" formatted="false">"檔案超過單一檔案大小限制。"</string>
     <string name="attachment_unavailable" formatted="false">"檔案無法使用，可能已被刪除。"</string>
+    <string name="attachment_unknown_size" formatted="false">"大小待確認"</string>
     <string name="attachment_upgrade_required" formatted="false">"檔案傳輸協定不相容，請更新雙方應用程式。"</string>
+    <string name="attachment_view_original" formatted="false">"檢視聊天原件"</string>
+    <string name="attachment_waiting_resume" formatted="false">"等待對方確認續傳…"</string>
     <string name="attachments" formatted="false">"附件"</string>
+    <string name="avatar" formatted="false">"頭像"</string>
+    <string name="avatar_change" formatted="false">"更換頭像"</string>
+    <string name="avatar_changed" formatted="false">"編輯期間頭像已變更。請重新開啟後繼續。"</string>
+    <string name="avatar_choose" formatted="false">"選擇圖片"</string>
+    <string name="avatar_crop" formatted="false">"裁剪頭像"</string>
+    <string name="avatar_crop_hint" formatted="false">"拖曳調整位置，使用縮放按鈕調整大小。方向鍵可移動裁剪區域。"</string>
+    <string name="avatar_default" formatted="false">"使用預設頭像"</string>
+    <string name="avatar_details" formatted="false">"裝置詳細資料"</string>
+    <string name="avatar_edit_crop" formatted="false">"調整裁剪"</string>
+    <string name="avatar_invalid" formatted="false">"無法將此圖片用作頭像。"</string>
+    <string name="avatar_loading" formatted="false">"正在準備頭像…"</string>
+    <string name="avatar_prepared" formatted="false">"{0} × {1} PNG · {2} KiB"</string>
+    <string name="avatar_preview" formatted="false">"預覽頭像"</string>
+    <string name="avatar_reset" formatted="false">"恢復裝置預設頭像"</string>
+    <string name="avatar_reset_crop" formatted="false">"重設裁剪"</string>
+    <string name="avatar_reset_done" formatted="false">"已恢復預設頭像"</string>
+    <string name="avatar_save" formatted="false">"儲存頭像"</string>
+    <string name="avatar_save_failed" formatted="false">"頭像儲存失敗，請重試。"</string>
+    <string name="avatar_saved" formatted="false">"頭像已儲存"</string>
+    <string name="avatar_saved_on_device" formatted="false">"已儲存在此裝置上"</string>
+    <string name="avatar_title" formatted="false">"頭像"</string>
+    <string name="avatar_unavailable" formatted="false">"無法使用此圖片。請選擇其他圖片。"</string>
+    <string name="avatar_use_crop" formatted="false">"預覽裁剪結果"</string>
+    <string name="avatar_visibility_hint" formatted="false">"支援頭像的連線中，聯絡人可以看到此裝置的頭像。每台裝置獨立設定頭像。"</string>
+    <string name="avatar_zoom" formatted="false">"縮放"</string>
     <string name="back" formatted="false">"返回"</string>
     <string name="back_to_chats" formatted="false">"返回聊天列表"</string>
     <string name="bluetooth" formatted="false">"藍牙"</string>
@@ -147,7 +242,35 @@
     <string name="device_info_trusted" formatted="false">"已記住這部裝置，下次可直接連線。\n\n信任基於裝置金鑰，不認證真實姓名。取消信任不會刪除聊天記錄。\n\n裝置身分\n{0}"</string>
     <string name="device_info_untrusted" formatted="false">"尚未記住這部裝置，下次需要確認。\n\n信任基於裝置金鑰，不認證真實姓名。取消信任不會刪除聊天記錄。\n\n裝置身分\n{0}"</string>
     <string name="device_section" formatted="false">"這部裝置"</string>
+    <string name="diagnostics_copied" formatted="false">"傳輸診斷已複製"</string>
     <string name="direct" formatted="false">"透過 IP 位址連線"</string>
+    <string name="direct_advertising" formatted="false">"已向附近 Android 裝置發布服務 · 等待建立直連網路"</string>
+    <string name="direct_busy" formatted="false">"Wi-Fi 直連忙碌中。請等待目前操作完成後重試。"</string>
+    <string name="direct_channel_lost" formatted="false">"Wi-Fi 直連服務已中斷。請重新啟用接收後重試。"</string>
+    <string name="direct_cleanup_failed" formatted="false">"Wi-Fi 直連的系統操作尚未確認完成，新的直連嘗試已暫停。請檢查 Wi-Fi 設定，然後重新啟動應用程式再試。"</string>
+    <string name="direct_connect_failed" formatted="false">"Wi-Fi 直連連線失敗。請確認對方 Android 裝置已啟用接收，並接受系統連線提示。"</string>
+    <string name="direct_connect_timeout" formatted="false">"Wi-Fi 直連連線逾時。請重新搜尋後重試。"</string>
+    <string name="direct_discovery_failed" formatted="false">"Wi-Fi 直連搜尋失敗。請檢查權限和 Wi-Fi 後重試。較舊的 Android 裝置還需啟用系統位置資訊。"</string>
+    <string name="direct_enable_canceled" formatted="false">"Wi-Fi 仍未啟用。請啟用後重試。"</string>
+    <string name="direct_enable_first" formatted="false">"請在系統設定中啟用 Wi-Fi，以使用 Wi-Fi 直連。"</string>
+    <string name="direct_foreign_group" formatted="false">"現有 Wi-Fi 直連群組的來源無法確認，因此未發起新的直連。請檢查 Wi-Fi 設定後重試。"</string>
+    <string name="direct_group_lost" formatted="false">"Wi-Fi 直連網路已遺失，連線已停止。請重新連線以繼續。"</string>
+    <string name="direct_interface_unavailable" formatted="false">"Wi-Fi 直連網路介面尚未就緒。請重新搜尋後重試。"</string>
+    <string name="direct_invalid_peer" formatted="false">"此附近裝置無法用於 Wi-Fi 直連。請重新搜尋。"</string>
+    <string name="direct_ipv6_unsupported" formatted="false">"不支援此 Wi-Fi 直連網路位址。請重新搜尋後重試。"</string>
+    <string name="direct_listening" formatted="false">"正在 Wi-Fi 直連介面上監聽：{0}"</string>
+    <string name="direct_location_required" formatted="false">"系統位置資訊已關閉。較舊的 Android 裝置需要啟用它才能搜尋 Wi-Fi 直連裝置。請在設定中啟用後重新搜尋。"</string>
+    <string name="direct_location_settings" formatted="false">"位置資訊設定"</string>
+    <string name="direct_no_devices_body" formatted="false">"請在兩台 Android 裝置上選擇 Wi-Fi 直連、啟用接收並搜尋，並接受系統連線提示。連線至 Windows 或 Linux 時，請雙方切換至區域網路，並加入同一 Wi-Fi 或熱點。 取消或中斷後，請雙方都點選連線以重試。"</string>
+    <string name="direct_peer_hint" formatted="false">"連線後請核對安全碼。 取消或中斷後，請雙方都點選連線以重試。"</string>
+    <string name="direct_permission_required" formatted="false">"Wi-Fi 直連需要附近裝置權限；較舊的裝置需要位置資訊權限。請在應用程式設定中允許。"</string>
+    <string name="direct_permission_title" formatted="false">"允許 Wi-Fi 直連存取"</string>
+    <string name="direct_route_ambiguous" formatted="false">"網路路由重疊或 VPN 正在執行，無法安全確認直連路徑。請檢查網路設定後重試。"</string>
+    <string name="direct_search_stop_failed" formatted="false">"無法停止 Wi-Fi 直連搜尋。請重試。"</string>
+    <string name="direct_service_failed" formatted="false">"無法發布 Wi-Fi 直連接收服務。請檢查 Wi-Fi 和權限後重試。"</string>
+    <string name="direct_settings_unavailable" formatted="false">"無法開啟系統設定。請手動開啟此裝置的設定，檢查 Wi-Fi 或位置資訊。"</string>
+    <string name="direct_unavailable" formatted="false">"此裝置無法使用 Wi-Fi 直連。可改用區域網路。"</string>
+    <string name="direct_wifi_settings" formatted="false">"Wi-Fi 設定"</string>
     <string name="disconnect" formatted="false">"斷開連線"</string>
     <string name="disconnect_and_connect" formatted="false">"結束並連線"</string>
     <string name="disconnected" formatted="false">"連線已斷開。沒有回條的訊息保持「未確認」。"</string>
@@ -158,11 +281,15 @@
     <string name="earlier" formatted="false">"較早"</string>
     <string name="emoji" formatted="false">"表情"</string>
     <string name="empty_chat" formatted="false">"從左側選擇聊天，或在「附近」連線至一部裝置。"</string>
+    <string name="encrypted_via" formatted="false">"端對端加密 · {0}"</string>
+    <string name="encryption_active" formatted="false">"連線已端對端加密"</string>
     <string name="endpoint" formatted="false">"對方的 IP 位址與連接埠"</string>
     <string name="endpoint_hint" formatted="false">"例如 192.168.1.20:54321。請在對方的「我的連線」中查看。"</string>
     <string name="endpoint_required" formatted="false">"請輸入區域網路 IP 位址和連接埠。"</string>
     <string name="error" formatted="false">"操作未完成"</string>
     <string name="feedback" formatted="false">"操作狀態與提示"</string>
+    <string name="file_comparing_links" formatted="false">"正在比較直連與區域網路…"</string>
+    <string name="file_recovering_lan" formatted="false">"正在透過區域網路恢復傳輸…"</string>
     <string name="find_nearby" formatted="false">"去附近尋找"</string>
     <string name="find_people_nearby" formatted="false">"找附近的人"</string>
     <string name="finding_remembered" formatted="false">"正在尋找已記住的裝置…"</string>
@@ -170,12 +297,23 @@
     <string name="first_message_hint" formatted="false">"連線後，傳送你的第一句問候。"</string>
     <string name="font_load_failed" formatted="false">"無法載入程式字型。請重新安裝 NearbyIM。原有資料已保留。"</string>
     <string name="font_size" formatted="false">"文字大小"</string>
+    <string name="gallery_access" formatted="false">"允許存取照片"</string>
+    <string name="gallery_auto_save" formatted="false">"自動將收到的照片儲存至相簿"</string>
+    <string name="gallery_empty" formatted="false">"沒有可存取的照片"</string>
+    <string name="gallery_more" formatted="false">"載入更多照片"</string>
+    <string name="gallery_permission" formatted="false">"請允許存取照片，以顯示相簿中的圖片。"</string>
+    <string name="gallery_save" formatted="false">"儲存至相簿"</string>
+    <string name="gallery_save_failed" formatted="false">"相簿儲存失敗，原件仍在聊天中，可重試。"</string>
+    <string name="gallery_save_permission" formatted="false">"儲存至相簿需要儲存空間權限；檔案已接收。"</string>
+    <string name="gallery_saved" formatted="false">"已儲存至相簿"</string>
+    <string name="gallery_saving" formatted="false">"正在儲存至相簿…"</string>
+    <string name="gallery_title" formatted="false">"選擇照片"</string>
     <string name="got_it" formatted="false">"知道了"</string>
     <string name="handshake" formatted="false">"正在驗證裝置…"</string>
     <string name="handshake_timeout" formatted="false">"對方沒有回應握手，請重新連線。"</string>
     <string name="help" formatted="false">"使用說明"</string>
-    <string name="help_body_linux" formatted="false">"區域網路：雙方連線同一個 Wi-Fi 或熱點，開啟接收後搜尋，也可輸入完整 IP 位址和連接埠。區域網路文字以明文傳輸，請使用可信網路。\n\n藍牙：開啟介面卡與 BlueZ 系統服務。雙方開啟接收，被搜尋的一方允許被發現。首次配對需要執行桌面系統的配對代理，可在系統藍牙設定中配對。清單顯示已配對及搜尋到的裝置，記住的裝置可從歷史重新連線。停止接收不會中斷已建立的聊天。\n\n首次聊天可選擇記住裝置或僅本次。系統配對不等於應用程式內信任。重新連線會驗證同一公鑰；可在設定中取消信任。\n\n待確認表示尚未收到儲存回條，已送達表示對方已儲存，未確認表示結果未知，均不表示已讀。\n\n記錄與草稿儲存在本機，重新啟動後保留。退出後需要重新開啟接收。資料位於 XDG_DATA_HOME/wozai，預設 ~/.local/share/wozai，與軟體安裝位置無關。裝置私鑰沒有額外加密，使用僅目前使用者可存取的檔案權限保護。刪除資料會刪除記錄與裝置信任。"</string>
-    <string name="help_body_windows" formatted="false">"區域網路：雙方連線同一個 Wi-Fi 或熱點，開啟接收後搜尋，也可輸入完整 IP 位址和連接埠。區域網路文字以明文傳輸，請使用可信網路。\n\n藍牙：對方開啟接收並允許被發現後搜尋，首次連線按系統提示配對。Windows 可透過「Windows 藍牙設定」完成配對。已記住裝置可透過歷史直接連線，對方仍需開啟藍牙和接收服務。\n\n首次聊天可選擇記住裝置或僅本次。記住後驗證同一裝置身分再直接連線；可在設定中取消信任。\n\n待確認表示尚未收到儲存回條，已送達表示對方已儲存，未確認表示結果未知，不能表示已讀。\n\n聊天記錄儲存在本機。Windows 端的草稿會儲存，切換會話或重新啟動後仍可恢復。退出後需要重新開啟接收。\n\n可攜式版本資料放在軟體旁的 data 資料夾，舊版資料遷移後原件保留。裝置私鑰由目前 Windows 使用者保護，複製到另一使用者或電腦不會自動解鎖身分。刪除 data 會刪除記錄和裝置信任。"</string>
+    <string name="help_body_linux" formatted="false">"區域網路：雙方連線同一個 Wi-Fi 或熱點，開啟接收後搜尋，也可輸入完整 IP 位址和連接埠。聊天與檔案傳輸使用端對端加密。本機聊天記錄和附件不加密。\n\n藍牙：開啟介面卡與 BlueZ 系統服務。雙方開啟接收，被搜尋的一方允許被發現。首次配對需要執行桌面系統的配對代理，可在系統藍牙設定中配對。清單顯示已配對及搜尋到的裝置，記住的裝置可從歷史重新連線。停止接收不會中斷已建立的聊天。\n\n首次聊天可選擇記住裝置或僅本次。系統配對不等於應用程式內信任。重新連線會驗證同一公鑰；可在設定中取消信任。\n\n待確認表示尚未收到儲存回條，已送達表示對方已儲存，未確認表示結果未知，均不表示已讀。\n\n記錄與草稿儲存在本機，重新啟動後保留。退出後需要重新開啟接收。資料位於 XDG_DATA_HOME/wozai，預設 ~/.local/share/wozai，與軟體安裝位置無關。裝置私鑰沒有額外加密，使用僅目前使用者可存取的檔案權限保護。刪除資料會刪除記錄與裝置信任。"</string>
+    <string name="help_body_windows" formatted="false">"區域網路：雙方連線同一個 Wi-Fi 或熱點，開啟接收後搜尋，也可輸入完整 IP 位址和連接埠。聊天與檔案傳輸使用端對端加密。本機聊天記錄和附件不加密。\n\n藍牙：對方開啟接收並允許被發現後搜尋，首次連線按系統提示配對。Windows 可透過「Windows 藍牙設定」完成配對。已記住裝置可透過歷史直接連線，對方仍需開啟藍牙和接收服務。\n\n首次聊天可選擇記住裝置或僅本次。記住後驗證同一裝置身分再直接連線；可在設定中取消信任。\n\n待確認表示尚未收到儲存回條，已送達表示對方已儲存，未確認表示結果未知，不能表示已讀。\n\n聊天記錄儲存在本機。Windows 端的草稿會儲存，切換會話或重新啟動後仍可恢復。退出後需要重新開啟接收。\n\n可攜式版本資料放在軟體旁的 data 資料夾，舊版資料遷移後原件保留。裝置私鑰由目前 Windows 使用者保護，複製到另一使用者或電腦不會自動解鎖身分。刪除 data 會刪除記錄和裝置信任。"</string>
     <string name="history_trust_retained" formatted="false">"本機聊天記錄和信任會保留。"</string>
     <string name="identity_changed" formatted="false">"裝置身分與歷史記錄不符，已拒絕連線。請先確認對方是否重新安裝了應用程式。"</string>
     <string name="identity_changed_rejected" formatted="false">"裝置身分已變化，連線已拒絕"</string>
@@ -185,7 +323,9 @@
     <string name="identity_protection_timeout" formatted="false">"Windows 裝置身分保護操作逾時。請稍後重試。原有身分不會被替換。"</string>
     <string name="identity_unavailable" formatted="false">"本機身分金鑰不可用，暫時無法連線"</string>
     <string name="identity_unavailable_restart" formatted="false">"本機身分金鑰不可用，暫時無法連線，請重新啟動應用程式後重試"</string>
+    <string name="identity_unverified" formatted="false">"身分尚未核驗"</string>
     <string name="identity_verification_failed" formatted="false">"裝置身分驗證不符，未授權此連線"</string>
+    <string name="identity_verified" formatted="false">"身分已核驗"</string>
     <string name="idle" formatted="false">"未連線"</string>
     <string name="initial_status" formatted="false">"選擇連線方式，找到身邊的人"</string>
     <string name="invalid_endpoint" formatted="false">"位址格式示例：192.168.1.20:54321 或 [fd00::1]:54321。"</string>
@@ -196,6 +336,7 @@
     <string name="lan_addresses" formatted="false">"{0}"</string>
     <string name="lan_listening_without_address" formatted="false">"監聽連接埠 {0} · 請連線 Wi-Fi 或手機熱點"</string>
     <string name="lan_no_devices_body" formatted="false">"請確認對方已開啟接收，並連線同一個 Wi-Fi 或熱點。"</string>
+    <string name="lan_path_unconfirmed" formatted="false">"區域網路 · 路徑未確認"</string>
     <string name="lan_register_failure" formatted="false">"自動發現註冊失敗，可使用位址直連"</string>
     <string name="language" formatted="false">"介面語言"</string>
     <string name="large" formatted="false">"大"</string>
@@ -251,6 +392,12 @@
     <string name="outgoing_message_meta" formatted="false">"{0} · {1}"</string>
     <string name="paired" formatted="false">"已配對"</string>
     <string name="paired_address" formatted="false">"已配對 · {0}"</string>
+    <string name="path_details_bluetooth" formatted="false">"這份檔案記錄的傳輸管道是藍牙。較大的檔案可能需要更長的傳輸時間。"</string>
+    <string name="path_details_disconnected" formatted="false">"目前沒有已建立的傳輸通道。連線後會顯示實際使用的通道。"</string>
+    <string name="path_details_lan" formatted="false">"這份檔案記錄的傳輸管道是區域網路。無法確認該管道是否經過路由器或手機熱點。"</string>
+    <string name="path_details_selecting" formatted="false">"檔案依序嘗試 Wi-Fi 直連、區域網路、藍牙；不會改變聊天連線模式。"</string>
+    <string name="path_details_title" formatted="false">"傳輸路徑"</string>
+    <string name="path_details_wifi_direct" formatted="false">"這份檔案記錄的傳輸管道是 Android Wi-Fi 直連。加密狀態和身分驗證狀態會分別顯示。"</string>
     <string name="peer_ended" formatted="false">"對方結束了聊天。"</string>
     <string name="peer_status_transport" formatted="false">"{0} · {1}"</string>
     <string name="peer_summary" formatted="false">"{0}。{1}"</string>
@@ -265,9 +412,20 @@
     <string name="photo_zoom_out" formatted="false">"縮小照片"</string>
     <string name="please_wait_connecting" formatted="false">"正在連線，請稍候"</string>
     <string name="portable_hint" formatted="false">"可攜式版本預設將資料儲存在軟體旁的 data 資料夾。舊版資料會複製遷移並保留原件。裝置身分仍由目前 Windows 使用者保護，複製到另一使用者或電腦不會自動解鎖身分。"</string>
-    <string name="privacy" formatted="false">"無需帳號或遠端伺服器。聊天記錄儲存在本機。區域網路文字仍是明文；身分簽章不提供內容加密。"</string>
+    <string name="privacy" formatted="false">"無需帳號或遠端伺服器。聊天與檔案傳輸使用端對端加密，本機記錄和附件不加密。首次連線請當面核對裝置身分。"</string>
     <string name="quit" formatted="false">"結束"</string>
     <string name="ready" formatted="false">"已連線"</string>
+    <string name="receive_folder" formatted="false">"接收資料夾"</string>
+    <string name="receive_folder_choose" formatted="false">"選擇資料夾"</string>
+    <string name="receive_folder_failed" formatted="false">"無法儲存至接收資料夾"</string>
+    <string name="receive_folder_private" formatted="false">"僅儲存在應用程式中"</string>
+    <string name="receive_folder_retry" formatted="false">"重試儲存至資料夾"</string>
+    <string name="receive_folder_save" formatted="false">"儲存至接收資料夾"</string>
+    <string name="receive_folder_saved" formatted="false">"已儲存至接收資料夾"</string>
+    <string name="receive_folder_saving" formatted="false">"正在儲存至接收資料夾…"</string>
+    <string name="receive_folder_stop" formatted="false">"僅儲存在應用程式中"</string>
+    <string name="receive_folder_summary" formatted="false">"接收完成後，將檔案和相片另存至所選資料夾，聊天中保留應用程式內的副本。更換資料夾僅影響之後的檔案；清空聊天不會刪除已儲存的檔案。"</string>
+    <string name="receive_folder_unavailable" formatted="false">"無法存取或寫入此資料夾，請重新選擇。"</string>
     <string name="received" formatted="false">"已收到"</string>
     <string name="receiving" formatted="false">"正在接收"</string>
     <string name="reception_off" formatted="false">"接收已關閉"</string>
@@ -327,8 +485,10 @@
     <string name="stop_search" formatted="false">"停止搜尋"</string>
     <string name="storage_failure" formatted="false">"無法儲存本機資料，連線已停止。請檢查磁碟空間和目錄權限。"</string>
     <string name="system_language" formatted="false">"跟隨系統"</string>
+    <string name="system_theme" formatted="false">"跟隨系統"</string>
     <string name="theme" formatted="false">"主題"</string>
     <string name="today" formatted="false">"今天"</string>
+    <string name="transfer_diagnostics" formatted="false">"複製傳輸診斷"</string>
     <string name="trust_hint" formatted="false">"信任繫結裝置公鑰，區域網路和藍牙共用。取消信任會斷開該裝置，聊天記錄仍保留。"</string>
     <string name="trust_revoked_canceled" formatted="false">"信任已取消，連線嘗試已停止"</string>
     <string name="trust_revoked_reconnect" formatted="false">"信任已取消，請重新連線並同意"</string>
@@ -340,12 +500,42 @@
     <string name="unnamed_device" formatted="false">"未命名裝置"</string>
     <string name="unpaired_address" formatted="false">"未配對 · {0}"</string>
     <string name="unsupported_bluetooth" formatted="false">"這部裝置不支援藍牙，可使用區域網路"</string>
+    <string name="verification_camera_permission" formatted="false">"掃描需要相機權限，也可選擇圖片或手動核對。"</string>
+    <string name="verification_camera_unavailable" formatted="false">"相機無法使用，請選擇圖片或手動核對。"</string>
+    <string name="verification_confirm" formatted="false">"確認已逐組核對雙方完整安全碼一致？核驗後會記住此裝置身分。"</string>
+    <string name="verification_connect_first" formatted="false">"請先與對方建立加密連線，再核驗身分。"</string>
+    <string name="verification_connection_changed" formatted="false">"連線已變更，請重新開啟核驗頁面。"</string>
+    <string name="verification_copy" formatted="false">"複製安全碼"</string>
+    <string name="verification_copy_done" formatted="false">"安全碼已複製"</string>
+    <string name="verification_done" formatted="false">"身分核驗成功"</string>
+    <string name="verification_explain" formatted="false">"核對對方裝置上的完整安全碼，或當面掃描對方的 QR 碼。不在身邊時，請透過另一條已信任的管道核對；僅在目前聊天中互傳安全碼不能確認身分。"</string>
+    <string name="verification_focus_failed" formatted="false">"對焦失敗，請稍微拉遠後重試。"</string>
+    <string name="verification_focus_hint" formatted="false">"輕點二維碼的位置對焦，也可點「重新對焦」。"</string>
+    <string name="verification_focus_locked" formatted="false">"已對焦"</string>
+    <string name="verification_focus_unavailable" formatted="false">"此相機不支援調整對焦。"</string>
+    <string name="verification_focusing" formatted="false">"正在對焦…"</string>
+    <string name="verification_image" formatted="false">"從圖片讀取"</string>
+    <string name="verification_local_only" formatted="false">"核驗結果僅儲存在此裝置，綁定雙方身分。變更身分或撤銷信任後須重新核驗。"</string>
+    <string name="verification_mark" formatted="false">"我已核對一致"</string>
+    <string name="verification_mismatch" formatted="false">"安全碼不符。請確認核對的是正確裝置，暫勿標記為已核驗。"</string>
+    <string name="verification_qr_image" formatted="false">"身分核驗 QR 碼"</string>
+    <string name="verification_read_failed" formatted="false">"未找到可用的 QR 碼，請另選圖片或手動核對。"</string>
+    <string name="verification_reading" formatted="false">"正在讀取 QR 碼…"</string>
+    <string name="verification_refocus" formatted="false">"重新對焦"</string>
+    <string name="verification_save_qr" formatted="false">"儲存 QR 碼"</string>
+    <string name="verification_scan" formatted="false">"掃描 QR 碼"</string>
+    <string name="verification_title" formatted="false">"驗證安全碼"</string>
+    <string name="verify_identity" formatted="false">"驗證身分"</string>
     <string name="version_android" formatted="false">"Android 版 · {0}"</string>
     <string name="version_linux" formatted="false">"Linux 預覽版 · {0}"</string>
     <string name="version_windows" formatted="false">"Windows 預覽版 · {0}"</string>
     <string name="view_copy_address" formatted="false">"檢視並複製本機位址"</string>
     <string name="waiting_both_ready" formatted="false">"等待雙方完成連線…"</string>
     <string name="waiting_peer_consent" formatted="false">"等待對方同意聊天…"</string>
+    <string name="wifi_direct" formatted="false">"Wi-Fi 直連"</string>
+    <string name="wifi_direct_connecting" formatted="false">"正在透過 Wi-Fi 直連連線…"</string>
+    <string name="wifi_direct_fallback_bluetooth" formatted="false">"Wi-Fi 直連無法使用；備用路徑：藍牙。原因：{0}"</string>
+    <string name="wifi_direct_fallback_lan" formatted="false">"Wi-Fi 直連無法使用；備用路徑：區域網路。原因：{0}"</string>
     <string name="yes" formatted="false">"確定"</string>
     <string name="yesterday" formatted="false">"昨天"</string>
     <string name="you" formatted="false">"我"</string>

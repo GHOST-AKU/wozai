@@ -6,8 +6,10 @@
 
 Wozai (NearbyIM) is an open-source chat application for nearby communication. It lets Android, Windows, and Linux devices connect directly over **the same local network** or **Classic Bluetooth**, with no account registration and no dependency on a cloud chat server.
 
-> Current version: **0.3.1** · Android / Windows / Linux  
-> [Download the latest release](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.1) · [View Issues](https://github.com/GHOST-AKU/wozai/issues)
+> Latest stable release: **0.3.2** · Android / Windows / Linux
+> [Download the latest release](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.2) · [View Issues](https://github.com/GHOST-AKU/wozai/issues)
+
+**0.3.2 is now a stable release**, with matching protocol and UI updates for Android, Windows and Linux, including Linux AppImage / deb / tar.gz packages. It adds Noise end-to-end encryption, bounded streaming files up to 10 GiB with durable resume, automatic file routing, an Android receiving folder and adaptive tablet/foldable layouts. See the [0.3.2 release notes](../releases/0.3.2.md) for changes and acceptance scope. P2P reliability, device throughput/distance recovery, long-term memory and formal performance remain tracked in [#23](https://github.com/GHOST-AKU/wozai/issues/23) and [#9](https://github.com/GHOST-AKU/wozai/issues/9).
 
 ## 🌱 Why Wozai?
 
@@ -21,8 +23,10 @@ For now, it focuses on simple, understandable nearby communication: devices disc
 
 - **Direct LAN connections**: automatic discovery via NSD / mDNS, with direct IP + port connections also supported
 - **Classic Bluetooth communication**: secure RFCOMM with device discovery, pairing, and reconnection
-- **Cross-platform chat**: Android, Windows, and Linux share the NIM3 protocol
-- **Text, images, and files**: image bubbles, in-app viewing, and single-file transfers up to 1 GiB
+- **Cross-platform chat**: Android, Windows, and Linux clients share encrypted NIM4 records
+- **Text, images, and files**: image bubbles, in-app viewing, bounded streaming transfers up to 10 GiB, batch queues, pause/resume and retry
+- **Automatic file routing**: reuse an endpoint hotspot, try temporary P2P, LAN and existing Bluetooth; select a faster LAN and continue from checkpoints after interruption, with actual-path indicators
+- **Save locations**: choose a file-manager-accessible receiving folder on Android; open original names or save files elsewhere on desktop
 - **Trusted reconnection**: after a device is approved for the first time, its long-term identity is recorded; later connections verify that it is the same device
 - **Delivery receipts**: delivery is confirmed after the receiving side successfully saves the message
 - **Local history and drafts**: chat history stays on the device and does not depend on cloud sync
@@ -60,32 +64,32 @@ If automatic discovery fails, you can connect directly using the IP address and 
 
 ## 🔐 Security and privacy
 
-Wozai aims to keep the communication path as direct and understandable as possible, but **0.3.1 is not yet an end-to-end encrypted chat tool**.
+0.3.2 protects text and attachments using **Noise XX / X25519 / system AES-256-GCM / SHA-256**. Its existing P-256 root identity signs a proof binding both identities, Noise keys, handshake transcript and capabilities. Device UUIDs and existing trust pins are preserved. Each connection creates a new session; authentication, integrity or version failures close the connection.
 
-NIM3 currently uses a local long-term P-256 device identity, an authenticated handshake, message signatures, and direction and sequence information to verify continuity of device identity and message integrity. A public key accepted for the first time is stored in the local trust record.
+**The published 0.3.1 release is not end-to-end encrypted**: NIM3 provides authentication and signatures, and Bluetooth also has system RFCOMM link protection.
 
 Please note:
 
-- **LAN message contents are currently still plaintext**. Do not treat them as E2EE communication suitable for untrusted networks.
-- Bluetooth uses the system's secure RFCOMM pairing and link encryption, but application-layer end-to-end encryption has not yet been added.
+- **Published 0.3.1 LAN contents remain plaintext**.
 - A nickname is not the same as an authenticated real-world identity; when connecting to an unfamiliar device for the first time, you should still verify the other party yourself.
-- Chat history, device identity, and trust records are stored locally; the app disables the system's automatic backup.
+- Initial approval (TOFU) accepts a device key; confirm its identity in person or through a trusted channel.
+- History and attachments remain unencrypted on local storage. Transport encryption does not encrypt the disk. The app disables system automatic backup.
 - Clearing chat history does not automatically revoke trust in a device. Trust can be revoked separately from device information or settings.
 
-End-to-end encryption and more advanced networking capabilities are still in the design / pre-research stage for future development.
+The implementation has standard-vector, cross-implementation and negative tests; it has not completed a formal cryptographic security audit or physical Bluetooth acceptance.
 
-## 🧩 NIM3
+## 🧩 NIM4
 
-The Android, Windows, and Linux clients share the **NIM3 authenticated encapsulation protocol**. NIM3 does not downgrade to NIM2 or to unauthenticated connections, so both sides need to use a version that supports NIM3.
+The clients share **NIM4 encrypted records** and never fall back to NIM3 or plaintext. Both endpoints must upgrade to compatible NIM4 versions. Historical records remain readable and root identities are unchanged.
 
 Text, images, and files are currently supported; group chats, voice, internet relays, and automatic message retransmission are not yet included.
 
 ## 📦 Downloads and release notes
 
-The current stable release is **0.3.1**:
+The current stable release is **0.3.2**:
 
-- [GitHub Release v0.3.1](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.1)
-- [0.3.1 release notes](../releases/0.3.1.md)
+- [GitHub Release v0.3.2](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.2)
+- [0.3.2 release notes](../releases/0.3.2.md)
 - [Android signing and upgrades](../android-signing.md)
 - [Android real-device testing](../device-test.md)
 - [Verification records](../verification.md)
@@ -132,8 +136,8 @@ sh tools/check-source.sh
 Windows PowerShell:
 
 ```powershell
-.\tools\test-i18n.ps1
-.\tools\test-core.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\test-i18n.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\test-core.ps1
 ```
 
 These checks are not equivalent to a full Android build or real-device acceptance testing. See the [device testing guide](../device-test.md) for the complete procedure.
@@ -157,8 +161,8 @@ The project is still developing rapidly. Current priorities include:
 
 - Group chats and multiple simultaneous private chats
 - More complete real-device Bluetooth validation on desktop
-- A stable Android signing and upgrade path
-- End-to-end encryption
+- In-place upgrade and storage compatibility on more devices
+- Independent cryptographic audit and security UX improvements
 - Feasibility research for Mesh / multi-hop networking
 - More languages, accessibility, and better support for different device sizes
 

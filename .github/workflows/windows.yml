@@ -1,7 +1,13 @@
 name: Build NearbyIM Windows client
 on:
+  pull_request:
+    branches: [main]
   workflow_dispatch:
     inputs:
+      android-run-id:
+        description: 'Successful signed Android workflow run from this exact source; finalize all preview assets'
+        type: string
+        default: ''
       release-tag:
         description: 'Upload verified packages to an existing draft release (requires include-linux)'
         type: string
@@ -22,6 +28,7 @@ jobs:
     uses: ./.github/workflows/linux.yml
     with:
       performance-baseline: ${{ inputs['performance-baseline'] }}
+      release-tag: ${{ inputs['release-tag'] }}
   windows:
     runs-on: windows-latest
     steps:
@@ -39,7 +46,11 @@ jobs:
           "version=$version" >> $env:GITHUB_OUTPUT
       - name: Test desktop and create portable Windows package
         shell: pwsh
-        run: ./desktop/tools/build.ps1 -Package
+        env:
+          WOZAI_RELEASE_TAG: ${{ inputs['release-tag'] }}
+        run: |
+          $previewRelease = $env:WOZAI_RELEASE_TAG -match '^v[0-9]+\.[0-9]+\.[0-9]+-preview\.[1-9][0-9]*$'
+          ./desktop/tools/build.ps1 -Package -PreviewRelease:$previewRelease
       - name: Test shared Android protocol and trust
         shell: pwsh
         run: |
@@ -58,12 +69,38 @@ jobs:
         run: |
           & 'desktop/build/package/NearbyIM/runtime/bin/java.exe' -cp 'desktop/build/package/NearbyIM/app/*;desktop/build/tests' dev.ghost.wozai.GuiTests desktop/build/gui-bundled-runtime.png
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & 'desktop/build/package/NearbyIM/runtime/bin/java.exe' -cp 'desktop/build/package/NearbyIM/app/*;desktop/build/tests' dev.ghost.wozai.TransferPathGuiTests
+          if($LASTEXITCODE -ne 0) { throw 'Bundled transfer path GUI tests failed' }
+          & 'desktop/build/package/NearbyIM/runtime/bin/java.exe' -cp 'desktop/build/package/NearbyIM/app/*;desktop/build/tests' dev.ghost.wozai.TransferPathWindowTests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & 'desktop/build/package/NearbyIM/runtime/bin/java.exe' -cp 'desktop/build/package/NearbyIM/app/*;desktop/build/tests' dev.ghost.wozai.AvatarGuiTests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & 'desktop/build/package/NearbyIM/runtime/bin/java.exe' -cp 'desktop/build/package/NearbyIM/app/*;desktop/build/tests' dev.ghost.wozai.DesktopRetryTests --gui
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & 'desktop/build/package/NearbyIM/runtime/bin/java.exe' -cp 'desktop/build/package/NearbyIM/app/*;desktop/build/tests' dev.ghost.wozai.ThumbnailScrollTests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & 'desktop/build/package/NearbyIM/runtime/bin/java.exe' -cp 'desktop/build/package/NearbyIM/app/*;desktop/build/tests' dev.ghost.wozai.VerificationGuiTests desktop/build/gui-verification-windows-bundled
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Exercise native GUI and mDNS
         shell: pwsh
         run: |
           & "$env:JAVA_HOME/bin/java.exe" "-Dwozai.bluetooth.library=$((Resolve-Path desktop/build/lib/wozai_bluetooth.dll).Path)" -cp 'desktop/build/classes;desktop/build/tests;desktop/build/lib/*' dev.ghost.wozai.DiscoveryTests
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & "$env:JAVA_HOME/bin/java.exe" "-Dwozai.bluetooth.library=$((Resolve-Path desktop/build/lib/wozai_bluetooth.dll).Path)" -cp 'desktop/build/classes;desktop/build/tests;desktop/build/lib/*' dev.ghost.wozai.GuiTests desktop/build/gui-windows.png
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "$env:JAVA_HOME/bin/java.exe" -cp 'desktop/build/classes;desktop/build/tests;desktop/build/lib/*' dev.ghost.wozai.DesktopRetryTests --gui
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "$env:JAVA_HOME/bin/java.exe" -cp 'desktop/build/classes;desktop/build/tests;desktop/build/lib/*' dev.ghost.wozai.ThumbnailScrollTests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "$env:JAVA_HOME/bin/java.exe" -cp 'desktop/build/classes;desktop/build/tests;desktop/build/lib/*' dev.ghost.wozai.AttachmentSelectionGuiTests
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & "$env:JAVA_HOME/bin/java.exe" -cp 'desktop/build/classes;desktop/build/tests;desktop/build/lib/*' dev.ghost.wozai.TransferPathGuiTests
+          if($LASTEXITCODE -ne 0) { throw 'Transfer path GUI tests failed' }
+          & "$env:JAVA_HOME/bin/java.exe" -cp 'desktop/build/classes;desktop/build/tests;desktop/build/lib/*' dev.ghost.wozai.TransferPathWindowTests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "$env:JAVA_HOME/bin/java.exe" -cp 'desktop/build/classes;desktop/build/tests;desktop/build/lib/*' dev.ghost.wozai.AvatarGuiTests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "$env:JAVA_HOME/bin/java.exe" -cp 'desktop/build/classes;desktop/build/tests;desktop/build/lib/*' dev.ghost.wozai.VerificationGuiTests desktop/build/gui-verification-windows
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & "$env:JAVA_HOME/bin/java.exe" "-Dwozai.bluetooth.library=$((Resolve-Path desktop/build/lib/wozai_bluetooth.dll).Path)" -cp 'desktop/build/classes;desktop/build/tests;desktop/build/lib/*' dev.ghost.wozai.LayoutTests desktop/build/gui-settings-windows.png
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -108,6 +145,7 @@ jobs:
           name: windows-preview-verification
           path: |
             desktop/build/gui-windows*.png
+            desktop/build/gui-attachments-windows*.png
             desktop/build/gui-settings*.png
             desktop/build/package-window.png
             desktop/build/gui-bundled-runtime*.png
@@ -121,11 +159,26 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: read
     steps:
       - uses: actions/checkout@v4
       - name: Read release version
         id: metadata
         run: python3 -c 'import json; print("version=" + json.load(open("i18n/config.json"))["appVersion"])' >> "$GITHUB_OUTPUT"
+      - name: Install AppImage payload inspection tool
+        run: sudo apt-get update && sudo apt-get install -y squashfs-tools
+      - uses: actions/setup-java@v4
+        if: inputs['android-run-id'] != ''
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        if: inputs['android-run-id'] != ''
+        with:
+          packages: platform-tools
+      - name: Install Android asset verification tools
+        if: inputs['android-run-id'] != ''
+        run: sdkmanager 'build-tools;35.0.0'
       - uses: actions/download-artifact@v4
         with:
           name: NearbyIM-${{ steps.metadata.outputs.version }}-windows-x64
@@ -140,3 +193,18 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ inputs['release-tag'] }}
         run: python3 tools/release-assets.py desktop
+      - uses: actions/download-artifact@v4
+        if: inputs['android-run-id'] != ''
+        with:
+          name: android-signed-release
+          path: build/release-input/android-signed
+          run-id: ${{ inputs['android-run-id'] }}
+          github-token: ${{ github.token }}
+      - name: Verify signed Android and finalize preview assets in the draft
+        if: inputs['android-run-id'] != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ inputs['release-tag'] }}
+          SIGNED_ANDROID_RUN_ID: ${{ inputs['android-run-id'] }}
+        run: python3 tools/release-assets.py preview

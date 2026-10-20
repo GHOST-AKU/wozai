@@ -24,6 +24,14 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     private final DesktopStore store;
     private final DesktopIdentity.Identity identity;
     private final DesktopClient client;
+    private final DesktopAvatars avatars;
+    private final AppTheme.Avatar ownAvatar=new AppTheme.Avatar(null),chatAvatar=new AppTheme.Avatar(null);
+    private AvatarDialog avatarDialog;
+    private final List<JList<DesktopStore.Peer>> avatarLists=new ArrayList<>();
+    private final Map<String,AppTheme.Avatar> detailAvatars=new HashMap<>();
+    private final Map<String,JDialog> avatarDetails=new HashMap<>();
+    private final Map<String,Runnable> detailTextRefresh=new HashMap<>();
+    private long avatarEditorGeneration;
     private final LanDiscovery discovery = new LanDiscovery();
     private final List<Runnable> translations = new ArrayList<>();
     private final DefaultListModel<DesktopStore.Peer> historyModel = new DefaultListModel<>();
@@ -40,6 +48,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     private final Map<String,java.awt.image.BufferedImage> thumbnails=new LinkedHashMap<>();
     private final Set<String> loadingThumbnails=new HashSet<>();
     private final LinkedHashSet<String> failedThumbnails=new LinkedHashSet<>();
+    private final Set<String> pendingRetries=new HashSet<>();
     private final JTextField nickname = new JTextField(24);
     private final JTabbedPane tabs = new JTabbedPane();
     private final javax.swing.Timer draftTimer;
@@ -53,8 +62,13 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     private boolean updatingSelection, loadingDraft, shuttingDown;
     private long conversationGeneration;
     private List<DesktopStore.Message> renderedMessages;
+    private List<TransferProgress> renderedProgress = List.of();
+    private List<AttachmentBatchQueue.RetryState> renderedRetryStates=List.of();
+    private List<Boolean> renderedRetryBatches=List.of();
+    private List<TransferPath> renderedPaths=List.of();
     private JDialog requestDialog;
     private PhotoViewer photoViewer;
+    private SecurityDialog securityDialog;
     private final Map<String,JDialog> informationDialogs = new HashMap<>();
     private DesktopClient.Request pendingRequest;
     private JTextArea requestDescription;
@@ -86,6 +100,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         strings = new Strings(language); nicknameValue = store.nickname();
         setIconImages(AppIcons.load());
         client = new DesktopClient(store, identity, this);
+        avatars = new DesktopAvatars(client::avatar,this::refreshAvatarViews);
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
         setMinimumSize(new Dimension(760, 540)); setSize(1060, 730); setLocationByPlatform(true);
         draftTimer = new javax.swing.Timer(450, e -> saveDraft()); draftTimer.setRepeats(false);
@@ -130,13 +145,18 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     private void buildChat() {
         JPanel chat = padded(new BorderLayout(8, 12));
         JPanel top = new JPanel(new BorderLayout(12,0)); JPanel title=new JPanel(new GridLayout(2,1,0,4)); title.add(chatTitle); status.setForeground(AppTheme.muted); status.setFont(status.getFont().deriveFont(12f)); title.add(status); top.add(title,BorderLayout.CENTER);
+        chatAvatar.setName("avatar.header");JButton details=new JButton();details.setLayout(new BorderLayout());details.add(chatAvatar);details.setPreferredSize(new Dimension(56,56));details.putClientProperty("JButton.buttonType","toolBarButton");details.addActionListener(e->peerDetails());translations.add(()->{details.setToolTipText(strings.text("avatarDetails"));details.getAccessibleContext().setAccessibleName(strings.text("avatarDetails"));});top.add(details,BorderLayout.LINE_START);
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.TRAILING, 8, 0));
         actions.add(button("reconnect", this::reconnect));
         JPopupMenu menu = new JPopupMenu();
+        JMenuItem verify=new JMenuItem();verify.setIcon(AppTheme.icon("lock"));translations.add(()->verify.setText(strings.text("verifyIdentity")));verify.addActionListener(e->openVerification());menu.add(verify);
         JMenuItem clear = new JMenuItem(), revoke = new JMenuItem();
         translations.add(() -> { clear.setText(strings.text("clear")); revoke.setText(strings.text("revoke")); menu.applyComponentOrientation(orientation()); });
         clear.addActionListener(e -> { if (selected != null && confirm("clearConfirm")) handle(client.clear(selected), "storageFailure"); });
         revoke.addActionListener(e -> { if (selected != null && confirm("revokeConfirm")) handle(client.revoke(selected), "storageFailure"); });
+        JMenuItem diagnostics=new JMenuItem();translations.add(()->diagnostics.setText(strings.text("transferDiagnostics")));
+        diagnostics.addActionListener(e->{if(selected==null)return;try{Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new java.awt.datatransfer.StringSelection(client.transferDiagnostics(selected)),null);notice("diagnosticsCopied");}catch(RuntimeException unavailable){notice("error");}});menu.add(diagnostics);
+        for(String action:List.of("pause","resume","cancel")){String key=action.equals("pause")?"attachmentBatchPause":action.equals("resume")?"attachmentBatchResume":"attachmentBatchCancel";JMenuItem item=new JMenuItem();translations.add(()->item.setText(strings.text(key)));item.addActionListener(e->{if(selected!=null)handle(client.batchAction(selected,action),"attachmentFailed");});menu.add(item);}
         JMenuItem disconnect=new JMenuItem(); translations.add(() -> disconnect.setText(strings.text("disconnect"))); disconnect.addActionListener(e -> handle(client.disconnect(),"error")); menu.add(disconnect); menu.addSeparator(); menu.add(clear); menu.add(revoke);
         JButton more = new JButton(AppTheme.icon("more_vert")); more.setPreferredSize(new Dimension(44,44)); translations.add(() -> { more.setToolTipText(strings.text("more")); more.getAccessibleContext().setAccessibleName(strings.text("more")); });
         more.addActionListener(e -> menu.show(more, 0, more.getHeight())); actions.add(more);
@@ -167,9 +187,9 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
             private void change() { composer.setRows(Math.max(1,Math.min(4,composer.getLineCount()))); composer.getParent().getParent().getParent().revalidate(); if (!loadingDraft) draftTimer.restart(); if (state != null) renderState(); }
         });
         JPanel attachments=new JPanel(new FlowLayout(FlowLayout.LEADING,8,0));attachments.setOpaque(false);
-        translations.add(()->{sendFile.setText(strings.text("sendFile"));sendPhoto.setText(strings.text("sendPhoto"));sendFile.setToolTipText(strings.text("attachmentHint"));sendPhoto.setToolTipText(strings.text("attachmentHint"));sendFile.getAccessibleContext().setAccessibleName(strings.text("sendFile"));sendPhoto.getAccessibleContext().setAccessibleName(strings.text("sendPhoto"));});
+        translations.add(()->{sendFile.setText(strings.text("sendFile"));sendPhoto.setText(strings.text("sendPhoto"));sendFile.setToolTipText(strings.text("attachmentHintV2"));sendPhoto.setToolTipText(strings.text("attachmentHintV2"));sendFile.getAccessibleContext().setAccessibleName(strings.text("sendFile"));sendPhoto.getAccessibleContext().setAccessibleName(strings.text("sendPhoto"));});
         sendFile.addActionListener(e->chooseAttachment(false));sendPhoto.addActionListener(e->chooseAttachment(true));sendFile.setIcon(AppTheme.icon("description"));sendPhoto.setIcon(AppTheme.icon("photo"));attachments.add(sendPhoto);attachments.add(sendFile);
-        JPopupMenu attachmentMenu=new JPopupMenu();attachmentMenu.add(attachments);JLabel capacity=label("attachmentHint");capacity.setBorder(BorderFactory.createEmptyBorder(8,12,8,12));capacity.setForeground(AppTheme.muted);attachmentMenu.add(capacity);attach.addActionListener(e->attachmentMenu.show(attach,Math.min(0,attach.getWidth()-attachmentMenu.getPreferredSize().width),-attachmentMenu.getPreferredSize().height));
+        JPopupMenu attachmentMenu=new JPopupMenu();attachmentMenu.add(attachments);JLabel capacity=label("attachmentHintV2");capacity.setBorder(BorderFactory.createEmptyBorder(8,12,8,12));capacity.setForeground(AppTheme.muted);attachmentMenu.add(capacity);attach.addActionListener(e->attachmentMenu.show(attach,Math.min(0,attach.getWidth()-attachmentMenu.getPreferredSize().width),-attachmentMenu.getPreferredSize().height));
         sendFile.addActionListener(e->attachmentMenu.setVisible(false));sendPhoto.addActionListener(e->attachmentMenu.setVisible(false));
         chat.add(input, BorderLayout.SOUTH);
         history.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
@@ -211,6 +231,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     private void buildSettings(Path path) throws IOException {
         JPanel page=new JPanel(new BorderLayout()); ResponsiveColumn content=new ResponsiveColumn();
         content.add(section("deviceSection")); nickname.setText(nicknameValue);
+        JButton editAvatar=new JButton();editAvatar.setName("avatar.edit");editAvatar.setLayout(new BorderLayout());ownAvatar.setPreferredSize(new Dimension(56,56));editAvatar.add(ownAvatar);editAvatar.setPreferredSize(new Dimension(72,64));editAvatar.addActionListener(e->openAvatarEditor());translations.add(()->{editAvatar.setToolTipText(strings.text("avatarChange"));editAvatar.getAccessibleContext().setAccessibleName(strings.text("avatarChange"));ownAvatar.getAccessibleContext().setAccessibleName(strings.text("avatar"));});content.add(settingRow("avatar",editAvatar,button("avatarChange",this::openAvatarEditor)));
         content.add(settingRow("nickname",nickname,button("save",this::saveNickname)));
         content.add(section("appearanceSection"));
         translations.add(() -> {
@@ -227,12 +248,13 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         JComboBox<String> sizes=new JComboBox<>();
         translations.add(() -> { sizes.setModel(new DefaultComboBoxModel<>(new String[]{strings.text("normal"),strings.text("large"),strings.text("largest")})); sizes.setSelectedIndex(fontScale==1?0:fontScale==1.25f?1:2); });
         content.add(settingRow("fontSize",sizes,null));
-        sizes.addActionListener(e -> { if(translating||sizes.getSelectedIndex()<0)return; fontScale=new float[]{1,1.25f,1.5f}[sizes.getSelectedIndex()]; scaleFonts(getContentPane(),fontScale); transcript.scale(fontScale); renderedMessages=null; renderMessages(); handle(client.setting("textSize",Integer.toString(sizes.getSelectedIndex())),"storageFailure"); });
+        sizes.addActionListener(e -> { if(translating||sizes.getSelectedIndex()<0)return; fontScale=new float[]{1,1.25f,1.5f}[sizes.getSelectedIndex()]; scaleFonts(getContentPane(),fontScale); if(securityDialog!=null)scaleFonts(securityDialog.getContentPane(),fontScale); transcript.scale(fontScale); renderedMessages=null; renderMessages(); handle(client.setting("textSize",Integer.toString(sizes.getSelectedIndex())),"storageFailure"); });
         fontScale=new float[]{1,1.25f,1.5f}[Math.max(0,Math.min(2,Integer.parseInt(store.setting("textSize","0"))))];
         JComboBox<String> themes=new JComboBox<>(); translations.add(() -> { themes.setModel(new DefaultComboBoxModel<>(new String[]{strings.text("lightTheme"),strings.text("darkTheme")})); themes.setSelectedIndex(AppTheme.dark?1:0); });
         content.add(settingRow("theme",themes,null));
-        themes.addActionListener(e -> { if(translating)return; boolean dark=themes.getSelectedIndex()==1; if(dark==AppTheme.dark)return; AppTheme.install(dark); SwingUtilities.updateComponentTreeUI(this); styleNavigation(); AppTheme.refreshPrimary(getContentPane()); refreshThemeColors(); renderedMessages=null; renderMessages(); handle(client.setting("theme",dark?"dark":"light"),"storageFailure"); repaint(); });
+        themes.addActionListener(e -> { if(translating)return; boolean dark=themes.getSelectedIndex()==1; if(dark==AppTheme.dark)return; AppTheme.install(dark); SwingUtilities.updateComponentTreeUI(this); styleNavigation(); AppTheme.refreshPrimary(getContentPane()); refreshThemeColors(); if(securityDialog!=null)securityDialog.refreshTheme(); renderedMessages=null; renderMessages(); handle(client.setting("theme",dark?"dark":"light"),"storageFailure"); repaint(); });
         content.add(section("connectionsSection")); content.add(settingAction("trustedDevices",this::manageTrust));
+        content.add(settingAction("attachmentQuota",()->{long[] choices={16,32,64,128};String[] labels=new String[choices.length];String current="";for(int i=0;i<choices.length;i++){labels[i]=strings.text("attachmentQuotaGiB",choices[i]);if(client.attachmentQuota()==choices[i]*1024*1024*1024)current=labels[i];}Object result=JOptionPane.showInputDialog(this,strings.text("attachmentQuota"),strings.text("attachmentQuota"),JOptionPane.PLAIN_MESSAGE,null,labels,current);for(int i=0;i<labels.length;i++)if(labels[i].equals(result)){handle(client.attachmentQuota(choices[i]*1024*1024*1024),"attachmentQuotaInUse");break;}}));
         content.add(settingAction("stopAll", () -> { discovery.stop(); discovered.clear(); refreshNearby(); stopBluetoothScan(); handle(client.stopListening(),"error"); handle(client.stopBluetoothListening(),"error"); handle(client.disconnect(),"error"); }));
         content.add(section("dataLocation")); JTextArea data=new JTextArea(path.toString()); data.setEditable(false); data.setLineWrap(true); data.setWrapStyleWord(false); data.setOpaque(false); data.setBorder(BorderFactory.createEmptyBorder(0,4,0,4)); translations.add(() -> data.getAccessibleContext().setAccessibleName(strings.text("dataLocation"))); content.add(data);
         content.add(note("dataSummary")); content.add(settingAction("openData", () -> { try { Desktop.getDesktop().open(path.toFile()); } catch(Exception e) { notice("openDataFailed"); } }));
@@ -325,15 +347,53 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         renderState(); renderMessages();
     }); }
     private void renderState() {
-        status.setText(state.transport().isEmpty() ? strings.text(state.phase()) : strings.text("connectionStatus", strings.text(state.transport()), strings.text(state.phase())));
+        boolean encrypted = state.peer()!=null && state.phase().equals("ready") && client.endToEndEncrypted(state.peer().id());
+        String dataPath=strings.text(state.transport().equals("lan")&&state.phase().equals("ready")?"lanPathUnconfirmed":state.transport().isEmpty()?state.phase():state.transport());
+        status.setText(encrypted ? strings.text("encryptedVia",dataPath) : state.transport().isEmpty() ? strings.text(state.phase()) : strings.text("connectionStatus", dataPath, strings.text(state.phase())));
+        status.setToolTipText(state.phase().equals("ready")?strings.text(state.transport().equals("lan")?"pathDetailsLan":"pathDetailsBluetooth"):null);
+        if(encrypted)status.setText(status.getText()+" · "+strings.text(client.identityVerified(state.peer().id())?"identityVerified":"identityUnverified"));
+        if(securityDialog!=null&&securityDialog.isDisplayable())securityDialog.refresh();
         listenButton.setText(strings.text(state.listening() == null ? "listen" : "stopListen"));
         addresses.setText(state.listening() == null ? strings.text("notListening") : state.listening().endpoints().isEmpty() ? strings.text("noAddress") : String.join("\n", state.listening().endpoints()));
         DesktopStore.Peer peer = selectedPeer(); chatTitle.setText(peer == null ? strings.text("selectChat") : peer.name());
+        refreshAvatarViews();
         send.setEnabled(selected != null && state.peer() != null && selected.equals(state.peer().id()) && state.phase().equals("ready") && !composer.getText().isBlank());
         boolean fileReady=selected!=null&&state.peer()!=null&&selected.equals(state.peer().id())&&state.phase().equals("ready");sendFile.setEnabled(fileReady);sendPhoto.setEnabled(fileReady);attach.setEnabled(fileReady);emoji.setEnabled(selected!=null);
         composer.setEnabled(selected != null); refreshBluetoothText();
     }
     private DesktopStore.Peer selectedPeer() { if (state != null) for (var peer : state.history()) if (peer.id().equals(selected)) return peer; return null; }
+    private void refreshAvatarViews(){
+        if(shuttingDown)return;String localRoot=identity.signer().publicKey();ownAvatar.set(localRoot,avatars.image(localRoot),avatars.model(localRoot));DesktopStore.Peer peer=selectedPeer();String remote=peer==null?"":peer.publicKey();chatAvatar.set(remote,avatars.image(remote),avatars.model(remote));history.repaint();for(JList<DesktopStore.Peer> list:avatarLists)list.repaint();
+        for(var entry:detailAvatars.entrySet()){DesktopStore.Peer current=state==null?null:state.history().stream().filter(p->p.id().equals(entry.getKey())).findFirst().orElse(null);String root=current==null?"":current.publicKey();entry.getValue().set(root,avatars.image(root),avatars.model(root));Runnable text=detailTextRefresh.get(entry.getKey());if(text!=null)text.run();}
+    }
+    public void avatarChanged(String root){avatarsChanged(root);}
+    void avatarsChanged(String root){
+        if(!SwingUtilities.isEventDispatchThread()){SwingUtilities.invokeLater(()->avatarsChanged(root));return;}if(shuttingDown)return;avatars.invalidate(root);if(avatarDialog!=null&&root.equals(identity.signer().publicKey()))avatarDialog.profileChanged();refreshAvatarViews();
+    }
+    private void openAvatarEditor(){
+        if(shuttingDown)return;if(avatarDialog!=null&&avatarDialog.isDisplayable()){avatarDialog.toFront();return;}long token=++avatarEditorGeneration;
+        client.localAvatar().whenComplete((snapshot,error)->SwingUtilities.invokeLater(()->{
+            if(shuttingDown||token!=avatarEditorGeneration)return;if(error!=null||snapshot==null){notice("avatarSaveFailed");return;}
+            AvatarDialog dialog=new AvatarDialog(this,strings,identity.signer().publicKey(),snapshot,new AvatarDialog.Committer(){public CompletableFuture<AvatarSnapshot> save(long revision,byte[] png){return client.saveAvatar(revision,png);}public CompletableFuture<AvatarSnapshot> reset(long revision){return client.resetAvatar(revision);}},saved->{avatars.invalidate(identity.signer().publicKey());refreshAvatarViews();notice(saved.profile().avatarHash.isEmpty()?"avatarResetDone":"avatarSaved");});
+            avatarDialog=dialog;dialogTranslations.put(dialog,List.of(dialog::translate));dialog.addWindowListener(new WindowAdapter(){public void windowClosed(WindowEvent event){dialogTranslations.remove(dialog);if(avatarDialog==dialog)avatarDialog=null;}});scaleFonts(dialog.getContentPane(),fontScale);dialog.setVisible(true);SwingUtilities.invokeLater(dialog::chooseImage);
+        }));
+    }
+    private void peerDetails(){
+        DesktopStore.Peer peer=selectedPeer();if(peer==null)return;JDialog existing=avatarDetails.get(peer.id());if(existing!=null&&existing.isDisplayable()){existing.toFront();return;}List<Runnable> targets=new ArrayList<>();JDialog dialog=new JDialog(this,false);avatarDetails.put(peer.id(),dialog);dialog.setDefaultCloseOperation(DISPOSE_ON_CLOSE);AppTheme.Avatar avatar=new AppTheme.Avatar(peer.publicKey(),avatars.image(peer.publicKey()),avatars.model(peer.publicKey()));avatar.setPreferredSize(new Dimension(96,96));avatar.setName("avatar.details");detailAvatars.put(peer.id(),avatar);
+        JPanel body=padded(new BorderLayout(16,16));body.add(avatar,BorderLayout.LINE_START);JTextArea details=new JTextArea();details.setEditable(false);details.setLineWrap(true);details.setWrapStyleWord(true);details.setOpaque(false);Runnable text=()->{DesktopStore.Peer current=state==null?peer:state.history().stream().filter(p->p.id().equals(peer.id())).findFirst().orElse(peer);details.setText(strings.text("requestDetails",current.name(),current.publicKey().isEmpty()?strings.text("identityUnverified"):fingerprint(current.publicKey())));avatar.getAccessibleContext().setAccessibleName(strings.text("avatar"));};targets.add(text);detailTextRefresh.put(peer.id(),text);body.add(details);JPanel actions=new JPanel(new FlowLayout(FlowLayout.TRAILING));actions.add(button("gotIt",dialog::dispose,targets));body.add(actions,BorderLayout.SOUTH);dialog.add(body);dialog.addWindowListener(new WindowAdapter(){public void windowClosed(WindowEvent event){if(avatarDetails.get(peer.id())==dialog){avatarDetails.remove(peer.id());detailAvatars.remove(peer.id());detailTextRefresh.remove(peer.id());}}});registerDialog(dialog,targets,"avatarDetails");dialog.setSize(480,240);dialog.setMinimumSize(new Dimension(350,200));scaleFonts(dialog.getContentPane(),fontScale);dialog.setLocationRelativeTo(this);dialog.setVisible(true);
+    }
+    private void openVerification(){
+        DesktopStore.Peer peer=selectedPeer();if(peer==null)return;long revision=conversationGeneration;
+        client.verification(peer.id()).whenComplete((snapshot,error)->SwingUtilities.invokeLater(()->{
+            if(shuttingDown||revision!=conversationGeneration||!peer.id().equals(selected))return;
+            if(error!=null){notice("error");return;}if(snapshot==null){notice("verificationConnectFirst");return;}
+            if(securityDialog!=null)securityDialog.dispose();
+            SecurityDialog dialog=new SecurityDialog(this,client,snapshot,strings,peer.name());securityDialog=dialog;
+            dialogTranslations.put(dialog,List.of(dialog::translate));
+            dialog.addWindowListener(new WindowAdapter(){public void windowClosed(WindowEvent e){dialogTranslations.remove(dialog);if(securityDialog==dialog)securityDialog=null;}});
+            scaleFonts(dialog.getContentPane(),fontScale);dialog.setVisible(true);
+        }));
+    }
     private void select(DesktopStore.Peer peer) {
         saveDraft(); draftTimer.stop(); selected = peer == null ? null : peer.id(); conversationGeneration++; renderedMessages = null;
         loadingDraft = true; composer.setText(""); loadingDraft = false;
@@ -359,21 +419,50 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         String id=selected; long generation=conversationGeneration;
         client.messages(id).whenComplete((messages,error) -> SwingUtilities.invokeLater(() -> {
             if(error!=null) { notice("storageFailure"); return; } if(!id.equals(selected)||generation!=conversationGeneration)return;
-            if(messages.equals(renderedMessages))return;
-            JScrollPane scroll=(JScrollPane)SwingUtilities.getAncestorOfClass(JScrollPane.class,transcript); JScrollBar bar=scroll.getVerticalScrollBar();
-            boolean bottom=bar.getValue()+bar.getVisibleAmount()>=bar.getMaximum()-24; int position=bar.getValue(); renderedMessages=messages;
-            transcript.actions((message,action)->attachmentAction(id,message,action));transcript.scale(fontScale); transcript.render(messages,strings);
-            SwingUtilities.invokeLater(() -> { if(bottom)bar.setValue(bar.getMaximum()); else bar.setValue(position); });
+            renderTranscript(id,messages);
         }));
     }
-    private void chooseAttachment(boolean photo){
-        String peer=selected;if(peer==null)return;JFileChooser chooser=new JFileChooser();chooser.setDialogTitle(strings.text(photo?"sendPhoto":"sendFile"));
-        if(photo){chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(strings.text("sendPhoto"),"jpg","jpeg","png","gif","webp","bmp","heic","heif","avif"));chooser.setAcceptAllFileFilterUsed(false);}
-        if(chooser.showOpenDialog(this)==JFileChooser.APPROVE_OPTION)handle(client.sendAttachment(peer,chooser.getSelectedFile().toPath()),"attachmentFailed");
+    public void attachmentProgress(String peer) { SwingUtilities.invokeLater(() -> {
+        if(shuttingDown || !peer.equals(selected))return;
+        if(renderedMessages==null)renderMessages(); else renderTranscript(peer,renderedMessages);
+    }); }
+    private void renderTranscript(String peer,List<DesktopStore.Message> history) {
+        List<DesktopStore.Message> messages=client.liveMessages(peer,history);
+        List<TransferProgress> progress=messages.stream().map(message->message.attachment()==null?TransferProgress.UNKNOWN:client.transferProgress(peer,message.attachment())).toList();
+        List<AttachmentBatchQueue.RetryState> retryStates=messages.stream().map(message->retryState(peer,message)).toList();
+        List<Boolean> retryBatches=messages.stream().map(message->client.hasRetryableBatch(peer,message.id())).toList();
+        List<TransferPath> paths=messages.stream().map(message->client.attachmentTransferPath(peer,message.attachment())).toList();
+        if(messages.equals(renderedMessages)&&progress.equals(renderedProgress)&&retryStates.equals(renderedRetryStates)&&retryBatches.equals(renderedRetryBatches)&&paths.equals(renderedPaths))return;
+        renderedMessages=messages; renderedProgress=progress;renderedRetryStates=retryStates;renderedRetryBatches=retryBatches;renderedPaths=paths;
+        transcript.path(message->client.attachmentTransferPath(peer,message.attachment()));
+        transcript.actions((message,action)->attachmentAction(peer,message,action));transcript.progress(message->message.attachment()==null?TransferProgress.UNKNOWN:client.transferProgress(peer,message.attachment()));transcript.retryState(message->retryState(peer,message));transcript.retryableBatch(message->client.hasRetryableBatch(peer,message.id()));transcript.scale(fontScale);transcript.render(messages,strings);
     }
+    private void chooseAttachment(boolean photo){
+        String peer=selected;if(peer==null)return;
+        client.verification(peer).whenComplete((expected,error)->SwingUtilities.invokeLater(()->{
+            if(shuttingDown||expected==null||error!=null||!peer.equals(selected)){notice("notConnected");return;}
+            JFileChooser chooser=new JFileChooser();chooser.setMultiSelectionEnabled(true);chooser.setDialogTitle(strings.text(photo?"sendPhoto":"sendFile"));
+            if(photo){chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(strings.text("sendPhoto"),"jpg","jpeg","png","gif","webp","bmp","heic","heif","avif"));chooser.setAcceptAllFileFilterUsed(false);}
+            if(chooser.showOpenDialog(this)!=JFileChooser.APPROVE_OPTION)return;
+            List<Path> paths=Arrays.stream(chooser.getSelectedFiles()).map(java.io.File::toPath).toList();
+            if(paths.size()>AttachmentBatchQueue.MAX_PENDING){notice(UiText.of("attachmentBatchLimit",AttachmentBatchQueue.MAX_PENDING));return;}
+            if(!paths.isEmpty())new AttachmentSelectionDialog(this,strings,paths,result->handle(client.sendAttachments(expected,result),"attachmentFailed")).setVisible(true);
+        }));
+    }
+
     private void attachmentAction(String peer,DesktopStore.Message message,String action){
         var record=message.attachment();if(record==null)return;
-        if(action.equals("accept")||action.equals("reject")||action.equals("cancel")){handle(client.attachmentAction(peer,message.id(),message.outgoing(),action),"attachmentFailed");return;}
+        if(action.equals("retry")||action.equals("retryBatch")||action.equals("reselect")){retryAttachment(peer,message,action);return;}
+        if(action.equals("accept")||action.equals("reject")||action.equals("cancel")||action.equals("pause")||action.equals("resume")){handle(client.attachmentAction(peer,message.id(),message.outgoing(),action),"attachmentFailed");return;}
+        if(action.equals("folder")){
+            handle(client.attachmentLocation(peer,record).thenAcceptAsync(path->{
+                try {
+                    Desktop desktop=Desktop.getDesktop();
+                    if(desktop.isSupported(Desktop.Action.BROWSE_FILE_DIR))desktop.browseFileDirectory(path.toFile());
+                    else desktop.open(path.getParent().toFile());
+                } catch(IOException e){throw new java.util.concurrent.CompletionException(e);}
+            },attachmentWorker),"attachmentFailed");return;
+        }
         if(action.equals("preview")){
             String key=peer+":"+message.id()+":"+message.outgoing();var cached=thumbnails.get(key);if(cached!=null){SwingUtilities.invokeLater(()->{if(peer.equals(selected))transcript.thumbnail(message.id(),message.outgoing(),cached);});return;}
             if(failedThumbnails.contains(key)){SwingUtilities.invokeLater(()->{if(peer.equals(selected))transcript.thumbnail(message.id(),message.outgoing(),null);});return;}
@@ -387,11 +476,62 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
             PhotoViewer viewer=new PhotoViewer(this,strings,record.info.name,()->attachmentAction(peer,message,"save"));photoViewer=viewer;dialogTranslations.put(viewer,List.of(viewer::translate));viewer.addWindowListener(new WindowAdapter(){public void windowClosed(WindowEvent e){dialogTranslations.remove(viewer);if(photoViewer==viewer)photoViewer=null;}});scaleFonts(viewer.getContentPane(),fontScale);viewer.setVisible(true);
             client.attachmentPath(peer,record).thenApplyAsync(path->{try{return viewer.active()?AttachmentImages.read(path,2048):null;}catch(IOException e){return null;}},attachmentWorker).whenComplete((image,error)->SwingUtilities.invokeLater(()->viewer.image(image,strings)));return;
         }
+        if(!action.equals("save")&&!action.equals("open"))return;
         if(!action.equals("save")&&!record.info.canOpenExternally())action="save";
         Path destination=null;
         if(action.equals("save")){JFileChooser chooser=new JFileChooser();chooser.setSelectedFile(new java.io.File(AttachmentInfo.safeName(record.info.name)));if(chooser.showSaveDialog(this)!=JFileChooser.APPROVE_OPTION)return;destination=chooser.getSelectedFile().toPath();if(Files.exists(destination)&&JOptionPane.showConfirmDialog(this,strings.text("attachmentOverwrite"),strings.text("attachmentSaveAs"),JOptionPane.YES_NO_OPTION)!=JOptionPane.YES_OPTION)return;}
         Path target=destination;
-        handle(client.attachmentPath(peer,record).thenAcceptAsync(path->{try{if(target!=null)Files.copy(path,target,StandardCopyOption.REPLACE_EXISTING);else Desktop.getDesktop().open(path.toFile());}catch(IOException e){throw new java.util.concurrent.CompletionException(e);}},attachmentWorker),"attachmentFailed");
+        if(target!=null){handle(client.exportAttachment(peer,record,target),"attachmentFailed");return;}
+        handle(client.attachmentOpenPath(peer,record).thenAcceptAsync(path->{try{Desktop.getDesktop().open(path.toFile());}catch(IOException e){throw new java.util.concurrent.CompletionException(e);}},attachmentWorker),"attachmentFailed");
+    }
+    private AttachmentBatchQueue.RetryState retryState(String peer,DesktopStore.Message message){
+        return pendingRetries.contains(peer+":"+message.id())?AttachmentBatchQueue.RetryState.RETRYING:client.retryState(peer,message.id());
+    }
+    private boolean retryViewCurrent(String peer,long generation){return !shuttingDown&&peer.equals(selected)&&generation==conversationGeneration;}
+    private void refreshRetries(String peer){if(!shuttingDown&&peer.equals(selected)){renderedMessages=null;renderMessages();}}
+    private void retryAttachment(String peer,DesktopStore.Message message,String action){
+        AttachmentRecord record=message.attachment();if(!peer.equals(selected)||record==null||!message.outgoing()||!record.outgoing||record.info.version!=2||!record.state.equals("failed"))return;
+        String key=peer+":"+message.id();if(pendingRetries.contains(key))return;
+        List<String> keys=new ArrayList<>();keys.add(key);
+        if(action.equals("retryBatch")){
+            List<AttachmentBatchQueue.Item> items=client.batchItems(peer);String batch=items.stream().filter(item->item.info().id.equals(message.id())).map(AttachmentBatchQueue.Item::batchId).findFirst().orElse(null);
+            if(batch!=null)for(AttachmentBatchQueue.Item item:items)if(item.batchId().equals(batch)&&item.state().equals("failed")){String itemKey=peer+":"+item.info().id;if(!keys.contains(itemKey))keys.add(itemKey);}
+        }
+        if(keys.stream().anyMatch(pendingRetries::contains))return;
+        pendingRetries.addAll(keys);refreshRetries(peer);long generation=conversationGeneration;
+        client.verification(peer).whenComplete((expected,error)->SwingUtilities.invokeLater(()->{
+            if(!retryViewCurrent(peer,generation)){pendingRetries.removeAll(keys);refreshRetries(peer);return;}
+            if(error!=null||expected==null){pendingRetries.removeAll(keys);refreshRetries(peer);notice("notConnected");return;}
+            if(action.equals("reselect")){chooseRetryReplacement(peer,message,expected,generation,keys);return;}
+            if(action.equals("retryBatch")){
+                client.retryFailedBatch(expected,message.id()).whenComplete((result,failure)->SwingUtilities.invokeLater(()->{
+                    pendingRetries.removeAll(keys);refreshRetries(peer);if(!retryViewCurrent(peer,generation))return;
+                    if(failure!=null){notice(errorText(failure,"attachmentFailed"));return;}
+                    if(!result.unavailableIds().isEmpty())notice(UiText.of("attachmentRetryPartial",result.queuedIds().size(),result.unavailableIds().size()));
+                    else notice(result.queuedIds().isEmpty()?"attachmentRetryNone":"attachmentRetryQueued");
+                }));return;
+            }
+            client.retryAttachment(expected,message.id()).whenComplete((id,failure)->SwingUtilities.invokeLater(()->{
+                if(!retryViewCurrent(peer,generation)){pendingRetries.removeAll(keys);refreshRetries(peer);return;}
+                if(failure!=null&&retrySourceUnavailable(failure)){notice("attachmentRetrySelectAgain");chooseRetryReplacement(peer,message,expected,generation,keys);return;}
+                pendingRetries.removeAll(keys);refreshRetries(peer);if(failure!=null)notice(errorText(failure,"attachmentFailed"));else notice("attachmentRetryQueued");
+            }));
+        }));
+    }
+    private static boolean retrySourceUnavailable(Throwable error){
+        for(Throwable cause=error;cause!=null;cause=cause.getCause())if(cause instanceof AttachmentBatchQueue.RetrySourceUnavailableException)return true;
+        return false;
+    }
+    private void chooseRetryReplacement(String peer,DesktopStore.Message message,IdentityVerification expected,long generation,List<String> keys){
+        if(!retryViewCurrent(peer,generation)||!client.verificationCurrent(expected)){pendingRetries.removeAll(keys);refreshRetries(peer);return;}
+        notice("attachmentRetrySelectAgain");JFileChooser chooser=new JFileChooser();chooser.setMultiSelectionEnabled(false);chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);chooser.setDialogTitle(strings.text("attachmentReselect"));chooser.setApproveButtonText(strings.text("attachmentRetry"));
+        if(chooser.showOpenDialog(this)!=JFileChooser.APPROVE_OPTION){pendingRetries.removeAll(keys);refreshRetries(peer);return;}
+        java.io.File file=chooser.getSelectedFile();
+        if(!retryViewCurrent(peer,generation)){pendingRetries.removeAll(keys);refreshRetries(peer);return;}
+        if(file==null||chooser.getSelectedFiles().length>1||!client.verificationCurrent(expected)){pendingRetries.removeAll(keys);refreshRetries(peer);notice("notConnected");return;}
+        client.retryAttachmentWithSelection(expected,message.id(),file.toPath()).whenComplete((id,failure)->SwingUtilities.invokeLater(()->{
+            pendingRetries.removeAll(keys);refreshRetries(peer);if(!retryViewCurrent(peer,generation))return;if(failure!=null)notice(errorText(failure,"attachmentFailed"));else notice("attachmentRetryQueued");
+        }));
     }
     private void sendMessage() {
         if (!send.isEnabled()) { notice("notConnected"); return; }
@@ -507,7 +647,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     }
     private void handle(CompletableFuture<?> future, String errorKey) { future.whenComplete((value, error) -> { if (error != null) notice(errorText(error, errorKey)); }); }
     private void shutdown() {
-        if (shuttingDown) return; saveDraft(); shuttingDown = true; stopBluetoothScan(); draftTimer.stop(); localeTimer.stop(); setEnabled(false);
+        if (shuttingDown) return; saveDraft(); shuttingDown = true;avatarEditorGeneration++;avatars.close();if(avatarDialog!=null)avatarDialog.dispose(); stopBluetoothScan(); draftTimer.stop(); localeTimer.stop(); setEnabled(false);
         new Thread(() -> {
             attachmentWorker.shutdownNow();bluetoothWorker.shutdownNow(); discovery.close(); client.close(); try { store.close(); } catch (IOException ignored) { }
             SwingUtilities.invokeLater(() -> { for (Window window : getOwnedWindows()) window.dispose(); dispose(); });
@@ -522,7 +662,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         public Component getListCellRendererComponent(JList<? extends DesktopStore.Peer> list,DesktopStore.Peer peer,int index,boolean selectedRow,boolean focused) {
             JPanel row=new JPanel(new BorderLayout(12,6)) {
                 protected void paintComponent(Graphics g) { g.setColor(AppTheme.background); g.fillRect(0,0,getWidth(),getHeight()); if(selectedRow) { Graphics2D p=(Graphics2D)g.create(); p.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON); p.setColor(AppTheme.tonal); p.fillRoundRect(0,0,getWidth(),getHeight(),24,24); p.dispose(); } }
-            }; row.setOpaque(false); row.setBorder(BorderFactory.createEmptyBorder(14,12,14,12)); row.add(new AppTheme.Avatar(peer.name()),BorderLayout.LINE_START);
+            }; row.setOpaque(false); row.setBorder(BorderFactory.createEmptyBorder(14,12,14,12)); row.add(new AppTheme.Avatar(peer.publicKey(),avatars.image(peer.publicKey()),avatars.model(peer.publicKey())),BorderLayout.LINE_START);
             JPanel text=new JPanel(new BorderLayout(8,8)); text.setOpaque(false); JLabel name=plainLabel(peer.name()); name.setFont(name.getFont().deriveFont(Font.BOLD,16f*fontScale)); text.add(name,BorderLayout.NORTH);
             var message=summaries.get(peer.id()); boolean active=state!=null && state.peer()!=null && peer.id().equals(state.peer().id()) && state.phase().equals("ready");
             String summary=message==null?strings.text("noMessages"):message.body().replace('\n',' '); JLabel detail=plainLabel(active ? strings.text("conversationSummary", strings.text(state.transport()), strings.text("ready"), summary) : summary); detail.setForeground(AppTheme.muted); detail.setFont(detail.getFont().deriveFont(13f*fontScale)); text.add(detail,BorderLayout.CENTER); row.add(text);
@@ -570,11 +710,12 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         if (state == null) return;
         List<Runnable> targets = new ArrayList<>(); DefaultListModel<DesktopStore.Peer> model = new DefaultListModel<>();
         state.history().stream().filter(p -> !p.publicKey().isEmpty()).forEach(model::addElement);
-        JList<DesktopStore.Peer> devices = new JList<>(model); devices.setCellRenderer(plainRenderer()); devices.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        JList<DesktopStore.Peer> devices = new JList<>(model);devices.setCellRenderer((list,peer,index,selected,focused)->{JPanel row=new JPanel(new BorderLayout(12,0));row.setBackground(selected?list.getSelectionBackground():list.getBackground());row.setBorder(BorderFactory.createEmptyBorder(10,8,10,8));row.add(new AppTheme.Avatar(peer.publicKey(),avatars.image(peer.publicKey()),avatars.model(peer.publicKey())),BorderLayout.LINE_START);row.add(plainLabel(peer.toString()));return row;});devices.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);avatarLists.add(devices);
         targets.add(() -> { devices.getAccessibleContext().setAccessibleName(strings.text("trustedDevices")); devices.getAccessibleContext().setAccessibleDescription(strings.text("deviceCount", model.size())); devices.repaint(); });
         JPanel body = padded(new BorderLayout(8, 12)); body.add(note("trustHint", targets), BorderLayout.NORTH);
         JScrollPane scroll = new JScrollPane(devices); scroll.setPreferredSize(new Dimension(450, 220)); body.add(scroll);
         JDialog dialog = new JDialog(this, false); dialog.setDefaultCloseOperation(DISPOSE_ON_CLOSE);
+        dialog.addWindowListener(new WindowAdapter(){public void windowClosed(WindowEvent event){avatarLists.remove(devices);}});
         JButton revoke = button("revoke", () -> {
             var peer = devices.getSelectedValue(); if (peer == null) return;
             select(peer); if (confirm("revokeConfirm")) {

@@ -109,6 +109,7 @@ public final class PerformanceScenario {
         while (!done.get()) {
             if (failure.get() != null) throw new RuntimeException(failure.get());
             String command = Files.exists(commandFile) ? Files.readString(commandFile).strip() : "";
+            if(window!=null&&command.equals("connected")&&!ready(window))throw new IllegalStateException("Idle connected measurement lost its authenticated session");
             active.set(command.equals("active"));
             if (window != null && !command.equals(previous)) {
                 if (command.equals("active")) report(directory.resolve("phase.json"), Map.of("phase", "active"));

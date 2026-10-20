@@ -1,19 +1,28 @@
-# 我在 · NearbyIM · Linux 0.3.1
+# 我在 · NearbyIM · Linux 0.3.2 Preview 1
 
-Linux 客户端与 Android、Windows 共用 NIM3 签名协议、设备身份、应用内信任、文字／文件／照片和保存回执。包含局域网发现／直连、经典蓝牙 RFCOMM、历史重连、会话草稿、浅深主题、大字体与简体中文、英语、繁体中文、日语、韩语。软件包自带 Java 17 和 Noto CJK 字体。
+Linux 客户端与 Android、Windows 共用 NIM4 Noise 端到端加密协议、设备身份、应用内信任、文字／文件／照片和保存回执。包含局域网发现／地址连接、经典蓝牙 RFCOMM、历史重连、会话草稿、浅深主题、大字体与五种语言。软件包自带 Java 17 和 Noto CJK 字体。本次为预览版，最新稳定版仍为0.3.1。
 
 ## 运行与安装
 
-从 [0.3.1 Release](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.1) 下载 `NearbyIM-0.3.1-linux-x64.tar.gz` 或 `NearbyIM-0.3.1-linux-x64.deb`，校验 `SHA256SUMS.txt`。双方都必须支持 NIM3，旧公共 NIM2 预览版不能互通。照片可在应用内查看和缩放；认可聊天后自动接收附件，单文件最大 1 GiB，完整保存后确认送达。图标来源与多尺寸接入见[图标说明](app-icon.md)。
+从 [0.3.2 Preview 1](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.2-preview.1) 下载 AppImage、tar.gz 或 deb，校验 `SHA256SUMS.txt`。应用内部版本为0.3.2，通信双方均须升级至NIM4，不能与0.3.1的NIM3互通。支持多选任务、暂停／继续、失败重发及打开保存位置，单文件上限10 GiB，照片可在应用内查看，完整保存后确认送达。图标来源与多尺寸接入见[图标说明](app-icon.md)。
 
-首发构建为 Linux x64。需要满足包内 `runtime-requirements.txt` 所列的系统运行库版本、图形桌面（X11，或启用 XWayland 的 Wayland 桌面）、系统 X11／字体／音频库和 BlueZ 蓝牙服务。提供 tar.gz 应用目录及 Debian／Ubuntu 的 deb 包；蓝牙需要支持经典蓝牙的适配器。ARM64 可在对应架构的 Linux 上从源码构建，尚未发布或验证其软件包。
+首发构建为 Linux x64。需要满足包内 `runtime-requirements.txt` 所列的系统运行库版本、图形桌面（X11，或启用 XWayland 的 Wayland 桌面）、系统 X11／字体／音频库和 BlueZ 蓝牙服务。提供 AppImage、tar.gz 应用目录及 Debian／Ubuntu 的 deb 包；蓝牙需要支持经典蓝牙的适配器。ARM64 可在对应架构的 Linux 上从源码构建，尚未发布或验证其软件包。
 
-解压 `NearbyIM-0.3.1-linux-x64.tar.gz` 后，运行 `NearbyIM/bin/NearbyIM`。必须保留完整目录，无需额外安装 Java。软件可放在只读的程序目录，数据存入用户目录。
+AppImage 无需安装：
+
+```sh
+chmod +x NearbyIM-0.3.2-linux-x64.AppImage
+./NearbyIM-0.3.2-linux-x64.AppImage
+```
+
+使用固定版本的官方静态type-2 runtime，无需额外安装Java或libfuse2；仍需要主机图形/GIO等系统库，并非任意Linux发行版都兼容。系统不允许FUSE挂载时，可执行 `./NearbyIM-0.3.2-linux-x64.AppImage --appimage-extract-and-run`。注册当前用户应用菜单可使用 `./NearbyIM-0.3.2-linux-x64.AppImage --install-desktop`；入口指向原AppImage文件，图标保存在用户目录，退出卸载临时挂载不影响入口。移动AppImage后应重新注册。
+
+解压 `NearbyIM-0.3.2-linux-x64.tar.gz` 后，运行 `NearbyIM/bin/NearbyIM`。必须保留完整目录，无需额外安装 Java。软件可放在只读的程序目录，数据存入用户目录。
 
 Debian／Ubuntu 安装方式：
 
 ```sh
-sudo apt install ./NearbyIM-0.3.1-linux-x64.deb
+sudo apt install ./NearbyIM-0.3.2-linux-x64.deb
 ```
 
 deb 包安装到 `/opt/nearbyim` 并提供应用菜单图标。tar.gz 可手动注册当前用户的应用菜单入口：
@@ -51,17 +60,19 @@ Linux 使用 BlueZ 的 `Adapter1`、`Device1` 与 `ProfileManager1`，由系统�
 
 收到消息并原子保存后才发送回执。「已送达」表示对方保存，不代表已读。断线后没有回执的发送消息为「未确认」，不会自动重发。清空记录保留设备信任，取消信任会断开该设备并保留历史。退出后需重新开启接收。
 
-局域网内容仍为明文；NIM3 签名提供身份连续性与完整性，不提供内容加密。蓝牙要求系统认证配对并使用 BlueZ 链路安全。没有账号、云同步、遥测、群聊或互联网中继。文件和照片尚未端到端加密。
+文字、文件和照片通过NIM4 Noise会话端到端加密；可在聊天详情比较安全码或扫描二维码核验对端身份。加密状态与身份已核验是不同状态，蓝牙系统配对不替代应用内认可。每台设备独立设置头像，并向已认可联系人提供头像。没有账号、云同步、遥测、群聊或互联网中继。
+
+文件路径优先复用有可靠证据的已有端点热点，再尝试P2P、普通LAN、已有蓝牙；聊天气泡显示实际文件通道。临时P2P建网目前仍有用户真机失败反馈，桌面原生Direct和App自动临时热点/加入尚未完成，不能把LAN传输当作P2P成功。实体蓝牙、长期内存增长等验收边界保留在#7/#9/#23。
 
 ## 从源码构建
 
-需要 Linux JDK 17、Python 3、C++17 编译器、pkg-config、GIO 开发包、D-Bus 工具；打包还需要 `dpkg-dev` 和 `binutils`。Debian／Ubuntu 开发依赖通常可通过 `build-essential libglib2.0-dev dbus-x11 dpkg-dev binutils` 安装；图形自动验证还需要 `xvfb xauth`。
+需要 Linux JDK 17、Python 3、C++17 编译器、pkg-config、GIO 开发包、D-Bus 工具；打包还需要 `dpkg-dev`、`binutils`、`squashfs-tools` 和 `desktop-file-utils`。Debian／Ubuntu 开发依赖通常可通过 `build-essential libglib2.0-dev dbus-x11 dpkg-dev binutils squashfs-tools desktop-file-utils` 安装；图形自动验证还需要 `xvfb xauth`。
 
 ```sh
 export JAVA_HOME=/path/to/jdk-17
 sh desktop/tools/build.sh --package
 ```
 
-构建下载并验证依赖与字体 SHA-256，编译 BlueZ JNI，运行桌面测试以及独立 D-Bus／真实文件描述符的蓝牙协议测试，再生成 `desktop/build/NearbyIM-0.3.1-linux-x64.tar.gz` 和可用时的 deb 包。`sh desktop/tools/build.sh --run` 运行开发界面。
+构建下载并验证依赖与字体 SHA-256，编译 BlueZ JNI，运行桌面测试以及独立 D-Bus／真实文件描述符的蓝牙协议测试，再生成 `desktop/build/NearbyIM-0.3.2-linux-x64.tar.gz` 、AppImage 和可用时的 deb 包。`sh desktop/tools/build.sh --run` 运行开发界面。
 
 验证范围、实际环境与待完成的设备验收见 [Linux 验证记录](linux-verification.md)。

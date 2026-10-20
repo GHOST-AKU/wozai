@@ -7,6 +7,8 @@ public interface TransportListener {
     void onPeer(Peer peer);
     void onLost(String key);
     default void onSearching(int mode, boolean searching) {}
+    /** ACK for this client's current discoverServices request, not a global discovery broadcast. */
+    default void onServiceDiscoveryStarted(int mode) {}
     /** Stopping discovery failed; this does not imply a new connection attempt failed. */
     default void onSearchStopFailed(int mode, UiText message) {}
     void onListening(int mode, UiText detail);

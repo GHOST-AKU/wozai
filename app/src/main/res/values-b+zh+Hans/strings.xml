@@ -6,7 +6,7 @@
     <string name="about_body_windows" formatted="false">"我在 · NearbyIM\nWindows 预览版 {0}\n\n无需账号的附近文字聊天。\n\n通过局域网或蓝牙进行一对一文字聊天。消息保存在本机，删除本地数据会删除记录与设备信任。"</string>
     <string name="address_copied" formatted="false">"地址已复制"</string>
     <string name="allow_discoverable" formatted="false">"允许被发现 120 秒"</string>
-    <string name="android_about_body" formatted="false">"我在 · NearbyIM\nAndroid {0}\n\n通过局域网或蓝牙进行一对一文字聊天。消息保存在本机，卸载或清除应用数据会删除记录与设备信任。"</string>
+    <string name="android_about_body" formatted="false">"我在 · NearbyIM\nAndroid {0}\n\n通过 Android Wi-Fi 直连、局域网或蓝牙进行一对一文字聊天。消息保存在本机，卸载或清除应用数据会删除记录与设备信任。"</string>
     <string name="android_about_summary" formatted="false">"Android · {0}\n无需账号的附近文字聊天"</string>
     <string name="android_bluetooth_connect_failed" formatted="false">"蓝牙连接失败：确认对方安装我在并开启接收；配对提示需要双方确认"</string>
     <string name="android_bluetooth_hint" formatted="false">"对方开启接收并允许被发现后，再开始搜索。首次连接由系统处理配对。"</string>
@@ -14,45 +14,140 @@
     <string name="android_bluetooth_search_not_started" formatted="false">"搜索没有启动，可尝试已配对设备；Android 11 及以前需打开系统定位"</string>
     <string name="android_bluetooth_unavailable" formatted="false">"这部设备不支持蓝牙，可切换局域网。"</string>
     <string name="android_composer" formatted="false">"说点什么…"</string>
-    <string name="android_direct_body" formatted="false">"输入对方显示的完整地址和端口。局域网消息以明文传输，请使用可信网络。"</string>
-    <string name="android_help_body" formatted="false">"局域网：双方连接同一个 Wi-Fi 或热点，开启接收后搜索，也可输入完整 IP 地址和端口。局域网文字以明文传输，请使用可信网络。\n\n蓝牙：对方开启接收并允许被发现后搜索，首次连接按系统提示配对。已记住设备可通过历史直接连接，对方仍需开启蓝牙和接收服务。\n\n首次聊天可选择记住设备或仅本次。记住后验证同一设备身份再直接连接；可在设置中取消信任。\n\n待确认表示尚未收到保存回执，已送达表示对方已保存，未确认表示结果未知，不能表示已读。\n\n聊天记录保存在本机。草稿在会话切换和界面重建时保留，停止应用后不保证保留。系统结束应用后需要重新开启接收。"</string>
+    <string name="android_direct_body" formatted="false">"输入对方显示的完整地址和端口。"</string>
+    <string name="android_help_body" formatted="false">"Wi-Fi 直连：Android 手机和平板可无需路由器连接。双方选择 Wi-Fi 直连、开启接收并搜索，并接受系统连接提示。连接 Windows 或 Linux 时，双方切换到局域网并加入同一 Wi-Fi 或热点。 取消或断开后，请双方都点击连接以重试。\n\n局域网：双方连接同一个 Wi-Fi 或热点，开启接收后搜索，也可输入完整 IP 地址和端口。聊天与文件传输使用端到端加密。本机聊天记录和附件不加密。\n\n蓝牙：对方开启接收并允许被发现后搜索，首次连接按系统提示配对。已记住设备可通过历史直接连接，对方仍需开启蓝牙和接收服务。\n\n首次聊天可选择记住设备或仅本次。记住后验证同一设备身份再直接连接；可在设置中取消信任。\n\n待确认表示尚未收到保存回执，已送达表示对方已保存，未确认表示结果未知，不能表示已读。\n\n聊天记录保存在本机。草稿在会话切换和界面重建时保留，停止应用后不保证保留。系统结束应用后需要重新开启接收。"</string>
     <string name="android_identity_changed" formatted="false">"此设备的身份密钥已变化。如确认需要重新认识，请先在设置中取消该设备信任，再重新连接"</string>
-    <string name="android_lan_hint" formatted="false">"两部设备连接同一 Wi-Fi，或加入同一个热点。局域网消息以明文传输，请使用可信网络。"</string>
+    <string name="android_lan_hint" formatted="false">"两部设备连接同一 Wi-Fi，或加入同一个热点。"</string>
     <string name="android_request_body" formatted="false">"{0}连接。记住后，下次可以直接连接。可在设备信息中取消信任。\n\n昵称由对方填写，设备信任不认证真实姓名。"</string>
-    <string name="android_request_lan_body" formatted="false">"{0}连接。记住后，下次可以直接连接。可在设备信息中取消信任。\n\n昵称由对方填写，设备信任不认证真实姓名。局域网消息以明文传输，请使用可信网络。"</string>
+    <string name="android_request_lan_body" formatted="false">"{0}连接。记住后，下次可以直接连接。可在设备信息中取消信任。\n\n昵称由对方填写，设备信任不认证真实姓名。聊天与文件传输使用端到端加密。本机聊天记录和附件不加密。"</string>
     <string name="android_storage_failure" formatted="false">"本地记录读写失败，请重试；若问题持续，请报告错误"</string>
     <string name="android_storage_stopped" formatted="false">"本地记录保存失败，连接已停止"</string>
+    <string name="android_wifi_direct_hint" formatted="false">"Android 手机和平板可通过 Wi-Fi 直连连接，无需路由器。双方都需选择 Wi-Fi 直连、开启接收并搜索。连接 Windows 或 Linux 时，请双方选择局域网，并加入同一 Wi-Fi 或热点。 取消或断开后，请双方都点击连接以重试。"</string>
     <string name="app" formatted="false">"我在"</string>
     <string name="app_permissions" formatted="false">"应用权限"</string>
     <string name="app_section" formatted="false">"应用"</string>
     <string name="app_settings" formatted="false">"应用设置"</string>
     <string name="appearance_section" formatted="false">"外观"</string>
     <string name="attachment_accept" formatted="false">"接收"</string>
+    <string name="attachment_batch_cancel" formatted="false">"取消全部待发文件"</string>
+    <string name="attachment_batch_limit" formatted="false">"每批最多选择 {0} 个文件。"</string>
+    <string name="attachment_batch_pause" formatted="false">"暂停全部待发文件"</string>
+    <string name="attachment_batch_resume" formatted="false">"继续待发文件"</string>
+    <string name="attachment_browse_saved" formatted="false">"在系统文件中查找"</string>
+    <string name="attachment_checking_progress" formatted="false">"校验续传数据：{0} / {1} · {2}%"</string>
     <string name="attachment_details" formatted="false">"{0} · {1,number} / {2,number} 字节 · {3}"</string>
     <string name="attachment_failed" formatted="false">"文件操作失败，请检查文件授权和可用空间。"</string>
     <string name="attachment_hint" formatted="false">"单文件最大 1 GiB；内容未加密。"</string>
+    <string name="attachment_hint_v2" formatted="false">"单文件最大 10 GiB。"</string>
+    <string name="attachment_location_access_lost" formatted="false">"无法访问已保存位置，系统授权可能已失效。"</string>
+    <string name="attachment_location_document" formatted="false">"已另存到系统文件"</string>
+    <string name="attachment_location_gallery" formatted="false">"已保存到系统相册"</string>
+    <string name="attachment_location_missing" formatted="false">"已保存的文件已被移动或删除。"</string>
+    <string name="attachment_location_private" formatted="false">"文件保存在我在应用内，可查看或另存到系统文件。"</string>
+    <string name="attachment_location_title" formatted="false">"文件保存位置"</string>
+    <string name="attachment_location_unavailable" formatted="false">"暂时无法读取保存位置。"</string>
+    <string name="attachment_move_down" formatted="false">"下移"</string>
+    <string name="attachment_move_up" formatted="false">"上移"</string>
     <string name="attachment_open" formatted="false">"打开"</string>
+    <string name="attachment_open_saved" formatted="false">"打开已保存的文件"</string>
     <string name="attachment_overwrite" formatted="false">"文件已存在，是否替换？"</string>
+    <string name="attachment_path_all_links" formatted="false">"传输路径：Wi-Fi 直连、局域网、蓝牙"</string>
+    <string name="attachment_path_bluetooth" formatted="false">"传输路径：蓝牙"</string>
+    <string name="attachment_path_bluetooth_direct" formatted="false">"传输路径：蓝牙 → Wi-Fi 直连"</string>
+    <string name="attachment_path_bluetooth_lan" formatted="false">"传输路径：蓝牙 → 局域网"</string>
+    <string name="attachment_path_direct_bluetooth" formatted="false">"传输路径：Wi-Fi 直连 → 蓝牙"</string>
+    <string name="attachment_path_direct_lan" formatted="false">"传输路径：Wi-Fi 直连 → 局域网"</string>
+    <string name="attachment_path_disconnected" formatted="false">"传输路径：未连接"</string>
+    <string name="attachment_path_lan_bluetooth" formatted="false">"传输路径：局域网 → 蓝牙"</string>
+    <string name="attachment_path_lan_direct" formatted="false">"传输路径：局域网 → Wi-Fi 直连"</string>
+    <string name="attachment_path_lan_unconfirmed" formatted="false">"传输路径：局域网"</string>
+    <string name="attachment_path_pending_bluetooth" formatted="false">"正在连接蓝牙 · 尚未传输"</string>
+    <string name="attachment_path_pending_lan" formatted="false">"正在连接局域网 · 尚未传输"</string>
+    <string name="attachment_path_pending_wifi_direct" formatted="false">"正在建立 Wi-Fi 直连 · 尚未传输"</string>
+    <string name="attachment_path_selecting" formatted="false">"正在检查传输路径 · 尚未传输"</string>
+    <string name="attachment_path_unknown" formatted="false">"传输路径：暂时无法确认"</string>
+    <string name="attachment_path_wifi_direct" formatted="false">"传输路径：Wi-Fi 直连"</string>
+    <string name="attachment_pause" formatted="false">"暂停传输"</string>
     <string name="attachment_photo_preview" formatted="false">"照片预览：{0}"</string>
+    <string name="attachment_preview" formatted="false">"发送前预览"</string>
     <string name="attachment_progress" formatted="false">"传输进度：{0,number}%；{1}"</string>
+    <string name="attachment_quota" formatted="false">"附件空间配额"</string>
+    <string name="attachment_quota_exceeded" formatted="false">"附件空间配额不足。"</string>
+    <string name="attachment_quota_gi_b" formatted="false">"{0,number} GiB"</string>
+    <string name="attachment_quota_in_use" formatted="false">"新的配额不能小于已占用及预留空间。"</string>
     <string name="attachment_reject" formatted="false">"拒绝"</string>
+    <string name="attachment_remove" formatted="false">"移除"</string>
+    <string name="attachment_reselect" formatted="false">"重新选择"</string>
+    <string name="attachment_resume" formatted="false">"继续传输"</string>
+    <string name="attachment_retried" formatted="false">"已重发"</string>
+    <string name="attachment_retry" formatted="false">"重发"</string>
+    <string name="attachment_retry_batch" formatted="false">"重发本批失败项"</string>
+    <string name="attachment_retry_ineligible" formatted="false">"此项不可重发"</string>
+    <string name="attachment_retry_none" formatted="false">"本批已没有需要重发的失败文件。"</string>
+    <string name="attachment_retry_partial" formatted="false">"{0} 个文件已加入重发队列，{1} 个文件需重新选择。"</string>
+    <string name="attachment_retry_queued" formatted="false">"已加入重发队列。"</string>
+    <string name="attachment_retry_select_again" formatted="false">"原文件无法读取，请重新选择后重发。"</string>
+    <string name="attachment_retrying" formatted="false">"正在重发…"</string>
+    <string name="attachment_save_again" formatted="false">"重新另存为"</string>
     <string name="attachment_save_as" formatted="false">"另存为"</string>
+    <string name="attachment_save_before_opening" formatted="false">"请先将此文件另存为，再打开。"</string>
+    <string name="attachment_saved_file_missing" formatted="false">"保存的文件已被移动或删除。"</string>
+    <string name="attachment_selection_count" formatted="false">"已选 {0} 项"</string>
+    <string name="attachment_show_in_folder" formatted="false">"打开所在位置"</string>
+    <string name="attachment_source_changed" formatted="false">"源文件发生变化，请重新发送。"</string>
+    <string name="attachment_source_permission" formatted="false">"文件读取授权已失效，请重新选择。"</string>
+    <string name="attachment_source_unavailable" formatted="false">"无法读取源文件，请重新选择。"</string>
+    <string name="attachment_speed_eta" formatted="false">"{0}/秒 · 剩余约 {1,number} 秒"</string>
     <string name="attachment_state_awaiting_receipt" formatted="false">"等待保存回执"</string>
     <string name="attachment_state_canceled" formatted="false">"已取消"</string>
+    <string name="attachment_state_checking" formatted="false">"检查续传数据"</string>
     <string name="attachment_state_delivered" formatted="false">"已送达"</string>
     <string name="attachment_state_failed" formatted="false">"传输失败"</string>
     <string name="attachment_state_interrupted" formatted="false">"传输中断"</string>
     <string name="attachment_state_offered" formatted="false">"等待接收"</string>
+    <string name="attachment_state_paused" formatted="false">"已暂停"</string>
     <string name="attachment_state_preparing" formatted="false">"准备中"</string>
+    <string name="attachment_state_queued" formatted="false">"排队中"</string>
     <string name="attachment_state_received" formatted="false">"已接收"</string>
     <string name="attachment_state_rejected" formatted="false">"已拒绝"</string>
+    <string name="attachment_state_source_unavailable" formatted="false">"已暂停：源文件暂时无法读取，恢复访问后可续传"</string>
     <string name="attachment_state_transferring" formatted="false">"传输中"</string>
     <string name="attachment_state_unknown" formatted="false">"结果未知，对方可能已保存"</string>
     <string name="attachment_state_verifying" formatted="false">"校验并保存中"</string>
+    <string name="attachment_storage_full" formatted="false">"可用存储空间不足。"</string>
     <string name="attachment_summary" formatted="false">"{0} · {1}"</string>
+    <string name="attachment_too_large" formatted="false">"文件超过单文件大小限制。"</string>
     <string name="attachment_unavailable" formatted="false">"文件不可用，可能已被删除。"</string>
+    <string name="attachment_unknown_size" formatted="false">"大小待确认"</string>
     <string name="attachment_upgrade_required" formatted="false">"文件传输协议不兼容，请升级双方应用。"</string>
+    <string name="attachment_view_original" formatted="false">"查看聊天原件"</string>
+    <string name="attachment_waiting_resume" formatted="false">"等待对方确认续传…"</string>
     <string name="attachments" formatted="false">"附件"</string>
+    <string name="avatar" formatted="false">"头像"</string>
+    <string name="avatar_change" formatted="false">"更换头像"</string>
+    <string name="avatar_changed" formatted="false">"编辑期间头像已更改。请重新打开后继续。"</string>
+    <string name="avatar_choose" formatted="false">"选择图片"</string>
+    <string name="avatar_crop" formatted="false">"裁剪头像"</string>
+    <string name="avatar_crop_hint" formatted="false">"拖动调整位置，使用缩放按钮调整大小。方向键可移动裁剪区域。"</string>
+    <string name="avatar_default" formatted="false">"使用默认头像"</string>
+    <string name="avatar_details" formatted="false">"设备详情"</string>
+    <string name="avatar_edit_crop" formatted="false">"调整裁剪"</string>
+    <string name="avatar_invalid" formatted="false">"无法将此图片用作头像。"</string>
+    <string name="avatar_loading" formatted="false">"正在准备头像…"</string>
+    <string name="avatar_prepared" formatted="false">"{0} × {1} PNG · {2} KiB"</string>
+    <string name="avatar_preview" formatted="false">"预览头像"</string>
+    <string name="avatar_reset" formatted="false">"恢复设备默认头像"</string>
+    <string name="avatar_reset_crop" formatted="false">"重置裁剪"</string>
+    <string name="avatar_reset_done" formatted="false">"已恢复默认头像"</string>
+    <string name="avatar_save" formatted="false">"保存头像"</string>
+    <string name="avatar_save_failed" formatted="false">"头像保存失败，请重试。"</string>
+    <string name="avatar_saved" formatted="false">"头像已保存"</string>
+    <string name="avatar_saved_on_device" formatted="false">"已保存在此设备上"</string>
+    <string name="avatar_title" formatted="false">"头像"</string>
+    <string name="avatar_unavailable" formatted="false">"无法使用此图片。请选择其他图片。"</string>
+    <string name="avatar_use_crop" formatted="false">"预览裁剪结果"</string>
+    <string name="avatar_visibility_hint" formatted="false">"支持头像的连接中，联系人可以看到此设备的头像。每台设备独立设置头像。"</string>
+    <string name="avatar_zoom" formatted="false">"缩放"</string>
     <string name="back" formatted="false">"返回"</string>
     <string name="back_to_chats" formatted="false">"返回聊天列表"</string>
     <string name="bluetooth" formatted="false">"蓝牙"</string>
@@ -147,7 +242,35 @@
     <string name="device_info_trusted" formatted="false">"已记住这部设备，下次可直接连接。\n\n信任基于设备密钥，不认证真实姓名。取消信任不会删除聊天记录。\n\n设备身份\n{0}"</string>
     <string name="device_info_untrusted" formatted="false">"尚未记住这部设备，下次需要确认。\n\n信任基于设备密钥，不认证真实姓名。取消信任不会删除聊天记录。\n\n设备身份\n{0}"</string>
     <string name="device_section" formatted="false">"这部设备"</string>
+    <string name="diagnostics_copied" formatted="false">"传输诊断已复制"</string>
     <string name="direct" formatted="false">"通过 IP 地址连接"</string>
+    <string name="direct_advertising" formatted="false">"已向附近 Android 设备发布服务 · 等待建立直连网络"</string>
+    <string name="direct_busy" formatted="false">"Wi-Fi 直连正忙。请等待当前操作完成后重试。"</string>
+    <string name="direct_channel_lost" formatted="false">"Wi-Fi 直连服务已中断。请重新开启接收后重试。"</string>
+    <string name="direct_cleanup_failed" formatted="false">"Wi-Fi 直连的系统操作尚未确认完成，新的直连尝试已暂停。请检查 Wi-Fi 设置，然后重启应用再试。"</string>
+    <string name="direct_connect_failed" formatted="false">"Wi-Fi 直连连接失败。请确认对方 Android 设备已开启接收，并接受系统连接提示。"</string>
+    <string name="direct_connect_timeout" formatted="false">"Wi-Fi 直连连接超时。请重新搜索后重试。"</string>
+    <string name="direct_discovery_failed" formatted="false">"Wi-Fi 直连搜索失败。请检查权限和 Wi-Fi 后重试。较旧的 Android 设备还需开启系统位置信息。"</string>
+    <string name="direct_enable_canceled" formatted="false">"Wi-Fi 仍未开启。请开启后重试。"</string>
+    <string name="direct_enable_first" formatted="false">"请在系统设置中开启 Wi-Fi，以使用 Wi-Fi 直连。"</string>
+    <string name="direct_foreign_group" formatted="false">"现有 Wi-Fi 直连群组的来源无法确认，因此未发起新的直连。请检查 Wi-Fi 设置后重试。"</string>
+    <string name="direct_group_lost" formatted="false">"Wi-Fi 直连网络已丢失，连接已停止。请重新连接以继续。"</string>
+    <string name="direct_interface_unavailable" formatted="false">"Wi-Fi 直连网络接口尚未就绪。请重新搜索后重试。"</string>
+    <string name="direct_invalid_peer" formatted="false">"此附近设备无法用于 Wi-Fi 直连。请重新搜索。"</string>
+    <string name="direct_ipv6_unsupported" formatted="false">"不支持此 Wi-Fi 直连网络地址。请重新搜索后重试。"</string>
+    <string name="direct_listening" formatted="false">"正在 Wi-Fi 直连接口上监听：{0}"</string>
+    <string name="direct_location_required" formatted="false">"系统位置信息已关闭。较旧的 Android 设备需要开启它才能搜索 Wi-Fi 直连设备。请在设置中开启后重新搜索。"</string>
+    <string name="direct_location_settings" formatted="false">"位置信息设置"</string>
+    <string name="direct_no_devices_body" formatted="false">"请在两台 Android 设备上选择 Wi-Fi 直连、开启接收并搜索，并接受系统连接提示。连接 Windows 或 Linux 时，请双方切换到局域网，并加入同一 Wi-Fi 或热点。 取消或断开后，请双方都点击连接以重试。"</string>
+    <string name="direct_peer_hint" formatted="false">"连接后请核对安全码。 取消或断开后，请双方都点击连接以重试。"</string>
+    <string name="direct_permission_required" formatted="false">"Wi-Fi 直连需要附近设备权限；较旧的设备需要位置信息权限。请在应用设置中允许。"</string>
+    <string name="direct_permission_title" formatted="false">"允许 Wi-Fi 直连访问"</string>
+    <string name="direct_route_ambiguous" formatted="false">"网络路由重叠或 VPN 正在运行，无法安全确认直连路径。请检查网络设置后重试。"</string>
+    <string name="direct_search_stop_failed" formatted="false">"无法停止 Wi-Fi 直连搜索。请重试。"</string>
+    <string name="direct_service_failed" formatted="false">"无法发布 Wi-Fi 直连接收服务。请检查 Wi-Fi 和权限后重试。"</string>
+    <string name="direct_settings_unavailable" formatted="false">"无法打开系统设置。请手动打开此设备的设置，检查 Wi-Fi 或位置信息。"</string>
+    <string name="direct_unavailable" formatted="false">"此设备无法使用 Wi-Fi 直连。可改用局域网。"</string>
+    <string name="direct_wifi_settings" formatted="false">"Wi-Fi 设置"</string>
     <string name="disconnect" formatted="false">"断开连接"</string>
     <string name="disconnect_and_connect" formatted="false">"结束并连接"</string>
     <string name="disconnected" formatted="false">"连接已断开。没有回执的消息保持“未确认”。"</string>
@@ -158,11 +281,15 @@
     <string name="earlier" formatted="false">"较早"</string>
     <string name="emoji" formatted="false">"表情"</string>
     <string name="empty_chat" formatted="false">"从左侧选择聊天，或在“附近”连接一台设备。"</string>
+    <string name="encrypted_via" formatted="false">"端到端加密 · {0}"</string>
+    <string name="encryption_active" formatted="false">"连接已端到端加密"</string>
     <string name="endpoint" formatted="false">"对方的 IP 地址与端口"</string>
     <string name="endpoint_hint" formatted="false">"例如 192.168.1.20:54321。请在对方的“我的连接”中查看。"</string>
     <string name="endpoint_required" formatted="false">"请输入局域网 IP 地址和端口。"</string>
     <string name="error" formatted="false">"操作未完成"</string>
     <string name="feedback" formatted="false">"操作状态与提示"</string>
+    <string name="file_comparing_links" formatted="false">"正在比较直连与局域网…"</string>
+    <string name="file_recovering_lan" formatted="false">"正在通过局域网恢复传输…"</string>
     <string name="find_nearby" formatted="false">"去附近查找"</string>
     <string name="find_people_nearby" formatted="false">"找附近的人"</string>
     <string name="finding_remembered" formatted="false">"正在查找已记住的设备…"</string>
@@ -170,12 +297,23 @@
     <string name="first_message_hint" formatted="false">"连接后，发送你的第一句问候。"</string>
     <string name="font_load_failed" formatted="false">"无法加载程序字体。请重新安装 NearbyIM。原有数据已保留。"</string>
     <string name="font_size" formatted="false">"文字大小"</string>
+    <string name="gallery_access" formatted="false">"允许访问照片"</string>
+    <string name="gallery_auto_save" formatted="false">"自动将收到的照片保存到相册"</string>
+    <string name="gallery_empty" formatted="false">"没有可访问的照片"</string>
+    <string name="gallery_more" formatted="false">"加载更多照片"</string>
+    <string name="gallery_permission" formatted="false">"请允许访问照片，以显示相册中的图片。"</string>
+    <string name="gallery_save" formatted="false">"保存到相册"</string>
+    <string name="gallery_save_failed" formatted="false">"相册保存失败，原件仍在聊天中，可重试。"</string>
+    <string name="gallery_save_permission" formatted="false">"保存到相册需要存储权限；文件已接收。"</string>
+    <string name="gallery_saved" formatted="false">"已保存到相册"</string>
+    <string name="gallery_saving" formatted="false">"正在保存到相册…"</string>
+    <string name="gallery_title" formatted="false">"选择照片"</string>
     <string name="got_it" formatted="false">"知道了"</string>
     <string name="handshake" formatted="false">"正在验证设备…"</string>
     <string name="handshake_timeout" formatted="false">"对方没有响应握手，请重新连接。"</string>
     <string name="help" formatted="false">"使用说明"</string>
-    <string name="help_body_linux" formatted="false">"局域网：双方连接同一个 Wi-Fi 或热点，开启接收后搜索，也可输入完整 IP 地址和端口。局域网文字以明文传输，请使用可信网络。\n\n蓝牙：开启适配器和 BlueZ 系统服务。双方开启接收，被搜索的一方允许被发现。首次配对需要运行桌面系统的配对代理，可在系统蓝牙设置中配对。列表显示已配对及搜索到的设备，记住的设备可从历史重连。停止接收不会中断已建立的聊天。\n\n首次聊天可选择记住设备或仅本次。系统配对不等于应用内信任。重连验证同一公钥；可在设置中取消信任。\n\n待确认表示尚未收到保存回执，已送达表示对方已保存，未确认表示结果未知，均不表示已读。\n\n记录与草稿保存在本机，重启后保留。退出后需要重新开启接收。数据位于 XDG_DATA_HOME/wozai，默认 ~/.local/share/wozai，与软件安装位置无关。设备私钥没有额外加密，使用仅当前用户可访问的文件权限保护。删除数据会删除记录和设备信任。"</string>
-    <string name="help_body_windows" formatted="false">"局域网：双方连接同一个 Wi-Fi 或热点，开启接收后搜索，也可输入完整 IP 地址和端口。局域网文字以明文传输，请使用可信网络。\n\n蓝牙：对方开启接收并允许被发现后搜索，首次连接按系统提示配对。Windows 可通过“Windows 蓝牙设置”完成配对。已记住设备可通过历史直接连接，对方仍需开启蓝牙和接收服务。\n\n首次聊天可选择记住设备或仅本次。记住后验证同一设备身份再直接连接；可在设置中取消信任。\n\n待确认表示尚未收到保存回执，已送达表示对方已保存，未确认表示结果未知，不能表示已读。\n\n聊天记录保存在本机。Windows 端的草稿会保存，切换会话或重启后仍可恢复。退出后需要重新开启接收。\n\n便携版数据放在软件旁的 data 文件夹，旧版资料迁移后原件保留。设备私钥由当前 Windows 用户保护，复制到另一用户或电脑不会自动解锁身份。删除 data 会删除记录和设备信任。"</string>
+    <string name="help_body_linux" formatted="false">"局域网：双方连接同一个 Wi-Fi 或热点，开启接收后搜索，也可输入完整 IP 地址和端口。聊天与文件传输使用端到端加密。本机聊天记录和附件不加密。\n\n蓝牙：开启适配器和 BlueZ 系统服务。双方开启接收，被搜索的一方允许被发现。首次配对需要运行桌面系统的配对代理，可在系统蓝牙设置中配对。列表显示已配对及搜索到的设备，记住的设备可从历史重连。停止接收不会中断已建立的聊天。\n\n首次聊天可选择记住设备或仅本次。系统配对不等于应用内信任。重连验证同一公钥；可在设置中取消信任。\n\n待确认表示尚未收到保存回执，已送达表示对方已保存，未确认表示结果未知，均不表示已读。\n\n记录与草稿保存在本机，重启后保留。退出后需要重新开启接收。数据位于 XDG_DATA_HOME/wozai，默认 ~/.local/share/wozai，与软件安装位置无关。设备私钥没有额外加密，使用仅当前用户可访问的文件权限保护。删除数据会删除记录和设备信任。"</string>
+    <string name="help_body_windows" formatted="false">"局域网：双方连接同一个 Wi-Fi 或热点，开启接收后搜索，也可输入完整 IP 地址和端口。聊天与文件传输使用端到端加密。本机聊天记录和附件不加密。\n\n蓝牙：对方开启接收并允许被发现后搜索，首次连接按系统提示配对。Windows 可通过“Windows 蓝牙设置”完成配对。已记住设备可通过历史直接连接，对方仍需开启蓝牙和接收服务。\n\n首次聊天可选择记住设备或仅本次。记住后验证同一设备身份再直接连接；可在设置中取消信任。\n\n待确认表示尚未收到保存回执，已送达表示对方已保存，未确认表示结果未知，不能表示已读。\n\n聊天记录保存在本机。Windows 端的草稿会保存，切换会话或重启后仍可恢复。退出后需要重新开启接收。\n\n便携版数据放在软件旁的 data 文件夹，旧版资料迁移后原件保留。设备私钥由当前 Windows 用户保护，复制到另一用户或电脑不会自动解锁身份。删除 data 会删除记录和设备信任。"</string>
     <string name="history_trust_retained" formatted="false">"本机聊天记录和信任会保留。"</string>
     <string name="identity_changed" formatted="false">"设备身份与历史记录不符，已拒绝连接。请先确认对方是否重装了应用。"</string>
     <string name="identity_changed_rejected" formatted="false">"设备身份已变化，连接已拒绝"</string>
@@ -185,7 +323,9 @@
     <string name="identity_protection_timeout" formatted="false">"Windows 设备身份保护操作超时。请稍后重试。原有身份不会被替换。"</string>
     <string name="identity_unavailable" formatted="false">"本机身份密钥不可用，暂时无法连接"</string>
     <string name="identity_unavailable_restart" formatted="false">"本机身份密钥不可用，暂时无法连接，请重启应用后重试"</string>
+    <string name="identity_unverified" formatted="false">"身份尚未核验"</string>
     <string name="identity_verification_failed" formatted="false">"设备身份验证不符，未授权此连接"</string>
+    <string name="identity_verified" formatted="false">"身份已核验"</string>
     <string name="idle" formatted="false">"未连接"</string>
     <string name="initial_status" formatted="false">"选择连接方式，找到身边的人"</string>
     <string name="invalid_endpoint" formatted="false">"地址格式示例：192.168.1.20:54321 或 [fd00::1]:54321。"</string>
@@ -196,6 +336,7 @@
     <string name="lan_addresses" formatted="false">"{0}"</string>
     <string name="lan_listening_without_address" formatted="false">"监听端口 {0} · 请连接 Wi-Fi 或手机热点"</string>
     <string name="lan_no_devices_body" formatted="false">"请确认对方已开启接收，并连接同一个 Wi-Fi 或热点。"</string>
+    <string name="lan_path_unconfirmed" formatted="false">"局域网 · 路径未确认"</string>
     <string name="lan_register_failure" formatted="false">"自动发现注册失败，可使用地址直连"</string>
     <string name="language" formatted="false">"界面语言"</string>
     <string name="large" formatted="false">"大"</string>
@@ -251,6 +392,12 @@
     <string name="outgoing_message_meta" formatted="false">"{0} · {1}"</string>
     <string name="paired" formatted="false">"已配对"</string>
     <string name="paired_address" formatted="false">"已配对 · {0}"</string>
+    <string name="path_details_bluetooth" formatted="false">"这份文件记录的传输渠道是蓝牙。较大的文件可能需要更长的传输时间。"</string>
+    <string name="path_details_disconnected" formatted="false">"目前没有已建立的传输通道。连接后会显示实际使用的通道。"</string>
+    <string name="path_details_lan" formatted="false">"这份文件记录的传输渠道是局域网。无法确认该渠道是否经过路由器或手机热点。"</string>
+    <string name="path_details_selecting" formatted="false">"文件依次尝试 Wi-Fi 直连、局域网、蓝牙；不会改变聊天连接模式。"</string>
+    <string name="path_details_title" formatted="false">"传输路径"</string>
+    <string name="path_details_wifi_direct" formatted="false">"这份文件记录的传输渠道是 Android Wi-Fi 直连。加密状态和身份核验状态会单独显示。"</string>
     <string name="peer_ended" formatted="false">"对方结束了聊天。"</string>
     <string name="peer_status_transport" formatted="false">"{0} · {1}"</string>
     <string name="peer_summary" formatted="false">"{0}。{1}"</string>
@@ -265,9 +412,20 @@
     <string name="photo_zoom_out" formatted="false">"缩小照片"</string>
     <string name="please_wait_connecting" formatted="false">"正在连接，请稍候"</string>
     <string name="portable_hint" formatted="false">"便携版默认将数据保存在软件旁的 data 文件夹。旧版数据会复制迁移并保留原件。设备身份仍由当前 Windows 用户保护，复制到另一用户或电脑不会自动解锁身份。"</string>
-    <string name="privacy" formatted="false">"无需账号或远程服务器。聊天记录保存在本机。局域网文字仍是明文；身份签名不提供内容加密。"</string>
+    <string name="privacy" formatted="false">"无需账号或远程服务器。聊天与文件传输使用端到端加密，本机记录和附件不加密。首次连接请当面核对设备身份。"</string>
     <string name="quit" formatted="false">"退出"</string>
     <string name="ready" formatted="false">"已连接"</string>
+    <string name="receive_folder" formatted="false">"接收文件夹"</string>
+    <string name="receive_folder_choose" formatted="false">"选择文件夹"</string>
+    <string name="receive_folder_failed" formatted="false">"未能保存到接收文件夹"</string>
+    <string name="receive_folder_private" formatted="false">"仅保存在应用中"</string>
+    <string name="receive_folder_retry" formatted="false">"重试保存到文件夹"</string>
+    <string name="receive_folder_save" formatted="false">"保存到接收文件夹"</string>
+    <string name="receive_folder_saved" formatted="false">"已保存到接收文件夹"</string>
+    <string name="receive_folder_saving" formatted="false">"正在保存到接收文件夹…"</string>
+    <string name="receive_folder_stop" formatted="false">"仅保存在应用中"</string>
+    <string name="receive_folder_summary" formatted="false">"接收完成后，将文件和照片另存到所选文件夹，聊天中保留应用内副本。更换文件夹仅影响今后的文件；清空聊天不会删除已保存的文件。"</string>
+    <string name="receive_folder_unavailable" formatted="false">"无法访问或写入此文件夹，请重新选择。"</string>
     <string name="received" formatted="false">"已收到"</string>
     <string name="receiving" formatted="false">"正在接收"</string>
     <string name="reception_off" formatted="false">"接收已关闭"</string>
@@ -327,8 +485,10 @@
     <string name="stop_search" formatted="false">"停止搜索"</string>
     <string name="storage_failure" formatted="false">"无法保存本地数据，连接已停止。请检查磁盘空间和目录权限。"</string>
     <string name="system_language" formatted="false">"跟随系统"</string>
+    <string name="system_theme" formatted="false">"跟随系统"</string>
     <string name="theme" formatted="false">"主题"</string>
     <string name="today" formatted="false">"今天"</string>
+    <string name="transfer_diagnostics" formatted="false">"复制传输诊断"</string>
     <string name="trust_hint" formatted="false">"信任绑定设备公钥，局域网和蓝牙共用。取消信任会断开该设备，聊天记录仍保留。"</string>
     <string name="trust_revoked_canceled" formatted="false">"信任已取消，连接尝试已停止"</string>
     <string name="trust_revoked_reconnect" formatted="false">"信任已取消，请重新连接并同意"</string>
@@ -340,12 +500,42 @@
     <string name="unnamed_device" formatted="false">"未命名设备"</string>
     <string name="unpaired_address" formatted="false">"未配对 · {0}"</string>
     <string name="unsupported_bluetooth" formatted="false">"这部设备不支持蓝牙，可使用局域网"</string>
+    <string name="verification_camera_permission" formatted="false">"扫描需要相机权限，也可以选择图片或手动核对。"</string>
+    <string name="verification_camera_unavailable" formatted="false">"相机无法使用，请选择图片或手动核对。"</string>
+    <string name="verification_confirm" formatted="false">"确认已逐组核对双方完整安全码一致？核验后会记住这个设备身份。"</string>
+    <string name="verification_connect_first" formatted="false">"请先与对方建立加密连接，再核验身份。"</string>
+    <string name="verification_connection_changed" formatted="false">"连接已变化，请重新打开核验页面。"</string>
+    <string name="verification_copy" formatted="false">"复制安全码"</string>
+    <string name="verification_copy_done" formatted="false">"安全码已复制"</string>
+    <string name="verification_done" formatted="false">"身份核验成功"</string>
+    <string name="verification_explain" formatted="false">"核对对方设备上的完整安全码，或当面扫描对方的二维码。不在身边时，请通过另一条已信任的渠道核对；仅在当前聊天中互发安全码不能确认身份。"</string>
+    <string name="verification_focus_failed" formatted="false">"对焦失败，请稍微拉远后重试。"</string>
+    <string name="verification_focus_hint" formatted="false">"轻点二维码的位置对焦，也可点「重新对焦」。"</string>
+    <string name="verification_focus_locked" formatted="false">"已对焦"</string>
+    <string name="verification_focus_unavailable" formatted="false">"此相机不支持调整对焦。"</string>
+    <string name="verification_focusing" formatted="false">"正在对焦…"</string>
+    <string name="verification_image" formatted="false">"从图片读取"</string>
+    <string name="verification_local_only" formatted="false">"核验结果仅保存在这台设备，绑定双方身份。更换身份或撤销信任后需要重新核验。"</string>
+    <string name="verification_mark" formatted="false">"我已核对一致"</string>
+    <string name="verification_mismatch" formatted="false">"安全码不匹配。请确认核对的是正确设备，暂勿标记为已核验。"</string>
+    <string name="verification_qr_image" formatted="false">"身份核验二维码"</string>
+    <string name="verification_read_failed" formatted="false">"未找到可用的二维码，请重新选择图片或手动核对。"</string>
+    <string name="verification_reading" formatted="false">"正在读取二维码…"</string>
+    <string name="verification_refocus" formatted="false">"重新对焦"</string>
+    <string name="verification_save_qr" formatted="false">"保存二维码"</string>
+    <string name="verification_scan" formatted="false">"扫描二维码"</string>
+    <string name="verification_title" formatted="false">"验证安全码"</string>
+    <string name="verify_identity" formatted="false">"验证身份"</string>
     <string name="version_android" formatted="false">"安卓版 · {0}"</string>
     <string name="version_linux" formatted="false">"Linux 预览版 · {0}"</string>
     <string name="version_windows" formatted="false">"Windows 预览版 · {0}"</string>
     <string name="view_copy_address" formatted="false">"查看并复制本机地址"</string>
     <string name="waiting_both_ready" formatted="false">"等待双方完成连接…"</string>
     <string name="waiting_peer_consent" formatted="false">"等待对方同意聊天…"</string>
+    <string name="wifi_direct" formatted="false">"Wi-Fi 直连"</string>
+    <string name="wifi_direct_connecting" formatted="false">"正在通过 Wi-Fi 直连连接…"</string>
+    <string name="wifi_direct_fallback_bluetooth" formatted="false">"Wi-Fi 直连不可用；备选路径：蓝牙。原因：{0}"</string>
+    <string name="wifi_direct_fallback_lan" formatted="false">"Wi-Fi 直连不可用；备选路径：局域网。原因：{0}"</string>
     <string name="yes" formatted="false">"确定"</string>
     <string name="yesterday" formatted="false">"昨天"</string>
     <string name="you" formatted="false">"我"</string>

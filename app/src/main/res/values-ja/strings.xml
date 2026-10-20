@@ -6,7 +6,7 @@
     <string name="about_body_windows" formatted="false">"我在 · NearbyIM\nWindows プレビュー版 {0}\n\nアカウント不要の、近くの人とのテキストチャット。\n\nLAN または Bluetooth で 1 対 1 のチャットができます。メッセージはこのパソコンに保存されます。ローカルデータを削除すると、履歴とデバイスの信頼も削除されます。"</string>
     <string name="address_copied" formatted="false">"アドレスをコピーしました"</string>
     <string name="allow_discoverable" formatted="false">"120 秒間の検出を許可"</string>
-    <string name="android_about_body" formatted="false">"我在 · NearbyIM\nAndroid {0}\n\nLAN または Bluetooth で 1 対 1 のチャットができます。メッセージはこのデバイスに保存されます。アプリのアンインストールやデータの消去で、履歴とデバイスの信頼も削除されます。"</string>
+    <string name="android_about_body" formatted="false">"我在 · NearbyIM\nAndroid {0}\n\nAndroid Wi-Fi Direct、LAN または Bluetooth で 1 対 1 のチャットができます。メッセージはこのデバイスに保存されます。アプリのアンインストールやデータの消去で、履歴とデバイスの信頼も削除されます。"</string>
     <string name="android_about_summary" formatted="false">"Android · {0}\nアカウント不要の、近くの人とのテキストチャット"</string>
     <string name="android_bluetooth_connect_failed" formatted="false">"Bluetooth の接続に失敗しました。相手が NearbyIM をインストールし、受信を有効にしているか確認してください。両方でシステムのペアリング確認が必要です。"</string>
     <string name="android_bluetooth_hint" formatted="false">"相手が受信と検出を有効にしてから検索してください。初回の接続ではシステムがペアリングを行います。"</string>
@@ -14,45 +14,140 @@
     <string name="android_bluetooth_search_not_started" formatted="false">"検索を開始できませんでした。ペアリング済みのデバイスを試してください。Android 11 以前ではシステムの位置情報も有効にする必要があります。"</string>
     <string name="android_bluetooth_unavailable" formatted="false">"このデバイスは Bluetooth に対応していません。LAN を使用してください。"</string>
     <string name="android_composer" formatted="false">"メッセージを入力…"</string>
-    <string name="android_direct_body" formatted="false">"相手に表示されているアドレスとポートをすべて入力してください。LAN のメッセージは平文で送信されるため、信頼できるネットワークを使用してください。"</string>
-    <string name="android_help_body" formatted="false">"LAN：両方のデバイスを同じ Wi-Fi またはアクセスポイントに接続してください。受信を有効にして検索するか、IP アドレスとポートを入力します。LAN のメッセージは平文で送信されるため、信頼できるネットワークを使用してください。\n\nBluetooth：相手が受信と検出を有効にしてから検索してください。初回の接続では、システムの指示に従ってペアリングします。登録済みのデバイスは、相手が Bluetooth と受信を有効にしていれば、履歴から再接続できます。\n\n初回のチャットでは、デバイスを登録するか、今回のみ許可できます。再接続時は同じデバイス識別情報か確認します。設定で信頼を解除できます。\n\n「確認待ち」は保存確認がまだ届いていない状態、「配信済み」は相手が保存した状態、「未確認」は結果が不明な状態です。いずれも既読を意味しません。\n\n履歴はこのデバイスに保存されます。チャットの切り替えや画面の再作成では下書きを保持しますが、アプリ停止後は失われる場合があります。システムがアプリを停止した場合は、受信を再び有効にしてください。"</string>
+    <string name="android_direct_body" formatted="false">"相手に表示されているアドレスとポートをすべて入力してください。"</string>
+    <string name="android_help_body" formatted="false">"Wi-Fi Direct：Android のスマートフォンやタブレットをルーターなしで接続できます。両方で Wi-Fi Direct を選び、受信を有効にして検索し、システムの接続確認を許可してください。Windows または Linux と接続する場合は両方を LAN に切り替え、同じ Wi-Fi またはホットスポットに接続してください。 キャンセルや切断の後は、両方の端末で接続を押して再試行してください。\n\nLAN：両方のデバイスを同じ Wi-Fi またはアクセスポイントに接続してください。受信を有効にして検索するか、IP アドレスとポートを入力します。チャットとファイル転送はエンドツーエンドで暗号化されます。このデバイスの履歴と添付ファイルは暗号化されません。\n\nBluetooth：相手が受信と検出を有効にしてから検索してください。初回の接続では、システムの指示に従ってペアリングします。登録済みのデバイスは、相手が Bluetooth と受信を有効にしていれば、履歴から再接続できます。\n\n初回のチャットでは、デバイスを登録するか、今回のみ許可できます。再接続時は同じデバイス識別情報か確認します。設定で信頼を解除できます。\n\n「確認待ち」は保存確認がまだ届いていない状態、「配信済み」は相手が保存した状態、「未確認」は結果が不明な状態です。いずれも既読を意味しません。\n\n履歴はこのデバイスに保存されます。チャットの切り替えや画面の再作成では下書きを保持しますが、アプリ停止後は失われる場合があります。システムがアプリを停止した場合は、受信を再び有効にしてください。"</string>
     <string name="android_identity_changed" formatted="false">"このデバイスの識別鍵が変わっています。再び信頼する場合は、設定で信頼を解除してから再接続してください。"</string>
-    <string name="android_lan_hint" formatted="false">"両方のデバイスを同じ Wi-Fi またはアクセスポイントに接続してください。LAN のメッセージは平文で送信されるため、信頼できるネットワークを使用してください。"</string>
+    <string name="android_lan_hint" formatted="false">"両方のデバイスを同じ Wi-Fi またはアクセスポイントに接続してください。"</string>
     <string name="android_request_body" formatted="false">"{0} で接続します。デバイスを登録すると次回から再接続できます。デバイス情報で信頼を解除できます。\n\nニックネームは相手が入力したものです。デバイスの信頼は本名の確認を意味しません。"</string>
-    <string name="android_request_lan_body" formatted="false">"{0} で接続します。デバイスを登録すると次回から再接続できます。デバイス情報で信頼を解除できます。\n\nニックネームは相手が入力したものです。デバイスの信頼は本名の確認を意味しません。LAN のメッセージは平文で送信されるため、信頼できるネットワークを使用してください。"</string>
+    <string name="android_request_lan_body" formatted="false">"{0} で接続します。デバイスを登録すると次回から再接続できます。デバイス情報で信頼を解除できます。\n\nニックネームは相手が入力したものです。デバイスの信頼は本名の確認を意味しません。チャットとファイル転送はエンドツーエンドで暗号化されます。このデバイスの履歴と添付ファイルは暗号化されません。"</string>
     <string name="android_storage_failure" formatted="false">"ローカルデータを読み書きできません。再試行し、問題が続く場合はエラーを報告してください。"</string>
     <string name="android_storage_stopped" formatted="false">"ローカルデータを保存できず、接続を停止しました。"</string>
+    <string name="android_wifi_direct_hint" formatted="false">"Android のスマートフォンやタブレットをルーターなしで接続できます。両方で Wi-Fi Direct を選び、受信を有効にして検索してください。Windows または Linux と接続する場合は両方で LAN を選び、同じ Wi-Fi またはホットスポットに接続してください。 キャンセルや切断の後は、両方の端末で接続を押して再試行してください。"</string>
     <string name="app" formatted="false">"NearbyIM"</string>
     <string name="app_permissions" formatted="false">"アプリの権限"</string>
     <string name="app_section" formatted="false">"アプリ"</string>
     <string name="app_settings" formatted="false">"アプリの設定"</string>
     <string name="appearance_section" formatted="false">"表示"</string>
     <string name="attachment_accept" formatted="false">"受信"</string>
+    <string name="attachment_batch_cancel" formatted="false">"送信をすべてキャンセル"</string>
+    <string name="attachment_batch_limit" formatted="false">"一度に選択できるファイルは最大 {0} 個です。"</string>
+    <string name="attachment_batch_pause" formatted="false">"送信をすべて一時停止"</string>
+    <string name="attachment_batch_resume" formatted="false">"送信を再開"</string>
+    <string name="attachment_browse_saved" formatted="false">"システムのファイルで探す"</string>
+    <string name="attachment_checking_progress" formatted="false">"再開データを確認中：{0} / {1} · {2}%"</string>
     <string name="attachment_details" formatted="false">"{0} · {1,number} / {2,number} バイト · {3}"</string>
     <string name="attachment_failed" formatted="false">"ファイル操作に失敗しました。アクセス権と空き容量を確認してください。"</string>
     <string name="attachment_hint" formatted="false">"1 ファイル最大 1 GiB。内容は暗号化されません。"</string>
+    <string name="attachment_hint_v2" formatted="false">"ファイルごとに最大 10 GiB。"</string>
+    <string name="attachment_location_access_lost" formatted="false">"保存場所にアクセスできません。システムのアクセス許可が失効した可能性があります。"</string>
+    <string name="attachment_location_document" formatted="false">"システムのファイルに保存済み"</string>
+    <string name="attachment_location_gallery" formatted="false">"システムのギャラリーに保存済み"</string>
+    <string name="attachment_location_missing" formatted="false">"保存したファイルは移動または削除されています。"</string>
+    <string name="attachment_location_private" formatted="false">"このファイルはNearbyIM内に保存されています。表示するか、システムのファイルに別途保存できます。"</string>
+    <string name="attachment_location_title" formatted="false">"ファイルの保存場所"</string>
+    <string name="attachment_location_unavailable" formatted="false">"現在、保存場所を読み込めません。"</string>
+    <string name="attachment_move_down" formatted="false">"下へ"</string>
+    <string name="attachment_move_up" formatted="false">"上へ"</string>
     <string name="attachment_open" formatted="false">"開く"</string>
+    <string name="attachment_open_saved" formatted="false">"保存したファイルを開く"</string>
     <string name="attachment_overwrite" formatted="false">"ファイルが存在します。置き換えますか？"</string>
+    <string name="attachment_path_all_links" formatted="false">"転送経路：Wi-Fi Direct、LAN、Bluetooth"</string>
+    <string name="attachment_path_bluetooth" formatted="false">"転送経路：Bluetooth"</string>
+    <string name="attachment_path_bluetooth_direct" formatted="false">"転送経路：Bluetooth → Wi-Fi Direct"</string>
+    <string name="attachment_path_bluetooth_lan" formatted="false">"転送経路：Bluetooth → LAN"</string>
+    <string name="attachment_path_direct_bluetooth" formatted="false">"転送経路：Wi-Fi Direct → Bluetooth"</string>
+    <string name="attachment_path_direct_lan" formatted="false">"転送経路：Wi-Fi Direct → LAN"</string>
+    <string name="attachment_path_disconnected" formatted="false">"転送経路：未接続"</string>
+    <string name="attachment_path_lan_bluetooth" formatted="false">"転送経路：LAN → Bluetooth"</string>
+    <string name="attachment_path_lan_direct" formatted="false">"転送経路：LAN → Wi-Fi Direct"</string>
+    <string name="attachment_path_lan_unconfirmed" formatted="false">"転送経路：LAN"</string>
+    <string name="attachment_path_pending_bluetooth" formatted="false">"Bluetooth に接続中 · 転送は未開始"</string>
+    <string name="attachment_path_pending_lan" formatted="false">"LAN に接続中 · 転送は未開始"</string>
+    <string name="attachment_path_pending_wifi_direct" formatted="false">"直接 Wi-Fi 接続を準備中 · 転送は未開始"</string>
+    <string name="attachment_path_selecting" formatted="false">"転送経路を確認中 · 転送は未開始"</string>
+    <string name="attachment_path_unknown" formatted="false">"転送経路：現在不明"</string>
+    <string name="attachment_path_wifi_direct" formatted="false">"転送経路：Wi-Fi 直接接続"</string>
+    <string name="attachment_pause" formatted="false">"転送を一時停止"</string>
     <string name="attachment_photo_preview" formatted="false">"写真プレビュー：{0}"</string>
+    <string name="attachment_preview" formatted="false">"送信前プレビュー"</string>
     <string name="attachment_progress" formatted="false">"転送状況：{0,number}%、{1}"</string>
+    <string name="attachment_quota" formatted="false">"添付ファイルの保存容量"</string>
+    <string name="attachment_quota_exceeded" formatted="false">"添付ファイルの保存容量の上限を超えます。"</string>
+    <string name="attachment_quota_gi_b" formatted="false">"{0,number} GiB"</string>
+    <string name="attachment_quota_in_use" formatted="false">"使用中と予約済みの容量を下回る上限は設定できません。"</string>
     <string name="attachment_reject" formatted="false">"拒否"</string>
+    <string name="attachment_remove" formatted="false">"削除"</string>
+    <string name="attachment_reselect" formatted="false">"再選択"</string>
+    <string name="attachment_resume" formatted="false">"転送を再開"</string>
+    <string name="attachment_retried" formatted="false">"再送済み"</string>
+    <string name="attachment_retry" formatted="false">"再送"</string>
+    <string name="attachment_retry_batch" formatted="false">"この一括送信で失敗したファイルを再送"</string>
+    <string name="attachment_retry_ineligible" formatted="false">"再送できません"</string>
+    <string name="attachment_retry_none" formatted="false">"この一括送信に再送が必要なファイルはありません。"</string>
+    <string name="attachment_retry_partial" formatted="false">"{0} 個のファイルを再送キューに追加しました。{1} 個のファイルは再選択が必要です。"</string>
+    <string name="attachment_retry_queued" formatted="false">"再送キューに追加しました。"</string>
+    <string name="attachment_retry_select_again" formatted="false">"元のファイルを読み取れません。再選択して再送してください。"</string>
+    <string name="attachment_retrying" formatted="false">"再送中…"</string>
+    <string name="attachment_save_again" formatted="false">"別のコピーを保存"</string>
     <string name="attachment_save_as" formatted="false">"名前を付けて保存"</string>
+    <string name="attachment_save_before_opening" formatted="false">"このファイルを開く前に、名前を付けて保存してください。"</string>
+    <string name="attachment_saved_file_missing" formatted="false">"保存したファイルは移動または削除されています。"</string>
+    <string name="attachment_selection_count" formatted="false">"{0} 件を選択"</string>
+    <string name="attachment_show_in_folder" formatted="false">"保存先を開く"</string>
+    <string name="attachment_source_changed" formatted="false">"元のファイルが変更されました。もう一度送信してください。"</string>
+    <string name="attachment_source_permission" formatted="false">"ファイルの読み取り権限がありません。もう一度選択してください。"</string>
+    <string name="attachment_source_unavailable" formatted="false">"元のファイルを読み取れません。もう一度選択してください。"</string>
+    <string name="attachment_speed_eta" formatted="false">"{0}/秒 · 残り約 {1,number} 秒"</string>
     <string name="attachment_state_awaiting_receipt" formatted="false">"保存確認待ち"</string>
     <string name="attachment_state_canceled" formatted="false">"キャンセル済み"</string>
+    <string name="attachment_state_checking" formatted="false">"保存済みデータを確認中"</string>
     <string name="attachment_state_delivered" formatted="false">"送達済み"</string>
     <string name="attachment_state_failed" formatted="false">"転送失敗"</string>
     <string name="attachment_state_interrupted" formatted="false">"転送中断"</string>
     <string name="attachment_state_offered" formatted="false">"受信待ち"</string>
+    <string name="attachment_state_paused" formatted="false">"一時停止中"</string>
     <string name="attachment_state_preparing" formatted="false">"準備中"</string>
+    <string name="attachment_state_queued" formatted="false">"送信待ち"</string>
     <string name="attachment_state_received" formatted="false">"受信済み"</string>
     <string name="attachment_state_rejected" formatted="false">"拒否されました"</string>
+    <string name="attachment_state_source_unavailable" formatted="false">"一時停止：元のファイルを読み込めません。アクセスを復旧して再開してください。"</string>
     <string name="attachment_state_transferring" formatted="false">"転送中"</string>
     <string name="attachment_state_unknown" formatted="false">"結果不明（相手が保存済みの可能性あり）"</string>
     <string name="attachment_state_verifying" formatted="false">"検証・保存中"</string>
+    <string name="attachment_storage_full" formatted="false">"ストレージの空き容量が不足しています。"</string>
     <string name="attachment_summary" formatted="false">"{0} · {1}"</string>
+    <string name="attachment_too_large" formatted="false">"ファイルサイズの上限を超えています。"</string>
     <string name="attachment_unavailable" formatted="false">"ファイルを利用できません。削除された可能性があります。"</string>
+    <string name="attachment_unknown_size" formatted="false">"サイズ確認中"</string>
     <string name="attachment_upgrade_required" formatted="false">"転送プロトコルが非対応です。両方のアプリを更新してください。"</string>
+    <string name="attachment_view_original" formatted="false">"チャットの元ファイルを表示"</string>
+    <string name="attachment_waiting_resume" formatted="false">"相手の再開確認を待っています…"</string>
     <string name="attachments" formatted="false">"添付"</string>
+    <string name="avatar" formatted="false">"アバター"</string>
+    <string name="avatar_change" formatted="false">"アバターを変更"</string>
+    <string name="avatar_changed" formatted="false">"編集中にアバターが変更されました。もう一度開いて続けてください。"</string>
+    <string name="avatar_choose" formatted="false">"画像を選択"</string>
+    <string name="avatar_crop" formatted="false">"アバターを切り抜く"</string>
+    <string name="avatar_crop_hint" formatted="false">"ドラッグして位置を調整し、ボタンで拡大・縮小します。矢印キーで範囲を移動できます。"</string>
+    <string name="avatar_default" formatted="false">"既定のアバターを使う"</string>
+    <string name="avatar_details" formatted="false">"端末の詳細"</string>
+    <string name="avatar_edit_crop" formatted="false">"切り抜きを調整"</string>
+    <string name="avatar_invalid" formatted="false">"この画像はアバターに使用できません。"</string>
+    <string name="avatar_loading" formatted="false">"アバターを準備中…"</string>
+    <string name="avatar_prepared" formatted="false">"{0} × {1} PNG · {2} KiB"</string>
+    <string name="avatar_preview" formatted="false">"アバターをプレビュー"</string>
+    <string name="avatar_reset" formatted="false">"端末の既定アイコンに戻す"</string>
+    <string name="avatar_reset_crop" formatted="false">"切り抜きをリセット"</string>
+    <string name="avatar_reset_done" formatted="false">"既定のアバターに戻しました"</string>
+    <string name="avatar_save" formatted="false">"アバターを保存"</string>
+    <string name="avatar_save_failed" formatted="false">"アバターを保存できませんでした。再試行してください。"</string>
+    <string name="avatar_saved" formatted="false">"アバターを保存しました"</string>
+    <string name="avatar_saved_on_device" formatted="false">"この端末に保存済み"</string>
+    <string name="avatar_title" formatted="false">"アバター"</string>
+    <string name="avatar_unavailable" formatted="false">"この画像は使用できません。別の画像を選択してください。"</string>
+    <string name="avatar_use_crop" formatted="false">"切り抜きをプレビュー"</string>
+    <string name="avatar_visibility_hint" formatted="false">"アバター対応の接続では、連絡先にこの端末のアバターが表示されます。端末ごとに個別に設定します。"</string>
+    <string name="avatar_zoom" formatted="false">"拡大・縮小"</string>
     <string name="back" formatted="false">"戻る"</string>
     <string name="back_to_chats" formatted="false">"チャット一覧に戻る"</string>
     <string name="bluetooth" formatted="false">"Bluetooth"</string>
@@ -147,7 +242,35 @@
     <string name="device_info_trusted" formatted="false">"このデバイスは登録済みで、次回から再接続できます。\n\n信頼はデバイスの鍵に基づき、本名を確認するものではありません。信頼を解除してもチャット履歴は保持されます。\n\nデバイス識別情報\n{0}"</string>
     <string name="device_info_untrusted" formatted="false">"このデバイスは未登録です。次回の接続には承認が必要です。\n\n信頼はデバイスの鍵に基づき、本名を確認するものではありません。信頼を解除してもチャット履歴は保持されます。\n\nデバイス識別情報\n{0}"</string>
     <string name="device_section" formatted="false">"このデバイス"</string>
+    <string name="diagnostics_copied" formatted="false">"転送診断をコピーしました"</string>
     <string name="direct" formatted="false">"IP アドレスで接続"</string>
+    <string name="direct_advertising" formatted="false">"付近の Android 端末に公開中 · 直接通信ネットワークを待機中"</string>
+    <string name="direct_busy" formatted="false">"Wi-Fi Direct は処理中です。現在の処理が完了してから再試行してください。"</string>
+    <string name="direct_channel_lost" formatted="false">"Wi-Fi Direct サービスが切断されました。受信を再開して再試行してください。"</string>
+    <string name="direct_cleanup_failed" formatted="false">"Wi-Fi Direct のシステム操作が完了したことを確認できません。新しい接続は停止されています。Wi-Fi 設定を確認し、アプリを再起動して再試行してください。"</string>
+    <string name="direct_connect_failed" formatted="false">"Wi-Fi Direct の接続に失敗しました。相手の Android 端末で受信が有効で、システムの接続確認が許可されていることを確認してください。"</string>
+    <string name="direct_connect_timeout" formatted="false">"Wi-Fi Direct の接続がタイムアウトしました。再検索して再試行してください。"</string>
+    <string name="direct_discovery_failed" formatted="false">"Wi-Fi Direct の検索に失敗しました。権限と Wi-Fi を確認して再試行してください。古い Android 端末ではシステムの位置情報もオンにする必要があります。"</string>
+    <string name="direct_enable_canceled" formatted="false">"Wi-Fi がまだオフです。オンにしてから再試行してください。"</string>
+    <string name="direct_enable_first" formatted="false">"Wi-Fi Direct を使用するにはシステム設定で Wi-Fi をオンにしてください。"</string>
+    <string name="direct_foreign_group" formatted="false">"既存の Wi-Fi Direct グループの作成元を確認できないため、新しい接続は開始していません。Wi-Fi 設定を確認してから再試行してください。"</string>
+    <string name="direct_group_lost" formatted="false">"Wi-Fi Direct ネットワークが失われ、接続が停止しました。続行するには再接続してください。"</string>
+    <string name="direct_interface_unavailable" formatted="false">"Wi-Fi Direct のネットワークインターフェースが準備できていません。再検索して再試行してください。"</string>
+    <string name="direct_invalid_peer" formatted="false">"この付近の端末を Wi-Fi Direct に使用できません。再検索してください。"</string>
+    <string name="direct_ipv6_unsupported" formatted="false">"この Wi-Fi Direct ネットワークアドレスはサポートされていません。再検索して再試行してください。"</string>
+    <string name="direct_listening" formatted="false">"Wi-Fi Direct インターフェースで待ち受け中：{0}"</string>
+    <string name="direct_location_required" formatted="false">"システムの位置情報がオフです。古い Android 端末では Wi-Fi Direct の検索に位置情報が必要です。設定でオンにしてから再検索してください。"</string>
+    <string name="direct_location_settings" formatted="false">"位置情報の設定"</string>
+    <string name="direct_no_devices_body" formatted="false">"両方の Android 端末で Wi-Fi Direct を選び、受信を有効にして検索し、システムの接続確認を許可してください。Windows または Linux と接続する場合は両方を LAN に切り替え、同じ Wi-Fi またはホットスポットに接続してください。 キャンセルや切断の後は、両方の端末で接続を押して再試行してください。"</string>
+    <string name="direct_peer_hint" formatted="false">"接続後に安全コードを確認してください。 キャンセルや切断の後は、両方の端末で接続を押して再試行してください。"</string>
+    <string name="direct_permission_required" formatted="false">"Wi-Fi Direct には付近のデバイスの権限が必要です。古い端末では位置情報の権限が必要です。アプリの設定で許可してください。"</string>
+    <string name="direct_permission_title" formatted="false">"Wi-Fi Direct のアクセスを許可"</string>
+    <string name="direct_route_ambiguous" formatted="false">"ネットワーク経路の重複または VPN により、直接通信経路を安全に確認できません。ネットワーク設定を確認して再試行してください。"</string>
+    <string name="direct_search_stop_failed" formatted="false">"Wi-Fi Direct の検索を停止できませんでした。再試行してください。"</string>
+    <string name="direct_service_failed" formatted="false">"Wi-Fi Direct の受信サービスを公開できませんでした。Wi-Fi と権限を確認して再試行してください。"</string>
+    <string name="direct_settings_unavailable" formatted="false">"システム設定を開けませんでした。この端末の設定を開き、Wi-Fi または位置情報を確認してください。"</string>
+    <string name="direct_unavailable" formatted="false">"この端末では Wi-Fi Direct を利用できません。LAN を利用できます。"</string>
+    <string name="direct_wifi_settings" formatted="false">"Wi-Fi 設定"</string>
     <string name="disconnect" formatted="false">"切断"</string>
     <string name="disconnect_and_connect" formatted="false">"切断して接続"</string>
     <string name="disconnected" formatted="false">"切断しました。保存確認が届いていないメッセージは「未確認」のままです。"</string>
@@ -158,11 +281,15 @@
     <string name="earlier" formatted="false">"以前"</string>
     <string name="emoji" formatted="false">"絵文字"</string>
     <string name="empty_chat" formatted="false">"左側からチャットを選ぶか、「近く」でデバイスに接続してください。"</string>
+    <string name="encrypted_via" formatted="false">"エンドツーエンド暗号化 · {0}"</string>
+    <string name="encryption_active" formatted="false">"接続はエンドツーエンド暗号化されています"</string>
     <string name="endpoint" formatted="false">"相手の IP アドレスとポート"</string>
     <string name="endpoint_hint" formatted="false">"例：192.168.1.20:54321。相手のデバイスに表示されているアドレスを確認してください。"</string>
     <string name="endpoint_required" formatted="false">"LAN の IP アドレスとポートを入力してください。"</string>
     <string name="error" formatted="false">"操作を完了できませんでした"</string>
     <string name="feedback" formatted="false">"操作状況とお知らせ"</string>
+    <string name="file_comparing_links" formatted="false">"Wi-Fi Direct と LAN を比較しています…"</string>
+    <string name="file_recovering_lan" formatted="false">"LAN 経由で転送を再開しています…"</string>
     <string name="find_nearby" formatted="false">"近くのデバイスを探す"</string>
     <string name="find_people_nearby" formatted="false">"近くの人を探す"</string>
     <string name="finding_remembered" formatted="false">"登録済みのデバイスを検索中…"</string>
@@ -170,12 +297,23 @@
     <string name="first_message_hint" formatted="false">"接続して、最初のあいさつを送ってみましょう。"</string>
     <string name="font_load_failed" formatted="false">"アプリのフォントを読み込めませんでした。NearbyIM を再インストールしてください。既存データは保持されています。"</string>
     <string name="font_size" formatted="false">"文字サイズ"</string>
+    <string name="gallery_access" formatted="false">"写真へのアクセスを許可"</string>
+    <string name="gallery_auto_save" formatted="false">"受信した写真をアルバムに自動保存"</string>
+    <string name="gallery_empty" formatted="false">"アクセスできる写真がありません"</string>
+    <string name="gallery_more" formatted="false">"写真をさらに読み込む"</string>
+    <string name="gallery_permission" formatted="false">"アルバムを表示するには写真へのアクセスを許可してください。"</string>
+    <string name="gallery_save" formatted="false">"アルバムに保存"</string>
+    <string name="gallery_save_failed" formatted="false">"アルバムに保存できませんでした。チャットの元データは残っています。再試行できます。"</string>
+    <string name="gallery_save_permission" formatted="false">"アルバムへの保存にはストレージ権限が必要です。ファイルは受信済みです。"</string>
+    <string name="gallery_saved" formatted="false">"アルバムに保存済み"</string>
+    <string name="gallery_saving" formatted="false">"アルバムに保存中…"</string>
+    <string name="gallery_title" formatted="false">"写真を選択"</string>
     <string name="got_it" formatted="false">"了解"</string>
     <string name="handshake" formatted="false">"デバイスを確認中…"</string>
     <string name="handshake_timeout" formatted="false">"相手がデバイス確認に応答しませんでした。再接続してください。"</string>
     <string name="help" formatted="false">"使い方"</string>
-    <string name="help_body_linux" formatted="false">"LAN：両方のデバイスを同じ Wi-Fi またはアクセスポイントに接続してください。受信を有効にして検索するか、IP アドレスとポートを入力します。LAN のメッセージは平文で送信されるため、信頼できるネットワークを使用してください。\n\nBluetooth：アダプターと BlueZ システムサービスを有効にしてください。両方で受信を有効にし、検索される側を検出可能にします。初回のペアリングにはデスクトップのペアリングエージェントが必要です。システム設定でペアリングできます。登録済みのデバイスと検索結果を一覧に表示します。登録したデバイスは履歴から再接続できます。受信の停止は接続済みのチャットを切断しません。\n\n初回のチャットでは、デバイスを登録するか、今回のみ許可できます。システムのペアリングだけではアプリの信頼は付与されません。再接続時は同じ公開鍵を確認します。設定で信頼を解除できます。\n\n「確認待ち」は保存確認がまだ届いていない状態、「配信済み」は相手が保存した状態、「未確認」は結果が不明な状態です。いずれも既読を意味しません。\n\n履歴と下書きは再起動後も保持されます。終了後は受信を再び有効にしてください。データは XDG_DATA_HOME/wozai、既定では ~/.local/share/wozai に保存され、アプリの場所に依存しません。秘密鍵は追加の暗号化をせず、所有者だけがアクセスできるファイル権限で保護します。データを削除すると履歴と信頼も削除されます。"</string>
-    <string name="help_body_windows" formatted="false">"LAN：両方のデバイスを同じ Wi-Fi またはアクセスポイントに接続してください。受信を有効にして検索するか、IP アドレスとポートを入力します。LAN のメッセージは平文で送信されるため、信頼できるネットワークを使用してください。\n\nBluetooth：相手が受信と検出を有効にしてから検索してください。初回の接続では、システムの指示に従ってペアリングします。必要に応じて Windows の Bluetooth 設定を開いてください。登録済みのデバイスは、相手が Bluetooth と受信を有効にしていれば、履歴から再接続できます。\n\n初回のチャットでは、デバイスを登録するか、今回のみ許可できます。再接続時は同じデバイス識別情報か確認します。設定で信頼を解除できます。\n\n「確認待ち」は保存確認がまだ届いていない状態、「配信済み」は相手が保存した状態、「未確認」は結果が不明な状態です。いずれも既読を意味しません。\n\n履歴はこのパソコンに保存されます。Windows の下書きはチャットを切り替えたり再起動したりしても復元できます。終了後は受信を再び有効にしてください。\n\nポータブル版のデータはアプリと同じ場所の data フォルダーにあります。移行後も元のファイルを保持します。秘密鍵は現在の Windows ユーザーで保護され、別のユーザーやパソコンでは自動的に解除できません。data を削除すると、履歴とデバイスの信頼も削除されます。"</string>
+    <string name="help_body_linux" formatted="false">"LAN：両方のデバイスを同じ Wi-Fi またはアクセスポイントに接続してください。受信を有効にして検索するか、IP アドレスとポートを入力します。チャットとファイル転送はエンドツーエンドで暗号化されます。このデバイスの履歴と添付ファイルは暗号化されません。\n\nBluetooth：アダプターと BlueZ システムサービスを有効にしてください。両方で受信を有効にし、検索される側を検出可能にします。初回のペアリングにはデスクトップのペアリングエージェントが必要です。システム設定でペアリングできます。登録済みのデバイスと検索結果を一覧に表示します。登録したデバイスは履歴から再接続できます。受信の停止は接続済みのチャットを切断しません。\n\n初回のチャットでは、デバイスを登録するか、今回のみ許可できます。システムのペアリングだけではアプリの信頼は付与されません。再接続時は同じ公開鍵を確認します。設定で信頼を解除できます。\n\n「確認待ち」は保存確認がまだ届いていない状態、「配信済み」は相手が保存した状態、「未確認」は結果が不明な状態です。いずれも既読を意味しません。\n\n履歴と下書きは再起動後も保持されます。終了後は受信を再び有効にしてください。データは XDG_DATA_HOME/wozai、既定では ~/.local/share/wozai に保存され、アプリの場所に依存しません。秘密鍵は追加の暗号化をせず、所有者だけがアクセスできるファイル権限で保護します。データを削除すると履歴と信頼も削除されます。"</string>
+    <string name="help_body_windows" formatted="false">"LAN：両方のデバイスを同じ Wi-Fi またはアクセスポイントに接続してください。受信を有効にして検索するか、IP アドレスとポートを入力します。チャットとファイル転送はエンドツーエンドで暗号化されます。このデバイスの履歴と添付ファイルは暗号化されません。\n\nBluetooth：相手が受信と検出を有効にしてから検索してください。初回の接続では、システムの指示に従ってペアリングします。必要に応じて Windows の Bluetooth 設定を開いてください。登録済みのデバイスは、相手が Bluetooth と受信を有効にしていれば、履歴から再接続できます。\n\n初回のチャットでは、デバイスを登録するか、今回のみ許可できます。再接続時は同じデバイス識別情報か確認します。設定で信頼を解除できます。\n\n「確認待ち」は保存確認がまだ届いていない状態、「配信済み」は相手が保存した状態、「未確認」は結果が不明な状態です。いずれも既読を意味しません。\n\n履歴はこのパソコンに保存されます。Windows の下書きはチャットを切り替えたり再起動したりしても復元できます。終了後は受信を再び有効にしてください。\n\nポータブル版のデータはアプリと同じ場所の data フォルダーにあります。移行後も元のファイルを保持します。秘密鍵は現在の Windows ユーザーで保護され、別のユーザーやパソコンでは自動的に解除できません。data を削除すると、履歴とデバイスの信頼も削除されます。"</string>
     <string name="history_trust_retained" formatted="false">"このデバイスのチャット履歴と信頼は保持されます。"</string>
     <string name="identity_changed" formatted="false">"デバイスの識別情報が履歴と異なるため、接続を拒否しました。相手がアプリを再インストールしたか確認してください。"</string>
     <string name="identity_changed_rejected" formatted="false">"デバイスの識別情報が変わったため、接続を拒否しました。"</string>
@@ -185,7 +323,9 @@
     <string name="identity_protection_timeout" formatted="false">"Windows のデバイス識別情報の保護処理がタイムアウトしました。再試行してください。既存の識別情報は置き換えません。"</string>
     <string name="identity_unavailable" formatted="false">"このデバイスの識別鍵を利用できません。接続は無効です。"</string>
     <string name="identity_unavailable_restart" formatted="false">"このデバイスの識別鍵を利用できません。アプリを再起動して再接続してください。"</string>
+    <string name="identity_unverified" formatted="false">"本人確認未完了"</string>
     <string name="identity_verification_failed" formatted="false">"デバイスの識別情報を確認できず、この接続は承認されませんでした。"</string>
+    <string name="identity_verified" formatted="false">"本人確認済み"</string>
     <string name="idle" formatted="false">"未接続"</string>
     <string name="initial_status" formatted="false">"接続方式を選んで、近くの人を探しましょう"</string>
     <string name="invalid_endpoint" formatted="false">"192.168.1.20:54321 または [fd00::1]:54321 の形式で入力してください。"</string>
@@ -196,6 +336,7 @@
     <string name="lan_addresses" formatted="false">"{0}"</string>
     <string name="lan_listening_without_address" formatted="false">"ポート {0} で受信待機中です。Wi-Fi またはスマートフォンのアクセスポイントに接続してください。"</string>
     <string name="lan_no_devices_body" formatted="false">"相手が受信を有効にし、同じ Wi-Fi またはアクセスポイントに接続しているか確認してください。"</string>
+    <string name="lan_path_unconfirmed" formatted="false">"LAN · 経路未確認"</string>
     <string name="lan_register_failure" formatted="false">"自動検出の登録に失敗しました。IP アドレスで接続してください。"</string>
     <string name="language" formatted="false">"表示言語"</string>
     <string name="large" formatted="false">"大"</string>
@@ -251,6 +392,12 @@
     <string name="outgoing_message_meta" formatted="false">"{0} · {1}"</string>
     <string name="paired" formatted="false">"ペアリング済み"</string>
     <string name="paired_address" formatted="false">"ペアリング済み · {0}"</string>
+    <string name="path_details_bluetooth" formatted="false">"このファイルに記録された転送経路は Bluetooth です。大きなファイルは転送に時間がかかる場合があります。"</string>
+    <string name="path_details_disconnected" formatted="false">"転送用の接続はありません。接続後に実際の経路が表示されます。"</string>
+    <string name="path_details_lan" formatted="false">"このファイルに記録された転送経路は LAN です。ルーターやスマートフォンのホットスポットを経由したかは確認できません。"</string>
+    <string name="path_details_selecting" formatted="false">"ファイルは Wi-Fi Direct、LAN、Bluetooth の順に試します。チャットの接続モードは変更されません。"</string>
+    <string name="path_details_title" formatted="false">"転送経路"</string>
+    <string name="path_details_wifi_direct" formatted="false">"このファイルに記録された転送経路は Android Wi-Fi Direct です。暗号化と本人確認の状態は別に表示されます。"</string>
     <string name="peer_ended" formatted="false">"相手がチャットを終了しました。"</string>
     <string name="peer_status_transport" formatted="false">"{0} · {1}"</string>
     <string name="peer_summary" formatted="false">"{0}。{1}"</string>
@@ -265,9 +412,20 @@
     <string name="photo_zoom_out" formatted="false">"写真を縮小"</string>
     <string name="please_wait_connecting" formatted="false">"接続中です。お待ちください。"</string>
     <string name="portable_hint" formatted="false">"ポータブル版はアプリと同じ場所の data フォルダーに保存します。旧データはコピーして移行し、元のファイルも保持します。識別情報は現在の Windows ユーザーで保護され、別のユーザーやパソコンでは自動的に解除できません。"</string>
-    <string name="privacy" formatted="false">"アカウントやリモートサーバーは不要です。履歴はこのパソコンに保存されます。LAN のメッセージは平文です。識別情報の署名は内容を暗号化しません。"</string>
+    <string name="privacy" formatted="false">"アカウントやリモートサーバーは不要です。チャットとファイル転送はエンドツーエンドで暗号化されますが、このデバイスの履歴と添付ファイルは暗号化されません。初回の接続時は相手のデバイス識別情報を直接確認してください。"</string>
     <string name="quit" formatted="false">"終了"</string>
     <string name="ready" formatted="false">"接続済み"</string>
+    <string name="receive_folder" formatted="false">"受信フォルダ"</string>
+    <string name="receive_folder_choose" formatted="false">"フォルダを選択"</string>
+    <string name="receive_folder_failed" formatted="false">"受信フォルダに保存できませんでした"</string>
+    <string name="receive_folder_private" formatted="false">"アプリ内にのみ保存"</string>
+    <string name="receive_folder_retry" formatted="false">"フォルダへの保存を再試行"</string>
+    <string name="receive_folder_save" formatted="false">"受信フォルダに保存"</string>
+    <string name="receive_folder_saved" formatted="false">"受信フォルダに保存済み"</string>
+    <string name="receive_folder_saving" formatted="false">"受信フォルダに保存中…"</string>
+    <string name="receive_folder_stop" formatted="false">"アプリ内にのみ保存"</string>
+    <string name="receive_folder_summary" formatted="false">"受信したファイルと写真のコピーを選択したフォルダに保存します。チャットにはアプリ内のコピーを保持します。フォルダの変更は今後の受信に適用され、チャットを消去しても保存済みファイルは削除されません。"</string>
+    <string name="receive_folder_unavailable" formatted="false">"このフォルダにアクセスまたは書き込みできません。選択し直してください。"</string>
     <string name="received" formatted="false">"受信済み"</string>
     <string name="receiving" formatted="false">"受信中"</string>
     <string name="reception_off" formatted="false">"受信は無効です"</string>
@@ -327,8 +485,10 @@
     <string name="stop_search" formatted="false">"検索を停止"</string>
     <string name="storage_failure" formatted="false">"ローカルデータを保存できず、接続を停止しました。ディスクの空き容量とフォルダーの権限を確認してください。"</string>
     <string name="system_language" formatted="false">"システムに合わせる"</string>
+    <string name="system_theme" formatted="false">"システム設定に従う"</string>
     <string name="theme" formatted="false">"テーマ"</string>
     <string name="today" formatted="false">"今日"</string>
+    <string name="transfer_diagnostics" formatted="false">"転送診断をコピー"</string>
     <string name="trust_hint" formatted="false">"信頼はデバイスの公開鍵に基づき、LAN と Bluetooth で共有されます。信頼を解除すると切断されますが、チャット履歴は保持されます。"</string>
     <string name="trust_revoked_canceled" formatted="false">"信頼を解除し、接続試行を停止しました。"</string>
     <string name="trust_revoked_reconnect" formatted="false">"信頼を解除しました。再接続してリクエストを承認してください。"</string>
@@ -340,12 +500,42 @@
     <string name="unnamed_device" formatted="false">"名前のないデバイス"</string>
     <string name="unpaired_address" formatted="false">"未ペアリング · {0}"</string>
     <string name="unsupported_bluetooth" formatted="false">"このデバイスは Bluetooth に対応していません。LAN を使用してください。"</string>
+    <string name="verification_camera_permission" formatted="false">"読み取りにはカメラの許可が必要です。画像の選択や手動比較もできます。"</string>
+    <string name="verification_camera_unavailable" formatted="false">"カメラを使用できません。画像の選択や手動比較をお試しください。"</string>
+    <string name="verification_confirm" formatted="false">"両方の端末でコードの全グループを比較しましたか？確認すると、この端末の身元を記憶します。"</string>
+    <string name="verification_connect_first" formatted="false">"先に相手と暗号化接続を確立してください。"</string>
+    <string name="verification_connection_changed" formatted="false">"接続が変わりました。確認画面を開き直してください。"</string>
+    <string name="verification_copy" formatted="false">"コードをコピー"</string>
+    <string name="verification_copy_done" formatted="false">"コードをコピーしました"</string>
+    <string name="verification_done" formatted="false">"本人確認が完了しました"</string>
+    <string name="verification_explain" formatted="false">"相手の端末の完全なコードを比較するか、対面で QR コードを読み取ってください。離れている場合は別の信頼できる手段で比較してください。このチャット内だけでコードを交換しても本人確認にはなりません。"</string>
+    <string name="verification_focus_failed" formatted="false">"ピントが合いません。少し離して再試行してください。"</string>
+    <string name="verification_focus_hint" formatted="false">"QRコードをタップするか、再フォーカスを押してください。"</string>
+    <string name="verification_focus_locked" formatted="false">"ピントが合いました"</string>
+    <string name="verification_focus_unavailable" formatted="false">"このカメラはフォーカスを調整できません。"</string>
+    <string name="verification_focusing" formatted="false">"フォーカス中…"</string>
+    <string name="verification_image" formatted="false">"画像から読み取る"</string>
+    <string name="verification_local_only" formatted="false">"確認結果はこの端末にのみ保存され、双方の身元に結び付きます。身元の変更や信頼の取り消し後は再確認が必要です。"</string>
+    <string name="verification_mark" formatted="false">"完全なコードが一致しました"</string>
+    <string name="verification_mismatch" formatted="false">"コードが一致しません。確認前に相手の端末が正しいか確かめてください。"</string>
+    <string name="verification_qr_image" formatted="false">"本人確認用 QR コード"</string>
+    <string name="verification_read_failed" formatted="false">"QR コードが見つかりません。別の画像か手動比較をお試しください。"</string>
+    <string name="verification_reading" formatted="false">"QR コードを読み取り中…"</string>
+    <string name="verification_refocus" formatted="false">"再フォーカス"</string>
+    <string name="verification_save_qr" formatted="false">"QR コードを保存"</string>
+    <string name="verification_scan" formatted="false">"QR コードを読み取る"</string>
+    <string name="verification_title" formatted="false">"セキュリティコードを確認"</string>
+    <string name="verify_identity" formatted="false">"本人確認"</string>
     <string name="version_android" formatted="false">"Android 版 · {0}"</string>
     <string name="version_linux" formatted="false">"Linux プレビュー版 · {0}"</string>
     <string name="version_windows" formatted="false">"Windows プレビュー版 · {0}"</string>
     <string name="view_copy_address" formatted="false">"自分のアドレスを表示・コピー"</string>
     <string name="waiting_both_ready" formatted="false">"両方のデバイスの接続完了待ち…"</string>
     <string name="waiting_peer_consent" formatted="false">"相手のチャット承認待ち…"</string>
+    <string name="wifi_direct" formatted="false">"Wi-Fi Direct"</string>
+    <string name="wifi_direct_connecting" formatted="false">"Wi-Fi Direct で接続中…"</string>
+    <string name="wifi_direct_fallback_bluetooth" formatted="false">"Wi-Fi Direct を利用できません。代替経路：Bluetooth。理由：{0}"</string>
+    <string name="wifi_direct_fallback_lan" formatted="false">"Wi-Fi Direct を利用できません。代替経路：LAN。理由：{0}"</string>
     <string name="yes" formatted="false">"確認"</string>
     <string name="yesterday" formatted="false">"昨日"</string>
     <string name="you" formatted="false">"自分"</string>

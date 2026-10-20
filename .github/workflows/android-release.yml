@@ -1,12 +1,28 @@
 name: Build Android with the persistent signing certificate
 on:
   workflow_dispatch:
+    inputs:
+      adaptive-checks:
+        description: 'Run one API 34 tablet adaptive-window suite in the same candidate job'
+        type: boolean
+        default: false
+      candidate-only:
+        description: 'Build and lint one signed candidate, without rebuilding upgrade baselines or running upgrade emulators'
+        type: boolean
+        default: false
+  workflow_call:
+    secrets:
+      WOZAI_ANDROID_KEYSTORE_BASE64:
+        required: true
+      WOZAI_ANDROID_KEYSTORE_PASSWORD:
+        required: true
 permissions:
   contents: read
   actions: read
 jobs:
   signed-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -17,21 +33,80 @@ jobs:
         with:
           packages: platform-tools
       - run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
+      - name: Verify FILE migration and pinned legacy interoperability
+        run: |
+          mkdir -p build/file-handover
+          if ! git cat-file -e 2b7347e39d0360241055610c7c4e7aeeb049bff7^{commit}; then
+            git fetch --no-tags --depth=1 origin 2b7347e39d0360241055610c7c4e7aeeb049bff7
+          fi
+          sh tools/test-core.sh > build/file-handover/core.log 2>&1
+          sh tools/test-file-link-legacy.sh > build/file-handover/legacy.log 2>&1
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: file-migration-evidence
+          path: build/file-handover/*.log
+          if-no-files-found: warn
       - name: Build, lint and verify with the persistent signing secrets
         env:
           WOZAI_ANDROID_KEYSTORE_BASE64: ${{ secrets.WOZAI_ANDROID_KEYSTORE_BASE64 }}
           WOZAI_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.WOZAI_ANDROID_KEYSTORE_PASSWORD }}
+          WOZAI_ANDROID_CANDIDATE_ONLY: ${{ inputs['candidate-only'] }}
         run: python3 tools/build-signed-android.py
-      - name: Prepare the published baseline and upgrade inputs
+      - name: Build targeted adaptive UI test APKs
+        if: ${{ inputs['adaptive-checks'] }}
+        run: ./gradlew --no-daemon -PtestBuildType=preview -PtestInstrumentationRunner=dev.ghost.nearbyim.AdaptiveInstrumentation :app:assemblePreview :app:assemblePreviewAndroidTest
+      - name: Enable KVM for the targeted tablet emulator
+        if: ${{ inputs['adaptive-checks'] }}
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Verify adaptive layouts and continuity on API 34 tablet
+        if: ${{ inputs['adaptive-checks'] }}
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_c
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          script: sh tools/test-android-adaptive.sh
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() && inputs['adaptive-checks'] }}
+        with:
+          name: android-adaptive-evidence
+          path: build/adaptive/
+          if-no-files-found: warn
+      - name: Check out the fixed code8 maintenance baseline
+        if: ${{ !inputs['candidate-only'] }}
+        uses: actions/checkout@v4
+        with:
+          ref: c0855151a2012954f1b34a88eb9b8ca0b4c8355a
+          path: build/maintenance-source
+      - name: Build code8 with the same persistent certificate
+        if: ${{ !inputs['candidate-only'] }}
+        working-directory: build/maintenance-source
+        env:
+          WOZAI_ANDROID_KEYSTORE_BASE64: ${{ secrets.WOZAI_ANDROID_KEYSTORE_BASE64 }}
+          WOZAI_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.WOZAI_ANDROID_KEYSTORE_PASSWORD }}
+        run: python3 tools/build-signed-android.py
+      - name: Collect public code8 APK and prepare upgrade inputs
+        if: ${{ !inputs['candidate-only'] }}
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 tools/prepare-android-upgrade.py prepare
+        run: |
+          cp build/maintenance-source/build/signing-upgrade/candidate.apk build/signing-upgrade/maintenance.apk
+          python3 tools/prepare-android-upgrade.py prepare
       - uses: actions/upload-artifact@v4
+        if: ${{ !inputs['candidate-only'] }}
         with:
           name: android-signed-upgrade-input
           path: build/signing-upgrade/
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
         with:
           name: android-signed-release
           path: |
@@ -44,6 +119,7 @@ jobs:
           path: app/build/outputs/mapping/release/
           if-no-files-found: error
   verify-upgrade:
+    if: ${{ !inputs['candidate-only'] }}
     needs: signed-build
     uses: ./.github/workflows/android-upgrade.yml
     with:

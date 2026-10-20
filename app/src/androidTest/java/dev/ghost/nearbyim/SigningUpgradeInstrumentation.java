@@ -49,6 +49,7 @@ public final class SigningUpgradeInstrumentation extends Instrumentation {
             File snapshot = new File(context.getFilesDir(), "signing-upgrade-snapshot.json");
             if ("seed".equals(arguments.getString("phase"))) seed(context, snapshot);
             else if ("verify".equals(arguments.getString("phase"))) verify(context, snapshot);
+            else if ("noise".equals(arguments.getString("phase"))) { verify(context,snapshot); verifyNoise(context,snapshot); }
             else throw new IllegalArgumentException("Use phase=seed or phase=verify");
             results.putString("stream", "Signing upgrade " + arguments.getString("phase") + ": " + checks + " checks passed\n");
             results.putString("scope", "Persisted messages, conversation, identity preferences, AndroidKeyStore, trust, UI settings and private file. In-memory drafts are outside this acceptance.");
@@ -113,7 +114,7 @@ public final class SigningUpgradeInstrumentation extends Instrumentation {
         byte[] proof = sign(keys); verifier.initVerify(keys.getCertificate(DEVICE_ALIAS)); verifier.update(PROBE);
         check(verifier.verify(proof), "Preserved private-key handle still signs");
         try (SQLiteDatabase database = database(context)) {
-            check(database.getVersion() == 4, "Database schema preserved");
+            check(database.getVersion() == Integer.parseInt(arguments.getString("schema_version", "4")), "Expected database schema with preserved data");
             try (Cursor cursor = database.rawQuery("SELECT body,state FROM messages WHERE peer_id=? AND id=?", new String[]{saved.getString("peer"), saved.getString("message")})) {
                 check(cursor.moveToFirst() && BODY.equals(cursor.getString(0)) && "delivered".equals(cursor.getString(1)) && !cursor.moveToNext(), "Exact message and delivery state preserved");
             }
@@ -131,6 +132,15 @@ public final class SigningUpgradeInstrumentation extends Instrumentation {
     }
 
     private SQLiteDatabase database(Context context) { return SQLiteDatabase.openDatabase(context.getDatabasePath("nearby-im.db").getPath(), null, SQLiteDatabase.OPEN_READWRITE); }
+    private void verifyNoise(Context context,File snapshot)throws Exception {
+        check(keys().containsAlias("nearby-im-noise-wrapping-v4"),"New Noise wrapping alias exists");
+        File encrypted=new File(context.getNoBackupFilesDir(),"noise-static-v4.bin");
+        check(encrypted.isFile()&&encrypted.length()==69,"Noise identity is stored as a bounded wrapped record");
+        String digest=hex(MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(encrypted.toPath())));
+        JSONObject saved=new JSONObject(new String(Files.readAllBytes(snapshot.toPath()),StandardCharsets.UTF_8));
+        if(saved.has("noise_wrapped_digest"))check(digest.equals(saved.getString("noise_wrapped_digest")),"Wrapped Noise identity unchanged after process restart");
+        else {saved.put("noise_wrapped_digest",digest);try(FileOutputStream out=new FileOutputStream(snapshot)){out.write(saved.toString().getBytes(StandardCharsets.UTF_8));out.getFD().sync();}}
+    }
     private KeyStore keys() throws Exception { KeyStore result = KeyStore.getInstance("AndroidKeyStore"); result.load(null); return result; }
     private byte[] sign(KeyStore keys) throws Exception { Signature signer = Signature.getInstance("SHA256withECDSA"); signer.initSign((PrivateKey) keys.getKey(DEVICE_ALIAS, null)); signer.update(PROBE); return signer.sign(); }
     private void check(boolean condition, String description) { if (!condition) throw new AssertionError(description); checks++; }

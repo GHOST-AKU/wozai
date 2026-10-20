@@ -2,13 +2,16 @@ package dev.ghost.wozai;
 
 import dev.ghost.nearbyim.i18n.UiText;
 import dev.ghost.nearbyim.core.AttachmentRecord;
+import dev.ghost.nearbyim.core.AutomaticFileRoutes;
+import java.net.ServerSocket;
+import java.lang.reflect.Field;
 import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 
-/** Run by the native private-bus fixture: JNI descriptors feed the real signed chat/store pipeline. */
+/** Run by the native private-bus fixture: JNI descriptors feed the real encrypted chat/store pipeline. */
 public final class LinuxBluetoothWireTests {
     private static int passed;
     private static void check(boolean value, String message) { if (!value) throw new AssertionError(message); passed++; }
@@ -25,6 +28,16 @@ public final class LinuxBluetoothWireTests {
         public void notice(UiText text) { }
         boolean ready() { return state.get() != null && state.get().phase().equals("ready"); }
         boolean idle() { return state.get() != null && state.get().phase().equals("idle"); }
+    }
+    private static Object field(Object owner,String name)throws ReflectiveOperationException{
+        Field field=owner.getClass().getDeclaredField(name);field.setAccessible(true);return field.get(owner);
+    }
+    private static void disableFileLan(DesktopClient client)throws Exception{
+        Object session=field(client,"current");AutomaticFileRoutes routes=(AutomaticFileRoutes)field(session,"files");
+        await(()->{try{return (boolean)field(routes,"endpointsPrepared");}catch(ReflectiveOperationException unavailable){throw new AssertionError(unavailable);}},"FILE LAN preparation callback did not finish");
+        DesktopFileRoutes platform=(DesktopFileRoutes)field(routes,"platform");
+        ((ServerSocket)field(platform,"server")).close();
+        check(platform.currentLanEndpoints().isEmpty(),"Fixture retained ordinary LAN FILE endpoints after owned listener close");
     }
     public static void main(String[] args) throws Exception {
         Path root = Files.createTempDirectory("nearbyim-bluez-wire-");
@@ -45,7 +58,7 @@ public final class LinuxBluetoothWireTests {
                 check(consent != null && consent.publicKey().equals(senderId.signer().publicKey()), "Incoming Bluetooth skipped authenticated consent");
                 check(receiveStore.peer(senderId.id()) == null, "System pairing created app trust before consent");
                 receiver.approve(consent, true).get(3, TimeUnit.SECONDS);
-                await(() -> incoming.ready() && outgoing.ready(), "BlueZ descriptors did not establish NIM3");
+                await(() -> incoming.ready() && outgoing.ready(), "BlueZ descriptors did not establish encrypted NIM4");
                 check(incoming.state.get().transport().equals("bluetooth") && outgoing.state.get().transport().equals("bluetooth"), "Bluetooth route was not retained");
                 check(receiveStore.peer(senderId.id()).publicKey().equals(senderId.signer().publicKey()), "Persistent trust lost verified key");
                 check(sender.send("Linux → Android 协议 🙂\n日本語 한국어").get(3, TimeUnit.SECONDS), "Native Bluetooth send rejected");
@@ -53,10 +66,14 @@ public final class LinuxBluetoothWireTests {
                 receiver.stopBluetoothListening().get(3, TimeUnit.SECONDS);
                 check(receiver.send("停止接收后继续聊天").get(3, TimeUnit.SECONDS), "Stop reception broke active connection");
                 await(() -> { try { return sendStore.messages(receiverId.id()).size() == 2; } catch (Exception e) { return false; } }, "Stopped receiver's established stream was closed");
+                // Preserve JNI FILE coverage while production routing continues to prefer available LAN.
+                disableFileLan(receiver);disableFileLan(sender);
                 byte[] attachmentBytes=new byte[32768*5+13];new Random(123).nextBytes(attachmentBytes);Path source=root.resolve("native-file.bin");Files.write(source,attachmentBytes);
                 String attachmentId=sender.sendAttachment(receiverId.id(),source).get(5,TimeUnit.SECONDS);
                 await(()->{try{return sendStore.messages(receiverId.id()).stream().anyMatch(m->m.id().equals(attachmentId)&&m.attachment()!=null&&m.attachment().state.equals("delivered"));}catch(Exception e){return false;}},"Native attachment save receipt lost");
                 AttachmentRecord offer=receiveStore.messages(senderId.id()).stream().filter(m->m.id().equals(attachmentId)).findFirst().get().attachment();
+                check(offer.route.equals("bluetooth"),"Native Bluetooth attachment fixture actually used "+offer.route);
+                check(incoming.state.get().transport().equals("bluetooth")&&outgoing.state.get().transport().equals("bluetooth")&&receiver.endToEndEncrypted(senderId.id())&&sender.endToEndEncrypted(receiverId.id()),"FILE routing changed encrypted native Bluetooth CHAT");
                 check(Arrays.equals(attachmentBytes,Files.readAllBytes(receiveStore.attachmentFile(senderId.id(),offer.info))),"JNI binary chunks changed bytes");
                 sender.disconnect().get(3, TimeUnit.SECONDS);
                 await(() -> incoming.idle() && outgoing.idle(), "Disconnect retained active session");
@@ -68,7 +85,7 @@ public final class LinuxBluetoothWireTests {
                 await(() -> incoming.idle() && outgoing.idle(), "Revoking trust did not close native Bluetooth");
                 check(receiveStore.peer(senderId.id()).publicKey().isEmpty() && receiveStore.messages(senderId.id()).size() == 3, "Revoke deleted history or preserved trust");
             }
-            System.out.println("LinuxBluetoothWireTests: " + passed + " checks passed (BlueZ D-Bus double, real JNI Unix descriptors, NIM3, persistence, file chunks, ACK, reconnect and revoke; no physical radio)");
+            System.out.println("LinuxBluetoothWireTests: " + passed + " checks passed (BlueZ D-Bus double, real JNI Unix descriptors, encrypted NIM4, persistence, file chunks, ACK, reconnect and revoke; no physical radio)");
         } finally {
             try (var paths = Files.walk(root)) { for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) Files.deleteIfExists(path); }
         }

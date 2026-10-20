@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "environment_kind": "virtual",
+  "transport": "TCP loopback, both endpoints in one JVM",
+  "work_directory": "/workspace/scratch/v032-start",
+  "file_store_type": "overlay",
+  "source_commit": "d65c0cc-plus-working-header-diagnostics",
+  "artifact_sha256": "9fbd19336d1b4a6942ed6494346a0fc4151b20fde07d346b971f168504510b9c",
+  "artifact_kind": "compiled production Java classes including Noise; test classes excluded",
+  "os": "Linux amd64",
+  "java_version": "17.0.16",
+  "max_heap_bytes": 33554432,
+  "source_generation_ns": 14219858332,
+  "source_read_ns": 3288289206,
+  "source_read_mib_s": 3114.0813226876494,
+  "sync_write_ns": 3932435049,
+  "sync_write_mib_s": 2603.984521652553,
+  "disk_baseline_kind": "warm-cache sequential read; sequential write plus force(true), same temporary filesystem",
+  "rounds": [
+    {
+      "mode": "noise-v4",
+      "size_bytes": 10737418240,
+      "sha256": "206cddc139ba254e61eddd2b4257dd5784e0494da137a5b469486d6ec19f6ea6",
+      "verified": true,
+      "connection_setup_ns": 338303993,
+      "prepare_ns": 80096781,
+      "first_byte_ns": 165849609,
+      "transfer_ns": 58561877677,
+      "final_commit_ns": 17489706,
+      "receipt_ns": 5398996,
+      "total_ns": 58753905302,
+      "steady_mib_s": 174.85778131089074,
+      "total_mib_s": 174.28628696876473,
+      "commit_kind": "file-force-atomic-move-record-force",
+      "round": 1
+    }
+  ],
+  "limitations": "Loopback/JIT/container results are not phone, radio, cross-client or 10 GiB acceptance. Source generation is reported separately; signed-v3 preparation is included in total. Raw mode does not save received content. file-v2 is a controlled plaintext test Wire, not an enabled client protocol or encryption acceptance. One 10 GiB verification round, not the required three-round/raw-R speed acceptance.",
+  "artifact_class_count": 97
+}

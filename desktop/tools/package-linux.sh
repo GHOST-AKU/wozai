@@ -5,6 +5,15 @@ if [ -n "${JAVA_HOME:-}" ]; then PATH="$JAVA_HOME/bin:$PATH"; export PATH; fi
 command -v jpackage >/dev/null || { echo 'jpackage from a full JDK 17 is required.' >&2; exit 1; }
 if [ "$(uname -s)" != Linux ]; then echo 'Build the package on Linux.' >&2; exit 1; fi
 version=$(python3 -c 'import json; print(json.load(open("../i18n/config.json"))["appVersion"])')
+deb_version=$(python3 - <<'PY'
+import json, os, re
+version=json.load(open('../i18n/config.json'))['appVersion']
+tag=os.environ.get('WOZAI_RELEASE_TAG','')
+if tag and tag!='v'+version and not re.fullmatch(re.escape('v'+version)+r'-preview\.[1-9][0-9]*',tag):
+    raise SystemExit('Release tag does not match the package version')
+print(version+'~'+tag.split('-',1)[1] if '-preview.' in tag else version)
+PY
+)
 locales=$(python3 -c 'import json; print(",".join(x["tag"] for x in json.load(open("../i18n/config.json"))["languages"]))')
 case $(uname -m) in x86_64) architecture=x64; deb_arch=amd64;; aarch64) architecture=arm64; deb_arch=arm64;; *) echo 'Unsupported Linux architecture.' >&2; exit 1;; esac
 mkdir -p build/package-input build/package
@@ -40,7 +49,7 @@ if command -v dpkg-deb >/dev/null; then
     cp -R assets/icons/linux/hicolor "$staging/usr/share/icons/"
     cat > "$staging/DEBIAN/control" <<EOF
 Package: nearbyim
-Version: $version
+Version: $deb_version
 Architecture: $deb_arch
 Maintainer: GHOST-AKU <noreply@github.com>
 Section: net
@@ -66,6 +75,7 @@ EOF
     chmod -R a+rX "$staging"
     dpkg-deb --root-owner-group -Zxz -z9 --threads-max=1 --build "$staging" "build/NearbyIM-$version-linux-$architecture.deb"
 fi
+if [ "$architecture" = x64 ]; then python3 tools/build-appimage.py; fi
 python3 - <<'PY'
 import hashlib, json, platform
 from pathlib import Path
