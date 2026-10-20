@@ -3,6 +3,11 @@ import SQLite3
 
 public enum MessageStatus: String, Codable, Sendable { case pending, sent, delivered, unconfirmed }
 
+public struct MessageCursor: Equatable, Sendable {
+    public let timestamp: UInt64
+    public let sequence: Int64
+}
+
 public struct ChatMessage: Identifiable, Equatable, Sendable {
     public let id: String
     public let peerID: String
@@ -10,6 +15,7 @@ public struct ChatMessage: Identifiable, Equatable, Sendable {
     public let timestamp: UInt64
     public let outgoing: Bool
     public let status: MessageStatus
+    public let cursor: MessageCursor
     public var rowID: String { (outgoing ? "out-" : "in-") + id }
 }
 
@@ -101,13 +107,19 @@ public actor ChatStore {
         try database.run("UPDATE messages SET status=? WHERE peer=? AND id=? AND outgoing=1 AND status!='delivered'", [.text(status.rawValue), .text(peerID), .text(id)])
     }
 
-    public func messages(peerID: String, before: UInt64? = nil) throws -> [ChatMessage] {
+    public func messages(peerID: String, before: MessageCursor? = nil) throws -> [ChatMessage] {
         var bindings: [SQLValue] = [.text(peerID)]
         let condition: String
-        if let before { condition = " AND time<?"; bindings.append(.integer(Int64(min(before, UInt64(Int64.max))))) } else { condition = "" }
-        return try database.rows("SELECT * FROM messages WHERE peer=?" + condition + " ORDER BY time DESC,rowid DESC LIMIT 200", bindings).reversed().map { row in
+        if let before {
+            condition = " AND (time<? OR (time=? AND rowid<?))"
+            let timestamp = Int64(min(before.timestamp, UInt64(Int64.max)))
+            bindings += [.integer(timestamp), .integer(timestamp), .integer(before.sequence)]
+        } else { condition = "" }
+        return try database.rows("SELECT rowid AS sequence,* FROM messages WHERE peer=?" + condition + " ORDER BY time DESC,rowid DESC LIMIT 200", bindings).reversed().map { row in
             guard let status = MessageStatus(rawValue: row["status"]!.text) else { throw WozaiError.storage }
-            return ChatMessage(id: row["id"]!.text, peerID: peerID, body: row["body"]!.text, timestamp: UInt64(row["time"]!.integer), outgoing: row["outgoing"]!.integer == 1, status: status)
+            let timestamp = UInt64(row["time"]!.integer)
+            return ChatMessage(id: row["id"]!.text, peerID: peerID, body: row["body"]!.text, timestamp: timestamp, outgoing: row["outgoing"]!.integer == 1, status: status,
+                               cursor: MessageCursor(timestamp: timestamp, sequence: row["sequence"]!.integer))
         }
     }
 

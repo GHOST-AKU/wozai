@@ -146,7 +146,7 @@ final class AppModel {
         for (id, draft) in drafts { try? await store?.saveDraft(peerID: id, text: draft) }
     }
 
-    func messages(peerID: String, before: UInt64? = nil) async -> [ChatMessage] {
+    func messages(peerID: String, before: MessageCursor? = nil) async -> [ChatMessage] {
         do { return try await store?.messages(peerID: peerID, before: before) ?? [] }
         catch is CancellationError { return [] }
         catch { show(error); return [] }

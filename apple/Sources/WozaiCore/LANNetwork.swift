@@ -5,15 +5,24 @@ import Darwin
 public enum LocalEndpoint {
     public static func allows(_ host: String) -> Bool {
         if let ip = IPv4Address(host) {
-            let b = [UInt8](ip.rawValue)
-            return b[0] == 10 || b[0] == 127 || (b[0] == 172 && (16...31).contains(b[1])) || (b[0] == 192 && b[1] == 168) || (b[0] == 169 && b[1] == 254)
+            return localIPv4([UInt8](ip.rawValue))
         }
         let unscoped = String(host.split(separator: "%", maxSplits: 1).first ?? "")
         if let ip = IPv6Address(unscoped) {
             let b = [UInt8](ip.rawValue)
+            if Array(b.prefix(12)) == Array(repeating: UInt8(0), count: 10) + [255, 255] { return localIPv4(Array(b.suffix(4))) }
             return b[0] & 0xfe == 0xfc || (b[0] == 0xfe && b[1] & 0xc0 == 0x80) || b == Array(repeating: 0, count: 15) + [1]
         }
-        return host.utf8.count <= 253 && host.lowercased().hasSuffix(".local") && !host.unicodeScalars.contains(where: { $0.value <= 32 })
+        let name = host.hasSuffix(".") ? String(host.dropLast()) : host
+        guard name.utf8.count <= 253, name.lowercased().hasSuffix(".local") else { return false }
+        return name.split(separator: ".", omittingEmptySubsequences: false).allSatisfy { label in
+            !label.isEmpty && label.utf8.count <= 63 && label.first != "-" && label.last != "-" &&
+            label.utf8.allSatisfy { (65...90).contains($0) || (97...122).contains($0) || (48...57).contains($0) || $0 == 45 }
+        }
+    }
+
+    private static func localIPv4(_ b: [UInt8]) -> Bool {
+        b[0] == 10 || b[0] == 127 || (b[0] == 172 && (16...31).contains(b[1])) || (b[0] == 192 && b[1] == 168) || (b[0] == 169 && b[1] == 254)
     }
 
     public static func addresses(port: UInt16) -> [String] {

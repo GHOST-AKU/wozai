@@ -9,7 +9,7 @@ enum AttachmentRejection {
         let id = try input.text(maximum: 36), source = try input.text(maximum: 36), connection = try input.text(maximum: 128)
         let size = try input.u64(), offset = try input.u64(), window = try input.u64(), verified = try input.u64(), durable = try input.u64()
         let reason = try input.text(maximum: 16)
-        guard validID(id), validID(source), (validID(connection) || (connection.count == 64 && connection.allSatisfy { $0.isHexDigit && !$0.isUppercase })),
+        guard validID(id), validID(source), (validID(connection) || (connection.utf8.count == 64 && connection.utf8.allSatisfy { (48...57).contains($0) || (97...102).contains($0) })),
               size <= 10_737_418_240, fromSender <= 1 else { throw WozaiError.protocolViolation }
         if kind == 7 {
             guard ["rejected", "canceled", "failed", "busy", "paused", "tooLarge"].contains(reason),

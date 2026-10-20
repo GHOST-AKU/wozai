@@ -17,5 +17,7 @@ __pycache__/
 apple/.build/
 apple/.swiftpm/
 apple/DerivedData/
+apple/DeviceBuild/
+apple/UITestBuild-*/
 *.xcuserstate
 xcuserdata/

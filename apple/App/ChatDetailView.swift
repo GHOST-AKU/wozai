@@ -7,20 +7,20 @@ struct ChatDetailView: View {
     let contact: Conversation
     @State private var messages: [ChatMessage] = []
     @State private var draft = ""
-    @State private var before: UInt64?
+    @State private var before: MessageCursor?
     @State private var sending = false
     @State private var safety = false
     @State private var forget = false
     private var connected: Bool { model.connectionState == .connected && model.activePeer?.id == contact.id }
     private var tooLong: Bool { draft.utf8.count > 8192 }
-    private var refreshKey: String { contact.id + ":" + String(model.revision[contact.id, default: 0]) + ":" + String(before ?? UInt64.max) }
+    private var refreshKey: String { contact.id + ":" + String(model.revision[contact.id, default: 0]) + ":" + String(before?.timestamp ?? UInt64.max) + ":" + String(before?.sequence ?? 0) }
 
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 12) {
                     if messages.count == 200, let first = messages.first {
-                        Button("Earlier messages") { before = first.timestamp }
+                        Button("Earlier messages") { before = first.cursor }
                     }
                     if before != nil { Button("Latest messages") { before = nil } }
                     if messages.isEmpty {

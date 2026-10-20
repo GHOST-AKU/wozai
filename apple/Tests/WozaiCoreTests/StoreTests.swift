@@ -41,8 +41,10 @@ final class StoreTests: XCTestCase {
         XCTAssertEqual(known, root)
         let unknown = try await store.trustedRoot(peerID: UUID().uuidString.lowercased())
         XCTAssertNil(unknown)
-        let other = VerifiedPeer(id: id, nickname: "changed", root: root.dropLast() + Data([0]), capabilities: 3)
+        let other = VerifiedPeer(id: id, nickname: "changed", root: DeviceIdentity().root, capabilities: 3)
         do { try await store.remember(other, localRoot: root); XCTFail("Changed identity overwrote trust") } catch {}
+        let pinnedAfterRejection = try await store.trustedRoot(peerID: id)
+        XCTAssertEqual(pinnedAfterRejection, root)
         try await store.forget(peerID: id)
         let forgotten = try await store.trustedRoot(peerID: id)
         XCTAssertNil(forgotten)
@@ -50,6 +52,38 @@ final class StoreTests: XCTestCase {
 }
 
 extension StoreTests {
+    func testPagingPreservesMessagesWithIdenticalTimestamps() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = try ChatStore(url: directory.appendingPathComponent("chat.sqlite"))
+        let peer = UUID().uuidString.lowercased()
+        for index in 0..<205 {
+            try await store.saveOutgoing(peerID: peer, frame: NIMFrame(type: .text, id: UUID().uuidString.lowercased(), body: "message \(index)", timestamp: 1234))
+        }
+        let last = try await store.messages(peerID: peer)
+        XCTAssertEqual(last.count, 200)
+        let earlier = try await store.messages(peerID: peer, before: XCTUnwrap(last.first?.cursor))
+        XCTAssertEqual(earlier.count, 5)
+        XCTAssertEqual((earlier + last).map(\.body), (0..<205).map { "message \($0)" })
+    }
+
+    func testRestartMarksOutstandingMessagesUnconfirmedWithoutRegressingDelivery() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("chat.sqlite")
+        let peer = UUID().uuidString.lowercased()
+        var store: ChatStore? = try ChatStore(url: url)
+        let pending = UUID().uuidString.lowercased(), delivered = UUID().uuidString.lowercased()
+        for id in [pending, delivered] { try await store!.saveOutgoing(peerID: peer, frame: NIMFrame(type: .text, id: id, body: id)) }
+        try await store!.setOutgoingStatus(peerID: peer, id: delivered, status: .delivered)
+        try await store!.setOutgoingStatus(peerID: peer, id: delivered, status: .sent)
+        store = nil
+        let reopened = try ChatStore(url: url)
+        let messages = try await reopened.messages(peerID: peer)
+        XCTAssertEqual(messages.first(where: { $0.id == pending })?.status, .unconfirmed)
+        XCTAssertEqual(messages.first(where: { $0.id == delivered })?.status, .delivered)
+    }
+
     func testEmbeddedNullAndEmojiSurviveDurableRoundTrip() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
