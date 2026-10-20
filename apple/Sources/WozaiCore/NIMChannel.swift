@@ -1,0 +1,115 @@
+import CryptoKit
+import Foundation
+
+public protocol ByteStream: Sendable {
+    func readExactly(_ count: Int) async throws -> Data
+    func write(_ data: Data) async throws
+    func close()
+}
+
+/// One reader, ordered writes, and an independent Noise nonce space per connection.
+public actor NIMChannel {
+    private let stream: any ByteStream
+    private let identity: DeviceIdentity
+    private let nickname: String
+    private let initiator: Bool
+    private var transport: NoiseTransport?
+    private var started = false
+    private var established = false
+    private var ended = false
+
+    public init(stream: any ByteStream, identity: DeviceIdentity, nickname: String, initiator: Bool) {
+        self.stream = stream; self.identity = identity; self.nickname = nickname; self.initiator = initiator
+    }
+
+    public func establish(expectedID: String? = nil, expectedRoot: Data? = nil) async throws -> VerifiedPeer {
+        guard !started, !ended else { throw WozaiError.closed }
+        started = true
+        do {
+            let handshake = try NoiseHandshake(initiator: initiator, staticPrivateKey: identity.noise.rawRepresentation,
+                prologue: Data("wozai-nim4\0Noise_XX_25519_AESGCM_SHA256\0file-v2-32k\0".utf8))
+            let local = try PeerClaim(initiator: initiator, id: identity.id, nickname: nickname, root: identity.root,
+                noisePublic: identity.noise.publicKey.rawRepresentation, capabilities: 3).encoded()
+            let remote: Data
+            if initiator {
+                try await sendEnvelope(.handshake, bytes: handshake.write(Data()))
+                remote = try handshake.read(await readEnvelope(.handshake))
+                try await sendEnvelope(.handshake, bytes: handshake.write(local))
+            } else {
+                guard try handshake.read(await readEnvelope(.handshake)).isEmpty else { throw WozaiError.protocolViolation }
+                try await sendEnvelope(.handshake, bytes: handshake.write(local))
+                remote = try handshake.read(await readEnvelope(.handshake))
+            }
+            let peer = try PeerClaim.decode(remote, expectedInitiator: !initiator, localID: identity.id)
+            guard peer.noisePublic == handshake.remoteStatic else { throw WozaiError.identityChanged }
+            let first = initiator ? local : remote, second = initiator ? remote : local
+            var binding = WireWriter(); binding.data = Data("wozai-root-proof-v4\0".utf8)
+            binding.shortBytes(first); binding.shortBytes(second); binding.shortBytes(handshake.handshakeHash)
+            transport = try handshake.split()
+            if initiator {
+                let signature = try identity.signing.signature(for: binding.data + Data([0])).derRepresentation
+                try await sendEncrypted(.rootProof, plaintext: signature)
+                try await verifyProof(peer.root, binding.data + Data([1]))
+            } else {
+                try await verifyProof(peer.root, binding.data + Data([0]))
+                let signature = try identity.signing.signature(for: binding.data + Data([1])).derRepresentation
+                try await sendEncrypted(.rootProof, plaintext: signature)
+            }
+            guard !ended else { throw WozaiError.closed }
+            guard expectedID == nil || expectedID == peer.id, expectedRoot == nil || expectedRoot == peer.root else { throw WozaiError.identityChanged }
+            established = true
+            return VerifiedPeer(id: peer.id, nickname: peer.nickname, root: peer.root, capabilities: peer.capabilities)
+        } catch { close(); throw error }
+    }
+
+    private func verifyProof(_ root: Data, _ binding: Data) async throws {
+        let encoded = try await readEncrypted(.rootProof)
+        guard !encoded.isEmpty, encoded.count <= 80 else { throw WozaiError.protocolViolation }
+        let signature = try P256.Signing.ECDSASignature(derRepresentation: encoded)
+        guard try canonicalRoot(root).isValidSignature(signature, for: binding) else { throw WozaiError.identityChanged }
+    }
+
+    private func sendEnvelope(_ kind: Envelope.Kind, bytes: Data) async throws {
+        guard !ended else { throw WozaiError.closed }
+        try await stream.write(Envelope.header(kind: kind, payloadSize: bytes.count) + bytes)
+    }
+
+    private func readEnvelope(_ kind: Envelope.Kind) async throws -> Data {
+        let prefix = try await stream.readExactly(4)
+        var reader = WireReader(prefix)
+        let length = Int(try reader.u32())
+        let maximum = kind == .handshake ? 2048 : kind == .rootProof ? 96 : 48 * 1024 + 16
+        guard length >= 6, length <= maximum + 6 else { throw WozaiError.protocolViolation }
+        let suffix = try await stream.readExactly(6)
+        guard try prefix + suffix == Envelope.header(kind: kind, payloadSize: length - 6) else { throw WozaiError.protocolViolation }
+        return try await stream.readExactly(length - 6)
+    }
+
+    private func sendEncrypted(_ kind: Envelope.Kind, plaintext: Data) async throws {
+        guard !ended, var state = transport else { throw WozaiError.closed }
+        let header = try Envelope.header(kind: kind, payloadSize: plaintext.count + 16)
+        let ciphertext = try state.sending.seal(plaintext, authenticating: header)
+        transport = state
+        try await stream.write(header + ciphertext)
+    }
+
+    private func readEncrypted(_ kind: Envelope.Kind) async throws -> Data {
+        let bytes = try await readEnvelope(kind)
+        guard !ended, var state = transport else { throw WozaiError.closed }
+        let plaintext = try state.receiving.open(bytes, authenticating: Envelope.header(kind: kind, payloadSize: bytes.count))
+        transport = state
+        return plaintext
+    }
+
+    public func send(_ frame: NIMFrame) async throws {
+        guard established, !ended else { throw WozaiError.closed }
+        do { try await sendEncrypted(.record, plaintext: frame.encoded()) } catch { close(); throw error }
+    }
+
+    public func receive() async throws -> NIMFrame {
+        guard established, !ended else { throw WozaiError.closed }
+        do { return try NIMFrame.decode(await readEncrypted(.record)) } catch { close(); throw error }
+    }
+
+    public func close() { ended = true; established = false; transport = nil; stream.close() }
+}

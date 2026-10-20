@@ -3,6 +3,21 @@ import XCTest
 
 // The same pinned Cacophony known-answer fixture as the production Java checks.
 final class NoiseTests: XCTestCase {
+    func testBadTagAndReplayDoNotReleasePlaintextOrAdvanceNonce() throws {
+        let key = Data(repeating: 9, count: 32)
+        var writer = try NoiseCipher(key: key)
+        var reader = try NoiseCipher(key: key)
+        let aad = Data("header".utf8)
+        let wire = try writer.seal(Data("private".utf8), authenticating: aad)
+        var corrupted = wire
+        corrupted[corrupted.count - 1] ^= 1
+        XCTAssertThrowsError(try reader.open(corrupted, authenticating: aad))
+        XCTAssertEqual(try reader.open(wire, authenticating: aad), Data("private".utf8))
+        XCTAssertThrowsError(try reader.open(wire, authenticating: aad))
+        var exhausted = try NoiseCipher(key: key, nonce: UInt64.max)
+        XCTAssertThrowsError(try exhausted.seal(Data()))
+    }
+
     func testIndependentXXVectorAndBidirectionalTransport() throws {
         let a = try NoiseHandshake(initiator: true, staticPrivateKey: hex("e61ef9919cde45dd5f82166404bd08e38bceb5dfdfded0a34c8df7ed542214d1"), ephemeralPrivateKey: hex("893e28b9dc6ca8d611ab664754b8ceb7bac5117349a4439a6b0569da977c464a"), prologue: hex("4a6f686e2047616c74"))
         let b = try NoiseHandshake(initiator: false, staticPrivateKey: hex("4a3acbfdb163dec651dfa3194dece676d437029c62a408b4c5ea9114246e4893"), ephemeralPrivateKey: hex("bbdb4cdbd309f1a1f2e1456967fe288cadd6f712d65dc7b7793d5e63da6b375b"), prologue: hex("4a6f686e2047616c74"))
