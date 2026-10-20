@@ -11,6 +11,18 @@ struct NearbyIMApp: App {
     }
 
     var body: some Scene {
+        mainWindow
+        #if os(macOS)
+        Settings {
+            SettingsView()
+                .environment(model)
+                .preferredColorScheme(colorScheme)
+                .frame(minWidth: 420, idealWidth: 480)
+        }
+        #endif
+    }
+
+    private var mainWindow: some Scene {
         WindowGroup {
             RootView()
                 .environment(model)
@@ -24,12 +36,6 @@ struct NearbyIMApp: App {
                 Button("Find nearby devices") { model.newChatRequest += 1 }
                     .keyboardShortcut("n", modifiers: [.command, .shift])
             }
-        }
-        Settings {
-            SettingsView()
-                .environment(model)
-                .preferredColorScheme(colorScheme)
-                .frame(minWidth: 420, idealWidth: 480)
         }
         #endif
     }
