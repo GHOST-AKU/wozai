@@ -148,7 +148,9 @@ private final class SQLiteDatabase: @unchecked Sendable {
             let index = Int32(offset + 1)
             let code: Int32
             switch value {
-            case .text(let text): code = sqlite3_bind_text(statement, index, text, -1, transient)
+            case .text(let text):
+                guard text.utf8.count <= Int(Int32.max) else { sqlite3_finalize(statement); throw WozaiError.storage }
+                code = sqlite3_bind_text(statement, index, text, Int32(text.utf8.count), transient)
             case .integer(let number): code = sqlite3_bind_int64(statement, index, number)
             case .blob(let data): code = data.withUnsafeBytes { sqlite3_bind_blob(statement, index, $0.baseAddress, Int32($0.count), transient) }
             }

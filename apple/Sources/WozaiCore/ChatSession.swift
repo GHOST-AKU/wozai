@@ -102,8 +102,13 @@ public actor ChatSession {
         let id = UUID().uuidString.lowercased()
         let frame = NIMFrame(type: .text, id: id, body: text, timestamp: UInt64(Date().timeIntervalSince1970 * 1000))
         _ = try frame.encoded()
-        try await store.saveOutgoing(peerID: peer.id, frame: frame)
         pending.insert(id)
+        do { try await store.saveOutgoing(peerID: peer.id, frame: frame) }
+        catch { pending.remove(id); throw error }
+        guard !ended else {
+            try? await store.setOutgoingStatus(peerID: peer.id, id: id, status: .unconfirmed)
+            throw WozaiError.closed
+        }
         await event(.changed(peer.id))
         do {
             try await channel.send(frame)

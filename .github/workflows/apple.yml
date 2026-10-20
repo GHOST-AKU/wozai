@@ -21,3 +21,5 @@ jobs:
           swift --version
       - name: Test shared native core
         run: swift test --package-path apple
+      - name: Build native macOS app with Apple components
+        run: xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM -destination 'platform=macOS' -configuration Debug -derivedDataPath apple/DerivedData CODE_SIGNING_ALLOWED=NO build
