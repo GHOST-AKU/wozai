@@ -34,6 +34,7 @@ jobs:
       - name: Build native iPhone and iPad app for devices without distribution signing
         run: xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM -destination 'generic/platform=iOS' -configuration Release -derivedDataPath apple/DeviceBuild CODE_SIGNING_ALLOWED=NO build
       - name: Exercise native macOS consent, chat and receipts
+        timeout-minutes: 8
         run: bash tools/test-apple-ui.sh 'platform=macOS' macos
       - name: Select available iPhone and iPad simulators
         id: simulators
@@ -48,8 +49,11 @@ jobs:
                   output.write(f"{key}={device['udid']}\n")
           PY
       - name: Exercise native iPhone consent, chat and receipts
+        timeout-minutes: 8
         run: bash tools/test-apple-ui.sh 'platform=iOS Simulator,id=${{ steps.simulators.outputs.iphone }}' iphone
       - name: Exercise native iPad consent, chat and receipts
+        if: ${{ !cancelled() && steps.simulators.outcome == 'success' }}
+        timeout-minutes: 8
         run: bash tools/test-apple-ui.sh 'platform=iOS Simulator,id=${{ steps.simulators.outputs.ipad }}' ipad
       - uses: actions/upload-artifact@v4
         if: always()
