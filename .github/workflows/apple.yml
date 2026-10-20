@@ -1,0 +1,23 @@
+name: Verify native Apple clients
+on:
+  push:
+    branches: [feat/apple-native]
+    paths: ['apple/**', '.github/workflows/apple.yml', 'tools/test-apple-interop.sh', 'tests/apple/**']
+  pull_request:
+    branches: [main]
+    paths: ['apple/**', '.github/workflows/apple.yml', 'tools/test-apple-interop.sh', 'tests/apple/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Record Apple toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+      - name: Test shared native core
+        run: swift test --package-path apple

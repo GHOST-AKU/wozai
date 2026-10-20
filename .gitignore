@@ -12,3 +12,10 @@ app/build/
 *.apk
 *.aab
 __pycache__/
+
+# Apple build products and local signing state
+apple/.build/
+apple/.swiftpm/
+apple/DerivedData/
+*.xcuserstate
+xcuserdata/
