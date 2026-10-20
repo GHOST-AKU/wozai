@@ -41,6 +41,7 @@ jobs:
           fi
           sh tools/test-core.sh > build/file-handover/core.log 2>&1
           sh tools/test-file-link-legacy.sh > build/file-handover/legacy.log 2>&1
+          sh tools/test-noise-candidate.sh > build/file-handover/noise.log 2>&1
       - uses: actions/upload-artifact@v4
         if: ${{ always() }}
         with:
