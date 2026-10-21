@@ -106,9 +106,8 @@ struct ChatDetailView: View {
                     followingLatest = true
                     if hasNewMessages { showLatest() }
                 } else if !atBottom, let previous,
-                          previous.viewport == layout.viewport, previous.first == layout.first, previous.last == layout.last,
-                          frame.minY - previous.frame.minY > max(1, abs(frame.height - previous.frame.height)) {
-                    // Growing content and lazy height corrections are not a user scrolling back.
+                          previous.viewport == layout.viewport, previous.first == layout.first, previous.last == layout.last {
+                    // Ignore page and viewport changes, while allowing lazy height estimates during user scrolling.
                     followingLatest = false
                 }
             }
