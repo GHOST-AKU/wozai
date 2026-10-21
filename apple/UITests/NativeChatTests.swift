@@ -68,16 +68,19 @@ final class NativeChatTests: XCTestCase {
         try drivePeer("populate")
         let last = app.staticTexts["Reading message 79\nPreserve this reading position when new messages arrive."]
         XCTAssertTrue(last.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertTrue(last.isHittable, "The latest message exists but is outside the viewport: " + app.debugDescription)
+        XCTAssertFalse(app.buttons["jumpToLatest"].exists, "Following the latest messages must not show a history navigation prompt")
         let timeline = app.scrollViews["messageTimeline"]
         XCTAssertTrue(timeline.exists)
         #if os(macOS)
+        timeline.hover()
         timeline.scroll(byDeltaX: 0, deltaY: 900)
         #else
         timeline.swipeDown()
         timeline.swipeDown()
         #endif
         let latest = app.buttons["jumpToLatest"]
-        XCTAssertTrue(latest.waitForExistence(timeout: 5), "Reading older messages needs an explicit way back")
+        XCTAssertTrue(latest.waitForExistence(timeout: 5), "Reading older messages needs an explicit way back: " + app.debugDescription)
         let anchor = try XCTUnwrap(timeline.staticTexts.allElementsBoundByIndex.first {
             let text = ($0.value as? String) ?? $0.label
             return text.hasPrefix("Reading message ") && $0.frame.intersection(timeline.frame).height > 20
@@ -90,6 +93,7 @@ final class NativeChatTests: XCTestCase {
         let incoming = app.staticTexts["A new message while reading history"]
         XCTAssertTrue(incoming.waitForExistence(timeout: 8))
         XCTAssertTrue(incoming.isHittable, "Jump to latest did not reveal the new message")
+        XCTAssertFalse(app.buttons["jumpToLatest"].exists, "Jump to latest did not resume following")
     }
 
     private func drivePeer(_ command: String) throws {
