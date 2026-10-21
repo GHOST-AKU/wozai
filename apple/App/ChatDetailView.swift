@@ -75,7 +75,8 @@ struct ChatDetailView: View {
 
     private var timeline: some View {
         ScrollView {
-            LazyVStack(spacing: 12) {
+            // The bounded 200-row page gives scroll targets exact positions during burst inserts.
+            VStack(spacing: 12) {
                 if messages.count == 200, let first = messages.first {
                     Button("Earlier messages") { followingLatest = false; before = first.cursor }
                         .id("earlier")

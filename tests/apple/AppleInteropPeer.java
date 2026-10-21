@@ -96,6 +96,7 @@ public final class AppleInteropPeer {
         try (ServerSocket control = new ServerSocket(47832, 1, InetAddress.getByName("127.0.0.1"))) {
             control.setSoTimeout(90_000);
             long timestamp = System.currentTimeMillis();
+            int fixtureIndex = 0, appended = 0;
             while (true) {
                 try (Socket driver = control.accept()) {
                     driver.setSoTimeout(5_000);
@@ -103,11 +104,11 @@ public final class AppleInteropPeer {
                     if ("populate".equals(command)) {
                         for (int index = 0; index < 80; index++) {
                             channel.write(ProtocolV4.encode(new Frame(Frame.TEXT, UUID.randomUUID().toString(),
-                                String.format(java.util.Locale.ROOT, "Reading message %02d\nPreserve this reading position when new messages arrive.", index), ++timestamp)));
+                                String.format(java.util.Locale.ROOT, "Reading message %02d\nPreserve this reading position when new messages arrive.", fixtureIndex++), ++timestamp)));
                         }
-                        System.out.println("UI fixture: sent 80 reading messages");
+                        System.out.println("UI fixture: sent 80 reading messages; total=" + fixtureIndex);
                     } else if ("append".equals(command)) {
-                        channel.write(ProtocolV4.encode(new Frame(Frame.TEXT, UUID.randomUUID().toString(), "A new message while reading history", ++timestamp)));
+                        channel.write(ProtocolV4.encode(new Frame(Frame.TEXT, UUID.randomUUID().toString(), "A new message while reading history " + (++appended), ++timestamp)));
                     } else { require("finish".equals(command), "Unknown UI driver command"); }
                     System.out.println("UI driver: " + command + ", durable ACKs=" + acknowledgements.get());
                     driver.getOutputStream().write("ok\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
