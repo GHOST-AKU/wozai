@@ -24,8 +24,6 @@ struct ChatDetailView: View {
     @State private var hasNewMessages = false
     @State private var forceLatest = false
     @State private var refreshRequest = 0
-    @State private var scrollRequest = 0
-    @State private var scrollTarget = "latest"
     @State private var visibleMessage: String?
     @State private var lastLayout: TimelineLayout?
     @FocusState private var composerFocused: Bool
@@ -71,68 +69,61 @@ struct ChatDetailView: View {
 
     private var timeline: some View {
         GeometryReader { viewport in
-            ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(spacing: 0) {
-                        LazyVStack(spacing: 12) {
-                            if messages.count == 200, let first = messages.first {
-                                Button("Earlier messages") { followingLatest = false; before = first.cursor }
-                                    .id("earlier")
-                            }
-                            if !loaded { ProgressView() }
-                            else if messages.isEmpty {
-                                ContentUnavailableView("No messages yet", systemImage: "bubble.left", description: Text("Send a greeting when the devices are connected."))
-                            }
-                            ForEach(messages, id: \.rowID) { message in MessageBubble(message: message) }
-                        }
-                        .scrollTargetLayout()
-                        Color.clear.frame(height: 1).id("latest")
+            ScrollView {
+                LazyVStack(spacing: 12) {
+                    if messages.count == 200, let first = messages.first {
+                        Button("Earlier messages") { followingLatest = false; before = first.cursor }
+                            .id("earlier")
                     }
+                    if !loaded { ProgressView() }
+                    else if messages.isEmpty {
+                        ContentUnavailableView("No messages yet", systemImage: "bubble.left", description: Text("Send a greeting when the devices are connected."))
+                    }
+                    ForEach(messages, id: \.rowID) { message in MessageBubble(message: message) }
+                    Color.clear.frame(height: 1).id("latest")
+                }
+                .scrollTargetLayout()
+                .padding()
+                .background {
+                    GeometryReader { geometry in
+                        Color.clear.preference(key: TimelineFrameKey.self, value: geometry.frame(in: .named("timeline")))
+                    }
+                }
+            }
+            .coordinateSpace(name: "timeline")
+            .accessibilityIdentifier("messageTimeline")
+            .defaultScrollAnchor(.bottom)
+            .scrollPosition(id: $visibleMessage, anchor: .bottom)
+            .scrollDismissesKeyboard(.interactively)
+            .onPreferenceChange(TimelineFrameKey.self) { frame in
+                guard let frame else { return }
+                let layout = TimelineLayout(frame: frame, viewport: viewport.size, first: messages.first?.rowID, last: messages.last?.rowID)
+                let previous = lastLayout
+                lastLayout = layout
+                guard loaded, before == nil else { return }
+                let atBottom = frame.maxY <= viewport.size.height + 24 && frame.maxY >= 0
+                if atBottom && !followingLatest {
+                    followingLatest = true
+                    if hasNewMessages { showLatest() }
+                } else if !atBottom, let previous,
+                          previous.viewport == layout.viewport, previous.first == layout.first, previous.last == layout.last,
+                          frame.minY - previous.frame.minY > max(1, abs(frame.height - previous.frame.height)) {
+                    // Growing content and lazy height corrections are not a user scrolling back.
+                    followingLatest = false
+                }
+            }
+            .onChange(of: viewport.size) {
+                if followingLatest && before == nil { visibleMessage = "latest" }
+            }
+            .overlay(alignment: .bottomTrailing) {
+                if !followingLatest || before != nil || hasNewMessages {
+                    Button(action: showLatest) {
+                        Label(latestLabel, systemImage: "arrow.down")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .buttonBorderShape(.capsule)
+                    .accessibilityIdentifier("jumpToLatest")
                     .padding()
-                    .background {
-                        GeometryReader { geometry in
-                            Color.clear.preference(key: TimelineFrameKey.self, value: geometry.frame(in: .named("timeline")))
-                        }
-                    }
-                }
-                .coordinateSpace(name: "timeline")
-                .accessibilityIdentifier("messageTimeline")
-                .defaultScrollAnchor(.bottom)
-                .scrollPosition(id: $visibleMessage, anchor: .top)
-                .scrollDismissesKeyboard(.interactively)
-                .onPreferenceChange(TimelineFrameKey.self) { frame in
-                    guard let frame else { return }
-                    let layout = TimelineLayout(frame: frame, viewport: viewport.size, first: messages.first?.rowID, last: messages.last?.rowID)
-                    let previous = lastLayout
-                    lastLayout = layout
-                    guard loaded, before == nil else { return }
-                    let atBottom = frame.maxY <= viewport.size.height + 24 && frame.maxY >= 0
-                    if atBottom && !followingLatest {
-                        followingLatest = true
-                        if hasNewMessages { showLatest() }
-                    } else if !atBottom, let previous,
-                              previous.viewport == layout.viewport, previous.first == layout.first, previous.last == layout.last,
-                              frame.minY - previous.frame.minY > max(1, abs(frame.height - previous.frame.height)) {
-                        // Growing content and lazy height corrections are not a user scrolling back.
-                        followingLatest = false
-                    }
-                }
-                .onChange(of: scrollRequest) {
-                    proxy.scrollTo(scrollTarget, anchor: scrollTarget == "latest" ? .bottom : .top)
-                }
-                .onChange(of: viewport.size) {
-                    if followingLatest && before == nil { proxy.scrollTo("latest", anchor: .bottom) }
-                }
-                .overlay(alignment: .bottomTrailing) {
-                    if !followingLatest || before != nil || hasNewMessages {
-                        Button(action: showLatest) {
-                            Label(latestLabel, systemImage: "arrow.down")
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .buttonBorderShape(.capsule)
-                        .accessibilityIdentifier("jumpToLatest")
-                        .padding()
-                    }
                 }
             }
         }
@@ -150,9 +141,9 @@ struct ChatDetailView: View {
             messages = page
             if before == nil {
                 followingLatest = true; hasNewMessages = false; forceLatest = false
-                scrollTarget = "latest"; scrollRequest += 1
+                visibleMessage = "latest"
             } else if pageChanged, let first = page.first {
-                scrollTarget = first.rowID; scrollRequest += 1
+                visibleMessage = first.rowID
             }
         }
         displayedPage = before

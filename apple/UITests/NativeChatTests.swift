@@ -79,7 +79,8 @@ final class NativeChatTests: XCTestCase {
         let latest = app.buttons["jumpToLatest"]
         XCTAssertTrue(latest.waitForExistence(timeout: 5), "Reading older messages needs an explicit way back")
         let anchor = try XCTUnwrap(timeline.staticTexts.allElementsBoundByIndex.first {
-            $0.label.hasPrefix("Reading message ") && $0.frame.intersection(timeline.frame).height > 20
+            let text = ($0.value as? String) ?? $0.label
+            return text.hasPrefix("Reading message ") && $0.frame.intersection(timeline.frame).height > 20
         })
         let originalY = anchor.frame.minY
         try drivePeer("append")
