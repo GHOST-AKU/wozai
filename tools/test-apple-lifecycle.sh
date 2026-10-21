@@ -10,7 +10,7 @@ lifecycle_sources=()
 if [[ -f apple/App/MacAppDelegate.swift ]]; then
   lifecycle_sources=(-D HAS_MAC_LIFECYCLE apple/App/MacAppDelegate.swift)
 fi
-swiftc -parse-as-library -I "$bin_path/Modules" -o build/apple-lifecycle/termination-probe \
+swiftc -target "$(uname -m)-apple-macosx14.0" -parse-as-library -I "$bin_path/Modules" -o build/apple-lifecycle/termination-probe \
   apple/App/AppModel.swift "${lifecycle_sources[@]}" tests/apple/MacTerminationProbe.swift \
   "$bin_path"/WozaiCore.build/*.swift.o -lsqlite3
 probe_status=0
