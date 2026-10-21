@@ -98,12 +98,12 @@ private struct MobileNavigation: View {
 @MainActor
 private struct ChatsView: View {
     @Environment(AppModel.self) private var model
-    @SceneStorage("selectedConversation") private var selection: String?
+    @SceneStorage("selectedConversation") private var selection = ""
     let findNearby: () -> Void
 
     var body: some View {
         NavigationSplitView {
-            List(selection: $selection) {
+            List(selection: Binding<String?>(get: { selection.isEmpty ? nil : selection }, set: { selection = $0 ?? "" })) {
                 ForEach(model.conversations) { contact in
                     NavigationLink(value: contact.id) { ConversationLabel(contact: contact) }
                 }
@@ -121,7 +121,7 @@ private struct ChatsView: View {
                 ChatDetailView(contact: contact).id(contact.id)
             } else { ContentUnavailableView("Choose a conversation", systemImage: "bubble.left.and.bubble.right") }
         }
-        .onChange(of: model.connectionState, initial: true) { _, value in if value == .connected { selection = model.activePeer?.id } }
+        .onChange(of: model.connectionState, initial: true) { _, value in if value == .connected { selection = model.activePeer?.id ?? "" } }
     }
 }
 #endif
@@ -130,11 +130,11 @@ private struct ChatsView: View {
 @MainActor
 private struct MacNavigation: View {
     @Environment(AppModel.self) private var model
-    @SceneStorage("sidebarSelection") private var selection: String? = "nearby"
+    @SceneStorage("sidebarSelection") private var selection = "nearby"
 
     var body: some View {
         NavigationSplitView {
-            List(selection: $selection) {
+            List(selection: Binding<String?>(get: { selection.isEmpty ? nil : selection }, set: { selection = $0 ?? "" })) {
                 Label("Nearby", systemImage: "antenna.radiowaves.left.and.right").tag("nearby").accessibilityIdentifier("nearbyDestination")
                 Section("Chats") {
                     ForEach(model.conversations) { contact in
@@ -157,7 +157,7 @@ private struct MacNavigation: View {
             if value == .connected, let id = model.activePeer?.id { selection = "chat:" + id }
         }
         .environment(\.findNearby, { selection = "nearby" })
-        // Commands follow the key scene; shared connection state must not broadcast navigation.
+        // Discovery commands follow the key scene instead of broadcasting through the shared model.
         .focusedSceneValue(\.findNearby, { selection = "nearby" })
     }
 }
