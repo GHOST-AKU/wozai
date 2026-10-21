@@ -40,7 +40,7 @@ struct ChatDetailView: View {
     private var connected: Bool { model.connectionState == .connected && model.activePeer?.id == contact.id }
     private var tooLong: Bool { draft.utf8.count > 8192 }
     private var latestLabel: LocalizedStringKey { hasNewMessages ? "New messages" : "Latest messages" }
-    private var refreshKey: String { contact.id + ":" + String(model.revision[contact.id, default: 0]) + ":" + String(before?.timestamp ?? UInt64.max) + ":" + String(before?.sequence ?? 0) + ":" + String(refreshRequest) }
+    private var refreshKey: String { contact.id + ":" + String(model.revision[contact.id, default: 0]) + ":" + String(before?.sequence ?? 0) + ":" + String(refreshRequest) }
 
     var body: some View {
         timeline

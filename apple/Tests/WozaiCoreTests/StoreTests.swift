@@ -52,6 +52,46 @@ final class StoreTests: XCTestCase {
 }
 
 extension StoreTests {
+    func testHistoryPagesFollowLocalReceiptOrderDespitePeerClockSkew() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("chat.sqlite")
+        let store = try ChatStore(url: url)
+        let peer = UUID().uuidString.lowercased()
+        let future: UInt64 = 4_102_444_800_000
+        var expected: [String] = []
+        var first: NIMFrame?
+        for index in 0..<200 {
+            let frame = NIMFrame(type: .text, id: UUID().uuidString.lowercased(), body: "future \(index)", timestamp: future)
+            if first == nil { first = frame }
+            try await store.saveIncoming(peerID: peer, frame: frame)
+            expected.append(frame.body)
+        }
+        for index in 0..<5 {
+            let frame = NIMFrame(type: .text, id: UUID().uuidString.lowercased(), body: "recent \(index)", timestamp: UInt64(1000 - index))
+            if index.isMultiple(of: 2) { try await store.saveIncoming(peerID: peer, frame: frame) }
+            else {
+                try await store.saveOutgoing(peerID: peer, frame: frame)
+                try await store.setOutgoingStatus(peerID: peer, id: frame.id, status: .delivered)
+            }
+            expected.append(frame.body)
+        }
+        // Re-delivery and receipt updates must not promote older rows into the latest page.
+        let inserted = try await store.saveIncoming(peerID: peer, frame: XCTUnwrap(first))
+        XCTAssertFalse(inserted)
+        let latest = try await store.messages(peerID: peer)
+        XCTAssertEqual(latest.map(\.body), Array(expected.suffix(200)))
+        XCTAssertEqual(latest.first?.timestamp, future, "Wire timestamps remain available for display")
+        XCTAssertEqual(latest.last?.timestamp, 996)
+        let earlier = try await store.messages(peerID: peer, before: XCTUnwrap(latest.first?.cursor))
+        XCTAssertEqual(earlier.count, 5)
+        XCTAssertEqual((earlier + latest).map(\.body), expected)
+        let reopened = try ChatStore(url: url)
+        let restored = try await reopened.messages(peerID: peer)
+        XCTAssertEqual(restored.map(\.body), latest.map(\.body))
+        XCTAssertEqual(restored.map(\.cursor), latest.map(\.cursor))
+    }
+
     func testPagingPreservesMessagesWithIdenticalTimestamps() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }

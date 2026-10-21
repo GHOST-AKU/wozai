@@ -4,7 +4,6 @@ import SQLite3
 public enum MessageStatus: String, Codable, Sendable { case pending, sent, delivered, unconfirmed }
 
 public struct MessageCursor: Equatable, Sendable {
-    public let timestamp: UInt64
     public let sequence: Int64
 }
 
@@ -45,7 +44,9 @@ public actor ChatStore {
         try database.run("PRAGMA cache_size=-1024")
         try database.run("CREATE TABLE IF NOT EXISTS contacts (id TEXT PRIMARY KEY, nickname TEXT NOT NULL, root BLOB NOT NULL, local_root BLOB NOT NULL, trusted INTEGER NOT NULL, verified INTEGER NOT NULL DEFAULT 0, activity INTEGER NOT NULL DEFAULT 0)")
         try database.run("CREATE TABLE IF NOT EXISTS messages (peer TEXT NOT NULL, id TEXT NOT NULL, outgoing INTEGER NOT NULL, body TEXT NOT NULL, time INTEGER NOT NULL, status TEXT NOT NULL, PRIMARY KEY(peer,id,outgoing))")
-        try database.run("CREATE INDEX IF NOT EXISTS message_order ON messages(peer,time)")
+        // SQLite indexes include rowid, so peer + local insertion order needs no timestamp index.
+        try database.run("CREATE INDEX IF NOT EXISTS message_receipt_order ON messages(peer)")
+        try database.run("DROP INDEX IF EXISTS message_order")
         try database.run("CREATE TABLE IF NOT EXISTS drafts (peer TEXT PRIMARY KEY, body TEXT NOT NULL)")
         try database.run("UPDATE messages SET status='unconfirmed' WHERE outgoing=1 AND status IN ('pending','sent')")
     }
@@ -118,15 +119,14 @@ public actor ChatStore {
         var bindings: [SQLValue] = [.text(peerID)]
         let condition: String
         if let before {
-            condition = " AND (time<? OR (time=? AND rowid<?))"
-            let timestamp = Int64(min(before.timestamp, UInt64(Int64.max)))
-            bindings += [.integer(timestamp), .integer(timestamp), .integer(before.sequence)]
+            condition = " AND rowid<?"
+            bindings.append(.integer(before.sequence))
         } else { condition = "" }
-        return try database.rows("SELECT rowid AS sequence,* FROM messages WHERE peer=?" + condition + " ORDER BY time DESC,rowid DESC LIMIT 200", bindings).reversed().map { row in
+        return try database.rows("SELECT rowid AS sequence,* FROM messages WHERE peer=?" + condition + " ORDER BY rowid DESC LIMIT 200", bindings).reversed().map { row in
             guard let status = MessageStatus(rawValue: row["status"]!.text) else { throw WozaiError.storage }
             let timestamp = UInt64(row["time"]!.integer)
             return ChatMessage(id: row["id"]!.text, peerID: peerID, body: row["body"]!.text, timestamp: timestamp, outgoing: row["outgoing"]!.integer == 1, status: status,
-                               cursor: MessageCursor(timestamp: timestamp, sequence: row["sequence"]!.integer))
+                               cursor: MessageCursor(sequence: row["sequence"]!.integer))
         }
     }
 

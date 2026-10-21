@@ -95,7 +95,8 @@ public final class AppleInteropPeer {
         receipts.start();
         try (ServerSocket control = new ServerSocket(47832, 1, InetAddress.getByName("127.0.0.1"))) {
             control.setSoTimeout(90_000);
-            long timestamp = System.currentTimeMillis();
+            // A skewed peer clock must not hide subsequent normal-time messages from the latest page.
+            long timestamp = System.currentTimeMillis() + java.util.concurrent.TimeUnit.DAYS.toMillis(3650);
             int fixtureIndex = 0, appended = 0;
             while (true) {
                 try (Socket driver = control.accept()) {
@@ -108,7 +109,7 @@ public final class AppleInteropPeer {
                         }
                         System.out.println("UI fixture: sent 80 reading messages; total=" + fixtureIndex);
                     } else if ("append".equals(command)) {
-                        channel.write(ProtocolV4.encode(new Frame(Frame.TEXT, UUID.randomUUID().toString(), "A new message while reading history " + (++appended), ++timestamp)));
+                        channel.write(ProtocolV4.encode(new Frame(Frame.TEXT, UUID.randomUUID().toString(), "A new message while reading history " + (++appended), System.currentTimeMillis())));
                     } else { require("finish".equals(command), "Unknown UI driver command"); }
                     System.out.println("UI driver: " + command + ", durable ACKs=" + acknowledgements.get());
                     driver.getOutputStream().write("ok\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
