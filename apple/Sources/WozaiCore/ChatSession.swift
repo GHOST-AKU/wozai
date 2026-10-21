@@ -84,6 +84,8 @@ public actor ChatSession {
         guard peer != nil, !approved, !ended else { throw WozaiError.closed }
         self.remember = remember
         approved = true
+        // Consent waiting must not consume the connected heartbeat window.
+        if remoteReady { lastRead = Date() }
         try await channel.send(NIMFrame(type: .ready))
         try await announceReady()
     }
@@ -91,6 +93,7 @@ public actor ChatSession {
     private func announceReady() async throws {
         guard isReady, !announced, let peer else { return }
         announced = true
+        lastRead = Date()
         try await store.recordPeer(peer, remember: remember, localRoot: identity.root)
         guard !ended else { return }
         await event(.ready(peer))
@@ -112,6 +115,7 @@ public actor ChatSession {
         await event(.changed(peer.id))
         do {
             try await channel.send(frame)
+            guard !ended else { throw WozaiError.closed }
             try await store.setOutgoingStatus(peerID: peer.id, id: id, status: .sent)
             await event(.changed(peer.id))
         } catch {

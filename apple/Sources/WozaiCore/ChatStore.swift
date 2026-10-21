@@ -103,8 +103,9 @@ public actor ChatStore {
     }
 
     public func setOutgoingStatus(peerID: String, id: String, status: MessageStatus) throws {
-        // A fast ACK may arrive before the socket completion; never regress delivery.
-        try database.run("UPDATE messages SET status=? WHERE peer=? AND id=? AND outgoing=1 AND status!='delivered'", [.text(status.rawValue), .text(peerID), .text(id)])
+        // Socket completion cannot overwrite either a durable ACK or disconnect uncertainty.
+        let condition = status == .sent ? "status='pending'" : "status!='delivered'"
+        try database.run("UPDATE messages SET status=? WHERE peer=? AND id=? AND outgoing=1 AND " + condition, [.text(status.rawValue), .text(peerID), .text(id)])
     }
 
     public func messages(peerID: String, before: MessageCursor? = nil) throws -> [ChatMessage] {
