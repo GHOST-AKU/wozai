@@ -5,13 +5,20 @@ destination="$1"
 label="$2"
 mkdir -p build/apple-ui
 peer_pid=""
+timeline_log_pid=""
 simulator_id=""
 cleanup() {
   if [[ -n "$peer_pid" ]]; then kill "$peer_pid" 2>/dev/null || true; wait "$peer_pid" 2>/dev/null || true; fi
+  if [[ -n "$timeline_log_pid" ]]; then kill "$timeline_log_pid" 2>/dev/null || true; wait "$timeline_log_pid" 2>/dev/null || true; fi
   if [[ -f "build/apple-ui/$label-java.log" ]]; then cat "build/apple-ui/$label-java.log"; fi
+  if [[ -f "build/apple-ui/$label-timeline.log" ]]; then cat "build/apple-ui/$label-timeline.log"; fi
   if [[ -n "$simulator_id" ]]; then xcrun simctl shutdown "$simulator_id" > /dev/null 2>&1 || true; fi
 }
 trap cleanup EXIT
+if [[ "$destination" == "platform=macOS" ]]; then
+  /usr/bin/log stream --style compact --level debug --predicate 'subsystem == "dev.ghost.wozai.apple" AND category == "Timeline"' > "build/apple-ui/$label-timeline.log" 2>&1 &
+  timeline_log_pid=$!
+fi
 if [[ "$destination" == *"platform=iOS Simulator"* ]]; then
   simulator_id="${destination##*id=}"; simulator_id="${simulator_id%%,*}"
   python3 - "$simulator_id" > "build/apple-ui/$label-boot.log" 2>&1 <<'PY'

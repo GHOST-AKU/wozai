@@ -1,5 +1,9 @@
 import SwiftUI
 import WozaiCore
+#if DEBUG
+import os
+private let timelineLog = Logger(subsystem: "dev.ghost.wozai.apple", category: "Timeline")
+#endif
 #if os(macOS)
 import AppKit
 #else
@@ -100,6 +104,9 @@ struct ChatDetailView: View {
                 let layout = TimelineLayout(frame: frame, viewport: viewport.size, first: messages.first?.rowID, last: messages.last?.rowID)
                 let previous = lastLayout
                 lastLayout = layout
+                #if DEBUG
+                timelineLog.debug("layout top=\(Double(frame.minY), privacy: .public) bottom=\(Double(frame.maxY), privacy: .public) viewport=\(Double(viewport.size.height), privacy: .public) rows=\(messages.count, privacy: .public) following=\(followingLatest, privacy: .public) same_page=\(previous?.first == layout.first && previous?.last == layout.last, privacy: .public)")
+                #endif
                 guard loaded, before == nil else { return }
                 let atBottom = frame.maxY <= viewport.size.height + 24 && frame.maxY >= 0
                 if atBottom && !followingLatest {
@@ -110,6 +117,11 @@ struct ChatDetailView: View {
                     // Ignore page and viewport changes, while allowing lazy height estimates during user scrolling.
                     followingLatest = false
                 }
+            }
+            .onChange(of: visibleMessage) { _, value in
+                #if DEBUG
+                timelineLog.debug("position latest=\(value == "latest", privacy: .public) following=\(followingLatest, privacy: .public)")
+                #endif
             }
             .onChange(of: viewport.size) {
                 if followingLatest && before == nil { visibleMessage = "latest" }
