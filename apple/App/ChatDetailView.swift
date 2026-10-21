@@ -16,8 +16,11 @@ struct ChatDetailView: View {
     @Environment(\.findNearby) private var findNearby
     let contact: Conversation
     @State private var messages: [ChatMessage] = []
-    @State private var draft = ""
-    @State private var draftLoaded = false
+    private var draft: String {
+        get { model.draftState(peerID: contact.id).text }
+        nonmutating set { model.saveDraft(peerID: contact.id, text: newValue) }
+    }
+    private var draftLoaded: Bool { model.draftState(peerID: contact.id).loaded }
     @State private var before: MessageCursor?
     @State private var sending = false
     @State private var safety = false
@@ -58,11 +61,8 @@ struct ChatDetailView: View {
             applyPage(loaded)
         }
         .task(id: contact.id) {
-            let saved = await model.loadDraft(peerID: contact.id)
-            guard !Task.isCancelled else { return }
-            draft = saved; draftLoaded = true
+            await model.loadDraft(peerID: contact.id)
         }
-        .onChange(of: draft) { _, text in model.saveDraft(peerID: contact.id, text: text) }
         .sheet(isPresented: $safety) {
             if let peer = model.activePeer, peer.id == contact.id {
                 SafetyView(peer: peer, generation: model.verificationGeneration).environment(model)
@@ -190,7 +190,7 @@ struct ChatDetailView: View {
             }
             if tooLong { Text("Keep the message within 8192 UTF-8 bytes. Your draft is preserved.").font(.caption).foregroundStyle(.red) }
             HStack(alignment: .bottom) {
-                TextField("Message", text: $draft, axis: .vertical)
+                TextField("Message", text: Binding(get: { draft }, set: { draft = $0 }), axis: .vertical)
                     .lineLimit(1...6)
                     .textFieldStyle(.roundedBorder)
                     .focused($composerFocused)

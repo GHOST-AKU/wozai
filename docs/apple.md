@@ -53,11 +53,13 @@ xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM \
   -derivedDataPath apple/DeviceBuild CODE_SIGNING_ALLOWED=NO build
 ```
 
+会话回归使用可控写入完成时序验证断连后的“未确认”状态，并实际等待47秒后认可连接，确认认可时间不计入已连接后的心跳窗口。
+
 互通测试需要 JDK 17 及以上，只编译现有 Java 核心和测试对端，不重建 APK 或桌面安装包。测试对端使用生产 `NoiseRecordChannel` / `ProtocolV4`，与 Swift `ChatSession` 分别充当 TCP 发起方和接收方，检查双向文字、保存回执、安全码、文件拒绝和 heartbeat。SwiftPM 的 `WozaiInterop` 可执行产品只用于开发验证，不链接进 app。
 
 原生 UI 测试使用固定回环端口 47831 的独立 Java 对端，通过 app 正常的地址输入、认可按钮和消息输入框收发内容。测试使用 Xcode 的 ad-hoc 签名，以生成模拟器 Keychain 所需的身份权限；它不需要开发者证书，也不能用于真机分发。生产 app 不读取测试环境变量，也不内置演示消息或跳过认可的测试后门：
 
-阅读位置回归由 XCTest 通过另一个仅限回环的测试控制端口 47832 驱动 Java 对端，使用生产 NIM4 通道连续三轮注入共 240 条消息，跨过单页上限，再在每轮上翻后注入新消息，检查可见性、消息坐标、新消息提示与返回最新。Mac 还检查第二个窗口执行快捷键不会让第一个窗口丢失会话。测试控制入口只存在于独立 Java 测试程序，不链接到 app。
+阅读位置回归由 XCTest 通过另一个仅限回环的测试控制端口 47832 驱动 Java 对端，使用生产 NIM4 通道连续三轮注入共 240 条消息，跨过单页上限，再在每轮上翻后注入新消息，检查可见性、消息坐标、新消息提示与返回最新。Mac 还检查第二个窗口执行快捷键不会让第一个窗口丢失会话，以及两个窗口打开同一会话时同步草稿。每会话草稿由 AppModel 的共享可观察状态管理，持久写入去抖；发送期间其它窗口继续编辑时，保留新内容。测试控制入口只存在于独立 Java 测试程序，不链接到 app。
 
 ```sh
 bash tools/test-apple-interop.sh --compile-java

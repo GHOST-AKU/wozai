@@ -4,6 +4,12 @@ import Observation
 import WozaiCore
 
 @MainActor @Observable
+final class ConversationDraft {
+    var text = ""
+    var loaded = false
+}
+
+@MainActor @Observable
 final class AppModel {
     enum ConnectionState: Equatable { case idle, connecting, awaitingConsent, connected }
     struct Notice: Identifiable { let id = UUID(); let message: String }
@@ -32,7 +38,7 @@ final class AppModel {
     @ObservationIgnored private var connectionTask: Task<Void, Never>?
     @ObservationIgnored private var token = UUID()
     @ObservationIgnored private var draftWrites: [String: Task<Void, Never>] = [:]
-    @ObservationIgnored private var drafts: [String: String] = [:]
+    @ObservationIgnored private var drafts: [String: ConversationDraft] = [:]
     @ObservationIgnored private var refreshTask: Task<Void, Never>?
     @ObservationIgnored private var changedPeers = Set<String>()
 
@@ -142,7 +148,9 @@ final class AppModel {
         foreground = false
         discovery?.stop()
         disconnect()
-        for (id, draft) in drafts { try? await store?.saveDraft(peerID: id, text: draft) }
+        for (id, draft) in drafts where draft.loaded {
+            try? await store?.saveDraft(peerID: id, text: draft.text)
+        }
     }
 
     func messages(peerID: String, before: MessageCursor? = nil) async -> [ChatMessage] {
@@ -151,21 +159,34 @@ final class AppModel {
         catch { show(error); return [] }
     }
 
-    func loadDraft(peerID: String) async -> String {
+    func draftState(peerID: String) -> ConversationDraft {
         if let cached = drafts[peerID] { return cached }
-        let draft = (try? await store?.draft(peerID: peerID)) ?? ""
-        drafts[peerID] = draft
-        return draft
+        let state = ConversationDraft()
+        drafts[peerID] = state
+        return state
+    }
+
+    func loadDraft(peerID: String) async {
+        let state = draftState(peerID: peerID)
+        guard !state.loaded else { return }
+        let saved = (try? await store?.draft(peerID: peerID)) ?? ""
+        // A second window may have completed loading and started editing during the await.
+        guard !state.loaded else { return }
+        state.text = saved
+        state.loaded = true
     }
 
     func saveDraft(peerID: String, text: String) {
-        drafts[peerID] = text
+        let state = draftState(peerID: peerID)
+        state.text = text
+        state.loaded = true
         draftWrites[peerID]?.cancel()
         draftWrites[peerID] = Task {
             do {
                 try await Task.sleep(for: .milliseconds(400))
                 try Task.checkCancellation()
                 try await store?.saveDraft(peerID: peerID, text: text)
+                try Task.checkCancellation()
                 draftWrites[peerID] = nil
             } catch is CancellationError {} catch { show(error) }
         }
