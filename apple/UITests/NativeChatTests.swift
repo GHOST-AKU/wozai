@@ -47,5 +47,18 @@ final class NativeChatTests: XCTestCase {
         landscape.lifetime = .keepAlways
         add(landscape)
         #endif
+        #if os(macOS)
+        let windowCount = app.windows.count
+        app.typeKey("n", modifierFlags: .command)
+        let anotherWindow = NSPredicate { _, _ in app.windows.count == windowCount + 1 }
+        expectation(for: anotherWindow, evaluatedWith: app)
+        waitForExpectations(timeout: 8)
+        XCTAssertTrue(app.textFields["manualHost"].waitForExistence(timeout: 8))
+        // A scene command in the new Nearby window must not navigate the existing chat window.
+        app.typeKey("n", modifierFlags: [.command, .shift])
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "composer").firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Hello from Apple"].exists, "The other window lost its conversation")
+        app.typeKey("w", modifierFlags: .command)
+        #endif
     }
 }
