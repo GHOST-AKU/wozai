@@ -22,7 +22,6 @@ final class AppModel {
     var consent: VerifiedPeer?
     var notice: Notice?
     var revision: [String: UInt64] = [:]
-    var newChatRequest = 0
     var busy: Bool { connectionState != .idle }
 
     @ObservationIgnored private var foreground = true

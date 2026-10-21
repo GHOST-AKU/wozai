@@ -305,6 +305,22 @@
         }
       }
     },
+    "Copy message": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy message"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制消息"
+          }
+        }
+      }
+    },
     "Couldn’t open NearbyIM": {
       "localizations": {
         "en": {
@@ -801,6 +817,22 @@
         }
       }
     },
+    "New messages": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New messages"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新消息"
+          }
+        }
+      }
+    },
     "No account, cloud chat server, or telemetry.": {
       "localizations": {
         "en": {
@@ -1101,6 +1133,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "分享安全码"
+          }
+        }
+      }
+    },
+    "Share message": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Share message"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "分享消息"
           }
         }
       }

@@ -1,9 +1,15 @@
 import SwiftUI
 import WozaiCore
+#if os(macOS)
+import AppKit
+#else
+import UIKit
+#endif
 
 @MainActor
 struct ChatDetailView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.findNearby) private var findNearby
     let contact: Conversation
     @State private var messages: [ChatMessage] = []
     @State private var draft = ""
@@ -12,29 +18,23 @@ struct ChatDetailView: View {
     @State private var sending = false
     @State private var safety = false
     @State private var forget = false
+    @State private var loaded = false
+    @State private var displayedPage: MessageCursor?
+    @State private var followingLatest = true
+    @State private var hasNewMessages = false
+    @State private var forceLatest = false
+    @State private var refreshRequest = 0
+    @State private var scrollRequest = 0
+    @State private var scrollTarget = "latest"
+    @State private var visibleMessage: String?
+    @FocusState private var composerFocused: Bool
     private var connected: Bool { model.connectionState == .connected && model.activePeer?.id == contact.id }
     private var tooLong: Bool { draft.utf8.count > 8192 }
-    private var refreshKey: String { contact.id + ":" + String(model.revision[contact.id, default: 0]) + ":" + String(before?.timestamp ?? UInt64.max) + ":" + String(before?.sequence ?? 0) }
+    private var latestLabel: LocalizedStringKey { hasNewMessages ? "New messages" : "Latest messages" }
+    private var refreshKey: String { contact.id + ":" + String(model.revision[contact.id, default: 0]) + ":" + String(before?.timestamp ?? UInt64.max) + ":" + String(before?.sequence ?? 0) + ":" + String(refreshRequest) }
 
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(spacing: 12) {
-                    if messages.count == 200, let first = messages.first {
-                        Button("Earlier messages") { before = first.cursor }
-                    }
-                    if before != nil { Button("Latest messages") { before = nil } }
-                    if messages.isEmpty {
-                        ContentUnavailableView("No messages yet", systemImage: "bubble.left", description: Text("Send a greeting when the devices are connected."))
-                    }
-                    ForEach(messages, id: \.rowID) { message in MessageBubble(message: message) }
-                    Color.clear.frame(height: 1).id("latest")
-                }
-                .padding()
-            }
-            .scrollDismissesKeyboard(.interactively)
-            .onChange(of: messages.last?.rowID) { if before == nil { proxy.scrollTo("latest", anchor: .bottom) } }
-        }
+        timeline
         .safeAreaInset(edge: .bottom, spacing: 0) { composer }
         .navigationTitle(contact.nickname)
         .toolbar {
@@ -49,7 +49,7 @@ struct ChatDetailView: View {
         .task(id: refreshKey) {
             let loaded = await model.messages(peerID: contact.id, before: before)
             guard !Task.isCancelled else { return }
-            messages = loaded
+            applyPage(loaded)
         }
         .task(id: contact.id) {
             let saved = await model.loadDraft(peerID: contact.id)
@@ -68,6 +68,93 @@ struct ChatDetailView: View {
         } message: { Text("The connection will end. Chat history stays on this device.") }
     }
 
+    private var timeline: some View {
+        GeometryReader { viewport in
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(spacing: 0) {
+                        LazyVStack(spacing: 12) {
+                            if messages.count == 200, let first = messages.first {
+                                Button("Earlier messages") { followingLatest = false; before = first.cursor }
+                                    .id("earlier")
+                            }
+                            if !loaded { ProgressView() }
+                            else if messages.isEmpty {
+                                ContentUnavailableView("No messages yet", systemImage: "bubble.left", description: Text("Send a greeting when the devices are connected."))
+                            }
+                            ForEach(messages, id: \.rowID) { message in MessageBubble(message: message) }
+                        }
+                        .scrollTargetLayout()
+                        Color.clear.frame(height: 1).id("latest")
+                            .background {
+                                GeometryReader { geometry in
+                                    Color.clear.preference(key: TimelineBottomKey.self, value: geometry.frame(in: .named("timeline")).maxY)
+                                }
+                            }
+                    }
+                    .padding()
+                }
+                .coordinateSpace(name: "timeline")
+                .accessibilityIdentifier("messageTimeline")
+                .defaultScrollAnchor(.bottom)
+                .scrollPosition(id: $visibleMessage, anchor: .top)
+                .scrollDismissesKeyboard(.interactively)
+                .onPreferenceChange(TimelineBottomKey.self) { bottom in
+                    guard loaded, before == nil else { return }
+                    let atBottom = bottom <= viewport.size.height + 24 && bottom >= 0
+                    if atBottom && !followingLatest {
+                        followingLatest = true
+                        if hasNewMessages { showLatest() }
+                    } else if !atBottom { followingLatest = false }
+                }
+                .onChange(of: scrollRequest) {
+                    proxy.scrollTo(scrollTarget, anchor: scrollTarget == "latest" ? .bottom : .top)
+                }
+                .onChange(of: viewport.size) {
+                    if followingLatest && before == nil { proxy.scrollTo("latest", anchor: .bottom) }
+                }
+                .overlay(alignment: .bottomTrailing) {
+                    if !followingLatest || before != nil || hasNewMessages {
+                        Button(action: showLatest) {
+                            Label(latestLabel, systemImage: "arrow.down")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .buttonBorderShape(.capsule)
+                        .accessibilityIdentifier("jumpToLatest")
+                        .padding()
+                    }
+                }
+            }
+        }
+    }
+
+    private func applyPage(_ page: [ChatMessage]) {
+        let pageChanged = displayedPage != before
+        if loaded, before == nil, !followingLatest, !forceLatest {
+            // Keep a bounded, stable page while reading; delivery updates still reach visible rows.
+            let updates = Dictionary(uniqueKeysWithValues: page.map { ($0.rowID, $0) })
+            let current = Set(messages.map(\.rowID))
+            hasNewMessages = hasNewMessages || page.contains { !current.contains($0.rowID) }
+            messages = messages.map { updates[$0.rowID] ?? $0 }
+        } else {
+            messages = page
+            if before == nil {
+                followingLatest = true; hasNewMessages = false; forceLatest = false
+                scrollTarget = "latest"; scrollRequest += 1
+            } else if pageChanged, let first = page.first {
+                scrollTarget = first.rowID; scrollRequest += 1
+            }
+        }
+        displayedPage = before
+        loaded = true
+    }
+
+    private func showLatest() {
+        forceLatest = true; followingLatest = true; hasNewMessages = false
+        before = nil
+        refreshRequest += 1
+    }
+
     private var composer: some View {
         VStack(alignment: .leading, spacing: 8) {
             if connected {
@@ -76,7 +163,7 @@ struct ChatDetailView: View {
                 HStack {
                     Text("Not connected").foregroundStyle(.secondary)
                     Spacer()
-                    Button("Find nearby devices") { model.newChatRequest += 1 }
+                    Button("Find nearby devices", action: findNearby)
                 }.font(.caption)
             }
             if tooLong { Text("Keep the message within 8192 UTF-8 bytes. Your draft is preserved.").font(.caption).foregroundStyle(.red) }
@@ -84,6 +171,7 @@ struct ChatDetailView: View {
                 TextField("Message", text: $draft, axis: .vertical)
                     .lineLimit(1...6)
                     .textFieldStyle(.roundedBorder)
+                    .focused($composerFocused)
                     .disabled(!draftLoaded)
                     .accessibilityIdentifier("composer")
                 Button { Task { await send() } } label: {
@@ -104,9 +192,18 @@ struct ChatDetailView: View {
         let snapshot = draft
         sending = true
         let saved = await model.send(snapshot, peerID: contact.id)
-        if saved && draft == snapshot { draft = "" }
+        if saved {
+            if draft == snapshot { draft = "" }
+            showLatest()
+            composerFocused = true
+        }
         sending = false
     }
+}
+
+private struct TimelineBottomKey: PreferenceKey {
+    static let defaultValue: CGFloat = .infinity
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }
 
 @MainActor
@@ -143,6 +240,17 @@ private struct MessageBubble: View {
             }
             .padding(12)
             .background(message.outgoing ? Color.accentColor.opacity(0.12) : Color.secondary.opacity(0.09), in: RoundedRectangle(cornerRadius: 16))
+            .contextMenu {
+                Button("Copy message", systemImage: "doc.on.doc") {
+                    #if os(macOS)
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(message.body, forType: .string)
+                    #else
+                    UIPasteboard.general.string = message.body
+                    #endif
+                }
+                ShareLink(item: message.body) { Label("Share message", systemImage: "square.and.arrow.up") }
+            }
             .frame(maxWidth: 640, alignment: message.outgoing ? .trailing : .leading)
             if !message.outgoing { Spacer(minLength: 32) }
         }

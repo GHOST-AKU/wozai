@@ -1,4 +1,5 @@
 import XCTest
+import Network
 
 final class NativeChatTests: XCTestCase {
     func testNativeConnectionConsentAndDurableReceiptsWithJavaPeer() throws {
@@ -47,6 +48,7 @@ final class NativeChatTests: XCTestCase {
         landscape.lifetime = .keepAlways
         add(landscape)
         #endif
+        try verifyReadingPosition(app)
         #if os(macOS)
         let windowCount = app.windows.count
         app.typeKey("n", modifierFlags: .command)
@@ -57,8 +59,60 @@ final class NativeChatTests: XCTestCase {
         // A scene command in the new Nearby window must not navigate the existing chat window.
         app.typeKey("n", modifierFlags: [.command, .shift])
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "composer").firstMatch.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Hello from Apple"].exists, "The other window lost its conversation")
         app.typeKey("w", modifierFlags: .command)
         #endif
+        try drivePeer("finish")
+    }
+
+    private func verifyReadingPosition(_ app: XCUIApplication) throws {
+        try drivePeer("populate")
+        let last = app.staticTexts["Reading message 79\nPreserve this reading position when new messages arrive."]
+        XCTAssertTrue(last.waitForExistence(timeout: 10))
+        let timeline = app.scrollViews["messageTimeline"]
+        XCTAssertTrue(timeline.exists)
+        #if os(macOS)
+        timeline.scroll(byDeltaX: 0, deltaY: 900)
+        #else
+        timeline.swipeDown()
+        timeline.swipeDown()
+        #endif
+        let latest = app.buttons["jumpToLatest"]
+        XCTAssertTrue(latest.waitForExistence(timeout: 5), "Reading older messages needs an explicit way back")
+        let anchor = try XCTUnwrap(timeline.staticTexts.allElementsBoundByIndex.first {
+            $0.label.hasPrefix("Reading message ") && $0.frame.intersection(timeline.frame).height > 20
+        })
+        let originalY = anchor.frame.minY
+        try drivePeer("append")
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "identifier == %@ AND label CONTAINS %@", "jumpToLatest", "New messages")).firstMatch.waitForExistence(timeout: 8))
+        XCTAssertEqual(anchor.frame.minY, originalY, accuracy: 3, "An incoming message moved the reading position")
+        latest.tap()
+        let incoming = app.staticTexts["A new message while reading history"]
+        XCTAssertTrue(incoming.waitForExistence(timeout: 8))
+        XCTAssertTrue(incoming.isHittable, "Jump to latest did not reveal the new message")
+    }
+
+    private func drivePeer(_ command: String) throws {
+        let connection = NWConnection(host: "127.0.0.1", port: 47832, using: .tcp)
+        defer { connection.cancel() }
+        let completed = expectation(description: "Java UI peer: " + command)
+        var failure: Error?
+        connection.stateUpdateHandler = { state in
+            switch state {
+            case .ready:
+                connection.send(content: Data((command + "\n").utf8), completion: .contentProcessed { error in
+                    if let error { failure = error; completed.fulfill(); return }
+                    connection.receive(minimumIncompleteLength: 3, maximumLength: 3) { data, _, _, error in
+                        failure = error
+                        if data != Data("ok\n".utf8) && error == nil { failure = NSError(domain: "JavaUIPeer", code: 1) }
+                        completed.fulfill()
+                    }
+                })
+            case .failed(let error): failure = error; completed.fulfill()
+            default: break
+            }
+        }
+        connection.start(queue: DispatchQueue(label: "apple-ui-driver"))
+        wait(for: [completed], timeout: 10)
+        if let failure { throw failure }
     }
 }

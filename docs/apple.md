@@ -8,6 +8,8 @@ iPhone 使用系统标签页和导航栈；聊天列表与详情使用 `Navigati
 
 Mac 使用原生侧栏、工具栏、菜单、快捷键和独立 Settings 窗口。手机和平板使用原生 Form 设置页。图标来自 SF Symbols，字体、语义颜色、选中态、焦点与按钮反馈交给系统；浅色、深色及系统外观可选。支持系统动态字体、文字选择和英文、简体中文。新系统的材质由系统组件提供，不自行绘制仿制玻璃或导航栏。
 
+聊天停在底部时跟随消息；上翻阅读时保留当前页及阅读锚点，新内容通过「新消息」按钮提示，点击后再加载最新页。翻看更早的分页后也可以直接返回最新消息，发送消息会返回最新并保留输入焦点。消息提供系统复制与分享菜单。导航选择使用 `SceneStorage` 按 scene 保存；Mac 的「查找附近设备」快捷键 `⌘⇧N` 通过 `FocusedSceneValue` 只操作当前窗口，聊天内的跳转按钮也按窗口传递。窗口仍共用一套设备身份、聊天存储和当前连接。
+
 应用没有第三方 Swift 包、跨平台 UI 引擎、内嵌 WebView、服务器账号或遥测。使用 SwiftUI、Network、CryptoKit、Security 和系统 SQLite。聊天页以 200 条为一页，查询历史使用时间戳和本地序号组成的游标；不会每条消息重写全量历史。iOS 当前使用单 app scene，可随系统分屏或窗口调整尺寸；不宣称多个 app 窗口之间的连接生命周期已经验收。
 
 ## 连接与安全
@@ -52,6 +54,8 @@ xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM \
 互通测试需要 JDK 17 及以上，只编译现有 Java 核心和测试对端，不重建 APK 或桌面安装包。测试对端使用生产 `NoiseRecordChannel` / `ProtocolV4`，与 Swift `ChatSession` 分别充当 TCP 发起方和接收方，检查双向文字、保存回执、安全码、文件拒绝和 heartbeat。SwiftPM 的 `WozaiInterop` 可执行产品只用于开发验证，不链接进 app。
 
 原生 UI 测试使用固定回环端口 47831 的独立 Java 对端，通过 app 正常的地址输入、认可按钮和消息输入框收发内容。测试使用 Xcode 的 ad-hoc 签名，以生成模拟器 Keychain 所需的身份权限；它不需要开发者证书，也不能用于真机分发。生产 app 不读取测试环境变量，也不内置演示消息或跳过认可的测试后门：
+
+阅读位置回归由 XCTest 通过另一个仅限回环的测试控制端口 47832 驱动 Java 对端，使用生产 NIM4 通道注入消息，检查上翻后的消息坐标、新消息提示与返回最新。Mac 还检查第二个窗口执行快捷键不会让第一个窗口丢失会话。测试控制入口只存在于独立 Java 测试程序，不链接到 app。
 
 ```sh
 bash tools/test-apple-interop.sh --compile-java

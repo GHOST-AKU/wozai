@@ -32,11 +32,23 @@ struct NearbyIMApp: App {
         .defaultSize(width: 940, height: 680)
         .commands {
             SidebarCommands()
-            CommandGroup(after: .newItem) {
-                Button("Find nearby devices") { model.newChatRequest += 1 }
-                    .keyboardShortcut("n", modifiers: [.command, .shift])
-            }
+            NearbyCommands()
         }
         #endif
     }
 }
+
+#if os(macOS)
+@MainActor
+private struct NearbyCommands: Commands {
+    @FocusedValue(\.findNearby) private var findNearby
+
+    var body: some Commands {
+        CommandGroup(after: .newItem) {
+            Button("Find nearby devices") { findNearby?() }
+                .keyboardShortcut("n", modifiers: [.command, .shift])
+                .disabled(findNearby == nil)
+        }
+    }
+}
+#endif

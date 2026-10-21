@@ -1,6 +1,30 @@
 import SwiftUI
 import WozaiCore
 
+private struct FindNearbyEnvironmentKey: EnvironmentKey {
+    static let defaultValue: @MainActor () -> Void = {}
+}
+
+extension EnvironmentValues {
+    var findNearby: @MainActor () -> Void {
+        get { self[FindNearbyEnvironmentKey.self] }
+        set { self[FindNearbyEnvironmentKey.self] = newValue }
+    }
+}
+
+#if os(macOS)
+private struct FindNearbyFocusedKey: FocusedValueKey {
+    typealias Value = @MainActor () -> Void
+}
+
+extension FocusedValues {
+    var findNearby: (@MainActor () -> Void)? {
+        get { self[FindNearbyFocusedKey.self] }
+        set { self[FindNearbyFocusedKey.self] = newValue }
+    }
+}
+#endif
+
 @MainActor
 struct RootView: View {
     @Environment(AppModel.self) private var model
@@ -42,12 +66,12 @@ struct RootView: View {
 }
 
 #if os(iOS)
-private enum AppTab: Hashable { case chats, nearby, settings }
+private enum AppTab: String, Hashable { case chats, nearby, settings }
 
 @MainActor
 private struct MobileNavigation: View {
     @Environment(AppModel.self) private var model
-    @State private var tab = AppTab.chats
+    @SceneStorage("selectedTab") private var tab = AppTab.chats
 
     var body: some View {
         Group {
@@ -67,14 +91,14 @@ private struct MobileNavigation: View {
             }
         }
         .onChange(of: model.connectionState) { _, value in if value == .connected { tab = .chats } }
-        .onChange(of: model.newChatRequest) { tab = .nearby }
+        .environment(\.findNearby, { tab = .nearby })
     }
 }
 
 @MainActor
 private struct ChatsView: View {
     @Environment(AppModel.self) private var model
-    @State private var selection: String?
+    @SceneStorage("selectedConversation") private var selection: String?
     let findNearby: () -> Void
 
     var body: some View {
@@ -106,7 +130,7 @@ private struct ChatsView: View {
 @MainActor
 private struct MacNavigation: View {
     @Environment(AppModel.self) private var model
-    @State private var selection: String? = "nearby"
+    @SceneStorage("sidebarSelection") private var selection: String? = "nearby"
 
     var body: some View {
         NavigationSplitView {
@@ -132,7 +156,9 @@ private struct MacNavigation: View {
         .onChange(of: model.connectionState) { _, value in
             if value == .connected, let id = model.activePeer?.id { selection = "chat:" + id }
         }
-        .onChange(of: model.newChatRequest) { selection = "nearby" }
+        .environment(\.findNearby, { selection = "nearby" })
+        // Commands follow the key scene; shared connection state must not broadcast navigation.
+        .focusedSceneValue(\.findNearby, { selection = "nearby" })
     }
 }
 #endif

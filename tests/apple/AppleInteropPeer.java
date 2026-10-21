@@ -71,7 +71,43 @@ public final class AppleInteropPeer {
                 }
             }
             require(receivedText && receivedACK && rejectedFile && receivedPong, "Incomplete exchange");
+            if (ui) { exerciseReadingPosition(channel); }
             channel.write(ProtocolV4.encode(new Frame(Frame.BYE, "", "", 0)));
+        }
+    }
+
+    /** An out-of-band test driver injects real encrypted messages while the UI is reading history. */
+    private static void exerciseReadingPosition(NoiseRecordChannel channel) throws Exception {
+        Thread receipts = new Thread(() -> {
+            try {
+                while (true) {
+                    Frame frame = ProtocolV4.decode(channel.read());
+                    if (frame.type == Frame.PING) { channel.write(ProtocolV4.encode(new Frame(Frame.PONG, "", "", 0))); }
+                    else { require(frame.type == Frame.ACK || frame.type == Frame.PONG, "Unexpected UI fixture response"); }
+                }
+            } catch (IOException closed) { /* The main test closes the independent peer after completion. */ }
+        }, "apple-ui-receipts");
+        receipts.setDaemon(true);
+        receipts.start();
+        try (ServerSocket control = new ServerSocket(47832, 1, InetAddress.getByName("127.0.0.1"))) {
+            control.setSoTimeout(90_000);
+            long timestamp = System.currentTimeMillis();
+            while (true) {
+                try (Socket driver = control.accept()) {
+                    driver.setSoTimeout(5_000);
+                    String command = new BufferedReader(new InputStreamReader(driver.getInputStream(), java.nio.charset.StandardCharsets.UTF_8)).readLine();
+                    if ("populate".equals(command)) {
+                        for (int index = 0; index < 80; index++) {
+                            channel.write(ProtocolV4.encode(new Frame(Frame.TEXT, UUID.randomUUID().toString(),
+                                String.format(java.util.Locale.ROOT, "Reading message %02d\nPreserve this reading position when new messages arrive.", index), ++timestamp)));
+                        }
+                    } else if ("append".equals(command)) {
+                        channel.write(ProtocolV4.encode(new Frame(Frame.TEXT, UUID.randomUUID().toString(), "A new message while reading history", ++timestamp)));
+                    } else { require("finish".equals(command), "Unknown UI driver command"); }
+                    driver.getOutputStream().write("ok\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    if ("finish".equals(command)) { return; }
+                }
+            }
         }
     }
 
