@@ -124,6 +124,7 @@ struct ChatDetailView: View {
             .accessibilityIdentifier("messageTimeline")
             .defaultScrollAnchor(.bottom)
             .scrollDismissesKeyboard(.interactively)
+            .scrollBounceBehavior(.always, axes: .vertical)
             .modifier(UserScrollObserver(began: {
                 userScrolling = true; pendingScroll = false; forceLatest = false; followingLatest = false
             }, ended: {

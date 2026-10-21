@@ -47,6 +47,11 @@ final class NativeChatTests: XCTestCase {
         landscape.name = "native-chat-landscape"
         landscape.lifetime = .keepAlways
         add(landscape)
+        if app.keyboards.firstMatch.exists {
+            app.scrollViews["messageTimeline"].swipeDown()
+            let hidden = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in !app.keyboards.firstMatch.exists }, object: app)
+            XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 8), .completed, "Reading should allow dismissing the keyboard")
+        }
         #endif
         for cycle in 0..<3 { try verifyReadingPosition(app, cycle: cycle) }
         #if os(macOS)
@@ -68,10 +73,10 @@ final class NativeChatTests: XCTestCase {
         try drivePeer("populate")
         let last = app.staticTexts[String(format: "Reading message %02d\nPreserve this reading position when new messages arrive.", (cycle + 1) * 80 - 1)]
         XCTAssertTrue(last.waitForExistence(timeout: 10), app.debugDescription)
-        XCTAssertTrue(last.isHittable, "The latest message exists but is outside the viewport: " + app.debugDescription)
-        XCTAssertFalse(app.buttons["jumpToLatest"].exists, "Following the latest messages must not show a history navigation prompt")
         let timeline = app.scrollViews["messageTimeline"]
         XCTAssertTrue(timeline.exists)
+        XCTAssertTrue(waitForVisible(last, in: timeline), "The latest message exists but is outside the viewport: " + app.debugDescription)
+        XCTAssertFalse(app.buttons["jumpToLatest"].exists, "Following the latest messages must not show a history navigation prompt")
         #if os(macOS)
         timeline.hover()
         timeline.scroll(byDeltaX: 0, deltaY: 900)
@@ -92,8 +97,21 @@ final class NativeChatTests: XCTestCase {
         latest.tap()
         let incoming = app.staticTexts["A new message while reading history \(cycle + 1)"]
         XCTAssertTrue(incoming.waitForExistence(timeout: 8))
-        XCTAssertTrue(incoming.isHittable, "Jump to latest did not reveal the new message: " + app.debugDescription)
+        XCTAssertTrue(waitForVisible(incoming, in: timeline), "Jump to latest did not reveal the new message: " + app.debugDescription)
         XCTAssertFalse(app.buttons["jumpToLatest"].exists, "Jump to latest did not resume following")
+    }
+
+    private func waitForVisible(_ element: XCUIElement, in viewport: XCUIElement) -> Bool {
+        // Read-only text can be visible without accepting an accessibility hit test on macOS.
+        let visible = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            guard element.exists, viewport.exists else { return false }
+            let frame = element.frame, bounds = viewport.frame
+            guard !frame.isEmpty, !bounds.isEmpty else { return false }
+            let intersection = frame.intersection(bounds)
+            return !intersection.isNull && intersection.height >= min(frame.height, bounds.height) - 1
+                && intersection.width >= min(frame.width, bounds.width) - 1
+        }, object: element)
+        return XCTWaiter.wait(for: [visible], timeout: 8) == .completed
     }
 
     private func drivePeer(_ command: String) throws {
