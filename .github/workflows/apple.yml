@@ -7,6 +7,12 @@ on:
     branches: [main]
     paths: ['apple/**', '.github/workflows/apple.yml', 'tools/test-apple-*.sh', 'tests/apple/**']
   workflow_dispatch:
+    inputs:
+      validation:
+        description: Run the full validation or only the macOS UI regression
+        type: choice
+        options: [full, macos-ui]
+        default: full
 permissions:
   contents: read
 jobs:
@@ -20,10 +26,13 @@ jobs:
           xcodebuild -version
           swift --version
       - name: Test shared native core
+        if: ${{ inputs.validation != 'macos-ui' }}
         run: swift test --package-path apple
       - name: Exchange encrypted records with the production Java implementation
+        if: ${{ inputs.validation != 'macos-ui' }}
         run: bash tools/test-apple-interop.sh
       - name: Build universal native macOS Release and record footprint
+        if: ${{ inputs.validation != 'macos-ui' }}
         run: |
           mkdir -p build/apple-ui
           xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM -destination 'platform=macOS' -configuration Release -derivedDataPath apple/DerivedData ONLY_ACTIVE_ARCH=NO 'ARCHS=arm64 x86_64' CODE_SIGNING_ALLOWED=NO build
@@ -32,11 +41,16 @@ jobs:
           du -sk "$app" | tee -a build/apple-ui/macos-release-footprint.log
           otool -L "$app/Contents/MacOS/NearbyIM" | tee -a build/apple-ui/macos-release-footprint.log
       - name: Build native iPhone and iPad app for devices without distribution signing
+        if: ${{ inputs.validation != 'macos-ui' }}
         run: xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM -destination 'generic/platform=iOS' -configuration Release -derivedDataPath apple/DeviceBuild CODE_SIGNING_ALLOWED=NO build
+      - name: Compile the independent Java peer for a focused UI run
+        if: ${{ inputs.validation == 'macos-ui' }}
+        run: bash tools/test-apple-interop.sh --compile-java
       - name: Exercise native macOS consent, chat and receipts
         timeout-minutes: 8
         run: bash tools/test-apple-ui.sh 'platform=macOS' macos
       - name: Select available iPhone and iPad simulators
+        if: ${{ inputs.validation != 'macos-ui' }}
         id: simulators
         run: |
           python3 - <<'PY'

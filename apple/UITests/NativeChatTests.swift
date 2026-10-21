@@ -67,7 +67,7 @@ final class NativeChatTests: XCTestCase {
     private func verifyReadingPosition(_ app: XCUIApplication) throws {
         try drivePeer("populate")
         let last = app.staticTexts["Reading message 79\nPreserve this reading position when new messages arrive."]
-        XCTAssertTrue(last.waitForExistence(timeout: 10))
+        XCTAssertTrue(last.waitForExistence(timeout: 10), app.debugDescription)
         let timeline = app.scrollViews["messageTimeline"]
         XCTAssertTrue(timeline.exists)
         #if os(macOS)

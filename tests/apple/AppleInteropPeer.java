@@ -78,12 +78,16 @@ public final class AppleInteropPeer {
 
     /** An out-of-band test driver injects real encrypted messages while the UI is reading history. */
     private static void exerciseReadingPosition(NoiseRecordChannel channel) throws Exception {
+        java.util.concurrent.atomic.AtomicInteger acknowledgements = new java.util.concurrent.atomic.AtomicInteger();
         Thread receipts = new Thread(() -> {
             try {
                 while (true) {
                     Frame frame = ProtocolV4.decode(channel.read());
                     if (frame.type == Frame.PING) { channel.write(ProtocolV4.encode(new Frame(Frame.PONG, "", "", 0))); }
-                    else { require(frame.type == Frame.ACK || frame.type == Frame.PONG, "Unexpected UI fixture response"); }
+                    else {
+                        require(frame.type == Frame.ACK || frame.type == Frame.PONG, "Unexpected UI fixture response");
+                        if (frame.type == Frame.ACK) { acknowledgements.incrementAndGet(); }
+                    }
                 }
             } catch (IOException closed) { /* The main test closes the independent peer after completion. */ }
         }, "apple-ui-receipts");
@@ -101,9 +105,11 @@ public final class AppleInteropPeer {
                             channel.write(ProtocolV4.encode(new Frame(Frame.TEXT, UUID.randomUUID().toString(),
                                 String.format(java.util.Locale.ROOT, "Reading message %02d\nPreserve this reading position when new messages arrive.", index), ++timestamp)));
                         }
+                        System.out.println("UI fixture: sent 80 reading messages");
                     } else if ("append".equals(command)) {
                         channel.write(ProtocolV4.encode(new Frame(Frame.TEXT, UUID.randomUUID().toString(), "A new message while reading history", ++timestamp)));
                     } else { require("finish".equals(command), "Unknown UI driver command"); }
+                    System.out.println("UI driver: " + command + ", durable ACKs=" + acknowledgements.get());
                     driver.getOutputStream().write("ok\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
                     if ("finish".equals(command)) { return; }
                 }

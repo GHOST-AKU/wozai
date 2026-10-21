@@ -8,6 +8,7 @@ peer_pid=""
 simulator_id=""
 cleanup() {
   if [[ -n "$peer_pid" ]]; then kill "$peer_pid" 2>/dev/null || true; wait "$peer_pid" 2>/dev/null || true; fi
+  if [[ -f "build/apple-ui/$label-java.log" ]]; then cat "build/apple-ui/$label-java.log"; fi
   if [[ -n "$simulator_id" ]]; then xcrun simctl shutdown "$simulator_id" > /dev/null 2>&1 || true; fi
 }
 trap cleanup EXIT
@@ -43,4 +44,3 @@ xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM -destination "$des
   -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 180 \
   CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- test-without-building | tee "build/apple-ui/$label-xcodebuild.log"
 wait "$peer_pid"
-cat "build/apple-ui/$label-java.log"
