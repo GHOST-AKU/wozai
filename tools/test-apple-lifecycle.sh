@@ -19,7 +19,17 @@ import pathlib, sqlite3, subprocess, tempfile
 probe = pathlib.Path('build/apple-lifecycle/termination-probe').resolve()
 with tempfile.TemporaryDirectory(prefix='wozai-termination-') as root:
     database = pathlib.Path(root) / 'chat.sqlite'
-    subprocess.run([str(probe), str(database)], check=True, timeout=20)
+    process = subprocess.Popen([str(probe), str(database)])
+    try:
+        assert process.wait(timeout=20) == 0
+    except subprocess.TimeoutExpired:
+        subprocess.run(['/usr/bin/sample', str(process.pid), '1', '-file',
+                        str(pathlib.Path('build/apple-lifecycle/termination-stack.txt').resolve())], timeout=10)
+        with sqlite3.connect(database) as connection:
+            print('Drafts at termination timeout:', dict(connection.execute('SELECT peer,body FROM drafts')), flush=True)
+        process.kill()
+        process.wait()
+        raise
     with sqlite3.connect(database) as connection:
         drafts = dict(connection.execute('SELECT peer,body FROM drafts'))
     assert drafts == {'edited': 'latest draft before quit', 'cleared': ''}, drafts
