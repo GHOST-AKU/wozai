@@ -86,19 +86,33 @@ final class NativeChatTests: XCTestCase {
         #endif
         let latest = app.buttons["jumpToLatest"]
         XCTAssertTrue(latest.waitForExistence(timeout: 5), "Reading older messages needs an explicit way back: " + app.debugDescription)
-        let anchor = try XCTUnwrap(timeline.staticTexts.allElementsBoundByIndex.reversed().first {
-            let text = ($0.value as? String) ?? $0.label
-            return text.hasPrefix("Reading message ") && $0.frame.intersection(timeline.frame).height > 20
-        })
+        let anchor = try visibleAnchor(in: timeline)
         let originalY = anchor.frame.minY
         try drivePeer("append")
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "identifier == %@ AND label CONTAINS %@", "jumpToLatest", "New messages")).firstMatch.waitForExistence(timeout: 8))
-        XCTAssertEqual(anchor.frame.minY, originalY, accuracy: 3, "An incoming message moved the reading position")
+        XCTAssertEqual(anchor.element.frame.minY, originalY, accuracy: 3, "An incoming message moved the reading position")
         latest.tap()
         let incoming = app.staticTexts["A new message while reading history \(cycle + 1)"]
         XCTAssertTrue(incoming.waitForExistence(timeout: 8))
         XCTAssertTrue(waitForVisible(incoming, in: timeline), "Jump to latest did not reveal the new message: " + app.debugDescription)
         XCTAssertFalse(app.buttons["jumpToLatest"].exists, "Jump to latest did not resume following")
+    }
+
+    private func visibleAnchor(in viewport: XCUIElement) throws -> (element: XCUIElement, frame: CGRect) {
+        let bounds = viewport.frame
+        let rows = viewport.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@ OR value BEGINSWITH %@", "Reading message ", "Reading message ")).allElementsBoundByIndex
+        var lower = 0, upper = rows.count
+        var candidate: (element: XCUIElement, frame: CGRect)?
+        // Message frames are vertically ordered; avoid an expensive accessibility snapshot per row.
+        while lower < upper {
+            let middle = (lower + upper) / 2
+            let element = rows[middle], frame = element.frame
+            if frame.maxY > bounds.minY + 20 { candidate = (element, frame); upper = middle }
+            else { lower = middle + 1 }
+        }
+        let anchor = try XCTUnwrap(candidate)
+        XCTAssertGreaterThan(anchor.frame.intersection(bounds).height, 20)
+        return anchor
     }
 
     private func waitForVisible(_ element: XCUIElement, in viewport: XCUIElement) -> Bool {
