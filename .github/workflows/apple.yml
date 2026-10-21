@@ -12,7 +12,7 @@ permissions:
 jobs:
   native:
     runs-on: macos-latest
-    timeout-minutes: 35
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - name: Record Apple toolchain
@@ -42,18 +42,19 @@ jobs:
           python3 - <<'PY'
           import json, os, subprocess
           devices = json.loads(subprocess.check_output(['xcrun', 'simctl', 'list', 'devices', 'available', '--json']))['devices']
-          ios = [d for runtime, values in devices.items() if '.iOS-' in runtime for d in values]
+          ios = [(runtime, d) for runtime, values in devices.items() if '.iOS-' in runtime for d in values]
           with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
               for key, prefix in [('iphone', 'iPhone'), ('ipad', 'iPad')]:
-                  device = next(d for d in ios if d['name'].startswith(prefix))
-                  output.write(f"{key}={device['udid']}\n")
+                  runtime, template = next((r, d) for r, d in ios if d['name'].startswith(prefix))
+                  device = subprocess.check_output(['xcrun', 'simctl', 'create', 'Wozai CI ' + prefix, template['deviceTypeIdentifier'], runtime], text=True).strip()
+                  output.write(f"{key}={device}\n")
           PY
       - name: Exercise native iPhone consent, chat and receipts
-        timeout-minutes: 8
+        timeout-minutes: 12
         run: bash tools/test-apple-ui.sh 'platform=iOS Simulator,id=${{ steps.simulators.outputs.iphone }}' iphone
       - name: Exercise native iPad consent, chat and receipts
         if: ${{ !cancelled() && steps.simulators.outcome == 'success' }}
-        timeout-minutes: 8
+        timeout-minutes: 12
         run: bash tools/test-apple-ui.sh 'platform=iOS Simulator,id=${{ steps.simulators.outputs.ipad }}' ipad
       - uses: actions/upload-artifact@v4
         if: always()

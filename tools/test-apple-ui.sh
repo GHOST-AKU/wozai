@@ -4,13 +4,20 @@ cd "$(dirname "$0")/.."
 destination="$1"
 label="$2"
 mkdir -p build/apple-ui
+peer_pid=""
+simulator_id=""
+cleanup() {
+  if [[ -n "$peer_pid" ]]; then kill "$peer_pid" 2>/dev/null || true; wait "$peer_pid" 2>/dev/null || true; fi
+  if [[ -n "$simulator_id" ]]; then xcrun simctl shutdown "$simulator_id" > /dev/null 2>&1 || true; fi
+}
+trap cleanup EXIT
 if [[ "$destination" == *"platform=iOS Simulator"* ]]; then
   simulator_id="${destination##*id=}"; simulator_id="${simulator_id%%,*}"
   python3 - "$simulator_id" > "build/apple-ui/$label-boot.log" 2>&1 <<'PY'
 import subprocess, sys
 device = sys.argv[1]
 subprocess.run(['xcrun', 'simctl', 'boot', device], check=False, timeout=30)
-subprocess.run(['xcrun', 'simctl', 'bootstatus', device, '-b'], check=True, timeout=240)
+subprocess.run(['xcrun', 'simctl', 'bootstatus', device, '-b'], check=True, timeout=360)
 PY
 fi
 xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM -destination "$destination" \
@@ -20,8 +27,6 @@ port_file="build/apple-ui/$label.port"
 rm -f "$port_file"
 java -cp build/apple-interop/java dev.ghost.nearbyim.core.AppleInteropPeer ui-server "$port_file" > "build/apple-ui/$label-java.log" 2>&1 &
 peer_pid=$!
-cleanup() { kill "$peer_pid" 2>/dev/null || true; wait "$peer_pid" 2>/dev/null || true; }
-trap cleanup EXIT
 python3 - "$port_file" "$peer_pid" <<'PY'
 import os, pathlib, sys, time
 path = pathlib.Path(sys.argv[1])
