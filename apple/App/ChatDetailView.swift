@@ -27,6 +27,7 @@ struct ChatDetailView: View {
     @State private var scrollRequest = 0
     @State private var scrollTarget = "latest"
     @State private var visibleMessage: String?
+    @State private var lastLayout: TimelineLayout?
     @FocusState private var composerFocused: Bool
     private var connected: Bool { model.connectionState == .connected && model.activePeer?.id == contact.id }
     private var tooLong: Bool { draft.utf8.count > 8192 }
@@ -86,26 +87,35 @@ struct ChatDetailView: View {
                         }
                         .scrollTargetLayout()
                         Color.clear.frame(height: 1).id("latest")
-                            .background {
-                                GeometryReader { geometry in
-                                    Color.clear.preference(key: TimelineBottomKey.self, value: geometry.frame(in: .named("timeline")).maxY)
-                                }
-                            }
                     }
                     .padding()
+                    .background {
+                        GeometryReader { geometry in
+                            Color.clear.preference(key: TimelineFrameKey.self, value: geometry.frame(in: .named("timeline")))
+                        }
+                    }
                 }
                 .coordinateSpace(name: "timeline")
                 .accessibilityIdentifier("messageTimeline")
                 .defaultScrollAnchor(.bottom)
                 .scrollPosition(id: $visibleMessage, anchor: .top)
                 .scrollDismissesKeyboard(.interactively)
-                .onPreferenceChange(TimelineBottomKey.self) { bottom in
+                .onPreferenceChange(TimelineFrameKey.self) { frame in
+                    guard let frame else { return }
+                    let layout = TimelineLayout(frame: frame, viewport: viewport.size, first: messages.first?.rowID, last: messages.last?.rowID)
+                    let previous = lastLayout
+                    lastLayout = layout
                     guard loaded, before == nil else { return }
-                    let atBottom = bottom <= viewport.size.height + 24 && bottom >= 0
+                    let atBottom = frame.maxY <= viewport.size.height + 24 && frame.maxY >= 0
                     if atBottom && !followingLatest {
                         followingLatest = true
                         if hasNewMessages { showLatest() }
-                    } else if !atBottom { followingLatest = false }
+                    } else if !atBottom, let previous,
+                              previous.viewport == layout.viewport, previous.first == layout.first, previous.last == layout.last,
+                              frame.minY - previous.frame.minY > max(1, abs(frame.height - previous.frame.height)) {
+                        // Growing content and lazy height corrections are not a user scrolling back.
+                        followingLatest = false
+                    }
                 }
                 .onChange(of: scrollRequest) {
                     proxy.scrollTo(scrollTarget, anchor: scrollTarget == "latest" ? .bottom : .top)
@@ -201,9 +211,16 @@ struct ChatDetailView: View {
     }
 }
 
-private struct TimelineBottomKey: PreferenceKey {
-    static let defaultValue: CGFloat = .infinity
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
+private struct TimelineLayout {
+    let frame: CGRect
+    let viewport: CGSize
+    let first: String?
+    let last: String?
+}
+
+private struct TimelineFrameKey: PreferenceKey {
+    static let defaultValue: CGRect? = nil
+    static func reduce(value: inout CGRect?, nextValue: () -> CGRect?) { value = nextValue() }
 }
 
 @MainActor
