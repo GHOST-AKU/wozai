@@ -33,6 +33,7 @@ struct ChatDetailView: View {
     @FocusState private var composerFocused: Bool
     private var connected: Bool { model.connectionState == .connected && model.activePeer?.id == contact.id }
     private var tooLong: Bool { draft.utf8.count > 8192 }
+    private var latestID: String { messages.last?.rowID ?? "latest" }
     private var latestLabel: LocalizedStringKey { hasNewMessages ? "New messages" : "Latest messages" }
     private var refreshKey: String { contact.id + ":" + String(model.revision[contact.id, default: 0]) + ":" + String(before?.timestamp ?? UInt64.max) + ":" + String(before?.sequence ?? 0) + ":" + String(refreshRequest) }
 
@@ -107,7 +108,7 @@ struct ChatDetailView: View {
         .scrollDismissesKeyboard(.interactively)
         .onChange(of: visibleMessage) {
             #if DEBUG
-            timelineLog.debug("position latest=\(visibleMessage == "latest", privacy: .public) following=\(followingLatest, privacy: .public) tail_visible=\(latestVisible, privacy: .public)")
+            timelineLog.debug("position latest=\(visibleMessage == latestID, privacy: .public) following=\(followingLatest, privacy: .public) tail_visible=\(latestVisible, privacy: .public)")
             #endif
             updateFollowing()
         }
@@ -129,7 +130,7 @@ struct ChatDetailView: View {
         if latestVisible {
             followingLatest = true
             if hasNewMessages { showLatest() }
-        } else if visibleMessage != "latest" {
+        } else if visibleMessage != latestID {
             // A pending programmatic tail target must settle before following can be paused.
             followingLatest = false
         }
@@ -147,7 +148,7 @@ struct ChatDetailView: View {
             messages = page
             if before == nil {
                 followingLatest = true; hasNewMessages = false; forceLatest = false
-                visibleMessage = "latest"
+                visibleMessage = latestID
             } else if pageChanged, let first = page.first {
                 visibleMessage = first.rowID
             }
