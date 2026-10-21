@@ -29,7 +29,7 @@ struct ChatDetailView: View {
     @State private var forceLatest = false
     @State private var refreshRequest = 0
     @State private var visibleMessage: String?
-    @State private var lastLayout: TimelineLayout?
+    @State private var latestVisible = true
     @FocusState private var composerFocused: Bool
     private var connected: Bool { model.connectionState == .connected && model.activePeer?.id == contact.id }
     private var tooLong: Bool { draft.utf8.count > 8192 }
@@ -72,71 +72,66 @@ struct ChatDetailView: View {
     }
 
     private var timeline: some View {
-        GeometryReader { viewport in
-            ScrollView {
-                LazyVStack(spacing: 12) {
-                    if messages.count == 200, let first = messages.first {
-                        Button("Earlier messages") { followingLatest = false; before = first.cursor }
-                            .id("earlier")
-                    }
-                    if !loaded { ProgressView() }
-                    else if messages.isEmpty {
-                        ContentUnavailableView("No messages yet", systemImage: "bubble.left", description: Text("Send a greeting when the devices are connected."))
-                    }
-                    ForEach(messages, id: \.rowID) { message in MessageBubble(message: message) }
-                    Color.clear.frame(height: 1).id("latest")
+        ScrollView {
+            LazyVStack(spacing: 12) {
+                if messages.count == 200, let first = messages.first {
+                    Button("Earlier messages") { followingLatest = false; before = first.cursor }
+                        .id("earlier")
                 }
-                .scrollTargetLayout()
+                if !loaded { ProgressView() }
+                else if messages.isEmpty {
+                    ContentUnavailableView("No messages yet", systemImage: "bubble.left", description: Text("Send a greeting when the devices are connected."))
+                }
+                ForEach(messages, id: \.rowID) { message in MessageBubble(message: message) }
+                Color.clear.frame(height: 1).id("latest")
+                    // Visibility changes update state; individual scroll frames do not rebuild the chat.
+                    .onGeometryChange(for: Bool.self) { geometry in
+                        let frame = geometry.frame(in: .scrollView)
+                        let height = geometry.bounds(of: .scrollView)?.height ?? 0
+                        #if DEBUG
+                        timelineLog.debug("tail top=\(Double(frame.minY), privacy: .public) bottom=\(Double(frame.maxY), privacy: .public) viewport=\(Double(height), privacy: .public)")
+                        #endif
+                        return frame.minY >= 0 && frame.maxY <= height + 24
+                    } action: { visible in
+                        latestVisible = visible
+                        updateFollowing()
+                    }
+                    .onDisappear { latestVisible = false; updateFollowing() }
+            }
+            .scrollTargetLayout()
+            .padding()
+        }
+        .accessibilityIdentifier("messageTimeline")
+        .defaultScrollAnchor(.bottom)
+        .scrollPosition(id: $visibleMessage, anchor: .bottom)
+        .scrollDismissesKeyboard(.interactively)
+        .onChange(of: visibleMessage) {
+            #if DEBUG
+            timelineLog.debug("position latest=\(visibleMessage == "latest", privacy: .public) following=\(followingLatest, privacy: .public) tail_visible=\(latestVisible, privacy: .public)")
+            #endif
+            updateFollowing()
+        }
+        .overlay(alignment: .bottomTrailing) {
+            if !followingLatest || before != nil || hasNewMessages {
+                Button(action: showLatest) {
+                    Label(latestLabel, systemImage: "arrow.down")
+                }
+                .buttonStyle(.borderedProminent)
+                .buttonBorderShape(.capsule)
+                .accessibilityIdentifier("jumpToLatest")
                 .padding()
-                .background {
-                    GeometryReader { geometry in
-                        Color.clear.preference(key: TimelineFrameKey.self, value: geometry.frame(in: .named("timeline")))
-                    }
-                }
             }
-            .coordinateSpace(name: "timeline")
-            .accessibilityIdentifier("messageTimeline")
-            .defaultScrollAnchor(.bottom)
-            .scrollPosition(id: $visibleMessage, anchor: .bottom)
-            .scrollDismissesKeyboard(.interactively)
-            .onPreferenceChange(TimelineFrameKey.self) { frame in
-                guard let frame else { return }
-                let layout = TimelineLayout(frame: frame, viewport: viewport.size, first: messages.first?.rowID, last: messages.last?.rowID)
-                let previous = lastLayout
-                lastLayout = layout
-                #if DEBUG
-                timelineLog.debug("layout top=\(Double(frame.minY), privacy: .public) bottom=\(Double(frame.maxY), privacy: .public) viewport=\(Double(viewport.size.height), privacy: .public) rows=\(messages.count, privacy: .public) following=\(followingLatest, privacy: .public) same_page=\(previous?.first == layout.first && previous?.last == layout.last, privacy: .public)")
-                #endif
-                guard loaded, before == nil else { return }
-                let atBottom = frame.maxY <= viewport.size.height + 24 && frame.maxY >= 0
-                if atBottom && !followingLatest {
-                    followingLatest = true
-                    if hasNewMessages { showLatest() }
-                } else if !atBottom, let previous,
-                          previous.viewport == layout.viewport, previous.first == layout.first, previous.last == layout.last {
-                    // Ignore page and viewport changes, while allowing lazy height estimates during user scrolling.
-                    followingLatest = false
-                }
-            }
-            .onChange(of: visibleMessage) { _, value in
-                #if DEBUG
-                timelineLog.debug("position latest=\(value == "latest", privacy: .public) following=\(followingLatest, privacy: .public)")
-                #endif
-            }
-            .onChange(of: viewport.size) {
-                if followingLatest && before == nil { visibleMessage = "latest" }
-            }
-            .overlay(alignment: .bottomTrailing) {
-                if !followingLatest || before != nil || hasNewMessages {
-                    Button(action: showLatest) {
-                        Label(latestLabel, systemImage: "arrow.down")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .buttonBorderShape(.capsule)
-                    .accessibilityIdentifier("jumpToLatest")
-                    .padding()
-                }
-            }
+        }
+    }
+
+    private func updateFollowing() {
+        guard loaded, before == nil else { return }
+        if latestVisible {
+            followingLatest = true
+            if hasNewMessages { showLatest() }
+        } else if visibleMessage != "latest" {
+            // A pending programmatic tail target must settle before following can be paused.
+            followingLatest = false
         }
     }
 
@@ -211,18 +206,6 @@ struct ChatDetailView: View {
         }
         sending = false
     }
-}
-
-private struct TimelineLayout {
-    let frame: CGRect
-    let viewport: CGSize
-    let first: String?
-    let last: String?
-}
-
-private struct TimelineFrameKey: PreferenceKey {
-    static let defaultValue: CGRect? = nil
-    static func reduce(value: inout CGRect?, nextValue: () -> CGRect?) { value = nextValue() }
 }
 
 @MainActor
