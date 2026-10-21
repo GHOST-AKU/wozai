@@ -194,6 +194,17 @@ final class AppModel {
         }
     }
 
+    func flushDrafts() async throws {
+        let writes = Array(draftWrites.values)
+        draftWrites.removeAll()
+        for write in writes { write.cancel() }
+        // Drain writes already inside SQLite before committing the latest snapshots.
+        for write in writes { await write.value }
+        guard let store else { return }
+        let snapshot = drafts.compactMap { id, draft in draft.loaded ? (id, draft.text) : nil }
+        for (id, text) in snapshot { try await store.saveDraft(peerID: id, text: text) }
+    }
+
     func send(_ text: String, peerID: String) async -> Bool {
         guard connectionState == .connected, activePeer?.id == peerID, let session else { return false }
         do { try await session.sendText(text); return true } catch { show(error); return false }

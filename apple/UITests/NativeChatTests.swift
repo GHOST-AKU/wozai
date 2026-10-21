@@ -79,6 +79,18 @@ final class NativeChatTests: XCTestCase {
         app.typeKey("w", modifierFlags: .command)
         #endif
         try drivePeer("finish")
+        #if os(macOS)
+        // Exercise the real SwiftUI app's delegate as well as the immediate-quit process probe.
+        app.typeKey("q", modifierFlags: .command)
+        XCTAssertTrue(app.wait(for: .notRunning, timeout: 10), "Normal quit did not finish")
+        app.launch()
+        let restored = app.descendants(matching: .any).matching(identifier: "composer").firstMatch
+        if !restored.waitForExistence(timeout: 5) {
+            app.staticTexts["Java interop peer"].firstMatch.tap()
+        }
+        XCTAssertTrue(restored.waitForExistence(timeout: 8))
+        XCTAssertEqual(restored.value as? String, "Shared draft updated", "Normal quit lost the conversation draft")
+        #endif
     }
 
     private func verifyReadingPosition(_ app: XCUIApplication, cycle: Int) throws {

@@ -24,7 +24,7 @@ Mac 使用原生侧栏、工具栏、菜单、快捷键和独立 Settings 窗口
 
 NIM4 使用 `Noise_XX_25519_AESGCM_SHA256`，经 CryptoKit 执行 X25519、AES-GCM、SHA-256/HMAC 及 P-256 签名，与 Java 端使用同一握手 prologue、帧格式和根签名绑定。没有 NIM3 或明文降级。传入文字在 SQLite FULL 提交后才发送 ACK；未收到保存回执的消息不会显示 Delivered，也不会在重启后自动重发。
 
-长期设备身份保存在本机 Keychain，使用 `AfterFirstUnlockThisDeviceOnly`；不可读取或损坏时不会静默重置身份。记录和草稿存于 app 容器的 Application Support / NearbyIM 下。**链路加密不等于聊天数据库加密**；当前数据库没有额外的应用层静态加密。
+长期设备身份保存在本机 Keychain，使用 `AfterFirstUnlockThisDeviceOnly`；不可读取或损坏时不会静默重置身份。记录和草稿存于 app 容器的 Application Support / NearbyIM 下。**链路加密不等于聊天数据库加密**；当前数据库没有额外的应用层静态加密。打开数据库前会为整个 NearbyIM 存储目录设置系统备份排除标记，覆盖数据库、WAL/SHM 和草稿；已有目录在每次打开时同样处理，标记设置失败则停止初始化。该标记用于后续系统备份，不能清理已经生成的旧备份。
 
 首次局域网访问由系统请求权限。macOS app sandbox 声明网络客户端和服务端权限，Info.plist 声明 Bonjour 服务及本地网络用途。隐私清单声明无跟踪、无数据收集，并为外观与设备名称的 UserDefaults 使用填写用途。
 
@@ -32,7 +32,7 @@ NIM4 使用 `Noise_XX_25519_AESGCM_SHA256`，经 CryptoKit 执行 X25519、AES-G
 
 已编写局域网发现/手动连接、双端设备认可、加密文字、持久送达回执、记录/草稿、安全码与原生设置。Apple 文件、图片、头像、经典蓝牙、Wi-Fi P2P 及自动文件选路尚未实现。收到合法文件 offer 时明确回复 rejected，聊天仍可继续，不产生虚假的文件完成回执。
 
-`includePeerToPeer` 当前关闭；不能把 Apple 的此选项当作 Android Wi-Fi Direct 互通。iOS 进入后台会停止发现、结束连接并保存草稿，不承诺后台长期在线。网络恢复后由用户重新发起连接。
+`includePeerToPeer` 当前关闭；不能把 Apple 的此选项当作 Android Wi-Fi Direct 互通。iOS 进入后台会停止发现、结束连接并保存草稿，不承诺后台长期在线。网络恢复后由用户重新发起连接。Mac 正常退出通过 NSApplicationDelegate 的 terminateLater 等待草稿落盘：先取消并等待旧的延迟写入，再保存当前草稿，成功后才回复允许退出；失败则取消退出并显示系统警告，内存草稿保留。强制终止或崩溃不属于正常退出回调的保证范围。
 
 本机、模拟器回环互通和编译结果不能替代真机的局域网权限、Bonjour 跨设备发现、吞吐、待机内存和生命周期验证。Apple Distribution、TestFlight、App Store、Developer ID 签名及公证均未提供。现有 Android / Windows / Linux 正式版附件不受这个开发工程影响。
 
@@ -42,6 +42,8 @@ NIM4 使用 `Noise_XX_25519_AESGCM_SHA256`，经 CryptoKit 执行 X25519、AES-G
 
 ```sh
 swift test --package-path apple
+# 同时验证独立 AppKit 进程在立即正常退出前保存草稿。
+bash tools/test-apple-lifecycle.sh
 bash tools/test-apple-interop.sh
 
 xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM \
@@ -59,7 +61,7 @@ xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM \
 
 原生 UI 测试使用固定回环端口 47831 的独立 Java 对端，通过 app 正常的地址输入、认可按钮和消息输入框收发内容。测试使用 Xcode 的 ad-hoc 签名，以生成模拟器 Keychain 所需的身份权限；它不需要开发者证书，也不能用于真机分发。生产 app 不读取测试环境变量，也不内置演示消息或跳过认可的测试后门：
 
-阅读位置回归由 XCTest 通过另一个仅限回环的测试控制端口 47832 驱动 Java 对端，使用生产 NIM4 通道连续三轮注入共 240 条消息，跨过单页上限，再在每轮上翻后注入新消息，检查可见性、消息坐标、新消息提示与返回最新。Mac 还检查第二个窗口执行快捷键不会让第一个窗口丢失会话，以及两个窗口打开同一会话时同步草稿。每会话草稿由 AppModel 的共享可观察状态管理，持久写入去抖；发送期间其它窗口继续编辑时，保留新内容。测试控制入口只存在于独立 Java 测试程序，不链接到 app。
+阅读位置回归由 XCTest 通过另一个仅限回环的测试控制端口 47832 驱动 Java 对端，使用生产 NIM4 通道连续三轮注入共 240 条消息，跨过单页上限，再在每轮上翻后注入新消息，检查可见性、消息坐标、新消息提示与返回最新。Mac 还检查第二个窗口执行快捷键不会让第一个窗口丢失会话，以及两个窗口打开同一会话时同步草稿。每会话草稿由 AppModel 的共享可观察状态管理，持久写入去抖；Mac 界面回归还会正常退出并重启，检查草稿恢复。发送期间其它窗口继续编辑时，保留新内容。测试控制入口只存在于独立 Java 测试程序，不链接到 app。
 
 ```sh
 bash tools/test-apple-interop.sh --compile-java
@@ -67,6 +69,8 @@ bash tools/test-apple-ui.sh 'platform=macOS' macos
 # 替换为 xcrun simctl list devices available 中的模拟器 UUID。
 bash tools/test-apple-ui.sh 'platform=iOS Simulator,id=SIMULATOR_UUID' iphone
 ```
+
+独立 AppKit 进程探针在同一个主线程任务内编辑和清空草稿后立即调用正常退出，父进程在子进程结束后直接检查 SQLite；不依靠 UI 自动化的等待时间复现 400 毫秒窗口。此探针只链接测试工具，生产 app 没有测试开关。
 
 GitHub Actions 的 `Verify native Apple clients` 保留互通日志和原生 XCTest 结果。实际通过或失败的 run、工具链和仍缺少的证据记录在 [#31](https://github.com/GHOST-AKU/wozai/issues/31)，不将工作清单另存为 TODO 文件。
 

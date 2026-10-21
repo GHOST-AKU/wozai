@@ -1408,6 +1408,38 @@
           }
         }
       }
+    },
+    "Couldn’t save drafts": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t save drafts"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法保存草稿"
+          }
+        }
+      }
+    },
+    "NearbyIM will stay open. Check available storage and try quitting again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NearbyIM will stay open. Check available storage and try quitting again."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "我在将保持打开。请检查可用存储空间，然后再次尝试退出。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -4,6 +4,9 @@ import SwiftUI
 @MainActor
 struct NearbyIMApp: App {
     @State private var model = AppModel()
+    #if os(macOS)
+    @NSApplicationDelegateAdaptor(MacAppDelegate.self) private var appDelegate
+    #endif
     @AppStorage("appearance") private var appearance = "system"
 
     private var colorScheme: ColorScheme? {
@@ -25,6 +28,9 @@ struct NearbyIMApp: App {
     private var mainWindow: some Scene {
         WindowGroup {
             RootView()
+                #if os(macOS)
+                .onAppear { appDelegate.model = model }
+                #endif
                 .environment(model)
                 .preferredColorScheme(colorScheme)
         }
