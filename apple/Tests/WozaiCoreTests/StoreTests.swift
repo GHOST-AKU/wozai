@@ -96,3 +96,23 @@ extension StoreTests {
         XCTAssertEqual(messages.first?.body, body, "SQLite must receive the explicit UTF-8 byte length, not strlen")
     }
 }
+
+
+extension StoreTests {
+    func testDatabaseDirectoryIsExcludedFromBackupIncludingOnReopen() async throws {
+        var directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("chat.sqlite")
+        let store = try ChatStore(url: url)
+        try await store.saveDraft(peerID: "backup-test", text: "private draft")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: url.path + "-wal"))
+        XCTAssertEqual(try directory.resourceValues(forKeys: [.isExcludedFromBackupKey]).isExcludedFromBackup, true)
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = false
+        try directory.setResourceValues(values)
+        let reopened = try ChatStore(url: url)
+        _ = try await reopened.draft(peerID: "backup-test")
+        XCTAssertEqual(try directory.resourceValues(forKeys: [.isExcludedFromBackupKey]).isExcludedFromBackup, true,
+                       "Existing installations must also receive the backup exclusion")
+    }
+}

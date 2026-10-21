@@ -30,7 +30,7 @@ jobs:
           swift --version
       - name: Test shared native core
         if: ${{ inputs.validation != 'macos-ui' }}
-        run: swift test --package-path apple
+        run: bash tools/test-apple-lifecycle.sh
       - name: Exchange encrypted records with the production Java implementation
         if: ${{ inputs.validation != 'macos-ui' }}
         run: bash tools/test-apple-interop.sh
@@ -67,6 +67,7 @@ jobs:
                   output.write(f"{key}={device}\n")
           PY
       - name: Exercise native iPhone consent, chat and receipts
+        if: ${{ inputs.validation != 'macos-ui' }}
         timeout-minutes: 12
         run: bash tools/test-apple-ui.sh 'platform=iOS Simulator,id=${{ steps.simulators.outputs.iphone }}' iphone
       - name: Exercise native iPad consent, chat and receipts
@@ -78,5 +79,6 @@ jobs:
         with:
           name: apple-native-evidence
           path: |
+            build/apple-lifecycle/
             build/apple-interop/*.log
             build/apple-ui/

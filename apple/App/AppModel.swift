@@ -42,6 +42,8 @@ final class AppModel {
     @ObservationIgnored private var refreshTask: Task<Void, Never>?
     @ObservationIgnored private var changedPeers = Set<String>()
 
+    init(store: ChatStore? = nil) { self.store = store }
+
     func bootstrap() async {
         guard !initialized else { return }
         do {
