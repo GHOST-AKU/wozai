@@ -37,7 +37,8 @@ final class AppModel {
     @ObservationIgnored private var stream: NWByteStream?
     @ObservationIgnored private var connectionTask: Task<Void, Never>?
     @ObservationIgnored private var token = UUID()
-    @ObservationIgnored private var draftWrites: [String: Task<Void, Never>] = [:]
+    private struct DraftWrite { let id: UUID; let task: Task<Void, Never> }
+    @ObservationIgnored private var draftWrites: [String: DraftWrite] = [:]
     @ObservationIgnored private var drafts: [String: ConversationDraft] = [:]
     @ObservationIgnored private var refreshTask: Task<Void, Never>?
     @ObservationIgnored private var changedPeers = Set<String>()
@@ -150,9 +151,7 @@ final class AppModel {
         foreground = false
         discovery?.stop()
         disconnect()
-        for (id, draft) in drafts where draft.loaded {
-            try? await store?.saveDraft(peerID: id, text: draft.text)
-        }
+        try? await beginDraftFlush().value
     }
 
     func messages(peerID: String, before: MessageCursor? = nil) async -> [ChatMessage] {
@@ -182,27 +181,43 @@ final class AppModel {
         let state = draftState(peerID: peerID)
         state.text = text
         state.loaded = true
-        draftWrites[peerID]?.cancel()
-        draftWrites[peerID] = Task {
+        let previous = draftWrites[peerID]?.task
+        previous?.cancel()
+        let id = UUID()
+        let store = self.store
+        let task = Task.detached { [weak self] in
+            // Keep canceled writes in the chain so a late SQLite write cannot overwrite newer text.
+            await previous?.value
+            let failure: Error?
             do {
                 try await Task.sleep(for: .milliseconds(400))
                 try Task.checkCancellation()
                 try await store?.saveDraft(peerID: peerID, text: text)
                 try Task.checkCancellation()
-                draftWrites[peerID] = nil
-            } catch is CancellationError {} catch { show(error) }
+                failure = nil
+            } catch is CancellationError { return } catch { failure = error }
+            // Persistence must finish without waiting for the main actor during AppKit termination.
+            Task { @MainActor [weak self] in
+                guard let self, self.draftWrites[peerID]?.id == id else { return }
+                self.draftWrites[peerID] = nil
+                if let failure { self.show(failure) }
+            }
         }
+        draftWrites[peerID] = DraftWrite(id: id, task: task)
     }
 
-    func flushDrafts() async throws {
-        let writes = Array(draftWrites.values)
+    func beginDraftFlush() -> Task<Void, Error> {
+        let writes = draftWrites.values.map(\.task)
         draftWrites.removeAll()
         for write in writes { write.cancel() }
-        // Drain writes already inside SQLite before committing the latest snapshots.
-        for write in writes { await write.value }
-        guard let store else { return }
         let snapshot = drafts.compactMap { id, draft in draft.loaded ? (id, draft.text) : nil }
-        for (id, text) in snapshot { try await store.saveDraft(peerID: id, text: text) }
+        let store = self.store
+        return Task.detached {
+            // Drain writes already inside SQLite before committing the latest snapshots.
+            for write in writes { await write.value }
+            guard let store else { return }
+            for (id, text) in snapshot { try await store.saveDraft(peerID: id, text: text) }
+        }
     }
 
     func send(_ text: String, peerID: String) async -> Bool {

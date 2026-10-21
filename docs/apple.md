@@ -32,7 +32,7 @@ NIM4 使用 `Noise_XX_25519_AESGCM_SHA256`，经 CryptoKit 执行 X25519、AES-G
 
 已编写局域网发现/手动连接、双端设备认可、加密文字、持久送达回执、记录/草稿、安全码与原生设置。Apple 文件、图片、头像、经典蓝牙、Wi-Fi P2P 及自动文件选路尚未实现。收到合法文件 offer 时明确回复 rejected，聊天仍可继续，不产生虚假的文件完成回执。
 
-`includePeerToPeer` 当前关闭；不能把 Apple 的此选项当作 Android Wi-Fi Direct 互通。iOS 进入后台会停止发现、结束连接并保存草稿，不承诺后台长期在线。网络恢复后由用户重新发起连接。Mac 正常退出通过 NSApplicationDelegate 的 terminateLater 等待草稿落盘：先取消并等待旧的延迟写入，再保存当前草稿，成功后才回复允许退出；失败则取消退出并显示系统警告，内存草稿保留。强制终止或崩溃不属于正常退出回调的保证范围。
+`includePeerToPeer` 当前关闭；不能把 Apple 的此选项当作 Android Wi-Fi Direct 互通。iOS 进入后台会停止发现、结束连接并保存草稿，不承诺后台长期在线。网络恢复后由用户重新发起连接。Mac 正常退出通过 NSApplicationDelegate 的 terminateLater 等待草稿落盘：同步截取当前草稿，取消旧的延迟写入，在后台等待旧写入结束后保存快照，再通过主运行循环（含 AppKit 模态模式）回复允许退出，避免退出循环阻塞 MainActor 造成死锁；失败则取消退出并显示系统警告，内存草稿保留。iOS 后台保存复用同一写入排序。强制终止或崩溃不属于正常退出回调的保证范围。
 
 本机、模拟器回环互通和编译结果不能替代真机的局域网权限、Bonjour 跨设备发现、吞吐、待机内存和生命周期验证。Apple Distribution、TestFlight、App Store、Developer ID 签名及公证均未提供。现有 Android / Windows / Linux 正式版附件不受这个开发工程影响。
 
