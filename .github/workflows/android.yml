@@ -2,6 +2,7 @@ name: Build 我在 Android previews
 on:
   pull_request:
     branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review]
     paths-ignore:
       - 'apple/**'
       - '.github/workflows/apple.yml'
@@ -37,6 +38,8 @@ jobs:
     uses: ./.github/workflows/android-release.yml
     secrets: inherit
   build:
+    # Native Apple drafts use the Java interop peer; validate these workflow edits when review-ready.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.ref != 'feat/apple-native' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.metadata.outputs.version }}
