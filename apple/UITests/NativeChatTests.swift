@@ -55,6 +55,7 @@ final class NativeChatTests: XCTestCase {
         #endif
         for cycle in 0..<3 { try verifyReadingPosition(app, cycle: cycle) }
         #if os(macOS)
+        composer.tap(); composer.typeText("Shared draft")
         let windowCount = app.windows.count
         app.typeKey("n", modifierFlags: .command)
         let anotherWindow = NSPredicate { _, _ in app.windows.count == windowCount + 1 }
@@ -64,6 +65,17 @@ final class NativeChatTests: XCTestCase {
         // A scene command in the new Nearby window must not navigate the existing chat window.
         app.typeKey("n", modifierFlags: [.command, .shift])
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "composer").firstMatch.waitForExistence(timeout: 5))
+        let secondWindow = app.windows.firstMatch
+        secondWindow.staticTexts["Java interop peer"].firstMatch.tap()
+        let secondComposer = secondWindow.descendants(matching: .any).matching(identifier: "composer").firstMatch
+        XCTAssertTrue(secondComposer.waitForExistence(timeout: 5))
+        XCTAssertEqual(secondComposer.value as? String, "Shared draft")
+        secondComposer.tap(); secondComposer.typeText(" updated")
+        let synchronized = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            let composers = app.descendants(matching: .any).matching(identifier: "composer").allElementsBoundByIndex
+            return composers.count == 2 && composers.allSatisfy { $0.value as? String == "Shared draft updated" }
+        }, object: app)
+        XCTAssertEqual(XCTWaiter.wait(for: [synchronized], timeout: 5), .completed, "Windows must share the live conversation draft")
         app.typeKey("w", modifierFlags: .command)
         #endif
         try drivePeer("finish")
