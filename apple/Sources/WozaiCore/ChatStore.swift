@@ -33,6 +33,12 @@ public actor ChatStore {
     private let database: SQLiteDatabase
 
     public init(url: URL) throws {
+        var directory = url.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        // Exclude the directory before SQLite can create the database or WAL sidecars.
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        try directory.setResourceValues(values)
         database = try SQLiteDatabase(url: url)
         try database.run("PRAGMA journal_mode=WAL")
         try database.run("PRAGMA synchronous=FULL")
@@ -144,7 +150,6 @@ private enum SQLValue {
 private final class SQLiteDatabase: @unchecked Sendable {
     private var handle: OpaquePointer?
     init(url: URL) throws {
-        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         guard sqlite3_open_v2(url.path, &handle, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK else {
             if let handle { sqlite3_close(handle) }; handle = nil
             throw WozaiError.storage

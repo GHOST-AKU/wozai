@@ -6,12 +6,12 @@ core_status=0
 swift test --package-path apple > build/apple-lifecycle/core.log 2>&1 || core_status=$?
 cat build/apple-lifecycle/core.log
 bin_path="$(swift build --package-path apple --show-bin-path)"
-lifecycle_sources=()
+lifecycle_sources=(apple/App/AppModel.swift tests/apple/MacTerminationProbe.swift)
 if [[ -f apple/App/MacAppDelegate.swift ]]; then
-  lifecycle_sources=(-D HAS_MAC_LIFECYCLE apple/App/MacAppDelegate.swift)
+  lifecycle_sources+=(-D HAS_MAC_LIFECYCLE apple/App/MacAppDelegate.swift)
 fi
 swiftc -target "$(uname -m)-apple-macosx14.0" -parse-as-library -I "$bin_path/Modules" -o build/apple-lifecycle/termination-probe \
-  apple/App/AppModel.swift "${lifecycle_sources[@]}" tests/apple/MacTerminationProbe.swift \
+  "${lifecycle_sources[@]}" \
   "$bin_path"/WozaiCore.build/*.swift.o -lsqlite3
 probe_status=0
 python3 - <<'PY' > build/apple-lifecycle/termination.log 2>&1 || probe_status=$?
