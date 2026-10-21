@@ -74,6 +74,6 @@ GitHub Actions 的 `Verify native Apple clients` 保留互通日志和原生 XCT
 
 - [Tab bars](https://developer.apple.com/design/human-interface-guidelines/tab-bars) 与 [Sidebars](https://developer.apple.com/design/human-interface-guidelines/sidebars)
 - [NavigationSplitView](https://developer.apple.com/documentation/swiftui/navigationsplitview) 与 [sidebarAdaptable](https://developer.apple.com/documentation/swiftui/tabviewstyle/sidebaradaptable)
-- [scrollPosition](https://developer.apple.com/documentation/swiftui/view/scrollposition(id:anchor:)) 与 [onGeometryChange](https://developer.apple.com/documentation/swiftui/view/ongeometrychange(for:of:action:))，按系统滚动目标与实际可见性保留阅读位置
+- [ScrollViewReader](https://developer.apple.com/documentation/swiftui/scrollviewreader) 与 [onGeometryChange](https://developer.apple.com/documentation/swiftui/view/ongeometrychange(for:of:action:))，在当前页完成布局后定位，按实际可见性保留阅读位置；[onScrollPhaseChange](https://developer.apple.com/documentation/swiftui/view/onscrollphasechange(_:)) 在 iOS/iPadOS 18、macOS 15 及以上区分用户滚动，较早系统使用手势及可见性反馈
 - [Local network usage description](https://developer.apple.com/documentation/bundleresources/information-property-list/nslocalnetworkusagedescription)
 - [Network.framework includePeerToPeer](https://developer.apple.com/documentation/network/nwparameters/includepeertopeer)

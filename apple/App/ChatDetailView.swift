@@ -28,13 +28,14 @@ struct ChatDetailView: View {
     @State private var hasNewMessages = false
     @State private var forceLatest = false
     @State private var refreshRequest = 0
-    @State private var visibleMessage: String?
-    @State private var scrollRevision = 0
+    @State private var pageRevision = 0
+    @State private var pendingScroll = false
+    @State private var userScrolling = false
     @State private var latestVisible = true
+    @State private var observedViewport = CGSize.zero
     @FocusState private var composerFocused: Bool
     private var connected: Bool { model.connectionState == .connected && model.activePeer?.id == contact.id }
     private var tooLong: Bool { draft.utf8.count > 8192 }
-    private var latestID: String { messages.last?.rowID ?? "latest" }
     private var latestLabel: LocalizedStringKey { hasNewMessages ? "New messages" : "Latest messages" }
     private var refreshKey: String { contact.id + ":" + String(model.revision[contact.id, default: 0]) + ":" + String(before?.timestamp ?? UInt64.max) + ":" + String(before?.sequence ?? 0) + ":" + String(refreshRequest) }
 
@@ -74,72 +75,78 @@ struct ChatDetailView: View {
     }
 
     private var timeline: some View {
-        ScrollView {
-            // The bounded 200-row page gives scroll targets exact positions during burst inserts.
-            VStack(spacing: 12) {
-                if messages.count == 200, let first = messages.first {
-                    Button("Earlier messages") { followingLatest = false; before = first.cursor }
-                        .id("earlier")
-                }
-                if !loaded { ProgressView() }
-                else if messages.isEmpty {
-                    ContentUnavailableView("No messages yet", systemImage: "bubble.left", description: Text("Send a greeting when the devices are connected."))
-                }
-                ForEach(messages, id: \.rowID) { message in MessageBubble(message: message).id(message.rowID) }
-                Color.clear.frame(height: 1).id("latest")
-                    // Visibility changes update state; individual scroll frames do not rebuild the chat.
-                    .onGeometryChange(for: Bool.self) { geometry in
-                        let frame = geometry.frame(in: .scrollView)
-                        let height = geometry.bounds(of: .scrollView)?.height ?? 0
-                        #if DEBUG
-                        timelineLog.debug("tail top=\(Double(frame.minY), privacy: .public) bottom=\(Double(frame.maxY), privacy: .public) viewport=\(Double(height), privacy: .public)")
-                        #endif
-                        return frame.minY >= 0 && frame.maxY <= height + 24
-                    } action: { visible in
-                        latestVisible = visible
-                        updateFollowing()
+        let revision = pageRevision
+        return ScrollViewReader { proxy in
+            ScrollView {
+                // The bounded 200-row page gives scroll targets exact positions during burst inserts.
+                VStack(spacing: 12) {
+                    if messages.count == 200, let first = messages.first {
+                        Button("Earlier messages") { followingLatest = false; before = first.cursor }
+                            .id("earlier")
                     }
-                    .onDisappear { latestVisible = false; updateFollowing() }
-            }
-            .scrollTargetLayout()
-            .padding()
-        }
-        .accessibilityIdentifier("messageTimeline")
-        .defaultScrollAnchor(.bottom)
-        .scrollPosition(id: $visibleMessage, anchor: .bottom)
-        .scrollDismissesKeyboard(.interactively)
-        .onChange(of: scrollRevision) {
-            // Resolve the target after SwiftUI has installed the updated message identities.
-            visibleMessage = before == nil ? latestID : messages.first?.rowID
-        }
-        .onChange(of: visibleMessage) {
-            #if DEBUG
-            timelineLog.debug("position latest=\(visibleMessage == latestID, privacy: .public) following=\(followingLatest, privacy: .public) tail_visible=\(latestVisible, privacy: .public)")
-            #endif
-            updateFollowing()
-        }
-        .overlay(alignment: .bottomTrailing) {
-            if !followingLatest || before != nil || hasNewMessages {
-                Button(action: showLatest) {
-                    Label(latestLabel, systemImage: "arrow.down")
+                    if !loaded { ProgressView() }
+                    else if messages.isEmpty {
+                        ContentUnavailableView("No messages yet", systemImage: "bubble.left", description: Text("Send a greeting when the devices are connected."))
+                    }
+                    ForEach(messages, id: \.rowID) { message in MessageBubble(message: message).id(message.rowID) }
+                    Color.clear.frame(height: 1).id("latest")
+                        .onGeometryChange(for: TailObservation.self) { geometry in
+                            let frame = geometry.frame(in: .scrollView)
+                            let viewport = geometry.bounds(of: .scrollView)?.size ?? .zero
+                            let height = viewport.height
+                            #if DEBUG
+                            timelineLog.debug("tail top=\(Double(frame.minY), privacy: .public) bottom=\(Double(frame.maxY), privacy: .public) viewport=\(Double(height), privacy: .public) revision=\(revision, privacy: .public)")
+                            #endif
+                            return TailObservation(visible: height > 0 && frame.minY >= 0 && frame.maxY <= height + 24, revision: revision, viewport: viewport)
+                        } action: { observation in
+                            guard observation.revision == pageRevision else { return }
+                            let resized = observedViewport != observation.viewport
+                            observedViewport = observation.viewport
+                            latestVisible = observation.visible
+                            guard loaded, observation.viewport.height > 0 else { return }
+                            if resized && followingLatest && before == nil && !userScrolling { pendingScroll = true }
+                            if pendingScroll && !userScrolling {
+                                if before != nil {
+                                    pendingScroll = false
+                                    if let first = messages.first { proxy.scrollTo(first.rowID, anchor: .top) }
+                                } else if observation.visible {
+                                    pendingScroll = false
+                                    followingLatest = true
+                                } else {
+                                    // Geometry observation runs after the current page has measured its targets.
+                                    proxy.scrollTo("latest", anchor: .bottom)
+                                }
+                            } else { updateFollowing() }
+                        }
                 }
-                .buttonStyle(.borderedProminent)
-                .buttonBorderShape(.capsule)
-                .accessibilityIdentifier("jumpToLatest")
                 .padding()
+            }
+            .accessibilityIdentifier("messageTimeline")
+            .defaultScrollAnchor(.bottom)
+            .scrollDismissesKeyboard(.interactively)
+            .modifier(UserScrollObserver(began: {
+                userScrolling = true; pendingScroll = false; forceLatest = false; followingLatest = false
+            }, ended: {
+                userScrolling = false; updateFollowing()
+            }))
+            .overlay(alignment: .bottomTrailing) {
+                if !followingLatest || before != nil || hasNewMessages {
+                    Button(action: showLatest) {
+                        Label(latestLabel, systemImage: "arrow.down")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .buttonBorderShape(.capsule)
+                    .accessibilityIdentifier("jumpToLatest")
+                    .padding()
+                }
             }
         }
     }
 
     private func updateFollowing() {
-        guard loaded, before == nil else { return }
-        if latestVisible {
-            followingLatest = true
-            if hasNewMessages { showLatest() }
-        } else if visibleMessage != latestID {
-            // A pending programmatic tail target must settle before following can be paused.
-            followingLatest = false
-        }
+        guard loaded, before == nil, !pendingScroll, !userScrolling else { return }
+        followingLatest = latestVisible
+        if latestVisible && hasNewMessages { showLatest() }
     }
 
     private func applyPage(_ page: [ChatMessage]) {
@@ -154,9 +161,9 @@ struct ChatDetailView: View {
             messages = page
             if before == nil {
                 followingLatest = true; hasNewMessages = false; forceLatest = false
-                scrollRevision &+= 1
+                pendingScroll = true; pageRevision &+= 1
             } else if pageChanged {
-                scrollRevision &+= 1
+                pendingScroll = true; pageRevision &+= 1
             }
         }
         displayedPage = before
@@ -212,6 +219,32 @@ struct ChatDetailView: View {
             composerFocused = true
         }
         sending = false
+    }
+}
+
+private struct TailObservation: Equatable, Sendable {
+    let visible: Bool
+    let revision: Int
+    let viewport: CGSize
+}
+
+@MainActor
+private struct UserScrollObserver: ViewModifier {
+    let began: @MainActor () -> Void
+    let ended: @MainActor () -> Void
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(iOS 18, macOS 15, *) {
+            content.onScrollPhaseChange { _, phase in
+                if phase == .interacting { began() }
+                else if phase == .idle { ended() }
+            }
+        } else {
+            content.simultaneousGesture(DragGesture(minimumDistance: 2)
+                .onChanged { _ in began() }
+                .onEnded { _ in ended() })
+        }
     }
 }
 
