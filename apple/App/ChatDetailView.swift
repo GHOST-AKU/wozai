@@ -29,6 +29,7 @@ struct ChatDetailView: View {
     @State private var forceLatest = false
     @State private var refreshRequest = 0
     @State private var visibleMessage: String?
+    @State private var scrollRevision = 0
     @State private var latestVisible = true
     @FocusState private var composerFocused: Bool
     private var connected: Bool { model.connectionState == .connected && model.activePeer?.id == contact.id }
@@ -83,7 +84,7 @@ struct ChatDetailView: View {
                 else if messages.isEmpty {
                     ContentUnavailableView("No messages yet", systemImage: "bubble.left", description: Text("Send a greeting when the devices are connected."))
                 }
-                ForEach(messages, id: \.rowID) { message in MessageBubble(message: message) }
+                ForEach(messages, id: \.rowID) { message in MessageBubble(message: message).id(message.rowID) }
                 Color.clear.frame(height: 1).id("latest")
                     // Visibility changes update state; individual scroll frames do not rebuild the chat.
                     .onGeometryChange(for: Bool.self) { geometry in
@@ -106,6 +107,10 @@ struct ChatDetailView: View {
         .defaultScrollAnchor(.bottom)
         .scrollPosition(id: $visibleMessage, anchor: .bottom)
         .scrollDismissesKeyboard(.interactively)
+        .onChange(of: scrollRevision) {
+            // Resolve the target after SwiftUI has installed the updated message identities.
+            visibleMessage = before == nil ? latestID : messages.first?.rowID
+        }
         .onChange(of: visibleMessage) {
             #if DEBUG
             timelineLog.debug("position latest=\(visibleMessage == latestID, privacy: .public) following=\(followingLatest, privacy: .public) tail_visible=\(latestVisible, privacy: .public)")
@@ -148,9 +153,9 @@ struct ChatDetailView: View {
             messages = page
             if before == nil {
                 followingLatest = true; hasNewMessages = false; forceLatest = false
-                visibleMessage = latestID
-            } else if pageChanged, let first = page.first {
-                visibleMessage = first.rowID
+                scrollRevision &+= 1
+            } else if pageChanged {
+                scrollRevision &+= 1
             }
         }
         displayedPage = before

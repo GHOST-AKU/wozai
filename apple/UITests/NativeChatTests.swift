@@ -92,7 +92,7 @@ final class NativeChatTests: XCTestCase {
         latest.tap()
         let incoming = app.staticTexts["A new message while reading history"]
         XCTAssertTrue(incoming.waitForExistence(timeout: 8))
-        XCTAssertTrue(incoming.isHittable, "Jump to latest did not reveal the new message")
+        XCTAssertTrue(incoming.isHittable, "Jump to latest did not reveal the new message: " + app.debugDescription)
         XCTAssertFalse(app.buttons["jumpToLatest"].exists, "Jump to latest did not resume following")
     }
 
