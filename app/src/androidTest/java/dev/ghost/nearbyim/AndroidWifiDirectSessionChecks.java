@@ -208,7 +208,7 @@ final class AndroidWifiDirectSessionChecks {
             Path source=directory.resolve("source.bin");Files.write(source,expected);
             if(automatic){await(()->routes.get()!=null,"Remote automatic FILE coordinator missing");routes.get().ensureReady().get(80,TimeUnit.SECONDS);}
             String id=engine.get().offer(new FileAttachmentSource(source),"direct-roundtrip.bin","application/octet-stream").get(10,TimeUnit.SECONDS);
-            await(()->onMain(instrumentation,()->controller.messages.stream().anyMatch(message->message.id.equals(id)&&message.attachment!=null&&message.attachment.state.equals("received"))),"Native file receiver saves file");
+            awaitState(()->onMain(instrumentation,()->controller.messages.stream().anyMatch(message->message.id.equals(id)&&message.attachment!=null&&message.attachment.state.equals("received"))),"Native file receiver saves file");
             AttachmentRecord received=onMain(instrumentation,()->controller.messages.stream().filter(message->message.id.equals(id)).findFirst().orElseThrow().attachment);
             Path receivedFile=controller.attachmentPath(peer,received.info).get(10,TimeUnit.SECONDS);
             check(Arrays.equals(expected,Files.readAllBytes(receivedFile)),"Native file receiver changes original bytes");

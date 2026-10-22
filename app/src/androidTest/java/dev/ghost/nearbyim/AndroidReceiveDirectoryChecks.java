@@ -69,7 +69,9 @@ final class AndroidReceiveDirectoryChecks {
                     check(DocumentsContract.deleteDocument(context.getContentResolver(),first),"Fixture document was not deleted");
                     check(restarted.inspectReceived(peer,record).get(10,TimeUnit.SECONDS)==AttachmentDirectoryStore.State.MISSING,"Deleted public document was still available");
                     check(restarted.saveReceived(peer,record,false).get(10,TimeUnit.SECONDS)==AttachmentDirectoryStore.State.MISSING&&count(context,"one")==2,"Automatic save recreated a user-deleted document");
-                    restarted.selectDirectory(tree("two"),FLAGS).get(10,TimeUnit.SECONDS);AndroidAttachmentSource.releaseUnusedGrants(context);
+                    check(!persisted(context,"two"),"Unused previous folder grant was retained");
+                    // A new picker result offers fresh permission after the unused grant was released.
+                    command(base,"directory-grant","two");restarted.selectDirectory(tree("two"),FLAGS).get(10,TimeUnit.SECONDS);AndroidAttachmentSource.releaseUnusedGrants(context);
                     check(persisted(context,"one")&&persisted(context,"two"),"Folder switch revoked access to earlier saved files");
                     AttachmentRecord after=received(store,peer,"new.bin",bytes);restarted.saveReceived(peer,after,false).get(10,TimeUnit.SECONDS);last=restarted.locate(peer,after).get(10,TimeUnit.SECONDS).savedUri();check(DocumentsContract.getTreeDocumentId(last).equals("two")&&count(context,"one")==2,"New receipt ignored the changed folder");
                     AttachmentRecord partial=received(store,peer,"partial.bin",bytes);Uri partialUri=DocumentsContract.createDocument(context.getContentResolver(),DocumentsContract.buildDocumentUriUsingTree(tree("two"),"two"),"application/octet-stream","partial.bin");try(OutputStream output=context.getContentResolver().openOutputStream(partialUri,"wt")){output.write(0);}
