@@ -266,7 +266,7 @@ public final class AttachmentTransferV2 implements AutoCloseable {
                 task.info=AttachmentInfo.v2(task.info.id,task.info.name,task.info.mime,task.info.size,AttachmentInfo.hex(packet.hash),task.info.time);
                 task.state="verifying";notice(task,true);checkpointIncoming(task,true,TransferCheckpoint.State.ACTIVE);task.output.close();task.output=null;
                 Path destination=AttachmentTransfer.file(root,task.info);if(Files.exists(destination,LinkOption.NOFOLLOW_LINKS))throw new IOException("Attachment destination exists");
-                Files.move(task.partial,destination,StandardCopyOption.ATOMIC_MOVE);TransferCheckpointStore.syncDirectory(root);checkpoints.complete(task.key,task.info.size,packet.hash);task.state="received";
+                Files.move(task.partial,destination,StandardCopyOption.ATOMIC_MOVE);TransferCheckpointStore.syncDirectory(root);checkpoints.complete(task.key,task.info.size,packet.hash);routePaused.remove(task.key);task.state="received";
                 closeResource(task.reservation);remember(task);incoming=null;stopCredits();notice(task,true);send(control(packet,TransferPacket.Kind.COMPLETE,false,task.info.size,0,packet.hash,""));break;
             case COMPLETE:
                 require(task.outgoing&&(task.state.equals("awaitingReceipt")||task.state.equals("checking")));
@@ -401,7 +401,9 @@ public final class AttachmentTransferV2 implements AutoCloseable {
             require(key.localRoot().equals(localRoot)&&key.remoteRoot().equals(remoteRoot));
             if(automatic&&!mayResume(key)){closeResource(source);result.complete(key.transferId());return;}
             TransferCheckpoint saved=checkpoints.load(key).orElseThrow(()->new IOException("Attachment checkpoint missing"));
-            if(automatic&&saved.state()==TransferCheckpoint.State.CANCELED){closeResource(source);result.complete(key.transferId());return;}
+            // A route lease can finish restoring after its task has already completed.
+            // The peer can still recover a lost receipt through STATUS/recovery OFFER.
+            if(automatic&&(saved.state()==TransferCheckpoint.State.CANCELED||saved.state()==TransferCheckpoint.State.COMPLETE)){routePaused.remove(key);closeResource(source);result.complete(key.transferId());return;}
             require(saved.state()!=TransferCheckpoint.State.CANCELED&&(saved.state()==TransferCheckpoint.State.COMPLETE||System.currentTimeMillis()-saved.updatedMillis()<=RETENTION_MS));
             if(key.direction()==TransferTaskKey.Direction.RECEIVE){require(source==null);if(incoming!=null)require(incoming.key.equals(key));else send(TransferPacket.control(TransferPacket.Kind.STATUS,key.transferId(),key.sourceGeneration(),connection,false,saved.info().size,0,0,null,""));}
             else startOutgoing(saved,source,automatic);
