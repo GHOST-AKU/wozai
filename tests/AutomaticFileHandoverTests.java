@@ -69,6 +69,7 @@ public final class AutomaticFileHandoverTests {
         final CompletableFuture<AttachmentRecord> saved=new CompletableFuture<>(),delivered=new CompletableFuture<>();
         final AtomicBoolean holdPause=new AtomicBoolean();final CountDownLatch pauseEntered=new CountDownLatch(1),releasePause=new CountDownLatch(1);
         final AtomicInteger savedCount=new AtomicInteger();
+        volatile AttachmentTransferV2.Listener historyBarrier;
         Harness(String parent)throws Exception {this(parent,0,true);}
         Harness(String parent,int sender,boolean interrupt)throws Exception {this(parent,sender,interrupt,false);}
         Harness(String parent,int sender,boolean interrupt,boolean hotspot)throws Exception {
@@ -90,6 +91,7 @@ public final class AutomaticFileHandoverTests {
                     public void abort(){abort(new IOException("Unexpected file pipeline abort"));}
                     public void abort(Throwable failure){end.files.abort();saved.completeExceptionally(failure);delivered.completeExceptionally(failure);}
                 },record->{
+                    AttachmentTransferV2.Listener barrier=historyBarrier;if(barrier!=null)barrier.changed(record);
                     record=end.files.decorate(record);
                     if(record.outgoing&&record.state.equals("paused")&&holdPause.compareAndSet(true,false)){pauseEntered.countDown();try{if(!releasePause.await(5,TimeUnit.SECONDS))throw new IOException("Test checkpoint barrier timed out");}catch(InterruptedException error){Thread.currentThread().interrupt();throw new IOException(error);}}
                     if(record.state.equals("received")){try(var out=new FileOutputStream(directory.resolve("received.record").toFile())){out.write(record.encode().getBytes(java.nio.charset.StandardCharsets.UTF_8));out.getChannel().force(true);}savedCount.incrementAndGet();saved.complete(record);}
