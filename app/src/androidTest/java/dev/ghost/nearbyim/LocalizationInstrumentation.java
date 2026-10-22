@@ -261,8 +261,10 @@ public final class LocalizationInstrumentation extends Instrumentation {
         check(onMain(() -> controller.error.key.isEmpty()), "Chat consent does not report a false storage failure");
         testIdentityVerification(controller,peerId,remoteRoot.publicKey());
         testFileTransfers(controller,peerId);
+        String readingMessageId=null;
         for (int i = 0; i < 35; i++) {
             String id = UUID.randomUUID().toString();
+            if(i==12)readingMessageId=id;
             check(remote.send(new Frame(Frame.TEXT, id, "Message " + i + "\nSaved before locale recreation", System.currentTimeMillis())), "Peer sends timeline text " + i);
             check(id.equals(receipts.poll(10, TimeUnit.SECONDS)), "Android saves and receipts timeline text " + i);
         }
@@ -273,12 +275,43 @@ public final class LocalizationInstrumentation extends Instrumentation {
         checks+=AndroidAvatarChecks.run(this,activity);
         checks+=AndroidTransferPathChecks.run(this,activity);
         checks+=AndroidWifiDirectUiChecks.run(this,activity);
-        Thread.sleep(150); waitForIdleSync();
-        int scroll = onMain(() -> { ScrollView view = field(activity, "messageScroll"); view.scrollTo(0, 120); return view.getScrollY(); });
-        check(scroll > 0, "Timeline is scrollable before recreation");
+        String readingTag="message:"+readingMessageId+":false";
+        // Avatar checks return from other activities before this chat necessarily resumes.
+        try{await(()->onMain(()->{
+            android.view.ViewGroup rows=field(activity,"bubbles");android.view.View row=rows.findViewWithTag(readingTag);
+            return field(activity,"controller")==controller&&activity.hasWindowFocus()&&row!=null&&row.getHeight()>0;
+        }),"Original chat resumes with the saved reading message laid out");}
+        catch(AssertionError failure){throw new AssertionError("Reading fixture not ready; "+onMain(()->{
+            android.view.ViewGroup rows=field(activity,"bubbles");android.view.View row=rows.findViewWithTag(readingTag);
+            return "controller="+(field(activity,"controller")==controller)+",focused="+activity.hasWindowFocus()+",tag="+readingTag+",row="+(row==null?"missing":row.getHeight())+",children="+rows.getChildCount()+",selected="+controller.selectedId+",records="+controller.messages.size();
+        }),failure);}
+        int readingOffset=onMain(()->{
+            android.view.ViewGroup rows=field(activity,"bubbles");android.view.View row=rows.findViewWithTag(readingTag);
+            check(row!=null&&row.getHeight()>0,"Reading message is laid out before recreation");
+            ScrollView view=field(activity,"messageScroll");
+            int inset=Math.min(row.getHeight()-1,Math.max(1,Math.round(12*activity.getResources().getDisplayMetrics().density)));
+            view.scrollTo(0,row.getTop()+inset);
+            check(view.getScrollY()==row.getTop()+inset,"Timeline fixture reads inside the chosen message");
+            check(rows.getHeight()-view.getHeight()-view.getScrollY()>48*activity.getResources().getDisplayMetrics().density,"Reading fixture is away from the auto-follow bottom");
+            return view.getScrollY()-row.getTop();
+        });
+        String readingBefore=onMain(()->{
+            android.view.ViewGroup rows=field(activity,"bubbles");android.view.View row=rows.findViewWithTag(readingTag);ScrollView view=field(activity,"messageScroll");
+            return "scroll="+view.getScrollY()+",rowTop="+row.getTop()+",rowHeight="+row.getHeight()+",density="+activity.getResources().getDisplayMetrics().density;
+        });
         switchLanguage("en");
         verifyState(controller, service, peerId, draft, 5, 12);
-        await(() -> onMain(() -> ((ScrollView) field(activity, "messageScroll")).getScrollY() == scroll), "Timeline scroll survives locale recreation");
+        // Locale reflow can move preceding rows; preserve the message and its dp offset.
+        try{await(()->onMain(()->{
+            android.view.ViewGroup rows=field(activity,"bubbles");android.view.View row=rows.findViewWithTag(readingTag);
+            ScrollView view=field(activity,"messageScroll");int tolerance=(int)Math.ceil(activity.getResources().getDisplayMetrics().density);
+            return row!=null&&view.getScrollY()>=row.getTop()&&view.getScrollY()<row.getBottom()
+                &&Math.abs(view.getScrollY()-row.getTop()-readingOffset)<=tolerance;
+        }),"Timeline reading message and offset survive locale recreation");}
+        catch(AssertionError failure){throw new AssertionError("Reading position tag="+readingTag+",offset="+readingOffset+",before={"+readingBefore+"}; after: "+onMain(()->{
+            android.view.ViewGroup rows=field(activity,"bubbles");android.view.View row=rows.findViewWithTag(readingTag);ScrollView view=field(activity,"messageScroll");
+            return "scroll="+view.getScrollY()+",rowTop="+(row==null?-1:row.getTop())+",rowHeight="+(row==null?-1:row.getHeight())+",density="+activity.getResources().getDisplayMetrics().density;
+        }),failure);}
         check(onMain(() -> controller.connected && peerId.equals(controller.connectedPeerId)), "Active signed session survives language change");
         NotificationManager notifications = (NotificationManager) service.getSystemService(Context.NOTIFICATION_SERVICE);
         try {
