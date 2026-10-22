@@ -110,7 +110,11 @@ final class AppModel {
     }
 
     private func handle(_ event: SessionEvent, generation: UUID) {
-        guard token == generation else { return }
+        guard token == generation else {
+            // Durable history changes survive session retirement; connection events stay fenced.
+            if case .changed(let peer) = event { changed(peer) }
+            return
+        }
         switch event {
         case .consent(let peer): activePeer = peer; consent = peer; connectionState = .awaitingConsent
         case .ready(let peer):
