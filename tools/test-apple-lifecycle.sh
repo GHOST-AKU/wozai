@@ -36,4 +36,18 @@ with tempfile.TemporaryDirectory(prefix='wozai-termination-') as root:
     print('PASS: normal AppKit quit durably saves and clears drafts before the 400ms debounce')
 PY
 cat build/apple-lifecycle/termination.log
-if [[ $core_status != 0 || $probe_status != 0 ]]; then exit 1; fi
+swiftc -target "$(uname -m)-apple-macosx14.0" -parse-as-library -I "$bin_path/Modules" -o build/apple-lifecycle/disconnect-probe \
+  apple/App/AppModel.swift tests/apple/ManualDisconnectProbe.swift \
+  "$bin_path"/WozaiCore.build/*.swift.o -lsqlite3
+disconnect_status=0
+python3 - <<'PY' > build/apple-lifecycle/disconnect.log 2>&1 || disconnect_status=$?
+import pathlib, subprocess, tempfile
+probe = pathlib.Path('build/apple-lifecycle/disconnect-probe').resolve()
+with tempfile.TemporaryDirectory(prefix='wozai-disconnect-') as root:
+    result = subprocess.run([str(probe), root], capture_output=True, text=True, timeout=30)
+    print(result.stdout, end='')
+    print(result.stderr, end='')
+    assert result.returncode == 0, result.returncode
+PY
+cat build/apple-lifecycle/disconnect.log
+if [[ $core_status != 0 || $probe_status != 0 || $disconnect_status != 0 ]]; then exit 1; fi
