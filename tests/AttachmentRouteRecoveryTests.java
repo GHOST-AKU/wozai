@@ -87,6 +87,22 @@ public final class AttachmentRouteRecoveryTests {
                 receive.invoke(p.files[1],stale,(java.util.function.BooleanSupplier)()->false);
             }finally{release.countDown();}
         }
+        try(Pair p=new Pair()){
+            p.holdCredits=false;p.start();p.verify();
+            TransferTaskKey completed=new TransferCheckpointStore(p.root.resolve("p1/.tasks-v2")).list().get(0).key();
+            p.holdCredits=true;p.files[0].enqueue(List.of(AttachmentBatchQueue.selectFile(p.source))).get(3,TimeUnit.SECONDS);
+            TransferCheckpointStore receiver=new TransferCheckpointStore(p.root.resolve("p1/.tasks-v2"));
+            long until=System.nanoTime()+TimeUnit.SECONDS.toNanos(3);
+            while(receiver.list().stream().noneMatch(saved->!saved.key().equals(completed))&&System.nanoTime()<until)Thread.sleep(2);
+            check(receiver.list().stream().anyMatch(saved->!saved.key().equals(completed)),"Second receive did not start");
+            // A captured recovery lease may outlive its task's durable completion.
+            p.engines[1].resumeAutomatic(completed,null).get(3,TimeUnit.SECONDS);
+            check(p.failure.get()==null,"Completed recovery disrupted the next receive");
+            until=System.nanoTime()+TimeUnit.SECONDS.toNanos(3);
+            while(p.heldCredit==null&&System.nanoTime()<until)Thread.sleep(2);
+            check(p.heldCredit!=null,"Second receive did not publish its initial credit");
+            p.holdCredits=false;p.engines[0].receive(p.heldCredit,true);p.verify();
+        }
         System.out.println("Selective FILE recovery: checkpoint resume, manual pause before/during migration, peer STATUS guard and canceled-task safety passed");
     }
     private static Object suspend(ClientAttachmentTransfers files)throws Exception{return ((CompletableFuture<?>)ClientAttachmentTransfers.class.getMethod("suspendForRouteChange").invoke(files)).get(5,TimeUnit.SECONDS);}
