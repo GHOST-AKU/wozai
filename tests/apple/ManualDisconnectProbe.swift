@@ -21,6 +21,10 @@ struct ManualDisconnectProbe {
         let parameters = NWParameters.tcp
         parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: .any)
         let listener = try NWListener(using: parameters)
+        listener.stateUpdateHandler = { state in
+            if case .ready = state { Task { await peer.listenerReady() } }
+            if case .failed(let error) = state { print("Probe listener failed: \(error)") }
+        }
         listener.newConnectionHandler = { connection in
             let stream = NWByteStream(connection: connection)
             Task {
@@ -46,8 +50,9 @@ struct ManualDisconnectProbe {
         }
         listener.start(queue: DispatchQueue(label: "manual-disconnect-peer"))
         defer { listener.cancel(); model.disconnect() }
-        try await wait("Listener did not acquire its loopback port") { listener.port != nil }
-        func connect() { model.connect(host: "127.0.0.1", port: String(listener.port!.rawValue)) }
+        try await wait("Listener did not become ready on its loopback port") { await peer.listening }
+        guard let port = listener.port, port.rawValue > 0 else { throw ProbeFailure(description: "Ready listener has no bound port") }
+        func connect() { model.connect(host: "127.0.0.1", port: String(port.rawValue)) }
         connect()
         try await wait("App did not request consent") {
             if let notice = model.notice { throw ProbeFailure(description: "App connection failed: \(notice.message)") }
@@ -108,6 +113,8 @@ struct ManualDisconnectProbe {
 private struct ProbeFailure: Error, CustomStringConvertible { let description: String }
 
 private actor ProbePeer {
+    var listening = false
     var hasText = false
+    func listenerReady() { listening = true }
     func received(_ body: String) { hasText = body == "Sent without an ACK" }
 }
