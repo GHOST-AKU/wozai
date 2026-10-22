@@ -41,7 +41,7 @@ struct ManualDisconnectProbe {
                         default: throw ProbeFailure(description: "Unexpected peer frame: \(frame.type)")
                         }
                     }
-                } catch { await channel.close() }
+                } catch { print("Probe peer closed: \(error)"); await channel.close() }
             }
         }
         listener.start(queue: DispatchQueue(label: "manual-disconnect-peer"))
@@ -49,7 +49,10 @@ struct ManualDisconnectProbe {
         try await wait("Listener did not acquire its loopback port") { listener.port != nil }
         func connect() { model.connect(host: "127.0.0.1", port: String(listener.port!.rawValue)) }
         connect()
-        try await wait("App did not request consent") { model.connectionState == .awaitingConsent }
+        try await wait("App did not request consent") {
+            if let notice = model.notice { throw ProbeFailure(description: "App connection failed: \(notice.message)") }
+            return model.connectionState == .awaitingConsent
+        }
         model.approve(remember: false)
         try await wait("App did not publish ready history") {
             model.connectionState == .connected && model.revision[remoteIdentity.id, default: 0] > 0
