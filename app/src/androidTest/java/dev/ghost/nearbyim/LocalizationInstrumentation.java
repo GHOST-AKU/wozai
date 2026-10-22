@@ -275,8 +275,16 @@ public final class LocalizationInstrumentation extends Instrumentation {
         checks+=AndroidAvatarChecks.run(this,activity);
         checks+=AndroidTransferPathChecks.run(this,activity);
         checks+=AndroidWifiDirectUiChecks.run(this,activity);
-        Thread.sleep(150); waitForIdleSync();
         String readingTag="message:"+readingMessageId+":false";
+        // Avatar checks return from other activities before this chat necessarily resumes.
+        try{await(()->onMain(()->{
+            android.view.ViewGroup rows=field(activity,"bubbles");android.view.View row=rows.findViewWithTag(readingTag);
+            return field(activity,"controller")==controller&&activity.hasWindowFocus()&&row!=null&&row.getHeight()>0;
+        }),"Original chat resumes with the saved reading message laid out");}
+        catch(AssertionError failure){throw new AssertionError("Reading fixture not ready; "+onMain(()->{
+            android.view.ViewGroup rows=field(activity,"bubbles");android.view.View row=rows.findViewWithTag(readingTag);
+            return "controller="+(field(activity,"controller")==controller)+",focused="+activity.hasWindowFocus()+",tag="+readingTag+",row="+(row==null?"missing":row.getHeight())+",children="+rows.getChildCount()+",selected="+controller.selectedId+",records="+controller.messages.size();
+        }),failure);}
         int readingOffset=onMain(()->{
             android.view.ViewGroup rows=field(activity,"bubbles");android.view.View row=rows.findViewWithTag(readingTag);
             check(row!=null&&row.getHeight()>0,"Reading message is laid out before recreation");
