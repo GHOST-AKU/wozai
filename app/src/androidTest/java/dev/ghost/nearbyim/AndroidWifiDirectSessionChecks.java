@@ -176,7 +176,8 @@ final class AndroidWifiDirectSessionChecks {
         }
         void ready(boolean requested)throws Exception {
             if(!requested){awaitState(()->onMain(instrumentation,()->controller.approvalId!=null),"Incoming LAN chat still requires consent");check(!remote.isReady(),"Incoming chat automatically approves unknown contact");onMain(instrumentation,()->{controller.approve(controller.approvalId,false);return null;});}
-            awaitState(()->onMain(instrumentation,()->controller.connected&&controller.canSendAttachment()),"Both supported chat socket roles create ready production file engines");
+            // READY is processed independently by each endpoint's reader.
+            awaitState(()->remote.isReady()&&onMain(instrumentation,()->controller.connected&&controller.canSendAttachment()),"Both chat endpoints and production file engines become ready");
             check(remote.attachmentsV2()&&!remote.avatarsSupported(),"Chat fixture must negotiate its implemented encrypted capabilities");
             check(onMain(instrumentation,()->controller.approvalId==null&&peer.equals(controller.selectedId)&&controller.endToEndEncrypted(peer)),"Chat socket direction changes selected peer or encryption");
             if(requested)await(()->onMain(instrumentation,()->controller.trustedDevices.stream().anyMatch(device->device.id.equals(peer)&&device.mode==chatMode&&device.publicKey.equals(root.publicKey())&&device.bluetoothAddress==null)),"Remembered chat session persists its root and mode without a storage disconnect");
