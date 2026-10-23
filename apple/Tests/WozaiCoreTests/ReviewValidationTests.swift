@@ -53,6 +53,28 @@ final class ReviewValidationTests: XCTestCase {
             noisePublic: Data(repeating: 7, count: 32), capabilities: 15).encoded())
     }
 
+    func testMonotonicSessionDeadlinesAndConsentHeartbeatReset() {
+        let start = ContinuousClock.now
+        var deadlines = SessionDeadlines(now: start)
+        func action(_ seconds: Int64, peer: Bool, ready: Bool) -> SessionDeadlines.Action {
+            deadlines.action(peerKnown: peer, ready: ready, at: start.advanced(by: .seconds(seconds)))
+        }
+        XCTAssertEqual(action(15, peer: false, ready: false), .none)
+        XCTAssertEqual(action(16, peer: false, ready: false), .timeout)
+        XCTAssertEqual(action(60, peer: true, ready: false), .none)
+        XCTAssertEqual(action(61, peer: true, ready: false), .timeout)
+        XCTAssertEqual(action(10, peer: true, ready: true), .none)
+        XCTAssertEqual(action(11, peer: true, ready: true), .ping)
+        XCTAssertEqual(action(45, peer: true, ready: true), .ping)
+        XCTAssertEqual(action(46, peer: true, ready: true), .timeout)
+        // Time spent waiting for consent must not exhaust a newly ready session's heartbeat.
+        deadlines.recordRead(at: start.advanced(by: .seconds(60)))
+        XCTAssertEqual(action(70, peer: true, ready: true), .none)
+        XCTAssertEqual(action(71, peer: true, ready: true), .ping)
+        XCTAssertEqual(action(105, peer: true, ready: true), .ping)
+        XCTAssertEqual(action(106, peer: true, ready: true), .timeout)
+    }
+
     func testMalformedAttachmentMetadataFailsBeforeARefusal() throws {
         for name in [" ", "\t\n", "a\u{0000}b", "a\u{007f}b", "a\u{0085}b", String(repeating: "a", count: 256), String(repeating: "e\u{0301}", count: 128)] {
             XCTAssertThrowsError(try AttachmentRejection.reply(to: offer(name: name, mime: "text/plain")), "Invalid filename: \(name.debugDescription)")

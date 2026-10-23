@@ -55,6 +55,11 @@ func validID(_ id: String) -> Bool {
     id.utf8.count == 36 && UUID(uuidString: id) != nil && id == id.lowercased()
 }
 
+// Message records accept either hex case; claims and transfer IDs remain lowercase-only.
+private func validFrameID(_ id: String) -> Bool {
+    id.utf8.count == 36 && UUID(uuidString: id) != nil
+}
+
 // Match Java String.trim().isEmpty() without changing the original payload.
 func hasJavaTrimmedContent(_ value: String) -> Bool {
     value.unicodeScalars.contains { $0.value > 0x20 }
@@ -76,9 +81,9 @@ public struct NIMFrame: Equatable, Sendable {
         guard timestamp <= UInt64(Int64.max) else { throw WozaiError.protocolViolation }
         switch type {
         case .text:
-            guard validID(id), hasJavaTrimmedContent(body), body.utf8.count <= 8192, binary.isEmpty else { throw WozaiError.invalidText }
+            guard validFrameID(id), hasJavaTrimmedContent(body), body.utf8.count <= 8192, binary.isEmpty else { throw WozaiError.invalidText }
         case .ack:
-            guard validID(id), body.isEmpty, binary.isEmpty else { throw WozaiError.protocolViolation }
+            guard validFrameID(id), body.isEmpty, binary.isEmpty else { throw WozaiError.protocolViolation }
         case .attachment:
             guard id.isEmpty, body.isEmpty, timestamp == 0, binary.count <= 40 * 1024 else { throw WozaiError.protocolViolation }
         default:

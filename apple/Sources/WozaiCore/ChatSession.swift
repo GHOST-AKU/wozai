@@ -7,6 +7,25 @@ public enum SessionEvent: Sendable {
     case closed(String?)
 }
 
+/// Session deadlines use elapsed time; wall-clock corrections only affect displayed timestamps.
+struct SessionDeadlines: Sendable {
+    enum Action: Equatable, Sendable { case none, ping, timeout }
+    private let started: ContinuousClock.Instant
+    private var lastRead: ContinuousClock.Instant
+
+    init(now: ContinuousClock.Instant = ContinuousClock.now) { started = now; lastRead = now }
+
+    mutating func recordRead(at now: ContinuousClock.Instant = ContinuousClock.now) { lastRead = now }
+
+    func action(peerKnown: Bool, ready: Bool, at now: ContinuousClock.Instant = ContinuousClock.now) -> Action {
+        let lifetime = started.duration(to: now), idle = lastRead.duration(to: now)
+        if (!peerKnown && lifetime > .seconds(15)) || (!ready && lifetime > .seconds(60)) || (ready && idle > .seconds(45)) {
+            return .timeout
+        }
+        return ready && idle > .seconds(10) ? .ping : .none
+    }
+}
+
 /// Consent gates all content; persistence gates ACK, and a disconnect never resends text.
 public actor ChatSession {
     private let channel: NIMChannel
@@ -21,8 +40,7 @@ public actor ChatSession {
     private var ended = false
     private var pending = Set<String>()
     private var timer: Task<Void, Never>?
-    private let started = Date()
-    private var lastRead = Date()
+    private var deadlines = SessionDeadlines()
     private var isReady: Bool { approved && remoteReady && !ended }
 
     public init(stream: any ByteStream, identity: DeviceIdentity, nickname: String, initiator: Bool,
@@ -48,7 +66,7 @@ public actor ChatSession {
             while !ended {
                 let frame = try await channel.receive()
                 guard !ended else { return }
-                lastRead = Date()
+                deadlines.recordRead()
                 switch frame.type {
                 case .ready:
                     guard !remoteReady else { throw WozaiError.protocolViolation }
@@ -85,7 +103,7 @@ public actor ChatSession {
         self.remember = remember
         approved = true
         // Consent waiting must not consume the connected heartbeat window.
-        if remoteReady { lastRead = Date() }
+        if remoteReady { deadlines.recordRead() }
         try await channel.send(NIMFrame(type: .ready))
         try await announceReady()
     }
@@ -93,7 +111,7 @@ public actor ChatSession {
     private func announceReady() async throws {
         guard isReady, !announced, let peer else { return }
         announced = true
-        lastRead = Date()
+        deadlines.recordRead()
         try await store.recordPeer(peer, remember: remember, localRoot: identity.root)
         guard !ended else { return }
         await event(.ready(peer))
@@ -126,10 +144,12 @@ public actor ChatSession {
 
     private func tick() async {
         guard !ended else { return }
-        if (peer == nil && Date().timeIntervalSince(started) > 15) || (!isReady && Date().timeIntervalSince(started) > 60) || (isReady && Date().timeIntervalSince(lastRead) > 45) {
+        switch deadlines.action(peerKnown: peer != nil, ready: isReady) {
+        case .timeout:
             await stop(reason: WozaiError.timeout.localizedDescription)
-        } else if isReady && Date().timeIntervalSince(lastRead) > 10 {
+        case .ping:
             do { try await channel.send(NIMFrame(type: .ping)) } catch { await stop(reason: error.localizedDescription) }
+        case .none: break
         }
     }
 
