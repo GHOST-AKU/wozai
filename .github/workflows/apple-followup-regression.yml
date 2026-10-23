@@ -1,4 +1,4 @@
-name: Reproduce Apple UUID review regression
+name: Reproduce Apple attachment pause regression
 on:
   push:
     branches: [test/apple-followup-regressions]
@@ -10,5 +10,5 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Reproduce uppercase UUID rejection in the native core
-        run: swift test --package-path apple --filter ReviewValidationTests.testMessageUUIDsAcceptUppercaseWithoutRelaxingClaimIDs
+      - name: Reproduce in-flight PAUSE closing the text connection
+        run: swift test --package-path apple --filter ReviewValidationTests.testPauseInFlightAfterRefusedOfferDoesNotEndChat
