@@ -65,6 +65,29 @@ final class ReviewValidationTests: XCTestCase {
         }
     }
 
+    func testPauseInFlightAfterRefusedOfferDoesNotEndChat() throws {
+        XCTAssertNotNil(try AttachmentRejection.reply(to: offer(name: "a.txt", mime: "text/plain")))
+        XCTAssertNil(try AttachmentRejection.reply(to: control()))
+        XCTAssertNil(try AttachmentRejection.reply(to: control(sender: 0, offset: 3)))
+        XCTAssertNil(try AttachmentRejection.reply(to: control(kind: 7)))
+        for bytes in [control(sender: 2), control(offset: 4), control(window: 1), control(verified: 1),
+                      control(reason: "paused"), control(hash: 1), control(data: Data([1])),
+                      control(kind: 7, window: 1), control(kind: 7, verified: 1)] {
+            XCTAssertThrowsError(try AttachmentRejection.reply(to: bytes))
+        }
+    }
+
+    private func control(kind: UInt8 = 10, sender: UInt8 = 1, offset: UInt64 = 0, window: UInt64 = 0,
+                         verified: UInt64 = 0, reason: String = "", hash: UInt8 = 0, data: Data = Data()) -> Data {
+        var body = WireWriter()
+        body.u32(0x46543033); body.byte(kind); body.byte(sender); body.text(id); body.text(other); body.text(String(repeating: "a", count: 64))
+        body.u64(3); body.u64(offset); body.u64(window); body.u64(verified); body.u64(0); body.text(reason); body.byte(0); body.byte(hash)
+        if hash == 1 { body.data += Data(repeating: 0, count: 32) }
+        body.u32(UInt32(data.count)); body.data += data
+        var framed = WireWriter(); framed.u32(UInt32(body.data.count)); framed.data += body.data
+        return framed.data
+    }
+
     private func offer(name: String, mime: String) -> Data {
         var body = WireWriter()
         body.u32(0x46543033); body.byte(0); body.byte(1); body.text(id); body.text(other); body.text(String(repeating: "a", count: 64))

@@ -46,6 +46,9 @@ public final class AppleInteropPeer {
             String fileID = UUID.randomUUID().toString(), source = UUID.randomUUID().toString();
             TransferPacket offer = TransferPacket.offer(AttachmentInfo.v2(fileID, "interop.txt", "text/plain", 3, null, 1234), source, channel.connectionGeneration());
             channel.write(ProtocolV4.encodeTransfer(offer));
+            // A user pause may already be queued when the text-only peer refuses the offer.
+            channel.write(ProtocolV4.encodeTransfer(TransferPacket.control(TransferPacket.Kind.PAUSE,
+                fileID, source, channel.connectionGeneration(), true, 3, 0, 0, null, "")));
             channel.write(ProtocolV4.encode(new Frame(Frame.PING, "", "", 0)));
             boolean receivedText = false, receivedACK = false, whitespaceACK = ui, rejectedFile = false, receivedPong = false;
             for (int records = 0; records < 32 && !(receivedText && receivedACK && whitespaceACK && rejectedFile && receivedPong); records++) {
