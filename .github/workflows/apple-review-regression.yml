@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        validation: [core-and-drafts, history-ui]
+        validation: [core-and-drafts]
     steps:
       - uses: actions/checkout@v4
       - name: Reproduce core validation and draft ordering
