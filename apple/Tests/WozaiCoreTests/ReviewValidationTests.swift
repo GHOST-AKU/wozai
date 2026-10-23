@@ -35,6 +35,24 @@ final class ReviewValidationTests: XCTestCase {
         }
     }
 
+    func testMessageUUIDsAcceptUppercaseWithoutRelaxingClaimIDs() throws {
+        let uppercase = "ABCDEF01-2345-6789-ABCD-EF0123456789"
+        for kind in [NIMFrame.Kind.text, .ack] {
+            let body = kind == .text ? "Message UUID case is preserved" : ""
+            var raw = WireWriter()
+            raw.u32(0x4e494d34); raw.byte(4); raw.byte(kind.rawValue); raw.u64(1); raw.text(uppercase); raw.text(body)
+            let frame = NIMFrame(type: kind, id: uppercase, body: body, timestamp: 1)
+            XCTAssertEqual(try NIMFrame.decode(raw.data), frame)
+            XCTAssertEqual(try frame.encoded(), raw.data)
+        }
+        for invalid in ["{\(uppercase)}", uppercase.replacingOccurrences(of: "-", with: ""), "G" + String(uppercase.dropFirst())] {
+            XCTAssertThrowsError(try NIMFrame(type: .ack, id: invalid).encoded())
+        }
+        let root = P256.Signing.PrivateKey().publicKey.derRepresentation
+        XCTAssertThrowsError(try PeerClaim(initiator: false, id: uppercase, nickname: "Peer", root: root,
+            noisePublic: Data(repeating: 7, count: 32), capabilities: 15).encoded())
+    }
+
     func testMalformedAttachmentMetadataFailsBeforeARefusal() throws {
         for name in [" ", "\t\n", "a\u{0000}b", "a\u{007f}b", "a\u{0085}b", String(repeating: "a", count: 256), String(repeating: "e\u{0301}", count: 128)] {
             XCTAssertThrowsError(try AttachmentRejection.reply(to: offer(name: name, mime: "text/plain")), "Invalid filename: \(name.debugDescription)")

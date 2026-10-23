@@ -40,7 +40,7 @@ public final class AppleInteropPeer {
             String safety = new SafetyCode(identity.publicKey(), channel.remotePublicKey()).hex();
             channel.write(ProtocolV4.encode(new Frame(Frame.READY, "", "", 0)));
             Frame ready = ProtocolV4.decode(channel.read()); require(ready.type == Frame.READY, "Missing consent READY");
-            String textID = UUID.randomUUID().toString(), whitespaceID = UUID.randomUUID().toString();
+            String textID = UUID.randomUUID().toString().toUpperCase(java.util.Locale.ROOT), whitespaceID = UUID.randomUUID().toString();
             channel.write(ProtocolV4.encode(new Frame(Frame.TEXT, textID, "Hello from Java" + (ui ? "" : "\n" + safety), 1234)));
             if (!ui) { channel.write(ProtocolV4.encode(new Frame(Frame.TEXT, whitespaceID, "\u00a0\u2003", 1235))); }
             String fileID = UUID.randomUUID().toString(), source = UUID.randomUUID().toString();
