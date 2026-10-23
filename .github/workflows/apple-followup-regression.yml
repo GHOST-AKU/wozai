@@ -1,0 +1,14 @@
+name: Reproduce Apple UUID review regression
+on:
+  push:
+    branches: [test/apple-followup-regressions]
+permissions:
+  contents: read
+jobs:
+  reproduce:
+    runs-on: macos-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reproduce uppercase UUID rejection in the native core
+        run: swift test --package-path apple --filter ReviewValidationTests.testMessageUUIDsAcceptUppercaseWithoutRelaxingClaimIDs
