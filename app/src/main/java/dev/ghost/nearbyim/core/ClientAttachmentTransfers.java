@@ -22,7 +22,6 @@ public final class ClientAttachmentTransfers implements AutoCloseable {
     }
     private volatile Intent intent=new Intent();
     private volatile FileRouteResume routeResume;
-    private CompletableFuture<FileRouteResume> suspending;
     public ClientAttachmentTransfers(AttachmentTransfer legacy){this(null,legacy);}
     public ClientAttachmentTransfers(Path root,AttachmentTransfer legacy){this.legacy=legacy;streaming=null;this.root=root;sources=null;batch=null;}
     public ClientAttachmentTransfers(Path root,AttachmentTransferV2 streaming,AttachmentTransferV2.SourceResolver sources)throws IOException {
@@ -63,12 +62,12 @@ public final class ClientAttachmentTransfers implements AutoCloseable {
     CompletableFuture<Void> quiesceOutgoing(){return batch.freezeForRouteChange().thenCompose(ids->streaming.quiesceOutgoing());}
     public synchronized CompletableFuture<FileRouteResume> suspendForRouteChange(){
         if(streaming==null)return failed(new IOException("Recovery requires V2"));
-        if(routeResume!=null&&routeResume.active()&&!routeResume.claimed.get())return CompletableFuture.completedFuture(routeResume);
-        if(suspending!=null&&!suspending.isDone())return suspending;
+        // The route owner coalesces freezes within one attempt. A later attempt must
+        // snapshot current tasks even if an earlier recovery stopped without claiming its lease.
         Intent leaseIntent=intent;
-        suspending=batch.freezeForRouteChange().thenCompose(queued->streaming.suspendForRouteChange().thenApply(keys->{
+        return batch.freezeForRouteChange().thenCompose(queued->streaming.suspendForRouteChange().thenApply(keys->{
             FileRouteResume lease=new FileRouteResume(root,keys,queued,leaseIntent);routeResume=lease;return lease;
-        }));return suspending;
+        }));
     }
     public CompletableFuture<Void> resumeAfterRouteChange(FileRouteResume lease){
         if(streaming==null||lease==null||!root.equals(lease.directory)||lease.tasks.stream().anyMatch(key->!streaming.owns(key)))return failed(new IOException("Recovery identity changed"));
