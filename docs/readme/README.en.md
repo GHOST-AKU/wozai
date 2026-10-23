@@ -43,6 +43,16 @@ For now, it focuses on simple, understandable nearby communication: devices disc
 
 Both desktop clients are distributed with their own runtime, so users do not need to install Java separately. For detailed usage instructions and validation scope on Windows and Linux, see the [Windows guide](../windows.md) and [Linux guide](../linux.md).
 
+## ⌨️ NearbyIM Terminal (planned)
+
+**NearbyIM Terminal** is a standalone terminal-client initiative for developers, Linux users, and SSH/tmux workflows. Its primary command is `nearbyim` (`nearbyim.exe` on Windows). [Issue #38](https://github.com/GHOST-AKU/wozai/issues/38) defines the functionality and acceptance criteria. No installable terminal implementation is available yet; the following describes the development goals.
+
+- Build, install, configure, and release independently, prioritizing native Windows x64 / Linux x64 executables without Java/JRE, a graphical desktop, or a browser. Existing GUI clients remain maintained.
+- Join the existing **NIM4** ecosystem: Noise XX, P-256 root identity, explicit device consent, and safety-code verification, without a new protocol or silent downgrade. Create separate identities, trust records, and data directories; never directly reuse the GUI database or private keys.
+- Provide a keyboard-first TUI and scriptable CLI in the same executable, covering discovery, connections, text, history/drafts, file transfers, durable resume, and save receipts. Define JSON output, exit codes, timeouts, and non-TTY behavior; noninteractive execution must not automatically approve first contact or identity changes.
+- Handle Chinese/CJK display widths, Emoji/ZWJ clusters, paste, multiline input, narrow terminals/resize, `NO_COLOR`, SSH/tmux, and terminal restoration on exit.
+- Measure **Rust + ratatui/crossterm + clap** against **Go + Bubble Tea/Lip Gloss** before locking the stack. Package size, cold start, resource use, and real interoperability/throughput require reproducible evidence; no unmeasured performance targets or unimplemented capabilities are claimed.
+
 ## 📡 Start chatting
 
 ### Local network

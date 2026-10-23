@@ -43,6 +43,16 @@
 
 桌面端均提供自带运行环境的发行包，不要求用户额外安装 Java。Windows 与 Linux 的具体使用和验证范围见 [Windows 说明](docs/windows.md) 与 [Linux 说明](docs/linux.md)。
 
+## ⌨️ NearbyIM Terminal（规划中）
+
+**NearbyIM Terminal** 是面向开发者、Linux 用户及 SSH / tmux 场景的独立终端客户端路线，主命令为 `nearbyim`（Windows 为 `nearbyim.exe`）。功能与验收以 [Issue #38](https://github.com/GHOST-AKU/wozai/issues/38) 为依据；目前尚无可安装的终端实现，以下描述的是开发目标。
+
+- 独立构建、安装、配置和发布，优先 Windows x64 / Linux x64 原生可执行文件；不依赖 Java/JRE、图形桌面或浏览器，现有 GUI 客户端继续维护。
+- 接入现有 **NIM4**：Noise XX、P-256 根身份、明确的设备认可和安全码核验；不新增协议或静默降级。终端客户端创建自己的身份、信任记录与数据目录，不直接复用 GUI 的数据库或私钥。
+- 同一程序提供键盘优先 TUI 与可脚本化 CLI，覆盖发现、连接、文字、历史/草稿、文件收发及持久续传/回执。CLI 需定义 JSON、退出码、超时与非 TTY 行为，非交互执行不得自动放行首次认可或身份变化。
+- 适配中文、CJK 列宽、Emoji/ZWJ、粘贴、多行输入、窄屏/resize、`NO_COLOR`、SSH/tmux 与退出后的终端恢复。
+- 先量化比较 **Rust + ratatui/crossterm + clap** 与 **Go + Bubble Tea/Lip Gloss**，再锁定技术栈。包体积、冷启动、资源占用和真实互通/吞吐需有可复核数据；当前不承诺未经测量的性能指标或未实现的能力。
+
 ## 📡 开始聊天
 
 ### 局域网
