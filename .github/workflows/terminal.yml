@@ -1,0 +1,64 @@
+name: Build NearbyIM Terminal
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'terminal/**'
+      - 'app/src/main/java/dev/ghost/nearbyim/core/**'
+      - 'app/src/main/java/dev/ghost/nearbyim/noise/**'
+      - 'third_party/noise-java/**'
+      - 'tests/noise-candidate/vectors-selected.json'
+      - '.github/workflows/terminal.yml'
+  push:
+    tags: ['terminal-v*']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: terminal-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  client:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.88.0
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: terminal
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Formatting and static checks
+        shell: bash
+        run: |
+          cargo fmt --manifest-path terminal/Cargo.toml --check
+          cargo clippy --manifest-path terminal/Cargo.toml --locked --all-targets -- -D warnings
+      - name: Production NIM4 interoperability and terminal contracts
+        shell: bash
+        run: terminal/tools/test-interop.sh
+      - name: Release executable
+        shell: bash
+        run: cargo build --manifest-path terminal/Cargo.toml --locked --release
+      - name: One GiB bounded-memory streaming check
+        if: runner.os == 'Linux'
+        shell: bash
+        run: cargo test --manifest-path terminal/Cargo.toml --locked --release large_file_stress -- --ignored --nocapture
+      - name: Pack standalone client and shell completions
+        shell: bash
+        run: python terminal/tools/package.py
+      - name: PTY input, resize and terminal restoration
+        if: runner.os == 'Linux'
+        run: python3 terminal/tools/test-pty.py terminal/target/release/nearbyim
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nearbyim-terminal-${{ runner.os }}-x64
+          path: terminal/target/dist/*
+          if-no-files-found: error

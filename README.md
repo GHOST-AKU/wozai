@@ -43,15 +43,14 @@
 
 桌面端均提供自带运行环境的发行包，不要求用户额外安装 Java。Windows 与 Linux 的具体使用和验证范围见 [Windows 说明](docs/windows.md) 与 [Linux 说明](docs/linux.md)。
 
-## ⌨️ NearbyIM Terminal（规划中）
+## ⌨️ NearbyIM Terminal（开发中）
 
-**NearbyIM Terminal** 是面向开发者、Linux 用户及 SSH / tmux 场景的独立终端客户端路线，主命令为 `nearbyim`（Windows 为 `nearbyim.exe`）。功能与验收以 [Issue #38](https://github.com/GHOST-AKU/wozai/issues/38) 为依据；目前尚无可安装的终端实现，以下描述的是开发目标。
+**NearbyIM Terminal** 已在 [`terminal/`](terminal/README.zh-CN.md) 开始独立 Rust 实现，主命令为 `nearbyim`（Windows：`nearbyim.exe`）。采用 ratatui/crossterm + clap，运行不依赖 JRE、GUI 或 Android SDK。
 
-- 独立构建、安装、配置和发布，优先 Windows x64 / Linux x64 原生可执行文件；不依赖 Java/JRE、图形桌面或浏览器，现有 GUI 客户端继续维护。
-- 接入现有 **NIM4**：Noise XX、P-256 根身份、明确的设备认可和安全码核验；不新增协议或静默降级。终端客户端创建自己的身份、信任记录与数据目录，不直接复用 GUI 的数据库或私钥。
-- 同一程序提供键盘优先 TUI 与可脚本化 CLI，覆盖发现、连接、文字、历史/草稿、文件收发及持久续传/回执。CLI 需定义 JSON、退出码、超时与非 TTY 行为，非交互执行不得自动放行首次认可或身份变化。
-- 适配中文、CJK 列宽、Emoji/ZWJ、粘贴、多行输入、窄屏/resize、`NO_COLOR`、SSH/tmux 与退出后的终端恢复。
-- 先量化比较 **Rust + ratatui/crossterm + clap** 与 **Go + Bubble Tea/Lip Gloss**，再锁定技术栈。包体积、冷启动、资源占用和真实互通/吞吐需有可复核数据；当前不承诺未经测量的性能指标或未实现的能力。
+- TUI 与 CLI 共用 NIM4 核心：独立身份、明确认可/安全码、LAN 发现/地址直连、文本、历史/草稿及流式文件/检查点/保存回执。
+- 首次启动默认关闭 LAN 监听；脚本不自动批准未知身份。JSON、退出码、主题、字素簇输入与终端恢复按[设计手册](terminal/docs/design-v0.2.md)实施。
+- 已有生产 Java 通道和文件引擎的真实 TCP 双角色互通自动测试；真机、Windows/Linux 终端矩阵与性能仍以 [Issue #38](https://github.com/GHOST-AKU/wozai/issues/38) / [PR #41](https://github.com/GHOST-AKU/wozai/pull/41) 证据为准。
+- 当前是 `0.1.0-dev` 开发构建；不将尚未完成的验收或未实现的蓝牙/P2P 算作支持，不替代现有 GUI，也不修改 0.3.2 正式版附件。
 
 ## 📡 开始聊天
 

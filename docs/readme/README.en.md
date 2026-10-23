@@ -43,15 +43,14 @@ For now, it focuses on simple, understandable nearby communication: devices disc
 
 Both desktop clients are distributed with their own runtime, so users do not need to install Java separately. For detailed usage instructions and validation scope on Windows and Linux, see the [Windows guide](../windows.md) and [Linux guide](../linux.md).
 
-## ⌨️ NearbyIM Terminal (planned)
+## ⌨️ NearbyIM Terminal (in development)
 
-**NearbyIM Terminal** is a standalone terminal-client initiative for developers, Linux users, and SSH/tmux workflows. Its primary command is `nearbyim` (`nearbyim.exe` on Windows). [Issue #38](https://github.com/GHOST-AKU/wozai/issues/38) defines the functionality and acceptance criteria. No installable terminal implementation is available yet; the following describes the development goals.
+**NearbyIM Terminal** now has an independent Rust implementation in [`terminal/`](../../terminal/README.md), executable `nearbyim` (`nearbyim.exe` on Windows), using ratatui/crossterm + clap without a JRE, GUI or Android SDK at runtime.
 
-- Build, install, configure, and release independently, prioritizing native Windows x64 / Linux x64 executables without Java/JRE, a graphical desktop, or a browser. Existing GUI clients remain maintained.
-- Join the existing **NIM4** ecosystem: Noise XX, P-256 root identity, explicit device consent, and safety-code verification, without a new protocol or silent downgrade. Create separate identities, trust records, and data directories; never directly reuse the GUI database or private keys.
-- Provide a keyboard-first TUI and scriptable CLI in the same executable, covering discovery, connections, text, history/drafts, file transfers, durable resume, and save receipts. Define JSON output, exit codes, timeouts, and non-TTY behavior; noninteractive execution must not automatically approve first contact or identity changes.
-- Handle Chinese/CJK display widths, Emoji/ZWJ clusters, paste, multiline input, narrow terminals/resize, `NO_COLOR`, SSH/tmux, and terminal restoration on exit.
-- Measure **Rust + ratatui/crossterm + clap** against **Go + Bubble Tea/Lip Gloss** before locking the stack. Package size, cold start, resource use, and real interoperability/throughput require reproducible evidence; no unmeasured performance targets or unimplemented capabilities are claimed.
+- TUI and CLI share NIM4 identity/consent/safety-code, LAN discovery/direct-address, text/history/drafts and streaming file/checkpoint/saved-receipt logic.
+- LAN listening defaults to off; scripts cannot approve unknown identities. JSON, exit codes, themes, grapheme editing and terminal restoration follow the [design manual](../../terminal/docs/design-v0.2.md).
+- Real TCP automation exchanges both Noise roles, text and files with the production Java channel/file engine. Device, Windows/Linux terminal and performance acceptance remain evidence-based in [Issue #38](https://github.com/GHOST-AKU/wozai/issues/38) / [PR #41](https://github.com/GHOST-AKU/wozai/pull/41).
+- This is a `0.1.0-dev` development build; incomplete acceptance and unimplemented Bluetooth/P2P are not advertised as supported. Existing GUI clients and v0.3.2 release assets remain separate.
 
 ## 📡 Start chatting
 
