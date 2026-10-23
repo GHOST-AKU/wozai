@@ -34,7 +34,8 @@ for shell in ["bash", "zsh", "fish", "powershell"]:
     (stage / f"nearbyim.{shell}").write_bytes(output)
 if windows:
     archive = dist / f"{name}.zip"
-    with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as package:
+    # Registry sources can retain Unix-epoch mtimes, older than ZIP's 1980 limit.
+    with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED, strict_timestamps=False) as package:
         for file in sorted(stage.rglob("*")):
             if file.is_file():
                 package.write(file, f"{name}/{file.relative_to(stage).as_posix()}")
