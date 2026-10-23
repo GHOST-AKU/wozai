@@ -1,0 +1,33 @@
+name: Reproduce Apple review findings
+on:
+  push:
+    branches: [test/apple-review-regressions]
+permissions:
+  contents: read
+jobs:
+  reproduce:
+    name: Pre-fix ${{ matrix.validation }}
+    runs-on: macos-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        validation: [core-and-drafts, history-ui]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reproduce core validation and draft ordering
+        if: matrix.validation == 'core-and-drafts'
+        run: bash tools/test-apple-lifecycle.sh
+      - name: Compile independent production Java peer
+        if: matrix.validation == 'history-ui'
+        run: bash tools/test-apple-interop.sh --compile-java
+      - name: Reproduce full-page history boundary
+        if: matrix.validation == 'history-ui'
+        run: bash tools/test-apple-ui.sh 'platform=macOS' macos
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: apple-review-before-${{ matrix.validation }}
+          path: |
+            build/apple-lifecycle/
+            build/apple-ui/
