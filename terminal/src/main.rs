@@ -863,6 +863,9 @@ fn foreground(
                     pending_consent = Some(reply);
                 }
             }
+            Event::FileOfferClosed { .. } => {
+                pending_file = None;
+            }
             Event::FileOffer { peer, info, reply } => {
                 if interactive {
                     eprintln!(

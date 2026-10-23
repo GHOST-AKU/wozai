@@ -48,6 +48,10 @@ pub enum Event {
         info: Info,
         reply: SyncSender<bool>,
     },
+    FileOfferClosed {
+        peer: String,
+        id: String,
+    },
     Connected(Peer, SyncSender<Command>, bool),
     Ready(String),
     Message(Message),
@@ -401,7 +405,23 @@ fn session(
                         FILE => {
                             ensure!(ready, "file before mutual consent");
                             let packet = Packet::decode(&f.data)?;
-                            if packet.kind == OFFER
+                            ensure!(
+                                packet.connection == est.generation,
+                                "stale file connection generation"
+                            );
+                            let awaiting = file_offer.as_ref().is_some_and(|(offer, _, _)| {
+                                packet.sender
+                                    && packet.id == offer.id
+                                    && packet.source == offer.source
+                            });
+                            if awaiting && matches!(packet.kind, CANCEL | PAUSE) {
+                                file_offer.take();
+                                events.send(Event::FileOfferClosed {
+                                    peer: est.peer.id.clone(),
+                                    id: packet.id,
+                                })?;
+                            } else if awaiting && packet.kind == STATUS {
+                            } else if packet.kind == OFFER
                                 && !(est.peer.remembered && config.auto_receive_trusted)
                             {
                                 if file_offer.is_some() {
@@ -739,5 +759,85 @@ mod stress_tests {
             size,
             start.elapsed().as_secs_f64()
         );
+    }
+}
+
+#[cfg(test)]
+mod offer_tests {
+    use super::*;
+    #[test]
+    #[ignore = "requires local sockets; run test-interop.sh"]
+    fn cancel_before_receive_permission_keeps_chat_usable() {
+        let d = tempfile::tempdir().unwrap();
+        let a = Arc::new(Mutex::new(Profile::open(d.path().join("a"), None).unwrap()));
+        let b = Arc::new(Mutex::new(Profile::open(d.path().join("b"), None).unwrap()));
+        let ra = Runtime::client(a, d.path().join("ra"));
+        let rb = Runtime::start(b, "127.0.0.1:0", d.path().join("rb")).unwrap();
+        ra.connect(&format!("127.0.0.1:{}", rb.port), None).unwrap();
+        let until = Instant::now() + Duration::from_secs(15);
+        let mut ready = 0;
+        let mut sender = None;
+        while Instant::now() < until && ready < 2 {
+            for r in [&ra, &rb] {
+                while let Ok(e) = r.events.try_recv() {
+                    match e {
+                        Event::Consent { reply, .. } => reply.send(Consent::Once).unwrap(),
+                        Event::Connected(_, tx, true) => sender = Some(tx),
+                        Event::Ready(_) => ready += 1,
+                        Event::Error(e) => panic!("{e}"),
+                        _ => {}
+                    }
+                }
+            }
+            thread::sleep(Duration::from_millis(5));
+        }
+        assert_eq!(ready, 2);
+        let source = d.path().join("source");
+        std::fs::write(&source, b"data").unwrap();
+        let sender = sender.unwrap();
+        sender.send(Command::File(source)).unwrap();
+        let mut pending = None;
+        while Instant::now() < until {
+            if let Ok(Event::FileOffer { info, reply, .. }) =
+                rb.events.recv_timeout(Duration::from_millis(20))
+            {
+                pending = Some((info.id, reply));
+                break;
+            }
+        }
+        let (id, _permission) = pending.expect("missing receive permission prompt");
+        sender.send(Command::Cancel(id.clone())).unwrap();
+        let mut closed = false;
+        while Instant::now() < until {
+            if let Ok(e) = rb.events.recv_timeout(Duration::from_millis(20)) {
+                match e {
+                    Event::FileOfferClosed { id: actual, .. } => {
+                        assert_eq!(actual, id);
+                        closed = true;
+                        break;
+                    }
+                    Event::Error(e) | Event::Disconnected(_, e) => panic!("{e}"),
+                    _ => {}
+                }
+            }
+        }
+        assert!(closed);
+        sender
+            .send(Command::Text("chat after canceled offer".into()))
+            .unwrap();
+        let mut saved = false;
+        while Instant::now() < until {
+            if let Ok(e) = ra.events.recv_timeout(Duration::from_millis(20)) {
+                match e {
+                    Event::Saved { .. } => {
+                        saved = true;
+                        break;
+                    }
+                    Event::Error(e) | Event::Disconnected(_, e) => panic!("{e}"),
+                    _ => {}
+                }
+            }
+        }
+        assert!(saved, "file cancellation broke the chat");
     }
 }

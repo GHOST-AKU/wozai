@@ -117,6 +117,7 @@ impl Rate {
     }
 }
 struct FilePrompt {
+    id: String,
     name: String,
     size: u64,
     peer: String,
@@ -386,7 +387,11 @@ impl App {
     }
     fn network(&mut self, e: Event) -> Result<()> {
         match e {
+            Event::FileOfferClosed { peer, id } => {
+                self.file_prompts.retain(|p| p.peer != peer || p.id != id)
+            }
             Event::FileOffer { peer, info, reply } => self.file_prompts.push_back(FilePrompt {
+                id: info.id.clone(),
                 peer,
                 name: info.name,
                 size: info.size,

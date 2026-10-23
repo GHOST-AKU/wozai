@@ -234,6 +234,10 @@ impl Engine {
                 &mut self.incoming
             };
             if slot.as_ref().is_some_and(|t| t.saved.info.id == id) {
+                ensure!(
+                    cancel || slot.as_ref().unwrap().saved.state != "offered",
+                    "wait for file acceptance before pausing; cancel remains available"
+                );
                 let mut t = slot.take().unwrap();
                 found = true;
                 t.active = false;
@@ -449,10 +453,11 @@ impl Engine {
                 }
                 return Ok(());
             }
-            if self
-                .lookup(&p, outgoing)?
-                .is_some_and(|s| s.state == "canceled")
-            {
+            if self.lookup(&p, outgoing)?.is_some_and(|s| {
+                s.state == "canceled"
+                    || (matches!(s.state.as_str(), "saved" | "received")
+                        && matches!(p.kind, PAUSE | CANCEL))
+            }) {
                 return Ok(());
             }
             anyhow::bail!("unknown file task");
@@ -461,6 +466,14 @@ impl Engine {
             t.saved.info.id == p.id && t.saved.source == p.source && t.saved.info.size == p.size,
             "file task identity/size changed"
         );
+        if t.saved.state == "canceled" {
+            if outgoing {
+                self.outgoing = Some(t);
+            } else {
+                self.incoming = Some(t);
+            }
+            return Ok(());
+        }
         match p.kind {
             ACCEPT => {
                 ensure!(
@@ -968,6 +981,31 @@ mod recovery_tests {
             p.b.handle(Packet::decode(&f.data).unwrap(), &mut |_| Ok(()))
                 .unwrap();
         }
+        assert!(p.a.resume(&id, &mut |_| Ok(())).is_err());
+    }
+    #[test]
+    fn late_receipt_cannot_revive_canceled_task() {
+        let mut p = Pair::new(CHUNK);
+        let id = p.offer();
+        p.tick();
+        // Deliver data/END, retaining the receiver's saved receipt in flight.
+        while let Some(f) = p.ab.pop_front() {
+            p.b.handle(Packet::decode(&f.data).unwrap(), &mut |f| {
+                p.ba.push_back(f);
+                Ok(())
+            })
+            .unwrap();
+        }
+        assert!(p.b.incoming.is_none());
+        p.a.pause(&id, true, &mut |_| Ok(())).unwrap();
+        while let Some(f) = p.ba.pop_front() {
+            p.a.handle(Packet::decode(&f.data).unwrap(), &mut |_| Ok(()))
+                .unwrap();
+        }
+        assert_eq!(
+            p.a.store.lock().unwrap().transfers::<Saved>().unwrap()[0].state,
+            "canceled"
+        );
         assert!(p.a.resume(&id, &mut |_| Ok(())).is_err());
     }
     #[test]

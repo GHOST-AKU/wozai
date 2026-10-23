@@ -469,6 +469,16 @@ impl Packet {
 mod tests {
     use super::*;
     #[test]
+    fn utf8_boundary_contract() {
+        for n in [8191, 8192] {
+            assert!(text_valid(&"a".repeat(n)).is_ok());
+        }
+        for s in [String::new(), " \t\n".into(), "a".repeat(8193)] {
+            assert!(text_valid(&s).is_err());
+        }
+        assert!(text_valid("\u{a0}\u{2003}").is_ok());
+    }
+    #[test]
     fn reject_hostile_frames() {
         for n in 0..22 {
             assert!(Frame::decode(&vec![0; n]).is_err());
