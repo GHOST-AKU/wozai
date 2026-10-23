@@ -297,7 +297,17 @@ fn setup(p: &mut Profile, cfg: &mut config::Config) -> Result<()> {
 }
 fn run(mut cli: Cli) -> Result<()> {
     if let Some(Action::Completion { shell }) = &cli.command {
-        clap_complete::generate(*shell, &mut Cli::command(), "nearbyim", &mut io::stdout());
+        let mut script = Vec::new();
+        clap_complete::generate(*shell, &mut Cli::command(), "nearbyim", &mut script);
+        if cli.json {
+            return emit(
+                json!({"status":"ok","shell":shell.to_string(),"completion":String::from_utf8(script)?}),
+                true,
+                "",
+            );
+        }
+        use io::Write;
+        io::stdout().write_all(&script)?;
         return Ok(());
     }
     let interactive = io::stdin().is_terminal() && io::stdout().is_terminal() && !cli.json;
@@ -321,6 +331,9 @@ fn run(mut cli: Cli) -> Result<()> {
         if *stdin {
             let mut b = Vec::new();
             io::stdin().take(8193).read_to_end(&mut b)?;
+            if b.len() > 8192 {
+                return Err(fail(2, "stdin exceeds 8192 UTF-8 bytes"));
+            }
             *text = Some(String::from_utf8(b).map_err(|_| fail(2, "stdin must be valid UTF-8"))?);
         }
         if let Some(t) = text {
@@ -329,10 +342,9 @@ fn run(mut cli: Cli) -> Result<()> {
         }
         if let Some(path) = file {
             let m = std::fs::metadata(path)?;
-            ensure!(
-                m.is_file() && m.len() <= wire::MAX_FILE,
-                "source must be a regular file of at most 10 GiB"
-            );
+            if !m.is_file() || m.len() > wire::MAX_FILE {
+                return Err(fail(2, "source must be a regular file of at most 10 GiB"));
+            }
         }
     }
     let path = cli.profile.clone().unwrap_or_else(|| {

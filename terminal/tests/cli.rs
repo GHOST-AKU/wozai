@@ -13,6 +13,14 @@ fn help_completions_and_non_tty_are_plain() {
         let out = bin().args(["completions", shell]).output().unwrap();
         assert!(out.status.success());
         assert!(!out.stdout.is_empty());
+        let json = bin()
+            .args(["--json", "completion", shell])
+            .output()
+            .unwrap();
+        assert!(json.status.success());
+        let value: serde_json::Value = serde_json::from_slice(&json.stdout).unwrap();
+        assert_eq!(value["ok"], true);
+        assert!(value["completion"].as_str().unwrap().contains("nearbyim"));
     }
     let out = bin().arg("--json").output().unwrap();
     assert_eq!(out.status.code(), Some(2));
