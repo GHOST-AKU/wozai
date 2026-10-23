@@ -159,9 +159,13 @@ final class AppModel {
     }
 
     func messages(peerID: String, before: MessageCursor? = nil) async -> [ChatMessage] {
-        do { return try await store?.messages(peerID: peerID, before: before) ?? [] }
-        catch is CancellationError { return [] }
-        catch { show(error); return [] }
+        await messagePage(peerID: peerID, before: before).messages
+    }
+
+    func messagePage(peerID: String, before: MessageCursor? = nil) async -> MessagePage {
+        do { return try await store?.messagePage(peerID: peerID, before: before) ?? MessagePage(messages: [], hasEarlier: false) }
+        catch is CancellationError { return MessagePage(messages: [], hasEarlier: false) }
+        catch { show(error); return MessagePage(messages: [], hasEarlier: false) }
     }
 
     func draftState(peerID: String) -> ConversationDraft {

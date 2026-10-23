@@ -156,3 +156,32 @@ extension StoreTests {
                        "Existing installations must also receive the backup exclusion")
     }
 }
+
+extension StoreTests {
+    func testEarlierAvailabilityAtExactPageBoundaries() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = try ChatStore(url: directory.appendingPathComponent("chat.sqlite"))
+        let peer = UUID().uuidString.lowercased()
+        var inserted = 0
+        for count in [0, 1, 199, 200, 201, 399, 400, 401] {
+            while inserted < count {
+                try await store.saveOutgoing(peerID: peer, frame: NIMFrame(type: .text, id: UUID().uuidString.lowercased(), body: "row \(inserted)", timestamp: 1))
+                inserted += 1
+            }
+            var page = try await store.messagePage(peerID: peer)
+            var remaining = count
+            var all: [String] = []
+            while true {
+                XCTAssertEqual(page.messages.count, min(200, remaining))
+                XCTAssertEqual(page.hasEarlier, remaining > 200, "Incorrect earlier availability with \(remaining) rows remaining")
+                all = page.messages.map(\.body) + all
+                remaining -= page.messages.count
+                if !page.hasEarlier { break }
+                page = try await store.messagePage(peerID: peer, before: XCTUnwrap(page.messages.first?.cursor))
+            }
+            XCTAssertEqual(remaining, 0)
+            XCTAssertEqual(all, (0..<count).map { "row \($0)" })
+        }
+    }
+}

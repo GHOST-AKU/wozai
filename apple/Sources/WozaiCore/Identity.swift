@@ -73,7 +73,7 @@ struct PeerClaim {
     var capabilities: UInt32
 
     func encoded() throws -> Data {
-        guard validID(id), !nickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+        guard validID(id), hasJavaTrimmedContent(nickname),
               nickname.unicodeScalars.count <= 32, nickname.utf8.count <= 128,
               !nickname.unicodeScalars.contains(where: { $0.value <= 31 || (127...159).contains($0.value) }),
               noisePublic.count == 32 else { throw WozaiError.protocolViolation }

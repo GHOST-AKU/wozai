@@ -2,6 +2,8 @@ import Foundation
 
 /// This text-first client explicitly rejects valid file offers without sending save receipts.
 enum AttachmentRejection {
+    private static let mimeBytes = Set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$&^_.+/-".utf8)
+
     static func reply(to bytes: Data) throws -> NIMFrame? {
         var input = WireReader(bytes)
         guard try input.u32() == bytes.count - 4, try input.u32() == 0x46543033 else { throw WozaiError.protocolViolation }
@@ -21,7 +23,10 @@ enum AttachmentRejection {
               try input.byte() == 1 else { throw WozaiError.protocolViolation }
         guard try input.text(maximum: 36) == id else { throw WozaiError.protocolViolation }
         let name = try input.text(maximum: 1024), mime = try input.text(maximum: 127)
-        guard !name.isEmpty, !mime.isEmpty, try input.u64() == size, try input.u64() <= UInt64(Int64.max) else { throw WozaiError.protocolViolation }
+        guard hasJavaTrimmedContent(name), name.unicodeScalars.count <= 255,
+              !name.unicodeScalars.contains(where: { $0.value <= 31 || (127...159).contains($0.value) }),
+              !mime.isEmpty, mime.utf8.allSatisfy({ mimeBytes.contains($0) }),
+              try input.u64() == size, try input.u64() <= UInt64(Int64.max) else { throw WozaiError.protocolViolation }
         let hash = try input.byte(); guard hash <= 1 else { throw WozaiError.protocolViolation }
         if hash == 1 { _ = try input.bytes(32) }
         guard try input.byte() == 0, try input.u32() == 0 else { throw WozaiError.protocolViolation }

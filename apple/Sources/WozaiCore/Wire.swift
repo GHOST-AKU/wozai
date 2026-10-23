@@ -55,6 +55,11 @@ func validID(_ id: String) -> Bool {
     id.utf8.count == 36 && UUID(uuidString: id) != nil && id == id.lowercased()
 }
 
+// Match Java String.trim().isEmpty() without changing the original payload.
+func hasJavaTrimmedContent(_ value: String) -> Bool {
+    value.unicodeScalars.contains { $0.value > 0x20 }
+}
+
 public struct NIMFrame: Equatable, Sendable {
     public enum Kind: UInt8, Sendable { case ready = 2, text = 3, ack = 4, bye = 5, ping = 6, pong = 7, attachment = 16 }
     public let type: Kind
@@ -71,7 +76,7 @@ public struct NIMFrame: Equatable, Sendable {
         guard timestamp <= UInt64(Int64.max) else { throw WozaiError.protocolViolation }
         switch type {
         case .text:
-            guard validID(id), !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, body.utf8.count <= 8192, binary.isEmpty else { throw WozaiError.invalidText }
+            guard validID(id), hasJavaTrimmedContent(body), body.utf8.count <= 8192, binary.isEmpty else { throw WozaiError.invalidText }
         case .ack:
             guard validID(id), body.isEmpty, binary.isEmpty else { throw WozaiError.protocolViolation }
         case .attachment:

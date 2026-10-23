@@ -16,6 +16,7 @@ struct ChatDetailView: View {
     @Environment(\.findNearby) private var findNearby
     let contact: Conversation
     @State private var messages: [ChatMessage] = []
+    @State private var hasEarlier = false
     private var draft: String {
         get { model.draftState(peerID: contact.id).text }
         nonmutating set { model.saveDraft(peerID: contact.id, text: newValue) }
@@ -56,7 +57,7 @@ struct ChatDetailView: View {
             }
         }
         .task(id: refreshKey) {
-            let loaded = await model.messages(peerID: contact.id, before: before)
+            let loaded = await model.messagePage(peerID: contact.id, before: before)
             guard !Task.isCancelled else { return }
             applyPage(loaded)
         }
@@ -80,7 +81,7 @@ struct ChatDetailView: View {
             ScrollView {
                 // The bounded 200-row page gives scroll targets exact positions during burst inserts.
                 VStack(spacing: 12) {
-                    if messages.count == 200, let first = messages.first {
+                    if hasEarlier, let first = messages.first {
                         Button("Earlier messages") { followingLatest = false; before = first.cursor }
                             .id("earlier")
                     }
@@ -150,7 +151,8 @@ struct ChatDetailView: View {
         if latestVisible && hasNewMessages { showLatest() }
     }
 
-    private func applyPage(_ page: [ChatMessage]) {
+    private func applyPage(_ result: MessagePage) {
+        let page = result.messages
         let pageChanged = displayedPage != before
         if loaded, before == nil, !followingLatest, !forceLatest {
             // Keep a bounded, stable page while reading; delivery updates still reach visible rows.
@@ -160,6 +162,7 @@ struct ChatDetailView: View {
             messages = messages.map { updates[$0.rowID] ?? $0 }
         } else {
             messages = page
+            hasEarlier = result.hasEarlier
             if before == nil {
                 followingLatest = true; hasNewMessages = false; forceLatest = false
                 pendingScroll = true; pageRevision &+= 1

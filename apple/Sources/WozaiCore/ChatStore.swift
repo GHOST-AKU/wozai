@@ -18,6 +18,14 @@ public struct ChatMessage: Identifiable, Equatable, Sendable {
     public var rowID: String { (outgoing ? "out-" : "in-") + id }
 }
 
+public struct MessagePage: Sendable {
+    public let messages: [ChatMessage]
+    public let hasEarlier: Bool
+    public init(messages: [ChatMessage], hasEarlier: Bool) {
+        self.messages = messages; self.hasEarlier = hasEarlier
+    }
+}
+
 public struct Conversation: Identifiable, Equatable, Sendable {
     public let id: String
     public let nickname: String
@@ -116,18 +124,25 @@ public actor ChatStore {
     }
 
     public func messages(peerID: String, before: MessageCursor? = nil) throws -> [ChatMessage] {
+        try messagePage(peerID: peerID, before: before).messages
+    }
+
+    public func messagePage(peerID: String, before: MessageCursor? = nil) throws -> MessagePage {
         var bindings: [SQLValue] = [.text(peerID)]
         let condition: String
         if let before {
             condition = " AND rowid<?"
             bindings.append(.integer(before.sequence))
         } else { condition = "" }
-        return try database.rows("SELECT rowid AS sequence,* FROM messages WHERE peer=?" + condition + " ORDER BY rowid DESC LIMIT 200", bindings).reversed().map { row in
+        // One lookahead row distinguishes a full oldest page from a page with older history.
+        let rows = try database.rows("SELECT rowid AS sequence,* FROM messages WHERE peer=?" + condition + " ORDER BY rowid DESC LIMIT 201", bindings)
+        let messages = try rows.prefix(200).reversed().map { row in
             guard let status = MessageStatus(rawValue: row["status"]!.text) else { throw WozaiError.storage }
             let timestamp = UInt64(row["time"]!.integer)
             return ChatMessage(id: row["id"]!.text, peerID: peerID, body: row["body"]!.text, timestamp: timestamp, outgoing: row["outgoing"]!.integer == 1, status: status,
                                cursor: MessageCursor(sequence: row["sequence"]!.integer))
         }
+        return MessagePage(messages: messages, hasEarlier: rows.count > 200)
     }
 
     public func saveDraft(peerID: String, text: String) throws {
