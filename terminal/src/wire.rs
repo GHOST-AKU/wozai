@@ -348,7 +348,7 @@ impl Packet {
             "invalid hash presence"
         );
         ensure!(
-            (self.kind == DATA) == !self.data.is_empty()
+            (self.kind == DATA) != self.data.is_empty()
                 && (self.kind == OFFER) == self.info.is_some(),
             "invalid payload presence"
         );
