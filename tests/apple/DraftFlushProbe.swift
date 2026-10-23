@@ -67,7 +67,11 @@ struct DraftFlushProbe {
     }
 
     private static func wait(_ semaphore: DispatchSemaphore) async throws {
-        let completed = await Task.detached { semaphore.wait(timeout: .now() + 5) == .success }.value
+        let completed = await withCheckedContinuation { continuation in
+            DispatchQueue.global().async {
+                continuation.resume(returning: semaphore.wait(timeout: .now() + 5) == .success)
+            }
+        }
         guard completed else { throw WozaiError.timeout }
     }
 }

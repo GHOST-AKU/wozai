@@ -220,12 +220,25 @@ final class AppModel {
         for write in writes { write.cancel() }
         let snapshot = drafts.compactMap { id, draft in draft.loaded ? (id, draft.text) : nil }
         let store = self.store
-        return Task.detached {
+        let flush = Task.detached {
             // Drain writes already inside SQLite before committing the latest snapshots.
             for write in writes { await write.value }
             guard let store else { return }
             for (id, text) in snapshot { try await store.saveDraft(peerID: id, text: text) }
         }
+        let id = UUID(), peers = snapshot.map(\.0)
+        let barrier = Task.detached { [weak self] () -> Void in
+            // Canceling a later debounce must not bypass this durable flush.
+            _ = try? await flush.value
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                for peerID in peers where self.draftWrites[peerID]?.id == id {
+                    self.draftWrites[peerID] = nil
+                }
+            }
+        }
+        for peerID in peers { draftWrites[peerID] = DraftWrite(id: id, task: barrier) }
+        return flush
     }
 
     func send(_ text: String, peerID: String) async -> Bool {

@@ -50,7 +50,7 @@ struct Interop {
         await session.run()
         timeout.cancel()
         try await harness.verify()
-        print("PASS: Swift ChatSession durable text/ACK, production Java interop, safety code")
+        print("PASS: Swift ChatSession durable text/ACK, production Java interop, Unicode whitespace nickname/text, safety code")
     }
 }
 
@@ -80,8 +80,9 @@ private actor Harness {
         guard closedNormally, failure == nil, let peer else { throw NSError(domain: "Interop", code: 1, userInfo: [NSLocalizedDescriptionKey: failure ?? "Peer did not close normally"]) }
         let messages = try await store.messages(peerID: peer.id)
         let code = try SafetyCode.make(identity.root, peer.root)
-        guard messages.count == 2,
+        guard messages.count == 3, peer.nickname == "\u{00a0}",
               messages.contains(where: { !$0.outgoing && $0.body == "Hello from Java\n" + code }),
+              messages.contains(where: { !$0.outgoing && $0.body == "\u{00a0}\u{2003}" }),
               messages.contains(where: { $0.outgoing && $0.status == .delivered && $0.body == "Hello from Apple\n" + code }) else { throw WozaiError.protocolViolation }
     }
 }
