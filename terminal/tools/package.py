@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Package only the native executable, documentation, license and completions."""
 import hashlib
+import json
+import os
 from pathlib import Path
 import platform
 import shutil
@@ -15,10 +17,14 @@ windows = platform.system() == "Windows"
 name = f"nearbyim-terminal-{version}-{'windows' if windows else 'linux'}-x64"
 dist = root / "target" / "dist"
 stage = root / "target" / "package" / name
+if stage.exists():
+    shutil.rmtree(stage)
 stage.mkdir(parents=True, exist_ok=True)
 dist.mkdir(parents=True, exist_ok=True)
 exe = root / "target" / "release" / ("nearbyim.exe" if windows else "nearbyim")
 shutil.copy2(exe, stage / exe.name)
+info={"schema":1,"version":version,"git_commit":subprocess.check_output(["git","rev-parse","HEAD"],cwd=root,text=True).strip(),"rustc":subprocess.check_output(["rustc","--version"],text=True).strip(),"platform":platform.platform(),"executable_sha256":hashlib.sha256(exe.read_bytes()).hexdigest(),"workflow_run_id":os.environ.get("GITHUB_RUN_ID")}
+(stage / "BUILD_INFO.json").write_text(json.dumps(info,indent=2)+"\n",encoding="utf-8")
 for source, target in [(root / "README.md", "README.md"), (root / "README.zh-CN.md", "README.zh-CN.md"), (root / "../LICENSE", "LICENSE"), (root / "THIRD_PARTY.md", "THIRD_PARTY.md")]:
     shutil.copy2(source, stage / target)
 subprocess.run(["python", str(root / "tools" / "licenses.py")], check=True)

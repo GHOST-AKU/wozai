@@ -165,6 +165,9 @@ pub fn establish(
     initiator: bool,
     identity: &Identity,
 ) -> Result<Established> {
+    // Windows accepted sockets may inherit the listener's nonblocking mode.
+    // The bounded handshake/read_exact implementation requires blocking I/O.
+    stream.set_nonblocking(false)?;
     stream.set_nodelay(true)?;
     stream.set_read_timeout(Some(std::time::Duration::from_secs(15)))?;
     stream.set_write_timeout(Some(std::time::Duration::from_secs(15)))?;
