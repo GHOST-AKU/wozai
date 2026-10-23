@@ -82,6 +82,7 @@ final class ReviewValidationTests: XCTestCase {
         for mime in ["", "text/plain; charset=utf-8", "text/plain ", "图片/png", "text:plain"] {
             XCTAssertThrowsError(try AttachmentRejection.reply(to: offer(name: "a.txt", mime: mime)), "Invalid MIME: \(mime)")
         }
+        XCTAssertThrowsError(try AttachmentRejection.reply(to: offer(name: "a.txt", mime: "text/plain", metadataHash: true)))
         for name in ["\u{00a0}", "document.txt", String(repeating: "🙂", count: 255)] {
             XCTAssertNotNil(try AttachmentRejection.reply(to: offer(name: name, mime: "APPLICATION/OCTET-STREAM")))
         }
@@ -92,9 +93,12 @@ final class ReviewValidationTests: XCTestCase {
         XCTAssertNil(try AttachmentRejection.reply(to: control()))
         XCTAssertNil(try AttachmentRejection.reply(to: control(sender: 0, offset: 3)))
         XCTAssertNil(try AttachmentRejection.reply(to: control(kind: 7)))
+        XCTAssertNotNil(try AttachmentRejection.reply(to: control(kind: 9)))
+        XCTAssertNil(try AttachmentRejection.reply(to: control(kind: 9, sender: 0)))
         for bytes in [control(sender: 2), control(offset: 4), control(window: 1), control(verified: 1),
                       control(reason: "paused"), control(hash: 1), control(data: Data([1])),
-                      control(kind: 7, window: 1), control(kind: 7, verified: 1)] {
+                      control(kind: 7, window: 1, reason: "canceled"), control(kind: 7, verified: 1, reason: "canceled"),
+                      control(kind: 9, window: 1), control(kind: 9, reason: "paused")] {
             XCTAssertThrowsError(try AttachmentRejection.reply(to: bytes))
         }
     }
@@ -110,11 +114,13 @@ final class ReviewValidationTests: XCTestCase {
         return framed.data
     }
 
-    private func offer(name: String, mime: String) -> Data {
+    private func offer(name: String, mime: String, metadataHash: Bool = false) -> Data {
         var body = WireWriter()
         body.u32(0x46543033); body.byte(0); body.byte(1); body.text(id); body.text(other); body.text(String(repeating: "a", count: 64))
         body.u64(3); for _ in 0..<4 { body.u64(0) }; body.text(""); body.byte(1)
-        body.text(id); body.text(name); body.text(mime); body.u64(3); body.u64(1234); body.byte(0); body.byte(0); body.u32(0)
+        body.text(id); body.text(name); body.text(mime); body.u64(3); body.u64(1234); body.byte(metadataHash ? 1 : 0)
+        if metadataHash { body.data += Data(repeating: 0, count: 32) }
+        body.byte(0); body.u32(0)
         var framed = WireWriter(); framed.u32(UInt32(body.data.count)); framed.data += body.data
         return framed.data
     }

@@ -12,7 +12,7 @@ Mac 使用原生侧栏、工具栏、菜单、快捷键和独立 Settings 窗口
 
 文字页使用最多 200 条消息的确定布局，避免快速插入时懒布局高度估算造成定位漂移；更早的记录通过分页读取。这个上限限制了单页布局范围，但不能替代最大字体、长文本和未来媒体附件的真机内存/响应时间验收。
 
-应用没有第三方 Swift 包、跨平台 UI 引擎、内嵌 WebView、服务器账号或遥测。使用 SwiftUI、Network、CryptoKit、Security 和系统 SQLite。聊天页以 200 条为一页，查询历史使用时间戳和本地序号组成的游标；不会每条消息重写全量历史。iOS 当前使用单 app scene，可随系统分屏或窗口调整尺寸；不宣称多个 app 窗口之间的连接生命周期已经验收。
+应用没有第三方 Swift 包、跨平台 UI 引擎、内嵌 WebView、服务器账号或遥测。使用 SwiftUI、Network、CryptoKit、Security 和系统 SQLite。聊天页以 200 条为一页，查询历史使用本地插入序号游标；不会每条消息重写全量历史。iOS 当前使用单 app scene，可随系统分屏或窗口调整尺寸；不宣称多个 app 窗口之间的连接生命周期已经验收。
 
 ## 连接与安全
 
@@ -24,7 +24,9 @@ Mac 使用原生侧栏、工具栏、菜单、快捷键和独立 Settings 窗口
 
 NIM4 使用 `Noise_XX_25519_AESGCM_SHA256`，经 CryptoKit 执行 X25519、AES-GCM、SHA-256/HMAC 及 P-256 签名，与 Java 端使用同一握手 prologue、帧格式和根签名绑定。没有 NIM3 或明文降级。传入文字在 SQLite FULL 提交后才发送 ACK；未收到保存回执的消息不会显示 Delivered，也不会在重启后自动重发。
 
-历史页按本机 SQLite 插入序号排序和分页，消息自带的时间仅用于显示；对端时钟超前、倒退或重新投递旧消息都不会把新收到的文字挤出最新页。已有数据库沿用原插入序号，不改写消息时间。每页仍最多读取 200 条。
+历史页按本机 SQLite 插入序号排序和分页，消息自带的时间仅用于显示；对端时钟超前、倒退或重新投递旧消息都不会把新收到的文字挤出最新页。已有数据库沿用原插入序号，不改写消息时间。查询最多读取 201 条、显示最多 200 条，以额外一行判断是否存在更早历史，恰好满页时不会进入空页。冻结阅读页保留该页自己的分页状态。
+
+消息 UUID 接受生产 Java 合法的大小写并原样保存、回 ACK；身份与传输 ID 继续要求小写。文字与对端昵称按 Java 的空内容规则校验，保留合法 Unicode 空白。连接握手、认可与心跳期限使用 ContinuousClock 单调时间，系统日期调整不参与超时判定；消息仍携带原来的显示时间。
 
 长期设备身份保存在本机 Keychain，使用 `AfterFirstUnlockThisDeviceOnly`；不可读取或损坏时不会静默重置身份。记录和草稿存于 app 容器的 Application Support / NearbyIM 下。**链路加密不等于聊天数据库加密**；当前数据库没有额外的应用层静态加密。打开数据库前会为整个 NearbyIM 存储目录设置系统备份排除标记，覆盖数据库、WAL/SHM 和草稿；已有目录在每次打开时同样处理，标记设置失败则停止初始化。该标记用于后续系统备份，不能清理已经生成的旧备份。
 
@@ -32,7 +34,7 @@ NIM4 使用 `Noise_XX_25519_AESGCM_SHA256`，经 CryptoKit 执行 X25519、AES-G
 
 ## 当前功能边界
 
-已编写局域网发现/手动连接、双端设备认可、加密文字、持久送达回执、记录/草稿、安全码与原生设置。Apple 文件、图片、头像、经典蓝牙、Wi-Fi P2P 及自动文件选路尚未实现。收到合法文件 offer 时明确回复 rejected，聊天仍可继续，不产生虚假的文件完成回执。
+已编写局域网发现/手动连接、双端设备认可、加密文字、持久送达回执、记录/草稿、安全码与原生设置。Apple 文件、图片、头像、经典蓝牙、Wi-Fi P2P 及自动文件选路尚未实现。收到合法文件 offer 时明确回复 rejected；忽略已在途的合法 PAUSE/CANCEL，对发送方的 STATUS 恢复查询继续明确拒绝，聊天仍可继续，不创建文件或产生文件保存回执。非法元数据或控制字段仍按协议错误处理。
 
 `includePeerToPeer` 当前关闭；不能把 Apple 的此选项当作 Android Wi-Fi Direct 互通。iOS 进入后台会停止发现、结束连接并保存草稿，不承诺后台长期在线。网络恢复后由用户重新发起连接。Mac 正常退出通过 NSApplicationDelegate 的 terminateLater 等待草稿落盘：同步截取当前草稿，取消旧的延迟写入，在后台等待旧写入结束后保存快照，再通过主运行循环（含 AppKit 模态模式）回复允许退出，避免退出循环阻塞 MainActor 造成死锁；失败则取消退出并显示系统警告，内存草稿保留。iOS 后台保存复用同一写入排序。强制终止或崩溃不属于正常退出回调的保证范围。
 
@@ -59,7 +61,7 @@ xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM \
 
 会话回归使用可控写入完成时序验证断连后的“未确认”状态，并实际等待47秒后认可连接，确认认可时间不计入已连接后的心跳窗口。
 
-互通测试需要 JDK 17 及以上，只编译现有 Java 核心和测试对端，不重建 APK 或桌面安装包。测试对端使用生产 `NoiseRecordChannel` / `ProtocolV4`，与 Swift `ChatSession` 分别充当 TCP 发起方和接收方，检查双向文字、保存回执、安全码、文件拒绝和 heartbeat。SwiftPM 的 `WozaiInterop` 可执行产品只用于开发验证，不链接进 app。
+互通测试需要 JDK 17 及以上，只编译现有 Java 核心和测试对端，不重建 APK 或桌面安装包。测试对端使用生产 `NoiseRecordChannel` / `ProtocolV4`，与 Swift `ChatSession` 分别充当 TCP 发起方和接收方，检查双向文字、保存回执、安全码、Unicode 空白昵称/文字、大写消息 ID，以及文件拒绝后在途 PAUSE/STATUS 不切断 heartbeat。SwiftPM 的 `WozaiInterop` 可执行产品只用于开发验证，不链接进 app。
 
 原生 UI 测试使用固定回环端口 47831 的独立 Java 对端，通过 app 正常的地址输入、认可按钮和消息输入框收发内容。测试使用 Xcode 的 ad-hoc 签名，以生成模拟器 Keychain 所需的身份权限；它不需要开发者证书，也不能用于真机分发。生产 app 不读取测试环境变量，也不内置演示消息或跳过认可的测试后门：
 
@@ -73,6 +75,8 @@ bash tools/test-apple-ui.sh 'platform=iOS Simulator,id=SIMULATOR_UUID' iphone
 ```
 
 独立 AppKit 进程探针在同一个主线程任务内编辑和清空草稿后立即调用正常退出，父进程在子进程结束后直接检查 SQLite；不依靠 UI 自动化的等待时间复现 400 毫秒窗口。此探针只链接测试工具，生产 app 没有测试开关。
+
+真实 SQLite 写入屏障还覆盖后台 flush 与前台编辑、清空、重叠 flush 的顺序，后续写入不能绕过仍在落盘的快照。核心测试覆盖单调期限与认可后心跳重置的边界，不把这些测试称为实际系统调时的真机复现；Mac UI 另覆盖恰好 200/400 条历史的分页入口。
 
 GitHub Actions 的 `Verify native Apple clients` 保留互通日志和原生 XCTest 结果。实际通过或失败的 run、工具链和仍缺少的证据记录在 [#31](https://github.com/GHOST-AKU/wozai/issues/31)，不将工作清单另存为 TODO 文件。
 

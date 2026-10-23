@@ -12,11 +12,14 @@ enum AttachmentRejection {
         let size = try input.u64(), offset = try input.u64(), window = try input.u64(), verified = try input.u64(), durable = try input.u64()
         let reason = try input.text(maximum: 16)
         guard validID(id), validID(source), (validID(connection) || (connection.utf8.count == 64 && connection.utf8.allSatisfy { (48...57).contains($0) || (97...102).contains($0) })),
-              size <= 10_737_418_240, fromSender <= 1 else { throw WozaiError.protocolViolation }
-        if kind == 7 {
-            guard ["rejected", "canceled", "failed", "busy", "paused", "tooLarge"].contains(reason),
+              size <= 10_737_418_240, offset <= size, fromSender <= 1 else { throw WozaiError.protocolViolation }
+        if kind == 7 || kind == 9 || kind == 10 {
+            // A sender can pause or request resume while our offer refusal is still in flight.
+            let validReason = kind == 7 ? ["", "rejected", "canceled", "failed", "busy", "paused", "tooLarge"].contains(reason) : reason.isEmpty
+            guard validReason, window == 0, verified == 0, durable == 0,
                   try input.byte() == 0, try input.byte() == 0, try input.u32() == 0 else { throw WozaiError.protocolViolation }
             try input.finish()
+            if kind == 9 && fromSender == 1 { return rejection(id: id, source: source, connection: connection, size: size) }
             return nil
         }
         guard kind == 0, fromSender == 1, offset == 0, window == 0, verified == 0, durable == 0, reason.isEmpty,
@@ -27,10 +30,14 @@ enum AttachmentRejection {
               !name.unicodeScalars.contains(where: { $0.value <= 31 || (127...159).contains($0.value) }),
               !mime.isEmpty, mime.utf8.allSatisfy({ mimeBytes.contains($0) }),
               try input.u64() == size, try input.u64() <= UInt64(Int64.max) else { throw WozaiError.protocolViolation }
-        let hash = try input.byte(); guard hash <= 1 else { throw WozaiError.protocolViolation }
-        if hash == 1 { _ = try input.bytes(32) }
+        // V2 OFFER metadata cannot carry a precomputed digest; END supplies the whole-file hash.
+        guard try input.byte() == 0 else { throw WozaiError.protocolViolation }
         guard try input.byte() == 0, try input.u32() == 0 else { throw WozaiError.protocolViolation }
         try input.finish()
+        return rejection(id: id, source: source, connection: connection, size: size)
+    }
+
+    private static func rejection(id: String, source: String, connection: String, size: UInt64) -> NIMFrame {
         var packet = WireWriter(); packet.u32(0x46543033); packet.byte(7); packet.byte(0)
         packet.text(id); packet.text(source); packet.text(connection); packet.u64(size)
         for _ in 0..<4 { packet.u64(0) }
