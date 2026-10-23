@@ -11,8 +11,14 @@ private final class DraftTrace: @unchecked Sendable {
     let latest = CommandLine.arguments[2] == "clear" ? "" : "foreground newest"
 }
 
-private let installDraftTrace: @convention(c) (OpaquePointer?, UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?, UnsafeRawPointer?) -> Int32 = { database, _, _ in
-    sqlite3_trace_v2(database, UInt32(SQLITE_TRACE_STMT), { _, _, statement, _ in
+private func installDraftTrace(_ store: ChatStore) throws {
+    // Inspect the idle store only to install a test-side native SQLite scheduling barrier.
+    guard let database = Mirror(reflecting: store).children.first(where: { $0.label == "database" })?.value,
+          let handle = Mirror(reflecting: database).children.first(where: { $0.label == "handle" })?.value,
+          let pointer = Mirror(reflecting: handle).children.first?.value as? OpaquePointer else {
+        throw NSError(domain: "DraftFlushProbe.SQLiteHandle", code: 1)
+    }
+    let result = sqlite3_trace_v2(pointer, UInt32(SQLITE_TRACE_STMT), { _, _, statement, _ in
         guard let statement, let expanded = sqlite3_expanded_sql(OpaquePointer(statement)) else { return 0 }
         defer { sqlite3_free(expanded) }
         let sql = String(cString: expanded)
@@ -25,17 +31,17 @@ private let installDraftTrace: @convention(c) (OpaquePointer?, UnsafeMutablePoin
         if sql.contains("VALUES('draft-peer','\(trace.latest)')") { trace.foreground.signal() }
         return 0
     }, nil)
+    guard result == SQLITE_OK else { throw NSError(domain: "DraftFlushProbe.SQLiteTrace", code: Int(result)) }
 }
 
 @main
 struct DraftFlushProbe {
     @MainActor static func main() async {
         do {
-            let callback = unsafeBitCast(installDraftTrace, to: (@convention(c) () -> Void).self)
-            guard sqlite3_auto_extension(callback) == SQLITE_OK else { throw WozaiError.storage }
             let store = try ChatStore(url: URL(fileURLWithPath: CommandLine.arguments[1]))
+            try installDraftTrace(store)
             let model = AppModel(store: store), trace = DraftTrace.shared
-            defer { trace.release.signal(); sqlite3_reset_auto_extension() }
+            defer { trace.release.signal() }
             model.saveDraft(peerID: "draft-peer", text: "blocked prior write")
             try await wait(trace.entered)
             model.saveDraft(peerID: "draft-peer", text: "background snapshot")
