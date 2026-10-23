@@ -50,4 +50,21 @@ with tempfile.TemporaryDirectory(prefix='wozai-disconnect-') as root:
     assert result.returncode == 0, result.returncode
 PY
 cat build/apple-lifecycle/disconnect.log
-if [[ $core_status != 0 || $probe_status != 0 || $disconnect_status != 0 ]]; then exit 1; fi
+swiftc -target "$(uname -m)-apple-macosx14.0" -parse-as-library -I "$bin_path/Modules" -o build/apple-lifecycle/draft-flush-probe \
+  apple/App/AppModel.swift tests/apple/DraftFlushProbe.swift \
+  "$bin_path"/WozaiCore.build/*.swift.o -lsqlite3
+flush_status=0
+python3 - <<'PYFLUSH' > build/apple-lifecycle/draft-flush.log 2>&1 || flush_status=$?
+import pathlib, subprocess, tempfile
+probe = pathlib.Path('build/apple-lifecycle/draft-flush-probe').resolve()
+failures = []
+with tempfile.TemporaryDirectory(prefix='wozai-draft-flush-') as root:
+    for mode in ['edit', 'clear', 'overlap']:
+        result = subprocess.run([str(probe), str(pathlib.Path(root) / (mode + '.sqlite')), mode], capture_output=True, text=True, timeout=20)
+        print(result.stdout, end='')
+        print(result.stderr, end='')
+        if result.returncode != 0: failures.append(mode)
+assert not failures, failures
+PYFLUSH
+cat build/apple-lifecycle/draft-flush.log
+if [[ $core_status != 0 || $probe_status != 0 || $disconnect_status != 0 || $flush_status != 0 ]]; then exit 1; fi

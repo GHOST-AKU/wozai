@@ -97,18 +97,27 @@ public final class AppleInteropPeer {
             control.setSoTimeout(90_000);
             // A skewed peer clock must not hide subsequent normal-time messages from the latest page.
             long timestamp = System.currentTimeMillis() + java.util.concurrent.TimeUnit.DAYS.toMillis(3650);
-            int fixtureIndex = 0, appended = 0;
+            int fixtureIndex = 0, appended = 0, historyCount = 2;
             while (true) {
                 try (Socket driver = control.accept()) {
                     driver.setSoTimeout(5_000);
                     String command = new BufferedReader(new InputStreamReader(driver.getInputStream(), java.nio.charset.StandardCharsets.UTF_8)).readLine();
-                    if ("populate".equals(command)) {
+                    if ("history-200".equals(command) || "history-400".equals(command)) {
+                        int target = command.equals("history-200") ? 200 : 400;
+                        require(historyCount < target, "History boundary was already passed");
+                        while (historyCount < target) {
+                            historyCount++;
+                            channel.write(ProtocolV4.encode(new Frame(Frame.TEXT, UUID.randomUUID().toString(), "History boundary " + historyCount, ++timestamp)));
+                        }
+                    } else if ("populate".equals(command)) {
                         for (int index = 0; index < 80; index++) {
                             channel.write(ProtocolV4.encode(new Frame(Frame.TEXT, UUID.randomUUID().toString(),
                                 String.format(java.util.Locale.ROOT, "Reading message %02d\nPreserve this reading position when new messages arrive.", fixtureIndex++), ++timestamp)));
                         }
+                        historyCount += 80;
                         System.out.println("UI fixture: sent 80 reading messages; total=" + fixtureIndex);
                     } else if ("append".equals(command)) {
+                        historyCount++;
                         channel.write(ProtocolV4.encode(new Frame(Frame.TEXT, UUID.randomUUID().toString(), "A new message while reading history " + (++appended), System.currentTimeMillis())));
                     } else { require("finish".equals(command), "Unknown UI driver command"); }
                     System.out.println("UI driver: " + command + ", durable ACKs=" + acknowledgements.get());

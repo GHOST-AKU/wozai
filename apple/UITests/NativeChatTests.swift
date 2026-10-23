@@ -53,6 +53,9 @@ final class NativeChatTests: XCTestCase {
             XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 8), .completed, "Reading should allow dismissing the keyboard")
         }
         #endif
+        #if os(macOS)
+        try verifyExactHistoryBoundaries(app)
+        #endif
         for cycle in 0..<3 { try verifyReadingPosition(app, cycle: cycle) }
         #if os(macOS)
         composer.tap(); composer.typeText("Shared draft")
@@ -94,6 +97,32 @@ final class NativeChatTests: XCTestCase {
         XCTAssertEqual(restored.value as? String, "Shared draft updated", "Normal quit lost the conversation draft")
         #endif
     }
+
+    #if os(macOS)
+    private func verifyExactHistoryBoundaries(_ app: XCUIApplication) throws {
+        let timeline = app.scrollViews["messageTimeline"]
+        try drivePeer("history-200")
+        let boundary200 = app.staticTexts["History boundary 200"]
+        XCTAssertTrue(boundary200.waitForExistence(timeout: 10))
+        XCTAssertTrue(waitForVisible(boundary200, in: timeline))
+        XCTAssertFalse(app.buttons["Earlier messages"].exists, "Exactly 200 messages must not offer an empty older page")
+        try drivePeer("history-400")
+        let boundary400 = app.staticTexts["History boundary 400"]
+        XCTAssertTrue(boundary400.waitForExistence(timeout: 10))
+        XCTAssertTrue(waitForVisible(boundary400, in: timeline))
+        timeline.hover()
+        timeline.scroll(byDeltaX: 0, deltaY: 100_000)
+        let earlier = app.buttons["Earlier messages"]
+        XCTAssertTrue(earlier.waitForExistence(timeout: 5))
+        earlier.tap()
+        XCTAssertTrue(app.staticTexts["Hello from Java"].waitForExistence(timeout: 8))
+        XCTAssertFalse(earlier.exists, "The oldest full page of a 400-message history must not offer another page")
+        XCTAssertFalse(app.staticTexts["No messages yet"].exists)
+        app.buttons["jumpToLatest"].tap()
+        XCTAssertTrue(boundary400.waitForExistence(timeout: 8))
+        XCTAssertTrue(waitForVisible(boundary400, in: timeline))
+    }
+    #endif
 
     private func verifyReadingPosition(_ app: XCUIApplication, cycle: Int) throws {
         try drivePeer("populate")
