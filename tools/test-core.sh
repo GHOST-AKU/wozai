@@ -54,6 +54,7 @@ java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AutomaticFileRouteDiag
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AutomaticFileRouteDiagnosticsTests --slow-direct
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentRouteDisconnectTests
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentRouteRecoveryTests
+java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.FileRecoveryLeaseTests
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.SecureSessionTests
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.SafetyCodeTests
 sh tools/test-qr-camera-focus.sh
