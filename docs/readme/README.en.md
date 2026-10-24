@@ -43,6 +43,8 @@ For now, it focuses on simple, understandable nearby communication: devices disc
 
 Both desktop clients are distributed with their own runtime, so users do not need to install Java separately. For detailed usage instructions and validation scope on Windows and Linux, see the [Windows guide](../windows.md) and [Linux guide](../linux.md).
 
+Native **Swift / SwiftUI clients for iOS, iPadOS and macOS are in development**, using Apple system components and the NIM4 protocol specification. The initial implementation focuses on encrypted LAN text, device consent and local history. See the [Apple client guide](../apple.md) and [#31](https://github.com/GHOST-AKU/wozai/issues/31) for capabilities and device-validation limits; no official Apple installation packages are available yet.
+
 ## 📡 Start chatting
 
 ### Local network
