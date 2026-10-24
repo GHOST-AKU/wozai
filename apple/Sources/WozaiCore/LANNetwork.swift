@@ -175,7 +175,8 @@ public final class LANDiscovery: @unchecked Sendable {
                 }
                 self.listener = listener
                 listener.start(queue: queue)
-                let browser = NWBrowser(for: .bonjour(type: "_nearbyim._tcp", domain: "local."), using: localParameters())
+                // TXT metadata supplies nicknames and self-filtering, not authenticated identity.
+                let browser = NWBrowser(for: .bonjourWithTXTRecord(type: "_nearbyim._tcp", domain: "local."), using: localParameters())
                 browser.browseResultsChangedHandler = { [weak self] results, _ in
                     guard let self, self.generation == epoch else { return }
                     let found = results.compactMap { result -> DiscoveredPeer? in

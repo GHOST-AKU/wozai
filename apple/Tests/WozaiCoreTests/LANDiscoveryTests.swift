@@ -29,9 +29,8 @@ final class LANDiscoveryTests: XCTestCase {
             observed.advertised(ids)
         }
         witness.stateUpdateHandler = { if case .failed(let error) = $0 { observed.fail(error.localizedDescription) } }
-        let discovery = LANDiscovery(peers: { observed.discovered($0) }, incoming: { stream in
-            Task { await stream.close() }
-        }, state: { _, error in if let error { observed.fail(error) } })
+        let discovery = LANDiscovery(peers: { observed.discovered($0) }, incoming: { $0.close() },
+            state: { _, error in if let error { observed.fail(error) } })
         defer { discovery.stop(); witness.cancel(); remote.cancel() }
         remote.start(queue: queue)
         witness.start(queue: queue)

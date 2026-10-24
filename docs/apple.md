@@ -17,7 +17,7 @@ Mac 使用原生侧栏、工具栏、菜单、快捷键和独立 Settings 窗口
 ## 连接与安全
 
 1. 两端加入可互访的局域网。Mac 可以使用以太网，不要求 Wi-Fi 接口。
-2. 在 Apple 客户端的「附近 / Nearby」开启「发现与接收 / Discover and receive」。Bonjour 使用与现有客户端一致的 `_nearbyim._tcp` 服务。
+2. 在 Apple 客户端的「附近 / Nearby」开启「发现与接收 / Discover and receive」。Bonjour 使用与现有客户端一致的 `_nearbyim._tcp` 服务，并请求附带的 TXT 记录以显示对端昵称、读取设备 ID 提示及排除自身服务。缺少 TXT 时保留服务名称作为发现提示，不把它当作已认可或已核验的身份。
 3. 从发现的设备发起连接，或者输入对方显示的局域网 IP / `.local` 名称和端口。应用不提供公网聊天入口。
 4. 未记住的设备需要明确认可；设备名称和 Bonjour TXT 仅是未受信任的发现提示。长期根密钥须通过 NIM4 根签名验证，已经记住的设备变更密钥会拒绝连接。
 5. 通过聊天菜单比较两端完整安全码，再手动标记已核验。记住设备、加密连接与人工核验是三个不同状态。
@@ -46,6 +46,8 @@ NIM4 使用 `Noise_XX_25519_AESGCM_SHA256`，经 CryptoKit 执行 X25519、AES-G
 
 ```sh
 swift test --package-path apple
+# 在 macOS 上使用真实 Bonjour 广播检查昵称、设备 ID 提示和自身服务过滤。
+swift test --package-path apple --filter LANDiscoveryTests
 # 同时验证独立 AppKit 进程在立即正常退出前保存草稿。
 bash tools/test-apple-lifecycle.sh
 bash tools/test-apple-interop.sh
@@ -88,4 +90,5 @@ GitHub Actions 的 `Verify native Apple clients` 保留互通日志和原生 XCT
 - [NavigationSplitView](https://developer.apple.com/documentation/swiftui/navigationsplitview) 与 [sidebarAdaptable](https://developer.apple.com/documentation/swiftui/tabviewstyle/sidebaradaptable)
 - [ScrollViewReader](https://developer.apple.com/documentation/swiftui/scrollviewreader) 与 [onGeometryChange](https://developer.apple.com/documentation/swiftui/view/ongeometrychange(for:of:action:))，在当前页完成布局后定位，按实际可见性保留阅读位置；[onScrollPhaseChange](https://developer.apple.com/documentation/swiftui/view/onscrollphasechange(_:)) 在 iOS/iPadOS 18、macOS 15 及以上区分用户滚动，较早系统使用手势及可见性反馈
 - [Local network usage description](https://developer.apple.com/documentation/bundleresources/information-property-list/nslocalnetworkusagedescription)
+- [Bonjour discovery with associated TXT records](https://developer.apple.com/documentation/network/nwbrowser/descriptor-swift.enum/bonjourwithtxtrecord(type:domain:))
 - [Network.framework includePeerToPeer](https://developer.apple.com/documentation/network/nwparameters/includepeertopeer)
