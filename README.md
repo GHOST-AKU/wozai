@@ -45,6 +45,15 @@
 
 iOS、iPadOS、macOS 的 **Swift / SwiftUI 原生客户端正在开发**，采用 Apple 系统组件，并复用 NIM4 协议规范。当前首轮实现聚焦局域网加密文字、设备认可与本地记录，功能及真机验收范围见 [Apple 原生客户端说明](docs/apple.md) 和 [#31](https://github.com/GHOST-AKU/wozai/issues/31)；尚未提供 Apple 正式安装包。
 
+## ⌨️ NearbyIM Terminal（开发中）
+
+**NearbyIM Terminal** 已在 [`terminal/`](terminal/README.zh-CN.md) 开始独立 Rust 实现，主命令为 `nearbyim`（Windows：`nearbyim.exe`）。采用 ratatui/crossterm + clap，运行不依赖 JRE、GUI 或 Android SDK。
+
+- TUI 与 CLI 共用 NIM4 核心：独立身份、明确认可/安全码、LAN 发现/地址直连、文本、历史/草稿及流式文件/检查点/保存回执。
+- 首次启动默认关闭 LAN 监听；脚本不自动批准未知身份。JSON、退出码、主题、字素簇输入与终端恢复按[设计手册](terminal/docs/design-v0.2.md)实施。
+- 已有生产 Java 通道和文件引擎的真实 TCP 双角色互通自动测试；真机、Windows/Linux 终端矩阵与性能仍以 [Issue #38](https://github.com/GHOST-AKU/wozai/issues/38) / [PR #41](https://github.com/GHOST-AKU/wozai/pull/41) 证据为准。
+- 当前是 `0.1.0-dev` 开发构建；不将尚未完成的验收或未实现的蓝牙/P2P 算作支持，不替代现有 GUI，也不修改 0.3.2 正式版附件。
+
 ## 📡 开始聊天
 
 ### 局域网

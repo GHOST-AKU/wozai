@@ -17,6 +17,7 @@ public final class FileQualityRequestRetryTests {
             AtomicBoolean holdHistory=new AtomicBoolean();AtomicInteger requests=new AtomicInteger();
             CountDownLatch historyEntered=new CountDownLatch(1),historyRelease=new CountDownLatch(1),declined=new CountDownLatch(1),retried=new CountDownLatch(1);
             CompletableFuture<Void> controlFailure=new CompletableFuture<>();
+            ExecutorService admission=Executors.newSingleThreadExecutor();
             h.historyBarrier=record->{
                 if(!record.outgoing&&record.state.equals("transferring")&&holdHistory.compareAndSet(true,false)){
                     historyEntered.countDown();
@@ -30,14 +31,24 @@ public final class FileQualityRequestRetryTests {
                         int count=requests.incrementAndGet();
                         if(count==1){
                             holdHistory.set(true);
-                            check(historyEntered.await(5,TimeUnit.SECONDS),"Receiver did not enter its real history save");
-                            check(h.files[0].activity().busy,"History save did not make receiver busy");
-                            h.routes.a.files.receiveFileLink(packet);
-                            AutomaticFileRoutesTests.drainActor(h.routes.a.files);
-                            check(h.routes.a.files.diagnostics().contains("file_quality_result=not_measured"),"First request was not declined before measurement");
-                            check(h.routes.a.files.diagnostics().contains("file_quality_admission=local_busy"),"Receiver did not explain its temporary rejection");
-                            declined.countDown();historyRelease.countDown();return;
+                            // Keep the parent reader free to receive authenticated activity heartbeats.
+                            admission.execute(()->{
+                                try{
+                                    check(historyEntered.await(5,TimeUnit.SECONDS),"Receiver did not enter its real history save");
+                                    check(h.files[0].activity().busy,"History save did not make receiver busy");
+                                    h.routes.a.files.receiveFileLink(packet);
+                                    AutomaticFileRoutesTests.drainActor(h.routes.a.files);
+                                    String diagnostics=h.routes.a.files.diagnostics();
+                                    check(diagnostics.contains("file_quality_result=not_measured"),"First request was not declined before measurement: "+diagnostics);
+                                    check(diagnostics.contains("file_quality_admission=local_busy"),"Receiver did not explain its temporary rejection: "+diagnostics);
+                                    declined.countDown();
+                                }catch(Exception|AssertionError error){controlFailure.completeExceptionally(error);}
+                                finally{historyRelease.countDown();}
+                            });
+                            return;
                         }
+                        // Preserve first-admission ordering while unrelated control records still pass.
+                        if(declined.getCount()!=0)return;
                         retried.countDown();
                     }
                     h.routes.a.files.receiveFileLink(packet);
@@ -56,6 +67,7 @@ public final class FileQualityRequestRetryTests {
                 if(controlFailure.isCompletedExceptionally())controlFailure.join();
             }finally{
                 historyRelease.countDown();h.saved.completeExceptionally(new CancellationException());h.delivered.completeExceptionally(new CancellationException());
+                admission.shutdownNow();check(admission.awaitTermination(3,TimeUnit.SECONDS),"Admission fixture worker did not stop");
             }
         }
     }

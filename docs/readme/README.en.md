@@ -45,6 +45,15 @@ Both desktop clients are distributed with their own runtime, so users do not nee
 
 Native **Swift / SwiftUI clients for iOS, iPadOS and macOS are in development**, using Apple system components and the NIM4 protocol specification. The initial implementation focuses on encrypted LAN text, device consent and local history. See the [Apple client guide](../apple.md) and [#31](https://github.com/GHOST-AKU/wozai/issues/31) for capabilities and device-validation limits; no official Apple installation packages are available yet.
 
+## ⌨️ NearbyIM Terminal (in development)
+
+**NearbyIM Terminal** now has an independent Rust implementation in [`terminal/`](../../terminal/README.md), executable `nearbyim` (`nearbyim.exe` on Windows), using ratatui/crossterm + clap without a JRE, GUI or Android SDK at runtime.
+
+- TUI and CLI share NIM4 identity/consent/safety-code, LAN discovery/direct-address, text/history/drafts and streaming file/checkpoint/saved-receipt logic.
+- LAN listening defaults to off; scripts cannot approve unknown identities. JSON, exit codes, themes, grapheme editing and terminal restoration follow the [design manual](../../terminal/docs/design-v0.2.md).
+- Real TCP automation exchanges both Noise roles, text and files with the production Java channel/file engine. Device, Windows/Linux terminal and performance acceptance remain evidence-based in [Issue #38](https://github.com/GHOST-AKU/wozai/issues/38) / [PR #41](https://github.com/GHOST-AKU/wozai/pull/41).
+- This is a `0.1.0-dev` development build; incomplete acceptance and unimplemented Bluetooth/P2P are not advertised as supported. Existing GUI clients and v0.3.2 release assets remain separate.
+
 ## 📡 Start chatting
 
 ### Local network
