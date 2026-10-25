@@ -1,6 +1,11 @@
 name: Build unsigned native preview
 on:
   workflow_dispatch:
+    inputs:
+      apple-only:
+        description: Rebuild Apple packages only
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -24,21 +29,23 @@ jobs:
           codesign --force --deep --sign - --entitlements apple/App/NearbyIM.entitlements "$app"
           codesign --verify --deep --strict "$app"
           codesign -dv "$app" 2> dist/macos-signature.txt
-          lipo -verify_arch arm64 x86_64 "$app/Contents/MacOS/NearbyIM"
+          lipo "$app/Contents/MacOS/NearbyIM" -verify_arch arm64 x86_64
           ditto -c -k --sequesterRsrc --keepParent "$app" dist/NearbyIM-0.3.3-preview.1-macos-universal-adhoc.zip
           cp -R build/iOS/Build/Products/Release-iphoneos/NearbyIM.app build/ipa/Payload/
           test ! -e build/ipa/Payload/NearbyIM.app/embedded.mobileprovision
           if codesign --verify build/ipa/Payload/NearbyIM.app 2>/dev/null; then echo 'Unexpected iOS signature'; exit 1; fi
           (cd build/ipa && zip -qr ../../dist/NearbyIM-0.3.3-preview.1-ios-ipados-unsigned.ipa Payload)
           cp docs/releases/native-preview-install.md dist/INSTALL.md
+          cp LICENSE dist/LICENSE.txt
           git rev-parse HEAD > dist/SOURCE_COMMIT.txt
-          (cd dist && shasum -a 256 *.zip *.ipa INSTALL.md SOURCE_COMMIT.txt macos-signature.txt > SHA256SUMS-apple.txt)
+          (cd dist && shasum -a 256 *.zip *.ipa INSTALL.md LICENSE.txt SOURCE_COMMIT.txt macos-signature.txt > SHA256SUMS-apple.txt)
       - uses: actions/upload-artifact@v4
         with:
           name: apple-native-preview
           path: dist/*
           if-no-files-found: error
   terminal:
+    if: ${{ !inputs.apple-only }}
     strategy:
       fail-fast: false
       matrix:
