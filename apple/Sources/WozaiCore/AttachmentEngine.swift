@@ -31,12 +31,18 @@ public final class AttachmentEngine {
         var active = false
         init(_ record: AttachmentRecord, _ file: FileHandle) { self.record = record; self.file = file }
     }
+    private struct Ended {
+        let record: AttachmentRecord
+        var bytes: UInt64
+        var controls = 128
+    }
     private let peer: VerifiedPeer
     private let connection: String
     private let journal: URL
     private let directory: URL
     private var incoming: Task?, outgoing: Task?
     private var reserved: AttachmentRecord?
+    private var ended: [Ended] = []
     private var queuedCount = 0
     public private(set) var notices: [AttachmentRecord] = []
     private let window: UInt64 = 2 * AttachmentInfo.blockBytes
@@ -67,7 +73,27 @@ public final class AttachmentEngine {
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
         let file = try FileHandle(forWritingTo: url); try file.synchronize(); try file.close()
         try syncDirectory(journal)
+        if ["saved", "received", "canceled", "failed"].contains(record.state) { remember(record) }
         notices.append(record)
+    }
+    private func remember(_ record: AttachmentRecord) {
+        guard !ended.contains(where: { $0.record.key == record.key }) else { return }
+        // Bound both memory and the already-sent traffic accepted after a task ends.
+        ended.append(Ended(record: record, bytes: window))
+        if ended.count > 32 { ended.removeFirst() }
+    }
+    private func discardEnded(_ p: AttachmentPacket) throws -> Bool {
+        guard let index = ended.firstIndex(where: {
+            $0.record.id == p.id && $0.record.source == p.source && $0.record.outgoing != p.fromSender && $0.record.info.size == p.size
+        }) else { return false }
+        if p.kind == .data {
+            guard UInt64(p.payload.count) <= ended[index].bytes else { throw WozaiError.protocolViolation }
+            ended[index].bytes -= UInt64(p.payload.count)
+        } else {
+            guard ended[index].controls > 0 else { throw WozaiError.protocolViolation }
+            ended[index].controls -= 1
+        }
+        return true
     }
     public func records() throws -> [AttachmentRecord] {
         var result: [AttachmentRecord] = []
@@ -157,13 +183,22 @@ public final class AttachmentEngine {
             reply.durable = record.offset; reply.window = window; reply.hash = record.digest; return [reply]
         }
         let isOutgoing = !p.fromSender
-        guard let task = isOutgoing ? outgoing : incoming else {
-            if let record = try lookup(p, outgoing: isOutgoing), record.state == "canceled" || (["received", "saved"].contains(record.state) && [.pause, .cancel].contains(p.kind)) { return [] }
-            if p.kind == .cancel { return [] }
+        let current = isOutgoing ? outgoing : incoming
+        guard let task = current, task.record.id == p.id, task.record.source == p.source, task.record.info.size == p.size else {
+            if try discardEnded(p) { return [] }
+            if p.kind == .cancel, var record = try lookup(p, outgoing: isOutgoing) {
+                if !["saved", "received", "canceled", "failed"].contains(record.state) {
+                    if record.queued && record.state == "queued" { queuedCount = max(0, queuedCount - 1) }
+                    record.state = p.reason == "failed" || p.reason == "tooLarge" ? "failed" : "canceled"
+                    record.manualPause = false
+                    try save(record)
+                    if reserved?.key == record.key { reserved = nil }
+                } else { remember(record) }
+                _ = try discardEnded(p)
+                return []
+            }
             throw WozaiError.protocolViolation
         }
-        guard task.record.id == p.id, task.record.source == p.source, task.record.info.size == p.size else { throw WozaiError.protocolViolation }
-        if task.record.state == "canceled" { return [] }
         switch p.kind {
         case .accept:
             guard isOutgoing, task.record.state == "offered", p.offset == 0, p.window > 0 else { throw WozaiError.protocolViolation }

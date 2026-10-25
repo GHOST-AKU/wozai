@@ -52,6 +52,75 @@ final class AttachmentEngineTests: XCTestCase {
         XCTAssertNoThrow(try pair.sender.offer(pair.source))
     }
 
+    func testLateSavedReceiptAfterCancelPreservesNextFile() throws {
+        let pair = try Pair(size: 32768)
+        let (first, offer) = try pair.sender.offer(pair.source); pair.toReceiver = offer
+        let (second, _) = try pair.sender.offer(pair.source)
+        try pair.tick()
+        let data = pair.toReceiver; pair.toReceiver = []
+        for packet in data { pair.toSender += try pair.receiver.handle(packet) }
+        XCTAssertTrue(pair.toSender.contains { $0.kind == .complete })
+        _ = try pair.sender.pause(first, cancel: true)
+        pair.toReceiver = try pair.sender.pump()
+        XCTAssertEqual(pair.toReceiver.first?.id, second)
+        try pair.finish(second)
+        XCTAssertEqual(try pair.sender.records().first { $0.id == first }?.state, "canceled")
+        let received = try XCTUnwrap(pair.receiver.records().first { $0.id == second })
+        XCTAssertEqual(try Data(contentsOf: received.destination), pair.bytes)
+    }
+
+    func testRemoteCancelOfReservedTaskPersistsAndReleasesNextFileAfterRestart() throws {
+        let pair = try Pair(size: 32768 * 3)
+        let (first, offer) = try pair.sender.offer(pair.source); pair.toReceiver = offer
+        let (second, _) = try pair.sender.offer(pair.source)
+        try pair.tick()
+        try pair.sender.disconnect(); try pair.receiver.disconnect()
+        pair.toReceiver = []; pair.toSender = []
+        pair.sender = try pair.engine(outgoing: true, generation: "b")
+        pair.receiver = try pair.engine(outgoing: false, generation: "b")
+        let saved = try XCTUnwrap(pair.sender.records().first { $0.id == first })
+        var cancel = AttachmentPacket(kind: .cancel, fromSender: false, info: saved.info, source: saved.source, connection: String(repeating: "b", count: 64))
+        cancel.reason = "canceled"
+        _ = try pair.sender.handle(cancel)
+        XCTAssertEqual(try pair.sender.records().first { $0.id == first }?.state, "canceled")
+        _ = try pair.receiver.pause(first, cancel: true)
+        // Reopen once more to prove cancellation, rather than only a RAM slot change, survived.
+        pair.sender = try pair.engine(outgoing: true, generation: "b")
+        pair.toReceiver = try pair.sender.pump()
+        XCTAssertEqual(pair.toReceiver.first?.id, second)
+        try pair.finish(second)
+    }
+
+    func testCanceledTrafficCannotTouchNewReceiveOrBypassIdentityAndBudgets() throws {
+        let pair = try Pair(size: 32768 * 3)
+        let (first, offer) = try pair.sender.offer(pair.source); pair.toReceiver = offer
+        try pair.tick()
+        let late = pair.toReceiver; pair.toReceiver = []
+        _ = try pair.receiver.pause(first, cancel: true)
+        _ = try pair.sender.pause(first, cancel: true)
+        let (second, next) = try pair.sender.offer(pair.source)
+        for packet in next { pair.toSender += try pair.receiver.handle(packet) }
+        let data = try XCTUnwrap(late.first { $0.kind == .data })
+        var wrong = data; wrong.source = UUID().uuidString.lowercased()
+        XCTAssertThrowsError(try pair.receiver.handle(wrong))
+        wrong = data; wrong.size += 1
+        XCTAssertThrowsError(try pair.receiver.handle(wrong))
+        wrong = data; wrong.fromSender = false
+        XCTAssertThrowsError(try pair.receiver.handle(wrong))
+        wrong = data; wrong.connection = String(repeating: "b", count: 64)
+        XCTAssertThrowsError(try pair.receiver.handle(wrong))
+        for packet in late { _ = try pair.receiver.handle(packet) }
+        try pair.finish(second)
+        let received = try XCTUnwrap(pair.receiver.records().first { $0.id == second })
+        XCTAssertEqual(try Data(contentsOf: received.destination), pair.bytes)
+        XCTAssertEqual(try pair.receiver.records().first { $0.id == first }?.state, "canceled")
+        for _ in 0..<64 { _ = try? pair.receiver.handle(data) }
+        XCTAssertThrowsError(try pair.receiver.handle(data), "Late DATA must exhaust its original window")
+        var control = data; control.kind = .pause; control.payload = Data(); control.offset = 0
+        for _ in 0..<128 { _ = try? pair.receiver.handle(control) }
+        XCTAssertThrowsError(try pair.receiver.handle(control), "Late control traffic must also be bounded")
+    }
+
     func testPersistentQueueDoesNotReplaceCurrentFileAndCanCancelWaitingItems() throws {
         let pair = try Pair(size: 32768 * 3 + 1)
         let (first, packets) = try pair.sender.offer(pair.source)
