@@ -29,7 +29,7 @@ final class NativeChatTests: XCTestCase {
         XCTAssertTrue(consent.waitForExistence(timeout: 15))
         consent.tap()
         let composer = app.descendants(matching: .any).matching(identifier: "composer").firstMatch
-        XCTAssertTrue(composer.waitForExistence(timeout: 15))
+        XCTAssertTrue(composer.waitForExistence(timeout: 15), "Approved connection did not reveal its conversation: " + app.debugDescription)
         XCTAssertTrue(app.staticTexts["Hello from Java"].waitForExistence(timeout: 15), app.debugDescription)
         composer.tap(); composer.typeText("Hello from Apple")
         app.buttons["sendMessage"].tap()

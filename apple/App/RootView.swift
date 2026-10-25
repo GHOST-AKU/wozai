@@ -124,10 +124,12 @@ private struct MobileNavigation: View {
 private struct ChatsView: View {
     @Environment(AppModel.self) private var model
     @SceneStorage("selectedConversation") private var selection = ""
+    @State private var compactColumn = NavigationSplitViewColumn.sidebar
+    @State private var pendingConnectedPeer: String?
     let findNearby: () -> Void
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(preferredCompactColumn: $compactColumn) {
             List(selection: Binding<String?>(get: { selection.isEmpty ? nil : selection }, set: { selection = $0 ?? "" })) {
                 ForEach(model.conversations) { contact in
                     NavigationLink(value: contact.id) { ConversationLabel(contact: contact) }
@@ -146,7 +148,20 @@ private struct ChatsView: View {
                 ChatDetailView(contact: contact).id(contact.id)
             } else { ContentUnavailableView("Choose a conversation", systemImage: "bubble.left.and.bubble.right") }
         }
-        .onChange(of: model.connectionState, initial: true) { _, value in if value == .connected { selection = model.activePeer?.id ?? "" } }
+        .onChange(of: model.connectionState, initial: true) { _, value in
+            pendingConnectedPeer = value == .connected ? model.activePeer?.id : nil
+            revealConnectedConversation()
+        }
+        .onChange(of: model.conversations.map(\.id)) { _, _ in revealConnectedConversation() }
+    }
+
+    private func revealConnectedConversation() {
+        guard let peer = pendingConnectedPeer, model.conversations.contains(where: { $0.id == peer }) else { return }
+        // READY can arrive before the asynchronous conversation reload. Select only a real row,
+        // then explicitly reveal detail when the split view is collapsed on iPhone.
+        selection = peer
+        compactColumn = .detail
+        pendingConnectedPeer = nil
     }
 }
 #endif
