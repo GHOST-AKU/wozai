@@ -30,7 +30,7 @@ final class NativeChatTests: XCTestCase {
         consent.tap()
         let composer = app.descendants(matching: .any).matching(identifier: "composer").firstMatch
         XCTAssertTrue(composer.waitForExistence(timeout: 15))
-        XCTAssertTrue(app.staticTexts["Hello from Java"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["Hello from Java"].waitForExistence(timeout: 15), app.debugDescription)
         composer.tap(); composer.typeText("Hello from Apple")
         app.buttons["sendMessage"].tap()
         XCTAssertTrue(app.staticTexts["Delivered"].waitForExistence(timeout: 15) || app.descendants(matching: .any).matching(NSPredicate(format: "identifier == %@ AND label CONTAINS %@", "deliveryStatus", "Delivered")).firstMatch.waitForExistence(timeout: 5))

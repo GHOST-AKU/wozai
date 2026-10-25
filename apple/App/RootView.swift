@@ -29,9 +29,11 @@ extension FocusedValues {
 struct RootView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.scenePhase) private var scenePhase
+    @State private var consentPresented = false
 
     var body: some View {
         @Bindable var model = model
+        let fileOffer = model.fileOffer, fileOfferToken = model.fileOfferToken
         Group {
             if model.initialized {
                 #if os(macOS)
@@ -48,16 +50,19 @@ struct RootView: View {
             } else { ProgressView("Opening NearbyIM…") }
         }
         .task { await model.bootstrap() }
-        .sheet(item: $model.consent, onDismiss: { model.dismissConsent() }) { peer in
+        .sheet(item: $model.consent, onDismiss: { consentPresented = false; model.dismissConsent() }) { peer in
             ConsentView(peer: peer)
                 .environment(model)
                 .presentationDetents([.medium, .large])
+                .onAppear { consentPresented = true }
         }
-        .confirmationDialog("Receive file?", isPresented: Binding(get: { model.fileOffer != nil }, set: { if !$0 { model.decideFile(false) } }), titleVisibility: .visible) {
-            Button("Receive") { model.decideFile(true) }
-            Button("Reject", role: .cancel) { model.decideFile(false) }
+        .confirmationDialog("Receive file?", isPresented: Binding(get: {
+            !consentPresented && fileOffer != nil && model.fileOffer != nil && model.fileOfferToken == fileOfferToken
+        }, set: { if !$0 { model.decideFile(false, expected: fileOfferToken) } }), titleVisibility: .visible) {
+            Button("Receive") { model.decideFile(true, expected: fileOfferToken) }
+            Button("Reject", role: .cancel) { model.decideFile(false, expected: fileOfferToken) }
         } message: {
-            if let info = model.fileOffer { Text(verbatim: info.name + " · " + ByteCountFormatter.string(fromByteCount: Int64(info.size), countStyle: .file)) }
+            if let info = fileOffer { Text(verbatim: info.name + " · " + ByteCountFormatter.string(fromByteCount: Int64(info.size), countStyle: .file)) }
         }
         .alert("NearbyIM", isPresented: Binding(get: { model.notice != nil }, set: { if !$0 { model.notice = nil } })) {
             Button("OK", role: .cancel) { model.notice = nil }

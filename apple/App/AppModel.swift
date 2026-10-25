@@ -28,7 +28,9 @@ final class AppModel {
     var activePeer: VerifiedPeer?
     var consent: VerifiedPeer?
     var notice: Notice?
-    var fileOffer: AttachmentInfo?
+    private var fileConsent = AttachmentConsent()
+    var fileOffer: AttachmentInfo? { fileConsent.pending }
+    var fileOfferToken: UUID { fileConsent.token }
     var transfers: [String: AttachmentRecord] = [:]
     var transferRevision: [String: UInt64] = [:]
     var revision: [String: UInt64] = [:]
@@ -129,12 +131,12 @@ final class AppModel {
             activePeer = peer; consent = nil; connectionState = .connected
             changed(peer.id)
         case .changed(let peer): changed(peer)
-        case .attachmentOffer(let info): fileOffer = info
+        case .attachmentOffer(let info): fileConsent.replace(info)
         case .transfer(let record):
             if transfers[record.key]?.state != record.state { transferRevision[record.peerID, default: 0] &+= 1 }
             transfers[record.key] = record
         case .closed(let error):
-            session = nil; stream = nil; activePeer = nil; consent = nil; fileOffer = nil; connectionState = .idle
+            session = nil; stream = nil; activePeer = nil; consent = nil; fileConsent.replace(nil); connectionState = .idle
             if let error { notice = Notice(message: error) }
         }
     }
@@ -206,10 +208,9 @@ final class AppModel {
             } catch { show(error) }
         }
     }
-    func decideFile(_ accept: Bool) {
-        guard let id = fileOffer?.id, let session else { return }
-        fileOffer = nil
-        Task { do { try await session.acceptFile(id, accept: accept) } catch { show(error) } }
+    func decideFile(_ accept: Bool, expected: UUID) {
+        guard let session, let offer = fileConsent.take(expected: expected) else { return }
+        Task { do { try await session.acceptFile(offer.id, accept: accept) } catch { show(error) } }
     }
     func fileControl(_ id: String, cancel: Bool = false, resume: Bool = false) {
         guard let session else { return }
@@ -239,7 +240,7 @@ final class AppModel {
         let previous = session
         connectionTask?.cancel(); connectionTask = nil
         stream?.close(); stream = nil; session = nil
-        consent = nil; activePeer = nil; fileOffer = nil; connectionState = .idle
+        consent = nil; activePeer = nil; fileConsent.replace(nil); connectionState = .idle
         Task { await previous?.stop() }
     }
 
