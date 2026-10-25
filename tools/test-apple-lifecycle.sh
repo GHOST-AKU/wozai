@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+mkdir -p build/apple-lifecycle
+core_status=0
+swift test --package-path apple > build/apple-lifecycle/core.log 2>&1 || core_status=$?
+cat build/apple-lifecycle/core.log
+bin_path="$(swift build --package-path apple --show-bin-path)"
+lifecycle_sources=(apple/App/AppModel.swift tests/apple/MacTerminationProbe.swift)
+if [[ -f apple/App/MacAppDelegate.swift ]]; then
+  lifecycle_sources+=(-D HAS_MAC_LIFECYCLE apple/App/MacAppDelegate.swift)
+fi
+swiftc -target "$(uname -m)-apple-macosx14.0" -parse-as-library -I "$bin_path/Modules" -o build/apple-lifecycle/termination-probe \
+  "${lifecycle_sources[@]}" \
+  "$bin_path"/WozaiCore.build/*.swift.o -lsqlite3
+probe_status=0
+python3 - <<'PY' > build/apple-lifecycle/termination.log 2>&1 || probe_status=$?
+import pathlib, sqlite3, subprocess, tempfile
+probe = pathlib.Path('build/apple-lifecycle/termination-probe').resolve()
+with tempfile.TemporaryDirectory(prefix='wozai-termination-') as root:
+    database = pathlib.Path(root) / 'chat.sqlite'
+    process = subprocess.Popen([str(probe), str(database)])
+    try:
+        assert process.wait(timeout=20) == 0
+    except subprocess.TimeoutExpired:
+        subprocess.run(['/usr/bin/sample', str(process.pid), '1', '-file',
+                        str(pathlib.Path('build/apple-lifecycle/termination-stack.txt').resolve())], timeout=10)
+        with sqlite3.connect(database) as connection:
+            print('Drafts at termination timeout:', dict(connection.execute('SELECT peer,body FROM drafts')), flush=True)
+        process.kill()
+        process.wait()
+        raise
+    with sqlite3.connect(database) as connection:
+        drafts = dict(connection.execute('SELECT peer,body FROM drafts'))
+    assert drafts == {'edited': 'latest draft before quit', 'cleared': ''}, drafts
+    print('PASS: normal AppKit quit durably saves and clears drafts before the 400ms debounce')
+PY
+cat build/apple-lifecycle/termination.log
+swiftc -target "$(uname -m)-apple-macosx14.0" -parse-as-library -I "$bin_path/Modules" -o build/apple-lifecycle/disconnect-probe \
+  apple/App/AppModel.swift tests/apple/ManualDisconnectProbe.swift \
+  "$bin_path"/WozaiCore.build/*.swift.o -lsqlite3
+disconnect_status=0
+python3 - <<'PY' > build/apple-lifecycle/disconnect.log 2>&1 || disconnect_status=$?
+import pathlib, subprocess, tempfile
+probe = pathlib.Path('build/apple-lifecycle/disconnect-probe').resolve()
+with tempfile.TemporaryDirectory(prefix='wozai-disconnect-') as root:
+    result = subprocess.run([str(probe), root], capture_output=True, text=True, timeout=30)
+    print(result.stdout, end='')
+    print(result.stderr, end='')
+    assert result.returncode == 0, result.returncode
+PY
+cat build/apple-lifecycle/disconnect.log
+swiftc -target "$(uname -m)-apple-macosx14.0" -parse-as-library -I "$bin_path/Modules" -o build/apple-lifecycle/draft-flush-probe \
+  apple/App/AppModel.swift tests/apple/DraftFlushProbe.swift \
+  "$bin_path"/WozaiCore.build/*.swift.o -lsqlite3
+flush_status=0
+python3 - <<'PYFLUSH' > build/apple-lifecycle/draft-flush.log 2>&1 || flush_status=$?
+import pathlib, subprocess, tempfile
+probe = pathlib.Path('build/apple-lifecycle/draft-flush-probe').resolve()
+failures = []
+with tempfile.TemporaryDirectory(prefix='wozai-draft-flush-') as root:
+    for mode in ['edit', 'clear', 'overlap']:
+        result = subprocess.run([str(probe), str(pathlib.Path(root) / (mode + '.sqlite')), mode], capture_output=True, text=True, timeout=20)
+        print(result.stdout, end='')
+        print(result.stderr, end='')
+        if result.returncode != 0: failures.append(mode)
+assert not failures, failures
+PYFLUSH
+cat build/apple-lifecycle/draft-flush.log
+if [[ $core_status != 0 || $probe_status != 0 || $disconnect_status != 0 || $flush_status != 0 ]]; then exit 1; fi

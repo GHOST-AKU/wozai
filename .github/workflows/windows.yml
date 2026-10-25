@@ -2,6 +2,16 @@ name: Build NearbyIM Windows client
 on:
   pull_request:
     branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review]
+    paths-ignore:
+      - 'apple/**'
+      - '.github/workflows/apple.yml'
+      - 'tools/test-apple-*.sh'
+      - 'tests/apple/**'
+      - 'docs/apple.md'
+      - 'README.md'
+      - 'docs/readme/README.en.md'
+      - '.gitignore'
   workflow_dispatch:
     inputs:
       android-run-id:
@@ -30,6 +40,8 @@ jobs:
       performance-baseline: ${{ inputs['performance-baseline'] }}
       release-tag: ${{ inputs['release-tag'] }}
   windows:
+    # Native Apple drafts do not need another Windows package; review-ready PRs still run all checks.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.ref != 'feat/apple-native' || !github.event.pull_request.draft
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
