@@ -272,6 +272,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
         testLiveAttachmentFeedback(controller,peerId);
         testBatchRefreshResponsiveness(controller,peerId);
         testBatchPhotoRetention(controller,peerId);
+        onMain(()->{setField(activity,"timelineDiagnostics",true);return null;});
         checks+=AndroidAvatarChecks.run(this,activity);
         checks+=AndroidTransferPathChecks.run(this,activity);
         checks+=AndroidWifiDirectUiChecks.run(this,activity);
