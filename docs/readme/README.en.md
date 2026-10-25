@@ -22,14 +22,15 @@ Wozai takes a different path — **if two people are already nearby, why can't t
 
 For now, it focuses on simple, understandable nearby communication: devices discover each other, users decide for themselves whether to trust them, and messages and attachments travel directly between devices. The two devices are already right next to each other, after all. (｡•̀ᴗ-)✧
 
-## 🏡 Where Apple and Terminal clients fit
+## 🏡 Where NearbyIM fits
 
-- **Between iPhone/iPad and Mac, Android or PC:** exchange text, photos and files on the same LAN/hotspot without cloud uploads or requiring everyone to use the same device ecosystem.
-- **Everyday LAN collaboration on Mac:** use native windows and system file components for one-to-one chat and document exchange in an office, classroom or workshop. The router does not need internet access, but must permit peer connections.
-- **Computers where you prefer a terminal:** the Windows/Linux full-screen TUI provides chat, history and file transfers without launching a GUI or installing Java.
-- **Command-line and remote-host workflows:** combine CLI JSON output, exit codes and file commands with local scripts, or operate Terminal over SSH. Discovery and connections then use the remote host's network; SSH does not turn NearbyIM into an internet chat relay.
+- **Moving things between your own devices:** send text, photos and files between a phone, computer and tablet without uploading them to the cloud or requiring the same device brand. Start on the same LAN or hotspot.
+- **Communication in an office, classroom or workshop:** chat one-to-one and exchange documents or materials with colleagues and classmates on the same network. Computers connected to the router by Ethernet can participate when peer access is allowed.
+- **Temporary sites without internet:** use an existing router or a manually created hotspot at an event or during outdoor collaboration. The network does not need internet access; clients supporting Classic Bluetooth can also try Bluetooth text chat.
+- **Nearby conversations without registration:** discover devices and exchange information, with both sides deciding whether to connect and remember the device identity. History and received files stay on each endpoint.
+- **Terminal and script workflows:** chat and transfer files in a Windows/Linux terminal, or combine CLI JSON output and exit codes with local scripts. Over SSH, discovery and connections use the remote host's network.
 
-Apple and Terminal are **previews**, with incomplete Android feature parity. Their Bluetooth/P2P automatic file lanes, group chat and Mesh/multihop forwarding are not available in this release. See platform details below for packages and scope.
+NearbyIM currently focuses on **one-to-one communication between directly reachable devices**. It does not provide internet relays, group chat or Mesh/multihop forwarding, and cannot replace an assured emergency communications system. Transports and features differ by platform; Apple and Terminal are currently previews. See platform details below.
 
 ## ✨ What it can do today
 
