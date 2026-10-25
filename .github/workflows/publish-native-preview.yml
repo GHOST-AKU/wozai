@@ -1,0 +1,22 @@
+name: Publish verified native preview
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download the explicitly verified build artifacts
+        run: |
+          mkdir -p release-assets
+          gh run download 40194947256 -n apple-native-preview -D release-assets
+          gh run download 40194520152 -n terminal-preview-Linux -D release-assets
+          gh run download 40194520152 -n terminal-preview-Windows -D release-assets
+      - name: Verify provenance, checksums and draft scope
+        run: python3 tools/publish-native-preview.py
