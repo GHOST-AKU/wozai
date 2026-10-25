@@ -25,6 +25,7 @@ use std::{
 pub enum Command {
     Text(String),
     File(PathBuf),
+    Files(Vec<PathBuf>),
     Pause(String),
     Cancel(String),
     Resume(String),
@@ -483,6 +484,22 @@ fn session(
                         }
                         Command::File(path) => {
                             files.offer(&path, &mut writer)?;
+                        }
+                        Command::Files(paths) => {
+                            ensure!(
+                                !paths.is_empty() && paths.len() <= 256,
+                                "select 1-256 files"
+                            );
+                            for path in &paths {
+                                let metadata = std::fs::metadata(path)?;
+                                ensure!(
+                                    metadata.is_file() && metadata.len() <= MAX_FILE,
+                                    "invalid selected source"
+                                );
+                            }
+                            for path in paths {
+                                files.offer(&path, &mut writer)?;
+                            }
                         }
                         Command::Pause(id) => files.pause(&id, false, &mut writer)?,
                         Command::Cancel(id) => files.pause(&id, true, &mut writer)?,

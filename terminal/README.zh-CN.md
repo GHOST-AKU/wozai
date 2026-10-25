@@ -74,3 +74,9 @@ python3 terminal/tools/package.py
 经典蓝牙 RFCOMM、原生 Wi-Fi Direct、多活动会话、IPC、后台服务尚未实现。Rust 是已实现候选，不编造 Go 对照、冷启动或比 GUI 更轻的结论。[完整英文手册](README.md) · [架构与安全边界](docs/architecture.md)。
 
 历史按本地插入顺序分页，避免对端时钟偏差隐藏消息。`chats show DEVICE_UUID --limit 100 --before ROW_CURSOR` 返回 next_before/has_more；TUI 用 `older` / `latest` 翻页，内存不无限保留历史。`language=zh-CN` 已有初步界面标签翻译，部分帮助和协议诊断仍为英文。
+
+多选文件使用独立身份绑定的持久队列：重复 `--file`（最多 256 个），CLI 等所有文件均收到保存回执才成功，并在单个 JSON 中返回全部结果。TUI 命令面板的 `files` 支持每行一个路径（`Ctrl+J` 换行），统一确认后入队。暂停当前任务会保留队列，取消当前任务后才能继续下一项；实际发送前重新检查源文件。图片 MIME 通过有界文件头读取识别，不只相信扩展名，不自动打开文件。
+
+```sh
+nearbyim --json send DEVICE_UUID --file ./first.png --file ./second.zip
+```

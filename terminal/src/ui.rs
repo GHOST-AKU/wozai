@@ -160,7 +160,7 @@ struct App {
     listen_request: bool,
     file_prompts: VecDeque<FilePrompt>,
     quit_confirm: bool,
-    attach: Option<std::path::PathBuf>,
+    attach: Option<Vec<std::path::PathBuf>>,
 }
 impl App {
     fn t(&self, en: &'static str) -> String {
@@ -325,7 +325,26 @@ impl App {
                 ensure!(!arg.is_empty(), "usage: file PATH");
                 let path = std::path::PathBuf::from(arg).canonicalize()?;
                 ensure!(std::fs::metadata(&path)?.is_file(), "choose a regular file");
-                self.attach = Some(path);
+                self.attach = Some(vec![path]);
+            }
+            "files" => {
+                let paths: Vec<_> = arg
+                    .lines()
+                    .filter(|s| !s.is_empty())
+                    .map(std::path::PathBuf::from)
+                    .collect();
+                ensure!(
+                    !paths.is_empty() && paths.len() <= 256,
+                    "usage: files PATH (one path per line; Ctrl+J adds a line)"
+                );
+                for path in &paths {
+                    let metadata = std::fs::metadata(path)?;
+                    ensure!(
+                        metadata.is_file() && metadata.len() <= crate::wire::MAX_FILE,
+                        "choose regular files of at most 10 GiB"
+                    );
+                }
+                self.attach = Some(paths);
             }
             "pause" => self.command(Command::Pause(arg.into()))?,
             "cancel" => self.command(Command::Cancel(arg.into()))?,
@@ -728,7 +747,7 @@ impl App {
                 "transfers"=>self.files.values().map(|s|format!("{} · {} · {}/{} bytes\nID {}\nSaved location {}\n",safe(&s.info.name),s.state,s.offset,s.info.size,s.info.id,s.destination.display())).collect::<Vec<_>>().join("\n"),
                 "security"=>self.peers.values().map(|p|format!("{} · {}\nRemembered={} · manually verified={}\nFingerprint {}\n",safe(&p.name),p.id,p.remembered,p.verified,crate::profile::fingerprint(&STANDARD.decode(&p.root).unwrap_or_default()))).collect::<Vec<_>>().join("\n"),
                 "settings"=>serde_json::to_string_pretty(&self.cfg).unwrap_or_default(),
-                _=>"Quiet Terminal · NearbyIM\n\nCtrl+K command palette (Ctrl+P alias) · Tab focus · Esc back\n? help / search j/k navigation · Enter open/send\nCtrl+J or Alt+Enter newline · a attach outside composer\n\nCommands: chats | scan | transfers | security | settings\nconnect HOST:PORT | disconnect | listen on|off\nfile PATH (confirm before send) | pause ID | resume ID | cancel ID\ncode | verify FULL_CODE | unverify | search TEXT\nset KEY VALUE | quit\n\nLAN discovery is bounded and explicit. Default listening is off.\nOne active session; disconnect safely before switching peers.\nFiles are received only with approval unless trusted auto-receive is enabled.\nEncryption, TOFU consent and manual identity verification are separate.\nA saved receipt is not a read receipt. History is not encrypted at rest.".into(),
+                _=>"Quiet Terminal · NearbyIM\n\nCtrl+K command palette (Ctrl+P alias) · Tab focus · Esc back\n? help / search j/k navigation · Enter open/send\nCtrl+J or Alt+Enter newline · a attach outside composer\n\nCommands: chats | scan | transfers | security | settings\nconnect HOST:PORT | disconnect | listen on|off\nfile PATH | files PATH (one per line; confirm before send) | pause ID | resume ID | cancel ID\ncode | verify FULL_CODE | unverify | search TEXT\nset KEY VALUE | quit\n\nLAN discovery is bounded and explicit. Default listening is off.\nOne active session; disconnect safely before switching peers.\nFiles are received only with approval unless trusted auto-receive is enabled.\nEncryption, TOFU consent and manual identity verification are separate.\nA saved receipt is not a read receipt. History is not encrypted at rest.".into(),
             };
             f.render_widget(
                 Paragraph::new(safe(&body))
@@ -766,11 +785,20 @@ impl App {
             f.render_widget(Clear, p);
             f.render_widget(Paragraph::new("Active transfers will pause and checkpoint before exit. No background transfer continues.\n\ny Exit and pause · n Continue").wrap(Wrap{trim:false}).block(panel(self.ascii,"Exit?")),p);
         }
-        if let Some(path) = &self.attach {
+        if let Some(paths) = &self.attach {
             let p = centered(area, 75, 10);
             f.render_widget(Clear, p);
-            let size = std::fs::metadata(path).map_or(0, |m| m.len());
-            f.render_widget(Paragraph::new(format!("{}\n{} bytes · recipient {}\nNo overwrite at receiver. Encrypted NIM4.\n\ny Send · n Cancel",safe(&path.display().to_string()),size,self.current().unwrap_or_default())).wrap(Wrap{trim:false}).block(panel(self.ascii,"Confirm attachment")),p);
+            let size = paths
+                .iter()
+                .map(|path| std::fs::metadata(path).map_or(0, |m| m.len()))
+                .sum::<u64>();
+            let names = paths
+                .iter()
+                .take(4)
+                .map(|p| p.display().to_string())
+                .collect::<Vec<_>>()
+                .join("\n");
+            f.render_widget(Paragraph::new(format!("{}\n{} bytes · recipient {}\nNo overwrite at receiver. Encrypted NIM4.\n\ny Send · n Cancel",format_args!("{} files\n{}", paths.len(), safe(&names)),size,self.current().unwrap_or_default())).wrap(Wrap{trim:false}).block(panel(self.ascii,"Confirm attachment")),p);
         }
         if let Some(pending) = self.file_prompts.front() {
             let p = centered(area, 75, 10);
@@ -1124,8 +1152,8 @@ pub fn run(
                     if app.attach.is_some() {
                         match k.code {
                             KeyCode::Char('y') => {
-                                let path = app.attach.take().unwrap();
-                                if let Err(e) = app.command(Command::File(path)) {
+                                let paths = app.attach.take().unwrap();
+                                if let Err(e) = app.command(Command::Files(paths)) {
                                     app.status = e.to_string();
                                 }
                             }

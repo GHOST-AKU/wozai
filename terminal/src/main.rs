@@ -111,7 +111,7 @@ enum Action {
         #[arg(long,required_unless_present_any=["file","stdin"],conflicts_with_all=["file","stdin"])]
         text: Option<String>,
         #[arg(long,required_unless_present_any=["text","stdin"],conflicts_with_all=["text","stdin"])]
-        file: Option<PathBuf>,
+        file: Vec<PathBuf>,
         #[arg(long,required_unless_present_any=["text","file"],conflicts_with_all=["text","file"])]
         stdin: bool,
     },
@@ -340,7 +340,10 @@ fn run(mut cli: Cli) -> Result<()> {
             wire::text_valid(t)
                 .map_err(|e| fail(2, &format!("{e}; got {} UTF-8 bytes", t.len())))?;
         }
-        if let Some(path) = file {
+        if file.len() > 256 {
+            return Err(fail(2, "select at most 256 files"));
+        }
+        for path in file.iter() {
             let m = std::fs::metadata(path)?;
             if !m.is_file() || m.len() > wire::MAX_FILE {
                 return Err(fail(2, "source must be a regular file of at most 10 GiB"));
@@ -807,6 +810,7 @@ fn foreground(
     let mut pending_consent = None::<SyncSender<Consent>>;
     let mut pending_file = None::<SyncSender<bool>>;
     let mut submitted = false;
+    let mut saved_files = std::collections::BTreeMap::new();
     loop {
         if interrupted.load(Ordering::Relaxed) {
             return Err(fail(11, "canceled by user; active files are checkpointed"));
@@ -920,7 +924,7 @@ fn foreground(
                             tx.try_send(if let Some(t) = text {
                                 Command::Text(t.clone())
                             } else {
-                                Command::File(file.clone().unwrap())
+                                Command::Files(file.clone())
                             })?;
                             submitted = true;
                         }
@@ -975,6 +979,25 @@ fn foreground(
                     ) => Some(id),
                     _ => None,
                 };
+                if submitted && resuming.is_none() && s.outgoing && s.state == "saved" {
+                    saved_files.insert(s.info.id.clone(), s.clone());
+                    if let Some(Action::Send { file, .. }) = &cli.command {
+                        if saved_files.len() < file.len() {
+                            continue;
+                        }
+                        if file.len() > 1 {
+                            emit(
+                                json!({"status":"saved","files":saved_files.values().collect::<Vec<_>>()}),
+                                cli.json,
+                                format!(
+                                    "All {} files saved by peer (not read receipts)",
+                                    saved_files.len()
+                                ),
+                            )?;
+                            return Ok(());
+                        }
+                    }
+                }
                 if submitted
                     && ((resuming == Some(&s.info.id)
                         && matches!(s.state.as_str(), "saved" | "received"))
@@ -1068,7 +1091,7 @@ fn main() {
         }
     };
     let operation = match &cli.command {
-        Some(Action::Send { file: Some(_), .. }) => "send_file",
+        Some(Action::Send { file, .. }) if !file.is_empty() => "send_file",
         Some(Action::Send { .. }) => "send_text",
         Some(
             Action::Resume { .. }

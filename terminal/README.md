@@ -112,3 +112,9 @@ The interop fixture compiles the **shipping Java** `NoiseRecordChannel`, `Protoc
 Rust is the implemented candidate; there is no fabricated Go comparison or GUI performance win. Package/startup/RSS/CPU measurements must record their environment and distinguish warm-cache samples from cold starts. Bluetooth RFCOMM, native Wi-Fi Direct, multiple simultaneous active peers, IPC and background services are not implemented. This development build must not be presented as a completed lightweight stable release until the manual's blocking matrix passes.
 
 History is stored independently of peer clocks. `chats show DEVICE_UUID --limit 100 --before ROW_CURSOR` pages older records; JSON returns `next_before` and `has_more`. In the TUI, `older` / `latest` load bounded history pages rather than retaining an unbounded message list. Interface labels have an initial `zh-CN` translation; protocol diagnostics and some help text remain English.
+
+Multiple selections use one persistent, identity-bound queue. Repeat `--file` (up to 256) and the CLI waits for every saved receipt, returning all results in one JSON object. The TUI `files` command accepts one path per line (`Ctrl+J` adds a line) and shows one confirmation before enqueueing. A paused active transfer holds the queue; canceling it allows the next selection to proceed. Sources are rechecked before transmission. Common image MIME hints are detected with bounded header reads; an extension alone does not turn an arbitrary file into an image, and no file is automatically opened.
+
+```sh
+nearbyim --json send DEVICE_UUID --file ./first.png --file ./second.zip
+```

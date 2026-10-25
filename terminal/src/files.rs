@@ -7,6 +7,7 @@ use anyhow::{Context, Result, ensure};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
+    collections::VecDeque,
     fs::{self, File},
     io::{Read, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
@@ -28,6 +29,8 @@ pub struct Saved {
     pub modified: u64,
     #[serde(default)]
     pub manual_pause: bool,
+    #[serde(default)]
+    pub queued: bool,
     #[serde(default)]
     pub failure: String,
 }
@@ -61,6 +64,8 @@ pub struct Engine {
     directory: PathBuf,
     incoming: Option<Task>,
     outgoing: Option<Task>,
+    queued: VecDeque<Saved>,
+    queue_loaded: bool,
     pub notices: Vec<Saved>,
 }
 impl Engine {
@@ -79,6 +84,8 @@ impl Engine {
             directory,
             incoming: None,
             outgoing: None,
+            queued: VecDeque::new(),
+            queue_loaded: false,
             notices: vec![],
         }
     }
@@ -110,10 +117,8 @@ impl Engine {
         path: &Path,
         send: &mut impl FnMut(Frame) -> Result<()>,
     ) -> Result<String> {
-        ensure!(
-            self.outgoing.is_none() || !self.outgoing.as_ref().unwrap().active,
-            "a file is already being sent"
-        );
+        self.load_queue()?;
+        ensure!(self.queued.len() < 256, "file queue is full");
         let path = path.canonicalize()?;
         let m = fs::metadata(&path)?;
         ensure!(
@@ -129,7 +134,7 @@ impl Engine {
         let info = Info {
             id: uuid::Uuid::new_v4().to_string(),
             name,
-            mime: "application/octet-stream".into(),
+            mime: content_mime(&path)?.into(),
             size: m.len(),
             time: profile::now(),
         };
@@ -143,30 +148,84 @@ impl Engine {
             destination: path,
             offset: 0,
             hash: hex::encode(Sha256::digest([])),
-            state: "offered".into(),
+            state: "queued".into(),
             modified: modified(&m),
             manual_pause: false,
+            queued: true,
             failure: String::new(),
         };
         let mut p = self.packet(&s, OFFER);
         p.info = Some(s.info.clone());
         p.validate()?;
-        let file = File::open(&s.path)?;
         self.save(&s)?;
         let id = s.info.id.clone();
-        self.outgoing = Some(Task {
-            saved: s,
-            file,
-            whole: Sha256::new(),
-            block: Sha256::new(),
-            sent: 0,
-            verified: 0,
-            credit: 0,
-            window: 0,
-            active: false,
-        });
-        send(p.frame()?)?;
+        self.queued.push_back(s);
+        self.start_next(send)?;
         Ok(id)
+    }
+    fn load_queue(&mut self) -> Result<()> {
+        if !self.queue_loaded {
+            let entries = self
+                .store
+                .lock()
+                .unwrap()
+                .queued_transfers::<Saved>(&self.peer, &self.root)?;
+            ensure!(entries.len() <= 256, "stored file queue exceeds its limit");
+            self.queued = entries.into();
+            self.queue_loaded = true;
+        }
+        Ok(())
+    }
+    fn start_next(&mut self, send: &mut impl FnMut(Frame) -> Result<()>) -> Result<()> {
+        if self
+            .outgoing
+            .as_ref()
+            .is_some_and(|t| matches!(t.saved.state.as_str(), "canceled" | "failed" | "saved"))
+        {
+            self.outgoing = None;
+        }
+        if self.outgoing.is_some() {
+            return Ok(());
+        }
+        while let Some(mut s) = self.queued.pop_front() {
+            let prepared = (|| -> Result<File> {
+                let file = open_existing(&s.path)?;
+                let m = file.metadata()?;
+                ensure!(
+                    m.is_file() && m.len() == s.info.size && modified(&m) == s.modified,
+                    "queued source changed"
+                );
+                Ok(file)
+            })();
+            let file = match prepared {
+                Ok(file) => file,
+                Err(error) => {
+                    s.state = "failed".into();
+                    s.failure = format!("{error:#}");
+                    self.save(&s)?;
+                    continue;
+                }
+            };
+            s.state = "offered".into();
+            s.queued = false;
+            self.save(&s)?;
+            let mut p = self.packet(&s, OFFER);
+            p.info = Some(s.info.clone());
+            self.outgoing = Some(Task {
+                saved: s,
+                file,
+                whole: Sha256::new(),
+                block: Sha256::new(),
+                sent: 0,
+                verified: 0,
+                credit: 0,
+                window: 0,
+                active: false,
+            });
+            send(p.frame()?)?;
+            break;
+        }
+        Ok(())
     }
     pub fn resume(&mut self, id: &str, send: &mut impl FnMut(Frame) -> Result<()>) -> Result<()> {
         let mut s = self
@@ -186,6 +245,16 @@ impl Engine {
             return Ok(());
         }
         s.manual_pause = false;
+        if s.queued {
+            self.load_queue()?;
+            if !self.queued.iter().any(|q| q.info.id == s.info.id) {
+                ensure!(self.queued.len() < 256, "file queue is full");
+                s.state = "queued".into();
+                self.save(&s)?;
+                self.queued.push_back(s);
+            }
+            return self.start_next(send);
+        }
         self.save(&s)?;
         let p = self.packet(&s, STATUS);
         if s.outgoing {
@@ -226,6 +295,14 @@ impl Engine {
         cancel: bool,
         send: &mut impl FnMut(Frame) -> Result<()>,
     ) -> Result<()> {
+        self.load_queue()?;
+        if let Some(index) = self.queued.iter().position(|s| s.info.id == id) {
+            let mut saved = self.queued.remove(index).unwrap();
+            saved.state = if cancel { "canceled" } else { "paused" }.into();
+            saved.manual_pause = !cancel;
+            self.save(&saved)?;
+            return Ok(());
+        }
         let mut found = false;
         for outgoing in [true, false] {
             let slot = if outgoing {
@@ -330,6 +407,7 @@ impl Engine {
                         state: "failed".into(),
                         modified: 0,
                         manual_pause: false,
+                        queued: false,
                         failure: format!("{error:#}"),
                     };
                     self.save(&saved)?;
@@ -349,6 +427,7 @@ impl Engine {
                 state: "receiving".into(),
                 modified: 0,
                 manual_pause: false,
+                queued: false,
                 failure: String::new(),
             };
             self.save(&s)?;
@@ -644,11 +723,15 @@ impl Engine {
         Ok(())
     }
     pub fn can_pump(&self) -> bool {
-        self.outgoing.as_ref().is_some_and(|t| {
-            t.active && (t.sent == t.saved.info.size || t.sent < t.credit.saturating_add(t.window))
-        })
+        (self.outgoing.is_none() && !self.queued.is_empty())
+            || self.outgoing.as_ref().is_some_and(|t| {
+                t.active
+                    && (t.sent == t.saved.info.size || t.sent < t.credit.saturating_add(t.window))
+            })
     }
     pub fn pump(&mut self, send: &mut impl FnMut(Frame) -> Result<()>) -> Result<()> {
+        self.load_queue()?;
+        self.start_next(send)?;
         let Some(mut t) = self.outgoing.take() else {
             return Ok(());
         };
@@ -719,6 +802,28 @@ impl Engine {
         }
     }
 }
+fn content_mime(path: &Path) -> Result<&'static str> {
+    let mut bytes = Vec::with_capacity(16);
+    File::open(path)?.take(16).read_to_end(&mut bytes)?;
+    Ok(if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
+        "image/png"
+    } else if bytes.starts_with(b"\xff\xd8\xff") {
+        "image/jpeg"
+    } else if bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a") {
+        "image/gif"
+    } else if bytes.len() >= 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WEBP" {
+        "image/webp"
+    } else if bytes.len() >= 12
+        && &bytes[4..8] == b"ftyp"
+        && [&b"heic"[..], &b"heix"[..], &b"mif1"[..]].contains(&&bytes[8..12])
+    {
+        "image/heic"
+    } else if bytes.len() >= 12 && &bytes[4..8] == b"ftyp" && &bytes[8..12] == b"avif" {
+        "image/avif"
+    } else {
+        "application/octet-stream"
+    })
+}
 fn reject(p: &Packet, reason: &str, send: &mut impl FnMut(Frame) -> Result<()>) -> Result<()> {
     let mut r = p.reply(CANCEL);
     r.reason = reason.into();
@@ -783,6 +888,63 @@ mod tests {
 mod recovery_tests {
     use super::*;
     use std::collections::VecDeque;
+    #[test]
+    fn image_offers_preserve_content_type_without_trusting_extensions() {
+        for (name, bytes, expected) in [
+            ("photo", b"\x89PNG\r\n\x1a\nrest".as_slice(), "image/png"),
+            ("photo.data", b"\xff\xd8\xffrest".as_slice(), "image/jpeg"),
+            (
+                "fake.png",
+                b"plain text".as_slice(),
+                "application/octet-stream",
+            ),
+            (
+                "truncated.png",
+                b"\x89PNG".as_slice(),
+                "application/octet-stream",
+            ),
+        ] {
+            let mut pair = Pair::new(0);
+            let path = pair._dir.path().join(name);
+            fs::write(&path, bytes).unwrap();
+            pair.a
+                .offer(&path, &mut |frame| {
+                    pair.ab.push_back(frame);
+                    Ok(())
+                })
+                .unwrap();
+            let packet = Packet::decode(&pair.ab.pop_front().unwrap().data).unwrap();
+            assert_eq!(packet.info.unwrap().mime, expected, "{name}");
+        }
+    }
+    #[test]
+    fn queued_files_keep_both_tasks_and_bytes() {
+        let mut pair = Pair::new(CHUNK * 3 + 7);
+        let first = pair.offer();
+        let second_path = pair._dir.path().join("second.bin");
+        let second_bytes = vec![93; CHUNK + 11];
+        fs::write(&second_path, &second_bytes).unwrap();
+        let second = pair
+            .a
+            .offer(&second_path, &mut |f| {
+                pair.ab.push_back(f);
+                Ok(())
+            })
+            .unwrap();
+        for _ in 0..500 {
+            pair.tick();
+        }
+        let received = pair.b.store.lock().unwrap().transfers::<Saved>().unwrap();
+        for (id, bytes) in [(&first, &pair.content), (&second, &second_bytes)] {
+            let saved = received
+                .iter()
+                .find(|s| &s.info.id == id && s.state == "received")
+                .expect("both queued files must be saved");
+            assert_eq!(fs::read(&saved.destination).unwrap(), *bytes);
+        }
+        let sent = pair.a.store.lock().unwrap().transfers::<Saved>().unwrap();
+        assert_eq!(sent.iter().filter(|s| s.state == "saved").count(), 2);
+    }
     struct Pair {
         a: Engine,
         b: Engine,

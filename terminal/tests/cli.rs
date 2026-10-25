@@ -301,6 +301,35 @@ fn scripts_require_consent_and_only_return_saved_after_ack() {
     let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(v["status"], "saved");
     assert_eq!(v["operation"], "send_file");
+    let second = d.path().join("second.bin");
+    std::fs::write(&second, [93u8; 8193]).unwrap();
+    let out = bin()
+        .args([
+            "--profile",
+            a.to_str().unwrap(),
+            "--json",
+            "--address",
+            &address,
+            "send",
+            bid["device_id"].as_str().unwrap(),
+            "--file",
+            file.to_str().unwrap(),
+            "--file",
+            second.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(v["status"], "saved");
+    assert_eq!(v["files"].as_array().unwrap().len(), 2);
+    for record in v["files"].as_array().unwrap() {
+        assert_eq!(record["state"], "saved");
+    }
     server.kill().unwrap();
     server.wait().unwrap();
 }

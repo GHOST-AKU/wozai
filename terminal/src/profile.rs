@@ -263,6 +263,16 @@ impl Profile {
         )?;
         Ok(())
     }
+    pub fn queued_transfers<T: for<'a> Deserialize<'a>>(
+        &self,
+        peer: &str,
+        root: &str,
+    ) -> Result<Vec<T>> {
+        let mut q = self.db.prepare("SELECT value FROM transfers WHERE json_extract(value,'$.state')='queued' AND json_extract(value,'$.peer')=? AND json_extract(value,'$.root')=? AND json_extract(value,'$.outgoing')=1 ORDER BY rowid LIMIT 257")?;
+        q.query_map(params![peer, root], |r| r.get::<_, String>(0))?
+            .map(|s| Ok(serde_json::from_str(&s?)?))
+            .collect()
+    }
     pub fn transfers<T: for<'a> Deserialize<'a>>(&self) -> Result<Vec<T>> {
         let mut q = self.db.prepare("SELECT value FROM transfers")?;
         q.query_map([], |r| r.get::<_, String>(0))?
