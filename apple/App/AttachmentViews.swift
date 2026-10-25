@@ -100,7 +100,7 @@ private struct AttachmentBubble: View {
             Text(status).font(.caption)
             if !complete {
                 ProgressView(value: Double(record.offset), total: Double(max(1, record.info.size)))
-                Text("\(ByteCountFormatter.string(fromByteCount: Int64(record.offset), countStyle: .file))) / \(ByteCountFormatter.string(fromByteCount: Int64(record.info.size), countStyle: .file)))").font(.caption.monospacedDigit())
+                Text("\(ByteCountFormatter.string(fromByteCount: Int64(record.offset), countStyle: .file)) / \(ByteCountFormatter.string(fromByteCount: Int64(record.info.size), countStyle: .file))").font(.caption.monospacedDigit())
             }
             Label("Local network", systemImage: "network").font(.caption).foregroundStyle(.secondary)
             HStack {

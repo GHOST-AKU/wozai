@@ -65,6 +65,14 @@ final class NativeChatTests: XCTestCase {
             let hidden = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in !app.keyboards.firstMatch.exists }, object: app)
             XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 8), .completed, "Reading should allow dismissing the keyboard")
         }
+        // Dismissing the keyboard can also scroll the taller file timeline into reading mode.
+        // Resume following explicitly before testing new-message following and position retention.
+        let latestAfterDismissal = app.buttons["jumpToLatest"]
+        if latestAfterDismissal.exists {
+            latestAfterDismissal.tap()
+            let following = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in !latestAfterDismissal.exists }, object: app)
+            XCTAssertEqual(XCTWaiter.wait(for: [following], timeout: 8), .completed)
+        }
         #endif
         #if os(macOS)
         try verifyExactHistoryBoundaries(app)
