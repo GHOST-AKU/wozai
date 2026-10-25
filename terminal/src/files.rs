@@ -56,6 +56,14 @@ struct Task {
     window: u64,
     active: bool,
 }
+struct Ended {
+    id: String,
+    source: String,
+    outgoing: bool,
+    size: u64,
+    bytes: u64,
+    controls: u16,
+}
 pub struct Engine {
     store: Arc<Mutex<Profile>>,
     peer: String,
@@ -67,6 +75,7 @@ pub struct Engine {
     queued: VecDeque<Saved>,
     queue_loaded: bool,
     reserved: Option<Saved>,
+    ended: VecDeque<Ended>,
     pub notices: Vec<Saved>,
 }
 impl Engine {
@@ -88,13 +97,56 @@ impl Engine {
             queued: VecDeque::new(),
             queue_loaded: false,
             reserved: None,
+            ended: VecDeque::new(),
             notices: vec![],
         }
     }
     fn save(&mut self, s: &Saved) -> Result<()> {
         self.store.lock().unwrap().transfer(&s.key(), s)?;
+        if matches!(
+            s.state.as_str(),
+            "canceled" | "failed" | "saved" | "received"
+        ) {
+            self.remember(s);
+        }
         self.notices.push(s.clone());
         Ok(())
+    }
+    fn remember(&mut self, s: &Saved) {
+        if self
+            .ended
+            .iter()
+            .any(|e| e.id == s.info.id && e.source == s.source && e.outgoing == s.outgoing)
+        {
+            return;
+        }
+        // Allow only a bounded window of already-sent packets after a task ends.
+        self.ended.push_back(Ended {
+            id: s.info.id.clone(),
+            source: s.source.clone(),
+            outgoing: s.outgoing,
+            size: s.info.size,
+            bytes: WINDOW,
+            controls: 128,
+        });
+        if self.ended.len() > 32 {
+            self.ended.pop_front();
+        }
+    }
+    fn discard_ended(&mut self, p: &Packet) -> Result<bool> {
+        let Some(e) = self.ended.iter_mut().find(|e| {
+            e.id == p.id && e.source == p.source && e.outgoing != p.sender && e.size == p.size
+        }) else {
+            return Ok(false);
+        };
+        if p.kind == DATA {
+            ensure!(p.data.len() as u64 <= e.bytes, "excess late file data");
+            e.bytes -= p.data.len() as u64;
+        } else {
+            ensure!(e.controls > 0, "excess late file controls");
+            e.controls -= 1;
+        }
+        Ok(true)
     }
     fn lookup(&self, p: &Packet, outgoing: bool) -> Result<Option<Saved>> {
         Ok(self
@@ -109,6 +161,7 @@ impl Engine {
                     && s.outgoing == outgoing
                     && s.info.id == p.id
                     && s.source == p.source
+                    && s.info.size == p.size
             }))
     }
     fn packet(&self, s: &Saved, kind: u8) -> Packet {
@@ -374,6 +427,8 @@ impl Engine {
                 if cancel && !outgoing {
                     drop(t.file);
                     fs::remove_file(&t.saved.path)?;
+                } else if cancel {
+                    drop(t.file);
                 } else if outgoing {
                     self.outgoing = Some(t);
                 } else {
@@ -408,6 +463,7 @@ impl Engine {
         Ok(())
     }
     pub fn handle(&mut self, p: Packet, send: &mut impl FnMut(Frame) -> Result<()>) -> Result<()> {
+        p.validate()?;
         ensure!(
             p.connection == self.connection,
             "stale file connection generation"
@@ -558,42 +614,54 @@ impl Engine {
             return send(r.frame()?);
         }
         let outgoing = !p.sender;
-        let slot = if outgoing {
-            &mut self.outgoing
+        let matches = (if outgoing {
+            &self.outgoing
         } else {
-            &mut self.incoming
-        };
-        let Some(mut t) = slot.take() else {
-            if p.kind == CANCEL {
-                if let Some(mut saved) = self.lookup(&p, outgoing)?
-                    && !["saved", "received"].contains(&saved.state.as_str())
-                {
-                    saved.state = "canceled".into();
-                    self.save(&saved)?;
-                }
+            &self.incoming
+        })
+        .as_ref()
+        .is_some_and(|t| {
+            t.saved.info.id == p.id && t.saved.source == p.source && t.saved.info.size == p.size
+        });
+        if !matches {
+            if self.discard_ended(&p)? {
                 return Ok(());
             }
-            if self.lookup(&p, outgoing)?.is_some_and(|s| {
-                s.state == "canceled"
-                    || (matches!(s.state.as_str(), "saved" | "received")
-                        && matches!(p.kind, PAUSE | CANCEL))
-            }) {
+            if p.kind == CANCEL
+                && let Some(mut saved) = self.lookup(&p, outgoing)?
+            {
+                if !["saved", "received", "canceled", "failed"].contains(&saved.state.as_str()) {
+                    saved.state = if matches!(p.reason.as_str(), "failed" | "tooLarge") {
+                        "failed"
+                    } else {
+                        "canceled"
+                    }
+                    .into();
+                    saved.manual_pause = false;
+                    self.save(&saved)?;
+                    self.queued.retain(|s| s.key() != saved.key());
+                    if self
+                        .reserved
+                        .as_ref()
+                        .is_some_and(|s| s.key() == saved.key())
+                    {
+                        self.reserved = None;
+                    }
+                } else {
+                    self.remember(&saved);
+                }
+                self.discard_ended(&p)?;
                 return Ok(());
             }
             anyhow::bail!("unknown file task");
-        };
-        ensure!(
-            t.saved.info.id == p.id && t.saved.source == p.source && t.saved.info.size == p.size,
-            "file task identity/size changed"
-        );
-        if t.saved.state == "canceled" {
-            if outgoing {
-                self.outgoing = Some(t);
-            } else {
-                self.incoming = Some(t);
-            }
-            return Ok(());
         }
+        let mut t = (if outgoing {
+            &mut self.outgoing
+        } else {
+            &mut self.incoming
+        })
+        .take()
+        .unwrap();
         match p.kind {
             ACCEPT => {
                 ensure!(
@@ -754,6 +822,9 @@ impl Engine {
                     t.saved.hash = hex::encode(t.whole.clone().finalize());
                 }
                 self.save(&t.saved)?;
+                if p.kind == CANCEL {
+                    return Ok(());
+                }
             }
             _ => anyhow::bail!("unsupported file transition"),
         }
@@ -1254,6 +1325,210 @@ mod recovery_tests {
                 .to_string_lossy()
                 .starts_with(".nearbyim-export-")
         }));
+    }
+    #[test]
+    fn late_saved_receipt_after_cancel_preserves_next_file() {
+        let mut pair = Pair::new(CHUNK);
+        let first = pair.offer();
+        let second = pair.a.offer(&pair.source, &mut |_| Ok(())).unwrap();
+        pair.tick();
+        while let Some(f) = pair.ab.pop_front() {
+            pair.b
+                .handle(Packet::decode(&f.data).unwrap(), &mut |f| {
+                    pair.ba.push_back(f);
+                    Ok(())
+                })
+                .unwrap();
+        }
+        let late = pair
+            .ba
+            .iter()
+            .map(|f| Packet::decode(&f.data).unwrap())
+            .find(|p| p.kind == COMPLETE)
+            .expect("receiver already saved A before cancellation");
+        pair.a.pause(&first, true, &mut |_| Ok(())).unwrap();
+        pair.a
+            .pump(&mut |f| {
+                pair.ab.push_back(f);
+                Ok(())
+            })
+            .unwrap();
+        assert_eq!(pair.a.outgoing.as_ref().unwrap().saved.info.id, second);
+        let result = pair.a.handle(late, &mut |_| Ok(()));
+        assert!(
+            result.is_ok(),
+            "valid late receipt for canceled A closed the session after B started: {result:?}"
+        );
+        assert_eq!(pair.a.outgoing.as_ref().unwrap().saved.info.id, second);
+        pair.finish();
+        let records = pair.a.store.lock().unwrap().transfers::<Saved>().unwrap();
+        assert_eq!(
+            records.iter().find(|s| s.info.id == first).unwrap().state,
+            "canceled"
+        );
+        assert_eq!(
+            records.iter().find(|s| s.info.id == second).unwrap().state,
+            "saved"
+        );
+    }
+    #[test]
+    fn remote_cancel_of_reserved_task_releases_waiting_queue() {
+        let mut pair = Pair::new(BLOCK as usize * 2 + 7);
+        let first = pair.offer();
+        let second = pair.a.offer(&pair.source, &mut |_| Ok(())).unwrap();
+        pair.tick();
+        pair.a.disconnect();
+        pair.b.disconnect();
+        let receiver_store = pair.b.store.clone();
+        pair.b = Engine::new(
+            receiver_store,
+            "peer-a".into(),
+            "root-a".into(),
+            "b".repeat(64),
+            pair._dir.path().join("rb"),
+        );
+        pair.b.pause(&first, true, &mut |_| Ok(())).unwrap();
+        pair.ab.clear();
+        pair.ba.clear();
+        let store = pair.a.store.clone();
+        pair.a = Engine::new(
+            store,
+            "peer-b".into(),
+            "root-b".into(),
+            "b".repeat(64),
+            pair._dir.path().join("ra"),
+        );
+        pair.a.pump(&mut |_| Ok(())).unwrap();
+        let saved = pair
+            .a
+            .store
+            .lock()
+            .unwrap()
+            .transfers::<Saved>()
+            .unwrap()
+            .into_iter()
+            .find(|s| s.info.id == first)
+            .unwrap();
+        let mut cancel =
+            Packet::control(CANCEL, false, &saved.info, &saved.source, &"b".repeat(64));
+        cancel.reason = "canceled".into();
+        cancel.validate().unwrap();
+        pair.a.handle(cancel, &mut |_| Ok(())).unwrap();
+        assert_eq!(
+            pair.a
+                .store
+                .lock()
+                .unwrap()
+                .transfers::<Saved>()
+                .unwrap()
+                .into_iter()
+                .find(|s| s.info.id == first)
+                .unwrap()
+                .state,
+            "canceled"
+        );
+        let mut frames = vec![];
+        pair.a
+            .pump(&mut |f| {
+                frames.push(f);
+                Ok(())
+            })
+            .unwrap();
+        assert!(
+            frames
+                .iter()
+                .map(|f| Packet::decode(&f.data).unwrap())
+                .any(|p| p.kind == OFFER && p.id == second),
+            "peer canceled the reserved first task but its stale reservation still blocks the second task"
+        );
+        pair.ab.extend(frames);
+        pair.finish();
+        assert_eq!(
+            pair.a
+                .store
+                .lock()
+                .unwrap()
+                .transfers::<Saved>()
+                .unwrap()
+                .iter()
+                .find(|s| s.info.id == second)
+                .unwrap()
+                .state,
+            "saved"
+        );
+    }
+    #[test]
+    fn canceled_data_does_not_touch_new_receive_and_late_traffic_is_bounded() {
+        let mut pair = Pair::new(CHUNK * 3);
+        let first = pair.offer();
+        pair.tick();
+        let late = std::mem::take(&mut pair.ab);
+        pair.b.pause(&first, true, &mut |_| Ok(())).unwrap();
+        pair.a.pause(&first, true, &mut |_| Ok(())).unwrap();
+        let second = pair.offer();
+        while let Some(f) = pair.ab.pop_front() {
+            pair.b
+                .handle(Packet::decode(&f.data).unwrap(), &mut |f| {
+                    pair.ba.push_back(f);
+                    Ok(())
+                })
+                .unwrap();
+        }
+        let data = late
+            .iter()
+            .map(|f| Packet::decode(&f.data).unwrap())
+            .find(|p| p.kind == DATA)
+            .unwrap();
+        // Each rejection must leave B's active file handle intact.
+        let mut wrong = data.clone();
+        wrong.source = uuid::Uuid::new_v4().to_string();
+        assert!(pair.b.handle(wrong, &mut |_| Ok(())).is_err());
+        assert_eq!(pair.b.incoming.as_ref().unwrap().saved.info.id, second);
+        let mut wrong = data.clone();
+        wrong.size += 1;
+        assert!(pair.b.handle(wrong, &mut |_| Ok(())).is_err());
+        let mut wrong = data.clone();
+        wrong.connection = "b".repeat(64);
+        assert!(pair.b.handle(wrong, &mut |_| Ok(())).is_err());
+        let mut wrong = data.clone();
+        wrong.sender = false;
+        assert!(pair.b.handle(wrong, &mut |_| Ok(())).is_err());
+        for f in late {
+            pair.b
+                .handle(Packet::decode(&f.data).unwrap(), &mut |_| Ok(()))
+                .unwrap();
+        }
+        pair.finish();
+        let received = pair.b.store.lock().unwrap().transfers::<Saved>().unwrap();
+        assert_eq!(
+            received.iter().find(|s| s.info.id == first).unwrap().state,
+            "canceled"
+        );
+        assert_eq!(
+            fs::read(
+                &received
+                    .iter()
+                    .find(|s| s.info.id == second)
+                    .unwrap()
+                    .destination
+            )
+            .unwrap(),
+            pair.content
+        );
+        for _ in 0..64 {
+            let _ = pair.b.handle(data.clone(), &mut |_| Ok(()));
+        }
+        assert!(pair.b.handle(data, &mut |_| Ok(())).is_err());
+        let saved = received.iter().find(|s| s.info.id == first).unwrap();
+        let mut pause = pair.a.packet(saved, PAUSE);
+        pause.sender = true;
+        let mut accepted = 0;
+        while pair.b.handle(pause.clone(), &mut |_| Ok(())).is_ok() {
+            accepted += 1;
+            assert!(accepted <= 128);
+        }
+        assert!(accepted > 0);
+        assert!(pair.b.handle(pause, &mut |_| Ok(())).is_err());
     }
     struct Pair {
         a: Engine,
