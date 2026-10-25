@@ -1,0 +1,70 @@
+name: Build unsigned native preview
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  apple:
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test native core and resources
+        run: |
+          python3 tools/validate-apple-localizations.py
+          swift test --package-path apple
+      - name: Build Apple applications
+        run: |
+          xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM -destination 'platform=macOS' -configuration Release -derivedDataPath build/Mac ONLY_ACTIVE_ARCH=NO 'ARCHS=arm64 x86_64' MARKETING_VERSION=0.3.3 CODE_SIGNING_ALLOWED=NO build > build-mac.log 2>&1 || { tail -100 build-mac.log; exit 1; }
+          xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM -destination 'generic/platform=iOS' -configuration Release -derivedDataPath build/iOS MARKETING_VERSION=0.3.3 CODE_SIGNING_ALLOWED=NO build > build-ios.log 2>&1 || { tail -100 build-ios.log; exit 1; }
+      - name: Package and verify
+        run: |
+          mkdir -p dist build/ipa/Payload
+          app=build/Mac/Build/Products/Release/NearbyIM.app
+          codesign --force --deep --sign - --entitlements apple/App/NearbyIM.entitlements "$app"
+          codesign --verify --deep --strict "$app"
+          codesign -dv "$app" 2> dist/macos-signature.txt
+          lipo -verify_arch arm64 x86_64 "$app/Contents/MacOS/NearbyIM"
+          ditto -c -k --sequesterRsrc --keepParent "$app" dist/NearbyIM-0.3.3-preview.1-macos-universal-adhoc.zip
+          cp -R build/iOS/Build/Products/Release-iphoneos/NearbyIM.app build/ipa/Payload/
+          test ! -e build/ipa/Payload/NearbyIM.app/embedded.mobileprovision
+          if codesign --verify build/ipa/Payload/NearbyIM.app 2>/dev/null; then echo 'Unexpected iOS signature'; exit 1; fi
+          (cd build/ipa && zip -qr ../../dist/NearbyIM-0.3.3-preview.1-ios-ipados-unsigned.ipa Payload)
+          cp docs/releases/native-preview-install.md dist/INSTALL.md
+          git rev-parse HEAD > dist/SOURCE_COMMIT.txt
+          (cd dist && shasum -a 256 *.zip *.ipa INSTALL.md SOURCE_COMMIT.txt macos-signature.txt > SHA256SUMS-apple.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apple-native-preview
+          path: dist/*
+          if-no-files-found: error
+  terminal:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.88.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: terminal
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Verify, build and package
+        shell: bash
+        run: |
+          terminal/tools/test-interop.sh
+          cargo build --manifest-path terminal/Cargo.toml --locked --release
+          python terminal/tools/package.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: terminal-preview-${{ runner.os }}
+          path: terminal/target/dist/*
+          if-no-files-found: error
