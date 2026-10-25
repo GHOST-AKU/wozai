@@ -140,17 +140,21 @@ impl Frame {
                 self.id.is_empty() && self.body.is_empty(),
                 "invalid control"
             ),
-            FILE => {
+            FILE | 17 => {
                 ensure!(
                     self.id.is_empty() && self.body.is_empty() && self.time == 0,
                     "invalid file metadata"
                 );
-                Packet::decode(&self.data)?;
+                if self.kind == FILE {
+                    Packet::decode(&self.data)?;
+                } else {
+                    crate::avatar::Packet::decode(&self.data)?;
+                }
             }
             _ => bail!("unsupported NIM4 record type {}", self.kind),
         }
         ensure!(
-            self.kind == FILE || self.data.is_empty(),
+            matches!(self.kind, FILE | 17) || self.data.is_empty(),
             "unexpected binary data"
         );
         Ok(())
@@ -163,7 +167,7 @@ impl Frame {
         u64be(&mut b, self.time);
         string(&mut b, &self.id);
         string(&mut b, &self.body);
-        if self.kind == FILE {
+        if matches!(self.kind, FILE | 17) {
             u32be(&mut b, self.data.len());
             b.extend(&self.data);
         }
@@ -184,7 +188,7 @@ impl Frame {
             body: d.str(8192)?,
             data: vec![],
         };
-        if f.kind == FILE {
+        if matches!(f.kind, FILE | 17) {
             let n = d.int()? as usize;
             ensure!(n <= 40960, "oversized file packet");
             f.data = d.bytes(n)?;
@@ -462,6 +466,34 @@ impl Packet {
         let mut f = Frame::control(FILE);
         f.data = self.encode()?;
         Ok(f)
+    }
+}
+
+#[cfg(test)]
+mod avatar_record_tests {
+    use super::*;
+    #[test]
+    fn authenticated_avatar_default_profile_is_a_valid_binary_record() {
+        let mut packet = vec![0; 4];
+        packet.extend(0x41563131u32.to_be_bytes());
+        packet.extend([1, 0]);
+        u64be(&mut packet, 0);
+        short(&mut packet, b"");
+        short(&mut packet, b"");
+        u32be(&mut packet, 0);
+        packet.extend([255, 1]);
+        short(&mut packet, b"");
+        packet.extend([0; 4]);
+        u32be(&mut packet, 0);
+        u32be(&mut packet, 0);
+        let length = (packet.len() - 4) as u32;
+        packet[..4].copy_from_slice(&length.to_be_bytes());
+        let mut frame = Frame::control(17);
+        frame.data = packet;
+        let encoded = frame
+            .encode()
+            .expect("production avatar profile records must interoperate");
+        assert_eq!(Frame::decode(&encoded).unwrap().data, frame.data);
     }
 }
 

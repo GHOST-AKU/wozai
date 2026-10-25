@@ -58,7 +58,7 @@ IME composition and emoji display still depend on the terminal. Automated cell-w
 
 ## Security and trust
 
-NIM4 uses maintained Snow/RustCrypto libraries: Noise XX / X25519 / AES-256-GCM / SHA-256 and P-256 persistent root proofs. Both claims, role, capabilities and transcript are bound; the ten-byte record envelope is authenticated. There is no NIM3/plaintext fallback. The terminal advertises base text/file-v2 capabilities only; Bluetooth RFCOMM, automatic Wi-Fi Direct and avatars are not advertised as supported.
+NIM4 uses maintained Snow/RustCrypto libraries: Noise XX / X25519 / AES-256-GCM / SHA-256 and P-256 persistent root proofs. Both claims, role, capabilities and transcript are bound; the ten-byte record envelope is authenticated. There is no NIM3/plaintext fallback. The terminal advertises text, file-v2 and avatar-v1 capabilities. Bluetooth RFCOMM and automatic Wi-Fi Direct are not advertised as supported.
 
 First connections require **once / remember / reject** consent. Remembered consent is TOFU, separate from manual verification. Compare the complete safety code using a different trusted channel before marking it verified. Unknown/unremembered peers cannot be approved by piped input or JSON mode. Changed pins fail closed. Revoking trust does not silently accept a replacement key; explicitly forget the old pin only after investigating the change.
 
@@ -107,7 +107,7 @@ python3 terminal/tools/test-pty.py terminal/target/release/nearbyim  # Linux
 python3 terminal/tools/package.py
 ```
 
-The interop fixture compiles the **shipping Java** `NoiseRecordChannel`, `ProtocolV4` and `AttachmentTransferV2`. Real TCP tests cover both Noise roles, root proofs/safety codes, bidirectional text/ACK and bidirectional files. Unit tests cover authenticated-header tampering, replay, bounds, corruption, restart/resume, lost receipts, identity changes, cancellation and CJK/ZWJ editing/rendering. These are development-machine automation, not Android/Windows/Linux device acceptance. Pending acceptance/evidence is maintained in Issue #38 / PR #41, not a local TODO file. [Architecture and security boundaries](docs/architecture.md).
+The interop fixture compiles the **shipping Java** `NoiseRecordChannel`, `ProtocolV4` and `AttachmentTransferV2`. Real TCP tests cover both Noise roles, root proofs/safety codes, bidirectional text/ACK bidirectional files and bidirectional avatar-v1 during the same encrypted session. Unit tests cover authenticated-header tampering, replay, bounds, corruption, restart/resume, lost receipts, identity changes, cancellation and CJK/ZWJ editing/rendering. These are development-machine automation, not Android/Windows/Linux device acceptance. Pending acceptance/evidence is maintained in Issue #38 / PR #41, not a local TODO file. [Architecture and security boundaries](docs/architecture.md).
 
 Rust is the implemented candidate; there is no fabricated Go comparison or GUI performance win. Package/startup/RSS/CPU measurements must record their environment and distinguish warm-cache samples from cold starts. Bluetooth RFCOMM, native Wi-Fi Direct, multiple simultaneous active peers, IPC and background services are not implemented. This development build must not be presented as a completed lightweight stable release until the manual's blocking matrix passes.
 
@@ -118,3 +118,10 @@ Multiple selections use one persistent, identity-bound queue. Repeat `--file` (u
 ```sh
 nearbyim --json send DEVICE_UUID --file ./first.png --file ./second.zip
 ```
+
+
+## Avatars
+
+`nearbyim avatar set IMAGE` selects a PNG, JPEG or WebP, applies its orientation and center-crops it to a square static PNG (at most 256×256 and 128 KiB). Decoding is limited to 32 MiB input, 32 megapixels and a 128 MiB decoder allocation budget. `avatar reset` restores the default profile; `avatar show [DEVICE_UUID]` inspects metadata; `avatar export OUTPUT.png [--peer DEVICE_UUID]` exports verified cached bytes without overwriting a file. These local CLI operations do not start a listener. TUI palette equivalents are `avatar set PATH`, `avatar reset`, `avatar show` and `avatar export PATH` (show/export use the selected peer, or your own identity when none is selected).
+
+Online changes synchronize through the production avatar-v1 protocol only after authenticated capabilities and mutual consent. Separate bounded 4 KiB chunks, a four-chunk window, complete static-PNG validation and SHA-256 protect the avatar task. Invalid images and storage failures leave chat and ordinary files connected. The private SQLite cache holds your own avatar plus at most 63 remote roots (at most 8 MiB of PNG content); names and UUIDs cannot replace a root-key binding. Supported terminal graphics vary: use explicit PNG export for viewing; this build does not claim universal inline image rendering.

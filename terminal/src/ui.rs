@@ -349,6 +349,49 @@ impl App {
             "pause" => self.command(Command::Pause(arg.into()))?,
             "cancel" => self.command(Command::Cancel(arg.into()))?,
             "resume" => self.command(Command::Resume(arg.into()))?,
+            "avatar" => {
+                let (operation, path) = arg.split_once(' ').unwrap_or((arg, ""));
+                let p = self.store.lock().unwrap();
+                match operation {
+                    "set" => {
+                        crate::avatar::save_local(
+                            &p,
+                            crate::avatar::prepare_image(std::path::Path::new(path))?,
+                        )?;
+                    }
+                    "reset" => {
+                        crate::avatar::save_local(&p, vec![])?;
+                    }
+                    "export" => {
+                        let root = self
+                            .current()
+                            .and_then(|id| self.peers.get(&id))
+                            .map(|p| p.root.clone())
+                            .unwrap_or_else(|| crate::avatar::own_root(&p));
+                        crate::avatar::export(&p, &root, std::path::Path::new(path))?;
+                    }
+                    "show" => {
+                        let root = self
+                            .current()
+                            .and_then(|id| self.peers.get(&id))
+                            .map(|p| p.root.clone())
+                            .unwrap_or_else(|| crate::avatar::own_root(&p));
+                        self.status =
+                            serde_json::to_string(&crate::avatar::snapshot(&p, &root)?.profile)?;
+                        return Ok(false);
+                    }
+                    _ => anyhow::bail!("usage: avatar set PATH | reset | show | export PATH"),
+                }
+                drop(p);
+                if matches!(operation, "set" | "reset") {
+                    for tx in self.connections.values() {
+                        tx.try_send(Command::AvatarChanged)?;
+                    }
+                }
+                self.status =
+                    "Avatar saved; synchronization uses the authenticated peer identity".into();
+                return Ok(false);
+            }
             "search" => {
                 self.search = arg.into();
                 self.view = "chats".into();
@@ -388,7 +431,7 @@ impl App {
             "help" | "" => {
                 self.view = "help".into();
                 self.focus = 1;
-                self.status="Commands: connect HOST:PORT | file PATH | pause/cancel/resume ID | code | verify FULL_CODE | unverify | search TEXT | peer ID | quit".into();
+                self.status="Commands: connect HOST:PORT | file PATH | avatar set/reset/show/export | pause/cancel/resume ID | code | verify FULL_CODE | unverify | search TEXT | peer ID | quit".into();
                 return Ok(false);
             }
             _ => anyhow::bail!("unknown command; Ctrl+P then help"),
@@ -500,6 +543,20 @@ impl App {
                     s.state = "paused".into();
                 }
                 self.status = why;
+            }
+            Event::Avatar {
+                peer,
+                profile,
+                failure,
+            } => {
+                self.status = if let Some(code) = failure {
+                    format!("Avatar task for {peer} failed ({code}); chat remains connected")
+                } else {
+                    format!(
+                        "Avatar for {peer} saved (revision {})",
+                        profile.map(|p| p.revision).unwrap_or(0)
+                    )
+                };
             }
             Event::Error(e) => self.status = e,
         }
@@ -747,7 +804,7 @@ impl App {
                 "transfers"=>self.files.values().map(|s|format!("{} · {} · {}/{} bytes\nID {}\nSaved location {}\n",safe(&s.info.name),s.state,s.offset,s.info.size,s.info.id,s.destination.display())).collect::<Vec<_>>().join("\n"),
                 "security"=>self.peers.values().map(|p|format!("{} · {}\nRemembered={} · manually verified={}\nFingerprint {}\n",safe(&p.name),p.id,p.remembered,p.verified,crate::profile::fingerprint(&STANDARD.decode(&p.root).unwrap_or_default()))).collect::<Vec<_>>().join("\n"),
                 "settings"=>serde_json::to_string_pretty(&self.cfg).unwrap_or_default(),
-                _=>"Quiet Terminal · NearbyIM\n\nCtrl+K command palette (Ctrl+P alias) · Tab focus · Esc back\n? help / search j/k navigation · Enter open/send\nCtrl+J or Alt+Enter newline · a attach outside composer\n\nCommands: chats | scan | transfers | security | settings\nconnect HOST:PORT | disconnect | listen on|off\nfile PATH | files PATH (one per line; confirm before send) | pause ID | resume ID | cancel ID\ncode | verify FULL_CODE | unverify | search TEXT\nset KEY VALUE | quit\n\nLAN discovery is bounded and explicit. Default listening is off.\nOne active session; disconnect safely before switching peers.\nFiles are received only with approval unless trusted auto-receive is enabled.\nEncryption, TOFU consent and manual identity verification are separate.\nA saved receipt is not a read receipt. History is not encrypted at rest.".into(),
+                _=>"Quiet Terminal · NearbyIM\n\nCtrl+K command palette (Ctrl+P alias) · Tab focus · Esc back\n? help / search j/k navigation · Enter open/send\nCtrl+J or Alt+Enter newline · a attach outside composer\n\nCommands: chats | scan | transfers | security | settings\nconnect HOST:PORT | disconnect | listen on|off\nfile PATH | files PATH (one per line; confirm before send) | pause ID | resume ID | cancel ID\navatar set PATH | avatar reset | avatar show | avatar export PATH\ncode | verify FULL_CODE | unverify | search TEXT\nset KEY VALUE | quit\n\nLAN discovery is bounded and explicit. Default listening is off.\nOne active session; disconnect safely before switching peers.\nFiles are received only with approval unless trusted auto-receive is enabled.\nEncryption, TOFU consent and manual identity verification are separate.\nA saved receipt is not a read receipt. History is not encrypted at rest.".into(),
             };
             f.render_widget(
                 Paragraph::new(safe(&body))
@@ -1382,6 +1439,7 @@ mod render_tests {
         let d = tempfile::tempdir().unwrap();
         let store = Arc::new(Mutex::new(Profile::open(d.path().join("p"), None).unwrap()));
         let peer = Peer {
+            capabilities: 3,
             id: uuid::Uuid::new_v4().to_string(),
             name: "中文👩‍💻 peer".into(),
             root: STANDARD.encode(store.lock().unwrap().identity.public.clone()),

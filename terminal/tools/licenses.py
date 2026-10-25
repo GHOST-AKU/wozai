@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Inventory locked crate licenses and retain upstream license/notice files in packages."""
 import json
+import hashlib
 from pathlib import Path
 import shutil
 import subprocess
@@ -22,6 +23,8 @@ while pending:
     selected.add(package_id)
     pending.extend(dep["pkg"] for dep in nodes[package_id]["deps"] if any(kind["kind"]!="dev" for kind in dep["dep_kinds"]))
 records = []
+fallback_root=root / "vendor-licenses"
+fallbacks=json.loads((fallback_root / "sources.json").read_text(encoding="utf-8"))
 for package in sorted(metadata["packages"], key=lambda p: (p["name"], p["version"])):
     if package["name"] == "nearbyim-terminal" or package["id"] not in selected:
         continue
@@ -39,7 +42,20 @@ for package in sorted(metadata["packages"], key=lambda p: (p["name"], p["version
             shutil.copy2(path, folder / path.name)
             names.append(path.name)
     if not names:
-        raise RuntimeError(f"Missing upstream license text for shipped crate {package['name']} {package['version']}")
+        key=f"{package['name']}-{package['version']}"
+        retained=fallbacks.get(key)
+        if not retained:
+            raise RuntimeError(f"Missing upstream license text for shipped crate {key}")
+        vcs=json.loads((directory / ".cargo_vcs_info.json").read_text(encoding="utf-8"))
+        if vcs["git"]["sha1"] != retained["source_revision"]:
+            raise RuntimeError(f"License source revision mismatch for {key}")
+        for name, proof in retained["files"].items():
+            source=fallback_root / key / name
+            if hashlib.sha256(source.read_bytes()).hexdigest()!=proof["sha256"]:
+                raise RuntimeError(f"Retained license checksum mismatch for {key}/{name}")
+            shutil.copy2(source,folder / name)
+            names.append(name)
+        (folder / "source.json").write_text(json.dumps(retained,indent=2)+"\n",encoding="utf-8")
     records.append({"name": package["name"], "version": package["version"], "license": package.get("license"), "license_files": sorted(set(names)), "repository": package.get("repository")})
 (destination / "inventory.json").write_text(json.dumps(records, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 print(f"Retained license inventory for {len(records)} locked crates. Review inventory before a public release.")

@@ -46,6 +46,15 @@ fn exchange(java_initiator: bool) {
     let classes =
         std::env::var("NEARBYIM_JAVA_CLASSES").expect("run terminal/tools/test-interop.sh");
     let dir = tempfile::tempdir().unwrap();
+    let image = image::RgbaImage::from_fn(96, 96, |x, y| {
+        image::Rgba([x as u8, y as u8, (x * y) as u8, 255])
+    });
+    let mut encoded = std::io::Cursor::new(Vec::new());
+    image
+        .write_to(&mut encoded, image::ImageFormat::Png)
+        .unwrap();
+    let avatar_png = encoded.into_inner();
+    fs::write(dir.path().join("rust-avatar.png"), &avatar_png).unwrap();
     let portfile = dir.path().join("port");
     let listener = if java_initiator {
         Some(TcpListener::bind("127.0.0.1:0").unwrap())
@@ -90,6 +99,7 @@ fn exchange(java_initiator: bool) {
         Profile::open(dir.path().join("rust"), Some("Rust 👩‍💻")).unwrap(),
     ));
     let identity = profile.lock().unwrap().identity.clone();
+    crate::avatar::save_local(&profile.lock().unwrap(), avatar_png).unwrap();
     let mut e = crypto::establish(stream, !java_initiator, &identity).unwrap();
     e.stream
         .set_read_timeout(Some(Duration::from_secs(20)))
@@ -109,6 +119,11 @@ fn exchange(java_initiator: bool) {
             .kind,
         READY
     );
+    assert_ne!(e.peer.capabilities & 4, 0);
+    let mut avatars = crate::avatar::Sync::new(&profile.lock().unwrap(), &e.peer.root).unwrap();
+    avatars
+        .local_changed(&profile.lock().unwrap(), &mut write)
+        .unwrap();
     let content: Vec<_> = (0..3 * BLOCK as usize + 17)
         .map(|i| (i as u8).wrapping_mul(31).wrapping_add(7))
         .collect();
@@ -178,6 +193,13 @@ fn exchange(java_initiator: bool) {
                 FILE => files
                     .handle(Packet::decode(&f.data).unwrap(), &mut write)
                     .unwrap(),
+                crate::avatar::FAMILY => avatars
+                    .handle(
+                        crate::avatar::Packet::decode(&f.data).unwrap(),
+                        &profile.lock().unwrap(),
+                        &mut write,
+                    )
+                    .unwrap(),
                 BYE => break,
                 _ => panic!("unexpected frame"),
             }
@@ -196,6 +218,17 @@ fn exchange(java_initiator: bool) {
     assert!(
         text && ack && white && received && saved,
         "incomplete Rust exchange: {text} {ack} {white} {received} {saved}"
+    );
+    assert!(
+        avatars.failures.is_empty(),
+        "avatar task failed: {:?}",
+        avatars.failures
+    );
+    assert_eq!(
+        crate::avatar::snapshot(&profile.lock().unwrap(), &e.peer.root)
+            .unwrap()
+            .png,
+        fs::read(dir.path().join("java/java-avatar.png")).unwrap()
     );
     let _ = e.stream.shutdown(std::net::Shutdown::Both);
     let deadline = Instant::now() + Duration::from_secs(5);

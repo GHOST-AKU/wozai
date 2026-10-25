@@ -80,3 +80,10 @@ python3 terminal/tools/package.py
 ```sh
 nearbyim --json send DEVICE_UUID --file ./first.png --file ./second.zip
 ```
+
+
+## 头像
+
+`nearbyim avatar set IMAGE` 选择 PNG、JPEG 或 WebP，应用方向信息并居中裁成方形静态 PNG（最大 256×256、128 KiB）。输入上限为 32 MiB、3200 万像素，解码分配预算为 128 MiB。`avatar reset` 恢复默认头像；`avatar show [DEVICE_UUID]` 查看资料；`avatar export OUTPUT.png [--peer DEVICE_UUID]` 导出已校验缓存，不覆盖已有文件。这些本地命令不会启动监听。TUI 面板支持 `avatar set PATH`、`avatar reset`、`avatar show` 和 `avatar export PATH`，后两者使用当前联系人；未选中联系人时使用自己。
+
+在线修改通过现有 avatar-v1 协议同步，要求已认证的能力位及双方连接同意。头像使用独立的 4 KiB 分块、四块窗口、完整静态 PNG 校验与 SHA-256；坏图或存储失败不会终止聊天和普通文件。私有 SQLite 缓存绑定身份公钥，保留自己及最多 63 个远端身份（PNG 内容最多约 8 MiB），不会仅凭昵称或 UUID 替换头像归属。终端图形支持不同，可显式导出 PNG 查看；不宣称所有终端均支持内嵌图片。

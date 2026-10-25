@@ -1,0 +1,30 @@
+{
+  "zune-core-0.4.12": {
+    "source_revision": "f8fbb123d5ed04441e8324a555bfcda0cb1bd28f",
+    "selected_license": "Zlib",
+    "files": {
+      "LICENSE.md": {
+        "source": "https://github.com/etemesi254/zune-image/blob/f8fbb123d5ed04441e8324a555bfcda0cb1bd28f/LICENSE.md",
+        "sha256": "c6dff146a9f31848ac296faa5a08a4253caf2c384c86f906dc99e7fc0a39cc8c"
+      },
+      "LICENSE-ZLIB": {
+        "source": "https://github.com/etemesi254/zune-image/blob/f8fbb123d5ed04441e8324a555bfcda0cb1bd28f/LICENSE-ZLIB",
+        "sha256": "7fa429541e55b1509909e058f2d21a37467e4958ec713b357f6e0cf9dc4ee352"
+      }
+    }
+  },
+  "zune-jpeg-0.4.21": {
+    "source_revision": "fa2c767a01d7d9373911d0bf63e0588553d67e0e",
+    "selected_license": "Zlib",
+    "files": {
+      "LICENSE.md": {
+        "source": "https://github.com/etemesi254/zune-image/blob/fa2c767a01d7d9373911d0bf63e0588553d67e0e/LICENSE.md",
+        "sha256": "c6dff146a9f31848ac296faa5a08a4253caf2c384c86f906dc99e7fc0a39cc8c"
+      },
+      "LICENSE-ZLIB": {
+        "source": "https://github.com/etemesi254/zune-image/blob/fa2c767a01d7d9373911d0bf63e0588553d67e0e/LICENSE-ZLIB",
+        "sha256": "7fa429541e55b1509909e058f2d21a37467e4958ec713b357f6e0cf9dc4ee352"
+      }
+    }
+  }
+}

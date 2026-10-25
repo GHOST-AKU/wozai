@@ -29,6 +29,54 @@ fn help_completions_and_non_tty_are_plain() {
     assert_eq!(value["exit_code"], 2);
 }
 #[test]
+fn avatar_selection_export_and_reset_are_persistent_without_a_listener() {
+    let d = tempfile::tempdir().unwrap();
+    let profile = d.path().join("profile");
+    let source = d.path().join("portrait.png");
+    image::RgbaImage::from_fn(40, 80, |x, y| image::Rgba([x as u8, y as u8, 33, 255]))
+        .save(&source)
+        .unwrap();
+    let invoke = |args: &[&str]| {
+        bin()
+            .args(["--profile", profile.to_str().unwrap(), "--json"])
+            .args(args)
+            .output()
+            .unwrap()
+    };
+    let out = invoke(&["avatar", "set", source.to_str().unwrap()]);
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    let selected: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(selected["avatar"]["width"], 256);
+    assert_eq!(selected["avatar"]["height"], 256);
+    let out = invoke(&["avatar", "show"]);
+    let shown: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(shown["avatar"], selected["avatar"]);
+    let exported = d.path().join("avatar.png");
+    let out = invoke(&["avatar", "export", exported.to_str().unwrap()]);
+    assert!(out.status.success());
+    let png = std::fs::read(&exported).unwrap();
+    assert!(png.starts_with(b"\x89PNG\r\n\x1a\n"));
+    assert!(png.len() <= 128 * 1024);
+    let out = invoke(&["avatar", "export", exported.to_str().unwrap()]);
+    assert!(!out.status.success());
+    assert_eq!(std::fs::read(&exported).unwrap(), png);
+    std::fs::write(&source, b"not an image").unwrap();
+    let out = invoke(&["avatar", "set", source.to_str().unwrap()]);
+    assert!(!out.status.success());
+    let out = invoke(&["avatar", "show"]);
+    let after: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(after["avatar"], selected["avatar"]);
+    let out = invoke(&["avatar", "reset"]);
+    assert!(out.status.success());
+    let reset: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(reset["avatar"]["hash"], "");
+    assert!(reset["avatar"]["revision"].as_u64() > selected["avatar"]["revision"].as_u64());
+}
+#[test]
 fn independent_profile_json_permissions_and_corruption() {
     let d = tempfile::tempdir().unwrap();
     let path = d.path().join("terminal-profile");

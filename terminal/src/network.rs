@@ -29,6 +29,7 @@ pub enum Command {
     Pause(String),
     Cancel(String),
     Resume(String),
+    AvatarChanged,
     Close,
 }
 #[derive(Debug, Clone, Copy)]
@@ -61,6 +62,11 @@ pub enum Event {
         id: String,
     },
     File(Saved),
+    Avatar {
+        peer: String,
+        profile: Option<crate::avatar::Profile>,
+        failure: Option<u8>,
+    },
     Disconnected(String, String),
     Error(String),
 }
@@ -341,6 +347,21 @@ fn session(
         est.generation.clone(),
         directory,
     );
+    let mut avatars = if est.peer.capabilities & 4 != 0 {
+        match crate::avatar::Sync::new(&store.lock().unwrap(), &est.peer.root) {
+            Ok(sync) => Some(sync),
+            Err(_) => {
+                events.send(Event::Avatar {
+                    peer: est.peer.id.clone(),
+                    profile: None,
+                    failure: Some(6),
+                })?;
+                None
+            }
+        }
+    } else {
+        None
+    };
     let config = crate::config::Config::load(&store.lock().unwrap())?;
     let mut file_offer = None::<(Packet, Receiver<bool>, Instant)>;
     let mut ready = false;
@@ -362,6 +383,9 @@ fn session(
                         READY => {
                             ensure!(!ready, "duplicate ready");
                             ready = true;
+                            if let Some(avatars) = &mut avatars {
+                                avatars.local_changed(&store.lock().unwrap(), &mut writer)?;
+                            }
                             events.send(Event::Ready(est.peer.id.clone()))?;
                         }
                         BYE => break,
@@ -442,6 +466,16 @@ fn session(
                                 files.handle(packet, &mut writer)?;
                             }
                         }
+                        crate::avatar::FAMILY => {
+                            ensure!(
+                                ready && est.peer.capabilities & 4 != 0,
+                                "avatar before mutual consent/capability"
+                            );
+                            let packet = crate::avatar::Packet::decode(&f.data)?;
+                            if let Some(avatars) = &mut avatars {
+                                avatars.handle(packet, &store.lock().unwrap(), &mut writer)?;
+                            }
+                        }
                         _ => anyhow::bail!("unsupported frame"),
                     }
                 }
@@ -504,6 +538,11 @@ fn session(
                         Command::Pause(id) => files.pause(&id, false, &mut writer)?,
                         Command::Cancel(id) => files.pause(&id, true, &mut writer)?,
                         Command::Resume(id) => files.resume(&id, &mut writer)?,
+                        Command::AvatarChanged => {
+                            if let Some(avatars) = &mut avatars {
+                                avatars.local_changed(&store.lock().unwrap(), &mut writer)?;
+                            }
+                        }
                         Command::Close => {}
                     }
                     Ok(())
@@ -530,6 +569,23 @@ fn session(
             }
             if ready {
                 files.pump(&mut writer)?;
+                if let Some(avatars) = &mut avatars {
+                    avatars.expire(&mut writer)?;
+                    for profile in avatars.changed.drain(..) {
+                        events.send(Event::Avatar {
+                            peer: est.peer.id.clone(),
+                            profile: Some(profile),
+                            failure: None,
+                        })?;
+                    }
+                    for code in avatars.failures.drain(..) {
+                        events.send(Event::Avatar {
+                            peer: est.peer.id.clone(),
+                            profile: None,
+                            failure: Some(code),
+                        })?;
+                    }
+                }
             }
             for notice in files.notices.drain(..) {
                 events.send(Event::File(notice))?;

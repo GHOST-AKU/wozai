@@ -1,3 +1,4 @@
+mod avatar;
 mod config;
 mod crypto;
 mod discovery;
@@ -136,6 +137,11 @@ enum Action {
         #[command(subcommand)]
         action: IdentityAction,
     },
+    /// Identity-bound avatar profile, explicit image selection and PNG export.
+    Avatar {
+        #[command(subcommand)]
+        action: AvatarAction,
+    },
     Trust {
         #[command(subcommand)]
         action: TrustAction,
@@ -179,6 +185,21 @@ enum IdentityAction {
     Show,
     Verify { peer: String },
     Forget { peer: String },
+}
+#[derive(Subcommand)]
+enum AvatarAction {
+    Show {
+        peer: Option<String>,
+    },
+    Set {
+        path: PathBuf,
+    },
+    Reset,
+    Export {
+        path: PathBuf,
+        #[arg(long)]
+        peer: Option<String>,
+    },
 }
 #[derive(Subcommand)]
 enum TrustAction {
@@ -410,6 +431,29 @@ fn run(mut cli: Cli) -> Result<()> {
                     fingerprint,
                     cfg.lan_listen
                 ),
+            );
+        }
+        Some(Action::Avatar { action }) => {
+            let p = store.lock().unwrap();
+            let root = match action {
+                AvatarAction::Show { peer: Some(peer) }
+                | AvatarAction::Export {
+                    peer: Some(peer), ..
+                } => p.peer(peer)?.ok_or_else(|| fail(3, "unknown peer"))?.root,
+                _ => avatar::own_root(&p),
+            };
+            let profile = match action {
+                AvatarAction::Set { path } => {
+                    avatar::save_local(&p, avatar::prepare_image(path)?)?.profile
+                }
+                AvatarAction::Reset => avatar::save_local(&p, vec![])?.profile,
+                AvatarAction::Export { path, .. } => avatar::export(&p, &root, path)?,
+                AvatarAction::Show { .. } => avatar::snapshot(&p, &root)?.profile,
+            };
+            return emit(
+                json!({"status":"ok","avatar":profile}),
+                cli.json,
+                serde_json::to_string_pretty(&profile)?,
             );
         }
         Some(Action::Config { action }) => {
@@ -1025,6 +1069,26 @@ fn foreground(
                         ));
                     }
                     return Ok(());
+                }
+            }
+            Event::Avatar {
+                peer,
+                profile,
+                failure,
+            } => {
+                if cli.verbose {
+                    eprintln!(
+                        "Avatar {}: {}",
+                        peer,
+                        if let Some(code) = failure {
+                            format!("task failed ({code})")
+                        } else {
+                            format!(
+                                "cached revision {}",
+                                profile.map(|p| p.revision).unwrap_or(0)
+                            )
+                        }
+                    );
                 }
             }
             Event::Error(e) => {

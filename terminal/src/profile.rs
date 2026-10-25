@@ -45,6 +45,8 @@ pub struct Peer {
     pub remembered: bool,
     pub verified: bool,
     pub endpoint: String,
+    #[serde(default)]
+    pub capabilities: u32,
 }
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Message {
@@ -158,6 +160,7 @@ impl Profile {
             CREATE TABLE IF NOT EXISTS messages(peer TEXT NOT NULL,id TEXT NOT NULL,value TEXT NOT NULL,PRIMARY KEY(peer,id));
             CREATE TABLE IF NOT EXISTS drafts(peer TEXT PRIMARY KEY,body TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS transfers(key TEXT PRIMARY KEY,value TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS avatars(root TEXT PRIMARY KEY,value TEXT NOT NULL,png BLOB NOT NULL,updated INTEGER NOT NULL);
             UPDATE messages SET value=json_set(value,'$.state','unconfirmed') WHERE json_extract(value,'$.state')='pending';
             UPDATE transfers SET value=json_set(value,'$.state','paused') WHERE json_extract(value,'$.state') NOT IN ('saved','received','failed','canceled','paused'); PRAGMA user_version=1;")?;
         Ok(Self {

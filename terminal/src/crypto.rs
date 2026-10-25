@@ -117,7 +117,7 @@ fn claim(i: &Identity, initiator: bool, static_public: &[u8]) -> Vec<u8> {
     short(&mut b, i.name.as_bytes());
     short(&mut b, &i.public);
     b.extend(static_public);
-    b.extend(3u32.to_be_bytes());
+    b.extend(7u32.to_be_bytes());
     u64be(&mut b, MAX_FILE);
     u32be(&mut b, MAX_PLAIN);
     b
@@ -151,6 +151,7 @@ fn parse_claim(b: &[u8], initiator: bool, local_id: &str, remote_static: &[u8]) 
         remembered: false,
         verified: false,
         endpoint: String::new(),
+        capabilities: caps,
     })
 }
 pub struct Established {
