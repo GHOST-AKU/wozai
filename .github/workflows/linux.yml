@@ -2,6 +2,16 @@ name: Build NearbyIM Linux client
 on:
   pull_request:
     branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review]
+    paths-ignore:
+      - 'apple/**'
+      - '.github/workflows/apple.yml'
+      - 'tools/test-apple-*.sh'
+      - 'tests/apple/**'
+      - 'docs/apple.md'
+      - 'README.md'
+      - 'docs/readme/README.en.md'
+      - '.gitignore'
   workflow_dispatch:
     inputs:
       performance-baseline:
@@ -20,6 +30,8 @@ permissions:
   contents: read
 jobs:
   linux:
+    # Native Apple drafts do not need another Linux package; review-ready PRs still run all checks.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.ref != 'feat/apple-native' || !github.event.pull_request.draft
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
