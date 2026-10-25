@@ -27,6 +27,8 @@ final class AppModel {
     var activePeer: VerifiedPeer?
     var consent: VerifiedPeer?
     var notice: Notice?
+    var fileOffer: AttachmentInfo?
+    var transfers: [String: AttachmentRecord] = [:]
     var revision: [String: UInt64] = [:]
     var busy: Bool { connectionState != .idle }
 
@@ -121,6 +123,8 @@ final class AppModel {
             activePeer = peer; consent = nil; connectionState = .connected
             changed(peer.id)
         case .changed(let peer): changed(peer)
+        case .attachmentOffer(let info): fileOffer = info
+        case .transfer(let record): transfers[record.id] = record
         case .closed(let error):
             session = nil; stream = nil; activePeer = nil; consent = nil; connectionState = .idle
             if let error { notice = Notice(message: error) }

@@ -71,7 +71,7 @@ private actor Harness {
                 self.peer = peer
                 let code = try SafetyCode.make(identity.root, peer.root)
                 try await session?.sendText("Hello from Apple\n" + code)
-            case .changed: break
+            case .changed, .attachmentOffer, .transfer: break
             case .closed(let reason): closedNormally = reason == nil; failure = reason
             }
         } catch { failure = error.localizedDescription; await session?.stop(reason: failure) }
