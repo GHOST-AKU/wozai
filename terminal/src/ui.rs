@@ -349,6 +349,49 @@ impl App {
             "pause" => self.command(Command::Pause(arg.into()))?,
             "cancel" => self.command(Command::Cancel(arg.into()))?,
             "resume" => self.command(Command::Resume(arg.into()))?,
+            "qr" => {
+                let id = self.current().context("select a peer first")?;
+                let peer = self
+                    .peers
+                    .get(&id)
+                    .context("connect to authenticate this identity first")?;
+                let p = self.store.lock().unwrap();
+                let payload = crate::verification::payload(
+                    &p.identity.public,
+                    &STANDARD.decode(&peer.root)?,
+                )?;
+                if !arg.is_empty() {
+                    crate::verification::export(&payload, std::path::Path::new(arg))?;
+                    self.status = "Identity QR PNG exported without overwrite".into();
+                } else {
+                    self.view = "qr".into();
+                    self.scroll = 0;
+                }
+                return Ok(false);
+            }
+            "verify-qr" => {
+                let id = self.current().context("select a peer first")?;
+                let peer = self
+                    .peers
+                    .get_mut(&id)
+                    .context("connect to authenticate this identity first")?;
+                let values = crate::verification::read_image(std::path::Path::new(arg))?;
+                let p = self.store.lock().unwrap();
+                ensure!(
+                    values.len() == 1
+                        && crate::verification::matches(
+                            &values[0],
+                            &p.identity.public,
+                            &STANDARD.decode(&peer.root)?
+                        )?,
+                    "QR safety code does not match; trust unchanged"
+                );
+                peer.verified = true;
+                p.save_peer(peer)?;
+                self.status =
+                    "Full pairwise identity QR matched; manual verification recorded".into();
+                return Ok(false);
+            }
             "avatar" => {
                 let (operation, path) = arg.split_once(' ').unwrap_or((arg, ""));
                 let p = self.store.lock().unwrap();
@@ -804,10 +847,20 @@ impl App {
                 "transfers"=>self.files.values().map(|s|format!("{} · {} · {}/{} bytes\nID {}\nSaved location {}\n",safe(&s.info.name),s.state,s.offset,s.info.size,s.info.id,s.destination.display())).collect::<Vec<_>>().join("\n"),
                 "security"=>self.peers.values().map(|p|format!("{} · {}\nRemembered={} · manually verified={}\nFingerprint {}\n",safe(&p.name),p.id,p.remembered,p.verified,crate::profile::fingerprint(&STANDARD.decode(&p.root).unwrap_or_default()))).collect::<Vec<_>>().join("\n"),
                 "settings"=>serde_json::to_string_pretty(&self.cfg).unwrap_or_default(),
-                _=>"Quiet Terminal · NearbyIM\n\nCtrl+K command palette (Ctrl+P alias) · Tab focus · Esc back\n? help / search j/k navigation · Enter open/send\nCtrl+J or Alt+Enter newline · a attach outside composer\n\nCommands: chats | scan | transfers | security | settings\nconnect HOST:PORT | disconnect | listen on|off\nfile PATH | files PATH (one per line; confirm before send) | pause ID | resume ID | cancel ID\navatar set PATH | avatar reset | avatar show | avatar export PATH\ncode | verify FULL_CODE | unverify | search TEXT\nset KEY VALUE | quit\n\nLAN discovery is bounded and explicit. Default listening is off.\nOne active session; disconnect safely before switching peers.\nFiles are received only with approval unless trusted auto-receive is enabled.\nEncryption, TOFU consent and manual identity verification are separate.\nA saved receipt is not a read receipt. History is not encrypted at rest.".into(),
+                "qr"=>self.current().and_then(|id|self.peers.get(&id)).and_then(|p|{
+                    let own=self.store.lock().unwrap();let payload=crate::verification::payload(&own.identity.public,&STANDARD.decode(&p.root).ok()?).ok()?;
+                    let text=crate::verification::terminal(&payload,self.ascii).ok()?;
+                    if text.lines().next()?.chars().count()>center.width.saturating_sub(2) as usize || text.lines().count()>center.height.saturating_sub(4) as usize{Some(format!("Enlarge the window or use :qr OUTPUT.png\n\n{payload}"))}else{Some(format!("{text}\nCompare both devices' complete identity QR"))}
+                }).unwrap_or_else(||"Select a known authenticated peer".into()),
+                _=>"Quiet Terminal · NearbyIM\n\nCtrl+K command palette (Ctrl+P alias) · Tab focus · Esc back\n? help / search j/k navigation · Enter open/send\nCtrl+J or Alt+Enter newline · a attach outside composer\n\nCommands: chats | scan | transfers | security | settings\nconnect HOST:PORT | disconnect | listen on|off\nfile PATH | files PATH (one per line; confirm before send) | pause ID | resume ID | cancel ID\navatar set PATH | avatar reset | avatar show | avatar export PATH\ncode | qr [OUTPUT.png] | verify-qr IMAGE | verify FULL_CODE | unverify | search TEXT\nset KEY VALUE | quit\n\nLAN discovery is bounded and explicit. Default listening is off.\nOne active session; disconnect safely before switching peers.\nFiles are received only with approval unless trusted auto-receive is enabled.\nEncryption, TOFU consent and manual identity verification are separate.\nA saved receipt is not a read receipt. History is not encrypted at rest.".into(),
             };
             f.render_widget(
                 Paragraph::new(safe(&body))
+                    .style(if self.view == "qr" {
+                        Style::default().fg(Color::Black).bg(Color::White)
+                    } else {
+                        Style::default()
+                    })
                     .wrap(Wrap { trim: false })
                     .scroll((self.scroll, 0))
                     .block(panel(self.ascii, self.view.clone())),

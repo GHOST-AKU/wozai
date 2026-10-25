@@ -6,6 +6,7 @@ mod files;
 mod network;
 mod profile;
 mod ui;
+mod verification;
 mod wire;
 
 use anyhow::{Context, Result, ensure};
@@ -183,8 +184,25 @@ enum FilesAction {
 #[derive(Subcommand)]
 enum IdentityAction {
     Show,
-    Verify { peer: String },
-    Forget { peer: String },
+    Verify {
+        peer: String,
+        #[arg(long)]
+        qr: Option<PathBuf>,
+    },
+    /// Show the full pairwise identity QR; optionally save a PNG without overwrite.
+    Qr {
+        peer: String,
+        #[arg(long)]
+        output: Option<PathBuf>,
+    },
+    /// Compare an offline QR image without changing any trust flag.
+    CheckQr {
+        peer: String,
+        path: PathBuf,
+    },
+    Forget {
+        peer: String,
+    },
 }
 #[derive(Subcommand)]
 enum AvatarAction {
@@ -456,6 +474,53 @@ fn run(mut cli: Cli) -> Result<()> {
                 serde_json::to_string_pretty(&profile)?,
             );
         }
+        Some(Action::Identity {
+            action: IdentityAction::Qr { peer, output },
+        }) => {
+            let p = store.lock().unwrap();
+            let remote = p.peer(peer)?.ok_or_else(|| fail(3, "unknown peer"))?;
+            let payload =
+                verification::payload(&p.identity.public, &STANDARD.decode(&remote.root)?)?;
+            if let Some(path) = output {
+                verification::export(&payload, path)?;
+            }
+            let display = if let Some(path) = output {
+                format!("Verification QR saved: {}", path.display())
+            } else {
+                format!(
+                    "{}\n{}",
+                    verification::terminal(&payload, cli.ascii)?,
+                    payload
+                )
+            };
+            return emit(
+                json!({"status":"ok","peer_id":peer,"qr_payload":payload,"output":output}),
+                cli.json,
+                display,
+            );
+        }
+        Some(Action::Identity {
+            action: IdentityAction::CheckQr { peer, path },
+        }) => {
+            let p = store.lock().unwrap();
+            let remote = p.peer(peer)?.ok_or_else(|| fail(3, "unknown peer"))?;
+            let values = verification::read_image(path)?;
+            let matched = values.len() == 1
+                && verification::matches(
+                    &values[0],
+                    &p.identity.public,
+                    &STANDARD.decode(&remote.root)?,
+                )?;
+            return emit(
+                json!({"status":"ok","peer_id":peer,"matches":matched,"trust_changed":false}),
+                cli.json,
+                if matched {
+                    "Full safety code matches; trust is unchanged."
+                } else {
+                    "The QR does not match; trust is unchanged."
+                },
+            );
+        }
         Some(Action::Config { action }) => {
             let p = store.lock().unwrap();
             match action {
@@ -591,7 +656,7 @@ fn run(mut cli: Cli) -> Result<()> {
                 action: TrustAction::Revoke { peer },
             }
             | Action::Identity {
-                action: IdentityAction::Verify { peer } | IdentityAction::Forget { peer },
+                action: IdentityAction::Verify { peer, .. } | IdentityAction::Forget { peer },
             },
         ) => {
             if !interactive {
@@ -604,15 +669,33 @@ fn run(mut cli: Cli) -> Result<()> {
             let mut remote = p.peer(peer)?.ok_or_else(|| fail(3, "unknown peer"))?;
             match cli.command.as_ref().unwrap() {
                 Action::Identity {
-                    action: IdentityAction::Verify { .. },
+                    action: IdentityAction::Verify { qr, .. },
                 } => {
                     let code = profile::safety(&p.identity.public, &STANDARD.decode(&remote.root)?);
                     eprintln!("Compare the full safety code out of band:\n{code}");
-                    let input = prompt("Enter the full matching code", "")?;
-                    ensure!(
-                        input.split_whitespace().collect::<String>() == code,
-                        "full safety code does not match"
-                    );
+                    if let Some(path) = qr {
+                        let values = verification::read_image(path)?;
+                        ensure!(
+                            values.len() == 1
+                                && verification::matches(
+                                    &values[0],
+                                    &p.identity.public,
+                                    &STANDARD.decode(&remote.root)?
+                                )?,
+                            "QR safety code does not match"
+                        );
+                        ensure!(
+                            prompt("Full QR matches. Record manual verification? yes/no", "no")?
+                                == "yes",
+                            "verification canceled"
+                        );
+                    } else {
+                        let input = prompt("Enter the full matching code", "")?;
+                        ensure!(
+                            input.split_whitespace().collect::<String>() == code,
+                            "full safety code does not match"
+                        );
+                    }
                     remote.verified = true;
                     p.save_peer(&remote)?;
                 }

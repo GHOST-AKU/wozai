@@ -77,6 +77,106 @@ fn avatar_selection_export_and_reset_are_persistent_without_a_listener() {
     assert!(reset["avatar"]["revision"].as_u64() > selected["avatar"]["revision"].as_u64());
 }
 #[test]
+fn offline_identity_qr_roundtrip_does_not_change_trust() {
+    let d = tempfile::tempdir().unwrap();
+    let a = d.path().join("a");
+    let b = d.path().join("b");
+    let c = d.path().join("c");
+    let identity = |path: &std::path::Path| -> serde_json::Value {
+        let out = bin()
+            .args([
+                "--profile",
+                path.to_str().unwrap(),
+                "--json",
+                "identity",
+                "show",
+            ])
+            .output()
+            .unwrap();
+        assert!(out.status.success());
+        serde_json::from_slice(&out.stdout).unwrap()
+    };
+    let aid = identity(&a);
+    let bid = identity(&b);
+    identity(&c);
+    for path in [&a, &c] {
+        let db = rusqlite::Connection::open(path.join("history.sqlite3")).unwrap();
+        let peer = serde_json::json!({"id":bid["device_id"],"name":"QR peer","root":bid["public_key"],"remembered":false,"verified":false,"endpoint":"","capabilities":7});
+        db.execute(
+            "INSERT INTO peers VALUES(?,?)",
+            rusqlite::params![bid["device_id"].as_str().unwrap(), peer.to_string()],
+        )
+        .unwrap();
+    }
+    let image = d.path().join("identity.png");
+    let out = bin()
+        .args([
+            "--profile",
+            a.to_str().unwrap(),
+            "--json",
+            "identity",
+            "qr",
+            bid["device_id"].as_str().unwrap(),
+            "--output",
+            image.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    let qr: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(qr["qr_payload"].as_str().unwrap().len(), 74);
+    for (profile, expected) in [(&a, true), (&c, false)] {
+        let out = bin()
+            .args([
+                "--profile",
+                profile.to_str().unwrap(),
+                "--json",
+                "identity",
+                "check-qr",
+                bid["device_id"].as_str().unwrap(),
+                image.to_str().unwrap(),
+            ])
+            .output()
+            .unwrap();
+        assert!(out.status.success());
+        let check: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        assert_eq!(check["matches"], expected);
+        assert_eq!(check["trust_changed"], false);
+        let out = bin()
+            .args([
+                "--profile",
+                profile.to_str().unwrap(),
+                "--json",
+                "peers",
+                "show",
+                bid["device_id"].as_str().unwrap(),
+            ])
+            .output()
+            .unwrap();
+        let peer: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        assert_eq!(peer["peer"]["verified"], false);
+    }
+    let out = bin()
+        .args([
+            "--profile",
+            a.to_str().unwrap(),
+            "--json",
+            "identity",
+            "verify",
+            bid["device_id"].as_str().unwrap(),
+            "--qr",
+            image.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(6));
+    assert!(!aid["public_key"].as_str().unwrap().is_empty());
+}
+#[test]
 fn independent_profile_json_permissions_and_corruption() {
     let d = tempfile::tempdir().unwrap();
     let path = d.path().join("terminal-profile");

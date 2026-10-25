@@ -5,3 +5,5 @@ app/src/main/res/values/icon_colors.xml text eol=lf
 # Dependency hashes cover exact upstream bytes on all runner platforms.
 tests/noise-candidate/** text eol=lf
 third_party/noise-java/** text eol=lf
+# Keep the retained upstream license bytes identical to their recorded SHA-256 on Windows.
+terminal/vendor-licenses/** -text

@@ -452,7 +452,7 @@ pub fn save_local(store: &Store, png: Vec<u8>) -> Result<Snapshot> {
     adopt(store, &root, profile, png)
 }
 /// Explicit local selection: orient, center-crop and shrink with bounded decoding.
-pub fn prepare_image(path: &Path) -> Result<Vec<u8>> {
+pub fn decode_image(path: &Path) -> Result<image::DynamicImage> {
     let file = std::fs::File::open(path)?;
     ensure!(
         file.metadata()?.is_file() && file.metadata()?.len() <= 32 * 1024 * 1024,
@@ -487,6 +487,10 @@ pub fn prepare_image(path: &Path) -> Result<Vec<u8>> {
     );
     let mut image = image::DynamicImage::from_decoder(decoder)?;
     image.apply_orientation(orientation);
+    Ok(image)
+}
+pub fn prepare_image(path: &Path) -> Result<Vec<u8>> {
+    let image = decode_image(path)?;
     let side = image.width().min(image.height());
     let square = image.crop_imm(
         (image.width() - side) / 2,
