@@ -132,3 +132,10 @@ Online changes synchronize through the production avatar-v1 protocol only after 
 `nearbyim identity qr DEVICE_UUID --output verification.png` exports the Android-compatible full `WOZAI-ID1:` safety code as a PNG without overwrite. Omitting `--output` prints a monochrome terminal symbol (use a light background); `--json` returns the exact payload. `identity check-qr DEVICE_UUID IMAGE` compares a bounded PNG/JPEG/WebP image with both known roots and leaves trust unchanged. `identity verify DEVICE_UUID --qr IMAGE` requires a TTY, a matching full code and explicit confirmation before recording verification. It does not remember connection consent.
 
 TUI commands: `qr` displays a black-on-white symbol when the panel fits, `qr OUTPUT.png` exports it, and `verify-qr IMAGE` explicitly compares and records verification for the selected known identity. Narrow panels offer PNG export instead of wrapping/cropping the code. Images are bounded/downsampled before detection; decoded text is never opened as an address, URL or new identity. Camera scanning and cross-device acceptance are not claimed for Terminal.
+
+
+## User-file access
+
+`nearbyim files export TRANSFER_UUID OUTPUT` streams a completed file to a chosen path, checks its recorded whole-file SHA-256, forces the content and publishes without overwrite. TUI equivalent: `export TRANSFER_UUID PATH`. Changed or truncated saved files fail verification and leave no partial export. `files reveal TRANSFER_UUID` / TUI `reveal TRANSFER_UUID` requests the saved location in the OS file manager; headless systems can use the printed location or export. File contents are never passed to a shell or launched by reveal.
+
+Incoming publication and export use an exclusive native rename on Windows/Linux/macOS, retaining the hard-link fallback only when the OS lacks the rename operation. A pre-publication checkpoint permits verification of the final file after interruption. Automated checks cover no-overwrite, hash mismatch, queue restart and real CLI export; removable filesystems and physical power-loss behavior still need device evidence.

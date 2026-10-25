@@ -5,6 +5,7 @@ mod discovery;
 mod files;
 mod network;
 mod profile;
+mod publish;
 mod ui;
 mod verification;
 mod wire;
@@ -178,8 +179,21 @@ enum ChatsAction {
 #[derive(Subcommand)]
 enum FilesAction {
     List,
-    Resume { id: String },
-    Cancel { id: String },
+    Resume {
+        id: String,
+    },
+    Cancel {
+        id: String,
+    },
+    /// Copy a completed verified file without overwriting an existing destination.
+    Export {
+        id: String,
+        path: PathBuf,
+    },
+    /// Reveal a completed file in the OS file manager.
+    Reveal {
+        id: String,
+    },
 }
 #[derive(Subcommand)]
 enum IdentityAction {
@@ -609,6 +623,30 @@ fn run(mut cli: Cli) -> Result<()> {
                     })
                     .collect::<Vec<_>>()
                     .join("\n"),
+            );
+        }
+        Some(Action::Files {
+            action: FilesAction::Export { id, .. } | FilesAction::Reveal { id },
+        }) => {
+            let record = store
+                .lock()
+                .unwrap()
+                .transfers::<files::Saved>()?
+                .into_iter()
+                .find(|s| &s.info.id == id)
+                .ok_or_else(|| fail(3, "unknown transfer"))?;
+            if let Some(Action::Files {
+                action: FilesAction::Export { path, .. },
+            }) = &cli.command
+            {
+                files::export(&record, path)?;
+            } else {
+                files::reveal(&record)?;
+            }
+            return emit(
+                json!({"status":"ok","transfer_id":id}),
+                cli.json,
+                "File operation completed.",
             );
         }
         Some(Action::Files {

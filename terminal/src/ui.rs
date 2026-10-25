@@ -347,6 +347,29 @@ impl App {
                 self.attach = Some(paths);
             }
             "pause" => self.command(Command::Pause(arg.into()))?,
+            "reveal" => {
+                let saved = self
+                    .files
+                    .values()
+                    .find(|s| s.info.id == arg)
+                    .context("unknown transfer ID")?;
+                crate::files::reveal(saved)?;
+                self.status = "Requested the saved location in the OS file manager".into();
+                return Ok(false);
+            }
+            "export" => {
+                let (id, path) = arg
+                    .split_once(' ')
+                    .context("usage: export TRANSFER_ID PATH")?;
+                let saved = self
+                    .files
+                    .values()
+                    .find(|s| s.info.id == id)
+                    .context("unknown transfer ID")?;
+                crate::files::export(saved, std::path::Path::new(path))?;
+                self.status = "Verified file exported without overwrite".into();
+                return Ok(false);
+            }
             "cancel" => self.command(Command::Cancel(arg.into()))?,
             "resume" => self.command(Command::Resume(arg.into()))?,
             "qr" => {
@@ -852,7 +875,7 @@ impl App {
                     let text=crate::verification::terminal(&payload,self.ascii).ok()?;
                     if text.lines().next()?.chars().count()>center.width.saturating_sub(2) as usize || text.lines().count()>center.height.saturating_sub(4) as usize{Some(format!("Enlarge the window or use :qr OUTPUT.png\n\n{payload}"))}else{Some(format!("{text}\nCompare both devices' complete identity QR"))}
                 }).unwrap_or_else(||"Select a known authenticated peer".into()),
-                _=>"Quiet Terminal · NearbyIM\n\nCtrl+K command palette (Ctrl+P alias) · Tab focus · Esc back\n? help / search j/k navigation · Enter open/send\nCtrl+J or Alt+Enter newline · a attach outside composer\n\nCommands: chats | scan | transfers | security | settings\nconnect HOST:PORT | disconnect | listen on|off\nfile PATH | files PATH (one per line; confirm before send) | pause ID | resume ID | cancel ID\navatar set PATH | avatar reset | avatar show | avatar export PATH\ncode | qr [OUTPUT.png] | verify-qr IMAGE | verify FULL_CODE | unverify | search TEXT\nset KEY VALUE | quit\n\nLAN discovery is bounded and explicit. Default listening is off.\nOne active session; disconnect safely before switching peers.\nFiles are received only with approval unless trusted auto-receive is enabled.\nEncryption, TOFU consent and manual identity verification are separate.\nA saved receipt is not a read receipt. History is not encrypted at rest.".into(),
+                _=>"Quiet Terminal · NearbyIM\n\nCtrl+K command palette (Ctrl+P alias) · Tab focus · Esc back\n? help / search j/k navigation · Enter open/send\nCtrl+J or Alt+Enter newline · a attach outside composer\n\nCommands: chats | scan | transfers | security | settings\nconnect HOST:PORT | disconnect | listen on|off\nfile PATH | files PATH (one per line; confirm before send) | pause ID | resume ID | cancel ID\navatar set PATH | avatar reset | avatar show | avatar export PATH\nreveal ID | export ID PATH\ncode | qr [OUTPUT.png] | verify-qr IMAGE | verify FULL_CODE | unverify | search TEXT\nset KEY VALUE | quit\n\nLAN discovery is bounded and explicit. Default listening is off.\nOne active session; disconnect safely before switching peers.\nFiles are received only with approval unless trusted auto-receive is enabled.\nEncryption, TOFU consent and manual identity verification are separate.\nA saved receipt is not a read receipt. History is not encrypted at rest.".into(),
             };
             f.render_widget(
                 Paragraph::new(safe(&body))

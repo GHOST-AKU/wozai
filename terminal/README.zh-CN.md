@@ -94,3 +94,10 @@ nearbyim --json send DEVICE_UUID --file ./first.png --file ./second.zip
 `nearbyim identity qr DEVICE_UUID --output verification.png` 导出与 Android 相同的完整 `WOZAI-ID1:` 安全码 PNG，不覆盖文件；省略 `--output` 时输出单色终端图案（请使用浅色背景），`--json` 返回精确载荷。`identity check-qr DEVICE_UUID IMAGE` 比较有界 PNG/JPEG/WebP 与双方已知身份，不更改信任。`identity verify DEVICE_UUID --qr IMAGE` 仍要求交互终端、完整码匹配及明确确认，才记录人工核验，不会自动记住连接认可。
 
 TUI 使用 `qr` 显示黑白二维码、`qr OUTPUT.png` 导出、`verify-qr IMAGE` 为选中身份明确执行比对核验。面板太窄时提示导出，不将二维码折行或裁掉。图片先有界解码/缩小，再识别；载荷不会被作为连接地址、URL 或新身份打开。Terminal 不宣称已实现相机扫描或完成跨设备扫码验收。
+
+
+## 用户文件位置
+
+`nearbyim files export TRANSFER_UUID OUTPUT` 将已完成文件流式导出到指定路径，核对已记录的整文件 SHA-256、强制写入并发布，不覆盖已有文件。TUI 对应 `export TRANSFER_UUID PATH`。文件被修改或截断会校验失败，不留下半成品导出。`files reveal TRANSFER_UUID` / TUI `reveal TRANSFER_UUID` 请求系统文件管理器显示保存位置；无图形环境可使用记录中的路径或导出。显示位置不会把文件内容传给 shell 或直接执行。
+
+接收发布和导出在 Windows/Linux/macOS 使用原生排他重命名，只有系统缺少该操作时才使用硬链接后备。发布前保存检查点，以便中断后核验最终文件。自动化覆盖不覆盖、哈希变化、队列重启及真实 CLI 导出；移动存储和真机断电行为仍待实证。

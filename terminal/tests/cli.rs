@@ -478,6 +478,31 @@ fn scripts_require_consent_and_only_return_saved_after_ack() {
     for record in v["files"].as_array().unwrap() {
         assert_eq!(record["state"], "saved");
     }
+    let record = v["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| s["info"]["name"] == "second.bin")
+        .unwrap();
+    let exported = d.path().join("exported.bin");
+    let out = bin()
+        .args([
+            "--profile",
+            a.to_str().unwrap(),
+            "--json",
+            "files",
+            "export",
+            record["info"]["id"].as_str().unwrap(),
+            exported.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    assert_eq!(std::fs::read(&exported).unwrap(), [93u8; 8193]);
     server.kill().unwrap();
     server.wait().unwrap();
 }

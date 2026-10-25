@@ -147,7 +147,7 @@ impl Engine {
     }
     fn prepare_source(&self, path: &Path) -> Result<Saved> {
         let path = path.canonicalize()?;
-        let file = open_existing(&path)?;
+        let file = open_regular(&path, false)?;
         let m = file.metadata()?;
         ensure!(
             m.is_file() && m.len() <= MAX_FILE,
@@ -220,7 +220,7 @@ impl Engine {
         }
         while let Some(mut s) = self.queued.pop_front() {
             let prepared = (|| -> Result<File> {
-                let file = open_existing(&s.path)?;
+                let file = open_regular(&s.path, false)?;
                 let m = file.metadata()?;
                 ensure!(
                     m.is_file() && m.len() == s.info.size && modified(&m) == s.modified,
@@ -307,7 +307,7 @@ impl Engine {
                     || t.saved.info.id == s.info.id),
             "another send is active"
         );
-        let file = open_existing(&s.path)?;
+        let file = open_regular(&s.path, false)?;
         let m = file.metadata()?;
         ensure!(
             m.is_file() && m.len() == s.info.size && modified(&m) == s.modified,
@@ -507,7 +507,7 @@ impl Engine {
                     s.offset == s.info.size,
                     "unexpected destination conflicts with partial transfer"
                 );
-                let mut f = File::open(&s.destination)?;
+                let mut f = open_regular(&s.destination, false)?;
                 ensure!(f.metadata()?.len() == s.info.size, "completed file changed");
                 let h = hash_prefix(&mut f, s.info.size)?;
                 ensure!(
@@ -702,17 +702,18 @@ impl Engine {
                 let hash: [u8; 32] = t.whole.clone().finalize().into();
                 ensure!(Some(hash) == p.hash, "whole-file hash mismatch");
                 t.file.sync_all()?;
+                t.saved.offset = p.size;
+                t.saved.hash = hex::encode(hash);
+                t.saved.state = "publishing".into();
+                self.save(&t.saved)?;
                 drop(t.file);
-                // A same-filesystem hard link publishes without replacing an existing name.
-                fs::hard_link(&t.saved.path, &t.saved.destination)
+                crate::publish::exclusive(&t.saved.path, &t.saved.destination)
                     .context("cannot publish received file without overwrite")?;
                 profile::sync_dir(t.saved.destination.parent().unwrap())?;
                 t.saved.offset = p.size;
                 t.saved.hash = hex::encode(hash);
                 t.saved.state = "received".into();
                 self.save(&t.saved)?;
-                fs::remove_file(&t.saved.path)?;
-                profile::sync_dir(t.saved.path.parent().unwrap())?;
                 let mut r = p.reply(COMPLETE);
                 r.offset = p.size;
                 r.hash = Some(hash);
@@ -877,18 +878,123 @@ fn modified(m: &fs::Metadata) -> u64 {
         .map_or(0, |d| d.as_nanos() as u64)
 }
 fn open_existing(path: &Path) -> Result<File> {
+    open_regular(path, true)
+}
+fn open_regular(path: &Path, writing: bool) -> Result<File> {
     ensure!(
         fs::symlink_metadata(path)?.is_file(),
-        "partial file must be regular"
+        "file must be regular"
     );
     let mut o = fs::OpenOptions::new();
-    o.read(true).write(true);
+    o.read(true).write(writing);
     #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt;
-        o.custom_flags(libc::O_NOFOLLOW);
+        o.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
     }
-    Ok(o.open(path)?)
+    let file = o.open(path)?;
+    ensure!(file.metadata()?.is_file(), "file is no longer regular");
+    Ok(file)
+}
+pub fn export(record: &Saved, destination: &Path) -> Result<()> {
+    ensure!(
+        ["saved", "received"].contains(&record.state.as_str()),
+        "only completed files can be exported"
+    );
+    let source = if record.outgoing {
+        &record.path
+    } else {
+        &record.destination
+    };
+    let mut input = open_regular(source, false)?;
+    ensure!(
+        input.metadata()?.len() == record.info.size,
+        "completed file size changed"
+    );
+    let parent = destination
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."))
+        .canonicalize()?;
+    let destination = parent.join(
+        destination
+            .file_name()
+            .context("choose an export filename")?,
+    );
+    ensure!(
+        !destination.try_exists()?,
+        "export destination already exists"
+    );
+    let part = parent.join(format!(".nearbyim-export-{}.part", uuid::Uuid::new_v4()));
+    let mut output = profile::private_open(&part, true)?;
+    let result = (|| -> Result<()> {
+        let mut hash = Sha256::new();
+        let mut bytes = [0; CHUNK];
+        let mut left = record.info.size;
+        while left > 0 {
+            let n = left.min(CHUNK as u64) as usize;
+            input.read_exact(&mut bytes[..n])?;
+            output.write_all(&bytes[..n])?;
+            hash.update(&bytes[..n]);
+            left -= n as u64;
+        }
+        ensure!(
+            input.metadata()?.len() == record.info.size
+                && hex::encode(hash.finalize()) == record.hash,
+            "completed file hash changed"
+        );
+        output.sync_all()?;
+        drop(output);
+        crate::publish::exclusive(&part, &destination)?;
+        profile::sync_dir(&parent)?;
+        Ok(())
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(&part);
+    }
+    result
+}
+pub fn reveal(record: &Saved) -> Result<()> {
+    use std::process::{Command, Stdio};
+    ensure!(
+        ["saved", "received"].contains(&record.state.as_str()),
+        "only completed files can be revealed"
+    );
+    let source = if record.outgoing {
+        &record.path
+    } else {
+        &record.destination
+    };
+    let _ = open_regular(source, false)?;
+    let path = source.canonicalize()?;
+    #[cfg(windows)]
+    let mut command = {
+        let mut c = Command::new("explorer.exe");
+        c.arg(format!("/select,{}", path.display()));
+        c
+    };
+    #[cfg(target_os = "macos")]
+    let mut command = {
+        let mut c = Command::new("open");
+        c.arg("-R").arg(&path);
+        c
+    };
+    #[cfg(not(any(windows, target_os = "macos")))]
+    let mut command = {
+        let mut c = Command::new("xdg-open");
+        c.arg(path.parent().context("file has no parent directory")?);
+        c
+    };
+    let mut child = command
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .context("OS file manager unavailable; use files export or the saved location")?;
+    std::thread::spawn(move || {
+        let _ = child.wait();
+    });
+    Ok(())
 }
 fn hash_prefix(file: &mut File, n: u64) -> Result<Sha256> {
     file.seek(SeekFrom::Start(0))?;
@@ -1117,6 +1223,37 @@ mod recovery_tests {
                 .expect("resuming the first transfer must release the persisted second selection");
             assert_eq!(fs::read(&saved.destination).unwrap(), pair.content);
         }
+    }
+    #[test]
+    fn completed_file_export_checks_hash_and_does_not_overwrite() {
+        let mut pair = Pair::new(CHUNK + 17);
+        let id = pair.offer();
+        pair.finish();
+        let saved = pair
+            .b
+            .store
+            .lock()
+            .unwrap()
+            .transfers::<Saved>()
+            .unwrap()
+            .into_iter()
+            .find(|s| s.info.id == id)
+            .unwrap();
+        let destination = pair._dir.path().join("exported.bin");
+        export(&saved, &destination).unwrap();
+        assert_eq!(fs::read(&destination).unwrap(), pair.content);
+        assert!(export(&saved, &destination).is_err());
+        assert_eq!(fs::read(&destination).unwrap(), pair.content);
+        fs::write(&saved.destination, vec![88; pair.content.len()]).unwrap();
+        let corrupt = pair._dir.path().join("corrupt.bin");
+        assert!(export(&saved, &corrupt).is_err());
+        assert!(!corrupt.exists());
+        assert!(!fs::read_dir(pair._dir.path()).unwrap().any(|e| {
+            e.unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with(".nearbyim-export-")
+        }));
     }
     struct Pair {
         a: Engine,
