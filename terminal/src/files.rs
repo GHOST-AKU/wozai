@@ -161,7 +161,6 @@ impl Engine {
                     && s.outgoing == outgoing
                     && s.info.id == p.id
                     && s.source == p.source
-                    && s.info.size == p.size
             }))
     }
     fn packet(&self, s: &Saved, kind: u8) -> Packet {
@@ -544,7 +543,9 @@ impl Engine {
             return send(r.frame()?);
         }
         if p.kind == STATUS {
-            let s = self.lookup(&p, !p.sender)?;
+            let s = self
+                .lookup(&p, !p.sender)?
+                .filter(|s| s.info.size == p.size);
             let Some(mut s) = s else {
                 return reject(&p, "rejected", send);
             };
@@ -630,6 +631,7 @@ impl Engine {
             if p.kind == CANCEL
                 && let Some(mut saved) = self.lookup(&p, outgoing)?
             {
+                ensure!(saved.info.size == p.size, "file task size changed");
                 if !["saved", "received", "canceled", "failed"].contains(&saved.state.as_str()) {
                     saved.state = if matches!(p.reason.as_str(), "failed" | "tooLarge") {
                         "failed"
@@ -1413,6 +1415,10 @@ mod recovery_tests {
             Packet::control(CANCEL, false, &saved.info, &saved.source, &"b".repeat(64));
         cancel.reason = "canceled".into();
         cancel.validate().unwrap();
+        let mut changed_size = cancel.clone();
+        changed_size.size += 1;
+        assert!(pair.a.handle(changed_size, &mut |_| Ok(())).is_err());
+        assert_eq!(pair.a.reserved.as_ref().unwrap().info.id, first);
         pair.a.handle(cancel, &mut |_| Ok(())).unwrap();
         assert_eq!(
             pair.a
@@ -1529,6 +1535,39 @@ mod recovery_tests {
         }
         assert!(accepted > 0);
         assert!(pair.b.handle(pause, &mut |_| Ok(())).is_err());
+    }
+    #[test]
+    fn ended_offer_cannot_reuse_identity_with_a_different_size() {
+        let mut pair = Pair::new(CHUNK);
+        pair.offer();
+        let mut reused = Packet::decode(&pair.ab.front().unwrap().data).unwrap();
+        pair.finish();
+        reused.size += 1;
+        reused.info.as_mut().unwrap().size += 1;
+        reused.validate().unwrap();
+        let mut replies = vec![];
+        pair.b
+            .handle(reused, &mut |f| {
+                replies.push(Packet::decode(&f.data)?);
+                Ok(())
+            })
+            .unwrap();
+        assert_eq!(replies.len(), 1);
+        assert_eq!(
+            replies[0].kind, CANCEL,
+            "a finished identity must remain retired even if OFFER changes its size"
+        );
+        assert!(pair.b.incoming.is_none());
+        let saved = pair
+            .b
+            .store
+            .lock()
+            .unwrap()
+            .transfers::<Saved>()
+            .unwrap()
+            .remove(0);
+        assert_eq!(saved.state, "received");
+        assert_eq!(fs::read(saved.destination).unwrap(), pair.content);
     }
     struct Pair {
         a: Engine,
