@@ -56,5 +56,13 @@
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>Scan the other device’s identity QR code to compare the full safety code. Camera images stay on this device.</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>zh-Hans</string>
+		<string>zh-Hant</string>
+		<string>ja</string>
+		<string>ko</string>
+	</array>
 </dict>
 </plist>

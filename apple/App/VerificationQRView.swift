@@ -51,7 +51,7 @@ struct VerificationQRControls: View {
             #endif
             if reading { ProgressView() }
             if let matched {
-                Label(matched ? "Scanned codes match" : "The scanned code does not match", systemImage: matched ? "checkmark.shield" : "exclamationmark.shield")
+                Label(matched ? LocalizedStringKey("Scanned codes match") : LocalizedStringKey("The scanned code does not match"), systemImage: matched ? "checkmark.shield" : "exclamationmark.shield")
                 if matched {
                     Button("Verify scanned code") { Task { await model.verify(peer, generation: generation); dismiss() } }.disabled(!current)
                 }

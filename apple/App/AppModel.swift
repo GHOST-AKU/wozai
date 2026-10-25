@@ -31,6 +31,7 @@ final class AppModel {
     private var fileConsent = AttachmentConsent()
     var fileOffer: AttachmentInfo? { fileConsent.pending }
     var fileOfferToken: UUID { fileConsent.token }
+    var fileOfferPresentation: AttachmentConsent.Prompt? { fileConsent.prompt }
     var transfers: [String: AttachmentRecord] = [:]
     var transferRevision: [String: UInt64] = [:]
     var revision: [String: UInt64] = [:]

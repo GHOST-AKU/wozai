@@ -30,10 +30,10 @@ struct RootView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.scenePhase) private var scenePhase
     @State private var consentPresented = false
+    @State private var presentedFileToken: UUID?
 
     var body: some View {
         @Bindable var model = model
-        let fileOffer = model.fileOffer, fileOfferToken = model.fileOfferToken
         Group {
             if model.initialized {
                 #if os(macOS)
@@ -56,13 +56,27 @@ struct RootView: View {
                 .presentationDetents([.medium, .large])
                 .onAppear { consentPresented = true }
         }
-        .confirmationDialog("Receive file?", isPresented: Binding(get: {
-            !consentPresented && fileOffer != nil && model.fileOffer != nil && model.fileOfferToken == fileOfferToken
-        }, set: { if !$0 { model.decideFile(false, expected: fileOfferToken) } }), titleVisibility: .visible) {
-            Button("Receive") { model.decideFile(true, expected: fileOfferToken) }
-            Button("Reject", role: .cancel) { model.decideFile(false, expected: fileOfferToken) }
-        } message: {
-            if let info = fileOffer { Text(verbatim: info.name + " · " + ByteCountFormatter.string(fromByteCount: Int64(info.size), countStyle: .file)) }
+        .sheet(item: Binding(get: { consentPresented ? nil : model.fileOfferPresentation }, set: { _ in
+            // Reject an interactive dismissal after the native transition, never before a button action.
+        }), onDismiss: {
+            if let expected = presentedFileToken { model.decideFile(false, expected: expected) }
+        }) { prompt in
+            VStack(alignment: .leading, spacing: 20) {
+                Label("Receive file?", systemImage: "doc.badge.arrow.down").font(.title2)
+                Text(verbatim: prompt.info.name).textSelection(.enabled)
+                Text(ByteCountFormatter.string(fromByteCount: Int64(prompt.info.size), countStyle: .file)).foregroundStyle(.secondary)
+                HStack {
+                    Button("Reject", role: .cancel) { model.decideFile(false, expected: prompt.id) }
+                    Spacer()
+                    Button("Receive") { model.decideFile(true, expected: prompt.id) }.buttonStyle(.borderedProminent)
+                }
+            }
+            .padding(24)
+            .presentationDetents([.medium])
+            .onAppear { presentedFileToken = prompt.id }
+            #if os(macOS)
+            .frame(minWidth: 360, minHeight: 220)
+            #endif
         }
         .alert("NearbyIM", isPresented: Binding(get: { model.notice != nil }, set: { if !$0 { model.notice = nil } })) {
             Button("OK", role: .cancel) { model.notice = nil }

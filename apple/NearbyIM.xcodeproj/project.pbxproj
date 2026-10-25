@@ -4,6 +4,9 @@ archiveVersion = 1;
 classes = {};
 objectVersion = 56;
 objects = {
+A8A3F44C0519C40ED3F4A007 = { isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "ko"; path = "ko.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
+A8A3F44C0519C40ED3F4A006 = { isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "ja"; path = "ja.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
+A8A3F44C0519C40ED3F4A005 = { isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hant"; path = "zh-Hant.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 A8A3F44C0519C40ED3F4A003 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerificationQRView.swift; sourceTree = "<group>"; };
 A8A3F44C0519C40ED3F4A004 = { isa = PBXBuildFile; fileRef = A8A3F44C0519C40ED3F4A003; };
 A8A3F44C0519C40ED3F4A001 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentViews.swift; sourceTree = "<group>"; };
@@ -35,7 +38,7 @@ AFCFFF261453769F56AB7C4D = { isa = PBXBuildFile; fileRef = D88C01B31938C10AC56FA
 77698D1C2A7C90131027D79C = { isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = NearbyIM.entitlements; sourceTree = "<group>"; };
 CB2463C4B7AB4CFD2B48178C = { isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "en"; path = "en.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 EA5D4181B493BD935D50F7C9 = { isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
-81D6B8E31BF89A081D24D345 = { isa = PBXVariantGroup; children = (CB2463C4B7AB4CFD2B48178C,EA5D4181B493BD935D50F7C9,); name = InfoPlist.strings; sourceTree = "<group>"; };
+81D6B8E31BF89A081D24D345 = { isa = PBXVariantGroup; children = (CB2463C4B7AB4CFD2B48178C,EA5D4181B493BD935D50F7C9,A8A3F44C0519C40ED3F4A005,A8A3F44C0519C40ED3F4A006,A8A3F44C0519C40ED3F4A007,); name = InfoPlist.strings; sourceTree = "<group>"; };
 E66CF910A8FF01FCBF6D6D6C = { isa = PBXBuildFile; fileRef = 81D6B8E31BF89A081D24D345; };
 FC233BDA2344D97687F5A251 = { isa = PBXGroup; path = App; children = (A8A3F44C0519C40ED3F4A003,A8A3F44C0519C40ED3F4A001,A7F764EDC4A5B83690E7CA11,74992B64E5D97A8C95280104,0056F8B1722C2D6BA34BEF5E,89451B9466E6C6696C6A14E4,BD30B42D4640F4A183C34653,023C242E65FD7349637ECA0A,E41F6599E419DC8CF2269336,78B2C06D47DC5855DC46C8B9,F928E0AA836AE8C9907354AD,D88C01B31938C10AC56FA0F7,8B5C0B4B293AD37E73A2ADE3,77698D1C2A7C90131027D79C,81D6B8E31BF89A081D24D345,); sourceTree = "<group>"; };
 4F6F56E2605A0AB4E61E49DD = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeChatTests.swift; sourceTree = "<group>"; };
@@ -62,7 +65,7 @@ A8A9BF34DBF8F1867F207864 = { isa = XCBuildConfiguration; name = Release; buildSe
 AD7020964E1E033F765FE484 = { isa = XCConfigurationList; buildConfigurations = (88B88E0179E3F72210D21B33,A8A9BF34DBF8F1867F207864,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 C1E9827DB735CA9BAA54A540 = { isa = PBXNativeTarget; name = NearbyIM; buildConfigurationList = 7BCEE9A04133D8A2FED7D4D3; buildPhases = (AFF87A50730392B6633ACECE,7A4C2DC8FCA657188648E999,F9187E824FE171A6F0EFAE28,); buildRules = (); dependencies = (); packageProductDependencies = (F5AE27228AC34400DE4A3768,); productName = NearbyIM; productReference = 681C948D238C526E9E3424E0; productType = "com.apple.product-type.application"; };
 4EA0BBFB4641B4E941FBF077 = { isa = PBXNativeTarget; name = NearbyIMUITests; buildConfigurationList = AD7020964E1E033F765FE484; buildPhases = (DEE94446A282611C16F7781C,); buildRules = (); dependencies = (74F52A58B40386BC8A8260F6,); productName = NearbyIMUITests; productReference = F739566ED5280322FF98A798; productType = "com.apple.product-type.bundle.ui-testing"; };
-244210E48437B6556980A702 = { isa = PBXProject; attributes = { BuildIndependentTargetsInParallel = YES; LastUpgradeCheck = 2660; TargetAttributes = { C1E9827DB735CA9BAA54A540 = { CreatedOnToolsVersion = 26.6; }; 4EA0BBFB4641B4E941FBF077 = { CreatedOnToolsVersion = 26.6; TestTargetID = C1E9827DB735CA9BAA54A540; }; }; }; buildConfigurationList = B4E10CAA9C5E22150B71559C; compatibilityVersion = "Xcode 14.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en,"zh-Hans",Base,); mainGroup = 19F479106CE8C3BA8C106518; packageReferences = (BC4A71180870F7945155FBB0,); productRefGroup = B9E7F2871A3402983868AFC8; projectDirPath = ""; projectRoot = ""; targets = (C1E9827DB735CA9BAA54A540,4EA0BBFB4641B4E941FBF077,); };
+244210E48437B6556980A702 = { isa = PBXProject; attributes = { BuildIndependentTargetsInParallel = YES; LastUpgradeCheck = 2660; TargetAttributes = { C1E9827DB735CA9BAA54A540 = { CreatedOnToolsVersion = 26.6; }; 4EA0BBFB4641B4E941FBF077 = { CreatedOnToolsVersion = 26.6; TestTargetID = C1E9827DB735CA9BAA54A540; }; }; }; buildConfigurationList = B4E10CAA9C5E22150B71559C; compatibilityVersion = "Xcode 14.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en,"zh-Hans","zh-Hant",ja,ko,Base,); mainGroup = 19F479106CE8C3BA8C106518; packageReferences = (BC4A71180870F7945155FBB0,); productRefGroup = B9E7F2871A3402983868AFC8; projectDirPath = ""; projectRoot = ""; targets = (C1E9827DB735CA9BAA54A540,4EA0BBFB4641B4E941FBF077,); };
 };
 rootObject = 244210E48437B6556980A702;
 }
