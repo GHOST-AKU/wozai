@@ -35,7 +35,12 @@ final class NativeChatTests: XCTestCase {
         app.buttons["sendMessage"].tap()
         XCTAssertTrue(app.staticTexts["Delivered"].waitForExistence(timeout: 15) || app.descendants(matching: .any).matching(NSPredicate(format: "identifier == %@ AND label CONTAINS %@", "deliveryStatus", "Delivered")).firstMatch.waitForExistence(timeout: 5))
         try drivePeer("file-offer")
-        let receive = app.buttons["Receive"]
+        #if os(macOS)
+        // The same native action also appears in Touch Bar; target the window's consent sheet.
+        let receive = app.windows.sheets.buttons["Receive"].firstMatch
+        #else
+        let receive = app.buttons["Receive"].firstMatch
+        #endif
         XCTAssertTrue(receive.waitForExistence(timeout: 15), "A file must require explicit receive permission")
         receive.tap()
         try drivePeer("file-saved")
