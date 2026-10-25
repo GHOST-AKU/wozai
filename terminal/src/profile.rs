@@ -162,7 +162,7 @@ impl Profile {
             CREATE TABLE IF NOT EXISTS transfers(key TEXT PRIMARY KEY,value TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS avatars(root TEXT PRIMARY KEY,value TEXT NOT NULL,png BLOB NOT NULL,updated INTEGER NOT NULL);
             UPDATE messages SET value=json_set(value,'$.state','unconfirmed') WHERE json_extract(value,'$.state')='pending';
-            UPDATE transfers SET value=json_set(value,'$.state','paused') WHERE json_extract(value,'$.state') NOT IN ('saved','received','failed','canceled','paused'); PRAGMA user_version=1;")?;
+            UPDATE transfers SET value=json_set(value,'$.state','paused') WHERE json_extract(value,'$.state') NOT IN ('saved','received','failed','canceled','paused','queued'); PRAGMA user_version=1;")?;
         Ok(Self {
             path,
             identity,
@@ -265,6 +265,26 @@ impl Profile {
             params![key, serde_json::to_string(value)?],
         )?;
         Ok(())
+    }
+    pub fn transfer_batch<T: Serialize>(&self, entries: &[(String, T)]) -> Result<()> {
+        let values = entries
+            .iter()
+            .map(|(key, value)| Ok((key, serde_json::to_string(value)?)))
+            .collect::<Result<Vec<_>>>()?;
+        let tx = self.db.unchecked_transaction()?;
+        for (key, value) in values {
+            tx.execute("INSERT INTO transfers VALUES(?,?)", params![key, value])?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
+    pub fn pending_sender<T: for<'a> Deserialize<'a>>(
+        &self,
+        peer: &str,
+        root: &str,
+    ) -> Result<Option<T>> {
+        let row:Option<String>=self.db.query_row("SELECT value FROM transfers WHERE json_extract(value,'$.peer')=? AND json_extract(value,'$.root')=? AND json_extract(value,'$.outgoing')=1 AND json_extract(value,'$.queued') IS NOT 1 AND json_extract(value,'$.state') NOT IN ('saved','received','failed','canceled') ORDER BY rowid LIMIT 1",params![peer,root],|r|r.get(0)).optional()?;
+        row.map(|s| Ok(serde_json::from_str(&s)?)).transpose()
     }
     pub fn queued_transfers<T: for<'a> Deserialize<'a>>(
         &self,

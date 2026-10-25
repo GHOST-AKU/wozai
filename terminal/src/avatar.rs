@@ -766,8 +766,8 @@ impl Sync {
             1 => {
                 ensure!(
                     !self.ended.iter().any(|t| t.id == p.id)
-                        && !self.incoming.as_ref().is_some_and(|t| t.id == p.id)
-                        && !self.outgoing.as_ref().is_some_and(|t| t.id == p.id),
+                        && self.incoming.as_ref().is_none_or(|t| t.id != p.id)
+                        && self.outgoing.as_ref().is_none_or(|t| t.id != p.id),
                     "reused avatar task identity"
                 );
                 let current = snapshot(store, &own_root(store));

@@ -520,20 +520,7 @@ fn session(
                             files.offer(&path, &mut writer)?;
                         }
                         Command::Files(paths) => {
-                            ensure!(
-                                !paths.is_empty() && paths.len() <= 256,
-                                "select 1-256 files"
-                            );
-                            for path in &paths {
-                                let metadata = std::fs::metadata(path)?;
-                                ensure!(
-                                    metadata.is_file() && metadata.len() <= MAX_FILE,
-                                    "invalid selected source"
-                                );
-                            }
-                            for path in paths {
-                                files.offer(&path, &mut writer)?;
-                            }
+                            files.offer_batch(&paths, &mut writer)?;
                         }
                         Command::Pause(id) => files.pause(&id, false, &mut writer)?,
                         Command::Cancel(id) => files.pause(&id, true, &mut writer)?,

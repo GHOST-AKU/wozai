@@ -66,6 +66,7 @@ pub struct Engine {
     outgoing: Option<Task>,
     queued: VecDeque<Saved>,
     queue_loaded: bool,
+    reserved: Option<Saved>,
     pub notices: Vec<Saved>,
 }
 impl Engine {
@@ -86,6 +87,7 @@ impl Engine {
             outgoing: None,
             queued: VecDeque::new(),
             queue_loaded: false,
+            reserved: None,
             notices: vec![],
         }
     }
@@ -117,10 +119,36 @@ impl Engine {
         path: &Path,
         send: &mut impl FnMut(Frame) -> Result<()>,
     ) -> Result<String> {
+        Ok(self.offer_batch(&[path.to_path_buf()], send)?.remove(0))
+    }
+    pub fn offer_batch(
+        &mut self,
+        paths: &[PathBuf],
+        send: &mut impl FnMut(Frame) -> Result<()>,
+    ) -> Result<Vec<String>> {
         self.load_queue()?;
-        ensure!(self.queued.len() < 256, "file queue is full");
+        ensure!(
+            !paths.is_empty() && paths.len() <= 256 && paths.len() <= 256 - self.queued.len(),
+            "select 1-256 files within queue capacity"
+        );
+        let selected = paths
+            .iter()
+            .map(|path| self.prepare_source(path))
+            .collect::<Result<Vec<_>>>()?;
+        let ids = selected.iter().map(|s| s.info.id.clone()).collect();
+        self.store
+            .lock()
+            .unwrap()
+            .transfer_batch(&selected.iter().map(|s| (s.key(), s)).collect::<Vec<_>>())?;
+        self.notices.extend(selected.iter().cloned());
+        self.queued.extend(selected);
+        self.start_next(send)?;
+        Ok(ids)
+    }
+    fn prepare_source(&self, path: &Path) -> Result<Saved> {
         let path = path.canonicalize()?;
-        let m = fs::metadata(&path)?;
+        let file = open_existing(&path)?;
+        let m = file.metadata()?;
         ensure!(
             m.is_file() && m.len() <= MAX_FILE,
             "source must be a regular file of at most 10 GiB"
@@ -157,11 +185,7 @@ impl Engine {
         let mut p = self.packet(&s, OFFER);
         p.info = Some(s.info.clone());
         p.validate()?;
-        self.save(&s)?;
-        let id = s.info.id.clone();
-        self.queued.push_back(s);
-        self.start_next(send)?;
-        Ok(id)
+        Ok(s)
     }
     fn load_queue(&mut self) -> Result<()> {
         if !self.queue_loaded {
@@ -172,6 +196,13 @@ impl Engine {
                 .queued_transfers::<Saved>(&self.peer, &self.root)?;
             ensure!(entries.len() <= 256, "stored file queue exceeds its limit");
             self.queued = entries.into();
+            if self.outgoing.is_none() {
+                self.reserved = self
+                    .store
+                    .lock()
+                    .unwrap()
+                    .pending_sender(&self.peer, &self.root)?;
+            }
             self.queue_loaded = true;
         }
         Ok(())
@@ -184,7 +215,7 @@ impl Engine {
         {
             self.outgoing = None;
         }
-        if self.outgoing.is_some() {
+        if self.outgoing.is_some() || self.reserved.is_some() {
             return Ok(());
         }
         while let Some(mut s) = self.queued.pop_front() {
@@ -264,18 +295,25 @@ impl Engine {
     }
     fn restore_sender(&mut self, s: Saved) -> Result<()> {
         ensure!(
+            self.reserved
+                .as_ref()
+                .is_none_or(|r| r.info.id == s.info.id),
+            "resume or cancel the earlier paused transfer first"
+        );
+        ensure!(
             self.outgoing
                 .as_ref()
                 .is_none_or(|t| matches!(t.saved.state.as_str(), "paused" | "canceled")
                     || t.saved.info.id == s.info.id),
             "another send is active"
         );
-        let file = File::open(&s.path)?;
+        let file = open_existing(&s.path)?;
         let m = file.metadata()?;
         ensure!(
             m.is_file() && m.len() == s.info.size && modified(&m) == s.modified,
             "source changed; refusing resume"
         );
+        self.reserved = None;
         self.outgoing = Some(Task {
             sent: 0,
             verified: 0,
@@ -360,6 +398,9 @@ impl Engine {
             let mut p = self.packet(&saved, CANCEL);
             p.reason = "canceled".into();
             self.save(&saved)?;
+            if self.reserved.as_ref().is_some_and(|r| r.info.id == id) {
+                self.reserved = None;
+            }
             send(p.frame()?)?;
             found = true;
         }
@@ -723,7 +764,7 @@ impl Engine {
         Ok(())
     }
     pub fn can_pump(&self) -> bool {
-        (self.outgoing.is_none() && !self.queued.is_empty())
+        (self.outgoing.is_none() && self.reserved.is_none() && !self.queued.is_empty())
             || self.outgoing.as_ref().is_some_and(|t| {
                 t.active
                     && (t.sent == t.saved.info.size || t.sent < t.credit.saturating_add(t.window))
@@ -944,6 +985,138 @@ mod recovery_tests {
         }
         let sent = pair.a.store.lock().unwrap().transfers::<Saved>().unwrap();
         assert_eq!(sent.iter().filter(|s| s.state == "saved").count(), 2);
+    }
+    #[test]
+    fn waiting_queue_survives_a_real_profile_restart() {
+        let mut pair = Pair::new(CHUNK + 17);
+        let first = pair.offer();
+        let second_path = pair._dir.path().join("second.bin");
+        fs::write(&second_path, [93; 19]).unwrap();
+        let second = pair.a.offer(&second_path, &mut |_| Ok(())).unwrap();
+        pair.a.pause(&first, true, &mut |_| Ok(())).unwrap();
+        pair.ab.clear();
+        let path = pair.a.store.lock().unwrap().path.clone();
+        drop(pair.a);
+        pair.a = Engine::new(
+            Arc::new(Mutex::new(Profile::open(path, None).unwrap())),
+            "peer-b".into(),
+            "root-b".into(),
+            "a".repeat(64),
+            pair._dir.path().join("ra"),
+        );
+        for _ in 0..100 {
+            pair.tick();
+        }
+        let records = pair.b.store.lock().unwrap().transfers::<Saved>().unwrap();
+        let saved = records
+            .iter()
+            .find(|s| s.info.id == second && s.state == "received")
+            .expect("waiting selections must survive restarting the database/profile");
+        assert_eq!(fs::read(&saved.destination).unwrap(), [93; 19]);
+    }
+    #[test]
+    fn invalid_batch_and_second_database_write_leave_no_partial_queue() {
+        let mut pair = Pair::new(19);
+        let second = pair._dir.path().join("second.bin");
+        fs::write(&second, [7; 23]).unwrap();
+        let missing = pair._dir.path().join("missing.bin");
+        assert!(
+            pair.a
+                .offer_batch(&[pair.source.clone(), missing], &mut |_| panic!(
+                    "invalid batch emitted OFFER"
+                ))
+                .is_err()
+        );
+        assert!(
+            pair.a
+                .store
+                .lock()
+                .unwrap()
+                .transfers::<Saved>()
+                .unwrap()
+                .is_empty()
+        );
+        pair.a.store.lock().unwrap().db.execute_batch("CREATE TRIGGER reject_second BEFORE INSERT ON transfers WHEN json_extract(NEW.value,'$.info.name')='second.bin' BEGIN SELECT RAISE(ABORT,'test storage failure'); END;").unwrap();
+        assert!(
+            pair.a
+                .offer_batch(&[pair.source.clone(), second.clone()], &mut |_| panic!(
+                    "failed transaction emitted OFFER"
+                ))
+                .is_err()
+        );
+        assert!(
+            pair.a
+                .store
+                .lock()
+                .unwrap()
+                .transfers::<Saved>()
+                .unwrap()
+                .is_empty()
+        );
+        assert!(pair.a.queued.is_empty());
+        pair.a
+            .store
+            .lock()
+            .unwrap()
+            .db
+            .execute_batch("DROP TRIGGER reject_second")
+            .unwrap();
+        assert_eq!(
+            pair.a
+                .offer_batch(&[pair.source.clone(), second], &mut |_| Ok(()))
+                .unwrap()
+                .len(),
+            2
+        );
+    }
+    #[test]
+    fn profile_restart_keeps_a_paused_active_transfer_ahead_of_waiting_files() {
+        let mut pair = Pair::new(2 * BLOCK as usize + 17);
+        let first = pair.offer();
+        let second = pair.a.offer(&pair.source, &mut |_| Ok(())).unwrap();
+        pair.tick();
+        pair.tick();
+        pair.a
+            .pause(&first, false, &mut |f| {
+                pair.ab.push_back(f);
+                Ok(())
+            })
+            .unwrap();
+        pair.tick();
+        pair.a.disconnect();
+        pair.b.disconnect();
+        pair.ab.clear();
+        pair.ba.clear();
+        let path = pair.a.store.lock().unwrap().path.clone();
+        drop(pair.a);
+        pair.a = Engine::new(
+            Arc::new(Mutex::new(Profile::open(path, None).unwrap())),
+            "peer-b".into(),
+            "root-b".into(),
+            "b".repeat(64),
+            pair._dir.path().join("ra"),
+        );
+        pair.b.connection = "b".repeat(64);
+        pair.a
+            .pump(&mut |_| panic!("waiting file bypassed the paused active selection"))
+            .unwrap();
+        pair.a
+            .resume(&first, &mut |f| {
+                pair.ab.push_back(f);
+                Ok(())
+            })
+            .unwrap();
+        for _ in 0..500 {
+            pair.tick();
+        }
+        let received = pair.b.store.lock().unwrap().transfers::<Saved>().unwrap();
+        for id in [first, second] {
+            let saved = received
+                .iter()
+                .find(|s| s.info.id == id && s.state == "received")
+                .expect("resuming the first transfer must release the persisted second selection");
+            assert_eq!(fs::read(&saved.destination).unwrap(), pair.content);
+        }
     }
     struct Pair {
         a: Engine,
