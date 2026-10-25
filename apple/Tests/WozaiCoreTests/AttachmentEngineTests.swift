@@ -74,6 +74,51 @@ final class AttachmentEngineTests: XCTestCase {
         XCTAssertEqual(records.filter { $0.state == "saved" }.count, 2)
     }
 
+    func testPublishedFileIsVerifiedBeforeRepeatingSavedReceipt() throws {
+        let pair = try Pair(size: 32768 + 7)
+        let (id, packets) = try pair.sender.offer(pair.source); pair.toReceiver = packets
+        try pair.finish(id)
+        let received = try XCTUnwrap(pair.receiver.records().first { $0.id == id })
+        let status = AttachmentPacket(kind: .status, fromSender: true, info: received.info, source: received.source, connection: String(repeating: "a", count: 64))
+        XCTAssertEqual(try pair.receiver.handle(status).first?.kind, .complete)
+        try Data(repeating: 44, count: pair.bytes.count).write(to: received.destination)
+        XCTAssertThrowsError(try pair.receiver.handle(status), "A missing or modified published file must not receive another saved receipt")
+    }
+
+    func testRecoveryAfterPublishingBeforeJournalCommitUsesVerifiedFinalBytes() throws {
+        let pair = try Pair(size: 32768 + 7)
+        let (id, packets) = try pair.sender.offer(pair.source); pair.toReceiver = packets
+        try pair.finish(id)
+        var record = try XCTUnwrap(pair.receiver.records().first { $0.id == id })
+        record.state = "publishing"
+        let journal = pair.root.appendingPathComponent("receiver-journal").appendingPathComponent(record.key + ".json")
+        try JSONEncoder().encode(record).write(to: journal, options: .atomic)
+        pair.receiver = try pair.engine(outgoing: false)
+        let status = AttachmentPacket(kind: .status, fromSender: true, info: record.info, source: record.source, connection: String(repeating: "a", count: 64))
+        let reply = try XCTUnwrap(pair.receiver.handle(status).first)
+        XCTAssertEqual(reply.kind, .complete)
+        XCTAssertEqual(reply.hash, Data(SHA256.hash(data: pair.bytes)))
+        XCTAssertEqual(try pair.receiver.records().first { $0.id == id }?.state, "received")
+    }
+
+    func testRestartDoesNotSendWaitingFilesAheadOfPausedCurrentSelection() throws {
+        let pair = try Pair(size: 2 * 1024 * 1024 + 17)
+        let (first, packets) = try pair.sender.offer(pair.source); pair.toReceiver = packets
+        let (second, _) = try pair.sender.offer(pair.source)
+        try pair.tick(); try pair.tick()
+        pair.toReceiver += try pair.sender.pause(first, cancel: false); try pair.tick()
+        try pair.sender.disconnect(); try pair.receiver.disconnect()
+        pair.toReceiver = []; pair.toSender = []
+        pair.sender = try pair.engine(outgoing: true); pair.receiver = try pair.engine(outgoing: false)
+        XCTAssertFalse(pair.sender.canPump)
+        XCTAssertTrue(try pair.sender.pump().isEmpty)
+        pair.toReceiver = try pair.receiver.resume(first)
+        // Receiver-initiated recovery preserves the sender's explicit pause.
+        for packet in pair.toReceiver { _ = try pair.sender.handle(packet) }
+        pair.toReceiver = try pair.sender.resume(first)
+        try pair.finish(first); try pair.finish(second)
+    }
+
     private final class Pair {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         let remote = VerifiedPeer(id: UUID().uuidString.lowercased(), nickname: "Peer", root: DeviceIdentity().root, capabilities: 3)

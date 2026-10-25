@@ -36,6 +36,7 @@ public final class AttachmentEngine {
     private let journal: URL
     private let directory: URL
     private var incoming: Task?, outgoing: Task?
+    private var reserved: AttachmentRecord?
     private var queuedCount = 0
     public private(set) var notices: [AttachmentRecord] = []
     private let window: UInt64 = 2 * AttachmentInfo.blockBytes
@@ -45,10 +46,12 @@ public final class AttachmentEngine {
         try FileManager.default.createDirectory(at: journal, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         var excluded = journal, values = URLResourceValues(); values.isExcludedFromBackup = true
         try excluded.setResourceValues(values)
-        queuedCount = try records().filter { $0.queued && $0.state == "queued" }.count
+        let stored = try records()
+        queuedCount = stored.filter { $0.queued && $0.state == "queued" }.count
+        reserved = stored.first { $0.outgoing && !$0.queued && !["saved", "received", "canceled", "failed"].contains($0.state) }
     }
     public var canPump: Bool {
-        if outgoing == nil && queuedCount > 0 { return true }
+        if outgoing == nil && reserved == nil && queuedCount > 0 { return true }
         guard let task = outgoing, task.active else { return false }
         if task.sent == task.record.info.size { return true }
         let n = min(UInt64(AttachmentInfo.chunkBytes), task.record.info.size - task.sent, AttachmentInfo.blockBytes - task.sent % AttachmentInfo.blockBytes)
@@ -134,7 +137,13 @@ public final class AttachmentEngine {
             guard !["canceled", "failed"].contains(record.state) else { return [reject(p, reason: "canceled")] }
             if record.manualPause { return [p.reply(.pause)] }
             if !p.fromSender { try restoreSender(record); return [packet(record, .status)] }
-            if record.state == "received" {
+            if record.state == "received" || FileManager.default.fileExists(atPath: record.destination.path) {
+                guard record.offset == record.info.size else { throw WozaiError.storage }
+                let final = try openFile(record.destination, writing: false)
+                defer { try? final.close() }
+                let size = try final.seekToEnd()
+                guard size == record.info.size, Data(try hashPrefix(final, size).finalize()) == record.digest else { throw WozaiError.storage }
+                record.state = "received"; try save(record)
                 var reply = p.reply(.complete); reply.offset = record.info.size; reply.hash = record.digest; return [reply]
             }
             let file = try openFile(record.path, writing: true)
@@ -188,12 +197,13 @@ public final class AttachmentEngine {
             guard !isOutgoing, task.sent == p.size, task.verified == p.size,
                   Data(task.whole.finalize()) == p.hash else { throw WozaiError.protocolViolation }
             try task.file.synchronize()
-            // Same-volume hard links publish without replacing any existing destination.
-            guard Darwin.link(task.record.path.path, task.record.destination.path) == 0 else { throw WozaiError.storage }
+            task.record.offset = p.size; task.record.digest = p.hash!; task.record.state = "publishing"
+            try save(task.record)
+            // Exclusive rename works on same-volume removable storage without requiring hard links.
+            guard Darwin.renamex_np(task.record.path.path, task.record.destination.path, UInt32(RENAME_EXCL)) == 0 else { throw WozaiError.storage }
             try syncDirectory(task.record.destination.deletingLastPathComponent())
             task.record.offset = p.size; task.record.digest = p.hash!; task.record.state = "received"
             try save(task.record); try task.file.close()
-            try FileManager.default.removeItem(at: task.record.path); try syncDirectory(task.record.path.deletingLastPathComponent())
             incoming = nil
             var reply = p.reply(.complete); reply.offset = p.size; reply.hash = p.hash; return [reply]
         case .complete:
@@ -219,7 +229,7 @@ public final class AttachmentEngine {
         return []
     }
     private func startNext() throws -> [AttachmentPacket] {
-        guard outgoing == nil else { return [] }
+        guard outgoing == nil, reserved == nil else { return [] }
         for var record in try records().filter({ $0.queued && $0.state == "queued" }) {
             queuedCount = max(0, queuedCount - 1)
             do {
@@ -280,8 +290,10 @@ public final class AttachmentEngine {
     }
     private func restoreSender(_ record: AttachmentRecord) throws {
         guard outgoing == nil || outgoing?.record.id == record.id else { throw WozaiError.busy }
+        guard reserved == nil || reserved?.id == record.id else { throw WozaiError.busy }
         try verifySource(record)
         outgoing = Task(record, try openFile(record.path, writing: false))
+        reserved = nil
     }
     public func pause(_ id: String, cancel: Bool) throws -> [AttachmentPacket] {
         if var record = try records().first(where: { $0.id == id && $0.queued && !["canceled", "failed"].contains($0.state) }) {
@@ -289,7 +301,12 @@ public final class AttachmentEngine {
             record.state = cancel ? "canceled" : "paused"; record.manualPause = !cancel
             try save(record); return []
         }
-        guard let task = [outgoing, incoming].compactMap({ $0 }).first(where: { $0.record.id == id }) else { throw WozaiError.storage }
+        guard let task = [outgoing, incoming].compactMap({ $0 }).first(where: { $0.record.id == id }) else {
+            guard cancel, var record = try records().first(where: { $0.id == id && !["saved", "received"].contains($0.state) }) else { throw WozaiError.storage }
+            record.state = "canceled"; record.manualPause = false; try save(record)
+            if reserved?.id == id { reserved = nil }
+            return []
+        }
         guard cancel || task.record.state != "offered" else { throw WozaiError.busy }
         task.active = false; task.record.manualPause = !cancel; task.record.state = cancel ? "canceled" : "paused"
         if !task.record.outgoing {
@@ -328,8 +345,10 @@ public final class AttachmentEngine {
               values.contentModificationDate == record.modified else { throw WozaiError.storage }
     }
     private func openFile(_ url: URL, writing: Bool) throws -> FileHandle {
-        let fd = Darwin.open(url.path, (writing ? O_RDWR : O_RDONLY) | O_NOFOLLOW)
+        let fd = Darwin.open(url.path, (writing ? O_RDWR : O_RDONLY) | O_NOFOLLOW | O_NONBLOCK)
         guard fd >= 0 else { throw WozaiError.storage }
+        var metadata = stat()
+        guard Darwin.fstat(fd, &metadata) == 0, metadata.st_mode & S_IFMT == S_IFREG else { Darwin.close(fd); throw WozaiError.storage }
         return FileHandle(fileDescriptor: fd, closeOnDealloc: true)
     }
     private func hashPrefix(_ file: FileHandle, _ count: UInt64) throws -> SHA256 {

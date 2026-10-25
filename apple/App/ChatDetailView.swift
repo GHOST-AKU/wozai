@@ -324,6 +324,7 @@ private struct SafetyView: View {
                     Text("Compare the entire code on both devices. An encrypted connection alone does not verify who owns the device.")
                 }
                 if let identity = model.identity, let code = try? SafetyCode.make(identity.root, peer.root) {
+                    VerificationQRControls(peer: peer, generation: generation)
                     Section("Safety code") {
                         Text(verbatim: grouped(code)).font(.body.monospaced()).textSelection(.enabled)
                         ShareLink(item: "WOZAI-ID1:" + code) { Label("Share code", systemImage: "square.and.arrow.up") }
