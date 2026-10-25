@@ -86,6 +86,7 @@ public struct NIMFrame: Equatable, Sendable {
             guard validFrameID(id), body.isEmpty, binary.isEmpty else { throw WozaiError.protocolViolation }
         case .attachment:
             guard id.isEmpty, body.isEmpty, timestamp == 0, binary.count <= 40 * 1024 else { throw WozaiError.protocolViolation }
+            _ = try AttachmentPacket.decode(binary)
         default:
             guard id.isEmpty, body.isEmpty, binary.isEmpty else { throw WozaiError.protocolViolation }
         }
