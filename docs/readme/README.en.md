@@ -4,10 +4,13 @@
 
 **Chat without going through a remote server.**
 
-Wozai (NearbyIM) is an open-source chat application for nearby communication. It lets Android, Windows, and Linux devices connect directly over **the same local network** or **Classic Bluetooth**, with no account registration and no dependency on a cloud chat server.
+Wozai (NearbyIM) is an open-source chat application for nearby communication. Stable clients support Android, Windows and Linux over **LAN** and **Classic Bluetooth**. Preview releases add **native macOS, iPhone and iPad clients**, plus a **Terminal (TUI/CLI) for Windows/Linux**, currently focused on LAN interoperability. No account registration or cloud chat server is required.
 
 > Latest stable release: **0.3.2** · Android / Windows / Linux
-> [Download the latest release](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.2) · [View Issues](https://github.com/GHOST-AKU/wozai/issues)
+> [Download stable](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.2) · [View Issues](https://github.com/GHOST-AKU/wozai/issues)
+>
+> Latest prerelease: **0.3.3-preview.1** · macOS / iPhone / iPad / Windows and Linux Terminal
+> [Download preview](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.3-preview.1) · [Installation and signing](../releases/native-preview-install.md)
 
 **0.3.2 is now a stable release**, with matching protocol and UI updates for Android, Windows and Linux, including Linux AppImage / deb / tar.gz packages. It adds Noise end-to-end encryption, bounded streaming files up to 10 GiB with durable resume, automatic file routing, an Android receiving folder and adaptive tablet/foldable layouts. See the [0.3.2 release notes](../releases/0.3.2.md) for changes and acceptance scope. P2P reliability, device throughput/distance recovery, long-term memory and formal performance remain tracked in [#23](https://github.com/GHOST-AKU/wozai/issues/23) and [#9](https://github.com/GHOST-AKU/wozai/issues/9).
 
@@ -19,7 +22,18 @@ Wozai takes a different path — **if two people are already nearby, why can't t
 
 For now, it focuses on simple, understandable nearby communication: devices discover each other, users decide for themselves whether to trust them, and messages and attachments travel directly between devices. The two devices are already right next to each other, after all. (｡•̀ᴗ-)✧
 
+## 🏡 Where Apple and Terminal clients fit
+
+- **Between iPhone/iPad and Mac, Android or PC:** exchange text, photos and files on the same LAN/hotspot without cloud uploads or requiring everyone to use the same device ecosystem.
+- **Everyday LAN collaboration on Mac:** use native windows and system file components for one-to-one chat and document exchange in an office, classroom or workshop. The router does not need internet access, but must permit peer connections.
+- **Computers where you prefer a terminal:** the Windows/Linux full-screen TUI provides chat, history and file transfers without launching a GUI or installing Java.
+- **Command-line and remote-host workflows:** combine CLI JSON output, exit codes and file commands with local scripts, or operate Terminal over SSH. Discovery and connections then use the remote host's network; SSH does not turn NearbyIM into an internet chat relay.
+
+Apple and Terminal are **previews**, with incomplete Android feature parity. Their Bluetooth/P2P automatic file lanes, group chat and Mesh/multihop forwarding are not available in this release. See platform details below for packages and scope.
+
 ## ✨ What it can do today
+
+The following primarily describes the stable Android/Windows/Linux clients; Apple and Terminal preview capabilities are listed under platform status.
 
 - **Direct LAN connections**: automatic discovery via NSD / mDNS, with direct IP + port connections also supported
 - **Classic Bluetooth communication**: secure RFCOMM with device discovery, pairing, and reconnection
@@ -38,23 +52,29 @@ For now, it focuses on simple, understandable nearby communication: devices disc
 | Platform | LAN | Classic Bluetooth | Text | Images / files | Status |
 | --- | --- | --- | --- | --- | --- |
 | Android | ✓ | ✓ | ✓ | ✓ | Primary mobile client |
-| Windows | ✓ | ✓ | ✓ | ✓ | Available |
-| Linux | ✓ | ✓ | ✓ | ✓ | Available |
+| Windows GUI | ✓ | ✓ | ✓ | ✓ | Stable |
+| Linux GUI | ✓ | ✓ | ✓ | ✓ | Stable |
+| macOS / iPhone / iPad | ✓ | — | ✓ | ✓ | Native preview; incomplete Android parity |
+| Terminal (Windows / Linux x64) | ✓ | — | ✓ | ✓ | TUI/CLI preview |
 
 Both desktop clients are distributed with their own runtime, so users do not need to install Java separately. For detailed usage instructions and validation scope on Windows and Linux, see the [Windows guide](../windows.md) and [Linux guide](../linux.md).
 
-Native **Swift / SwiftUI clients for iOS, iPadOS and macOS are in development**, using Apple system components and the NIM4 protocol specification. The initial implementation focuses on encrypted LAN text, device consent and local history. See the [Apple client guide](../apple.md) and [#31](https://github.com/GHOST-AKU/wozai/issues/31) for capabilities and device-validation limits; no official Apple installation packages are available yet.
+Native **Swift / SwiftUI previews for iOS, iPadOS and macOS are available**, using Apple system components. They support encrypted NIM4 LAN text, files/images, device consent, local history and QR identity verification. The Mac package supports Intel and Apple Silicon; one device IPA serves iPhone and iPad. Apple avatars, Bluetooth/P2P/dedicated file lanes and other parity work remain incomplete. See the [Apple guide](../apple.md) and [#31](https://github.com/GHOST-AKU/wozai/issues/31) for capabilities and hardware/performance acceptance.
 
-## ⌨️ NearbyIM Terminal (in development)
+**Apple previews have no official distribution signing:** the Mac app has only an ad-hoc signature, without Developer ID signing or notarization. The iPhone/iPad IPA is unsigned and requires your own signing/sideloading; tapping the download cannot install it. Minimum versions are macOS 14 and iOS/iPadOS 17. See [installation guidance](../releases/native-preview-install.md), including free-account renewal.
 
-**NearbyIM Terminal** now has an independent Rust implementation in [`terminal/`](../../terminal/README.md), executable `nearbyim` (`nearbyim.exe` on Windows), using ratatui/crossterm + clap without a JRE, GUI or Android SDK at runtime.
+## ⌨️ NearbyIM Terminal (preview)
 
-- TUI and CLI share NIM4 identity/consent/safety-code, LAN discovery/direct-address, text/history/drafts and streaming file/checkpoint/saved-receipt logic.
-- LAN listening defaults to off; scripts cannot approve unknown identities. JSON, exit codes, themes, grapheme editing and terminal restoration follow the [design manual](../../terminal/docs/design-v0.2.md).
-- Real TCP automation exchanges both Noise roles, text and files with the production Java channel/file engine. Device, Windows/Linux terminal and performance acceptance remain evidence-based in [Issue #38](https://github.com/GHOST-AKU/wozai/issues/38) / [PR #41](https://github.com/GHOST-AKU/wozai/pull/41).
-- This is a `0.1.0-dev` development build; incomplete acceptance and unimplemented Bluetooth/P2P are not advertised as supported. Existing GUI clients and v0.3.2 release assets remain separate.
+**NearbyIM Terminal** is an independent Rust TUI/CLI, executable `nearbyim` (`nearbyim.exe` on Windows), without a JRE, GUI or Android SDK at runtime. [Download Windows/Linux x64 preview packages](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.3-preview.1), extract, then run `nearbyim` or `nearbyim --help`.
+
+- Supports NIM4 identity consent/safety codes, LAN discovery/direct addresses, text/history/drafts, streaming files, queues, pause/resume and durable receipts, plus avatar sync and QR verification.
+- **LAN listening is off by default**; unknown identities and incoming files are not automatically approved. Initial TUI setup guides configuration; CLI commands offer JSON and exit codes. See the [Terminal guide](../../terminal/README.md).
+- Internal version `0.1.0-dev` is separate from the `0.3.3-preview.1` release bundle. Windows binaries have no Authenticode signature; no macOS Terminal binary is included in this preview.
+- Bluetooth/P2P adapters and complete acceptance remain in development. Terminal/IME/SSH/tmux, physical interoperability and performance scope are tracked in [#38](https://github.com/GHOST-AKU/wozai/issues/38). Existing GUI clients and stable v0.3.2 assets remain separate.
 
 ## 📡 Start chatting
+
+The following UI steps apply to stable Android/Windows/Linux GUI clients. See [preview guidance](../releases/native-preview-install.md) for Apple installation/connections and the [Terminal guide](../../terminal/README.md) for TUI/CLI operation.
 
 ### Local network
 
@@ -106,7 +126,11 @@ Text, images, and files are currently supported; group chats, voice, internet re
 
 ## 📦 Downloads and release notes
 
-The current stable release is **0.3.2**:
+The current stable release is **0.3.2**. Apple/Terminal **0.3.3-preview.1** is a separate experimental prerelease with ongoing feature and device acceptance:
+
+- [Apple / Terminal prerelease downloads](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.3-preview.1)
+- [Preview installation, signing and usage](../releases/native-preview-install.md)
+- Preview assets include `SHA256SUMS.txt`, build provenance and license files.
 
 - [GitHub Release v0.3.2](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.2)
 - [0.3.2 release notes](../releases/0.3.2.md)

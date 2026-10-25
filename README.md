@@ -4,10 +4,13 @@
 
 **不经过远程服务器，也能好好聊天。**
 
-我在（NearbyIM）是一款面向近距离通信的开源聊天应用。它让 Android、Windows 和 Linux 设备通过 **同一局域网** 或 **经典蓝牙** 直接建立连接，无需注册账号，也不依赖云端聊天服务器。
+我在（NearbyIM）是一款面向近距离通信的开源聊天应用。正式版支持 Android、Windows 和 Linux，提供 **局域网** 与 **经典蓝牙** 连接；预览版新增 **macOS、iPhone、iPad 原生客户端**，以及 **Windows/Linux 的 Terminal（TUI/CLI）客户端**，目前主要通过局域网互通。无需注册账号，也不依赖云端聊天服务器。
 
 > 最新正式版：**0.3.2** · Android / Windows / Linux
-> [下载最新版本](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.2) · [查看 Issues](https://github.com/GHOST-AKU/wozai/issues)
+> [下载正式版](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.2) · [查看 Issues](https://github.com/GHOST-AKU/wozai/issues)
+>
+> 最新预发布：**0.3.3-preview.1** · macOS / iPhone / iPad / Windows、Linux Terminal
+> [下载预览版](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.3-preview.1) · [安装与签名说明](docs/releases/native-preview-install.md)
 
 **0.3.2 正式版已发布**，Android、Windows、Linux 同步更新协议与界面，Linux 提供 AppImage / deb / tar.gz。新增 Noise 端到端加密、最大 10 GiB 的流式附件与持久续传、自动文件选路、Android 接收文件夹及平板/折叠基础适配。完整变化与验收范围见 [0.3.2 发布说明](docs/releases/0.3.2.md)；P2P 稳定性、真实速度/距离恢复、长期内存及正式性能继续在 [#23](https://github.com/GHOST-AKU/wozai/issues/23)、[#9](https://github.com/GHOST-AKU/wozai/issues/9) 跟进。
 
@@ -19,7 +22,18 @@
 
 它目前专注于简单、可理解的近距离通信：设备自己发现彼此、用户自己决定是否信任、消息和附件直接在设备之间传输。两台设备明明就在彼此身边嘛。 (｡•̀ᴗ-)✧
 
+## 🏡 Apple 与 Terminal 可以用在哪里
+
+- **iPhone / iPad 与 Mac、Android、PC 之间**：在同一局域网或热点下交换文字、照片和文件，不必先上传到云端，也不需要双方使用同一家设备生态。
+- **Mac 上的日常局域网协作**：使用原生窗口与系统文件组件，和同一办公室、教室或工作室里的设备一对一沟通、交换资料。路由器不必接入互联网，但必须允许设备互访。
+- **只想使用终端的电脑**：Windows/Linux 的 Terminal 提供全屏 TUI，可在终端里聊天、查看历史、收发文件，无需启动 GUI 或安装 Java。
+- **命令行与远程主机工作流**：通过 CLI 的 JSON 输出、退出码和文件命令配合本地脚本；也可经 SSH 操作远端的 Terminal。此时发现和连接发生在远端主机的网络，SSH 不会把它变成跨互联网聊天中继。
+
+Apple 与 Terminal 当前都是**预览版**，尚未完整对齐安卓版；本版不提供它们的蓝牙/P2P 自动文件链路、群聊或 Mesh/多跳转发。安装包和具体范围见下方平台说明。
+
 ## ✨ 现在能做什么
+
+以下主要描述 Android / Windows / Linux 正式版；Apple 与 Terminal 的预览范围见平台状态。
 
 - **局域网直连**：NSD / mDNS 自动发现，也支持 IP + 端口直连
 - **经典蓝牙通信**：使用安全 RFCOMM，可搜索、配对和重连
@@ -38,23 +52,29 @@
 | 平台 | 局域网 | 经典蓝牙 | 文字 | 图片 / 文件 | 状态 |
 | --- | --- | --- | --- | --- | --- |
 | Android | ✓ | ✓ | ✓ | ✓ | 主要移动端 |
-| Windows | ✓ | ✓ | ✓ | ✓ | 可用 |
-| Linux | ✓ | ✓ | ✓ | ✓ | 可用 |
+| Windows GUI | ✓ | ✓ | ✓ | ✓ | 正式版 |
+| Linux GUI | ✓ | ✓ | ✓ | ✓ | 正式版 |
+| macOS / iPhone / iPad | ✓ | — | ✓ | ✓ | 原生预览版，尚未完整对齐 Android |
+| Terminal（Windows / Linux x64） | ✓ | — | ✓ | ✓ | TUI/CLI 预览版 |
 
 桌面端均提供自带运行环境的发行包，不要求用户额外安装 Java。Windows 与 Linux 的具体使用和验证范围见 [Windows 说明](docs/windows.md) 与 [Linux 说明](docs/linux.md)。
 
-iOS、iPadOS、macOS 的 **Swift / SwiftUI 原生客户端正在开发**，采用 Apple 系统组件，并复用 NIM4 协议规范。当前开发分支已扩展到局域网加密文字、流式文件与图片、设备认可、本地记录及二维码身份核验；功能和真机验收范围见 [Apple 原生客户端说明](docs/apple.md) 和 [#31](https://github.com/GHOST-AKU/wozai/issues/31)；尚未提供 Apple 正式安装包。
+iOS、iPadOS、macOS 提供 **Swift / SwiftUI 原生预览版**，使用 Apple 系统组件，支持 NIM4 局域网加密文字、文件/图片、设备认可、本地记录和二维码身份核验。Mac 包支持 Intel 与 Apple Silicon；iPhone/iPad 共用一个设备 IPA。Apple 头像、蓝牙/P2P/独立文件链路等仍未完整实现，真机与性能验收继续见 [Apple 说明](docs/apple.md) 和 [#31](https://github.com/GHOST-AKU/wozai/issues/31)。
 
-## ⌨️ NearbyIM Terminal（开发中）
+**Apple 预览版没有正式分发签名：**Mac 包只有 ad-hoc 临时签名，没有 Developer ID 签名或公证；iPhone/iPad IPA 未签名，不能直接点击安装，需要自行签名侧载。最低系统为 macOS 14、iOS/iPadOS 17。具体安装与免费账号续签步骤见[安装说明](docs/releases/native-preview-install.md)。
 
-**NearbyIM Terminal** 已在 [`terminal/`](terminal/README.zh-CN.md) 开始独立 Rust 实现，主命令为 `nearbyim`（Windows：`nearbyim.exe`）。采用 ratatui/crossterm + clap，运行不依赖 JRE、GUI 或 Android SDK。
+## ⌨️ NearbyIM Terminal（预览版）
 
-- TUI 与 CLI 共用 NIM4 核心：独立身份、明确认可/安全码、LAN 发现/地址直连、文本、历史/草稿及流式文件/检查点/保存回执。
-- 首次启动默认关闭 LAN 监听；脚本不自动批准未知身份。JSON、退出码、主题、字素簇输入与终端恢复按[设计手册](terminal/docs/design-v0.2.md)实施。
-- 已有生产 Java 通道和文件引擎的真实 TCP 双角色互通自动测试；真机、Windows/Linux 终端矩阵与性能仍以 [Issue #38](https://github.com/GHOST-AKU/wozai/issues/38) / [PR #41](https://github.com/GHOST-AKU/wozai/pull/41) 证据为准。
-- 当前是 `0.1.0-dev` 开发构建；不将尚未完成的验收或未实现的蓝牙/P2P 算作支持，不替代现有 GUI，也不修改 0.3.2 正式版附件。
+**NearbyIM Terminal** 是独立 Rust 终端客户端，主命令为 `nearbyim`（Windows：`nearbyim.exe`），同时提供全屏 TUI 和 CLI，运行不依赖 JRE、GUI 或 Android SDK。[下载 Windows/Linux x64 预览包](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.3-preview.1)，解压后运行 `nearbyim`，或 `nearbyim --help` 查看命令。
+
+- 支持 NIM4 身份认可/安全码、LAN 发现/地址直连、文字、历史/草稿、流式文件、队列、暂停/续传及保存回执，也支持头像同步和二维码核验。
+- **默认关闭 LAN 监听**，不自动批准未知身份或接收文件。首次 TUI 启动会引导设置；CLI 接口提供 JSON 和退出码，详见 [Terminal 使用说明](terminal/README.zh-CN.md)。
+- 当前内部版本为 `0.1.0-dev`，与合集的 `0.3.3-preview.1` 分开；Windows 包无 Authenticode 签名，本次不包含 macOS Terminal 二进制。
+- 蓝牙/P2P 等适配与完整验收仍在开发；终端、IME、SSH/tmux、真机互通和性能范围见 [#38](https://github.com/GHOST-AKU/wozai/issues/38)。不替代现有 GUI，0.3.2 正式版附件保持不变。
 
 ## 📡 开始聊天
+
+以下界面步骤面向 Android / Windows / Linux GUI 正式版；Apple 安装和连接见[预览版说明](docs/releases/native-preview-install.md)，Terminal 操作见[终端使用说明](terminal/README.zh-CN.md)。
 
 ### 局域网
 
@@ -103,7 +123,11 @@ NIM 是「我在 / NearbyIM」在设备之间交换消息与附件的应用层�
 
 ## 📦 下载与版本说明
 
-当前正式版为 **0.3.2**：
+当前正式版为 **0.3.2**。Apple / Terminal 的 **0.3.3-preview.1** 是独立的实验性预发布，功能与设备验收仍在推进：
+
+- [Apple / Terminal 预发布下载](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.3-preview.1)
+- [预览版安装、签名与使用说明](docs/releases/native-preview-install.md)
+- 预发布附件附有 `SHA256SUMS.txt`、构建来源与许可文件。
 
 - [GitHub Release v0.3.2](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.2)
 - [0.3.2 发布说明](docs/releases/0.3.2.md)
