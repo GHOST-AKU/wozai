@@ -194,8 +194,10 @@ final class NativeChatTests: XCTestCase {
     private func waitForVisible(_ element: XCUIElement, in viewport: XCUIElement) -> Bool {
         // Read-only text can be visible without accepting an accessibility hit test on macOS.
         let visible = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-            guard element.exists, viewport.exists else { return false }
-            let frame = element.frame, bounds = viewport.frame
+            // Each XCUI attribute query can traverse the entire 200-row accessibility tree.
+            // Use one snapshot per element instead of separate existence and frame queries.
+            guard let item = try? element.snapshot(), let container = try? viewport.snapshot() else { return false }
+            let frame = item.frame, bounds = container.frame
             guard !frame.isEmpty, !bounds.isEmpty else { return false }
             let intersection = frame.intersection(bounds)
             return !intersection.isNull && intersection.height >= min(frame.height, bounds.height) - 1
