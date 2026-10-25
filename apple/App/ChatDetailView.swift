@@ -46,6 +46,10 @@ struct ChatDetailView: View {
     var body: some View {
         timeline
         .safeAreaInset(edge: .bottom, spacing: 0) { composer }
+        .onChange(of: model.transferRevision[contact.id, default: 0]) { _, _ in
+            if followingLatest && before == nil { pendingScroll = true; pageRevision &+= 1 }
+            else { hasNewMessages = true }
+        }
         .navigationTitle(contact.nickname)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -90,6 +94,7 @@ struct ChatDetailView: View {
                         ContentUnavailableView("No messages yet", systemImage: "bubble.left", description: Text("Send a greeting when the devices are connected."))
                     }
                     ForEach(messages, id: \.rowID) { message in MessageBubble(message: message).id(message.rowID) }
+                    AttachmentTimeline(contact: contact)
                     Color.clear.frame(height: 1).id("latest")
                         .onGeometryChange(for: TailObservation.self) { geometry in
                             let frame = geometry.frame(in: .scrollView)
@@ -193,6 +198,7 @@ struct ChatDetailView: View {
             }
             if tooLong { Text("Keep the message within 8192 UTF-8 bytes. Your draft is preserved.").font(.caption).foregroundStyle(.red) }
             HStack(alignment: .bottom) {
+                AttachmentControls()
                 TextField("Message", text: Binding(get: { draft }, set: { draft = $0 }), axis: .vertical)
                     .lineLimit(1...6)
                     .textFieldStyle(.roundedBorder)
@@ -318,6 +324,7 @@ private struct SafetyView: View {
                     Text("Compare the entire code on both devices. An encrypted connection alone does not verify who owns the device.")
                 }
                 if let identity = model.identity, let code = try? SafetyCode.make(identity.root, peer.root) {
+                    VerificationQRControls(peer: peer, generation: generation)
                     Section("Safety code") {
                         Text(verbatim: grouped(code)).font(.body.monospaced()).textSelection(.enabled)
                         ShareLink(item: "WOZAI-ID1:" + code) { Label("Share code", systemImage: "square.and.arrow.up") }

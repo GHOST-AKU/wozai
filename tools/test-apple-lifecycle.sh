@@ -2,6 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p build/apple-lifecycle
+python3 tools/validate-apple-localizations.py
 core_status=0
 swift test --package-path apple > build/apple-lifecycle/core.log 2>&1 || core_status=$?
 cat build/apple-lifecycle/core.log

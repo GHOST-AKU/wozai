@@ -19,6 +19,7 @@ public actor NIMChannel {
     private var ended = false
     private var writer: Task<Void, Error>?
     private var writeSequence: UInt64 = 0
+    public private(set) var connectionGeneration: String?
 
     public init(stream: any ByteStream, identity: DeviceIdentity, nickname: String, initiator: Bool) {
         self.stream = stream; self.identity = identity; self.nickname = nickname; self.initiator = initiator
@@ -47,6 +48,9 @@ public actor NIMChannel {
             let first = initiator ? local : remote, second = initiator ? remote : local
             var binding = WireWriter(); binding.data = Data("wozai-root-proof-v4\0".utf8)
             binding.shortBytes(first); binding.shortBytes(second); binding.shortBytes(handshake.handshakeHash)
+            var generation = WireWriter(); generation.data = Data("wozai-connection-v4\0".utf8)
+            generation.shortBytes(first); generation.shortBytes(second); generation.shortBytes(handshake.handshakeHash)
+            connectionGeneration = Data(SHA256.hash(data: generation.data)).hexString
             transport = try handshake.split()
             if initiator {
                 let signature = try identity.signing.signature(for: binding.data + Data([0])).derRepresentation

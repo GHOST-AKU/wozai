@@ -29,6 +29,8 @@ extension FocusedValues {
 struct RootView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.scenePhase) private var scenePhase
+    @State private var consentPresented = false
+    @State private var presentedFileToken: UUID?
 
     var body: some View {
         @Bindable var model = model
@@ -48,10 +50,33 @@ struct RootView: View {
             } else { ProgressView("Opening NearbyIM…") }
         }
         .task { await model.bootstrap() }
-        .sheet(item: $model.consent, onDismiss: { model.dismissConsent() }) { peer in
+        .sheet(item: $model.consent, onDismiss: { consentPresented = false; model.dismissConsent() }) { peer in
             ConsentView(peer: peer)
                 .environment(model)
                 .presentationDetents([.medium, .large])
+                .onAppear { consentPresented = true }
+        }
+        .sheet(item: Binding(get: { consentPresented ? nil : model.fileOfferPresentation }, set: { _ in
+            // Reject an interactive dismissal after the native transition, never before a button action.
+        }), onDismiss: {
+            if let expected = presentedFileToken { model.decideFile(false, expected: expected) }
+        }) { prompt in
+            VStack(alignment: .leading, spacing: 20) {
+                Label("Receive file?", systemImage: "doc.badge.arrow.down").font(.title2)
+                Text(verbatim: prompt.info.name).textSelection(.enabled)
+                Text(ByteCountFormatter.string(fromByteCount: Int64(prompt.info.size), countStyle: .file)).foregroundStyle(.secondary)
+                HStack {
+                    Button("Reject", role: .cancel) { model.decideFile(false, expected: prompt.id) }
+                    Spacer()
+                    Button("Receive") { model.decideFile(true, expected: prompt.id) }.buttonStyle(.borderedProminent)
+                }
+            }
+            .padding(24)
+            .presentationDetents([.medium])
+            .onAppear { presentedFileToken = prompt.id }
+            #if os(macOS)
+            .frame(minWidth: 360, minHeight: 220)
+            #endif
         }
         .alert("NearbyIM", isPresented: Binding(get: { model.notice != nil }, set: { if !$0 { model.notice = nil } })) {
             Button("OK", role: .cancel) { model.notice = nil }
@@ -99,10 +124,12 @@ private struct MobileNavigation: View {
 private struct ChatsView: View {
     @Environment(AppModel.self) private var model
     @SceneStorage("selectedConversation") private var selection = ""
+    @State private var compactColumn = NavigationSplitViewColumn.sidebar
+    @State private var pendingConnectedPeer: String?
     let findNearby: () -> Void
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(preferredCompactColumn: $compactColumn) {
             List(selection: Binding<String?>(get: { selection.isEmpty ? nil : selection }, set: { selection = $0 ?? "" })) {
                 ForEach(model.conversations) { contact in
                     NavigationLink(value: contact.id) { ConversationLabel(contact: contact) }
@@ -121,7 +148,20 @@ private struct ChatsView: View {
                 ChatDetailView(contact: contact).id(contact.id)
             } else { ContentUnavailableView("Choose a conversation", systemImage: "bubble.left.and.bubble.right") }
         }
-        .onChange(of: model.connectionState, initial: true) { _, value in if value == .connected { selection = model.activePeer?.id ?? "" } }
+        .onChange(of: model.connectionState, initial: true) { _, value in
+            pendingConnectedPeer = value == .connected ? model.activePeer?.id : nil
+            revealConnectedConversation()
+        }
+        .onChange(of: model.conversations.map(\.id)) { _, _ in revealConnectedConversation() }
+    }
+
+    private func revealConnectedConversation() {
+        guard let peer = pendingConnectedPeer, model.conversations.contains(where: { $0.id == peer }) else { return }
+        // READY can arrive before the asynchronous conversation reload. Select only a real row,
+        // then explicitly reveal detail when the split view is collapsed on iPhone.
+        selection = peer
+        compactColumn = .detail
+        pendingConnectedPeer = nil
     }
 }
 #endif

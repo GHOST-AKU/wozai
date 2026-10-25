@@ -29,11 +29,24 @@ final class NativeChatTests: XCTestCase {
         XCTAssertTrue(consent.waitForExistence(timeout: 15))
         consent.tap()
         let composer = app.descendants(matching: .any).matching(identifier: "composer").firstMatch
-        XCTAssertTrue(composer.waitForExistence(timeout: 15))
-        XCTAssertTrue(app.staticTexts["Hello from Java"].waitForExistence(timeout: 15))
+        XCTAssertTrue(composer.waitForExistence(timeout: 15), "Approved connection did not reveal its conversation: " + app.debugDescription)
+        XCTAssertTrue(app.staticTexts["Hello from Java"].waitForExistence(timeout: 15), app.debugDescription)
         composer.tap(); composer.typeText("Hello from Apple")
         app.buttons["sendMessage"].tap()
         XCTAssertTrue(app.staticTexts["Delivered"].waitForExistence(timeout: 15) || app.descendants(matching: .any).matching(NSPredicate(format: "identifier == %@ AND label CONTAINS %@", "deliveryStatus", "Delivered")).firstMatch.waitForExistence(timeout: 5))
+        try drivePeer("file-offer")
+        #if os(macOS)
+        // The same native action also appears in Touch Bar; target the window's consent sheet.
+        let receive = app.windows.sheets.buttons["Receive"].firstMatch
+        #else
+        let receive = app.buttons["Receive"].firstMatch
+        #endif
+        XCTAssertTrue(receive.waitForExistence(timeout: 15), "A file must require explicit receive permission")
+        receive.tap()
+        try drivePeer("file-saved")
+        XCTAssertTrue(app.staticTexts["UI-attachment.bin"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["Saved"].firstMatch.waitForExistence(timeout: 15))
+        XCTAssertTrue(app.buttons["Open"].firstMatch.exists)
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "native-chat-with-production-java-peer"
         screenshot.lifetime = .keepAlways
@@ -51,6 +64,14 @@ final class NativeChatTests: XCTestCase {
             app.scrollViews["messageTimeline"].swipeDown()
             let hidden = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in !app.keyboards.firstMatch.exists }, object: app)
             XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 8), .completed, "Reading should allow dismissing the keyboard")
+        }
+        // Dismissing the keyboard can also scroll the taller file timeline into reading mode.
+        // Resume following explicitly before testing new-message following and position retention.
+        let latestAfterDismissal = app.buttons["jumpToLatest"]
+        if latestAfterDismissal.exists {
+            latestAfterDismissal.tap()
+            let following = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in !latestAfterDismissal.exists }, object: app)
+            XCTAssertEqual(XCTWaiter.wait(for: [following], timeout: 8), .completed)
         }
         #endif
         #if os(macOS)
@@ -173,8 +194,10 @@ final class NativeChatTests: XCTestCase {
     private func waitForVisible(_ element: XCUIElement, in viewport: XCUIElement) -> Bool {
         // Read-only text can be visible without accepting an accessibility hit test on macOS.
         let visible = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-            guard element.exists, viewport.exists else { return false }
-            let frame = element.frame, bounds = viewport.frame
+            // Each XCUI attribute query can traverse the entire 200-row accessibility tree.
+            // Use one snapshot per element instead of separate existence and frame queries.
+            guard let item = try? element.snapshot(), let container = try? viewport.snapshot() else { return false }
+            let frame = item.frame, bounds = container.frame
             guard !frame.isEmpty, !bounds.isEmpty else { return false }
             let intersection = frame.intersection(bounds)
             return !intersection.isNull && intersection.height >= min(frame.height, bounds.height) - 1

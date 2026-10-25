@@ -48,6 +48,6 @@ xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM -destination "$des
   -configuration Debug -derivedDataPath "apple/UITestBuild-$label" \
   -resultBundlePath "build/apple-ui/$label.xcresult" \
   -parallel-testing-enabled NO -test-timeouts-enabled YES \
-  -default-test-execution-time-allowance 240 -maximum-test-execution-time-allowance 240 \
+  -default-test-execution-time-allowance 360 -maximum-test-execution-time-allowance 360 \
   CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- test-without-building | tee "build/apple-ui/$label-xcodebuild.log"
 wait "$peer_pid"

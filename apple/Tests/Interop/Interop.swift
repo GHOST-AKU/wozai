@@ -7,6 +7,7 @@ struct Interop {
     static func main() async throws {
         let arguments = CommandLine.arguments
         let initiator = arguments[1] == "client"
+        let files = arguments.contains("--files")
         let stream: NWByteStream
         let listener: NWListener?
         if initiator {
@@ -39,8 +40,10 @@ struct Interop {
         defer { try? FileManager.default.removeItem(at: directory) }
         let store = try ChatStore(url: directory.appendingPathComponent("chat.sqlite"))
         let identity = DeviceIdentity()
-        let harness = Harness(store: store, identity: identity)
-        let session = ChatSession(stream: stream, identity: identity, nickname: "Apple interop peer", initiator: initiator, store: store) { event in
+        let source = directory.appendingPathComponent("swift-source.bin")
+        if files { try Data((0..<(3 * 1024 * 1024 + 17)).map { UInt8(truncatingIfNeeded: $0 * 31 + 7) }).write(to: source) }
+        let harness = Harness(store: store, identity: identity, fileSource: files ? source : nil)
+        let session = ChatSession(stream: stream, identity: identity, nickname: "Apple interop peer", initiator: initiator, store: store, attachmentDirectory: files ? directory.appendingPathComponent("received") : nil) { event in
             await harness.handle(event)
         }
         await harness.attach(session)
@@ -50,18 +53,19 @@ struct Interop {
         await session.run()
         timeout.cancel()
         try await harness.verify()
-        print("PASS: Swift ChatSession durable text/ACK, production Java interop, Unicode whitespace nickname/text, safety code")
+        print(files ? "PASS: Swift streaming file interoperability in a real Noise session" : "PASS: Swift ChatSession durable text/ACK, production Java interop, Unicode whitespace nickname/text, safety code")
     }
 }
 
 private actor Harness {
     let store: ChatStore
     let identity: DeviceIdentity
+    let fileSource: URL?
     var session: ChatSession?
     var peer: VerifiedPeer?
     var closedNormally = false
     var failure: String?
-    init(store: ChatStore, identity: DeviceIdentity) { self.store = store; self.identity = identity }
+    init(store: ChatStore, identity: DeviceIdentity, fileSource: URL?) { self.store = store; self.identity = identity; self.fileSource = fileSource }
     func attach(_ session: ChatSession) { self.session = session }
     func handle(_ event: SessionEvent) async {
         do {
@@ -70,8 +74,11 @@ private actor Harness {
             case .ready(let peer):
                 self.peer = peer
                 let code = try SafetyCode.make(identity.root, peer.root)
-                try await session?.sendText("Hello from Apple\n" + code)
-            case .changed: break
+                try await session?.sendText((fileSource == nil ? "Hello from Apple\n" : "Swift 你好 👩‍💻\n") + code)
+                if let fileSource { _ = try await session?.sendFile(fileSource) }
+            case .attachmentOffer(let info):
+                if let info { try await session?.acceptFile(info.id, accept: fileSource != nil) }
+            case .changed, .transfer: break
             case .closed(let reason): closedNormally = reason == nil; failure = reason
             }
         } catch { failure = error.localizedDescription; await session?.stop(reason: failure) }
@@ -80,6 +87,15 @@ private actor Harness {
         guard closedNormally, failure == nil, let peer else { throw NSError(domain: "Interop", code: 1, userInfo: [NSLocalizedDescriptionKey: failure ?? "Peer did not close normally"]) }
         let messages = try await store.messages(peerID: peer.id)
         let code = try SafetyCode.make(identity.root, peer.root)
+        if let fileSource {
+            let records = try await session?.transfers() ?? []
+            guard messages.count == 3, records.contains(where: { $0.outgoing && $0.state == "saved" }),
+                  let incoming = records.first(where: { !$0.outgoing && $0.state == "received" }),
+                  try Data(contentsOf: incoming.destination) == Data(contentsOf: fileSource),
+                  messages.contains(where: { $0.outgoing && $0.status == .delivered }) else { throw WozaiError.protocolViolation }
+            print("PASS: Swift production NIM4 file send/receive, block/whole hashes, durable saved receipts")
+            return
+        }
         guard messages.count == 3, peer.nickname == "\u{00a0}",
               messages.contains(where: { !$0.outgoing && $0.body == "Hello from Java\n" + code }),
               messages.contains(where: { !$0.outgoing && $0.body == "\u{00a0}\u{2003}" }),

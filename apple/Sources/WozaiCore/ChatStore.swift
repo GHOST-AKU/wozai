@@ -38,9 +38,11 @@ public struct Conversation: Identifiable, Equatable, Sendable {
 /// SQLite FULL commits precede incoming ACKs; no full-history snapshots are rewritten.
 public actor ChatStore {
     private let database: SQLiteDatabase
+    public nonisolated let directory: URL
 
     public init(url: URL) throws {
-        var directory = url.deletingLastPathComponent()
+        self.directory = url.deletingLastPathComponent()
+        var directory = self.directory
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         // Exclude the directory before SQLite can create the database or WAL sidecars.
         var values = URLResourceValues()

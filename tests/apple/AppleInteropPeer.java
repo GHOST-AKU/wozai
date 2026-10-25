@@ -88,17 +88,31 @@ public final class AppleInteropPeer {
     /** An out-of-band test driver injects real encrypted messages while the UI is reading history. */
     private static void exerciseReadingPosition(NoiseRecordChannel channel) throws Exception {
         java.util.concurrent.atomic.AtomicInteger acknowledgements = new java.util.concurrent.atomic.AtomicInteger();
+        Path fileRoot = Files.createTempDirectory("wozai-ui-files-");
+        byte[] fileBytes = new byte[3 * TransferLimits.BLOCK_BYTES + 17];
+        for (int i = 0; i < fileBytes.length; i++) fileBytes[i] = (byte)(i * 31 + 7);
+        Path fileSource = fileRoot.resolve("UI-attachment.bin"); Files.write(fileSource, fileBytes);
+        java.util.concurrent.BlockingQueue<AttachmentRecord> fileNotices = new java.util.concurrent.LinkedBlockingQueue<>();
+        java.util.concurrent.atomic.AtomicReference<Throwable> readFailure = new java.util.concurrent.atomic.AtomicReference<>();
+        AttachmentTransferV2 files = new AttachmentTransferV2(fileRoot.resolve("received"), "a".repeat(64),
+            DeviceIdentity.fingerprint(channel.remotePublicKey()), channel.connectionGeneration(), false,
+            new AttachmentTransferV2.Wire() {
+                public boolean send(TransferPacket packet) { try { channel.write(ProtocolV4.encodeTransfer(packet)); return true; } catch (IOException error) { readFailure.set(error); return false; } }
+                public void abort() { try { channel.close(); } catch (Exception ignored) {} }
+            }, fileNotices::add);
         Thread receipts = new Thread(() -> {
             try {
                 while (true) {
-                    Frame frame = ProtocolV4.decode(channel.read());
+                    ProtocolV4.Record record = ProtocolV4.decodeRecord(channel.read());
+                    if (record.transfer != null) { files.receive(record.transfer, true); continue; }
+                    Frame frame = record.frame;
                     if (frame.type == Frame.PING) { channel.write(ProtocolV4.encode(new Frame(Frame.PONG, "", "", 0))); }
                     else {
                         require(frame.type == Frame.ACK || frame.type == Frame.PONG, "Unexpected UI fixture response");
                         if (frame.type == Frame.ACK) { acknowledgements.incrementAndGet(); }
                     }
                 }
-            } catch (IOException closed) { /* The main test closes the independent peer after completion. */ }
+            } catch (Throwable closed) { readFailure.compareAndSet(null, closed); }
         }, "apple-ui-receipts");
         receipts.setDaemon(true);
         receipts.start();
@@ -111,7 +125,21 @@ public final class AppleInteropPeer {
                 try (Socket driver = control.accept()) {
                     driver.setSoTimeout(5_000);
                     String command = new BufferedReader(new InputStreamReader(driver.getInputStream(), java.nio.charset.StandardCharsets.UTF_8)).readLine();
-                    if ("history-200".equals(command) || "history-400".equals(command)) {
+                    if ("file-offer".equals(command)) {
+                        files.offer(new FileAttachmentSource(fileSource), "UI-attachment.bin", "application/octet-stream").get(5, java.util.concurrent.TimeUnit.SECONDS);
+                    } else if ("file-saved".equals(command)) {
+                        boolean saved = false;
+                        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(15);
+                        while (!saved && System.nanoTime() < deadline) {
+                            if (readFailure.get() != null) throw new IOException("File UI peer failed", readFailure.get());
+                            AttachmentRecord notice = fileNotices.poll(50, java.util.concurrent.TimeUnit.MILLISECONDS);
+                            if (notice != null) {
+                                require(!notice.state.equals("failed") && !notice.state.equals("canceled"), "File UI transfer failed");
+                                saved = notice.state.equals("delivered");
+                            }
+                        }
+                        require(saved, "UI receiver did not return its durable saved receipt");
+                    } else if ("history-200".equals(command) || "history-400".equals(command)) {
                         int target = command.equals("history-200") ? 200 : 400;
                         require(historyCount < target, "History boundary was already passed");
                         while (historyCount < target) {
@@ -134,6 +162,9 @@ public final class AppleInteropPeer {
                     if ("finish".equals(command)) { return; }
                 }
             }
+        } finally {
+            files.shutdown().get(5, java.util.concurrent.TimeUnit.SECONDS);
+            try (var paths = Files.walk(fileRoot)) { for (Path path : paths.sorted(java.util.Comparator.reverseOrder()).toList()) Files.deleteIfExists(path); }
         }
     }
 

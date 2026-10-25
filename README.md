@@ -43,7 +43,7 @@
 
 桌面端均提供自带运行环境的发行包，不要求用户额外安装 Java。Windows 与 Linux 的具体使用和验证范围见 [Windows 说明](docs/windows.md) 与 [Linux 说明](docs/linux.md)。
 
-iOS、iPadOS、macOS 的 **Swift / SwiftUI 原生客户端正在开发**，采用 Apple 系统组件，并复用 NIM4 协议规范。当前首轮实现聚焦局域网加密文字、设备认可与本地记录，功能及真机验收范围见 [Apple 原生客户端说明](docs/apple.md) 和 [#31](https://github.com/GHOST-AKU/wozai/issues/31)；尚未提供 Apple 正式安装包。
+iOS、iPadOS、macOS 的 **Swift / SwiftUI 原生客户端正在开发**，采用 Apple 系统组件，并复用 NIM4 协议规范。当前开发分支已扩展到局域网加密文字、流式文件与图片、设备认可、本地记录及二维码身份核验；功能和真机验收范围见 [Apple 原生客户端说明](docs/apple.md) 和 [#31](https://github.com/GHOST-AKU/wozai/issues/31)；尚未提供 Apple 正式安装包。
 
 ## ⌨️ NearbyIM Terminal（开发中）
 
