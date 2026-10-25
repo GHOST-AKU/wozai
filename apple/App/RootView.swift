@@ -53,6 +53,12 @@ struct RootView: View {
                 .environment(model)
                 .presentationDetents([.medium, .large])
         }
+        .confirmationDialog("Receive file?", isPresented: Binding(get: { model.fileOffer != nil }, set: { if !$0 { model.decideFile(false) } }), titleVisibility: .visible) {
+            Button("Receive") { model.decideFile(true) }
+            Button("Reject", role: .cancel) { model.decideFile(false) }
+        } message: {
+            if let info = model.fileOffer { Text(verbatim: info.name + " · " + ByteCountFormatter.string(fromByteCount: Int64(info.size), countStyle: .file)) }
+        }
         .alert("NearbyIM", isPresented: Binding(get: { model.notice != nil }, set: { if !$0 { model.notice = nil } })) {
             Button("OK", role: .cancel) { model.notice = nil }
         } message: { Text(verbatim: model.notice?.message ?? "") }

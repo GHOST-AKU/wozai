@@ -27,6 +27,7 @@ struct SettingsView: View {
                     Text("The signing identity stays in this device’s Keychain. Remembering a peer does not automatically verify its owner.").font(.caption).foregroundStyle(.secondary)
                 }
             }
+            ReceiveFolderSettings()
             Section("Privacy") {
                 Text("No account, cloud chat server, or telemetry.")
                 Text("Messages stay on this device. Transport encryption does not encrypt the local chat database.").foregroundStyle(.secondary)

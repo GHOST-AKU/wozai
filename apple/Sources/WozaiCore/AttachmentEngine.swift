@@ -16,6 +16,9 @@ public struct AttachmentRecord: Codable, Sendable, Identifiable, Equatable {
     public var state: String
     public var manualPause: Bool
     public let modified: Date?
+    public var queued = false
+    public var order: UInt64 = 0
+    public var key: String { Data(SHA256.hash(data: root + Data("\(peerID):\(outgoing):\(id):\(source)".utf8))).hexString }
 }
 
 /// Owned exclusively by one ChatSession actor; disk work never runs on MainActor.
@@ -33,6 +36,7 @@ public final class AttachmentEngine {
     private let journal: URL
     private let directory: URL
     private var incoming: Task?, outgoing: Task?
+    private var queuedCount = 0
     public private(set) var notices: [AttachmentRecord] = []
     private let window: UInt64 = 2 * AttachmentInfo.blockBytes
 
@@ -41,8 +45,10 @@ public final class AttachmentEngine {
         try FileManager.default.createDirectory(at: journal, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         var excluded = journal, values = URLResourceValues(); values.isExcludedFromBackup = true
         try excluded.setResourceValues(values)
+        queuedCount = try records().filter { $0.queued && $0.state == "queued" }.count
     }
     public var canPump: Bool {
+        if outgoing == nil && queuedCount > 0 { return true }
         guard let task = outgoing, task.active else { return false }
         if task.sent == task.record.info.size { return true }
         let n = min(UInt64(AttachmentInfo.chunkBytes), task.record.info.size - task.sent, AttachmentInfo.blockBytes - task.sent % AttachmentInfo.blockBytes)
@@ -72,7 +78,7 @@ public final class AttachmentEngine {
             guard validID(record.source), record.offset <= record.info.size, path.lastPathComponent == key(record) + ".json" else { throw WozaiError.storage }
             result.append(record)
         }
-        return result.sorted { $0.info.time < $1.info.time }
+        return result.sorted { $0.order == $1.order ? $0.info.time < $1.info.time : $0.order < $1.order }
     }
     private func lookup(_ packet: AttachmentPacket, outgoing: Bool) throws -> AttachmentRecord? {
         try records().first { $0.id == packet.id && $0.source == packet.source && $0.outgoing == outgoing && $0.info.size == packet.size }
@@ -84,18 +90,20 @@ public final class AttachmentEngine {
         var reply = offer.reply(.cancel); reply.reason = reason; return reply
     }
     public func offer(_ url: URL, mime: String = "application/octet-stream") throws -> (String, [AttachmentPacket]) {
-        guard outgoing == nil else { throw WozaiError.busy }
+        guard queuedCount < 256 else { throw WozaiError.busy }
         let path = url.standardizedFileURL.resolvingSymlinksInPath()
         let values = try path.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey, .contentModificationDateKey])
         guard values.isRegularFile == true, let size = values.fileSize, size >= 0 else { throw WozaiError.storage }
         let info = try AttachmentInfo(id: UUID().uuidString.lowercased(), name: path.lastPathComponent, mime: mime,
             size: UInt64(size), time: UInt64(Date().timeIntervalSince1970 * 1000))
-        let record = AttachmentRecord(peerID: peer.id, root: peer.root, outgoing: true, info: info,
+        var record = AttachmentRecord(peerID: peer.id, root: peer.root, outgoing: true, info: info,
             source: UUID().uuidString.lowercased(), path: path, destination: path, offset: 0,
             digest: Data(SHA256.hash(data: Data())), state: "offered", manualPause: false, modified: values.contentModificationDate)
-        let file = try openFile(path, writing: false)
-        try save(record); outgoing = Task(record, file)
-        return (info.id, [packet(record, .offer)])
+        _ = try openFile(path, writing: false)
+        record.queued = true; record.state = "queued"
+        record.order = (try records().map(\.order).max() ?? 0) + 1
+        try save(record); queuedCount += 1
+        return (info.id, try startNext())
     }
     public func handle(_ p: AttachmentPacket) throws -> [AttachmentPacket] {
         try p.validate()
@@ -210,11 +218,28 @@ public final class AttachmentEngine {
         }
         return []
     }
+    private func startNext() throws -> [AttachmentPacket] {
+        guard outgoing == nil else { return [] }
+        for var record in try records().filter({ $0.queued && $0.state == "queued" }) {
+            queuedCount = max(0, queuedCount - 1)
+            do {
+                try verifySource(record)
+                let file = try openFile(record.path, writing: false)
+                record.queued = false; record.state = "offered"; try save(record)
+                outgoing = Task(record, file)
+                return [packet(record, .offer)]
+            } catch {
+                record.queued = false; record.state = "failed"; try save(record)
+            }
+        }
+        return []
+    }
     private func credit(_ task: Task) -> AttachmentPacket {
         var reply = packet(task.record, .credit); reply.offset = task.sent; reply.verified = task.verified
         reply.durable = task.record.offset; reply.window = window; task.credit = task.sent; return reply
     }
     public func pump() throws -> [AttachmentPacket] {
+        let next = try startNext(); if !next.isEmpty { return next }
         guard let task = outgoing, task.active else { return [] }
         var packets: [AttachmentPacket] = []
         for _ in 0..<4 {
@@ -244,7 +269,12 @@ public final class AttachmentEngine {
         guard var record = try records().first(where: { $0.id == id }) else { throw WozaiError.storage }
         guard !["canceled", "failed"].contains(record.state) else { throw WozaiError.storage }
         if ["saved", "received"].contains(record.state) { notices.append(record); return [] }
-        record.manualPause = false; try save(record)
+        record.manualPause = false
+        if record.queued {
+            if record.state != "queued" { record.state = "queued"; queuedCount += 1; try save(record) }
+            return try startNext()
+        }
+        try save(record)
         if record.outgoing { try restoreSender(record) }
         return [packet(record, .status)]
     }
@@ -254,6 +284,11 @@ public final class AttachmentEngine {
         outgoing = Task(record, try openFile(record.path, writing: false))
     }
     public func pause(_ id: String, cancel: Bool) throws -> [AttachmentPacket] {
+        if var record = try records().first(where: { $0.id == id && $0.queued && !["canceled", "failed"].contains($0.state) }) {
+            if record.state == "queued" { queuedCount = max(0, queuedCount - 1) }
+            record.state = cancel ? "canceled" : "paused"; record.manualPause = !cancel
+            try save(record); return []
+        }
         guard let task = [outgoing, incoming].compactMap({ $0 }).first(where: { $0.record.id == id }) else { throw WozaiError.storage }
         guard cancel || task.record.state != "offered" else { throw WozaiError.busy }
         task.active = false; task.record.manualPause = !cancel; task.record.state = cancel ? "canceled" : "paused"

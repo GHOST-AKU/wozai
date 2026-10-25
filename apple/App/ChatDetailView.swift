@@ -90,6 +90,7 @@ struct ChatDetailView: View {
                         ContentUnavailableView("No messages yet", systemImage: "bubble.left", description: Text("Send a greeting when the devices are connected."))
                     }
                     ForEach(messages, id: \.rowID) { message in MessageBubble(message: message).id(message.rowID) }
+                    AttachmentTimeline(contact: contact)
                     Color.clear.frame(height: 1).id("latest")
                         .onGeometryChange(for: TailObservation.self) { geometry in
                             let frame = geometry.frame(in: .scrollView)
@@ -193,6 +194,7 @@ struct ChatDetailView: View {
             }
             if tooLong { Text("Keep the message within 8192 UTF-8 bytes. Your draft is preserved.").font(.caption).foregroundStyle(.red) }
             HStack(alignment: .bottom) {
+                AttachmentControls()
                 TextField("Message", text: Binding(get: { draft }, set: { draft = $0 }), axis: .vertical)
                     .lineLimit(1...6)
                     .textFieldStyle(.roundedBorder)

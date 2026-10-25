@@ -52,6 +52,28 @@ final class AttachmentEngineTests: XCTestCase {
         XCTAssertNoThrow(try pair.sender.offer(pair.source))
     }
 
+    func testPersistentQueueDoesNotReplaceCurrentFileAndCanCancelWaitingItems() throws {
+        let pair = try Pair(size: 32768 * 3 + 1)
+        let (first, packets) = try pair.sender.offer(pair.source)
+        pair.toReceiver = packets
+        let (second, waiting) = try pair.sender.offer(pair.source)
+        XCTAssertTrue(waiting.isEmpty)
+        let (canceled, _) = try pair.sender.offer(pair.source)
+        XCTAssertTrue(try pair.sender.pause(canceled, cancel: true).isEmpty)
+        try pair.sender.disconnect()
+        pair.toReceiver = []; pair.toSender = []
+        pair.sender = try pair.engine(outgoing: true)
+        pair.toReceiver = try pair.sender.resume(first)
+        // The receiver never saw OFFER, so restore its initial authorized task first.
+        let initial = try XCTUnwrap(packets.first)
+        _ = try pair.receiver.handle(initial)
+        pair.toReceiver = try pair.sender.resume(first)
+        try pair.finish(first); try pair.finish(second)
+        let records = try pair.sender.records()
+        XCTAssertEqual(records.first { $0.id == canceled }?.state, "canceled")
+        XCTAssertEqual(records.filter { $0.state == "saved" }.count, 2)
+    }
+
     private final class Pair {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         let remote = VerifiedPeer(id: UUID().uuidString.lowercased(), nickname: "Peer", root: DeviceIdentity().root, capabilities: 3)

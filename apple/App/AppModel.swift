@@ -1,6 +1,7 @@
 import Foundation
 import Network
 import Observation
+import UniformTypeIdentifiers
 import WozaiCore
 
 @MainActor @Observable
@@ -30,6 +31,8 @@ final class AppModel {
     var fileOffer: AttachmentInfo?
     var transfers: [String: AttachmentRecord] = [:]
     var revision: [String: UInt64] = [:]
+    var receiveFolderName = String(localized: "Documents / Received files")
+    @ObservationIgnored private var fileLeases = Set<URL>()
     var busy: Bool { connectionState != .idle }
 
     @ObservationIgnored private var foreground = true
@@ -100,8 +103,9 @@ final class AppModel {
             do {
                 try await stream.start()
                 guard token == generation else { stream.close(); return }
+                let directory = try receiveFolder()
                 let session = ChatSession(stream: stream, identity: identity, nickname: nickname, initiator: initiator,
-                    store: store, event: { [weak self] event in await self?.handle(event, generation: generation) })
+                    store: store, attachmentDirectory: directory, event: { [weak self] event in await self?.handle(event, generation: generation) })
                 self.session = session
                 await session.run(expectedID: expectedID)
             } catch {
@@ -115,6 +119,7 @@ final class AppModel {
         guard token == generation else {
             // Durable history changes survive session retirement; connection events stay fenced.
             if case .changed(let peer) = event { changed(peer) }
+            if case .transfer(let record) = event { transfers[record.key] = record }
             return
         }
         switch event {
@@ -124,9 +129,9 @@ final class AppModel {
             changed(peer.id)
         case .changed(let peer): changed(peer)
         case .attachmentOffer(let info): fileOffer = info
-        case .transfer(let record): transfers[record.id] = record
+        case .transfer(let record): transfers[record.key] = record
         case .closed(let error):
-            session = nil; stream = nil; activePeer = nil; consent = nil; connectionState = .idle
+            session = nil; stream = nil; activePeer = nil; consent = nil; fileOffer = nil; connectionState = .idle
             if let error { notice = Notice(message: error) }
         }
     }
@@ -142,6 +147,88 @@ final class AppModel {
         }
     }
 
+    func fileError(_ error: Error) { show(error) }
+    private func bookmark(_ url: URL) throws -> Data {
+        #if os(macOS)
+        return try url.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)
+        #else
+        return try url.bookmarkData(options: .minimalBookmark, includingResourceValuesForKeys: nil, relativeTo: nil)
+        #endif
+    }
+    private func resolve(_ data: Data) throws -> URL {
+        var stale = false
+        #if os(macOS)
+        let options: URL.BookmarkResolutionOptions = [.withSecurityScope, .withoutUI]
+        #else
+        let options: URL.BookmarkResolutionOptions = [.withoutUI]
+        #endif
+        return try URL(resolvingBookmarkData: data, options: options, relativeTo: nil, bookmarkDataIsStale: &stale)
+    }
+    func accessFile(_ url: URL) {
+        guard !fileLeases.contains(url) else { return }
+        let key = "source-bookmark:" + url.absoluteString
+        do {
+            let resolved = try UserDefaults.standard.data(forKey: key).map(resolve) ?? url
+            if resolved.startAccessingSecurityScopedResource() {
+                fileLeases.insert(resolved)
+                UserDefaults.standard.set(try bookmark(resolved), forKey: key)
+            }
+        } catch { show(error) }
+    }
+    private func receiveFolder() throws -> URL {
+        let defaults = UserDefaults.standard
+        let url = try defaults.data(forKey: "receive-folder").map(resolve)
+            ?? FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("Received files", isDirectory: true)
+        if !fileLeases.contains(url), url.startAccessingSecurityScopedResource() { fileLeases.insert(url) }
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        receiveFolderName = url.lastPathComponent
+        return url
+    }
+    func chooseReceiveFolder(_ url: URL) {
+        guard !busy else { return }
+        let accessed = url.startAccessingSecurityScopedResource()
+        defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+        do { UserDefaults.standard.set(try bookmark(url), forKey: "receive-folder"); receiveFolderName = url.lastPathComponent }
+        catch { show(error) }
+    }
+    func sendFiles(_ urls: [URL]) {
+        guard connectionState == .connected, let session, urls.count <= 256 else { return }
+        Task {
+            do {
+                for url in urls {
+                    accessFile(url)
+                    let type = try url.resourceValues(forKeys: [.contentTypeKey]).contentType
+                    _ = try await session.sendFile(url, mime: type?.preferredMIMEType ?? "application/octet-stream")
+                }
+            } catch { show(error) }
+        }
+    }
+    func decideFile(_ accept: Bool) {
+        guard let id = fileOffer?.id, let session else { return }
+        fileOffer = nil
+        Task { do { try await session.acceptFile(id, accept: accept) } catch { show(error) } }
+    }
+    func fileControl(_ id: String, cancel: Bool = false, resume: Bool = false) {
+        guard let session else { return }
+        Task {
+            do {
+                if resume, let record = transfers.values.first(where: { $0.id == id && $0.outgoing }) { accessFile(record.path) }
+                try await session.controlFile(id, cancel: cancel, resume: resume)
+            } catch { show(error) }
+        }
+    }
+    func loadTransfers(_ contact: Conversation) async {
+        guard let store else { return }
+        let journal = store.directory.appendingPathComponent("attachments-v2", isDirectory: true)
+        let peer = VerifiedPeer(id: contact.id, nickname: contact.nickname, root: contact.root, capabilities: 3)
+        do {
+            let records = try await Task.detached {
+                try AttachmentEngine(peer: peer, connection: String(repeating: "0", count: 64), journal: journal, directory: journal).records()
+            }.value
+            for record in records where transfers[record.key] == nil { transfers[record.key] = record }
+        } catch { show(error) }
+    }
+
     func dismissConsent() { if connectionState == .awaitingConsent { disconnect() } }
 
     func disconnect() {
@@ -149,7 +236,7 @@ final class AppModel {
         let previous = session
         connectionTask?.cancel(); connectionTask = nil
         stream?.close(); stream = nil; session = nil
-        consent = nil; activePeer = nil; connectionState = .idle
+        consent = nil; activePeer = nil; fileOffer = nil; connectionState = .idle
         Task { await previous?.stop() }
     }
 
