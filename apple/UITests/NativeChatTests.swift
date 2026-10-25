@@ -34,6 +34,14 @@ final class NativeChatTests: XCTestCase {
         composer.tap(); composer.typeText("Hello from Apple")
         app.buttons["sendMessage"].tap()
         XCTAssertTrue(app.staticTexts["Delivered"].waitForExistence(timeout: 15) || app.descendants(matching: .any).matching(NSPredicate(format: "identifier == %@ AND label CONTAINS %@", "deliveryStatus", "Delivered")).firstMatch.waitForExistence(timeout: 5))
+        try drivePeer("file-offer")
+        let receive = app.buttons["Receive"]
+        XCTAssertTrue(receive.waitForExistence(timeout: 15), "A file must require explicit receive permission")
+        receive.tap()
+        try drivePeer("file-saved")
+        XCTAssertTrue(app.staticTexts["UI-attachment.bin"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["Saved"].firstMatch.waitForExistence(timeout: 15))
+        XCTAssertTrue(app.buttons["Open"].firstMatch.exists)
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "native-chat-with-production-java-peer"
         screenshot.lifetime = .keepAlways

@@ -53,7 +53,7 @@ struct Interop {
         await session.run()
         timeout.cancel()
         try await harness.verify()
-        print("PASS: Swift ChatSession durable text/ACK, production Java interop, Unicode whitespace nickname/text, safety code")
+        print(files ? "PASS: Swift streaming file interoperability in a real Noise session" : "PASS: Swift ChatSession durable text/ACK, production Java interop, Unicode whitespace nickname/text, safety code")
     }
 }
 

@@ -65,8 +65,8 @@ struct AttachmentTimeline: View {
     @Environment(AppModel.self) private var model
     let contact: Conversation
     var body: some View {
-        ForEach(model.transfers.values.filter { $0.peerID == contact.id && $0.root == contact.root }
-            .sorted { $0.info.time < $1.info.time }, id: \.key) { record in
+        ForEach(Array(model.transfers.values.filter { $0.peerID == contact.id && $0.root == contact.root }
+            .sorted { $0.info.time < $1.info.time }.suffix(50)), id: \.key) { record in
             AttachmentBubble(record: record)
         }
         .task(id: contact.id) { await model.loadTransfers(contact) }

@@ -46,6 +46,10 @@ struct ChatDetailView: View {
     var body: some View {
         timeline
         .safeAreaInset(edge: .bottom, spacing: 0) { composer }
+        .onChange(of: model.transferRevision[contact.id, default: 0]) { _, _ in
+            if followingLatest && before == nil { pendingScroll = true; pageRevision &+= 1 }
+            else { hasNewMessages = true }
+        }
         .navigationTitle(contact.nickname)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {

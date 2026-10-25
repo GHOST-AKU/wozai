@@ -30,6 +30,7 @@ final class AppModel {
     var notice: Notice?
     var fileOffer: AttachmentInfo?
     var transfers: [String: AttachmentRecord] = [:]
+    var transferRevision: [String: UInt64] = [:]
     var revision: [String: UInt64] = [:]
     var receiveFolderName = String(localized: "Documents / Received files")
     @ObservationIgnored private var fileLeases = Set<URL>()
@@ -129,7 +130,9 @@ final class AppModel {
             changed(peer.id)
         case .changed(let peer): changed(peer)
         case .attachmentOffer(let info): fileOffer = info
-        case .transfer(let record): transfers[record.key] = record
+        case .transfer(let record):
+            if transfers[record.key]?.state != record.state { transferRevision[record.peerID, default: 0] &+= 1 }
+            transfers[record.key] = record
         case .closed(let error):
             session = nil; stream = nil; activePeer = nil; consent = nil; fileOffer = nil; connectionState = .idle
             if let error { notice = Notice(message: error) }
