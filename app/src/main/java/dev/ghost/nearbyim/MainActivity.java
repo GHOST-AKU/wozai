@@ -90,7 +90,6 @@ public final class MainActivity extends Activity {
     private ProgressBar scanProgress;
     private EditText composer, conversationSearch;
     private ScrollView messageScroll, historyScroll, nearbyScroll, settingsScroll;
-    private boolean timelineDiagnostics;
     private int restoredHistoryY = -1, restoredNearbyY = -1, restoredSettingsY = -1;
     private boolean restoreUnread;
     private final LinearLayout[] navItems = new LinearLayout[3];
@@ -433,12 +432,7 @@ public final class MainActivity extends Activity {
         AdaptiveReconnectActions reconnectActions = new AdaptiveReconnectActions(this);reconnectActions.addView(reconnectHint); reconnectButton = button(t("reconnect"), true); reconnectButton.setOnClickListener(v -> { if (controller != null && outgoingRequest && (controller.connecting || controller.hasSession() && !controller.connected)) { outgoingRequest = false; controller.disconnect(); } else reconnectSelected(); });
         reconnectActions.addView(reconnectButton); Button find = button(t("findNearby"), false); find.setOnClickListener(v -> navigate(1));
         reconnectActions.addView(find); reconnectRow.addView(reconnectActions); chatPage.addView(reconnectRow);
-        messageScroll = new ScrollView(this) {
-            @Override protected void onScrollChanged(int x,int y,int oldX,int oldY) {
-                super.onScrollChanged(x,y,oldX,oldY);
-                if(timelineDiagnostics)android.util.Log.d("WozaiTimeline", "scroll="+oldY+"->"+y+",rebuilding="+rebuildingMessages+",generation="+messageGeneration+",pending="+(pendingTimelinePosition!=null)+",focus="+findFocus()+",windowFocus="+hasWindowFocus(),new Throwable("scroll origin"));
-            }
-        }; messageScroll.setFillViewport(true); messageScroll.setClipToPadding(false); messageScroll.setPadding(dp(16), 0, dp(16), 0);
+        messageScroll = new ScrollView(this); messageScroll.setFillViewport(true); messageScroll.setClipToPadding(false); messageScroll.setPadding(dp(16), 0, dp(16), 0);
         bubbles = vertical(); bubbles.setPadding(0, dp(8), 0, dp(12)); messageScroll.addView(bubbles); chatPage.addView(messageScroll, new LinearLayout.LayoutParams(-1, 0, 1));
         messageScroll.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
             boolean followedBottom = ob > ot && bubbles.getHeight() - (ob - ot) - messageScroll.getScrollY() < dp(48);

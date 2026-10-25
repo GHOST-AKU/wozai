@@ -272,16 +272,17 @@ public final class LocalizationInstrumentation extends Instrumentation {
         testLiveAttachmentFeedback(controller,peerId);
         testBatchRefreshResponsiveness(controller,peerId);
         testBatchPhotoRetention(controller,peerId);
-        onMain(()->{setField(activity,"timelineDiagnostics",true);return null;});
-        checks+=AndroidAvatarChecks.run(this,activity);
-        checks+=AndroidTransferPathChecks.run(this,activity);
-        checks+=AndroidWifiDirectUiChecks.run(this,activity);
         String readingTag="message:"+readingMessageId+":false";
-        // Avatar checks return from other activities before this chat necessarily resumes.
+        // Wait for deferred timeline restoration as well as the Activity and row layout.
+        // Synthetic path fixtures and avatar Activity transitions run after this assertion.
         try{await(()->onMain(()->{
             android.view.ViewGroup rows=field(activity,"bubbles");android.view.View row=rows.findViewWithTag(readingTag);
-            return field(activity,"controller")==controller&&activity.hasWindowFocus()&&row!=null&&row.getHeight()>0;
-        }),"Original chat resumes with the saved reading message laid out");}
+            ScrollView view=field(activity,"messageScroll");
+            return field(activity,"controller")==controller&&activity.hasWindowFocus()&&row!=null&&row.getHeight()>0
+                &&field(activity,"renderedMessages")==controller.messages&&!(boolean)field(activity,"rebuildingMessages")
+                &&field(activity,"pendingTimelinePosition")==null&&field(activity,"restoredTimelinePosition")==null
+                &&!rows.isLayoutRequested()&&!view.isLayoutRequested();
+        }),"Original chat has finished layout and deferred reading-position restoration");}
         catch(AssertionError failure){throw new AssertionError("Reading fixture not ready; "+onMain(()->{
             android.view.ViewGroup rows=field(activity,"bubbles");android.view.View row=rows.findViewWithTag(readingTag);
             return "controller="+(field(activity,"controller")==controller)+",focused="+activity.hasWindowFocus()+",tag="+readingTag+",row="+(row==null?"missing":row.getHeight())+",children="+rows.getChildCount()+",selected="+controller.selectedId+",records="+controller.messages.size();
@@ -330,6 +331,10 @@ public final class LocalizationInstrumentation extends Instrumentation {
         check(notification.extras.getString(Notification.EXTRA_TITLE).equals("NearbyIM is running"), "Foreground notification refreshes its language");
         check(notification.extras.getCharSequence(Notification.EXTRA_TEXT).toString().equals("Connected · LAN"), "Notification formats nested status in current language");
         check(notifications.getNotificationChannel("nearby-connection").getName().toString().equals("Chat connections"), "Existing notification channel is renamed on language change");
+        // These suites replace the timeline or leave this Activity; keep them outside the locale anchor fixture.
+        checks+=AndroidAvatarChecks.run(this,activity);
+        checks+=AndroidTransferPathChecks.run(this,activity);
+        checks+=AndroidWifiDirectUiChecks.run(this,activity);
         screenshot("en-live-chat");
         check(onMain(() -> controller.send("Message after language change")), "Live connection still sends after recreation");
         await(() -> onMain(() -> controller.messages.stream().anyMatch(message -> message.outgoing && message.text.equals("Message after language change") && ChatStore.DELIVERED.equals(message.state))), "Receipt still updates a language-independent delivery code");
