@@ -12,8 +12,8 @@
   "stopListen": "停止接收",
   "myAddress": "我的連線位址",
   "notListening": "尚未開啟接收",
-  "noAddress": "沒有可用的區域網路位址。請連線 Wi-Fi 或手機熱點。",
-  "nearbyHint": "雙方加入同一 Wi-Fi 或熱點並開啟接收，再選擇附近裝置。",
+  "noAddress": "沒有區域網路位址，請連接網線、Wi-Fi 或手機熱點。",
+  "nearbyHint": "雙方加入同一區域網路並開啟接收；電腦可接網線，手機可用 Wi-Fi。",
   "connect": "連線並記住",
   "reconnect": "連線",
   "disconnect": "斷開連線",
@@ -537,5 +537,6 @@
   "attachmentPathLanDirect": "傳輸路徑：區域網路 → Wi-Fi 直連",
   "attachmentPathBluetoothDirect": "傳輸路徑：藍牙 → Wi-Fi 直連",
   "attachmentPathBluetoothLan": "傳輸路徑：藍牙 → 區域網路",
-  "attachmentPathAllLinks": "傳輸路徑：Wi-Fi 直連、區域網路、藍牙"
+  "attachmentPathAllLinks": "傳輸路徑：Wi-Fi 直連、區域網路、藍牙",
+  "lanDiagnostics": "複製區域網路診斷"
 }

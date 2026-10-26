@@ -35,6 +35,8 @@ public final class LanTransport {
     private boolean resolving;
     private int searchEpoch;
     private String ownService;
+    private String registrationState = "stopped", discoveryState = "stopped", discoveryError = "";
+    private int serviceResponses, resolvedResponses, resolveFailures;
 
     public LanTransport(Context context, TransportListener listener) {
         this.context = context.getApplicationContext(); this.listener = listener;
@@ -42,6 +44,8 @@ public final class LanTransport {
     }
     public void start(String localId, String name) {
         stop(); final int run = epoch.get(); ownService = "nearby-" + localId.substring(0, 8);
+        registrationState = "starting"; discoveryError = "";
+        serviceResponses = 0; resolvedResponses = 0; resolveFailures = 0;
         worker.execute(() -> {
             try {
                 ServerSocket opened = new ServerSocket(0);
@@ -61,41 +65,45 @@ public final class LanTransport {
         });
     }
     private void register(int run, String id, String name, int port) {
+        registrationState = "registering";
         try {
             WifiManager wifi = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
             if (wifi != null) { multicast = wifi.createMulticastLock("nearby-im-discovery"); multicast.setReferenceCounted(false); multicast.acquire(); }
             NsdServiceInfo info = new NsdServiceInfo(); info.setServiceName(ownService); info.setServiceType(TYPE); info.setPort(port);
             info.setAttribute("id", id); info.setAttribute("name", name);
             registration = new NsdManager.RegistrationListener() {
-                public void onServiceRegistered(NsdServiceInfo service) { main.post(() -> { if (epoch.get() == run) ownService = service.getServiceName(); }); }
-                public void onRegistrationFailed(NsdServiceInfo service, int code) { main.post(() -> { if (epoch.get() == run) listener.onError(Peer.LAN, UiText.of("lanRegisterFailure"), false); }); }
+                public void onServiceRegistered(NsdServiceInfo service) { main.post(() -> { if (epoch.get() == run) { ownService = service.getServiceName(); registrationState = "registered"; } }); }
+                public void onRegistrationFailed(NsdServiceInfo service, int code) { main.post(() -> { if (epoch.get() == run) { registrationState = "failed"; discoveryError = "register:" + code; listener.onError(Peer.LAN, UiText.of("lanRegisterFailure"), false); } }); }
                 public void onServiceUnregistered(NsdServiceInfo service) {}
                 public void onUnregistrationFailed(NsdServiceInfo service, int code) {}
             };
             nsd.registerService(info, NsdManager.PROTOCOL_DNS_SD, registration);
-        } catch (RuntimeException e) { listener.onError(Peer.LAN, UiText.of("discoveryFailed"), false); }
+        } catch (RuntimeException e) { registrationState = "failed"; discoveryError = "register:" + e.getClass().getSimpleName(); listener.onError(Peer.LAN, UiText.of("discoveryFailed"), false); }
     }
     public void discover() {
         stopDiscovery(); resolveQueue.clear(); visible.clear(); final int run = epoch.get(), scan = ++searchEpoch;
+        discoveryState = "starting";
         discovery = new NsdManager.DiscoveryListener() {
             public void onDiscoveryStarted(String type) { NsdManager.DiscoveryListener self = this; main.post(() -> {
-                if (discoveryListeners.contains(self)) { startedDiscovery.add(self); listener.onSearching(Peer.LAN, true); }
+                if (discoveryListeners.contains(self)) { startedDiscovery.add(self); if (epoch.get() == run && searchEpoch == scan) discoveryState = "running"; listener.onSearching(Peer.LAN, true); }
             }); }
             public void onDiscoveryStopped(String type) { NsdManager.DiscoveryListener self = this; main.post(() -> {
+                if (epoch.get() == run && searchEpoch == scan) discoveryState = "stopped";
                 discoveryListeners.remove(self); startedDiscovery.remove(self); listener.onSearching(Peer.LAN, !startedDiscovery.isEmpty());
             }); }
             public void onStartDiscoveryFailed(String type, int code) { NsdManager.DiscoveryListener self = this; main.post(() -> {
                 discoveryListeners.remove(self); startedDiscovery.remove(self); listener.onSearching(Peer.LAN, !startedDiscovery.isEmpty());
-                if (epoch.get() == run && searchEpoch == scan) { discovery = null; listener.onError(Peer.LAN, UiText.of("discoveryFailed"), false); }
+                if (epoch.get() == run && searchEpoch == scan) { discovery = null; discoveryState = "failed"; discoveryError = "discover:" + code; listener.onError(Peer.LAN, UiText.of("discoveryFailed"), false); }
             }); }
             public void onStopDiscoveryFailed(String type, int code) { main.post(() -> {
                 if (epoch.get() != run || searchEpoch != scan) return;
+                discoveryState = "stop_failed"; discoveryError = "stop:" + code;
                 listener.onSearching(Peer.LAN, !startedDiscovery.isEmpty());
                 listener.onSearchStopFailed(Peer.LAN, UiText.of("searchStopFailure"));
             }); }
             public void onServiceFound(NsdServiceInfo info) { main.post(() -> {
                 if (epoch.get() != run || searchEpoch != scan || !info.getServiceType().startsWith("_nearbyim._tcp") || info.getServiceName().equals(ownService)) return;
-                if (visible.add(info.getServiceName())) { resolveQueue.add(info); resolveNext(run, scan); }
+                if (visible.add(info.getServiceName())) { serviceResponses++; resolveQueue.add(info); resolveNext(run, scan); }
             }); }
             public void onServiceLost(NsdServiceInfo info) { main.post(() -> {
                 if (epoch.get() != run || searchEpoch != scan) return;
@@ -104,6 +112,7 @@ public final class LanTransport {
         };
         try { discoveryListeners.add(discovery); nsd.discoverServices(TYPE, NsdManager.PROTOCOL_DNS_SD, discovery); }
         catch (RuntimeException e) {
+            discoveryState = "failed"; discoveryError = "discover:" + e.getClass().getSimpleName();
             discoveryListeners.remove(discovery); discovery = null; listener.onSearching(Peer.LAN, !startedDiscovery.isEmpty());
             listener.onError(Peer.LAN, UiText.of("discoveryFailed"), false);
         }
@@ -113,10 +122,11 @@ public final class LanTransport {
         if (resolving || resolveQueue.isEmpty() || run != epoch.get() || scan != searchEpoch) return;
         NsdServiceInfo info = resolveQueue.remove(); resolving = true;
         try { nsd.resolveService(info, new NsdManager.ResolveListener() {
-            public void onResolveFailed(NsdServiceInfo service, int code) { main.post(() -> { resolving = false; resolveNext(epoch.get(), searchEpoch); }); }
+            public void onResolveFailed(NsdServiceInfo service, int code) { main.post(() -> { if (epoch.get() == run && searchEpoch == scan) { resolveFailures++; discoveryError = "resolve:" + code; } resolving = false; resolveNext(epoch.get(), searchEpoch); }); }
             public void onServiceResolved(NsdServiceInfo service) { main.post(() -> {
                 resolving = false;
                 if (epoch.get() == run && searchEpoch == scan && visible.contains(service.getServiceName()) && service.getHost() != null && LocalEndpoint.isLocal(service.getHost())) {
+                    resolvedResponses++;
                     byte[] rawName = service.getAttributes().get("name");
                     String name = rawName == null ? service.getServiceName() : new String(rawName, StandardCharsets.UTF_8);
                     byte[] rawId = service.getAttributes().get("id"); String peerId = null;
@@ -126,7 +136,7 @@ public final class LanTransport {
                 }
                 resolveNext(epoch.get(), searchEpoch);
             }); }
-        }); } catch (RuntimeException e) { resolving = false; resolveNext(run, scan); }
+        }); } catch (RuntimeException e) { if (epoch.get() == run && searchEpoch == scan) { resolveFailures++; discoveryError = "resolve:" + e.getClass().getSimpleName(); } resolving = false; resolveNext(run, scan); }
     }
     public void connect(InetAddress host, int port) {
         connect(host,port,null);
@@ -191,6 +201,10 @@ public final class LanTransport {
     }
     public static String endpoint(InetAddress host, int port) { String ip = host.getHostAddress(); return (ip.contains(":") ? "[" + ip + "]" : ip) + ":" + port; }
     private UiText addresses(int port) {
+        List<String> result = localAddresses(port);
+        return result.isEmpty() ? UiText.of("lanListeningWithoutAddress", Integer.toString(port)) : UiText.of("lanAddresses", String.join("\n", result));
+    }
+    private List<String> localAddresses(int port) {
         List<String> result = new ArrayList<>();
         try {
             ConnectivityManager manager = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -206,7 +220,18 @@ public final class LanTransport {
                 for (InetAddress address : Collections.list(iface.getInetAddresses())) if (address instanceof Inet4Address && LocalEndpoint.isLocal(address)) result.add(endpoint(address, port));
             }
         } catch (RuntimeException | SocketException ignored) {}
-        return result.isEmpty() ? UiText.of("lanListeningWithoutAddress", Integer.toString(port)) : UiText.of("lanAddresses", String.join("\n", result));
+        return result;
+    }
+    public String diagnostics() {
+        int port; synchronized (lock) { port = server == null ? 0 : server.getLocalPort(); }
+        return "lan_discovery_schema=1\nlan_listen_port=" + port
+                + "\nlan_registration_state=" + registrationState
+                + "\nlan_discovery_state=" + discoveryState
+                + "\nlan_local_endpoints=" + (port == 0 ? "" : String.join(";", localAddresses(port)))
+                + "\nlan_mdns_service_responses=" + serviceResponses
+                + "\nlan_mdns_resolved_responses=" + resolvedResponses
+                + "\nlan_mdns_resolve_failures=" + resolveFailures
+                + "\nlan_mdns_last_error=" + discoveryError + "\n";
     }
     private StreamConnection wrap(Socket socket) {
         return new StreamConnection() {
@@ -234,6 +259,7 @@ public final class LanTransport {
         return SocketPath.from(socket,gateway);
     }
     private void stopDiscovery() {
+        discoveryState = "stopped";
         discovery = null;
         for (NsdManager.DiscoveryListener previous : new ArrayList<>(discoveryListeners)) {
             try { nsd.stopServiceDiscovery(previous); } catch (RuntimeException ignored) {}
@@ -246,6 +272,7 @@ public final class LanTransport {
         synchronized (lock) { for (Socket socket : pending) close(socket); pending.clear(); }
     }
     public void stop() {
+        registrationState = "stopped";
         epoch.incrementAndGet(); cancelConnect(); searchEpoch++; stopDiscovery(); visible.clear(); resolveQueue.clear();
         if (registration != null) { try { nsd.unregisterService(registration); } catch (RuntimeException ignored) {} registration = null; }
         if (multicast != null) { if (multicast.isHeld()) multicast.release(); multicast = null; }

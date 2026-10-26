@@ -155,7 +155,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         clear.addActionListener(e -> { if (selected != null && confirm("clearConfirm")) handle(client.clear(selected), "storageFailure"); });
         revoke.addActionListener(e -> { if (selected != null && confirm("revokeConfirm")) handle(client.revoke(selected), "storageFailure"); });
         JMenuItem diagnostics=new JMenuItem();translations.add(()->diagnostics.setText(strings.text("transferDiagnostics")));
-        diagnostics.addActionListener(e->{if(selected==null)return;try{Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new java.awt.datatransfer.StringSelection(client.transferDiagnostics(selected)),null);notice("diagnosticsCopied");}catch(RuntimeException unavailable){notice("error");}});menu.add(diagnostics);
+        diagnostics.addActionListener(e -> copyDiagnostics()); menu.add(diagnostics);
         for(String action:List.of("pause","resume","cancel")){String key=action.equals("pause")?"attachmentBatchPause":action.equals("resume")?"attachmentBatchResume":"attachmentBatchCancel";JMenuItem item=new JMenuItem();translations.add(()->item.setText(strings.text(key)));item.addActionListener(e->{if(selected!=null)handle(client.batchAction(selected,action),"attachmentFailed");});menu.add(item);}
         JMenuItem disconnect=new JMenuItem(); translations.add(() -> disconnect.setText(strings.text("disconnect"))); disconnect.addActionListener(e -> handle(client.disconnect(),"error")); menu.add(disconnect); menu.addSeparator(); menu.add(clear); menu.add(revoke);
         JButton more = new JButton(AppTheme.icon("more_vert")); more.setPreferredSize(new Dimension(44,44)); translations.add(() -> { more.setToolTipText(strings.text("more")); more.getAccessibleContext().setAccessibleName(strings.text("more")); });
@@ -208,7 +208,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         JTabbedPane transports=new JTabbedPane();
         JPanel lan=padded(new BorderLayout(12,12)); JPanel controls=new JPanel(new BorderLayout(8,12));
         controls.add(note("nearbyHint"),BorderLayout.NORTH); JPanel buttons=new JPanel(new FlowLayout(FlowLayout.LEADING,8,0));
-        listenButton.addActionListener(e -> toggleListening()); AppTheme.primary(listenButton); buttons.add(listenButton); buttons.add(button("direct",this::direct)); controls.add(buttons,BorderLayout.CENTER);
+        listenButton.addActionListener(e -> toggleListening()); AppTheme.primary(listenButton); buttons.add(listenButton); buttons.add(button("direct",this::direct)); buttons.add(button("lanDiagnostics",this::copyDiagnostics)); controls.add(buttons,BorderLayout.CENTER);
         addresses.setEditable(false); addresses.setLineWrap(true); addresses.setWrapStyleWord(true); addresses.setMargin(new Insets(12,12,12,12));
         translations.add(() -> addresses.getAccessibleContext().setAccessibleName(strings.text("myAddress"))); controls.add(new JScrollPane(addresses),BorderLayout.SOUTH); lan.add(controls,BorderLayout.NORTH);
         nearby.setSelectionMode(ListSelectionModel.SINGLE_SELECTION); lan.add(AppTheme.scroll(nearby));
@@ -566,7 +566,15 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
             public void found(LanDiscovery.Nearby peer) { SwingUtilities.invokeLater(() -> { if (state == null || state.listening() == null || shuttingDown) return; if (discovered.size() < 128 || discovered.containsKey(peer.service())) { discovered.put(peer.service(), peer); refreshNearby(); } }); }
             public void lost(String service) { SwingUtilities.invokeLater(() -> { discovered.remove(service); refreshNearby(); }); }
             public void failed() { notice("discoveryFailed"); }
+            public void networkChanged() { handle(client.refresh(), "error"); }
         });
+    }
+    private void copyDiagnostics() {
+        try {
+            String report = client.transferDiagnostics(selected) + discovery.diagnostics();
+            Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new java.awt.datatransfer.StringSelection(report), null);
+            notice("diagnosticsCopied");
+        } catch (RuntimeException unavailable) { notice("error"); }
     }
     private void refreshNearby() {
         nearbyModel.clear(); for (var peer : discovered.values()) nearbyModel.addElement(peer);

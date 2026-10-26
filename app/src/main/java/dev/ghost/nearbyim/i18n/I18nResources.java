@@ -342,6 +342,7 @@ public final class I18nResources {
             case "invalidTransport": return R.string.invalid_transport;
             case "lan": return R.string.lan;
             case "lanAddresses": return R.string.lan_addresses;
+            case "lanDiagnostics": return R.string.lan_diagnostics;
             case "lanListeningWithoutAddress": return R.string.lan_listening_without_address;
             case "lanNoDevicesBody": return R.string.lan_no_devices_body;
             case "lanPathUnconfirmed": return R.string.lan_path_unconfirmed;

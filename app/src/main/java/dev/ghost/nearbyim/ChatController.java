@@ -515,7 +515,7 @@ public final class ChatController implements TransportListener {
     public long attachmentSessionToken(){return attachmentToken;}
     public String transferDiagnostics(){
         FramedSession wire=active;ClientAttachmentTransfers files=transfers;
-        return "diagnostics_schema=1\nendpoint=android\nversion="+LanguageRegistry.VERSION+"\ntransport="+transportKey()+"\n"+(fileRoutes==null?"":fileRoutes.diagnostics())+(wire==null?"active_session=false\n":wire.diagnostics())+(files==null?"":files.diagnostics());
+        return "diagnostics_schema=1\nendpoint=android\nversion="+LanguageRegistry.VERSION+"\ntransport="+transportKey()+"\n"+lan.diagnostics()+(fileRoutes==null?"":fileRoutes.diagnostics())+(wire==null?"active_session=false\n":wire.diagnostics())+(files==null?"":files.diagnostics());
     }
     public boolean canSendAttachment(){return canSend()&&transfers!=null&&active.attachmentsSupported();}
     public long attachmentRetryRevision(){return attachmentRetryRevision;}

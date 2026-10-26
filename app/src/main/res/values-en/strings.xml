@@ -334,6 +334,7 @@
     <string name="invalid_transport" formatted="false">"Invalid connection method"</string>
     <string name="lan" formatted="false">"LAN"</string>
     <string name="lan_addresses" formatted="false">"{0}"</string>
+    <string name="lan_diagnostics" formatted="false">"Copy LAN diagnostics"</string>
     <string name="lan_listening_without_address" formatted="false">"Listening on port {0}. Connect to Wi-Fi or a phone hotspot."</string>
     <string name="lan_no_devices_body" formatted="false">"Make sure the other device has reception enabled and is on the same Wi-Fi or hotspot."</string>
     <string name="lan_path_unconfirmed" formatted="false">"LAN · topology unconfirmed"</string>
@@ -360,12 +361,12 @@
     <string name="my_nickname" formatted="false">"I\'m {0}"</string>
     <string name="nearby" formatted="false">"Nearby"</string>
     <string name="nearby_devices" formatted="false">"Nearby devices"</string>
-    <string name="nearby_hint" formatted="false">"Join the same Wi-Fi or hotspot and enable reception on both devices."</string>
+    <string name="nearby_hint" formatted="false">"Join the same LAN and enable reception on both devices. Ethernet and Wi-Fi can communicate."</string>
     <string name="nearby_permission_missing" formatted="false">"Nearby device permission is required. Tap Search to allow it."</string>
     <string name="new_chat" formatted="false">"New chat"</string>
     <string name="new_messages" formatted="false">"New messages"</string>
     <string name="nickname" formatted="false">"Device nickname"</string>
-    <string name="no_address" formatted="false">"No local network address. Join Wi-Fi or a phone hotspot."</string>
+    <string name="no_address" formatted="false">"No LAN address. Connect Ethernet, Wi-Fi or a phone hotspot."</string>
     <string name="no_bluetooth_address" formatted="false">"No Bluetooth address is available. Find this device again in Nearby."</string>
     <string name="no_bluetooth_devices" formatted="false">"No devices found. Enable discoverability on Android and try again."</string>
     <string name="no_chats_body" formatted="false">"Find someone nearby and start a conversation."</string>
