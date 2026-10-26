@@ -59,3 +59,8 @@ java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.SecureSessionTests
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.SafetyCodeTests
 sh tools/test-qr-camera-focus.sh
 sh tools/test-wifi-direct.sh
+
+java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.TextCapacityTests
+java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.TextInputTests
+
+sh tools/test-text-legacy.sh

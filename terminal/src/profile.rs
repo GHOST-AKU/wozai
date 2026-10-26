@@ -253,6 +253,10 @@ impl Profile {
             .unwrap_or_default())
     }
     pub fn save_draft(&self, peer: &str, body: &str) -> Result<()> {
+        anyhow::ensure!(
+            body.len() <= crate::wire::DRAFT_BYTES,
+            "draft exceeds resource budget"
+        );
         self.db.execute(
             "INSERT INTO drafts VALUES(?,?) ON CONFLICT(peer) DO UPDATE SET body=excluded.body",
             params![peer, body],

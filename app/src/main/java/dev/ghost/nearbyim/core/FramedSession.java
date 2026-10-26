@@ -9,6 +9,7 @@ import dev.ghost.nearbyim.noise.NoiseRecordChannel;
 
 public final class FramedSession {
     public interface Listener {
+        default void onTextLimit(int bytes) {}
         default void onAttachment(Frame frame) { throw new IllegalStateException("Attachments unavailable"); }
         default void onTransfer(TransferPacket packet) { throw new IllegalStateException("Encrypted attachments unavailable"); }
         default void onFileRoute(FileRoutePacket packet) { throw new IllegalStateException("Automatic file routes unavailable"); }
@@ -27,6 +28,7 @@ public final class FramedSession {
     private final ScheduledExecutorService timer = Executors.newSingleThreadScheduledExecutor(r -> daemon(r, "nearby-timeout"));
     private volatile boolean greeted, approved, remoteReady;
     private boolean fileLane;private volatile boolean fileLinkEnabled;
+    private volatile TextCapability textCapability;
     private volatile OutputStream output;
     private volatile long lastReadNanos = System.nanoTime();
     private final Map<String, Integer> receiving = new HashMap<>();
@@ -74,13 +76,13 @@ public final class FramedSession {
                 channel.readOffer(input);
                 if (!enqueue(() -> channel.writeProof(output))) return;
                 channel.readProof(input);
-            }else {noise.establish();output=connection.output();}
+            }else {noise.establish();output=connection.output();if(!fileLane)textCapability=new TextCapability(noise.connectionGeneration(),time->enqueueFrame(new Frame(Frame.PONG,"","",time)),()->listener.onTextLimit(textLimit()));}
             greeted = true; listener.onHello(noise==null?channel.remoteHello():noise.remoteHello());
             while (!closed.get()) {
                 Frame frame;
                 if(noise==null)frame=channel.read(input);
                 else {
-                    ProtocolV4.Record record=ProtocolV4.decodeRecord(noise.read());lastReadNanos=System.nanoTime();
+                    ProtocolV4.Record record=ProtocolV4.decodeRecord(noise.read(),textCapability==null?TextLimits.LEGACY_BYTES:textCapability.incoming());lastReadNanos=System.nanoTime();
                     if(record.fileLink!=null){if(!automaticFilesSupported())throw new NoiseRecordChannel.AuthenticationException("FILE migration before approval");listener.onFileLink(record.fileLink);continue;}
                     if(record.fileRoute!=null){if(!automaticFilesSupported())throw new IOException("File routing before negotiated approval");listener.onFileRoute(record.fileRoute);continue;}
                     if(record.transfer!=null){if(!isReady())throw new NoiseRecordChannel.AuthenticationException("File before approval");listener.onTransfer(record.transfer);continue;}
@@ -113,7 +115,8 @@ public final class FramedSession {
                         if (!isReady()) throw new IOException("Heartbeat before approval");
                         enqueueFrame(new Frame(Frame.PONG, "", "", System.currentTimeMillis())); break;
                     case Frame.PONG:
-                        if (!isReady()) throw new IOException("Heartbeat before approval"); break;
+                        if (!isReady()) throw new IOException("Heartbeat before approval");
+                        if(textCapability!=null)textCapability.receive(frame.timestamp);break;
                     default:
                         if(noise!=null&&frame.type==Frame.ATTACHMENT_V2&&isReady())listener.onTransfer(TransferCodec.read(new ByteArrayInputStream(frame.data)));
                         else if(noise==null&&frame.type>=Frame.FILE_OFFER && frame.type<=Frame.FILE_CANCEL && isReady() && channel.attachments())listener.onAttachment(frame);
@@ -147,6 +150,7 @@ public final class FramedSession {
                 else enqueueFrame(new Frame(Frame.PING, "", "", System.currentTimeMillis()));
             }, 5, 5, TimeUnit.SECONDS);
             listener.onReady();
+            if(textCapability!=null)textCapability.start();
         }
     }
     public boolean attachmentsSupported() { return isReady() && (noise!=null||channel.attachments()); }
@@ -200,6 +204,7 @@ public final class FramedSession {
     }
     public boolean send(Frame frame) {
         if (fileLane || !isReady() || frame.type != Frame.TEXT) return false;
+        try{Protocol.validate(frame,textLimit());}catch(IOException invalid){return false;}
         synchronized (awaitingReceipts) { if (awaitingReceipts.size() >= 32 || !awaitingReceipts.add(frame.id)) return false; }
         if (enqueueFrame(frame)) return true;
         synchronized (awaitingReceipts) { awaitingReceipts.remove(frame.id); } return false;
@@ -221,8 +226,13 @@ public final class FramedSession {
             if(record!=null)noise.write(record);
         }
     }
-    private void writeFrame(Frame frame)throws IOException {if(noise==null)channel.write(output,frame);else noise.write(ProtocolV4.encode(frame));}
+    public int textLimit(){return textCapability==null?TextLimits.LEGACY_BYTES:textCapability.outgoing();}
+    private void writeFrame(Frame frame)throws IOException {if(noise==null)channel.write(output,frame);else noise.write(ProtocolV4.encode(frame,textLimit()));}
     private boolean enqueueFrame(Frame frame) {
+        if(noise!=null){
+            try{byte[] bytes=ProtocolV4.encode(frame,textLimit());return enqueue(()->noise.write(bytes),bytes.length+256,frame.type>=Frame.FILE_OFFER);}
+            catch(IOException invalid){return false;}
+        }
         return enqueue(()->writeFrame(frame),frame.data.length+frame.body.length()*2+256,frame.type>=Frame.FILE_OFFER);
     }
     private boolean enqueue(Write operation) {
@@ -246,6 +256,6 @@ public final class FramedSession {
     /** Available only after proof verification, including during onHello. */
     public String remotePublicKey() { return noise==null?channel.remotePublicKey():noise.remotePublicKey(); }
     public boolean isReady() { return greeted && approved && remoteReady && !closed.get(); }
-    public String diagnostics(){return "protocol="+(noise==null?"NIM3":"NIM4")+"\nend_to_end_encrypted="+endToEndEncrypted()+"\nwriter_pending_bytes="+writer.pendingBytes()+"\n"+metrics.snapshot()+(noise==null?"":noise.diagnostics());}
+    public String diagnostics(){return "protocol="+(noise==null?"NIM3":"NIM4")+"\nend_to_end_encrypted="+endToEndEncrypted()+"\ntext_send_limit_bytes="+textLimit()+"\ntext_receive_limit_bytes="+(textCapability==null?TextLimits.LEGACY_BYTES:textCapability.incoming())+"\nwriter_pending_bytes="+writer.pendingBytes()+"\n"+metrics.snapshot()+(noise==null?"":noise.diagnostics());}
     public boolean endToEndEncrypted(){return isReady()&&noise!=null&&noise.verified();}
 }

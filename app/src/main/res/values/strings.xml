@@ -277,7 +277,9 @@
     <string name="discoverable_remaining" formatted="false">"Discovery enabled · {0, plural, one {# second} other {# seconds}} remaining"</string>
     <string name="discovered" formatted="false">"Discovered"</string>
     <string name="discovery_failed" formatted="false">"Automatic discovery is unavailable. Use an IP address to connect."</string>
+    <string name="draft_edit_too_large" formatted="false">"That edit exceeds the {0}-byte draft budget. The previous draft is unchanged; send large text as a file."</string>
     <string name="draft_retained_hint" formatted="false">"Connect to send a message. Your draft will stay here."</string>
+    <string name="draft_save_failed" formatted="false">"The draft could not be saved. Keep this conversation open and copy the text."</string>
     <string name="earlier" formatted="false">"Earlier"</string>
     <string name="emoji" formatted="false">"Emoji"</string>
     <string name="empty_chat" formatted="false">"Select a chat on the left, or connect to a device in Nearby."</string>
@@ -329,7 +331,7 @@
     <string name="idle" formatted="false">"Disconnected"</string>
     <string name="initial_status" formatted="false">"Choose a connection method to find people nearby"</string>
     <string name="invalid_endpoint" formatted="false">"Use an address such as 192.168.1.20:54321 or [fd00::1]:54321."</string>
-    <string name="invalid_message" formatted="false">"Enter a message of no more than 8192 UTF-8 bytes."</string>
+    <string name="invalid_message" formatted="false">"Enter valid text within the displayed UTF-8 byte limit. Your draft is preserved."</string>
     <string name="invalid_nickname" formatted="false">"Use 1–32 characters with no control characters."</string>
     <string name="invalid_transport" formatted="false">"Invalid connection method"</string>
     <string name="lan" formatted="false">"LAN"</string>
@@ -486,6 +488,9 @@
     <string name="storage_failure" formatted="false">"Local data could not be saved. The connection was stopped. Check disk space and folder permissions."</string>
     <string name="system_language" formatted="false">"Follow system"</string>
     <string name="system_theme" formatted="false">"Follow system"</string>
+    <string name="text_byte_count" formatted="false">"{0} / {1} UTF-8 bytes"</string>
+    <string name="text_invalid_unicode" formatted="false">"Finish the input composition before sending. Draft preserved."</string>
+    <string name="text_over_limit" formatted="false">"{0} / {1} UTF-8 bytes — too long for this connection. Draft preserved. Shorten it or send a file."</string>
     <string name="theme" formatted="false">"Theme"</string>
     <string name="today" formatted="false">"Today"</string>
     <string name="transfer_diagnostics" formatted="false">"Copy transfer diagnostics"</string>

@@ -25,6 +25,7 @@ import dev.ghost.nearbyim.transport.Peer;
 import dev.ghost.nearbyim.i18n.LanguageRegistry;
 import dev.ghost.nearbyim.i18n.UiText;
 import java.util.*;
+import dev.ghost.nearbyim.core.TextLimits;
 import dev.ghost.nearbyim.core.AttachmentInfo;
 import dev.ghost.nearbyim.core.AttachmentBatchQueue;
 import dev.ghost.nearbyim.core.IdentityVerification;
@@ -109,7 +110,11 @@ public final class MainActivity extends Activity {
     private CheckBox rememberDevice;
     private long discoverableUntil;
     private final Handler ui = new Handler(Looper.getMainLooper());
-    private final Map<String, String> drafts = new HashMap<>();
+    private final Map<String, String> drafts = new HashMap<>(); // Legacy saved-state migration only.
+    private boolean draftLoaded;
+    private int draftGeneration, draftSelectionStart=-1, draftSelectionEnd=-1;
+    private TextView textCapacity;
+    private final Runnable draftSaveTask=()->persistDraft();
     private final Map<String, Integer> historyPositions = new HashMap<>();
     private static final int PERMISSION_STAGE = 1, ENABLE_STAGE = 2, BIND_STAGE = 3, CLOSE_STAGE = 4, WIFI_STAGE = 5;
     private static final class UiAction implements java.io.Serializable {
@@ -158,6 +163,7 @@ public final class MainActivity extends Activity {
             mode = saved.getInt("mode", Peer.LAN); page = saved.getInt("page", 0); detail = saved.getBoolean("detail");
             pendingAction = (UiAction) saved.getSerializable("pendingAction"); pendingStage = saved.getInt("pendingStage"); wifiSettingsReturned = saved.getBoolean("wifiSettingsReturned");
             restoredSelectedId = saved.getString("selectedId"); restoredSelectedName = saved.getString("selectedName");
+            draftSelectionStart=saved.getInt("composerStart",-1);draftSelectionEnd=saved.getInt("composerEnd",-1);
             composerPeer = saved.getString("composerPeer"); handledSavedMessage = saved.getString("handledSavedMessage");
             outgoingRequest = saved.getBoolean("outgoingRequest"); searchQuery = saved.getString("searchQuery", "");
             lanDetails = saved.getBoolean("lanDetails"); rememberNext = saved.getBoolean("rememberNext", true); discoverableUntil = saved.getLong("discoverableUntil");
@@ -165,12 +171,14 @@ public final class MainActivity extends Activity {
             if (draftState != null) for (String key : draftState.keySet()) drafts.put(key, draftState.getString(key, ""));
             if (positions != null) for (String key : positions.keySet()) historyPositions.put(key, positions.getInt(key));
         }
+        for(Map.Entry<String,String> entry:drafts.entrySet())AndroidDrafts.get(this).save(entry.getKey(),entry.getValue(),error->toast(t("draftSaveFailed")));
         mode=normalizeChatMode(mode);
         getSharedPreferences("ui", MODE_PRIVATE).edit().putInt("lastMode",mode).apply();
         if(pendingAction!=null&&pendingAction.mode==Peer.WIFI_DIRECT){pendingAction=null;pendingStage=0;wifiSettingsReturned=false;}
         palette(); buildUi();
         if (saved != null) {
-            composer.setText(saved.getString("draft", ""));
+            if(saved.containsKey("draft")&&composerPeer!=null)drafts.put(composerPeer,saved.getString("draft",""));
+            loadComposerDraft(composerPeer);
             int length = composer.length();
             composer.setSelection(Math.min(length, Math.max(0, saved.getInt("composerStart", length))),
                     Math.min(length, Math.max(0, saved.getInt("composerEnd", length))));
@@ -200,7 +208,7 @@ public final class MainActivity extends Activity {
         if (approvalDialog != null) { approvalDialog.setOnCancelListener(null); approvalDialog.dismiss(); approvalDialog = null; shownApproval = null; }
         super.onStop();
     }
-    protected void onDestroy(){if(verificationDialog!=null)verificationDialog.dismiss();if(messageScroll!=null)messageScroll.removeCallbacks(restoreTimelinePosition);pendingTimelinePosition=null;imageWorker.shutdownNow();thumbnails.clear();super.onDestroy();}
+    protected void onDestroy(){draftGeneration++;ui.removeCallbacks(draftSaveTask);if(verificationDialog!=null)verificationDialog.dismiss();if(messageScroll!=null)messageScroll.removeCallbacks(restoreTimelinePosition);pendingTimelinePosition=null;imageWorker.shutdownNow();thumbnails.clear();super.onDestroy();}
     protected void onSaveInstanceState(Bundle state) {
         state.putString("pendingGalleryPeer",pendingGalleryPeer);state.putString("pendingGalleryRecord",pendingGalleryRecord);
         state.putString("pendingAttachmentPeer",pendingAttachmentPeer);state.putLong("pendingAttachmentToken",pendingAttachmentToken);state.putString("pendingExportPeer",pendingExportPeer);state.putString("pendingExportRecord",pendingExportRecord);
@@ -210,7 +218,7 @@ public final class MainActivity extends Activity {
         saveDraftAndPosition();
         TimelinePosition timeline=restoredTimelinePosition!=null?restoredTimelinePosition:pendingTimelinePosition!=null?pendingTimelinePosition:captureTimelinePosition();
         if(timeline.peer!=null){float density=getResources().getDisplayMetrics().density;state.putString("timelinePeer",timeline.peer);state.putString("timelineAnchor",timeline.anchor instanceof String?(String)timeline.anchor:null);state.putInt("timelineYDp",Math.round(timeline.y/density));state.putInt("timelineOffsetDp",Math.round(timeline.offset/density));state.putBoolean("timelineBottom",timeline.bottom);}
-        state.putInt("mode", mode); state.putInt("page", page); state.putBoolean("detail", detail); state.putString("draft", composer.getText().toString());
+        state.putInt("mode", mode); state.putInt("page", page); state.putBoolean("detail", detail);
         state.putString("selectedId", controller == null ? restoredSelectedId : controller.selectedId);
         state.putString("selectedName", controller == null ? restoredSelectedName : controller.selectedName);
         state.putString("composerPeer", composerPeer); state.putString("handledSavedMessage", handledSavedMessage);
@@ -223,14 +231,13 @@ public final class MainActivity extends Activity {
         state.putInt("nearbyY", restoredNearbyY >= 0 ? restoredNearbyY : nearbyScroll.getScrollY());
         state.putInt("settingsY", restoredSettingsY >= 0 ? restoredSettingsY : settingsScroll.getScrollY());
         state.putBoolean("unreadVisible", newMessages.getVisibility() == View.VISIBLE || restoreUnread);
-        Bundle draftState = new Bundle(), positions = new Bundle();
-        for (Map.Entry<String, String> entry : drafts.entrySet()) draftState.putString(entry.getKey(), entry.getValue());
+        Bundle positions = new Bundle();
         for (Map.Entry<String, Integer> entry : historyPositions.entrySet()) positions.putInt(entry.getKey(), entry.getValue());
-        state.putBundle("drafts", draftState); state.putBundle("historyPositions", positions);
+        state.putBundle("historyPositions", positions);
         state.putSerializable("pendingAction", pendingAction); state.putInt("pendingStage", pendingStage); state.putBoolean("wifiSettingsReturned", wifiSettingsReturned); super.onSaveInstanceState(state);
     }
     private void saveDraftAndPosition() {
-        if (composerPeer != null && composer != null) drafts.put(composerPeer, composer.getText().toString());
+        ui.removeCallbacks(draftSaveTask);persistDraft();
         if (renderedPeer != null && messageScroll != null && !Objects.equals(renderedPeer, deferredScrollPeer)) historyPositions.put(renderedPeer, messageScroll.getScrollY());
     }
     @SuppressLint("GestureBackNavigation") @SuppressWarnings("deprecation")
@@ -452,7 +459,8 @@ public final class MainActivity extends Activity {
         emojiButton=iconButton(R.drawable.outline_emoji_emotions_24,t("emoji"),muted);emojiButton.setOnClickListener(v->showEmoji());inputBox.addView(emojiButton,new LinearLayout.LayoutParams(dp(48),dp(48)));
         composer = new EditText(this); composer.setTextColor(ink); composer.setHintTextColor(muted); composer.setTextSize(16); composer.setHint(t("androidComposer")); composer.setBackgroundColor(Color.TRANSPARENT);
         composer.setPadding(0, dp(12), dp(4), dp(12)); composer.setMinHeight(dp(48)); composer.setMaxLines(4); composer.setVerticalScrollBarEnabled(true);
-        composer.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES); composer.setFilters(new InputFilter[]{new InputFilter.LengthFilter(2000)});
+        composer.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES); composer.setSaveEnabled(false);
+        composer.setFilters(new InputFilter[]{new DraftInputFilter(()->toast(t("draftEditTooLarge",TextLimits.DRAFT_BYTES)))});
         inputBox.addView(composer,new LinearLayout.LayoutParams(0,-2,1));attachmentToggle=iconButton(R.drawable.outline_attach_file_24,t("attachments"),muted);
         attachmentToggle.setOnClickListener(v->{attachmentTray.setVisibility(attachmentTray.getVisibility()==View.VISIBLE?View.GONE:View.VISIBLE);});inputBox.addView(attachmentToggle,new LinearLayout.LayoutParams(dp(48),dp(48)));
         inputRow.addView(inputBox, new LinearLayout.LayoutParams(0, -2, 1)); sendButton = iconButton(R.drawable.outline_send_24,t("send"),accentInk);sendButton.setPadding(dp(12),dp(12),dp(12),dp(12)); sendButton.setOnClickListener(v -> { if (controller != null) controller.send(composer.getText().toString()); });
@@ -463,7 +471,9 @@ public final class MainActivity extends Activity {
             if(event.getAction()==KeyEvent.ACTION_DOWN){hardwareSendKey=!event.isShiftPressed()&&!event.isAltPressed()&&android.view.inputmethod.BaseInputConnection.getComposingSpanStart(composer.getText())<0;return hardwareSendKey;}
             if(event.getAction()==KeyEvent.ACTION_UP){boolean send=hardwareSendKey;hardwareSendKey=false;if(send&&sendButton.isEnabled())sendButton.performClick();return send;}return false;
         });
-        composer.addTextChangedListener(watcher(this::updateSend));
+        textCapacity=label("",11,muted);textCapacity.setPadding(dp(16),0,dp(16),dp(4));chatPage.addView(textCapacity);
+        composer.addTextChangedListener(watcher(()->{updateSend();if(draftLoaded){ui.removeCallbacks(draftSaveTask);ui.postDelayed(draftSaveTask,400);}}));
+        if(composerPeer!=null)loadComposerDraft(composerPeer);
     }
     private void render() {
         if (root == null) return;
@@ -609,12 +619,12 @@ public final class MainActivity extends Activity {
         chatName.setText(peerName == null ? t("chats") : peerName);
         boolean switched = !Objects.equals(composerPeer, peerId);
         if (switched) {
-            if (composerPeer != null) drafts.put(composerPeer, composer.getText().toString()); composerPeer = peerId;
-            composer.setText(peerId == null ? "" : drafts.getOrDefault(peerId, ""));
+            draftSelectionStart=draftSelectionEnd=-1;persistDraft();composerPeer = peerId;
+            loadComposerDraft(peerId);
         }
-        if (controller != null && controller.savedMessageId != null && !Objects.equals(handledSavedMessage, controller.savedMessageId)) {
-            if (Objects.equals(drafts.get(controller.savedMessagePeer), controller.savedMessageBody)) drafts.put(controller.savedMessagePeer, "");
-            if (Objects.equals(composerPeer, controller.savedMessagePeer) && composer.getText().toString().equals(controller.savedMessageBody)) composer.setText("");
+        if (controller != null && controller.savedMessageId != null && !Objects.equals(handledSavedMessage, controller.savedMessageId) && (draftLoaded || !Objects.equals(composerPeer,controller.savedMessagePeer))) {
+            if (Objects.equals(composerPeer, controller.savedMessagePeer) && composer.getText().toString().equals(controller.savedMessageBody)) {composer.setText("");persistDraft();}
+            if(!Objects.equals(composerPeer,controller.savedMessagePeer))AndroidDrafts.get(this).clearIfUnchanged(controller.savedMessagePeer,controller.savedMessageBody,error->toast(t("draftSaveFailed")));
             handledSavedMessage = controller.savedMessageId;
         }
         if (switched || chatAvatar == null) { chatAvatarBox.removeAllViews(); chatAvatar = avatar(peerId, peerName, 40); chatAvatarBox.addView(chatAvatar, new LinearLayout.LayoutParams(dp(40), dp(40))); }
@@ -631,7 +641,7 @@ public final class MainActivity extends Activity {
         reconnectButton.setText(connecting ? t("cancelConnection") : controller != null && !UiText.EMPTY.equals(controller.error) ? t("retryConnection") : t("reconnect"));
         reconnectHint.setText(connecting ? withRouteNotice(t(controller.status)) : trusted ? controller != null && !UiText.EMPTY.equals(controller.error) ? t("reconnectUnavailable") : t("reconnectRemembered") : t("draftRetainedHint"));
         if(ready)requestFileRoutePermissions();
-        composer.setEnabled(peerId != null);emojiButton.setEnabled(peerId!=null);attachmentToggle.setEnabled(controller!=null&&controller.canSendAttachment());fileButton.setEnabled(controller!=null&&controller.canSendAttachment());photoButton.setEnabled(controller!=null&&controller.canSendAttachment());if(switched)attachmentTray.setVisibility(View.GONE);updateSend();
+        composer.setEnabled(peerId != null&&draftLoaded);emojiButton.setEnabled(peerId!=null);attachmentToggle.setEnabled(controller!=null&&controller.canSendAttachment());fileButton.setEnabled(controller!=null&&controller.canSendAttachment());photoButton.setEnabled(controller!=null&&controller.canSendAttachment());if(switched)attachmentTray.setVisibility(View.GONE);updateSend();
         updateAttachmentPaths(peerId);
         String retryState=controller==null?null:controller.attachmentRetryRevision()+":"+controller.canSendAttachment()+":"+peerId;if(!Objects.equals(renderedRetryState,retryState)){renderedMessages=null;renderedRetryState=retryState;}
         if (controller == null || dirtyAttachmentRows.isEmpty()&&renderedMessages == controller.messages && Objects.equals(renderedPeer, peerId)) return;
@@ -952,9 +962,26 @@ public final class MainActivity extends Activity {
         messageWidth = Math.max(dp(64), Math.min(dp(560),Math.round(available * .78f) - dp(28)));
         for (int i = 0; i < bubbles.getChildCount(); i++) { View row = bubbles.getChildAt(i); TextView body = row.findViewWithTag("messageBody"), meta = row.findViewWithTag("messageMeta"); if (body != null) body.setMaxWidth(messageWidth); if (meta != null) meta.setMaxWidth(messageWidth); }
     }
+    private void persistDraft(){
+        if(composerPeer!=null&&composer!=null&&draftLoaded)AndroidDrafts.get(this).save(composerPeer,composer.getText().toString(),error->toast(t("draftSaveFailed")));
+    }
+    private void loadComposerDraft(String peer){
+        int generation=++draftGeneration;draftLoaded=false;composer.setText("");composer.setEnabled(false);updateSend();
+        if(peer==null)return;
+        String legacy=drafts.remove(peer);
+        if(legacy!=null){draftLoaded=true;composer.setText(legacy);composer.setSelection(composer.length());composer.setEnabled(true);persistDraft();return;}
+        AndroidDrafts.get(this).load(peer,(text,error)->{
+            if(isDestroyed()||generation!=draftGeneration||!Objects.equals(peer,composerPeer))return;
+            if(error!=null){toast(t("draftSaveFailed"));return;}
+            draftLoaded=true;composer.setText(text);int length=composer.length();composer.setSelection(draftSelectionStart<0?length:Math.min(length,draftSelectionStart),draftSelectionEnd<0?length:Math.min(length,draftSelectionEnd));draftSelectionStart=draftSelectionEnd=-1;composer.setEnabled(true);renderChat();
+        });
+    }
     private void updateSend() {
         if (sendButton == null || composer == null) return;
-        sendButton.setEnabled(controller != null && controller.canSend() && !composer.getText().toString().trim().isEmpty()); style(sendButton, true);
+        if(emojiButton!=null)emojiButton.setEnabled(composerPeer!=null&&draftLoaded);
+        String text=composer.getText().toString();int limit=controller==null?TextLimits.LEGACY_BYTES:controller.textLimit(),bytes=TextLimits.utf8Bytes(text);
+        sendButton.setEnabled(draftLoaded&&controller != null && controller.canSend() && TextLimits.canSend(text,limit)); style(sendButton, true);
+        if(textCapacity!=null){textCapacity.setText(bytes<0?t("textInvalidUnicode"):t(bytes>limit?"textOverLimit":"textByteCount",bytes,limit));textCapacity.setVisibility(text.isEmpty()?View.GONE:View.VISIBLE);}
     }
     private void showApproval() {
         String token = controller.approvalId;

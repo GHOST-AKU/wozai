@@ -6,6 +6,7 @@ mod files;
 mod network;
 mod profile;
 mod publish;
+mod text_capacity;
 mod ui;
 mod verification;
 mod wire;
@@ -390,7 +391,7 @@ fn run(mut cli: Cli) -> Result<()> {
             *text = Some(String::from_utf8(b).map_err(|_| fail(2, "stdin must be valid UTF-8"))?);
         }
         if let Some(t) = text {
-            wire::text_valid(t)
+            wire::text_valid_limit(t, wire::EXTENDED_TEXT)
                 .map_err(|e| fail(2, &format!("{e}; got {} UTF-8 bytes", t.len())))?;
         }
         if file.len() > 256 {
@@ -1009,7 +1010,7 @@ fn foreground(
                 } else if let Some(p) = line.strip_prefix("/cancel ") {
                     Command::Cancel(p.into())
                 } else {
-                    wire::text_valid(&line)?;
+                    wire::text_valid_limit(&line, wire::EXTENDED_TEXT)?;
                     Command::Text(line)
                 };
                 tx.try_send(command)?;
@@ -1079,6 +1080,11 @@ fn foreground(
                             }
                         ),
                     )?;
+                }
+            }
+            Event::TextLimit(_, limit) => {
+                if !cli.json {
+                    emit(json!({}), false, format!("Text limit: {limit} UTF-8 bytes"))?;
                 }
             }
             Event::Ready(id) => {
@@ -1213,8 +1219,9 @@ fn foreground(
                 }
             }
             Event::Error(e) => {
-                let code = if e.contains("IDENTITY CHANGED") || e.contains("persistent root proof")
-                {
+                let code = if e.contains("text must contain") {
+                    2
+                } else if e.contains("IDENTITY CHANGED") || e.contains("persistent root proof") {
                     7
                 } else if e.contains("handshake")
                     || e.contains("authentication")

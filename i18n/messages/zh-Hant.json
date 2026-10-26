@@ -54,7 +54,7 @@
   "saved": "已儲存",
   "error": "操作未完成",
   "invalidNickname": "暱稱需為 1–32 個字元，不能包含控制字元。",
-  "invalidMessage": "訊息不能為空，且不能超過 8192 UTF-8 位元組。",
+  "invalidMessage": "請輸入有效文字，並遵守顯示的 UTF-8 位元組上限。草稿已保留。",
   "storageFailure": "無法儲存本機資料，連線已停止。請檢查磁碟空間和目錄權限。",
   "identityChanged": "裝置身分與歷史記錄不符，已拒絕連線。請先確認對方是否重新安裝了應用程式。",
   "canceled": "連線已取消",
@@ -537,5 +537,10 @@
   "attachmentPathLanDirect": "傳輸路徑：區域網路 → Wi-Fi 直連",
   "attachmentPathBluetoothDirect": "傳輸路徑：藍牙 → Wi-Fi 直連",
   "attachmentPathBluetoothLan": "傳輸路徑：藍牙 → 區域網路",
-  "attachmentPathAllLinks": "傳輸路徑：Wi-Fi 直連、區域網路、藍牙"
+  "attachmentPathAllLinks": "傳輸路徑：Wi-Fi 直連、區域網路、藍牙",
+  "textByteCount": "{0} / {1} UTF-8 位元組",
+  "textOverLimit": "{0} / {1} UTF-8 位元組，超過目前連線上限。草稿已保留，請縮短或作為檔案傳送。",
+  "textInvalidUnicode": "請完成輸入法組合後再傳送。草稿已保留。",
+  "draftEditTooLarge": "此次編輯超過 {0} 位元組草稿上限，原草稿保持不變。大段文字請作為檔案傳送。",
+  "draftSaveFailed": "草稿儲存失敗。請保持此對話開啟並複製文字。"
 }

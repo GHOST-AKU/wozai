@@ -6,7 +6,7 @@ import java.util.function.Consumer;
 
 /** Bounded queues including the active write; preserve file FIFO and prioritize chat. */
 public final class FairRecordWriter implements AutoCloseable {
-    public static final long FILE_BUDGET=9L*1024*1024,CONTROL_BUDGET=1024*1024;
+    public static final long FILE_BUDGET=9L*1024*1024,CONTROL_BUDGET=2L*1024*1024;
     public static final int ENTRY_OVERHEAD=256,MAX_FILE_ENTRIES=512;
     public interface Write {void run()throws IOException;}
     private static final class Entry {final Write operation;final long charge;final boolean file;Entry(Write operation,long charge,boolean file){this.operation=operation;this.charge=charge;this.file=file;}}

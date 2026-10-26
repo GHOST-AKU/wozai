@@ -56,6 +56,7 @@ pub enum Event {
     },
     Connected(Peer, SyncSender<Command>, bool),
     Ready(String),
+    TextLimit(String, usize),
     Message(Message),
     Saved {
         peer: String,
@@ -319,8 +320,17 @@ fn session(
     events.send(Event::Connected(est.peer.clone(), commands_tx, initiator))?;
     let mut stream = est.stream.try_clone()?;
     let send = &mut est.send;
+    let write_limit = std::cell::Cell::new(LEGACY_TEXT);
+    let mut capacity = crate::text_capacity::TextCapacity::new(&est.generation);
+    let mut announced = false;
+    let mut ready_since = Instant::now();
     let mut writer = |f: Frame| -> Result<()> {
-        stream.write_all(&send.encrypt(3, &f.encode()?)?)?;
+        let bytes = if write_limit.get() == LEGACY_TEXT {
+            f.encode()?
+        } else {
+            f.encode_limit(write_limit.get())?
+        };
+        stream.write_all(&send.encrypt(3, &bytes)?)?;
         Ok(())
     };
     writer(Frame::control(READY))?;
@@ -332,7 +342,7 @@ fn session(
             let result = (|| {
                 let (h, b) = crypto::read_envelope(&mut read_stream, 3, MAX_PLAIN + 16)?;
                 ensure!(b.len() >= 16, "short encrypted record");
-                Frame::decode(&cipher.decrypt(&h, &b)?)
+                cipher.decrypt(&h, &b)
             })();
             let failed = result.is_err();
             if read_tx.send(result).is_err() || failed {
@@ -377,20 +387,47 @@ fn session(
                 Duration::from_millis(50)
             }) {
                 Ok(result) => {
-                    let f = result?;
+                    let bytes = result?;
+                    let f = if capacity.incoming == LEGACY_TEXT {
+                        Frame::decode(&bytes)?
+                    } else {
+                        Frame::decode_limit(&bytes, capacity.incoming)?
+                    };
                     last_rx = Instant::now();
                     match f.kind {
                         READY => {
                             ensure!(!ready, "duplicate ready");
                             ready = true;
+                            ready_since = Instant::now();
+                            if let Some(time) = capacity.start() {
+                                let mut probe = Frame::control(PONG);
+                                probe.time = time;
+                                writer(probe)?;
+                            }
                             if let Some(avatars) = &mut avatars {
                                 avatars.local_changed(&store.lock().unwrap(), &mut writer)?;
                             }
-                            events.send(Event::Ready(est.peer.id.clone()))?;
                         }
                         BYE => break,
-                        PING => writer(Frame::control(PONG))?,
-                        PONG => {}
+                        PING => {
+                            ensure!(ready, "heartbeat before mutual consent");
+                            writer(Frame::control(PONG))?;
+                        }
+                        PONG => {
+                            ensure!(ready, "heartbeat before mutual consent");
+                            if let Some(time) = capacity.receive(f.time) {
+                                let mut echo = Frame::control(PONG);
+                                echo.time = time;
+                                writer(echo)?;
+                            }
+                            if announced && write_limit.get() != capacity.outgoing {
+                                events.send(Event::TextLimit(
+                                    est.peer.id.clone(),
+                                    capacity.outgoing,
+                                ))?;
+                            }
+                            write_limit.set(capacity.outgoing);
+                        }
                         TEXT => {
                             ensure!(ready, "text before mutual consent");
                             let m = Message {
@@ -482,6 +519,16 @@ fn session(
                 Err(mpsc::RecvTimeoutError::Disconnected) => anyhow::bail!("reader stopped"),
                 Err(mpsc::RecvTimeoutError::Timeout) => {}
             }
+            // Give new peers a chance to negotiate before CLI send-on-ready commands run.
+            if ready
+                && !announced
+                && (capacity.outgoing == EXTENDED_TEXT
+                    || ready_since.elapsed() >= Duration::from_secs(1))
+            {
+                announced = true;
+                events.send(Event::Ready(est.peer.id.clone()))?;
+                events.send(Event::TextLimit(est.peer.id.clone(), capacity.outgoing))?;
+            }
             for _ in 0..8 {
                 let Ok(command) = commands.try_recv() else {
                     break;
@@ -494,7 +541,7 @@ fn session(
                     ensure!(ready, "waiting for peer consent");
                     match command {
                         Command::Text(body) => {
-                            text_valid(&body)?;
+                            text_valid_limit(&body, capacity.outgoing)?;
                             let f = Frame {
                                 kind: TEXT,
                                 time: profile::now(),
@@ -670,7 +717,7 @@ mod tests {
         sender
             .as_ref()
             .unwrap()
-            .send(Command::Text("中文👩‍💻\n".repeat(20)))
+            .send(Command::Text("中文👩‍💻\n".repeat(1800)))
             .unwrap();
         let mut saved = false;
         while Instant::now() < deadline {
@@ -899,5 +946,72 @@ mod offer_tests {
             }
         }
         assert!(saved, "file cancellation broke the chat");
+    }
+}
+
+#[cfg(test)]
+mod long_text_interop {
+    use super::*;
+    #[test]
+    #[ignore = "requires Java and local sockets; run test-interop.sh"]
+    fn exchanges_32k_with_production_java_session() {
+        let classes =
+            std::env::var("NEARBYIM_JAVA_CLASSES").expect("compile the Java fixtures first");
+        let dir = tempfile::tempdir().unwrap();
+        let port = dir.path().join("peer.port");
+        let mut java = std::process::Command::new("java")
+            .args([
+                "-cp",
+                &classes,
+                "dev.ghost.nearbyim.core.TerminalLongTextPeer",
+            ])
+            .arg(&port)
+            .spawn()
+            .unwrap();
+        let until = Instant::now() + Duration::from_secs(20);
+        let address = loop {
+            if let Ok(value) = std::fs::read_to_string(&port)
+                && value.parse::<u16>().is_ok()
+            {
+                break format!("127.0.0.1:{value}");
+            }
+            assert!(Instant::now() < until, "Java peer did not start");
+            thread::sleep(Duration::from_millis(10));
+        };
+        let profile = Arc::new(Mutex::new(
+            Profile::open(dir.path().join("profile"), None).unwrap(),
+        ));
+        let runtime = Runtime::client(profile.clone(), dir.path().join("files"));
+        runtime.connect(&address, None).unwrap();
+        let body = "中".repeat(10922) + "ab";
+        let mut sender = None;
+        let mut received = false;
+        let mut saved = false;
+        while Instant::now() < until && !(received && saved) {
+            match runtime.events.recv_timeout(Duration::from_millis(50)) {
+                Ok(Event::Consent { reply, .. }) => reply.send(Consent::Once).unwrap(),
+                Ok(Event::Connected(_, tx, _)) => sender = Some(tx),
+                Ok(Event::Ready(_)) => sender
+                    .as_ref()
+                    .unwrap()
+                    .send(Command::Text(body.clone()))
+                    .unwrap(),
+                Ok(Event::Message(message)) if !message.outgoing => {
+                    assert_eq!(message.body, body);
+                    received = true;
+                }
+                Ok(Event::Saved { .. }) => saved = true,
+                Ok(Event::Error(error)) => panic!("{error}"),
+                _ => {}
+            }
+        }
+        assert!(
+            received && saved,
+            "production Java/Rust long message or receipt lost"
+        );
+        let history = profile.lock().unwrap().history(None).unwrap();
+        assert_eq!(history.len(), 2);
+        assert!(history.iter().all(|message| message.body == body));
+        assert!(java.wait().unwrap().success());
     }
 }

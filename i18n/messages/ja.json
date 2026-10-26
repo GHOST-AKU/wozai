@@ -54,7 +54,7 @@
   "saved": "保存しました",
   "error": "操作を完了できませんでした",
   "invalidNickname": "制御文字を含まない 1～32 文字のニックネームを入力してください。",
-  "invalidMessage": "空でないメッセージを UTF-8 で 8192 バイト以内で入力してください。",
+  "invalidMessage": "表示された UTF-8 バイト上限内で有効な文章を入力してください。下書きは保持されます。",
   "storageFailure": "ローカルデータを保存できず、接続を停止しました。ディスクの空き容量とフォルダーの権限を確認してください。",
   "identityChanged": "デバイスの識別情報が履歴と異なるため、接続を拒否しました。相手がアプリを再インストールしたか確認してください。",
   "canceled": "接続をキャンセルしました",
@@ -537,5 +537,10 @@
   "attachmentPathLanDirect": "転送経路：LAN → Wi-Fi Direct",
   "attachmentPathBluetoothDirect": "転送経路：Bluetooth → Wi-Fi Direct",
   "attachmentPathBluetoothLan": "転送経路：Bluetooth → LAN",
-  "attachmentPathAllLinks": "転送経路：Wi-Fi Direct、LAN、Bluetooth"
+  "attachmentPathAllLinks": "転送経路：Wi-Fi Direct、LAN、Bluetooth",
+  "textByteCount": "{0} / {1} UTF-8 バイト",
+  "textOverLimit": "{0} / {1} UTF-8 バイト。現在の接続の上限を超えています。下書きは保持されます。短くするかファイルで送信してください。",
+  "textInvalidUnicode": "入力の変換を確定してから送信してください。下書きは保持されます。",
+  "draftEditTooLarge": "この編集は下書きの上限 {0} バイトを超えています。元の下書きは変更されません。長い文章はファイルで送信してください。",
+  "draftSaveFailed": "下書きを保存できませんでした。この会話を開いたまま文章をコピーしてください。"
 }

@@ -277,7 +277,9 @@
     <string name="discoverable_remaining" formatted="false">"検出を許可 · 残り {0, plural, other {# 秒}}"</string>
     <string name="discovered" formatted="false">"検出済み"</string>
     <string name="discovery_failed" formatted="false">"自動検出を利用できません。IP アドレスで接続してください。"</string>
+    <string name="draft_edit_too_large" formatted="false">"この編集は下書きの上限 {0} バイトを超えています。元の下書きは変更されません。長い文章はファイルで送信してください。"</string>
     <string name="draft_retained_hint" formatted="false">"接続すると送信できます。下書きはここに保持されます。"</string>
+    <string name="draft_save_failed" formatted="false">"下書きを保存できませんでした。この会話を開いたまま文章をコピーしてください。"</string>
     <string name="earlier" formatted="false">"以前"</string>
     <string name="emoji" formatted="false">"絵文字"</string>
     <string name="empty_chat" formatted="false">"左側からチャットを選ぶか、「近く」でデバイスに接続してください。"</string>
@@ -329,7 +331,7 @@
     <string name="idle" formatted="false">"未接続"</string>
     <string name="initial_status" formatted="false">"接続方式を選んで、近くの人を探しましょう"</string>
     <string name="invalid_endpoint" formatted="false">"192.168.1.20:54321 または [fd00::1]:54321 の形式で入力してください。"</string>
-    <string name="invalid_message" formatted="false">"空でないメッセージを UTF-8 で 8192 バイト以内で入力してください。"</string>
+    <string name="invalid_message" formatted="false">"表示された UTF-8 バイト上限内で有効な文章を入力してください。下書きは保持されます。"</string>
     <string name="invalid_nickname" formatted="false">"制御文字を含まない 1～32 文字のニックネームを入力してください。"</string>
     <string name="invalid_transport" formatted="false">"接続方式が無効です"</string>
     <string name="lan" formatted="false">"LAN"</string>
@@ -486,6 +488,9 @@
     <string name="storage_failure" formatted="false">"ローカルデータを保存できず、接続を停止しました。ディスクの空き容量とフォルダーの権限を確認してください。"</string>
     <string name="system_language" formatted="false">"システムに合わせる"</string>
     <string name="system_theme" formatted="false">"システム設定に従う"</string>
+    <string name="text_byte_count" formatted="false">"{0} / {1} UTF-8 バイト"</string>
+    <string name="text_invalid_unicode" formatted="false">"入力の変換を確定してから送信してください。下書きは保持されます。"</string>
+    <string name="text_over_limit" formatted="false">"{0} / {1} UTF-8 バイト。現在の接続の上限を超えています。下書きは保持されます。短くするかファイルで送信してください。"</string>
     <string name="theme" formatted="false">"テーマ"</string>
     <string name="today" formatted="false">"今日"</string>
     <string name="transfer_diagnostics" formatted="false">"転送診断をコピー"</string>

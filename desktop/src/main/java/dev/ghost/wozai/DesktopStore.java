@@ -113,7 +113,7 @@ public final class DesktopStore implements AutoCloseable {
         v.setProperty("outgoing", Boolean.toString(m.outgoing())); v.setProperty("status", m.status()); AtomicFiles.write(file, v);
     }
     private Message readMessage(Path file) throws IOException {
-        Properties v = AtomicFiles.read(file);
+        Properties v = AtomicFiles.read(file,256*1024);
         try {
             String status = AtomicFiles.required(v, "status"), outgoing = AtomicFiles.required(v, "outgoing");
             if (!Set.of("received", "pending", "delivered", "unknown").contains(status) || !Set.of("true", "false").contains(outgoing)) throw new IOException("Invalid message state");
@@ -241,11 +241,13 @@ public final class DesktopStore implements AutoCloseable {
         try (var files = Files.list(path)) { for (Path file : files.toList()) Files.delete(file); }
     }
     public synchronized String draft(String peer) throws IOException {
-        return AtomicFiles.read(root.resolve("drafts").resolve(uuid(peer) + ".properties")).getProperty("text", "");
+        dev.ghost.nearbyim.core.DraftStore drafts=new dev.ghost.nearbyim.core.DraftStore(root.resolve("drafts-v2"));
+        String text=drafts.load(uuid(peer));if(text!=null)return text;
+        text=AtomicFiles.read(root.resolve("drafts").resolve(uuid(peer)+".properties"),6*dev.ghost.nearbyim.core.TextLimits.DRAFT_BYTES+512).getProperty("text","");
+        drafts.save(peer,text);return text;
     }
     public synchronized void draft(String peer, String text) throws IOException {
-        Properties v = new Properties(); v.setProperty("text", text);
-        AtomicFiles.write(root.resolve("drafts").resolve(uuid(peer) + ".properties"), v);
+        new dev.ghost.nearbyim.core.DraftStore(root.resolve("drafts-v2")).save(uuid(peer),text);
     }
     public synchronized String setting(String key, String fallback) throws IOException { return AtomicFiles.read(root.resolve("settings.properties")).getProperty(key, fallback); }
     public synchronized String language() throws IOException {

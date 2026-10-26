@@ -4148,6 +4148,142 @@
           }
         }
       }
+    },
+    "Enter valid text within the displayed UTF-8 byte limit. Your draft is preserved.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter valid text within the displayed UTF-8 byte limit. Your draft is preserved."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请输入有效文字，并遵守显示的 UTF-8 字节上限。草稿已保留。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請輸入有效文字，並遵守顯示的 UTF-8 位元組上限。草稿已保留。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表示された UTF-8 バイト上限内で有効な文章を入力してください。下書きは保持されます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "표시된 UTF-8 바이트 한도 내에서 올바른 텍스트를 입력하세요. 초안은 유지됩니다."
+          }
+        }
+      }
+    },
+    "That edit exceeds the draft budget. The previous draft is unchanged; send large text as a file.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That edit exceeds the draft budget. The previous draft is unchanged; send large text as a file."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此次编辑超过 256 KiB 草稿上限，原草稿保持不变。大段文字请作为文件发送。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此次編輯超過 256 KiB 草稿上限，原草稿保持不變。大段文字請作為檔案傳送。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この編集は下書きの上限 256 KiB を超えています。元の下書きは変更されません。長い文章はファイルで送信してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 편집은 초안 한도 256 KiB를 초과합니다. 기존 초안은 그대로 유지됩니다. 긴 글은 파일로 보내세요."
+          }
+        }
+      }
+    },
+    "This draft exceeds the connection limit. Shorten it or send a file. Your draft is preserved.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This draft exceeds the connection limit. Shorten it or send a file. Your draft is preserved."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "草稿超过当前连接上限。请缩短或作为文件发送，草稿已保留。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "草稿超過目前連線上限。請縮短或作為檔案傳送，草稿已保留。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下書きが現在の接続の上限を超えています。短くするかファイルで送信してください。下書きは保持されます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "초안이 현재 연결 한도를 초과합니다. 줄이거나 파일로 보내세요. 초안은 유지됩니다."
+          }
+        }
+      }
+    },
+    "%lld / %lld UTF-8 bytes": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld / %lld UTF-8 bytes"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld / %lld UTF-8 字节"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld / %lld UTF-8 位元組"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld / %lld UTF-8 バイト"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld / %lld UTF-8 바이트"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

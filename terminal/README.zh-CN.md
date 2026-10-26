@@ -42,7 +42,7 @@ nearbyim doctor --json
 - Tab 切换焦点；非编辑区方向键/j/k；Enter 打开或发送。
 - Ctrl+K（Ctrl+P 别名）命令面板；`?` 帮助；`/` 或 Ctrl+F 搜索。
 - Ctrl+J / Alt+Enter 换行；粘贴中的换行不会自动发送。
-- 字素簇编辑中文/Emoji/ZWJ，文本上限为 **8192 UTF-8 字节**。
+- 字素簇编辑中文/Emoji/ZWJ，新端之间协商单条 **32768 UTF-8 字节**，旧端保持 **8192 字节**。输入区显示当前连接上限并保留超限草稿（最多 **256 KiB**）；超过草稿预算的编辑整次拒绝。[计数和兼容规则](../docs/text-messages.md)。
 - 非编辑区 `a` 输入附件路径；发送前确认接收端和大小。
 - Esc 返回/取消扫描；Ctrl+C 或非编辑区 q 退出；活动文件需确认暂停退出。
 - Quiet Terminal 的 midnight、paper、sage、mono、system 主题；`--no-color`、`NO_COLOR`、`--ascii`；颜色回退可配置。

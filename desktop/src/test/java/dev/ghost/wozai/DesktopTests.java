@@ -22,6 +22,7 @@ public final class DesktopTests {
             identity(root.resolve("identity.properties"));
             defaultNicknames(root.resolve("nickname-defaults"));
             persistence(root.resolve("store"));
+            longTextPersistence(root.resolve("long-text"));
             interoperability(root.resolve("client"));
             failedSaveAndTemporaryConsent(root.resolve("failure"));
             revokeDuringHandshake(root.resolve("revoke"));
@@ -208,6 +209,24 @@ public final class DesktopTests {
             try { store.messages("../escape"); throw new AssertionError("Path traversal accepted"); }
             catch (IllegalArgumentException expected) { passed++; }
         }
+    }
+    private static void longTextPersistence(Path path)throws Exception{
+        String body="a"+"\u0000".repeat(32767),draft="中".repeat(60000)+"👩🏽‍💻e\u0301";
+        try(var store=new DesktopStore(path)){
+            store.peer(new DesktopStore.Peer(PEER,"long","",""));
+            store.save(PEER,new DesktopStore.Message(UUID.randomUUID().toString(),body,1,true,"pending"));
+            Properties legacy=new Properties();legacy.setProperty("text",draft);AtomicFiles.write(path.resolve("drafts").resolve(PEER+".properties"),legacy);
+            check(store.draft(PEER).equals(draft),"Large escaped legacy draft could not migrate");
+            store.draft(PEER,"");check(store.draft(PEER).isEmpty(),"Legacy draft reappeared after clearing");store.draft(PEER,draft);
+        }
+        try(var store=new DesktopStore(path)){
+            check(store.messages(PEER).get(0).body().equals(body),"32KiB escaped message failed after restart");
+            check(store.draft(PEER).equals(draft),"Long Unicode draft failed after restart");
+        }
+        javax.swing.JTextArea editor=new javax.swing.JTextArea();int[] rejected={0};
+        ((javax.swing.text.AbstractDocument)editor.getDocument()).setDocumentFilter(new DraftDocumentFilter(()->rejected[0]++));
+        editor.setText(draft);editor.select(0,1);editor.replaceSelection("x".repeat(TextLimits.DRAFT_BYTES+1));
+        check(editor.getText().equals(draft)&&rejected[0]==1,"Oversized replacement destroyed desktop draft");
     }
     private static StreamConnection socket(Socket s) {
         return new StreamConnection() {

@@ -25,6 +25,7 @@ final class AppModel {
     var discoveryEnabled = false
     var networkError: String?
     var connectionState = ConnectionState.idle
+    var textLimit = TextLimits.legacy
     var activePeer: VerifiedPeer?
     var consent: VerifiedPeer?
     var notice: Notice?
@@ -129,14 +130,18 @@ final class AppModel {
         switch event {
         case .consent(let peer): activePeer = peer; consent = peer; connectionState = .awaitingConsent
         case .ready(let peer):
+            textLimit = TextLimits.legacy
             activePeer = peer; consent = nil; connectionState = .connected
             changed(peer.id)
+        case .textLimit(let peer, let limit):
+            if activePeer?.id == peer { textLimit = limit }
         case .changed(let peer): changed(peer)
         case .attachmentOffer(let info): fileConsent.replace(info)
         case .transfer(let record):
             if transfers[record.key]?.state != record.state { transferRevision[record.peerID, default: 0] &+= 1 }
             transfers[record.key] = record
         case .closed(let error):
+            textLimit = TextLimits.legacy
             session = nil; stream = nil; activePeer = nil; consent = nil; fileConsent.replace(nil); connectionState = .idle
             if let error { notice = Notice(message: error) }
         }
@@ -282,6 +287,7 @@ final class AppModel {
     }
 
     func saveDraft(peerID: String, text: String) {
+        guard text.utf8.count <= TextLimits.draft else { notice = Notice(message: String(localized: "That edit exceeds the draft budget. The previous draft is unchanged; send large text as a file.")); return }
         let state = draftState(peerID: peerID)
         state.text = text
         state.loaded = true

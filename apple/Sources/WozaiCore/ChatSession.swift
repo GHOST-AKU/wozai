@@ -3,6 +3,7 @@ import Foundation
 public enum SessionEvent: Sendable {
     case consent(VerifiedPeer)
     case ready(VerifiedPeer)
+    case textLimit(String, Int)
     case changed(String)
     case attachmentOffer(AttachmentInfo?)
     case transfer(AttachmentRecord)
@@ -101,6 +102,9 @@ public actor ChatSession {
                     try await channel.send(NIMFrame(type: .pong))
                 case .pong:
                     guard isReady else { throw WozaiError.protocolViolation }
+                    let previous = await channel.textLimit
+                    let limit = try await channel.handleTextCapability(frame.timestamp)
+                    if limit != previous { await event(.textLimit(authenticated.id, limit)) }
                 case .attachment:
                     guard isReady else { throw WozaiError.protocolViolation }
                     if let attachments {
@@ -146,7 +150,9 @@ public actor ChatSession {
         deadlines.recordRead()
         try await store.recordPeer(peer, remember: remember, localRoot: identity.root)
         guard !ended else { return }
+        try await channel.startTextNegotiation()
         await event(.ready(peer))
+        await event(.textLimit(peer.id, await channel.textLimit))
     }
 
     public func sendFile(_ url: URL, mime: String = "application/octet-stream") async throws -> String {
@@ -207,7 +213,7 @@ public actor ChatSession {
         guard pending.count < 32 else { throw WozaiError.busy }
         let id = UUID().uuidString.lowercased()
         let frame = NIMFrame(type: .text, id: id, body: text, timestamp: UInt64(Date().timeIntervalSince1970 * 1000))
-        _ = try frame.encoded()
+        _ = try frame.encoded(textLimit: await channel.textLimit)
         pending.insert(id)
         do { try await store.saveOutgoing(peerID: peer.id, frame: frame) }
         catch { pending.remove(id); throw error }

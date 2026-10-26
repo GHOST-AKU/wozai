@@ -9,10 +9,15 @@ import java.util.Properties;
 
 final class AtomicFiles {
     static Properties read(Path file) throws IOException {
+        return read(file,65536);
+    }
+    static Properties read(Path file,int limit) throws IOException {
         Properties values = new Properties();
         if (Files.exists(file)) {
-            if (Files.size(file) > 65536) throw new IOException("Local file exceeds size limit");
-            try (InputStream input = Files.newInputStream(file)) { values.load(input); }
+            if (Files.size(file) > limit) throw new IOException("Local file exceeds size limit");
+            try (InputStream input = Files.newInputStream(file)) {
+                byte[] bytes=input.readNBytes(limit+1);if(bytes.length>limit)throw new IOException("Local file grew beyond size limit");values.load(new ByteArrayInputStream(bytes));
+            }
             catch (IllegalArgumentException e) { throw new IOException("Invalid local file", e); }
         }
         return values;

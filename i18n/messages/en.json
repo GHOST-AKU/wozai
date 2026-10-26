@@ -54,7 +54,7 @@
   "saved": "Saved",
   "error": "Unable to complete action",
   "invalidNickname": "Use 1–32 characters with no control characters.",
-  "invalidMessage": "Enter a message of no more than 8192 UTF-8 bytes.",
+  "invalidMessage": "Enter valid text within the displayed UTF-8 byte limit. Your draft is preserved.",
   "storageFailure": "Local data could not be saved. The connection was stopped. Check disk space and folder permissions.",
   "identityChanged": "This device identity differs from your history. Connection refused. Check whether the peer reinstalled the app.",
   "canceled": "Connection canceled",
@@ -537,5 +537,10 @@
   "attachmentPathLanDirect": "Transfer path: LAN → Wi-Fi Direct",
   "attachmentPathBluetoothDirect": "Transfer path: Bluetooth → Wi-Fi Direct",
   "attachmentPathBluetoothLan": "Transfer path: Bluetooth → LAN",
-  "attachmentPathAllLinks": "Transfer paths: Wi-Fi Direct, LAN, Bluetooth"
+  "attachmentPathAllLinks": "Transfer paths: Wi-Fi Direct, LAN, Bluetooth",
+  "textByteCount": "{0} / {1} UTF-8 bytes",
+  "textOverLimit": "{0} / {1} UTF-8 bytes — too long for this connection. Draft preserved. Shorten it or send a file.",
+  "textInvalidUnicode": "Finish the input composition before sending. Draft preserved.",
+  "draftEditTooLarge": "That edit exceeds the {0}-byte draft budget. The previous draft is unchanged; send large text as a file.",
+  "draftSaveFailed": "The draft could not be saved. Keep this conversation open and copy the text."
 }

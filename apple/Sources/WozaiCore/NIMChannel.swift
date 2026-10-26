@@ -19,6 +19,8 @@ public actor NIMChannel {
     private var ended = false
     private var writer: Task<Void, Error>?
     private var writeSequence: UInt64 = 0
+    private var textCapability: TextCapability?
+    public var textLimit: Int { textCapability?.outgoing ?? TextLimits.legacy }
     public private(set) var connectionGeneration: String?
 
     public init(stream: any ByteStream, identity: DeviceIdentity, nickname: String, initiator: Bool) {
@@ -63,6 +65,7 @@ public actor NIMChannel {
             }
             guard !ended else { throw WozaiError.closed }
             guard expectedID == nil || expectedID == peer.id, expectedRoot == nil || expectedRoot == peer.root else { throw WozaiError.identityChanged }
+            textCapability = TextCapability(generation: connectionGeneration!)
             established = true
             return VerifiedPeer(id: peer.id, nickname: peer.nickname, root: peer.root, capabilities: peer.capabilities)
         } catch { close(); throw error }
@@ -132,12 +135,21 @@ public actor NIMChannel {
 
     public func send(_ frame: NIMFrame) async throws {
         guard established, !ended else { throw WozaiError.closed }
-        do { try await sendEncrypted(.record, plaintext: frame.encoded()) } catch { close(); throw error }
+        let bytes = try frame.encoded(textLimit: textLimit)
+        do { try await sendEncrypted(.record, plaintext: bytes) } catch { close(); throw error }
     }
 
     public func receive() async throws -> NIMFrame {
         guard established, !ended else { throw WozaiError.closed }
-        do { return try NIMFrame.decode(await readEncrypted(.record)) } catch { close(); throw error }
+        do { return try NIMFrame.decode(await readEncrypted(.record), textLimit: textCapability?.incoming ?? TextLimits.legacy) } catch { close(); throw error }
+    }
+
+    func startTextNegotiation() async throws {
+        if let request = textCapability?.start() { try await send(NIMFrame(type: .pong, timestamp: request)) }
+    }
+    func handleTextCapability(_ time: UInt64) async throws -> Int {
+        if let response = textCapability?.receive(time) { try await send(NIMFrame(type: .pong, timestamp: response)) }
+        return textLimit
     }
 
     public func close() {

@@ -34,16 +34,24 @@ use unicode_width::UnicodeWidthStr;
 pub struct Editor {
     pub text: String,
     pub cursor: usize,
+    rejected: bool,
 }
 impl Editor {
     fn insert(&mut self, s: &str) {
+        if self.text.len().saturating_add(s.len()) > crate::wire::DRAFT_BYTES {
+            self.rejected = true;
+            return;
+        }
         let s: String = s
             .chars()
             .filter(|c| !c.is_control() || matches!(c, '\n' | '\t'))
             .collect();
-        if self.text.len() + s.len() <= 8192 {
+        self.rejected = false;
+        if self.text.len().saturating_add(s.len()) <= crate::wire::DRAFT_BYTES {
             self.text.insert_str(self.cursor, &s);
             self.cursor += s.len();
+        } else {
+            self.rejected = true;
         }
     }
     fn left(&mut self) {
@@ -55,6 +63,8 @@ impl Editor {
     fn right(&mut self) {
         if let Some(s) = self.text[self.cursor..].graphemes(true).next() {
             self.cursor += s.len();
+        } else {
+            self.rejected = true;
         }
     }
     fn backspace(&mut self) {
@@ -136,6 +146,7 @@ struct App {
     nearby: BTreeMap<String, Found>,
     connections: HashMap<String, SyncSender<Command>>,
     ready: std::collections::HashSet<String>,
+    text_limits: HashMap<String, usize>,
     selected: usize,
     selection: Option<String>,
     focus: u8,
@@ -173,6 +184,8 @@ impl App {
             "Chat" => "聊天",
             "Messages · saved ≠ read" => "消息 · 已保存不等于已读",
             "Command" => "命令",
+            " · Edit too large; previous draft kept" => " · 编辑过大，已保留原草稿",
+            " · Too long; shorten or send a file" => " · 超过连接上限，请缩短或作为文件发送",
             "Compose · Enter send · Alt+Enter newline" => "输入 · Enter 发送 · Alt+Enter 换行",
             "Details" => "设备详情",
             "Exit?" => "退出？",
@@ -546,6 +559,9 @@ impl App {
                     self.focus = 2;
                 }
             }
+            Event::TextLimit(id, limit) => {
+                self.text_limits.insert(id, limit);
+            }
             Event::Ready(id) => {
                 self.ready.insert(id);
                 self.status =
@@ -591,6 +607,7 @@ impl App {
                 self.files.insert(s.info.id.clone(), s);
             }
             Event::Disconnected(id, why) => {
+                self.text_limits.remove(&id);
                 self.connections.remove(&id);
                 self.ready.remove(&id);
                 self.prompts.retain(|p| p.peer.id != id);
@@ -833,13 +850,28 @@ impl App {
                         .block(panel(
                             self.ascii,
                             format!(
-                                "{} · {} / 8192 bytes",
+                                "{} · {} / {} UTF-8 bytes{}",
                                 if self.palette {
                                     "Command"
                                 } else {
                                     "Compose · Enter send · Alt+Enter newline"
                                 },
-                                self.editor.text.len()
+                                self.editor.text.len(),
+                                self.current()
+                                    .and_then(|id| self.text_limits.get(&id).copied())
+                                    .unwrap_or(crate::wire::LEGACY_TEXT),
+                                if self.editor.rejected {
+                                    self.t(" · Edit too large; previous draft kept")
+                                } else if self.editor.text.len()
+                                    > self
+                                        .current()
+                                        .and_then(|id| self.text_limits.get(&id).copied())
+                                        .unwrap_or(crate::wire::LEGACY_TEXT)
+                                {
+                                    self.t(" · Too long; shorten or send a file")
+                                } else {
+                                    String::new()
+                                }
                             ),
                         ))
                         .style(if self.focus == 2 {
@@ -1091,6 +1123,7 @@ pub fn run(
         nearby: BTreeMap::new(),
         connections: HashMap::new(),
         ready: Default::default(),
+        text_limits: Default::default(),
         selected: 0,
         selection: None,
         focus: 0,
@@ -1344,6 +1377,7 @@ pub fn run(
                                     }
                                     app.palette = true;
                                     app.editor = Editor {
+                                        rejected: false,
                                         text: "search ".into(),
                                         cursor: 7,
                                     };
@@ -1386,6 +1420,7 @@ pub fn run(
                                 app.chat_draft = Some(std::mem::take(&mut app.editor));
                                 app.palette = true;
                                 app.editor = Editor {
+                                    rejected: false,
                                     text: "search ".into(),
                                     cursor: 7,
                                 };
@@ -1395,6 +1430,7 @@ pub fn run(
                                 app.chat_draft = Some(std::mem::take(&mut app.editor));
                                 app.palette = true;
                                 app.editor = Editor {
+                                    rejected: false,
                                     text: "file ".into(),
                                     cursor: 5,
                                 };
@@ -1436,7 +1472,12 @@ pub fn run(
                                         return Ok(true);
                                     }
                                 } else {
-                                    crate::wire::text_valid(&text)?;
+                                    crate::wire::text_valid_limit(
+                                        &text,
+                                        app.current()
+                                            .and_then(|id| app.text_limits.get(&id).copied())
+                                            .unwrap_or(crate::wire::LEGACY_TEXT),
+                                    )?;
                                     app.command(Command::Text(text))?;
                                     app.editor = Editor::default();
                                     if let Some(id) = app.current() {
@@ -1499,7 +1540,11 @@ mod tests {
         let mut e = Editor::default();
         e.insert(&"中".repeat(2730));
         e.insert("中");
-        assert_eq!(e.text.len(), 8190);
+        assert_eq!(e.text.len(), 8193);
+        let before = e.text.clone();
+        e.insert(&"x".repeat(crate::wire::DRAFT_BYTES));
+        assert!(e.rejected);
+        assert_eq!(e.text, before);
         e = Editor::default();
         e.insert("\u{1b}[31m\nabc");
         assert!(!e.text.contains('\u{1b}'));
@@ -1531,10 +1576,12 @@ mod render_tests {
             nearby: BTreeMap::new(),
             connections: HashMap::new(),
             ready: Default::default(),
+            text_limits: Default::default(),
             selected: 0,
             selection: Some(peer.id.clone()),
             focus: 2,
             editor: Editor {
+                rejected: false,
                 text: "输入\n👩‍💻".into(),
                 cursor: 0,
             },
@@ -1599,5 +1646,20 @@ mod render_tests {
             .collect::<String>();
         assert!(text.contains("Connection consent"));
         assert!(text.contains("Accept once"));
+    }
+}
+
+#[cfg(test)]
+mod long_input_tests {
+    use super::*;
+    #[test]
+    fn preserves_long_unicode_paste() {
+        let mut editor = Editor::default();
+        let text = "👩🏽‍💻e\u{301}".repeat(1000);
+        editor.insert(&text);
+        assert_eq!(
+            editor.text, text,
+            "reasonable long paste must not disappear"
+        );
     }
 }
