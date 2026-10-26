@@ -19,6 +19,7 @@ final class AndroidDrafts {
     private final LinkedHashMap<String,String> cache=new LinkedHashMap<>(16,.75f,true),pending=new LinkedHashMap<>();
     private boolean writing;
     private AndroidDrafts(Context context){store=new DraftStore(context.getFilesDir().toPath().resolve("drafts-v1"));}
+    synchronized String cached(String peer){return cache.get(peer);}
     void load(String peer,BiConsumer<String,IOException> result){worker.execute(()->{
         String text;IOException failure=null;
         try{synchronized(this){text=cache.get(peer);}if(text==null)text=store.load(peer);if(text==null)text="";

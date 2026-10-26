@@ -192,7 +192,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
         onMain(() -> { invoke(activity, "startTransport", new Class<?>[]{int.class}, Peer.LAN); return null; });
         await(() -> onMain(() -> controller.lanListening), "Real LAN reception starts");
         String peerId = UUID.randomUUID().toString(), name = "O'Brien {draft}";
-        String draft = "Draft keeps braces {0}, quotes ' and 中文";
+        String draft = "Draft keeps braces {0}, quotes ' and 中文"+String.join("",java.util.Collections.nCopies(2001,"中👩🏽‍💻e\u0301"));
         onMain(() -> {
             controller.selectConversation(new ChatStore.Conversation(peerId, name, 0));
             setField(activity, "detail", true); setField(activity, "page", 0);

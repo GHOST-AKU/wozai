@@ -111,7 +111,7 @@ public final class MainActivity extends Activity {
     private long discoverableUntil;
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final Map<String, String> drafts = new HashMap<>(); // Legacy saved-state migration only.
-    private boolean draftLoaded;
+    private boolean draftLoaded, applyingDraft;
     private int draftGeneration, draftSelectionStart=-1, draftSelectionEnd=-1;
     private TextView textCapacity;
     private final Runnable draftSaveTask=()->persistDraft();
@@ -472,8 +472,14 @@ public final class MainActivity extends Activity {
             if(event.getAction()==KeyEvent.ACTION_UP){boolean send=hardwareSendKey;hardwareSendKey=false;if(send&&sendButton.isEnabled())sendButton.performClick();return send;}return false;
         });
         textCapacity=label("",11,muted);textCapacity.setPadding(dp(16),0,dp(16),dp(4));chatPage.addView(textCapacity);
-        composer.addTextChangedListener(watcher(()->{updateSend();if(draftLoaded){ui.removeCallbacks(draftSaveTask);ui.postDelayed(draftSaveTask,400);}}));
-        if(composerPeer!=null)loadComposerDraft(composerPeer);
+        composer.addTextChangedListener(watcher(()->{
+            if(!applyingDraft){
+                // Autofill or another edit can arrive before an asynchronous disk load returns.
+                draftLoaded=composerPeer!=null;draftGeneration++;
+                ui.removeCallbacks(draftSaveTask);if(draftLoaded)ui.postDelayed(draftSaveTask,400);
+            }
+            updateSend();
+        }));
     }
     private void render() {
         if (root == null) return;
@@ -965,15 +971,24 @@ public final class MainActivity extends Activity {
     private void persistDraft(){
         if(composerPeer!=null&&composer!=null&&draftLoaded)AndroidDrafts.get(this).save(composerPeer,composer.getText().toString(),error->toast(t("draftSaveFailed")));
     }
+    private void applyComposerDraft(String text){
+        draftLoaded=true;applyingDraft=true;
+        try{composer.setText(text);}finally{applyingDraft=false;}
+        int length=composer.length();composer.setSelection(draftSelectionStart<0?length:Math.min(length,draftSelectionStart),draftSelectionEnd<0?length:Math.min(length,draftSelectionEnd));
+        draftSelectionStart=draftSelectionEnd=-1;composer.setEnabled(true);updateSend();
+    }
     private void loadComposerDraft(String peer){
-        int generation=++draftGeneration;draftLoaded=false;composer.setText("");composer.setEnabled(false);updateSend();
-        if(peer==null)return;
+        int generation=++draftGeneration;draftLoaded=false;applyingDraft=true;
+        try{composer.setText("");}finally{applyingDraft=false;}
+        composer.setEnabled(false);updateSend();if(peer==null)return;
         String legacy=drafts.remove(peer);
-        if(legacy!=null){draftLoaded=true;composer.setText(legacy);composer.setSelection(composer.length());composer.setEnabled(true);persistDraft();return;}
-        AndroidDrafts.get(this).load(peer,(text,error)->{
+        if(legacy!=null){applyComposerDraft(legacy);persistDraft();return;}
+        AndroidDrafts repository=AndroidDrafts.get(this);String cached=repository.cached(peer);
+        if(cached!=null){applyComposerDraft(cached);return;}
+        repository.load(peer,(text,error)->{
             if(isDestroyed()||generation!=draftGeneration||!Objects.equals(peer,composerPeer))return;
             if(error!=null){toast(t("draftSaveFailed"));return;}
-            draftLoaded=true;composer.setText(text);int length=composer.length();composer.setSelection(draftSelectionStart<0?length:Math.min(length,draftSelectionStart),draftSelectionEnd<0?length:Math.min(length,draftSelectionEnd));draftSelectionStart=draftSelectionEnd=-1;composer.setEnabled(true);renderChat();
+            applyComposerDraft(text);renderChat();
         });
     }
     private void updateSend() {
