@@ -539,7 +539,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         }));
     }
     private void sendMessage() {
-        if (!send.isEnabled()) { notice("notConnected"); return; }
+        if (!send.isEnabled()) { notice(TextLimits.canSend(composer.getText(),client.textLimit())?"notConnected":"invalidMessage"); return; }
         String text = composer.getText(), id = selected;
         try { ProtocolV4.encode(new Frame(Frame.TEXT, UUID.randomUUID().toString(), text, System.currentTimeMillis()),client.textLimit()); }
         catch (IOException e) { notice("invalidMessage"); return; }
