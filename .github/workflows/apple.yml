@@ -21,7 +21,7 @@ concurrency:
 jobs:
   native:
     runs-on: macos-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - name: Record Apple toolchain
@@ -66,14 +66,25 @@ jobs:
                   device = subprocess.check_output(['xcrun', 'simctl', 'create', 'Wozai CI ' + prefix, template['deviceTypeIdentifier'], runtime], text=True).strip()
                   output.write(f"{key}={device}\n")
           PY
-      - name: Exercise native iPhone consent, chat and receipts
+      # Keep simulator migration/SDK compilation outside the UI execution budget.
+      - name: Prepare iPhone simulator and native UI test bundle
+        id: iphone_prepare
         if: ${{ inputs.validation != 'macos-ui' }}
         timeout-minutes: 12
-        run: bash tools/test-apple-ui.sh 'platform=iOS Simulator,id=${{ steps.simulators.outputs.iphone }}' iphone
-      - name: Exercise native iPad consent, chat and receipts
+        run: bash tools/test-apple-ui.sh 'platform=iOS Simulator,id=${{ steps.simulators.outputs.iphone }}' iphone --prepare-only
+      - name: Exercise native iPhone consent, chat and receipts
+        if: ${{ !cancelled() && steps.iphone_prepare.outcome == 'success' }}
+        timeout-minutes: 12
+        run: bash tools/test-apple-ui.sh 'platform=iOS Simulator,id=${{ steps.simulators.outputs.iphone }}' iphone --test-only
+      - name: Prepare iPad simulator and native UI test bundle
+        id: ipad_prepare
         if: ${{ !cancelled() && steps.simulators.outcome == 'success' }}
         timeout-minutes: 12
-        run: bash tools/test-apple-ui.sh 'platform=iOS Simulator,id=${{ steps.simulators.outputs.ipad }}' ipad
+        run: bash tools/test-apple-ui.sh 'platform=iOS Simulator,id=${{ steps.simulators.outputs.ipad }}' ipad --prepare-only
+      - name: Exercise native iPad consent, chat and receipts
+        if: ${{ !cancelled() && steps.ipad_prepare.outcome == 'success' }}
+        timeout-minutes: 12
+        run: bash tools/test-apple-ui.sh 'platform=iOS Simulator,id=${{ steps.simulators.outputs.ipad }}' ipad --test-only
       - uses: actions/upload-artifact@v4
         if: always()
         with:
