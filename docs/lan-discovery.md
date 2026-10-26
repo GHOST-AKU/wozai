@@ -8,12 +8,12 @@ A computer on Ethernet and a phone on the router's Wi-Fi use the same LAN mode. 
 
 - 发现使用 `_nearbyim._tcp.local.` DNS-SD/mDNS，UDP 5353；聊天连接对端广告中的实际 TCP 端口。发现信息只提供路由线索，身份仍由 NIM4 加密握手和用户认可确认。
 - 本分支的 Windows/Linux GUI 会在开启接收期间定期检查普通 LAN IPv4 地址，给新增地址建立发现，移除已消失接口上的设备，并重试注册失败的接口。多地址 DNS 答复优先使用接收接口所在网段的地址；没有同网段地址时仍允许其他私有局域网地址。
-- 手动 IP 连接保留。自动发现当前使用 IPv4；IPv6 手动连接仍受原有本地地址和作用域限制。Terminal 使用 `mdns-sd`，Apple 使用系统 Bonjour；本次没有修改这两个客户端的发现实现。
+- 手动 IP 连接保留。GUI/Terminal 自动地址发现当前使用 IPv4；IPv6 手动连接仍受各客户端原有本地地址和作用域限制。Terminal 使用 `mdns-sd`，现在按可用普通网卡的最长匹配前缀选择单一、稳定的局域网地址，避免 CLI 先取错地址或 TUI 被其他网卡地址覆盖。没有同网段地址时保留私有地址后备，发现中排除回环地址。Apple 使用系统 Bonjour，本次未修改 Apple 发现实现。
 - 路由器必须允许客户端互访，并转发相应链路上的 mDNS。访客网络、无线隔离、VLAN、阻断组播的交换机及系统防火墙都可能影响结果。没有自动修改防火墙或扫描整个网段。
 
 Discovery uses DNS-SD/mDNS (`_nearbyim._tcp.local.`, UDP 5353). Chat uses the advertised TCP port. Advertisements remain untrusted routing hints; NIM4 authenticates identity and applies consent.
 
-On this branch, Windows/Linux GUI clients periodically reconcile ordinary LAN IPv4 interfaces while reception is enabled, add new interfaces, withdraw peers from removed interfaces and retry failed registrations. Multi-address answers prefer the receiving interface's subnet, retaining private routed addresses as a fallback. Manual IP connection remains available, including existing local IPv6 support and scope restrictions. Terminal's `mdns-sd` and Apple's Bonjour implementations are unchanged.
+On this branch, Windows/Linux GUI clients periodically reconcile ordinary LAN IPv4 interfaces while reception is enabled, add new interfaces, withdraw peers from removed interfaces and retry failed registrations. Multi-address answers prefer the receiving interface's subnet, retaining private routed addresses as a fallback. Manual IP connection remains available under each client's existing local-address and IPv6 scope restrictions. Terminal uses `mdns-sd` and now emits one stable address per resolved event, preferring the longest matching ordinary LAN prefix. This avoids choosing an unrelated adapter first in CLI or overwriting a usable endpoint in TUI. Private routed fallback remains available; discovered loopback addresses are excluded. Apple's Bonjour implementation is unchanged.
 
 The router must allow device-to-device traffic and mDNS on the relevant links. Guest isolation, VLANs, multicast filtering and host firewalls can interfere. NearbyIM does not automatically alter firewall rules or sweep subnets.
 

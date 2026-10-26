@@ -16,6 +16,8 @@ nearbyim
 
 首次 TUI 启动说明独立身份与本地数据，询问昵称、接收目录及监听策略。**默认不开启 LAN 监听，不自动接收文件。** CLI 查询可以创建身份，但不会开启监听。设置可以通过 `config list/get/set` 管理。
 
+有线电脑和 Wi-Fi 设备可以使用同一个 LAN。多地址发现优先选择普通网卡的最长匹配网段，每次解析输出一个稳定地址，保留私有路由地址后备。参见[有线/Wi-Fi 局域网排查](../docs/lan-discovery.md)；真实路由器上的互发现与通信验收仍由 Issue #5 跟进。
+
 ```sh
 nearbyim config set receive_dir /home/me/Downloads/NearbyIM
 nearbyim peers scan --timeout 8s

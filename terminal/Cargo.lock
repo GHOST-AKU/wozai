@@ -1099,6 +1099,7 @@ dependencies = [
  "flate2",
  "fs2",
  "hex",
+ "if-addrs",
  "image",
  "libc",
  "mdns-sd",
