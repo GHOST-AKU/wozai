@@ -20,6 +20,9 @@ struct AdjustableSidebar: ViewModifier {
     @State private var dragOrigin: Double?
     @State private var latched: Double?
     @GestureState private var dragging = false
+    #if os(macOS)
+    @State private var hovering = false
+    #endif
 
     init(key: String, total: CGFloat, initial: CGFloat, minimum: CGFloat) {
         self.total = total; self.initial = initial; self.minimum = minimum
@@ -89,8 +92,11 @@ struct AdjustableSidebar: ViewModifier {
                         }
                         #if os(macOS)
                         .onHover { inside in
+                            guard inside != hovering else { return }
+                            hovering = inside
                             if inside { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() }
                         }
+                        .onDisappear { if hovering { hovering = false; NSCursor.pop() } }
                         #endif
                 }
             }

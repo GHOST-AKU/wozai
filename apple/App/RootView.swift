@@ -148,8 +148,8 @@ private struct ChatsView: View {
                 if let contact = model.conversations.first(where: { $0.id == selection }) {
                     ChatDetailView(contact: contact).id(contact.id)
                 } else { ContentUnavailableView("Choose a conversation", systemImage: "bubble.left.and.bubble.right") }
-        }
-        .navigationSplitViewStyle(.balanced)
+            }
+            .navigationSplitViewStyle(.balanced)
         }
         .onChange(of: model.connectionState, initial: true) { _, value in
             pendingConnectedPeer = value == .connected ? model.activePeer?.id : nil
@@ -192,8 +192,8 @@ private struct MacNavigation: View {
                 if let contact = model.conversations.first(where: { "chat:" + $0.id == selection }) {
                     ChatDetailView(contact: contact).id(contact.id)
                 } else { NearbyView() }
-        }
-        .navigationSplitViewStyle(.balanced)
+            }
+            .navigationSplitViewStyle(.balanced)
         }
         .frame(minWidth: 600, minHeight: 420)
         .toolbar {

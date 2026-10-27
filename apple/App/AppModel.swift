@@ -107,7 +107,7 @@ final class AppModel {
         connectionPath = .unavailable
         stream.observePath { [weak self] path in
             Task { @MainActor in
-                guard let self, self.token == generation else { return }
+                guard let self, self.token == generation, self.stream != nil else { return }
                 self.connectionPath = path
             }
         }

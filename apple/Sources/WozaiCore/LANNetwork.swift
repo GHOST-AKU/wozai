@@ -219,7 +219,9 @@ public final class LANDiscovery: @unchecked Sendable {
                         }
                         return DiscoveredPeer(id: name + "." + type + "." + domain, nickname: nickname, claimedID: remoteID, endpoint: result.endpoint)
                     }.sorted { $0.id < $1.id }
-                    self.peers(Array(found.prefix(256)))
+                    // A service may be visible on infrastructure and peer interfaces simultaneously.
+                    let unique = Dictionary(found.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+                    self.peers(Array(unique.values.sorted { $0.id < $1.id }.prefix(256)))
                 }
                 browser.stateUpdateHandler = { [weak self] value in
                     guard let self, self.generation == epoch else { return }
