@@ -12,8 +12,8 @@
   "stopListen": "停止接收",
   "myAddress": "我的连接地址",
   "notListening": "尚未开启接收",
-  "noAddress": "没有可用的局域网地址。请连接 Wi-Fi 或手机热点。",
-  "nearbyHint": "双方加入同一 Wi-Fi 或热点并开启接收，再选择附近设备。",
+  "noAddress": "没有局域网地址，请连接网线、Wi-Fi 或手机热点。",
+  "nearbyHint": "双方加入同一局域网并开启接收；电脑可接网线，手机可用 Wi-Fi。",
   "connect": "连接并记住",
   "reconnect": "连接",
   "disconnect": "断开连接",
@@ -537,5 +537,6 @@
   "attachmentPathLanDirect": "传输路径：局域网 → Wi-Fi 直连",
   "attachmentPathBluetoothDirect": "传输路径：蓝牙 → Wi-Fi 直连",
   "attachmentPathBluetoothLan": "传输路径：蓝牙 → 局域网",
-  "attachmentPathAllLinks": "传输路径：Wi-Fi 直连、局域网、蓝牙"
+  "attachmentPathAllLinks": "传输路径：Wi-Fi 直连、局域网、蓝牙",
+  "lanDiagnostics": "复制局域网诊断"
 }

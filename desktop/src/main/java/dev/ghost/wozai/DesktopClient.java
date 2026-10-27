@@ -72,7 +72,10 @@ public final class DesktopClient implements AutoCloseable {
             Session session = current; if (session != null) session.wire.close(UiText.of("busy"));
         }
     }
-    public CompletableFuture<Void> refresh() { return submit(() -> { publish(); return null; }); }
+    public CompletableFuture<Void> refresh() { return submit(() -> {
+        if (listening != null) listening = new Listening(listening.port(), lanEndpoints(listening.port()));
+        publish(); return null;
+    }); }
     private AvatarStore ownAvatars()throws IOException {
         if(ownAvatar==null)ownAvatar=new AvatarStore(store.attachmentsRoot().getParent().resolve("avatars"),identity.signer().publicKey());
         return ownAvatar;
@@ -102,13 +105,7 @@ public final class DesktopClient implements AutoCloseable {
         return submit(() -> {
             stopServer();
             ServerSocket opened = new ServerSocket(0); server = opened;
-            List<String> endpoints = new ArrayList<>();
-            for (NetworkInterface iface : Collections.list(NetworkInterface.getNetworkInterfaces())) {
-                if (!iface.isUp() || iface.isLoopback()) continue;
-                for (InetAddress address : Collections.list(iface.getInetAddresses()))
-                    if (LocalEndpoint.isLocal(address) && !address.getHostAddress().contains("%")) endpoints.add(endpoint(address, opened.getLocalPort()));
-            }
-            listening = new Listening(opened.getLocalPort(), List.copyOf(endpoints));
+            listening = new Listening(opened.getLocalPort(), lanEndpoints(opened.getLocalPort()));
             daemon(() -> {
                 try {
                     while (server == opened && !closed) {
@@ -126,6 +123,17 @@ public final class DesktopClient implements AutoCloseable {
             }, "wozai-accept").start();
             publish(); return listening;
         });
+    }
+    private static List<String> lanEndpoints(int port) {
+        List<String> result = new ArrayList<>();
+        try {
+            for (NetworkInterface iface : Collections.list(NetworkInterface.getNetworkInterfaces())) {
+                if (!DesktopFileRoutes.ordinary(iface)) continue;
+                for (InetAddress address : Collections.list(iface.getInetAddresses()))
+                    if (LocalEndpoint.isLocal(address) && !address.getHostAddress().contains("%")) result.add(endpoint(address, port));
+            }
+        } catch (SocketException unavailable) { }
+        return List.copyOf(result);
     }
     public CompletableFuture<Void> stopListening() { return submit(() -> { stopServer(); publish(); return null; }); }
     private void stopServer() {
@@ -461,9 +469,10 @@ public final class DesktopClient implements AutoCloseable {
     public CompletableFuture<Void> draft(String id, String text) { return submit(() -> { store.draft(id, text); return null; }); }
     public CompletableFuture<Void> setting(String key, String value) { return submit(() -> { store.setSetting(key, value); return null; }); }
     public String transferDiagnostics(String peerId){
-        Session session=current;if(session==null||session.peer==null||!session.peer.id().equals(peerId))return "diagnostics_schema=1\nendpoint=desktop\nactive_session=false\n";
+        ServerSocket listeningServer=server;
+        Session session=current;if(session==null||session.peer==null||!session.peer.id().equals(peerId))return "diagnostics_schema=1\nendpoint=desktop\nversion="+LanguageRegistry.VERSION+"\nactive_session=false\nlan_listen_port="+(listeningServer==null?0:listeningServer.getLocalPort())+"\n";
         ClientAttachmentTransfers files=session.transfers;
-        return "diagnostics_schema=1\nendpoint=desktop\nversion="+LanguageRegistry.VERSION+"\ntransport="+session.transport+"\n"+session.wire.diagnostics()+(session.files==null?"":session.files.diagnostics())+(files==null?"":files.diagnostics());
+        return "diagnostics_schema=1\nendpoint=desktop\nversion="+LanguageRegistry.VERSION+"\ntransport="+session.transport+"\nlan_listen_port="+(listeningServer==null?0:listeningServer.getLocalPort())+"\n"+session.wire.diagnostics()+(session.files==null?"":session.files.diagnostics())+(files==null?"":files.diagnostics());
     }
     public TransferPath attachmentTransferPath(String peer,AttachmentRecord record){
         if(record==null)return TransferPath.NONE;
