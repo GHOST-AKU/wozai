@@ -17,6 +17,8 @@ public final class FileQualityRequestRetryTests {
             AtomicBoolean holdHistory=new AtomicBoolean();AtomicInteger requests=new AtomicInteger();
             CountDownLatch historyEntered=new CountDownLatch(1),historyRelease=new CountDownLatch(1),declined=new CountDownLatch(1),retried=new CountDownLatch(1);
             CompletableFuture<Void> controlFailure=new CompletableFuture<>();
+            AtomicReference<FileLinkPacket> pendingAdmission=new AtomicReference<>();
+            CountDownLatch peerReadyAdmission=new CountDownLatch(1);
             ExecutorService admission=Executors.newSingleThreadExecutor();
             h.historyBarrier=record->{
                 if(!record.outgoing&&record.state.equals("transferring")&&holdHistory.compareAndSet(true,false)){
@@ -27,6 +29,16 @@ public final class FileQualityRequestRetryTests {
             };
             h.routes.a.linkConsumer=packet->{
                 try{
+                    if(packet.kind==FileLinkPacket.Kind.PROGRESS){
+                        h.routes.a.files.receiveFileLink(packet);
+                        // Queue the request immediately after a real non-busy peer heartbeat.
+                        // Otherwise peer_busy can legitimately take precedence over local_busy.
+                        if(packet.number!=2){
+                            FileLinkPacket waiting=pendingAdmission.getAndSet(null);
+                            if(waiting!=null){h.routes.a.files.receiveFileLink(waiting);peerReadyAdmission.countDown();}
+                        }
+                        return;
+                    }
                     if(packet.kind==FileLinkPacket.Kind.REQUEST&&packet.number==2){
                         int count=requests.incrementAndGet();
                         if(count==1){
@@ -36,14 +48,15 @@ public final class FileQualityRequestRetryTests {
                                 try{
                                     check(historyEntered.await(5,TimeUnit.SECONDS),"Receiver did not enter its real history save");
                                     check(h.files[0].activity().busy,"History save did not make receiver busy");
-                                    h.routes.a.files.receiveFileLink(packet);
+                                    pendingAdmission.set(packet);
+                                    check(peerReadyAdmission.await(3,TimeUnit.SECONDS),"Sender did not publish a usable activity heartbeat while the receiver was busy");
                                     AutomaticFileRoutesTests.drainActor(h.routes.a.files);
                                     String diagnostics=h.routes.a.files.diagnostics();
                                     check(diagnostics.contains("file_quality_result=not_measured"),"First request was not declined before measurement: "+diagnostics);
                                     check(diagnostics.contains("file_quality_admission=local_busy"),"Receiver did not explain its temporary rejection: "+diagnostics);
                                     declined.countDown();
                                 }catch(Exception|AssertionError error){controlFailure.completeExceptionally(error);}
-                                finally{historyRelease.countDown();}
+                                finally{pendingAdmission.set(null);historyRelease.countDown();}
                             });
                             return;
                         }
