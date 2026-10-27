@@ -98,7 +98,7 @@ public actor ChatStore {
     @discardableResult
     public func saveIncoming(peerID: String, frame: NIMFrame) throws -> Bool {
         guard frame.type == .text else { throw WozaiError.protocolViolation }
-        _ = try frame.encoded()
+        _ = try frame.encoded(textLimit: TextLimits.extended)
         let prior = try database.rows("SELECT body,time FROM messages WHERE peer=? AND id=? AND outgoing=0", [.text(peerID), .text(frame.id)])
         if let row = prior.first {
             guard row["body"]!.text == frame.body, row["time"]!.integer == Int64(frame.timestamp) else { throw WozaiError.protocolViolation }
@@ -109,7 +109,7 @@ public actor ChatStore {
     }
 
     public func saveOutgoing(peerID: String, frame: NIMFrame) throws {
-        _ = try frame.encoded()
+        _ = try frame.encoded(textLimit: TextLimits.extended)
         try insert(peerID: peerID, frame: frame, outgoing: true, status: .pending)
     }
 
@@ -148,6 +148,7 @@ public actor ChatStore {
     }
 
     public func saveDraft(peerID: String, text: String) throws {
+        guard text.utf8.count <= TextLimits.draft else { throw WozaiError.invalidText }
         try database.run("INSERT INTO drafts(peer,body) VALUES(?,?) ON CONFLICT(peer) DO UPDATE SET body=excluded.body", [.text(peerID), .text(text)])
     }
 

@@ -40,6 +40,9 @@ public final class AppleInteropPeer {
             String safety = new SafetyCode(identity.publicKey(), channel.remotePublicKey()).hex();
             channel.write(ProtocolV4.encode(new Frame(Frame.READY, "", "", 0)));
             Frame ready = ProtocolV4.decode(channel.read()); require(ready.type == Frame.READY, "Missing consent READY");
+            TextCapability capacity=new TextCapability(channel.connectionGeneration(),time->{try{channel.write(ProtocolV4.encode(new Frame(Frame.PONG,"","",time)));}catch(IOException error){throw new java.io.UncheckedIOException(error);}},()->{});
+            if(!ui)capacity.start();
+            String longID=UUID.randomUUID().toString(),longBody="中".repeat(10922)+"ab";boolean longSent=ui,longReceived=ui,longAck=ui;
             String textID = UUID.randomUUID().toString().toUpperCase(java.util.Locale.ROOT), whitespaceID = UUID.randomUUID().toString();
             channel.write(ProtocolV4.encode(new Frame(Frame.TEXT, textID, "Hello from Java" + (ui ? "" : "\n" + safety), 1234)));
             if (!ui) { channel.write(ProtocolV4.encode(new Frame(Frame.TEXT, whitespaceID, "\u00a0\u2003", 1235))); }
@@ -53,8 +56,8 @@ public final class AppleInteropPeer {
                 fileID, source, channel.connectionGeneration(), true, 3, 0, 0, null, "")));
             channel.write(ProtocolV4.encode(new Frame(Frame.PING, "", "", 0)));
             boolean receivedText = false, receivedACK = false, whitespaceACK = ui, rejectedFile = false, receivedPong = false;
-            for (int records = 0; records < 32 && !(receivedText && receivedACK && whitespaceACK && rejectedFile && receivedPong); records++) {
-                ProtocolV4.Record record = ProtocolV4.decodeRecord(channel.read());
+            for (int records = 0; records < 32 && !(receivedText && receivedACK && whitespaceACK && rejectedFile && receivedPong && longReceived && longAck); records++) {
+                ProtocolV4.Record record = ProtocolV4.decodeRecord(channel.read(),capacity.incoming());
                 if (record.transfer != null) {
                     TransferPacket packet = record.transfer;
                     require(packet.kind == TransferPacket.Kind.CANCEL && !packet.fromSender && packet.reason.equals("rejected")
@@ -66,20 +69,24 @@ public final class AppleInteropPeer {
                 Frame frame = record.frame; require(frame != null, "Unexpected record family");
                 switch (frame.type) {
                     case Frame.TEXT:
-                        require(!receivedText && frame.body.equals("Hello from Apple" + (ui ? "" : "\n" + safety)), "Text or safety-code mismatch");
-                        receivedText = true;
+                        if(frame.body.equals(longBody)&&!ui){require(!longReceived,"Duplicate long text");longReceived=true;}
+                        else{require(!receivedText && frame.body.equals("Hello from Apple" + (ui ? "" : "\n" + safety)), "Text or safety-code mismatch");receivedText=true;}
                         channel.write(ProtocolV4.encode(new Frame(Frame.ACK, frame.id, "", 0)));
                         break;
                     case Frame.ACK:
-                        if (frame.id.equals(textID)) { receivedACK = true; }
+                        if(frame.id.equals(longID)&&!ui){longAck=true;}
+                        else if (frame.id.equals(textID)) { receivedACK = true; }
                         else { require(!ui && frame.id.equals(whitespaceID), "Wrong text ACK"); whitespaceACK = true; }
                         break;
-                    case Frame.PONG: receivedPong = true; break;
+                    case Frame.PONG:
+                        if(frame.timestamp==0)receivedPong=true;
+                        if(!ui){capacity.receive(frame.timestamp);if(!longSent&&capacity.outgoing()==32768){longSent=true;channel.write(ProtocolV4.encode(new Frame(Frame.TEXT,longID,longBody,1236),capacity.outgoing()));}}
+                        break;
                     case Frame.PING: channel.write(ProtocolV4.encode(new Frame(Frame.PONG, "", "", 0))); break;
                     default: throw new AssertionError("Unexpected frame: " + frame.type);
                 }
             }
-            require(receivedText && receivedACK && whitespaceACK && rejectedFile && receivedPong, "Incomplete exchange");
+            require(receivedText && receivedACK && whitespaceACK && rejectedFile && receivedPong && longReceived && longAck, "Incomplete exchange");
             if (ui) { exerciseReadingPosition(channel); }
             channel.write(ProtocolV4.encode(new Frame(Frame.BYE, "", "", 0)));
         }

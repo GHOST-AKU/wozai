@@ -50,7 +50,7 @@ Quiet Terminal themes: `--theme midnight` (default), `paper`, `sage`, `mono`, `s
 - Tab / Shift+Tab: focus; arrows or j/k outside composer: select.
 - Ctrl+K / Ctrl+P: command palette; `?` outside composer: help; `/` or Ctrl+F: search.
 - Enter: open/send; Ctrl+J or Alt+Enter: newline; bracketed paste never sends on pasted newlines.
-- Left/right/backspace/delete edit Unicode grapheme clusters, not UTF-16 units. Text is limited to **8192 UTF-8 bytes**.
+- Left/right/backspace/delete edit Unicode grapheme clusters, not UTF-16 units. New peers negotiate **32768 UTF-8 bytes** per message; older peers keep **8192 bytes**. The composer shows the connection limit and preserves oversized drafts (up to **256 KiB**); an edit beyond the draft budget is rejected as a whole. See [text limits and compatibility](../docs/text-messages.md).
 - `a` outside composer: attach by path; confirm recipient/size before sending.
 - Esc: close palette, cancel scan, return; Ctrl+C / q outside composer: exit; active transfers require exit confirmation and are checkpointed.
 

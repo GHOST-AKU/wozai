@@ -34,7 +34,7 @@ See [CLI command reference](references/cli.md) for grounded examples. Read [iden
 - `nearbyim listen --lan` is a **foreground receiver**. There is no background daemon or IPC; `status` reports `not_running` even when it describes a valid local profile. An existing TUI/CLI instance may hold the exclusive profile lock (`PROFILE_BUSY`); do not kill it or bypass the lock.
 - A successful `send` indicates **remote durable saved receipt**, **not** a read receipt. On an unconfirmed timeout, **do not automatically retransmit text**; confirm with the user after checking status/history.
 - LAN discovery/direct addresses work only within actually reachable networks. The Terminal client does not currently implement native Wi-Fi Direct, Bluetooth RFCOMM, multiple simultaneous active sessions or background connectivity.
-- Text has an **8192 UTF-8 byte** limit. Files are bounded to **10 GiB** and up to **256 selections**; the recipient may have to approve reception. A file saved locally is not automatically safe to open or execute.
+- Text supports **32768 UTF-8 bytes** after capability negotiation; older or unnegotiated peers retain the **8192 UTF-8 byte** limit. Files are bounded to **10 GiB** and up to **256 selections**; the recipient may have to approve reception. A file saved locally is not automatically safe to open or execute.
 - Private identity material is sensitive. Terminal message history and received files are **not encrypted at rest**; never treat the OS-protected identity key as disk encryption for user content.
 - Do not claim independent validation on a real device merely because the CLI, Skill or automated tests exist.
 

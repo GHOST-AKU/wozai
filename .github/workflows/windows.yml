@@ -72,6 +72,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           ./tools/test-trust.ps1
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify text compatibility with pinned old NIM4 clients
+        shell: bash
+        run: sh tools/test-text-legacy.sh
       - name: Run packaged Windows executable
         shell: pwsh
         run: ./desktop/tools/test-package.ps1

@@ -217,7 +217,7 @@ fn invalid_input_and_config_match_manual_contract() {
             "--address",
             "127.0.0.1:1",
             "--text",
-            &"中".repeat(2731),
+            &"中".repeat(10923),
         ])
         .output()
         .unwrap();

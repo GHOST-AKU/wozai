@@ -2,6 +2,10 @@
 use anyhow::{Result, bail, ensure};
 use std::io::{Cursor, Read};
 
+pub const LEGACY_TEXT: usize = 8192;
+pub const EXTENDED_TEXT: usize = 32768;
+pub const DRAFT_BYTES: usize = 256 * 1024;
+
 pub const MAGIC: u32 = 0x4e494d34;
 pub const MAX_PLAIN: usize = 48 * 1024;
 pub const MAX_FILE: u64 = 10_737_418_240;
@@ -38,10 +42,18 @@ pub fn nickname(s: &str) -> Result<()> {
     );
     Ok(())
 }
+#[cfg(test)]
 pub fn text_valid(s: &str) -> Result<()> {
+    text_valid_limit(s, LEGACY_TEXT)
+}
+pub fn text_valid_limit(s: &str, limit: usize) -> Result<()> {
     ensure!(
-        !java_blank(s) && s.len() <= 8192,
-        "text must contain 1–8192 UTF-8 bytes"
+        [LEGACY_TEXT, EXTENDED_TEXT].contains(&limit),
+        "invalid text capacity"
+    );
+    ensure!(
+        !java_blank(s) && s.len() <= limit,
+        "text must contain 1–{limit} UTF-8 bytes; draft preserved"
     );
     Ok(())
 }
@@ -125,12 +137,16 @@ impl Frame {
             data: vec![],
         }
     }
-    pub fn validate(&self) -> Result<()> {
+    fn validate_limit(&self, limit: usize) -> Result<()> {
+        ensure!(
+            [LEGACY_TEXT, EXTENDED_TEXT].contains(&limit),
+            "invalid text capacity"
+        );
         ensure!(self.time <= i64::MAX as u64, "invalid timestamp");
         match self.kind {
             TEXT => {
                 ensure!(uuid(&self.id, false), "invalid message ID");
-                text_valid(&self.body)?;
+                text_valid_limit(&self.body, limit)?;
             }
             ACK => ensure!(
                 uuid(&self.id, false) && self.body.is_empty(),
@@ -160,7 +176,10 @@ impl Frame {
         Ok(())
     }
     pub fn encode(&self) -> Result<Vec<u8>> {
-        self.validate()?;
+        self.encode_limit(LEGACY_TEXT)
+    }
+    pub fn encode_limit(&self, limit: usize) -> Result<Vec<u8>> {
+        self.validate_limit(limit)?;
         let mut b = vec![];
         b.extend(MAGIC.to_be_bytes());
         b.extend([4, self.kind]);
@@ -175,6 +194,13 @@ impl Frame {
         Ok(b)
     }
     pub fn decode(b: &[u8]) -> Result<Self> {
+        Self::decode_limit(b, LEGACY_TEXT)
+    }
+    pub fn decode_limit(b: &[u8], limit: usize) -> Result<Self> {
+        ensure!(
+            [LEGACY_TEXT, EXTENDED_TEXT].contains(&limit),
+            "invalid text capacity"
+        );
         ensure!((22..=MAX_PLAIN).contains(&b.len()), "invalid record size");
         let mut d = Decoder::new(b);
         ensure!(
@@ -185,7 +211,7 @@ impl Frame {
             kind: d.byte()?,
             time: d.long()?,
             id: d.str(64)?,
-            body: d.str(8192)?,
+            body: d.str(limit)?,
             data: vec![],
         };
         if matches!(f.kind, FILE | 17) {
@@ -194,7 +220,7 @@ impl Frame {
             f.data = d.bytes(n)?;
         }
         d.done()?;
-        f.validate()?;
+        f.validate_limit(limit)?;
         Ok(f)
     }
 }

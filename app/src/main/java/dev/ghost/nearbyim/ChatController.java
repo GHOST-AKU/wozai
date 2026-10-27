@@ -343,6 +343,7 @@ public final class ChatController implements TransportListener {
                 String id = remoteHello.id, name = remoteHello.body;
                 db(() -> store.save(id, name, frame, false), () -> { reference[0].acknowledge(frame.id); refresh(); });
             }); }
+            public void onTextLimit(int bytes){main.post(()->{if(active==reference[0])changed();});}
             public void onAck(String id) { main.post(() -> {
                 if (active != reference[0] || remoteHello == null) return;
                 String peerId = remoteHello.id; db(() -> store.delivered(peerId, id), ChatController.this::refresh);
@@ -512,6 +513,7 @@ public final class ChatController implements TransportListener {
     private static void close(StreamConnection connection) { try { connection.close(); } catch (IOException ignored) {} }
     public void disconnect() { closeActive(UiText.of("connectionEnded")); cancelOutgoing(); status = UiText.of("connectionEnded"); changed(); }
     public boolean canSend() { return !savingMessage && connected && active != null && active.isReady() && remoteHello != null && Objects.equals(selectedId, connectedPeerId); }
+    public int textLimit(){return active==null?TextLimits.LEGACY_BYTES:active.textLimit();}
     public long attachmentSessionToken(){return attachmentToken;}
     public String transferDiagnostics(){
         FramedSession wire=active;ClientAttachmentTransfers files=transfers;
@@ -743,7 +745,7 @@ public final class ChatController implements TransportListener {
     public boolean send(String body) {
         if (!canSend()) { fail(UiText.of("notConnected")); return false; }
         Frame frame = new Frame(Frame.TEXT, UUID.randomUUID().toString(), body, System.currentTimeMillis());
-        try { Protocol.write(new ByteArrayOutputStream(), frame); } catch (IOException e) { fail(UiText.of("invalidMessage")); return false; }
+        try { ProtocolV4.encode(frame,textLimit()); } catch (IOException e) { fail(UiText.of("invalidMessage")); return false; }
         FramedSession session = active; String peerId = remoteHello.id, name = remoteHello.body;
         savingMessage = true; changed();
         db(() -> store.save(peerId, name, frame, true), () -> {

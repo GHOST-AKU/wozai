@@ -285,7 +285,9 @@ public final class I18nResources {
             case "discoverableRemaining": return R.string.discoverable_remaining;
             case "discovered": return R.string.discovered;
             case "discoveryFailed": return R.string.discovery_failed;
+            case "draftEditTooLarge": return R.string.draft_edit_too_large;
             case "draftRetainedHint": return R.string.draft_retained_hint;
+            case "draftSaveFailed": return R.string.draft_save_failed;
             case "earlier": return R.string.earlier;
             case "emoji": return R.string.emoji;
             case "emptyChat": return R.string.empty_chat;
@@ -497,6 +499,9 @@ public final class I18nResources {
             case "storageFailure": return R.string.storage_failure;
             case "systemLanguage": return R.string.system_language;
             case "systemTheme": return R.string.system_theme;
+            case "textByteCount": return R.string.text_byte_count;
+            case "textInvalidUnicode": return R.string.text_invalid_unicode;
+            case "textOverLimit": return R.string.text_over_limit;
             case "theme": return R.string.theme;
             case "today": return R.string.today;
             case "transferDiagnostics": return R.string.transfer_diagnostics;

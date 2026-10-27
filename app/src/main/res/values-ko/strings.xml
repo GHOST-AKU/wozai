@@ -277,7 +277,9 @@
     <string name="discoverable_remaining" formatted="false">"검색 허용 · {0, plural, other {#초 남음}}"</string>
     <string name="discovered" formatted="false">"발견됨"</string>
     <string name="discovery_failed" formatted="false">"자동 검색을 사용할 수 없습니다. IP 주소로 연결하세요."</string>
+    <string name="draft_edit_too_large" formatted="false">"이 편집은 초안 한도 {0}바이트를 초과합니다. 기존 초안은 그대로 유지됩니다. 긴 글은 파일로 보내세요."</string>
     <string name="draft_retained_hint" formatted="false">"연결하면 메시지를 보낼 수 있습니다. 초안은 여기에 남습니다."</string>
+    <string name="draft_save_failed" formatted="false">"초안을 저장하지 못했습니다. 이 대화를 열어 두고 내용을 복사하세요."</string>
     <string name="earlier" formatted="false">"이전"</string>
     <string name="emoji" formatted="false">"이모지"</string>
     <string name="empty_chat" formatted="false">"왼쪽에서 채팅을 선택하거나 ‘근처’에서 기기에 연결하세요."</string>
@@ -329,7 +331,7 @@
     <string name="idle" formatted="false">"연결 안 됨"</string>
     <string name="initial_status" formatted="false">"연결 방식을 선택하고 근처 사람을 찾아보세요"</string>
     <string name="invalid_endpoint" formatted="false">"192.168.1.20:54321 또는 [fd00::1]:54321 형식으로 입력하세요."</string>
-    <string name="invalid_message" formatted="false">"비어 있지 않은 메시지를 UTF-8 기준 8192바이트 이내로 입력하세요."</string>
+    <string name="invalid_message" formatted="false">"표시된 UTF-8 바이트 한도 내에서 올바른 텍스트를 입력하세요. 초안은 유지됩니다."</string>
     <string name="invalid_nickname" formatted="false">"제어 문자를 포함하지 않는 1~32자의 닉네임을 입력하세요."</string>
     <string name="invalid_transport" formatted="false">"올바르지 않은 연결 방식"</string>
     <string name="lan" formatted="false">"LAN"</string>
@@ -489,6 +491,9 @@
     <string name="storage_failure" formatted="false">"로컬 데이터를 저장하지 못해 연결을 중지했습니다. 디스크 공간과 폴더 권한을 확인하세요."</string>
     <string name="system_language" formatted="false">"시스템 설정 따르기"</string>
     <string name="system_theme" formatted="false">"시스템 설정 따르기"</string>
+    <string name="text_byte_count" formatted="false">"{0} / {1} UTF-8 바이트"</string>
+    <string name="text_invalid_unicode" formatted="false">"입력 조합을 완료한 후 보내세요. 초안은 유지됩니다."</string>
+    <string name="text_over_limit" formatted="false">"{0} / {1} UTF-8 바이트. 현재 연결의 한도를 초과했습니다. 초안은 유지됩니다. 줄이거나 파일로 보내세요."</string>
     <string name="theme" formatted="false">"테마"</string>
     <string name="today" formatted="false">"오늘"</string>
     <string name="transfer_diagnostics" formatted="false">"전송 진단 복사"</string>

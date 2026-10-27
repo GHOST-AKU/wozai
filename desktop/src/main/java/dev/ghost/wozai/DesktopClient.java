@@ -256,6 +256,7 @@ public final class DesktopClient implements AutoCloseable {
                 for(DesktopStore.Message message:store.messages(peer.id()))if(message.attachment()!=null)files.rememberHistory(message.attachment());files.attachFiles(transfers);files.start();startAvatars();publish();
             } catch (IOException e) { failure(); }
         }); }
+        public void onTextLimit(int bytes){event(()->{if(current==this)publish();});}
         void startAvatars() {
             if(!wire.avatarsSupported()||authorization.publicKey.equals(identity.signer().publicKey())){pendingAvatars.clear();return;}
             try {
@@ -322,7 +323,7 @@ public final class DesktopClient implements AutoCloseable {
         Session session = current;
         if (session == null || !phase.equals("ready") || !session.wire.isReady()) return false;
         Frame frame = new Frame(Frame.TEXT, UUID.randomUUID().toString(), text, System.currentTimeMillis());
-        Protocol.write(OutputStream.nullOutputStream(), frame); // validate before saving or clearing draft
+        ProtocolV4.encode(frame,session.wire.textLimit()); // Validate before saving or clearing the draft.
         try {
             store.save(session.peer.id(), new DesktopStore.Message(frame.id, text, frame.timestamp, true, "pending"));
             boolean sent = session.wire.send(frame);
@@ -466,6 +467,7 @@ public final class DesktopClient implements AutoCloseable {
     });}
     public CompletableFuture<List<DesktopStore.Message>> messages(String id) { return submit(() -> liveMessages(id,store.messages(id))); }
     public CompletableFuture<String> draft(String id) { return submit(() -> store.draft(id)); }
+    public int textLimit(){Session session=current;return session==null?TextLimits.LEGACY_BYTES:session.wire.textLimit();}
     public CompletableFuture<Void> draft(String id, String text) { return submit(() -> { store.draft(id, text); return null; }); }
     public CompletableFuture<Void> setting(String key, String value) { return submit(() -> { store.setSetting(key, value); return null; }); }
     public String transferDiagnostics(String peerId){

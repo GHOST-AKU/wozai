@@ -36,7 +36,7 @@ struct ManualDisconnectProbe {
                     while true {
                         let frame = try await channel.receive()
                         switch frame.type {
-                        case .ready: break
+                        case .ready, .pong: break
                         case .text:
                             // Withhold ACK so disconnect must publish the durable unconfirmed status.
                             await peer.received(frame.body)

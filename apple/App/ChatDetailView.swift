@@ -39,7 +39,7 @@ struct ChatDetailView: View {
     @State private var observedViewport = CGSize.zero
     @FocusState private var composerFocused: Bool
     private var connected: Bool { model.connectionState == .connected && model.activePeer?.id == contact.id }
-    private var tooLong: Bool { draft.utf8.count > 8192 }
+    private var tooLong: Bool { draft.utf8.count > (connected ? model.textLimit : TextLimits.legacy) }
     private var latestLabel: LocalizedStringKey { hasNewMessages ? "New messages" : "Latest messages" }
     private var refreshKey: String { contact.id + ":" + String(model.revision[contact.id, default: 0]) + ":" + String(before?.sequence ?? 0) + ":" + String(refreshRequest) }
 
@@ -197,7 +197,10 @@ struct ChatDetailView: View {
                     Button("Find nearby devices", action: findNearby)
                 }.font(.caption)
             }
-            if tooLong { Text("Keep the message within 8192 UTF-8 bytes. Your draft is preserved.").font(.caption).foregroundStyle(.red) }
+            if !draft.isEmpty {
+                Text("\(draft.utf8.count) / \(connected ? model.textLimit : TextLimits.legacy) UTF-8 bytes").font(.caption).foregroundStyle(tooLong ? .red : .secondary)
+                if tooLong { Text("This draft exceeds the connection limit. Shorten it or send a file. Your draft is preserved.").font(.caption).foregroundStyle(.red) }
+            }
             HStack(alignment: .bottom) {
                 AttachmentControls()
                 TextField("Message", text: Binding(get: { draft }, set: { draft = $0 }), axis: .vertical)
@@ -211,7 +214,7 @@ struct ChatDetailView: View {
                 }
                 .keyboardShortcut(.return, modifiers: .command)
                 .help("Send message")
-                .disabled(!connected || !draftLoaded || sending || tooLong || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(!connected || !draftLoaded || sending || tooLong || !TextLimits.canSend(draft, limit: connected ? model.textLimit : TextLimits.legacy))
                 .accessibilityIdentifier("sendMessage")
             }
         }

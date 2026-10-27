@@ -63,6 +63,7 @@ private actor Harness {
     let fileSource: URL?
     var session: ChatSession?
     var peer: VerifiedPeer?
+    var longSent = false
     var closedNormally = false
     var failure: String?
     init(store: ChatStore, identity: DeviceIdentity, fileSource: URL?) { self.store = store; self.identity = identity; self.fileSource = fileSource }
@@ -78,6 +79,11 @@ private actor Harness {
                 if let fileSource { _ = try await session?.sendFile(fileSource) }
             case .attachmentOffer(let info):
                 if let info { try await session?.acceptFile(info.id, accept: fileSource != nil) }
+            case .textLimit(_, let limit):
+                if fileSource == nil && limit == TextLimits.extended && !longSent {
+                    longSent = true
+                    try await session?.sendText(String(repeating: "中", count: 10922) + "ab")
+                }
             case .changed, .transfer: break
             case .closed(let reason): closedNormally = reason == nil; failure = reason
             }
@@ -96,7 +102,9 @@ private actor Harness {
             print("PASS: Swift production NIM4 file send/receive, block/whole hashes, durable saved receipts")
             return
         }
-        guard messages.count == 3, peer.nickname == "\u{00a0}",
+        guard messages.count == 5, longSent,
+              messages.filter({ $0.body == String(repeating: "中", count: 10922) + "ab" }).count == 2,
+              messages.filter({ $0.outgoing && $0.status == .delivered }).count == 2, peer.nickname == "\u{00a0}",
               messages.contains(where: { !$0.outgoing && $0.body == "Hello from Java\n" + code }),
               messages.contains(where: { !$0.outgoing && $0.body == "\u{00a0}\u{2003}" }),
               messages.contains(where: { $0.outgoing && $0.status == .delivered && $0.body == "Hello from Apple\n" + code }) else { throw WozaiError.protocolViolation }

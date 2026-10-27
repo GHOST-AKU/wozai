@@ -43,6 +43,10 @@ public final class Protocol {
     }
 
     static void validate(Frame frame) throws IOException {
+        validate(frame,MAX_TEXT_BYTES);
+    }
+    static void validate(Frame frame,int textLimit) throws IOException {
+        if(!TextLimits.validLimit(textLimit))throw new IOException("Invalid text capacity");
         if (frame == null || frame.id == null || frame.body == null || frame.timestamp < 0) throw new IOException("Invalid frame");
         if(frame.type<Frame.FILE_OFFER && (frame.offset!=0||frame.data.length!=0))throw new IOException("Unexpected binary payload");
         switch (frame.type) {
@@ -53,7 +57,7 @@ public final class Protocol {
                 break;
             case Frame.TEXT:
                 identity(frame.id);
-                if (frame.body.trim().isEmpty() || utf8(frame.body).length > MAX_TEXT_BYTES) throw new IOException("Invalid text length");
+                if (!TextLimits.canSend(frame.body,textLimit)) throw new IOException("Invalid text length");
                 break;
             case Frame.ACK: identity(frame.id); empty(frame.body); break;
             case Frame.READY: case Frame.BYE: case Frame.PING: case Frame.PONG: empty(frame.id); empty(frame.body); break;

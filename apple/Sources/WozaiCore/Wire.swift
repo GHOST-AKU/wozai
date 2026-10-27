@@ -6,7 +6,7 @@ public enum WozaiError: Error, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .protocolViolation: return String(localized: "The peer sent an invalid or incompatible message.")
-        case .invalidText: return String(localized: "Keep the message within 8192 UTF-8 bytes. Your draft is preserved.")
+        case .invalidText: return String(localized: "Enter valid text within the displayed UTF-8 byte limit. Your draft is preserved.")
         case .identityChanged: return String(localized: "This device’s identity changed. Verify it before reconnecting.")
         case .storage: return String(localized: "The message could not be saved. No delivery receipt was sent.")
         case .timeout: return String(localized: "The connection timed out.")
@@ -77,11 +77,12 @@ public struct NIMFrame: Equatable, Sendable {
         self.type = type; self.id = id; self.body = body; self.timestamp = timestamp; self.binary = binary
     }
 
-    private func validate() throws {
+    private func validate(textLimit: Int) throws {
+        guard [TextLimits.legacy, TextLimits.extended].contains(textLimit) else { throw WozaiError.protocolViolation }
         guard timestamp <= UInt64(Int64.max) else { throw WozaiError.protocolViolation }
         switch type {
         case .text:
-            guard validFrameID(id), hasJavaTrimmedContent(body), body.utf8.count <= 8192, binary.isEmpty else { throw WozaiError.invalidText }
+            guard validFrameID(id), hasJavaTrimmedContent(body), body.utf8.count <= textLimit, binary.isEmpty else { throw WozaiError.invalidText }
         case .ack:
             guard validFrameID(id), body.isEmpty, binary.isEmpty else { throw WozaiError.protocolViolation }
         case .attachment:
@@ -92,19 +93,19 @@ public struct NIMFrame: Equatable, Sendable {
         }
     }
 
-    public func encoded() throws -> Data {
-        try validate()
+    public func encoded(textLimit: Int = TextLimits.legacy) throws -> Data {
+        try validate(textLimit: textLimit)
         var out = WireWriter(); out.u32(0x4e494d34); out.byte(4); out.byte(type.rawValue); out.u64(timestamp); out.text(id); out.text(body)
         if type == .attachment { out.u32(UInt32(binary.count)); out.data += binary }
         guard out.data.count <= 48 * 1024 else { throw WozaiError.protocolViolation }
         return out.data
     }
 
-    public static func decode(_ data: Data) throws -> NIMFrame {
+    public static func decode(_ data: Data, textLimit: Int = TextLimits.legacy) throws -> NIMFrame {
         guard data.count >= 22, data.count <= 48 * 1024 else { throw WozaiError.protocolViolation }
         var input = WireReader(data)
         guard try input.u32() == 0x4e494d34, try input.byte() == 4, let type = Kind(rawValue: try input.byte()) else { throw WozaiError.protocolViolation }
-        let time = try input.u64(), id = try input.text(maximum: 64), body = try input.text(maximum: 8192)
+        let time = try input.u64(), id = try input.text(maximum: 64), body = try input.text(maximum: type == .text ? textLimit : TextLimits.legacy)
         var binary = Data()
         if type == .attachment {
             let count = try input.u32(); guard count <= 40 * 1024 else { throw WozaiError.protocolViolation }
@@ -112,7 +113,7 @@ public struct NIMFrame: Equatable, Sendable {
         }
         try input.finish()
         let frame = NIMFrame(type: type, id: id, body: body, timestamp: time, binary: binary)
-        try frame.validate()
+        try frame.validate(textLimit: textLimit)
         return frame
     }
 }
