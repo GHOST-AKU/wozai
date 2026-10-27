@@ -2,7 +2,7 @@
 
 Independent native terminal client for **我在 / NearbyIM**, executable **`nearbyim`** (`nearbyim.exe` on Windows). Uses the shipping **NIM4** protocol. No Java runtime, GUI, Android SDK, cloud account, telemetry or relay is needed to run it. [中文](README.zh-CN.md).
 
-This is development version **0.1.0-dev** under [PR #41](https://github.com/GHOST-AKU/wozai/pull/41), based on [Issue #38](https://github.com/GHOST-AKU/wozai/issues/38) and the supplied [design v0.2](docs/design-v0.2.md). It is not a completed device/platform acceptance or a stable terminal release. Existing GUI clients and v0.3.2 release assets remain separate.
+New source builds use **0.3.3-preview.2**, shared with the other clients; the already published preview.1 retains its original internal `0.1.0-dev` version. See the [0.3.3 plan](../docs/releases/0.3.3.md). The client was implemented under [PR #41](https://github.com/GHOST-AKU/wozai/pull/41), based on [Issue #38](https://github.com/GHOST-AKU/wozai/issues/38) and the supplied [design v0.2](docs/design-v0.2.md). It is not a completed device/platform acceptance or a stable terminal release. Existing GUI clients and v0.3.2 release assets remain separate.
 
 ## Build and install
 

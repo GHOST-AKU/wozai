@@ -7,6 +7,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Translation catalogs or generated resources ar
 if ($LASTEXITCODE -ne 0) { throw 'Formal app icon resources are invalid' }
 $i18nConfig = Get-Content ../i18n/config.json -Raw -Encoding UTF8 | ConvertFrom-Json
 $appVersion = $i18nConfig.appVersion
+$nativeVersion = $appVersion.Split('-')[0]
 $runtimeLocales = ($i18nConfig.languages | ForEach-Object { $_.tag }) -join ','
 function Invoke-JavaTool([string]$Tool, [string[]]$Arguments) {
     & (Join-Path $env:JAVA_HOME "bin/$Tool.exe") @Arguments
@@ -72,7 +73,7 @@ Invoke-JavaTool java @('-cp', 'build/classes;build/tests;build/lib/*', 'dev.ghos
 if ($Package) {
     # Share constant strings; keep modules compressible by the outer ZIP.
     if (Test-Path build/package/NearbyIM) { Remove-Item build/package/NearbyIM -Recurse -Force }
-    Invoke-JavaTool jpackage @('--type', 'app-image', '--name', 'NearbyIM', '--app-version', $appVersion, '--vendor', 'GHOST-AKU', '--input', 'build/lib', '--main-jar', 'nearbyim-desktop.jar', '--main-class', 'dev.ghost.wozai.Main', '--dest', 'build/package', '--icon', 'assets/icons/windows/nearbyim.ico', '--java-options', '-Dwozai.installDir=$APPDIR/..', '--add-modules', 'java.base,java.desktop,java.logging,jdk.crypto.ec,jdk.accessibility,jdk.localedata', '--jlink-options', "--strip-debug --no-man-pages --no-header-files --compress=1 --include-locales=$runtimeLocales")
+    Invoke-JavaTool jpackage @('--type', 'app-image', '--name', 'NearbyIM', '--app-version', $nativeVersion, '--vendor', 'GHOST-AKU', '--input', 'build/lib', '--main-jar', 'nearbyim-desktop.jar', '--main-class', 'dev.ghost.wozai.Main', '--dest', 'build/package', '--icon', 'assets/icons/windows/nearbyim.ico', '--java-options', '-Dwozai.installDir=$APPDIR/..', '--add-modules', 'java.base,java.desktop,java.logging,jdk.crypto.ec,jdk.accessibility,jdk.localedata', '--jlink-options', "--strip-debug --no-man-pages --no-header-files --compress=1 --include-locales=$runtimeLocales")
     Copy-Item ../THIRD_PARTY_NOTICES.md build/package/NearbyIM/
     Copy-Item ../docs/windows.md build/package/NearbyIM/README.md
     Copy-Item ../licenses build/package/NearbyIM/ -Recurse -Force

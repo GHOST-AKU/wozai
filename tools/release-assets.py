@@ -63,7 +63,7 @@ def desktop(version, source, tag):
                 require(len(candidates) == 1, "Ambiguous Linux application JAR")
                 metadata(io.BytesIO(archive.extractfile(candidates[0]).read()), version, source)
         elif suffix == "deb":
-            deb_version = version + "~" + tag.split("-", 1)[1] if "-preview." in tag else version
+            deb_version = version.replace("-preview.", "~preview.")
             require(run("dpkg-deb", "-f", str(path), "Version") == deb_version,
                     "Wrong Debian package version")
             extracted = output / "deb-inspection"
@@ -194,7 +194,7 @@ def main():
     version = json.loads(Path("i18n/config.json").read_text())["appVersion"]
     source = os.environ["GITHUB_SHA"]
     tag = os.environ["RELEASE_TAG"]
-    require(tag == "v" + version or re.fullmatch(re.escape("v" + version) + r"-preview\.[1-9][0-9]*", tag),
+    require(tag == "v" + version,
             "Release tag does not match the shared version")
     require(run("git", "rev-parse", "HEAD") == source, "Unexpected checkout")
     release = json.loads(run("gh", "release", "view", tag, "--json", "isDraft,targetCommitish"))

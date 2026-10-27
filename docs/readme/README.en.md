@@ -1,6 +1,6 @@
 # Wozai · NearbyIM
 
-[简体中文](../../README.md) | **English**
+[简体中文](../../README.md) | **English** | [日本語](README.ja.md)
 
 **Chat without going through a remote server.**
 
@@ -11,6 +11,8 @@ Wozai (NearbyIM) is an open-source chat application for nearby communication. St
 >
 > Latest prerelease: **0.3.3-preview.1** · macOS / iPhone / iPad / Windows and Linux Terminal
 > [Download preview](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.3-preview.1) · [Installation and signing](../releases/native-preview-install.md)
+
+**New builds use `0.3.3-preview.2`** across Android, Windows/Linux GUI, Apple and Terminal. See the [0.3.3 release plan](../releases/0.3.3.md) and [scope/acceptance #55](https://github.com/GHOST-AKU/wozai/issues/55). This is the development source version; new packages are not published yet. Download links above still refer to existing releases.
 
 **0.3.2 is now a stable release**, with matching protocol and UI updates for Android, Windows and Linux, including Linux AppImage / deb / tar.gz packages. It adds Noise end-to-end encryption, bounded streaming files up to 10 GiB with durable resume, automatic file routing, an Android receiving folder and adaptive tablet/foldable layouts. See the [0.3.2 release notes](../releases/0.3.2.md) for changes and acceptance scope. P2P reliability, device throughput/distance recovery, long-term memory and formal performance remain tracked in [#23](https://github.com/GHOST-AKU/wozai/issues/23) and [#9](https://github.com/GHOST-AKU/wozai/issues/9).
 
@@ -70,7 +72,7 @@ Native **Swift / SwiftUI previews for iOS, iPadOS and macOS are available**, usi
 
 - Supports NIM4 identity consent/safety codes, LAN discovery/direct addresses, text/history/drafts, streaming files, queues, pause/resume and durable receipts, plus avatar sync and QR verification.
 - **LAN listening is off by default**; unknown identities and incoming files are not automatically approved. Initial TUI setup guides configuration; CLI commands offer JSON and exit codes. See the [Terminal guide](../../terminal/README.md).
-- Internal version `0.1.0-dev` is separate from the `0.3.3-preview.1` release bundle. Windows binaries have no Authenticode signature; no macOS Terminal binary is included in this preview.
+- The published `0.3.3-preview.1` contains Terminal internal version `0.1.0-dev`; new builds use the shared `0.3.3-preview.2` version. Windows binaries have no Authenticode signature; the existing preview contains no macOS Terminal binary.
 - Bluetooth/P2P adapters and complete acceptance remain in development. Terminal/IME/SSH/tmux, physical interoperability and performance scope are tracked in [#38](https://github.com/GHOST-AKU/wozai/issues/38). Existing GUI clients and stable v0.3.2 assets remain separate.
 
 ## 📡 Start chatting
