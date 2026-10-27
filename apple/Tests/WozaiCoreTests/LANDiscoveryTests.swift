@@ -44,6 +44,7 @@ final class LANDiscoveryTests: XCTestCase {
             if snapshot.advertisedIDs.isSuperset(of: [localID, remoteID]), let peer {
                 XCTAssertEqual(peer.nickname, remoteName, "Discovery must display the advertised nickname, not the service identifier")
                 XCTAssertEqual(peer.claimedID, remoteID, "TXT identity is a discovery hint, not authenticated trust")
+                XCTAssertEqual(Set(snapshot.peers.map(\.id)).count, snapshot.peers.count, "A service visible on multiple interfaces must appear only once")
                 XCTAssertFalse(snapshot.peers.contains { serviceName($0) == localService }, "The client must not offer its own service as a nearby peer")
                 XCTAssertFalse(snapshot.offeredServices.contains(localService), "The client's own advertisement must never be offered for connection")
                 return

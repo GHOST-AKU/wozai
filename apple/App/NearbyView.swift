@@ -11,7 +11,7 @@ struct NearbyView: View {
         List {
             Section {
                 Toggle("Discover and receive", isOn: Binding(get: { model.discoveryEnabled }, set: { model.setDiscovery($0) }))
-            } footer: { Text("Connect devices to the same local network. Only enable receiving when you want nearby devices to find you.") }
+            } footer: { Text("Use the same local network, or keep Wi-Fi and Bluetooth enabled for nearby Apple peer-to-peer discovery. Only enable receiving when you want to be found.") }
             if model.discoveryEnabled {
                 Section("Nearby devices") {
                     if model.nearby.isEmpty {

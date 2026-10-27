@@ -12,8 +12,8 @@
   "stopListen": "Stop reception",
   "myAddress": "My connection addresses",
   "notListening": "Reception is off",
-  "noAddress": "No local network address. Join Wi-Fi or a phone hotspot.",
-  "nearbyHint": "Join the same Wi-Fi or hotspot and enable reception on both devices.",
+  "noAddress": "No LAN address. Connect Ethernet, Wi-Fi or a phone hotspot.",
+  "nearbyHint": "Join the same LAN and enable reception on both devices. Ethernet and Wi-Fi can communicate.",
   "connect": "Connect and remember",
   "reconnect": "Connect",
   "disconnect": "Disconnect",
@@ -539,5 +539,6 @@
   "attachmentPathBluetoothLan": "Transfer path: Bluetooth → LAN",
   "attachmentPathAllLinks": "Transfer paths: Wi-Fi Direct, LAN, Bluetooth",
   "paneDivider": "Resize conversation panes",
-  "paneDividerCenter": "Center divider"
+  "paneDividerCenter": "Center divider",
+  "lanDiagnostics": "Copy LAN diagnostics"
 }

@@ -334,6 +334,7 @@
     <string name="invalid_transport" formatted="false">"連線方式無效"</string>
     <string name="lan" formatted="false">"區域網路"</string>
     <string name="lan_addresses" formatted="false">"{0}"</string>
+    <string name="lan_diagnostics" formatted="false">"複製區域網路診斷"</string>
     <string name="lan_listening_without_address" formatted="false">"監聽連接埠 {0} · 請連線 Wi-Fi 或手機熱點"</string>
     <string name="lan_no_devices_body" formatted="false">"請確認對方已開啟接收，並連線同一個 Wi-Fi 或熱點。"</string>
     <string name="lan_path_unconfirmed" formatted="false">"區域網路 · 路徑未確認"</string>
@@ -360,12 +361,12 @@
     <string name="my_nickname" formatted="false">"我是 {0}"</string>
     <string name="nearby" formatted="false">"附近"</string>
     <string name="nearby_devices" formatted="false">"附近裝置"</string>
-    <string name="nearby_hint" formatted="false">"雙方加入同一 Wi-Fi 或熱點並開啟接收，再選擇附近裝置。"</string>
+    <string name="nearby_hint" formatted="false">"雙方加入同一區域網路並開啟接收；電腦可接網線，手機可用 Wi-Fi。"</string>
     <string name="nearby_permission_missing" formatted="false">"附近裝置權限尚未授權 · 點選搜尋授權"</string>
     <string name="new_chat" formatted="false">"新聊天"</string>
     <string name="new_messages" formatted="false">"新訊息"</string>
     <string name="nickname" formatted="false">"本機暱稱"</string>
-    <string name="no_address" formatted="false">"沒有可用的區域網路位址。請連線 Wi-Fi 或手機熱點。"</string>
+    <string name="no_address" formatted="false">"沒有區域網路位址，請連接網線、Wi-Fi 或手機熱點。"</string>
     <string name="no_bluetooth_address" formatted="false">"沒有可用的藍牙位址，請去附近重新尋找"</string>
     <string name="no_bluetooth_devices" formatted="false">"未找到裝置。請在 Android 端允許被發現，再試一次。"</string>
     <string name="no_chats_body" formatted="false">"找到身邊的人，聊第一句話。"</string>

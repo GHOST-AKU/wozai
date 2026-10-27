@@ -102,7 +102,7 @@ private struct AttachmentBubble: View {
                 ProgressView(value: Double(record.offset), total: Double(max(1, record.info.size)))
                 Text("\(ByteCountFormatter.string(fromByteCount: Int64(record.offset), countStyle: .file)) / \(ByteCountFormatter.string(fromByteCount: Int64(record.info.size), countStyle: .file))").font(.caption.monospacedDigit())
             }
-            Label("Local network", systemImage: "network").font(.caption).foregroundStyle(.secondary)
+            LocalPathLabel(path: model.path(for: record))
             HStack {
                 if complete {
                     Button("Open") { model.accessFile(file); preview = file }

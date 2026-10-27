@@ -334,6 +334,7 @@
     <string name="invalid_transport" formatted="false">"올바르지 않은 연결 방식"</string>
     <string name="lan" formatted="false">"LAN"</string>
     <string name="lan_addresses" formatted="false">"{0}"</string>
+    <string name="lan_diagnostics" formatted="false">"LAN 진단 복사"</string>
     <string name="lan_listening_without_address" formatted="false">"포트 {0}에서 수신 대기 중입니다. Wi-Fi 또는 휴대폰 핫스팟에 연결하세요."</string>
     <string name="lan_no_devices_body" formatted="false">"상대가 수신을 켜고 같은 Wi-Fi 또는 핫스팟에 연결했는지 확인하세요."</string>
     <string name="lan_path_unconfirmed" formatted="false">"LAN · 경로 미확인"</string>
@@ -360,12 +361,12 @@
     <string name="my_nickname" formatted="false">"내 닉네임: {0}"</string>
     <string name="nearby" formatted="false">"근처"</string>
     <string name="nearby_devices" formatted="false">"근처 기기"</string>
-    <string name="nearby_hint" formatted="false">"두 기기를 같은 Wi-Fi 또는 핫스팟에 연결하고 수신을 켜세요."</string>
+    <string name="nearby_hint" formatted="false">"두 기기를 같은 LAN에 연결하고 수신을 켜세요. 유선 이더넷과 Wi-Fi 간에도 통신할 수 있습니다."</string>
     <string name="nearby_permission_missing" formatted="false">"근처 기기 권한이 필요합니다. 검색을 눌러 허용하세요."</string>
     <string name="new_chat" formatted="false">"새 채팅"</string>
     <string name="new_messages" formatted="false">"새 메시지"</string>
     <string name="nickname" formatted="false">"기기 닉네임"</string>
-    <string name="no_address" formatted="false">"사용 가능한 LAN 주소가 없습니다. Wi-Fi 또는 휴대폰 핫스팟에 연결하세요."</string>
+    <string name="no_address" formatted="false">"LAN 주소가 없습니다. 이더넷, Wi-Fi 또는 휴대폰 핫스팟에 연결하세요."</string>
     <string name="no_bluetooth_address" formatted="false">"사용 가능한 블루투스 주소가 없습니다. ‘근처’에서 다시 찾으세요."</string>
     <string name="no_bluetooth_devices" formatted="false">"기기를 찾지 못했습니다. Android에서 검색 허용을 켜고 다시 시도하세요."</string>
     <string name="no_chats_body" formatted="false">"근처 사람을 찾아 먼저 말을 걸어 보세요."</string>

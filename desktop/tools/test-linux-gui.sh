@@ -12,6 +12,7 @@ java "$library" -cp "$classes" dev.ghost.wozai.AttachmentSelectionGuiTests
 java "$library" -cp "$classes" dev.ghost.wozai.DesktopRetryTests --gui
 java "$library" -cp "$classes" dev.ghost.wozai.ThumbnailScrollTests
 java "$library" -cp "$classes" dev.ghost.wozai.DiscoveryTests
+java "$library" -cp "$classes" dev.ghost.wozai.LanDiscoveryTopologyTests
 java "$library" -cp "$classes" dev.ghost.wozai.GuiTests desktop/build/gui-linux.png
 java "$library" -cp "$classes" dev.ghost.wozai.VerificationGuiTests desktop/build/gui-linux-verification
 runtime=desktop/build/package/NearbyIM/lib/runtime/bin/java

@@ -381,6 +381,12 @@ public final class MainActivity extends Activity {
         Button details = button(t("viewCopyAddress"), false); details.setTag("lanDetails"); details.setOnClickListener(v -> { lanDetails = !lanDetails; render(); }); nearbyContent.addView(details, topSpace());
         connectionInfo = label("", 13, muted); connectionInfo.setTextIsSelectable(true); connectionInfo.setPadding(0, dp(8), 0, dp(8));
         connectionInfo.setOnLongClickListener(v -> { ((ClipboardManager) getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText(t("localAddress"), connectionInfo.getText())); toast(t("addressCopied")); return true; }); nearbyContent.addView(connectionInfo);
+        Button lanDiagnostics = button(t("lanDiagnostics"), false); lanDiagnostics.setTag("lanDiagnostics");
+        lanDiagnostics.setOnClickListener(v -> {
+            if (controller == null) return;
+            ((ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText(t("lanDiagnostics"), controller.transferDiagnostics()));
+            toast(t("diagnosticsCopied"));
+        }); nearbyContent.addView(lanDiagnostics, topSpace());
         searchButton = button(t("searchDevices"), true); searchButton.setOnClickListener(v -> {
             if (controller != null && controller.searching(mode)) controller.stopSearch(mode);
             else withPermissions(new UiAction(UiAction.SEARCH, mode));
@@ -549,6 +555,7 @@ public final class MainActivity extends Activity {
         requestStatus.setVisibility(waiting ? View.VISIBLE : View.GONE); requestStatus.setText(waiting ? withRouteNotice(t(controller.status)) : "");
         cancelConnectionButton.setVisibility(waiting ? View.VISIBLE : View.GONE);
         View details = nearbyPage.findViewWithTag("lanDetails"); details.setVisibility(mode == Peer.LAN && running ? View.VISIBLE : View.GONE);
+        nearbyPage.findViewWithTag("lanDiagnostics").setVisibility(mode == Peer.LAN ? View.VISIBLE : View.GONE);
         connectionInfo.setVisibility(running && mode == Peer.LAN && lanDetails ? View.VISIBLE : View.GONE);
         connectionInfo.setText(info);
         bluetoothState.setVisibility(mode == Peer.BLUETOOTH ? View.VISIBLE : View.GONE);
