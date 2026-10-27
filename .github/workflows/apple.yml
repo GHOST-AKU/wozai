@@ -2,10 +2,10 @@ name: Verify native Apple clients
 on:
   push:
     branches: [feat/apple-native]
-    paths: ['apple/**', '.github/workflows/apple.yml', 'tools/test-apple-*.sh', 'tests/apple/**']
+    paths: ['i18n/config.json', 'tools/version.py', 'apple/**', '.github/workflows/apple.yml', 'tools/test-apple-*.sh', 'tests/apple/**']
   pull_request:
     branches: [main]
-    paths: ['apple/**', '.github/workflows/apple.yml', 'tools/test-apple-*.sh', 'tests/apple/**']
+    paths: ['i18n/config.json', 'tools/version.py', 'apple/**', '.github/workflows/apple.yml', 'tools/test-apple-*.sh', 'tests/apple/**']
   workflow_dispatch:
     inputs:
       validation:
@@ -24,6 +24,10 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+      - name: Check shared preview version
+        run: |
+          python3 tools/version.py --check
+          python3 tests/test_version.py
       - name: Record Apple toolchain
         run: |
           xcodebuild -version

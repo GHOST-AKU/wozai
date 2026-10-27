@@ -22,11 +22,11 @@ Use a compatible local signing/sideloading tool (for example Sideloadly or AltSt
 
 ## Terminal / 终端客户端
 
-The Windows/Linux x64 archives contain the independent Rust TUI/CLI, documentation, completions and dependency licenses; no Java runtime is required. The embedded Terminal version is currently 0.1.0-dev, independent of the preview bundle version. These binaries have **no publisher code-signing certificate** (Windows: no Authenticode signature). No macOS Terminal binary is included in this preview.
+The Windows/Linux x64 archives contain the independent Rust TUI/CLI, documentation, completions and dependency licenses; no Java runtime is required. Published preview.1 embeds Terminal version `0.1.0-dev`; new source builds use the shared `0.3.3-preview.2` identity. See the [0.3.3 plan](0.3.3.md); updating source versions does not replace published downloads. These binaries have **no publisher code-signing certificate** (Windows: no Authenticode signature). No macOS Terminal binary is included in this preview.
 
 Windows: extract the ZIP, then run `.\nearbyim.exe --help` in PowerShell, or `.\nearbyim.exe` for TUI. Linux: extract the tar.gz, then run `./nearbyim --help` or `./nearbyim`. Use the bundled README for consent, listening/discovery, profiles and file commands. Linux builds target x86_64 glibc systems compatible with Ubuntu 22.04 (glibc 2.35+), not Alpine/musl or ARM.
 
-Windows/Linux x64 压缩包包含独立 Rust TUI/CLI、说明、补全和依赖许可，无需安装 Java。Terminal 内部版本目前为 0.1.0-dev，与预发布合集版本分开。二进制**没有发布者代码签名证书**，Windows 没有 Authenticode 签名。本次不包含 macOS Terminal 二进制。
+Windows/Linux x64 压缩包包含独立 Rust TUI/CLI、说明、补全和依赖许可，无需安装 Java。已发布 preview.1 的 Terminal 内部版本为 `0.1.0-dev`；新源码构建统一使用 `0.3.3-preview.2`。参见 [0.3.3 更新规划](0.3.3.md)，源码版本更新不表示已替换下载附件。二进制**没有发布者代码签名证书**，Windows 没有 Authenticode 签名。本次不包含 macOS Terminal 二进制。
 
 Windows 解压后在 PowerShell 运行 `.\nearbyim.exe --help`，或直接 `.\nearbyim.exe` 进入 TUI。Linux 解压后运行 `./nearbyim --help` 或 `./nearbyim`。监听/发现、接收授权、Profile 和文件命令见包内 README。Linux 包面向与 Ubuntu 22.04 兼容的 x86_64 glibc 系统（glibc 2.35+），不适用于 Alpine/musl 或 ARM。
 
