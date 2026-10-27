@@ -9,9 +9,9 @@ on:
   workflow_dispatch:
     inputs:
       validation:
-        description: Run the full validation or only the macOS UI regression
+        description: Full validation, macOS UI only, or core/interop/device builds without repeating UI
         type: choice
-        options: [full, macos-ui]
+        options: [full, macos-ui, core-builds]
         default: full
 permissions:
   contents: read
@@ -54,10 +54,11 @@ jobs:
         if: ${{ inputs.validation == 'macos-ui' }}
         run: bash tools/test-apple-interop.sh --compile-java
       - name: Exercise native macOS consent, chat and receipts
+        if: ${{ inputs.validation != 'core-builds' }}
         timeout-minutes: 8
         run: bash tools/test-apple-ui.sh 'platform=macOS' macos
       - name: Select available iPhone and iPad simulators
-        if: ${{ inputs.validation != 'macos-ui' }}
+        if: ${{ inputs.validation != 'macos-ui' && inputs.validation != 'core-builds' }}
         id: simulators
         run: |
           python3 - <<'PY'
@@ -71,7 +72,7 @@ jobs:
                   output.write(f"{key}={device}\n")
           PY
       - name: Exercise native iPhone consent, chat and receipts
-        if: ${{ inputs.validation != 'macos-ui' }}
+        if: ${{ inputs.validation != 'macos-ui' && inputs.validation != 'core-builds' }}
         timeout-minutes: 12
         run: bash tools/test-apple-ui.sh 'platform=iOS Simulator,id=${{ steps.simulators.outputs.iphone }}' iphone
       - name: Exercise native iPad consent, chat and receipts

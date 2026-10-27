@@ -93,7 +93,7 @@ bash tools/test-apple-ui.sh 'platform=iOS Simulator,id=SIMULATOR_UUID' iphone
 
 GitHub Actions 的 `Verify native Apple clients` 保留互通日志和原生 XCTest 结果。实际通过或失败的 run、工具链和仍缺少的证据记录在 [#31](https://github.com/GHOST-AKU/wozai/issues/31)，不将工作清单另存为 TODO 文件。
 
-排查 Mac 界面交互时，可以手动触发 workflow 并选择 `validation=macos-ui`，只编译 Java 测试对端和 Mac 原生 UI 测试，跳过无关目标。默认 `full` 仍验证共享核心、Java 互通、双架构 Mac Release、iOS 设备编译及三个原生 UI 目标；同一分支的重复全量运行会自动取消。
+排查 Mac 界面交互时，可以手动触发 workflow 并选择 `validation=macos-ui`，只编译 Java 测试对端和 Mac 原生 UI 测试，跳过无关目标。若只调整网络回调、核心或编译兼容性，可选择 `validation=core-builds` 验证核心、生命周期、生产Java互通、Mac通用Release和iOS设备构建，跳过已验证且相关UI源码未变的模拟器回归；必须注明复用的精确提交与行为差异，不能把跳过的UI检查写成新跑通过。默认 `full` 仍验证共享核心、Java 互通、双架构 Mac Release、iOS 设备编译及三个原生 UI 目标；同一分支的重复全量运行会自动取消。
 
 ## 官方规范依据
 
