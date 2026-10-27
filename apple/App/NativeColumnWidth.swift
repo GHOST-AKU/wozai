@@ -8,12 +8,15 @@ import AppKit
 
 struct NativeColumnWidth: NSViewRepresentable {
     let width: CGFloat
+    let minimum: CGFloat
+    let maximum: CGFloat
     let enabled: Bool
     let measured: (CGFloat) -> Void
 
     func makeNSView(context: Context) -> ColumnWidthView { ColumnWidthView() }
     func updateNSView(_ view: ColumnWidthView, context: Context) {
         view.requested = enabled ? width : nil
+        view.minimum = minimum; view.maximum = maximum
         view.measured = measured
         view.applyLater()
     }
@@ -21,6 +24,7 @@ struct NativeColumnWidth: NSViewRepresentable {
 
     final class ColumnWidthView: NSView {
         var requested: CGFloat?
+        var minimum: CGFloat = 0, maximum: CGFloat = .greatestFiniteMagnitude
         var measured: ((CGFloat) -> Void)?
         private weak var configuredItem: NSSplitViewItem?
         private var original: (CGFloat, CGFloat)?
@@ -39,19 +43,22 @@ struct NativeColumnWidth: NSViewRepresentable {
                 if let split = view as? NSSplitView, split.isVertical, split.arrangedSubviews.count >= 2,
                    let primary = split.arrangedSubviews.first, isDescendant(of: primary) {
                     guard !split.isSubviewCollapsed(primary) else { return }
-                    if abs(primary.frame.width - width) <= 0.5 { measured?(primary.frame.width); return }
+                    let visibleWidth = primary.frame.intersection(split.bounds).width
+                    if abs(visibleWidth - width) <= 0.5 { measured?(visibleWidth); return }
                     if let controller = split.delegate as? NSSplitViewController, let item = controller.splitViewItems.first {
                         if configuredItem !== item {
                             restore(); configuredItem = item
                             original = (item.minimumThickness, item.maximumThickness)
                         }
-                        item.minimumThickness = min(item.minimumThickness, width)
-                        item.maximumThickness = max(item.maximumThickness, width)
-                        item.minimumThickness = width; item.maximumThickness = width
+                        // Thickness constraints include native material insets; do not lock them to
+                        // the requested divider coordinate, which can add an invisible 8pt offset.
+                        item.minimumThickness = min(item.minimumThickness, minimum)
+                        item.maximumThickness = max(item.maximumThickness, maximum)
+                        item.minimumThickness = minimum; item.maximumThickness = maximum
                     }
                     let leadingOnRight = primary.frame.minX > split.arrangedSubviews[1].frame.minX
-                    split.setPosition(leadingOnRight ? split.bounds.width - width - split.dividerThickness : width, ofDividerAt: 0)
-                    measured?(primary.frame.width)
+                    split.setPosition(leadingOnRight ? split.bounds.maxX - width - split.dividerThickness : split.bounds.minX + width, ofDividerAt: 0)
+                    measured?(primary.frame.intersection(split.bounds).width)
                     #if DEBUG
                     Logger(subsystem: "dev.ghost.wozai.apple", category: "Columns")
                         .debug("native columns=\(split.arrangedSubviews.count) requested=\(Double(width)) measured=\(Double(primary.frame.width))")
@@ -85,12 +92,15 @@ import UIKit
 
 struct NativeColumnWidth: UIViewRepresentable {
     let width: CGFloat
+    let minimum: CGFloat
+    let maximum: CGFloat
     let enabled: Bool
     let measured: (CGFloat) -> Void
 
     func makeUIView(context: Context) -> ColumnWidthView { ColumnWidthView() }
     func updateUIView(_ view: ColumnWidthView, context: Context) {
         view.requested = enabled ? width : nil
+        view.minimum = minimum; view.maximum = maximum
         view.measured = measured
         view.applyLater()
     }
@@ -98,6 +108,7 @@ struct NativeColumnWidth: UIViewRepresentable {
 
     final class ColumnWidthView: UIView {
         var requested: CGFloat?
+        var minimum: CGFloat = 0, maximum: CGFloat = .greatestFiniteMagnitude
         var measured: ((CGFloat) -> Void)?
         private weak var configuredSplit: UISplitViewController?
         private var original: (CGFloat, CGFloat, CGFloat)?
@@ -119,9 +130,9 @@ struct NativeColumnWidth: UIViewRepresentable {
                                 restore(); configuredSplit = split
                                 original = (split.minimumPrimaryColumnWidth, split.maximumPrimaryColumnWidth, split.preferredPrimaryColumnWidthFraction)
                             }
-                            split.minimumPrimaryColumnWidth = min(split.minimumPrimaryColumnWidth, width)
-                            split.maximumPrimaryColumnWidth = max(split.maximumPrimaryColumnWidth, width)
-                            split.minimumPrimaryColumnWidth = width; split.maximumPrimaryColumnWidth = width
+                            split.minimumPrimaryColumnWidth = min(split.minimumPrimaryColumnWidth, minimum)
+                            split.maximumPrimaryColumnWidth = max(split.maximumPrimaryColumnWidth, maximum)
+                            split.minimumPrimaryColumnWidth = minimum; split.maximumPrimaryColumnWidth = maximum
                             split.preferredPrimaryColumnWidthFraction = width / max(1, split.view.bounds.width)
                             split.view.setNeedsLayout()
                             split.view.layoutIfNeeded()

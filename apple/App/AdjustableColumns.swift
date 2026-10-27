@@ -46,10 +46,11 @@ struct AdjustableSidebar: ViewModifier {
     func body(content: Content) -> some View {
         let width = CGFloat(proposed ?? layout.width(fraction: fraction))
         content
-            .navigationSplitViewColumnWidth(min: enabled ? width : minimum,
+            .navigationSplitViewColumnWidth(min: minimum,
                                             ideal: enabled ? width : initial,
-                                            max: enabled ? width : max(initial, minimum))
-            .background(NativeColumnWidth(width: width, enabled: enabled, measured: { actual = $0 }))
+                                            max: enabled ? CGFloat(layout.maximum) : max(initial, minimum))
+            .background(NativeColumnWidth(width: width, minimum: minimum, maximum: CGFloat(layout.maximum),
+                                          enabled: enabled, measured: { actual = $0 }))
             .overlay(alignment: .trailing) {
                 if enabled {
                     Color.clear
