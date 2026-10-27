@@ -40,6 +40,11 @@ final class FileRouteHandover implements AutoCloseable {
     private long peerRemaining,peerRate,peerCapacity,peerCost;private int peerPhase=3;
     private long comparisonRemaining,comparisonCost,comparisonCapacity,comparisonStarted;
     private FileRouteQualityPolicy.Sample[] comparison;
+    private volatile FileRouteQualityPolicy.Decision qualityDecision;
+    private String lastAssessmentNonce;
+    private volatile String qualitySamples="";
+    private volatile long assessmentNanos,pauseRequestedAt,pauseNanos,probeStartedAt,probeNanos,setupNanos,decisionCost;
+
     private String endpointIdentity="";private String qualityResult="not_measured";private List<AutomaticFileRoutes.Endpoint> peerEndpoints=List.of();private long parentIdle;
     private volatile Binding binding;
     private static final class Binding {
@@ -101,6 +106,10 @@ final class FileRouteHandover implements AutoCloseable {
         comparisonCost=Math.max(activity.switchCost,peerCost);comparisonCapacity=capacity;
         if(comparisonRemaining<=0){deferQuality("nothing_remaining");return;}
         if(comparisonCost>=FileRouteQualityPolicy.CACHE_NS){deferQuality("switch_cost_excessive");return;}
+        double senderRate=localSender?activity.rate:peerRate;
+        if(!FileRouteQualityPolicy.assessmentWorthwhile(comparisonRemaining,senderRate,comparisonCost)){
+            checkedAt=now;deferQuality("assessment_cost_excessive");return;
+        }
         qualityAdmission="accepted";
         probeSender=localSender;checkedAt=now;comparisonStarted=now;comparison=null;
         lastReason="comparing";begin(UUID.randomUUID().toString(),false);
@@ -141,6 +150,11 @@ final class FileRouteHandover implements AutoCloseable {
         if(nonce!=null&&!nonce.equals(token)){retire(nonce);disposeBackup();}
         disposeBackup();backupBound=false;
         if(ready==null||ready.isDone())ready=new CompletableFuture<>();
+        if(!lost){
+            lastAssessmentNonce=token;
+            comparisonStarted=System.nanoTime();assessmentNanos=pauseNanos=probeStartedAt=probeNanos=setupNanos=pauseRequestedAt=decisionCost=0;
+            qualityDecision=null;qualitySamples="";
+        }
         nonce=token;fault=lost;bluetoothFallback=false;peerPaused=false;retaining=false;draining=false;dialing=false;lease=null;freezing=false;selecting=false;attempts=0;phase="preparing";
         arm(lost?FileRouteQualityPolicy.RECOVERY_NS:FileRouteQualityPolicy.SETUP_NS);
         if(host.lead()&&!host.parentLost())send(FileLinkPacket.prepare(nonce,host.generation(),lost?1:probeSender?0:2,host.routeToken()));
@@ -177,16 +191,16 @@ final class FileRouteHandover implements AutoCloseable {
         candidateDeadline=host.timer().schedule(()->{if(current(token)&&epoch==candidateEpoch&&!backupBound)candidateFailed(new IOException("LAN candidate setup timed out"));},FileRouteQualityPolicy.SETUP_NS,TimeUnit.NANOSECONDS);
     }
     private void cancelCandidateBudget(){if(candidateDeadline!=null){candidateDeadline.cancel(false);candidateDeadline=null;}}
-    private void backupReady(){cancelCandidateBudget();if(lease!=null)send(FileLinkPacket.control(FileLinkPacket.Kind.PAUSED,nonce,host.generation(),0));if(!fault)drain();advance();}
+    private void backupReady(){if(!fault&&setupNanos==0)setupNanos=Math.max(0,System.nanoTime()-comparisonStarted);cancelCandidateBudget();if(lease!=null)send(FileLinkPacket.control(FileLinkPacket.Kind.PAUSED,nonce,host.generation(),0));if(!fault)drain();advance();}
     private void drain(){trace("drain");
-        if(draining||lease!=null)return;draining=true;String token=nonce;phase="pausing";
+        if(draining||lease!=null)return;if(!fault&&pauseRequestedAt==0)pauseRequestedAt=System.nanoTime();draining=true;String token=nonce;phase="pausing";
         host.files().quiesceOutgoing().whenComplete((value,error)->host.post(()->{
             if(!current(token))return;if(error!=null){fail(asIo(error),false);return;}
             FramedSession wire=host.selected();if(wire==null||!wire.sendFileLink(FileLinkPacket.control(FileLinkPacket.Kind.PAUSE,token,host.generation(),0)))interrupted();
         }));
     }
     private void freeze(){trace("freeze");
-        if(freezing||lease!=null||!busy())return;freezing=true;phase="pausing";String token=nonce;
+        if(freezing||lease!=null||!busy())return;if(!fault&&pauseRequestedAt==0)pauseRequestedAt=System.nanoTime();freezing=true;phase="pausing";String token=nonce;
         host.files().suspendForRouteChange().whenComplete((value,error)->host.post(()->{
             if(!current(token))return;freezing=false;if(error!=null){fail(asIo(error),false);return;}
             lease=value;send(FileLinkPacket.control(FileLinkPacket.Kind.PAUSED,nonce,host.generation(),0));advance();host.changed();
@@ -227,10 +241,17 @@ final class FileRouteHandover implements AutoCloseable {
             if(wire!=controlWire()||host.lead()||retired.contains(packet.nonce))return;
             if(current(packet.nonce)){if(packet.number==3){fallbackBluetooth(false);return;}if(backup==null)ensureBackup();return;}
             if(busy()&&!phase.equals("requesting")){fail(new IOException("Overlapping migration transaction"),true);return;}
+            if(packet.number!=1){qualityAdmission="peer_initiated";qualityResult="comparing";}
             probeSender=packet.number==2;checkedAt=System.nanoTime();begin(packet.nonce,packet.number==1);return;
         }
         if(!current(packet.nonce)){
-            if(retired.contains(packet.nonce))return;
+            if(retired.contains(packet.nonce)){
+                // A late outcome only updates the last assessment's diagnostics, never its retired migration.
+                if(packet.kind==FileLinkPacket.Kind.ABORT&&wire==controlWire()&&!host.lead()&&Objects.equals(lastAssessmentNonce,packet.nonce)){
+                    qualityResult="peer_retained_direct";if(!busy())lastReason="peer_retained_direct";host.changed();
+                }
+                return;
+            }
             // The selected FILE stream can overtake PREPARE on a different parent stream.
             if(packet.kind==FileLinkPacket.Kind.PAUSE&&wire==host.selected()&&!busy()&&earlyPause==null){earlyPause=packet;return;}
             fail(new IOException("Unexpected migration transaction: "+packet.kind+" in "+phase),true);return;
@@ -269,6 +290,7 @@ final class FileRouteHandover implements AutoCloseable {
             case PAUSED:if(wire!=controlWire()){fail(new IOException("Pause agreement on wrong lane"),true);return;}peerPaused=true;advance();break;
             case SELECT:
                 if(wire!=controlWire()||host.lead()||lease==null||!backupBound){fail(new IOException("Unprepared LAN selection"),true);return;}
+                if(!fault){qualityResult="peer_selected_lan";lastReason="peer_selected_lan";}
                 install();phase="selecting";send(FileLinkPacket.control(FileLinkPacket.Kind.SELECTED,nonce,host.generation(),0));break;
             case SELECTED:
                 if(wire!=controlWire()||!host.lead()||!selecting){fail(new IOException("Unexpected LAN selection reply"),true);return;}
@@ -278,21 +300,23 @@ final class FileRouteHandover implements AutoCloseable {
             case FAILED:if(wire==controlWire())candidateFailed(new IOException("Peer LAN unavailable"));else fail(new IOException("Migration failure on wrong lane"),true);break;
             case ABORT:
                 if(wire!=controlWire()||fault){fail(new IOException("Peer stopped automatic recovery"),false);return;}
+                // A retired standby lane may close before ABORT arrives on the independent control lane.
+                if(!host.lead()){qualityResult="peer_retained_direct";lastReason="peer_retained_direct";}
                 keepDirect(false);break;
             default:fail(new IOException("Unexpected migration phase record"),true);
         }
     }
     private void startProbe(){
-        if(probe!=null)return;phase="measuring";String token=nonce;
+        if(probe!=null)return;probeStartedAt=System.nanoTime();phase="measuring";String token=nonce;
         if(deadline!=null)deadline.cancel(false);arm(3_000_000_000L);
         probe=new FileLinkProbe(new FileLinkProbe.Host(){
             public boolean send(boolean lan,FileLinkPacket packet,BooleanSupplier live){FramedSession wire=lan?backup:host.selected();return wire!=null&&wire.sendFileLink(packet,live);}
             public ScheduledExecutorService timer(){return host.timer();}
             public void done(FileRouteQualityPolicy.Sample[] samples){
-                if(!current(token)||fault)return;
+                if(!current(token)||fault)return;probeNanos=Math.max(0,System.nanoTime()-probeStartedAt);
                 if(probeSender){if(host.lead()){comparison=samples;decide();}else for(int i=0;i<4;i++){FileRouteQualityPolicy.Sample sample=samples[i];sendResult(i,sample);}}
             }
-            public void failed(IOException error){trace("probe_error:"+error.getMessage());if(current(token)){if(fault)advance();else keepDirect(host.lead());}}
+            public void failed(IOException error){trace("probe_error:"+error.getMessage());if(current(token)){if(fault)advance();else{qualityResult="inconclusive";keepDirect(host.lead());}}}
         },token,host.generation(),probeSender);probe.start();host.changed();
     }
     private void sendResult(int number,FileRouteQualityPolicy.Sample sample){send(FileLinkPacket.result(nonce,host.generation(),number,sample==null?0:sample.bytes,sample==null?0:Math.min(FileRouteQualityPolicy.STALL_NS,sample.nanos)));}
@@ -300,13 +324,28 @@ final class FileRouteHandover implements AutoCloseable {
         if(!host.lead()||fault||comparison==null)return;
         FileRouteQualityPolicy.Sample[] direct={comparison[0],comparison[2]},lan={comparison[1],comparison[3]};
         long cost=comparisonCost+Math.max(0,System.nanoTime()-comparisonStarted);
-        if(FileRouteQualityPolicy.preferLan(direct,lan,comparisonRemaining,cost,comparisonCapacity)){
+        assessmentNanos=Math.max(0,System.nanoTime()-comparisonStarted);
+        probeNanos=probeStartedAt==0?0:Math.max(0,System.nanoTime()-probeStartedAt);
+        decisionCost=cost;
+        qualityDecision=FileRouteQualityPolicy.evaluate(direct,lan,comparisonRemaining,cost,comparisonCapacity);
+        StringBuilder samples=new StringBuilder();
+        for(int i=0;i<comparison.length;i++){
+            if(i>0)samples.append(';');var sample=comparison[i];
+            samples.append(i%2==0?"direct":"lan").append(i/2+1).append(':');
+            if(sample==null)samples.append("missing");else samples.append(sample.bytes).append(',').append(sample.nanos).append(',').append(sample.valid());
+        }
+        qualitySamples=samples.toString();
+        if(qualityDecision.preferLan()){
             qualityResult="lan_faster";lastReason="lan_measurably_faster";selecting=true;phase="selecting";send(FileLinkPacket.control(FileLinkPacket.Kind.SELECT,nonce,host.generation(),0));
         }else{qualityResult="keep_direct";keepDirect(true);}
     }
     private void keepDirect(boolean notify){trace("retain");
         if(fault){advance();return;}
         boolean first=!retaining;retaining=true;phase="retaining";
+        if(first){
+            if(qualityResult.equals("not_measured")||qualityResult.equals("comparing"))qualityResult="inconclusive";
+            lastReason=qualityResult.equals("inconclusive")?"comparison_inconclusive":host.lead()?"direct_retained":"peer_retained_direct";
+        }
         if(probe!=null){probe.close();probe=null;}
         if(notify&&first)send(FileLinkPacket.control(FileLinkPacket.Kind.ABORT,nonce,host.generation(),0));
         disposeBackup();
@@ -323,6 +362,7 @@ final class FileRouteHandover implements AutoCloseable {
         host.files().resumeAfterRouteChange(restoring).whenComplete((value,error)->host.post(()->{
             if(!current(token))return;
             if(error!=null){fail(asIo(error),false);return;}
+            if(pauseRequestedAt!=0){assessmentNanos=Math.max(0,System.nanoTime()-comparisonStarted);pauseNanos=Math.max(0,System.nanoTime()-pauseRequestedAt);}
             Binding snapshot=binding;if(snapshot!=null)snapshot.expires=System.nanoTime()+FileRouteQualityPolicy.RECOVERY_NS;retire(token);phase="idle";nonce=null;lease=null;freezing=false;selecting=false;
             if(ready!=null&&!ready.isDone())ready.complete(host.route().equals("wifi-direct")?AutomaticFileRoutes.Route.WIFI_DIRECT:host.route().equals("bluetooth")?AutomaticFileRoutes.Route.BLUETOOTH:AutomaticFileRoutes.Route.LAN);host.changed();
         }));
@@ -377,7 +417,22 @@ final class FileRouteHandover implements AutoCloseable {
         if(ready!=null&&!ready.isDone())ready.completeExceptionally(error);host.changed();
     }
     TransferPath activityPath(){return fault?TransferPath.RECOVERING_LAN:phase.equals("measuring")?TransferPath.COMPARING:TransferPath.PENDING_LAN;}
-    String diagnostics(){return "file_handover_supported="+supported()+"\nfile_recovery_lan_known="+!peerEndpoints.isEmpty()+"\nfile_parent_recovery="+host.parentLost()+"\nfile_quality_result="+qualityResult+"\nfile_quality_request_state="+qualityRequestState+"\nfile_quality_request_count="+qualityRequests+"\nfile_quality_admission="+qualityAdmission+"\nfile_handover_phase="+phase+"\nfile_handover_trace="+trace()+"\nfile_switch_count="+switches+"\nfile_recovery_count="+recoveries+"\nfile_switch_reason="+lastReason+"\n";}
+    private String qualityDiagnostics(){
+        var decision=qualityDecision;
+        return "file_quality_diagnostics_schema=2\nfile_quality_scope=last_assessment\n"
+            +"file_quality_decision_available="+(decision!=null)+"\nfile_quality_decision_owner=coordinator\nfile_quality_local_role="+(host.lead()?"coordinator":"peer")+"\n"
+            +"file_quality_required_margin_percent=25\nfile_quality_required_net_savings_ms=2000\nfile_quality_decision_cost_ms="+decisionCost/1_000_000+"\n"
+            +"file_quality_decision_reason="+(decision==null?qualityResult.startsWith("peer_")?"peer_decision_not_shared":qualityAdmission:decision.reason())+"\n"
+            +"file_quality_direct_bytes_per_second="+(decision==null?0:Math.round(decision.directBytesPerSecond()))+"\n"
+            +"file_quality_lan_bytes_per_second="+(decision==null?0:Math.round(decision.lanBytesPerSecond()))+"\n"
+            +"file_quality_net_savings_ms="+(decision==null?0:Math.round(decision.netSavingsSeconds()*1000))+"\n"
+            +"file_quality_remaining_bytes="+comparisonRemaining+"\nfile_quality_io_capacity_bytes_per_second="+comparisonCapacity+"\n"
+            +"file_quality_switch_estimate_ms="+comparisonCost/1_000_000+"\nfile_quality_assessment_ms="+assessmentNanos/1_000_000+"\n"
+            +"file_quality_setup_ms="+setupNanos/1_000_000+"\nfile_quality_probe_ms="+probeNanos/1_000_000+"\n"
+            +"file_quality_quiesce_to_resume_ms="+pauseNanos/1_000_000+"\n"
+            +"file_quality_samples_bytes_ns_complete="+qualitySamples+"\n";
+    }
+    String diagnostics(){return qualityDiagnostics()+"file_handover_supported="+supported()+"\nfile_recovery_lan_known="+!peerEndpoints.isEmpty()+"\nfile_parent_recovery="+host.parentLost()+"\nfile_quality_result="+qualityResult+"\nfile_quality_request_state="+qualityRequestState+"\nfile_quality_request_count="+qualityRequests+"\nfile_quality_admission="+qualityAdmission+"\nfile_handover_phase="+phase+"\nfile_handover_trace="+trace()+"\nfile_switch_count="+switches+"\nfile_recovery_count="+recoveries+"\nfile_switch_reason="+lastReason+"\n";}
     public void close(){if(closed)return;stop(new IOException("FILE migration closed"));closed=true;if(monitor!=null)monitor.cancel(false);phase="closed";binding=null;}
     private final class Lane implements FramedSession.Listener {
         final String token;final boolean initiator;FramedSession wire;

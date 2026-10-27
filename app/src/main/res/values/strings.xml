@@ -393,6 +393,8 @@
     <string name="outgoing_message_meta" formatted="false">"{0} · {1}"</string>
     <string name="paired" formatted="false">"Paired"</string>
     <string name="paired_address" formatted="false">"Paired · {0}"</string>
+    <string name="pane_divider" formatted="false">"Resize conversation panes"</string>
+    <string name="pane_divider_center" formatted="false">"Center divider"</string>
     <string name="path_details_bluetooth" formatted="false">"The recorded file route is Bluetooth. Larger files may take longer to transfer."</string>
     <string name="path_details_disconnected" formatted="false">"No transfer channel is connected. The actual channel will appear after connecting."</string>
     <string name="path_details_lan" formatted="false">"The recorded file route is LAN. Whether this route went through a router or phone hotspot cannot be confirmed."</string>

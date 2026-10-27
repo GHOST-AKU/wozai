@@ -111,6 +111,9 @@ public final class AdaptiveInstrumentation extends Instrumentation {
                 if(width>=600){
                     LinearLayout[] destinations=field(activity,"navItems");
                     View compose=nav.findViewWithTag("railCompose");
+                    View composeButton=((LinearLayout)compose).getChildAt(0);
+                    check(composeButton.getLeft()+composeButton.getWidth()/2==compose.getWidth()/2,"New chat button is centered in its rail container");
+                    check(composeButton.getPaddingLeft()==(composeButton.getWidth()-dp(24))/2,"New chat glyph is centered inside its 56dp target");
                     check(compose.getVisibility()==View.VISIBLE&&compose.getBottom()<destinations[0].getTop(),"New chat is separated from destinations");
                     check(destinations[0].getBottom()+dp(16)<=destinations[1].getTop()&&destinations[1].getBottom()+dp(16)<=destinations[2].getTop(),"Rail destinations have real space between targets");
                     check(destinations[2].getBottom()<=nav.getHeight()-dp(16),"Settings stays inside the rail bottom inset");
@@ -119,6 +122,7 @@ public final class AdaptiveInstrumentation extends Instrumentation {
                     destinations[0].setPressed(false);
                 }
             }
+            draggableDivider(root,home,chat,draft);
             set(activity,"detail",false);invoke(activity,"render");measure(root,360,800);
             check(nav.findViewWithTag("railCompose").getVisibility()==View.GONE&&nav.getOrientation()==LinearLayout.HORIZONTAL,"Phone navigation omits rail-only action and gaps");
             set(activity,"detail",true);invoke(activity,"render");
@@ -134,6 +138,33 @@ public final class AdaptiveInstrumentation extends Instrumentation {
             root.fold(null);root.requestApplyInsets();root.requestLayout();return null;
         });
         waitForIdleSync();screenshot("tablet-layout.png");
+    }
+    private void draggableDivider(AdaptiveScaffold root,View home,View chat,EditText draft)throws Exception {
+        root.setPadding(0,0,0,0);measure(root,1280,800);
+        int defaultX=dev.ghost.nearbyim.core.AdaptiveLayout.compute(dp(1280),dp(800),root.getResources().getDisplayMetrics().density,root.getResources().getConfiguration().fontScale,false,true,null).list().right();
+        View divider=root.findViewWithTag("paneDivider");
+        check(divider.getVisibility()==View.VISIBLE&&divider.getWidth()>=dp(48),"Divider has a usable native touch target");
+        float x=divider.getLeft()+divider.getWidth()/2f,y=dp(300);long now=SystemClock.uptimeMillis();
+        touch(root,now,MotionEvent.ACTION_DOWN,x,y);touch(root,now+20,MotionEvent.ACTION_MOVE,dp(632),y);measure(root,1280,800);
+        check(Math.abs(home.getRight()-dp(640))<=1&&chat.getLeft()==home.getRight(),"Native drag snaps the divider to the window center");
+        touch(root,now+40,MotionEvent.ACTION_UP,dp(632),y);
+        Bundle position=new Bundle();position.putFloat(android.view.accessibility.AccessibilityNodeInfo.ACTION_ARGUMENT_PROGRESS_VALUE,65);
+        check(divider.performAccessibilityAction(android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction.ACTION_SET_PROGRESS.getId(),position),"TalkBack can adjust the split");measure(root,1280,800);
+        check(Math.abs(home.getRight()-dp(832))<=1,"Accessibility changes the actual pane width");
+        check(Math.abs(getTargetContext().getSharedPreferences("ui",Context.MODE_PRIVATE).getFloat("paneSplit",0)-.65f)<.001f,"Completed adjustment is persisted");
+        check(divider.performClick(),"Divider offers a center action");measure(root,1280,800);
+        check(home.getRight()==dp(640),"Center action restores an exact centered split");
+        check(draft.getText().toString().equals("fold draft 中文")&&draft.getSelectionStart()==2&&draft.getSelectionEnd()==5,"Dragging retains the same live composer and selection");
+        touch(root,now+60,MotionEvent.ACTION_DOWN,dp(640),y);touch(root,now+80,MotionEvent.ACTION_MOVE,dp(800),y);measure(root,1280,800);
+        touch(root,now+100,MotionEvent.ACTION_CANCEL,dp(800),y);measure(root,1280,800);
+        check(home.getRight()==dp(640),"Cancelled drag restores the prior split");
+        touch(root,now+120,MotionEvent.ACTION_DOWN,dp(640),y);touch(root,now+140,MotionEvent.ACTION_MOVE,defaultX+dp(8),y);measure(root,1280,800);
+        check(home.getRight()==defaultX,"Dragging near the original adaptive position snaps back exactly");
+        touch(root,now+160,MotionEvent.ACTION_UP,defaultX+dp(8),y);
+        getTargetContext().getSharedPreferences("ui",Context.MODE_PRIVATE).edit().remove("paneSplit").apply();set(root,"splitPosition",Float.NaN);measure(root,1280,800);
+    }
+    private void touch(View root,long time,int action,float x,float y){
+        MotionEvent event=MotionEvent.obtain(time,time,action,x,y,0);try{check(root.dispatchTouchEvent(event),"Divider handles native pointer event "+action);}finally{event.recycle();}
     }
     private void reconnectGeometry(){
         AdaptiveReconnectActions row=new AdaptiveReconnectActions(activity);

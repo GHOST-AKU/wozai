@@ -12,7 +12,7 @@ public final class AutomaticFileHandoverTests {
     public static void main(String[] args)throws Exception {
         if(args.length==1&&args[0].equals("--binding")){bindingScope();return;}
         if(args.length==1&&args[0].equals("--parent")){for(int repeat=0;repeat<10;repeat++)for(String parent:new String[]{"lan","bluetooth"})try(Harness h=new Harness(parent)){h.dropParent=true;h.transfer();}return;}
-        bindingScope();
+        bindingScope();latePeerDecision();
         try{AutomaticFileRoutes.class.getMethod("attachFiles",ClientAttachmentTransfers.class);}
         catch(NoSuchMethodException missing){throw new AssertionError("FILE routing cannot coordinate checkpoint recovery with its transfer engine",missing);}
         for(String parent:new String[]{"lan","bluetooth"})try(Harness h=new Harness(parent)){
@@ -27,6 +27,9 @@ public final class AutomaticFileHandoverTests {
         for(int sender=0;sender<2;sender++)try(Harness h=new Harness("lan",sender,false)){
             h.transfer();check(h.routes.a.files.route().equals("lan"),"A measured faster LAN was not selected: "+h.routes.a.files.diagnostics()+h.routes.b.files.diagnostics());
             check(h.routes.a.files.diagnostics().contains("file_quality_result=lan_faster"),"LAN selection was not based on completed samples");
+            String report=h.routes.a.files.diagnostics();
+            check(report.contains("file_quality_decision_reason=lan_faster")&&report.contains("file_quality_samples_bytes_ns_complete=direct1:"),"Real switch is missing its decision evidence: "+report);
+            check(!report.contains("file_quality_quiesce_to_resume_ms=0\n"),"Successful handover did not measure its pause/resume interval: "+report);
         }
         try(Harness h=new Harness("bluetooth")){
             h.routes.a.platform.lan=h.routes.b.platform.lan=false;h.transfer();
@@ -36,6 +39,9 @@ public final class AutomaticFileHandoverTests {
             h.routes.a.platform.lanWriteDelay=h.routes.b.platform.lanWriteDelay=70;h.transfer();
             check(h.routes.a.files.route().equals("wifi-direct"),"A slower LAN displaced a healthy P2P lane");
             check(h.routes.a.files.diagnostics().contains("file_quality_result=keep_direct"),"Comparison did not resume the original P2P task");
+            String peerReport=h.routes.b.files.diagnostics();
+            check(peerReport.contains("file_quality_result=peer_retained_direct")&&peerReport.contains("file_quality_admission=peer_initiated"),"Peer must report its actual completed participation: "+peerReport);
+            check(peerReport.contains("file_quality_decision_available=false")&&peerReport.contains("file_quality_decision_reason=peer_decision_not_shared"),"Peer must not invent the coordinator's rates or decision reason");
         }
         for(boolean parentLoss:new boolean[]{false,true})try(Harness h=new Harness("bluetooth",0,false)){
             h.holdPause.set(true);CompletableFuture<Void> sending=CompletableFuture.runAsync(()->{try{h.transfer();}catch(Exception error){throw new CompletionException(error);}});
@@ -50,6 +56,20 @@ public final class AutomaticFileHandoverTests {
             check(h.routes.a.files.route().equals(parentLoss?"lan":"wifi-direct"),"In-flight checkpoint cancellation stranded the original task");
         }
         System.out.println("Automatic FILE handover: LAN/Bluetooth parent, mid-DATA P2P loss, authenticated LAN, original bytes and one saved receipt passed");
+    }
+    static void latePeerDecision()throws Exception {
+        try(Harness h=new Harness("bluetooth",0,false)){
+            h.routes.a.platform.lanWriteDelay=h.routes.b.platform.lanWriteDelay=70;
+            AtomicReference<FileLinkPacket> held=new AtomicReference<>();
+            h.routes.b.linkConsumer=packet->{if(packet.kind==FileLinkPacket.Kind.ABORT)held.set(packet);else h.routes.b.files.receiveFileLink(packet);};
+            h.transfer();AutomaticFileRoutesTests.drainActor(h.routes.b.files);
+            check(held.get()!=null&&h.routes.b.files.diagnostics().contains("file_handover_phase=idle"),"Fixture must retire the comparison before delivering its delayed outcome");
+            h.routes.b.files.receiveFileLink(held.get());AutomaticFileRoutesTests.drainActor(h.routes.b.files);
+            String report=h.routes.b.files.diagnostics();
+            check(report.contains("file_quality_result=peer_retained_direct")&&report.contains("file_switch_reason=peer_retained_direct"),"Late authenticated outcome did not update the completed assessment: "+report);
+            check(report.contains("file_quality_decision_available=false")&&report.contains("file_quality_decision_reason=peer_decision_not_shared"),"Late peer outcome invented decision calculations");
+            check(report.contains("file_handover_phase=idle")&&h.savedCount.get()==1&&h.routes.b.wire.isReady(),"Diagnostic update restarted a retired transfer or disturbed chat");
+        }
     }
     static void bindingScope()throws Exception {
         try(Harness h=new Harness("lan")){

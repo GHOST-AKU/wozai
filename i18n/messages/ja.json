@@ -538,5 +538,7 @@
   "attachmentPathBluetoothDirect": "転送経路：Bluetooth → Wi-Fi Direct",
   "attachmentPathBluetoothLan": "転送経路：Bluetooth → LAN",
   "attachmentPathAllLinks": "転送経路：Wi-Fi Direct、LAN、Bluetooth",
+  "paneDivider": "会話一覧とチャットの幅を調整",
+  "paneDividerCenter": "区切り線を中央に移動",
   "lanDiagnostics": "LAN 診断をコピー"
 }

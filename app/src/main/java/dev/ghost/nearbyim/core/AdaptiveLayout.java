@@ -9,6 +9,10 @@ public final class AdaptiveLayout {
     public record Fold(int left,int top,int right,int bottom,boolean vertical,boolean separating,boolean occluding){}
     public record Plan(Box area,Box navigation,Box list,Box detail,boolean rail,boolean dual){}
     public static Plan compute(int width,int height,float density,float fontScale,boolean rtl,boolean listDetail,Fold fold){
+        return compute(width,height,density,fontScale,rtl,listDetail,fold,Float.NaN);
+    }
+    /** Preferred divider position is relative to the complete usable window, including the rail. */
+    public static Plan compute(int width,int height,float density,float fontScale,boolean rtl,boolean listDetail,Fold fold,float split){
         int w=Math.max(0,width),h=Math.max(0,height);float d=Float.isFinite(density)&&density>0?density:1;
         float text=Float.isFinite(fontScale)?Math.max(1,fontScale):1;
         int railWidth=Math.round(88*d),minList=Math.round(280*d*text),minDetail=Math.round(360*d*text);
@@ -36,8 +40,30 @@ public final class AdaptiveLayout {
         }
         if(!dual)return new Plan(area,nav,body,empty,rail,false);
         int listWidth=Math.min(body.width()-minDetail,Math.max(minList,Math.min(Math.round(360*d*text),Math.round(body.width()*.34f))));
+        if(Float.isFinite(split)){
+            int x=Math.round(w*Math.max(0,Math.min(1,split)));
+            listWidth=Math.max(minList,Math.min(body.width()-minDetail,rtl?body.right-x:x-body.left));
+        }
         Box list=rtl?new Box(body.right-listWidth,body.top,body.right,body.bottom):new Box(body.left,body.top,body.left+listWidth,body.bottom);
         Box detail=rtl?new Box(body.left,body.top,list.left,body.bottom):new Box(list.right,body.top,body.right,body.bottom);
         return new Plan(area,nav,list,detail,rail,true);
     }
+    /** A wider release radius prevents repeated snap/unsnap transitions under a resting finger. */
+    public static float snapDivider(float x,float center,float density,boolean snapped){
+        float d=Float.isFinite(density)&&density>0?density:1;
+        return Math.abs(x-center)<=(snapped?28:16)*d?center:x;
+    }
+    /** Keep the current anchor until its release radius is crossed; otherwise choose the nearest. */
+    public static float snapDivider(float x,float center,float initial,float density,float latched){
+        float d=Float.isFinite(density)&&density>0?density:1;
+        float target=Float.NaN,distance=Float.POSITIVE_INFINITY;
+        for(float anchor:new float[]{center,initial})if(Float.isFinite(anchor)&&Math.abs(x-anchor)<distance){target=anchor;distance=Math.abs(x-anchor);}
+        if(Float.isFinite(latched)&&(latched==center||latched==initial)&&Math.abs(x-latched)<=28*d){
+            // Close anchors must remain reachable without dragging past both attraction zones.
+            boolean closerAnchor=target!=latched&&distance<=16*d&&distance+4*d<Math.abs(x-latched);
+            if(!closerAnchor)return latched;
+        }
+        return distance<=16*d?target:x;
+    }
+
 }
