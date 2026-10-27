@@ -12,8 +12,8 @@
   "stopListen": "停止接收",
   "myAddress": "我的連線位址",
   "notListening": "尚未開啟接收",
-  "noAddress": "沒有可用的區域網路位址。請連線 Wi-Fi 或手機熱點。",
-  "nearbyHint": "雙方加入同一 Wi-Fi 或熱點並開啟接收，再選擇附近裝置。",
+  "noAddress": "沒有區域網路位址，請連接網線、Wi-Fi 或手機熱點。",
+  "nearbyHint": "雙方加入同一區域網路並開啟接收；電腦可接網線，手機可用 Wi-Fi。",
   "connect": "連線並記住",
   "reconnect": "連線",
   "disconnect": "斷開連線",
@@ -542,5 +542,8 @@
   "textOverLimit": "{0} / {1} UTF-8 位元組，超過目前連線上限。草稿已保留，請縮短或作為檔案傳送。",
   "textInvalidUnicode": "請完成輸入法組合後再傳送。草稿已保留。",
   "draftEditTooLarge": "此次編輯超過 {0} 位元組草稿上限，原草稿保持不變。大段文字請作為檔案傳送。",
-  "draftSaveFailed": "草稿儲存失敗。請保持此對話開啟並複製文字。"
+  "draftSaveFailed": "草稿儲存失敗。請保持此對話開啟並複製文字。",
+  "paneDivider": "調整對話列表與聊天區域寬度",
+  "paneDividerCenter": "分隔線置中",
+  "lanDiagnostics": "複製區域網路診斷"
 }

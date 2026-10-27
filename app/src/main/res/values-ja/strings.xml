@@ -336,6 +336,7 @@
     <string name="invalid_transport" formatted="false">"接続方式が無効です"</string>
     <string name="lan" formatted="false">"LAN"</string>
     <string name="lan_addresses" formatted="false">"{0}"</string>
+    <string name="lan_diagnostics" formatted="false">"LAN 診断をコピー"</string>
     <string name="lan_listening_without_address" formatted="false">"ポート {0} で受信待機中です。Wi-Fi またはスマートフォンのアクセスポイントに接続してください。"</string>
     <string name="lan_no_devices_body" formatted="false">"相手が受信を有効にし、同じ Wi-Fi またはアクセスポイントに接続しているか確認してください。"</string>
     <string name="lan_path_unconfirmed" formatted="false">"LAN · 経路未確認"</string>
@@ -362,12 +363,12 @@
     <string name="my_nickname" formatted="false">"自分の名前：{0}"</string>
     <string name="nearby" formatted="false">"近く"</string>
     <string name="nearby_devices" formatted="false">"近くのデバイス"</string>
-    <string name="nearby_hint" formatted="false">"両方のデバイスを同じ Wi-Fi またはアクセスポイントに接続し、受信を有効にしてください。"</string>
+    <string name="nearby_hint" formatted="false">"両方の端末を同じ LAN に接続し、受信を有効にしてください。有線 LAN と Wi-Fi 間でも通信できます。"</string>
     <string name="nearby_permission_missing" formatted="false">"付近のデバイスの権限が必要です。「検索」を押して許可してください。"</string>
     <string name="new_chat" formatted="false">"新しいチャット"</string>
     <string name="new_messages" formatted="false">"新しいメッセージ"</string>
     <string name="nickname" formatted="false">"デバイスのニックネーム"</string>
-    <string name="no_address" formatted="false">"利用できる LAN アドレスがありません。Wi-Fi またはスマートフォンのアクセスポイントに接続してください。"</string>
+    <string name="no_address" formatted="false">"LAN アドレスがありません。有線 LAN、Wi-Fi、またはテザリングに接続してください。"</string>
     <string name="no_bluetooth_address" formatted="false">"Bluetooth アドレスがありません。「近く」で再検索してください。"</string>
     <string name="no_bluetooth_devices" formatted="false">"デバイスが見つかりません。Android 側で検出を許可して再試行してください。"</string>
     <string name="no_chats_body" formatted="false">"近くの人を見つけて、話しかけてみましょう。"</string>
@@ -394,6 +395,8 @@
     <string name="outgoing_message_meta" formatted="false">"{0} · {1}"</string>
     <string name="paired" formatted="false">"ペアリング済み"</string>
     <string name="paired_address" formatted="false">"ペアリング済み · {0}"</string>
+    <string name="pane_divider" formatted="false">"会話一覧とチャットの幅を調整"</string>
+    <string name="pane_divider_center" formatted="false">"区切り線を中央に移動"</string>
     <string name="path_details_bluetooth" formatted="false">"このファイルに記録された転送経路は Bluetooth です。大きなファイルは転送に時間がかかる場合があります。"</string>
     <string name="path_details_disconnected" formatted="false">"転送用の接続はありません。接続後に実際の経路が表示されます。"</string>
     <string name="path_details_lan" formatted="false">"このファイルに記録された転送経路は LAN です。ルーターやスマートフォンのホットスポットを経由したかは確認できません。"</string>

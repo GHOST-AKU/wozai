@@ -10,6 +10,7 @@ public final class AndroidLanNetworkChecks {
         checks=0;InetAddress host=InetAddress.getByName("192.168.43.2");
         java.util.List<IpPrefix> local=java.util.Collections.singletonList(new IpPrefix(InetAddress.getByName("192.168.43.0"),24));
         check(LanTransport.routeScore(true,false,false,local,host)==24,"Unvalidated hotspot Wi-Fi was excluded");
+        check(LanTransport.routeScore(false,true,false,local,host)==24,"A wired Ethernet LAN route was excluded");
         check(LanTransport.routeScore(false,false,false,local,host)<0,"Cellular internet took a local Wi-Fi route");
         check(LanTransport.routeScore(true,false,true,local,host)<0,"VPN was treated as the selected physical LAN");
         check(LanTransport.routeScore(true,false,false,local,InetAddress.getByName("192.168.44.2"))<0,"Unrelated local subnet matched");

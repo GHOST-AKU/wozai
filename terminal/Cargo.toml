@@ -21,6 +21,7 @@ ctrlc = "3"
 dirs = "6"
 fs2 = "0.4"
 hex = "0.4"
+if-addrs = "0.14"
 mdns-sd = "0.15"
 p256 = { version = "0.13", features = ["ecdsa", "pkcs8"] }
 rand = "0.8"

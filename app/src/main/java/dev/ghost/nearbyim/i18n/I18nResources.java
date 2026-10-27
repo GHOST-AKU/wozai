@@ -344,6 +344,7 @@ public final class I18nResources {
             case "invalidTransport": return R.string.invalid_transport;
             case "lan": return R.string.lan;
             case "lanAddresses": return R.string.lan_addresses;
+            case "lanDiagnostics": return R.string.lan_diagnostics;
             case "lanListeningWithoutAddress": return R.string.lan_listening_without_address;
             case "lanNoDevicesBody": return R.string.lan_no_devices_body;
             case "lanPathUnconfirmed": return R.string.lan_path_unconfirmed;
@@ -402,6 +403,8 @@ public final class I18nResources {
             case "outgoingMessageMeta": return R.string.outgoing_message_meta;
             case "paired": return R.string.paired;
             case "pairedAddress": return R.string.paired_address;
+            case "paneDivider": return R.string.pane_divider;
+            case "paneDividerCenter": return R.string.pane_divider_center;
             case "pathDetailsBluetooth": return R.string.path_details_bluetooth;
             case "pathDetailsDisconnected": return R.string.path_details_disconnected;
             case "pathDetailsLan": return R.string.path_details_lan;

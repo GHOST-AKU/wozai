@@ -189,6 +189,7 @@ struct ChatDetailView: View {
         VStack(alignment: .leading, spacing: 8) {
             if connected {
                 Label("End-to-end encrypted", systemImage: "lock.fill").font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("readyStatus")
+                LocalPathLabel(path: model.connectionPath)
             } else {
                 HStack {
                     Text("Not connected").foregroundStyle(.secondary)

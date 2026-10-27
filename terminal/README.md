@@ -41,6 +41,8 @@ nearbyim connect --address 192.168.1.20:47832
 
 Discovery uses `_nearbyim._tcp.local.` on LAN interfaces, including Ethernet. Addresses/UUIDs/nicknames in mDNS are untrusted hints; only the authenticated root key can establish identity. Direct addresses work when multicast is blocked. IPv4 discovery and explicit IPv4/IPv6 LAN addresses are supported; link-local IPv6 addresses need their interface scope. VPN, firewall and AP client isolation can prevent LAN communication.
 
+Ethernet computers and Wi-Fi devices can share the same LAN. Multi-address discovery prefers the longest matching ordinary LAN prefix and emits one stable endpoint per result, with private routed fallback. See [LAN troubleshooting](../docs/lan-discovery.md) for the Ethernet/Wi-Fi test procedure; real-router acceptance remains tracked in Issue #5.
+
 ## TUI
 
 Quiet Terminal themes: `--theme midnight` (default), `paper`, `sage`, `mono`, `system`; `--no-color` / `NO_COLOR`; `--ascii`. `config set color auto|truecolor|256|16|none` controls fallback. At 110+ columns, chats/messages/details use three columns; 72–109 use two; 45–71 use one. Below 45 columns or 16 rows, enlarge the terminal to edit safely.
