@@ -220,7 +220,7 @@ final class NativeChatTests: XCTestCase {
         let start = divider.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4))
         start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 70, dy: 0)))
         let moved = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in divider.frame.midX > original + 25 }, object: divider)
-        XCTAssertEqual(XCTWaiter.wait(for: [moved], timeout: 5), .completed, "Changing the preference must move the actual native column")
+        XCTAssertEqual(XCTWaiter.wait(for: [moved], timeout: 5), .completed, "Changing the preference must move the actual native column: before=\(original), after=\(divider.frame.midX), value=\(String(describing: divider.value))")
         divider.tap()
         #if os(macOS)
         divider.rightClick()

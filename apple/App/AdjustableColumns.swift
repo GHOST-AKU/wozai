@@ -1,5 +1,6 @@
 import SwiftUI
 import WozaiCore
+import OSLog
 #if os(macOS)
 import AppKit
 #endif
@@ -49,13 +50,13 @@ struct AdjustableSidebar: ViewModifier {
                                             ideal: enabled ? width : initial,
                                             max: enabled ? width : max(initial, minimum))
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { actual = $0 }
+            .background(NativeColumnWidth(width: width, enabled: enabled))
             .overlay(alignment: .trailing) {
                 if enabled {
-                    Divider()
-                        .overlay { Capsule().fill(.secondary).frame(width: 3, height: 32) }
+                    Color.clear
+                        .overlay(alignment: .trailing) { Capsule().fill(.secondary).frame(width: 3, height: 32).padding(.trailing, 6) }
                         .frame(width: 44)
                         .frame(maxHeight: .infinity)
-                        .offset(x: direction == .rightToLeft ? -22 : 22)
                         .contentShape(Rectangle())
                         .accessibilityElement(children: .ignore)
                         .accessibilityLabel(Text("Column divider"))
@@ -81,6 +82,10 @@ struct AdjustableSidebar: ViewModifier {
                                 let snapped = layout.snap(raw, latched: latched)
                                 latched = snapped == layout.clamp(raw) ? nil : snapped
                                 proposed = snapped
+                                #if DEBUG
+                                Logger(subsystem: "dev.ghost.wozai.apple", category: "Columns")
+                                    .debug("resize actual=\(Double(actual), privacy: .public) requested=\(snapped, privacy: .public)")
+                                #endif
                             }
                             .onEnded { _ in
                                 if let proposed { save(proposed) }
