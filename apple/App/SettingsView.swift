@@ -33,6 +33,7 @@ struct SettingsView: View {
                 Text("Messages stay on this device. Transport encryption does not encrypt the local chat database.").foregroundStyle(.secondary)
             }
             Section("About") {
+                ShareLink(item: model.networkDiagnostics) { Label("Share connection diagnostics", systemImage: "square.and.arrow.up") }
                 LabeledContent("NearbyIM", value: Bundle.main.object(forInfoDictionaryKey: "WOZAI_VERSION") as? String
                                ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—")
                 Text("Apple development build").foregroundStyle(.secondary)

@@ -1,5 +1,8 @@
 import XCTest
 import Network
+#if os(iOS)
+import UIKit
+#endif
 
 final class NativeChatTests: XCTestCase {
     func testNativeConnectionConsentAndDurableReceiptsWithJavaPeer() throws {
@@ -51,6 +54,9 @@ final class NativeChatTests: XCTestCase {
         screenshot.name = "native-chat-with-production-java-peer"
         screenshot.lifetime = .keepAlways
         add(screenshot)
+        #if os(macOS)
+        try checkColumnResizing(app)
+        #endif
         #if os(iOS)
         XCUIDevice.shared.orientation = .landscapeLeft
         defer { XCUIDevice.shared.orientation = .portrait }
@@ -60,6 +66,7 @@ final class NativeChatTests: XCTestCase {
         landscape.name = "native-chat-landscape"
         landscape.lifetime = .keepAlways
         add(landscape)
+        if UIDevice.current.userInterfaceIdiom == .pad { try checkColumnResizing(app) }
         if app.keyboards.firstMatch.exists {
             app.scrollViews["messageTimeline"].swipeDown()
             let hidden = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in !app.keyboards.firstMatch.exists }, object: app)
@@ -204,6 +211,32 @@ final class NativeChatTests: XCTestCase {
                 && intersection.width >= min(frame.width, bounds.width) - 1
         }, object: element)
         return XCTWaiter.wait(for: [visible], timeout: 8) == .completed
+    }
+
+    private func checkColumnResizing(_ app: XCUIApplication) throws {
+        let divider = app.descendants(matching: .any).matching(identifier: "columnDivider").firstMatch
+        XCTAssertTrue(divider.waitForExistence(timeout: 5), "Wide native navigation must expose its divider")
+        let original = divider.frame.midX
+        let start = divider.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4))
+        start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 70, dy: 0)))
+        let moved = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in divider.frame.midX > original + 25 }, object: divider)
+        XCTAssertEqual(XCTWaiter.wait(for: [moved], timeout: 5), .completed, "Changing the preference must move the actual native column")
+        divider.tap()
+        #if os(macOS)
+        divider.rightClick()
+        let reset = app.menuItems["Default column widths"].firstMatch
+        #else
+        divider.press(forDuration: 1)
+        let reset = app.buttons["Default column widths"].firstMatch
+        #endif
+        XCTAssertTrue(reset.waitForExistence(timeout: 4))
+        reset.tap()
+        let restored = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in abs(divider.frame.midX - original) < 4 }, object: divider)
+        XCTAssertEqual(XCTWaiter.wait(for: [restored], timeout: 5), .completed)
+        let evidence = XCTAttachment(screenshot: app.screenshot())
+        evidence.name = "native-column-resize-and-reset"
+        evidence.lifetime = .keepAlways
+        add(evidence)
     }
 
     private func drivePeer(_ command: String) throws {

@@ -129,24 +129,27 @@ private struct ChatsView: View {
     let findNearby: () -> Void
 
     var body: some View {
-        NavigationSplitView(preferredCompactColumn: $compactColumn) {
-            List(selection: Binding<String?>(get: { selection.isEmpty ? nil : selection }, set: { selection = $0 ?? "" })) {
-                ForEach(model.conversations) { contact in
-                    NavigationLink(value: contact.id) { ConversationLabel(contact: contact) }
+        GeometryReader { geometry in
+            NavigationSplitView(preferredCompactColumn: $compactColumn) {
+                List(selection: Binding<String?>(get: { selection.isEmpty ? nil : selection }, set: { selection = $0 ?? "" })) {
+                    ForEach(model.conversations) { contact in
+                        NavigationLink(value: contact.id) { ConversationLabel(contact: contact) }
+                    }
                 }
-            }
-            .overlay {
-                if model.conversations.isEmpty {
-                    ContentUnavailableView("No chats yet", systemImage: "bubble.left.and.bubble.right", description: Text("Find a nearby device to start a conversation."))
+                .overlay {
+                    if model.conversations.isEmpty {
+                        ContentUnavailableView("No chats yet", systemImage: "bubble.left.and.bubble.right", description: Text("Find a nearby device to start a conversation."))
+                    }
                 }
-            }
-            .navigationTitle("Chats")
-            .toolbar { Button("New chat", systemImage: "square.and.pencil", action: findNearby) }
-            .navigationSplitViewColumnWidth(min: 220, ideal: 300, max: 380)
-        } detail: {
-            if let contact = model.conversations.first(where: { $0.id == selection }) {
-                ChatDetailView(contact: contact).id(contact.id)
-            } else { ContentUnavailableView("Choose a conversation", systemImage: "bubble.left.and.bubble.right") }
+                .navigationTitle("Chats")
+                .toolbar { Button("New chat", systemImage: "square.and.pencil", action: findNearby) }
+                .modifier(AdjustableSidebar(key: "chatColumnFraction", total: geometry.size.width, initial: 300, minimum: 220))
+            } detail: {
+                if let contact = model.conversations.first(where: { $0.id == selection }) {
+                    ChatDetailView(contact: contact).id(contact.id)
+                } else { ContentUnavailableView("Choose a conversation", systemImage: "bubble.left.and.bubble.right") }
+        }
+        .navigationSplitViewStyle(.balanced)
         }
         .onChange(of: model.connectionState, initial: true) { _, value in
             pendingConnectedPeer = value == .connected ? model.activePeer?.id : nil
@@ -173,21 +176,24 @@ private struct MacNavigation: View {
     @SceneStorage("sidebarSelection") private var selection = "nearby"
 
     var body: some View {
-        NavigationSplitView {
-            List(selection: Binding<String?>(get: { selection.isEmpty ? nil : selection }, set: { selection = $0 ?? "" })) {
-                Label("Nearby", systemImage: "antenna.radiowaves.left.and.right").tag("nearby").accessibilityIdentifier("nearbyDestination")
-                Section("Chats") {
-                    ForEach(model.conversations) { contact in
-                        ConversationLabel(contact: contact).tag("chat:" + contact.id)
+        GeometryReader { geometry in
+            NavigationSplitView {
+                List(selection: Binding<String?>(get: { selection.isEmpty ? nil : selection }, set: { selection = $0 ?? "" })) {
+                    Label("Nearby", systemImage: "antenna.radiowaves.left.and.right").tag("nearby").accessibilityIdentifier("nearbyDestination")
+                    Section("Chats") {
+                        ForEach(model.conversations) { contact in
+                            ConversationLabel(contact: contact).tag("chat:" + contact.id)
+                        }
                     }
                 }
-            }
-            .navigationTitle("NearbyIM")
-            .navigationSplitViewColumnWidth(min: 180, ideal: 240, max: 340)
-        } detail: {
-            if let contact = model.conversations.first(where: { "chat:" + $0.id == selection }) {
-                ChatDetailView(contact: contact).id(contact.id)
-            } else { NearbyView() }
+                .navigationTitle("NearbyIM")
+                .modifier(AdjustableSidebar(key: "macColumnFraction", total: geometry.size.width, initial: 240, minimum: 180))
+            } detail: {
+                if let contact = model.conversations.first(where: { "chat:" + $0.id == selection }) {
+                    ChatDetailView(contact: contact).id(contact.id)
+                } else { NearbyView() }
+        }
+        .navigationSplitViewStyle(.balanced)
         }
         .frame(minWidth: 600, minHeight: 420)
         .toolbar {
