@@ -4,7 +4,7 @@
 
 ## 原生界面与轻量原则
 
-iPhone 使用系统标签页和导航栈；聊天列表与详情使用 `NavigationSplitView`，由系统根据窗口可用空间折叠或并排显示。iOS/iPadOS 18 及以上使用 `.sidebarAdaptable` 标签页样式，让 iPad 在系统标签页与侧栏之间切换；17 使用系统标签页。侧栏位于系统规定的 leading 一侧，不做左右手动镜像，也不按未发布设备名称或屏幕分辨率硬编码布局。
+iPhone 使用系统标签页和导航栈；聊天列表与详情使用 `NavigationSplitView`，由系统根据窗口可用空间折叠或并排显示。本开发分支为 iPad/Mac 加入可拖动的分栏边界：默认保持原宽度，拖动时吸附到默认位置或内容区域中线；点击分隔线等宽，长按/右键可恢复默认。比例以 `SceneStorage` 按窗口保存，窗口缩小仅临时钳制，不覆盖宽窗口偏好。窄窗口仍由系统折叠导航；保留设备认可、选中会话、草稿及正在传输的同一会话。分隔线支持 VoiceOver 调整及等宽/恢复默认动作，触摸命中区为44pt，使用系统语义颜色和Mac调整宽度光标。iOS/iPadOS 18 及以上使用 `.sidebarAdaptable` 标签页样式，让 iPad 在系统标签页与侧栏之间切换；17 使用系统标签页。侧栏位于系统规定的 leading 一侧，不做左右手动镜像，也不按未发布设备名称或屏幕分辨率硬编码布局。
 
 Mac 使用原生侧栏、工具栏、菜单、快捷键和独立 Settings 窗口。手机和平板使用原生 Form 设置页。图标来自 SF Symbols，字体、语义颜色、选中态、焦点与按钮反馈交给系统；浅色、深色及系统外观可选。支持系统动态字体和文字选择；应用文案与权限说明提供英文、简体中文、繁体中文、日文、韩文资源，语言选择遵循 Apple 的系统与每 App 语言设置。新系统的材质由系统组件提供，不自行绘制仿制玻璃或导航栏。
 
@@ -16,7 +16,7 @@ Mac 使用原生侧栏、工具栏、菜单、快捷键和独立 Settings 窗口
 
 ## 连接与安全
 
-1. 两端加入可互访的局域网。Mac 可以使用以太网，不要求 Wi-Fi 接口。
+1. 与 Android/Windows/Linux 通信时，两端加入可互访的局域网，Mac 可以使用以太网。Apple 设备之间也可保持 Wi-Fi/蓝牙开启，并在两端启用发现，通过 Bonjour 服务尝试系统点对点 Wi-Fi；无需由应用自动开普通热点。此项是开发分支的新能力，已发布 preview.1 不包含它。
 2. 在 Apple 客户端的「附近 / Nearby」开启「发现与接收 / Discover and receive」。Bonjour 使用与现有客户端一致的 `_nearbyim._tcp` 服务，并请求附带的 TXT 记录以显示对端昵称、读取设备 ID 提示及排除自身服务。缺少 TXT 时保留服务名称作为发现提示，不把它当作已认可或已核验的身份。
 3. 从发现的设备发起连接，或者输入对方显示的局域网 IP / `.local` 名称和端口。应用不提供公网聊天入口。
 4. 未记住的设备需要明确认可；设备名称和 Bonjour TXT 仅是未受信任的发现提示。长期根密钥须通过 NIM4 根签名验证，已经记住的设备变更密钥会拒绝连接。
@@ -34,7 +34,7 @@ NIM4 使用 `Noise_XX_25519_AESGCM_SHA256`，经 CryptoKit 执行 X25519、AES-G
 
 ## 当前功能边界
 
-当前开发分支已实现局域网发现/手动连接、双端设备认可、加密文字、持久送达回执、记录/草稿、安全码、原生设置，以及附件 v2 流式文件/图片、多选队列、接收文件夹、系统预览/分享和二维码核验。文件记录当前显示最近 50 条；统一的文字/文件历史分页仍需完善。头像、经典蓝牙、Wi-Fi P2P、独立文件链路及自动质量选路尚未完成，不宣称与 Android 全部功能对齐。
+当前开发分支已实现局域网发现/手动连接、双端设备认可、加密文字、持久送达回执、记录/草稿、安全码、原生设置，以及附件 v2 流式文件/图片、多选队列、接收文件夹、系统预览/分享和二维码核验。文件记录当前显示最近 50 条；统一的文字/文件历史分页仍需完善。本开发分支已在发现、监听和服务连接三处启用系统 P2P；文字与文件复用同一条经过身份核验和授权的 NIM4 加密连接。头像、经典蓝牙、Android Wi-Fi Direct 组协商、独立文件链路及自动质量选路尚未完成，不宣称与 Android 全部功能对齐。
 
 附件最大协议上限 10 GiB，以 32 KiB 记录、1 MiB 块哈希、整文件 SHA-256、接收信用窗口及强制检查点传输。每份新文件需要明确接收；选择文件与系统照片/视频入口均可多选（最多 256 项），排队后逐项发送，支持暂停/取消及身份、源文件代际绑定的恢复。接收目录由系统文件夹选择器授权，保存书签；默认在 Documents / Received files，iOS 的 Files 可访问文稿。系统 Quick Look、分享面板及 Mac Finder 提供后续访问。发布使用排他原生重命名，发布中断或重复回执前会重新核验最终字节；不覆盖已存在的目标。移动存储、File Provider、书签恢复及真机断电保证仍待验证。
 
@@ -42,7 +42,11 @@ NIM4 使用 `Noise_XX_25519_AESGCM_SHA256`，经 CryptoKit 执行 X25519、AES-G
 
 仅供开发验证的文字模式仍明确拒绝附件，继续覆盖合法 PAUSE/CANCEL/STATUS 后的聊天与心跳。非法元数据或控制字段按协议错误处理。
 
-`includePeerToPeer` 当前关闭；不能把 Apple 的此选项当作 Android Wi-Fi Direct 互通。iOS 进入后台会停止发现、结束连接并保存草稿，不承诺后台长期在线。网络恢复后由用户重新发起连接。Mac 正常退出通过 NSApplicationDelegate 的 terminateLater 等待草稿落盘：同步截取当前草稿，取消旧的延迟写入，在后台等待旧写入结束后保存快照，再通过主运行循环（含 AppKit 模态模式）回复允许退出，避免退出循环阻塞 MainActor 造成死锁；失败则取消退出并显示系统警告，内存草稿保留。iOS 后台保存复用同一写入排序。强制终止或崩溃不属于正常退出回调的保证范围。
+`includePeerToPeer` 在 Bonjour 浏览、监听和服务连接中一致启用；连接保留 Bonjour 服务端点，解除发现接口的固定绑定，让系统在可用局域网/Apple点对点接口中选择。手动 IP/`.local` 地址连接仍使用不含 P2P 的 LAN 参数，维持现有跨平台能力。系统点对点 Wi-Fi 不等于 Android Wi-Fi Direct；不使用私有 AWDL API，不强制5GHz，不自动开热点，也不承诺当前路由最快或已实现中断后自动换路。
+
+路径通过 `NWConnection.pathUpdateHandler` 获取。聊天与文件气泡显示真实可证明的 Wi-Fi/以太网/回环/系统本地路径；设置页可分享不含私钥、临时组凭据或聊天内容的连接诊断。`apple_peer_to_peer_enabled=true` 表示接口已允许，不是建链成功证据。`availableInterfaces` 仅记为可用接口列表，不能当作实际选中的接口；仅凭 Wi-Fi 不能标记为“Wi-Fi直连”。历史文件未持久记录路径时显示“未记录路径”，不会用当前连接替代历史路径。
+
+验证无路由器 Apple P2P 时，两端打开本分支同源版本，保留 Wi-Fi/蓝牙开关、断开普通路由器/热点，在“附近”打开接收并从发现结果连接，完成双端认可、文字保存回执、文件确认和字节核验；再记录断网条件、系统版本、连接诊断及实际速率。模拟器/回环只能证明参数与协议互通，不证明系统射频建网或性能。Wi-Fi Aware 是另一套有系统/硬件/配对与权限要求的API，本分支不增加该依赖或降低现有最低系统版本。iOS 进入后台会停止发现、结束连接并保存草稿，不承诺后台长期在线。网络恢复后由用户重新发起连接。Mac 正常退出通过 NSApplicationDelegate 的 terminateLater 等待草稿落盘：同步截取当前草稿，取消旧的延迟写入，在后台等待旧写入结束后保存快照，再通过主运行循环（含 AppKit 模态模式）回复允许退出，避免退出循环阻塞 MainActor 造成死锁；失败则取消退出并显示系统警告，内存草稿保留。iOS 后台保存复用同一写入排序。强制终止或崩溃不属于正常退出回调的保证范围。
 
 本机、模拟器回环互通和编译结果不能替代真机的局域网权限、Bonjour 跨设备发现、吞吐、待机内存和生命周期验证。Apple Distribution、TestFlight、App Store、Developer ID 签名及公证均未提供。现有 Android / Windows / Linux 正式版附件不受这个开发工程影响。
 
@@ -99,3 +103,11 @@ GitHub Actions 的 `Verify native Apple clients` 保留互通日志和原生 XCT
 - [Local network usage description](https://developer.apple.com/documentation/bundleresources/information-property-list/nslocalnetworkusagedescription)
 - [Bonjour discovery with associated TXT records](https://developer.apple.com/documentation/network/nwbrowser/descriptor-swift.enum/bonjourwithtxtrecord(type:domain:))
 - [Network.framework includePeerToPeer](https://developer.apple.com/documentation/network/nwparameters/includepeertopeer)
+
+## 当前开发变更的 English summary
+
+The 0.3.3-preview.2 development branch retains native NavigationSplitView navigation and compact collapse while adding draggable column widths, default/midpoint snapping, equal/reset actions and per-scene proportions for iPad and Mac. It uses Apple components, semantic styling and accessible actions; changing geometry does not recreate the model or connection.
+
+Bonjour browsing, listeners and service connections opt into system peer-to-peer Wi-Fi together. Discovered services are re-resolved without pinning the discovery interface; manual LAN addresses remain available to existing Java clients. The existing authenticated/consent-gated NIM4 stream carries both text and files. This is Apple system P2P support, not Android Wi-Fi Direct group interoperability, forced 5GHz, independent file lanes or measured automatic handover. It does not require a new connection-mode switch.
+
+Path updates identify only publicly evidenced interface types. Wi-Fi and available interfaces do not prove AWDL selection; diagnostics explicitly distinguish enabled capability from confirmed Direct. Completed records without stored path evidence remain unknown. Verify actual offline Apple-to-Apple discovery, consent, files, lifecycle and throughput on physical devices before claiming acceptance. See [TN3151](https://developer.apple.com/documentation/technotes/tn3151-choosing-the-right-networking-api), [TN3111](https://developer.apple.com/documentation/technotes/tn3111-ios-wifi-api-overview), [includePeerToPeer](https://developer.apple.com/documentation/network/nwparameters/includepeertopeer) and [Split views HIG](https://developer.apple.com/design/human-interface-guidelines/split-views).

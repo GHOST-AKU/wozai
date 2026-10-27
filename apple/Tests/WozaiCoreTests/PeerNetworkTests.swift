@@ -6,14 +6,14 @@ final class PeerNetworkTests: XCTestCase {
     func testDiscoveryListenerAndConnectionsAllowSystemPeerInterfaces() {
         let parameters = localParameters()
         XCTAssertTrue(parameters.includePeerToPeer)
-        XCTAssertTrue(parameters.prohibitedInterfaceTypes.contains(.cellular))
+        XCTAssertEqual(parameters.prohibitedInterfaceTypes?.contains(.cellular), true)
         XCTAssertNil(parameters.requiredInterface)
     }
 
     func testManualLANRemainsAvailableWithoutPeerDiscovery() {
         let parameters = localParameters(peerToPeer: false)
         XCTAssertFalse(parameters.includePeerToPeer)
-        XCTAssertTrue(parameters.prohibitedInterfaceTypes.contains(.cellular))
+        XCTAssertEqual(parameters.prohibitedInterfaceTypes?.contains(.cellular), true)
     }
 
     func testBonjourConnectionDoesNotRemainPinnedToDiscoveryInterface() {
