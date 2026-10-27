@@ -24,6 +24,8 @@ final class AppModel {
     var addresses: [String] = []
     var discoveryEnabled = false
     var networkError: String?
+    var connectionPath = LocalPathSnapshot.unavailable
+    private var transferPaths: [String: LocalPathSnapshot] = [:]
     var connectionState = ConnectionState.idle
     var activePeer: VerifiedPeer?
     var consent: VerifiedPeer?
@@ -102,6 +104,13 @@ final class AppModel {
         token = UUID()
         let generation = token
         self.stream = stream
+        connectionPath = .unavailable
+        stream.observePath { [weak self] path in
+            Task { @MainActor in
+                guard let self, self.token == generation, self.stream != nil else { return }
+                self.connectionPath = path
+            }
+        }
         connectionState = .connecting
         connectionTask = Task {
             do {
@@ -134,9 +143,11 @@ final class AppModel {
         case .changed(let peer): changed(peer)
         case .attachmentOffer(let info): fileConsent.replace(info)
         case .transfer(let record):
+            if connectionPath.kind != .unavailable { transferPaths[record.key] = connectionPath }
             if transfers[record.key]?.state != record.state { transferRevision[record.peerID, default: 0] &+= 1 }
             transfers[record.key] = record
         case .closed(let error):
+            connectionPath = .unavailable
             session = nil; stream = nil; activePeer = nil; consent = nil; fileConsent.replace(nil); connectionState = .idle
             if let error { notice = Notice(message: error) }
         }
@@ -238,11 +249,26 @@ final class AppModel {
 
     func disconnect() {
         token = UUID()
+        connectionPath = .unavailable
         let previous = session
         connectionTask?.cancel(); connectionTask = nil
         stream?.close(); stream = nil; session = nil
         consent = nil; activePeer = nil; fileConsent.replace(nil); connectionState = .idle
         Task { await previous?.stop() }
+    }
+
+    func path(for record: AttachmentRecord) -> LocalPathSnapshot {
+        if activePeer?.id == record.peerID, ["sending", "receiving", "publishing", "awaiting_saved"].contains(record.state) {
+            return connectionPath
+        }
+        return transferPaths[record.key] ?? .unavailable
+    }
+
+    var networkDiagnostics: String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "WOZAI_VERSION") as? String ?? "unknown"
+        return "diagnostics_schema=1\nendpoint=apple\nversion=\(version)\nprotocol=NIM4\n" +
+            "connection_state=\(connectionState)\nend_to_end_encrypted=\(connectionState == .connected)\n" +
+            connectionPath.diagnostics
     }
 
     func resume() { foreground = true; reconnectDiscovery() }

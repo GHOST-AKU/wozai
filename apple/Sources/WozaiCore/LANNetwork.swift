@@ -43,38 +43,69 @@ public enum LocalEndpoint {
     }
 }
 
-func localParameters() -> NWParameters {
+func localParameters(peerToPeer: Bool = true) -> NWParameters {
     let tcp = NWProtocolTCP.Options()
     tcp.noDelay = true
     tcp.enableKeepalive = true
     let parameters = NWParameters(tls: nil, tcp: tcp)
-    parameters.includePeerToPeer = false
+    // Apply the same opt-in to browsing, advertising/listening and service connections.
+    // Requiring a particular interface here would override system peer-to-peer selection.
+    parameters.includePeerToPeer = peerToPeer
     parameters.prohibitedInterfaceTypes = [.cellular]
     return parameters
+}
+
+func automaticLocalEndpoint(_ endpoint: NWEndpoint) -> NWEndpoint {
+    if case .service(let name, let type, let domain, _) = endpoint {
+        // A discovered service may be scoped to its discovery interface. Let Network.framework
+        // resolve it again across infrastructure and peer interfaces at connection time.
+        return .service(name: name, type: type, domain: domain, interface: nil)
+    }
+    return endpoint
 }
 
 public final class NWByteStream: ByteStream, @unchecked Sendable {
     private let connection: NWConnection
     private let queue = DispatchQueue(label: "dev.ghost.wozai.socket", qos: .userInitiated)
+    private let peerToPeerEnabled: Bool
+    private var pathObserver: (@Sendable (LocalPathSnapshot) -> Void)?
 
-    public init(connection: NWConnection) { self.connection = connection }
+    public init(connection: NWConnection, peerToPeerEnabled: Bool = true) {
+        self.connection = connection; self.peerToPeerEnabled = peerToPeerEnabled
+    }
 
     public convenience init(host: String, port: UInt16) throws {
         guard LocalEndpoint.allows(host), let port = NWEndpoint.Port(rawValue: port), port.rawValue != 0 else { throw WozaiError.protocolViolation }
-        self.init(connection: NWConnection(host: NWEndpoint.Host(host), port: port, using: localParameters()))
+        // Numeric/manual LAN connections remain usable with Android and desktop peers.
+        self.init(connection: NWConnection(host: NWEndpoint.Host(host), port: port, using: localParameters(peerToPeer: false)), peerToPeerEnabled: false)
     }
 
-    public convenience init(endpoint: NWEndpoint) { self.init(connection: NWConnection(to: endpoint, using: localParameters())) }
+    public convenience init(endpoint: NWEndpoint) {
+        self.init(connection: NWConnection(to: automaticLocalEndpoint(endpoint), using: localParameters()))
+    }
+
+    public func observePath(_ observer: @escaping @Sendable (LocalPathSnapshot) -> Void) {
+        queue.async { [self] in
+            pathObserver = observer
+            observer(LocalPathSnapshot(path: connection.currentPath, peerToPeerEnabled: peerToPeerEnabled))
+        }
+    }
+
+    private func publishPath(_ path: NWPath?) {
+        pathObserver?(LocalPathSnapshot(path: path, peerToPeerEnabled: peerToPeerEnabled))
+    }
 
     public func start() async throws {
+        try Task.checkCancellation()
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
                 let gate = StartGate(continuation)
-                connection.stateUpdateHandler = { state in
+                connection.pathUpdateHandler = { [weak self] path in self?.publishPath(path) }
+                connection.stateUpdateHandler = { [weak self] state in
                     switch state {
-                    case .ready: gate.finish(.success(()))
-                    case .failed(let error): gate.finish(.failure(error))
-                    case .cancelled: gate.finish(.failure(WozaiError.closed))
+                    case .ready: self?.publishPath(self?.connection.currentPath); gate.finish(.success(()))
+                    case .failed(let error): self?.publishPath(nil); gate.finish(.failure(error))
+                    case .cancelled: self?.publishPath(nil); gate.finish(.failure(WozaiError.closed))
                     default: break
                     }
                 }
@@ -188,7 +219,9 @@ public final class LANDiscovery: @unchecked Sendable {
                         }
                         return DiscoveredPeer(id: name + "." + type + "." + domain, nickname: nickname, claimedID: remoteID, endpoint: result.endpoint)
                     }.sorted { $0.id < $1.id }
-                    self.peers(Array(found.prefix(256)))
+                    // A service may be visible on infrastructure and peer interfaces simultaneously.
+                    let unique = Dictionary(found.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+                    self.peers(Array(unique.values.sorted { $0.id < $1.id }.prefix(256)))
                 }
                 browser.stateUpdateHandler = { [weak self] value in
                     guard let self, self.generation == epoch else { return }
