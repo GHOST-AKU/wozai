@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
 
-/** A real receiver history save briefly rejects the first authenticated quality request. */
+/** A forced real receiver history save briefly rejects the first authenticated quality request. */
 public final class FileQualityRequestRetryTests {
     public static void main(String[] args)throws Exception {
         transientBusy();
@@ -43,6 +43,7 @@ public final class FileQualityRequestRetryTests {
                         int count=requests.incrementAndGet();
                         if(count==1){
                             holdHistory.set(true);
+                            forceReceiverHistory(h.files[0],controlFailure);
                             // Keep the parent reader free to receive authenticated activity heartbeats.
                             admission.execute(()->{
                                 try{
@@ -70,7 +71,7 @@ public final class FileQualityRequestRetryTests {
             CompletableFuture<Void> sending=CompletableFuture.runAsync(()->{try{h.transfer();}catch(Exception error){throw new CompletionException(error);}});
             try{
                 check(declined.await(8,TimeUnit.SECONDS),"First-request barrier not reached: "+controlFailure);
-                check(retried.await(4,TimeUnit.SECONDS),"A transiently declined quality request suppressed comparison for the whole file");
+                check(retried.await(4,TimeUnit.SECONDS),"A transiently declined quality request suppressed comparison for the whole file; requests="+requests+"; control="+controlFailure+"\n"+h.routes.a.files.diagnostics()+"\nPEER\n"+h.routes.b.files.diagnostics());
                 sending.get(45,TimeUnit.SECONDS);
                 check(!h.routes.a.files.diagnostics().contains("file_quality_result=not_measured"),"Retried request never started a comparison");
                 check(h.routes.a.wire.isReady()&&h.routes.b.wire.isReady(),"Quality retry disconnected the parent chat");
@@ -83,6 +84,21 @@ public final class FileQualityRequestRetryTests {
                 admission.shutdownNow();check(admission.awaitTermination(3,TimeUnit.SECONDS),"Admission fixture worker did not stop");
             }
         }
+    }
+    private static void forceReceiverHistory(ClientAttachmentTransfers files,CompletableFuture<Void> failure)throws ReflectiveOperationException {
+        var streamingField=ClientAttachmentTransfers.class.getDeclaredField("streaming");streamingField.setAccessible(true);
+        Object engine=streamingField.get(files);
+        var actorField=AttachmentTransferV2.class.getDeclaredField("actor");actorField.setAccessible(true);
+        ((ExecutorService)actorField.get(engine)).execute(()->{
+            try{
+                var incoming=AttachmentTransferV2.class.getDeclaredField("incoming");incoming.setAccessible(true);Object task=incoming.get(engine);
+                check(task!=null,"Receiver has no active task for its history barrier");
+                var notice=AttachmentTransferV2.class.getDeclaredMethod("notice",task.getClass(),boolean.class);notice.setAccessible(true);
+                // Exercise the actual HISTORY_SAVE scope now, not a checkpoint up to two seconds later.
+                // Waiting for that unrelated durability timer can exhaust the sender's retry budget.
+                notice.invoke(engine,task,true);
+            }catch(Exception|AssertionError error){failure.completeExceptionally(error);}
+        });
     }
     static void unansweredBudget()throws Exception {
         try(var h=new AutomaticFileHandoverTests.Harness("lan",1,false)){
