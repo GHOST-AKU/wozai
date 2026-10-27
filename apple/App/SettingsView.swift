@@ -33,7 +33,8 @@ struct SettingsView: View {
                 Text("Messages stay on this device. Transport encryption does not encrypt the local chat database.").foregroundStyle(.secondary)
             }
             Section("About") {
-                LabeledContent("NearbyIM", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.3.2")
+                LabeledContent("NearbyIM", value: Bundle.main.object(forInfoDictionaryKey: "WOZAI_VERSION") as? String
+                               ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—")
                 Text("Apple development build").foregroundStyle(.secondary)
                 Link("Source code", destination: URL(string: "https://github.com/GHOST-AKU/wozai")!)
                 Link("License", destination: URL(string: "https://github.com/GHOST-AKU/wozai/blob/main/LICENSE")!)

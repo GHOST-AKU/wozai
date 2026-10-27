@@ -9,6 +9,7 @@ import argparse
 import json
 from pathlib import Path
 import re
+import subprocess
 import sys
 from xml.sax.saxutils import escape
 
@@ -140,8 +141,8 @@ def resource_name(key):
 
 
 def validate(config, messages):
-    if not re.fullmatch(r"\d+\.\d+\.\d+", config.get("appVersion", "")):
-        raise ValueError("appVersion must be a three-part release version")
+    if not re.fullmatch(r"\d+\.\d+\.\d+(?:-preview\.[1-9][0-9]*)?", config.get("appVersion", "")):
+        raise ValueError("appVersion must be X.Y.Z or X.Y.Z-preview.N (N >= 1)")
     languages = config["languages"]
     tags = [item["tag"] for item in languages]
     if len(set(tags)) != len(tags) or not languages:
@@ -363,6 +364,8 @@ def main():
     parser.add_argument("--check", action="store_true", help="fail if checked-in output differs")
     parser.add_argument("--root", type=Path, default=BASE, help=argparse.SUPPRESS)
     args = parser.parse_args()
+    if args.root.resolve() == BASE:
+        subprocess.run([sys.executable, str(BASE / "tools/version.py"), "--check"], check=True)
     try:
         languages, keys, changed = run(args.root, check=args.check)
         print(f"i18n: {languages} complete languages, {keys} keys, {len(changed)} generated files updated")
