@@ -106,6 +106,8 @@ GitHub Actions 的 `Verify native Apple clients` 保留互通日志和原生 XCT
 
 ## 当前开发变更的 English summary
 
+验证可拆分为 `validation=macos-ui` 与 `validation=core-ios`：前者只检查Mac原生UI，后者运行核心、生命周期、生产Java互通、Mac/iOS设备构建和iPhone/iPad原生UI，避免再次运行相同源的Mac UI。复用前必须比较实际源文件、Xcode配置和测试脚本；默认 `full` 仍保留全部检查。
+
 The 0.3.3-preview.2 development branch retains native NavigationSplitView navigation and compact collapse while adding draggable column widths, default/midpoint snapping, equal/reset actions and per-scene proportions for iPad and Mac. It uses Apple components, semantic styling and accessible actions; changing geometry does not recreate the model or connection.
 
 Bonjour browsing, listeners and service connections opt into system peer-to-peer Wi-Fi together. Discovered services are re-resolved without pinning the discovery interface; manual LAN addresses remain available to existing Java clients. The existing authenticated/consent-gated NIM4 stream carries both text and files. This is Apple system P2P support, not Android Wi-Fi Direct group interoperability, forced 5GHz, independent file lanes or measured automatic handover. It does not require a new connection-mode switch.
