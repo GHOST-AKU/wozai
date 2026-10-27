@@ -123,14 +123,16 @@ private struct MobileNavigation: View {
 @MainActor
 private struct ChatsView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @SceneStorage("selectedConversation") private var selection = ""
+    @State private var visibility = NavigationSplitViewVisibility.all
     @State private var compactColumn = NavigationSplitViewColumn.sidebar
     @State private var pendingConnectedPeer: String?
     let findNearby: () -> Void
 
     var body: some View {
         GeometryReader { geometry in
-            NavigationSplitView(preferredCompactColumn: $compactColumn) {
+            NavigationSplitView(columnVisibility: $visibility, preferredCompactColumn: $compactColumn) {
                 List(selection: Binding<String?>(get: { selection.isEmpty ? nil : selection }, set: { selection = $0 ?? "" })) {
                     ForEach(model.conversations) { contact in
                         NavigationLink(value: contact.id) { ConversationLabel(contact: contact) }
@@ -143,13 +145,19 @@ private struct ChatsView: View {
                 }
                 .navigationTitle("Chats")
                 .toolbar { Button("New chat", systemImage: "square.and.pencil", action: findNearby) }
-                .modifier(AdjustableSidebar(key: "chatColumnFraction", total: geometry.size.width, initial: 300, minimum: 220))
+                // The primary column can have compact traits even inside a regular-width iPad window.
+                .modifier(AdjustableSidebar(key: "chatColumnFraction", total: geometry.size.width, initial: 300,
+                                            minimum: 220, allowsResize: sizeClass == .regular))
             } detail: {
                 if let contact = model.conversations.first(where: { $0.id == selection }) {
                     ChatDetailView(contact: contact).id(contact.id)
                 } else { ContentUnavailableView("Choose a conversation", systemImage: "bubble.left.and.bubble.right") }
             }
             .navigationSplitViewStyle(.balanced)
+            .onChange(of: geometry.size.width) { _, _ in
+                if sizeClass == .regular { visibility = .all }
+            }
+            .onChange(of: sizeClass) { _, value in if value == .regular { visibility = .all } }
         }
         .onChange(of: model.connectionState, initial: true) { _, value in
             pendingConnectedPeer = value == .connected ? model.activePeer?.id : nil

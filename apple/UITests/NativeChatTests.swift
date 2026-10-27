@@ -215,7 +215,11 @@ final class NativeChatTests: XCTestCase {
 
     private func checkColumnResizing(_ app: XCUIApplication) throws {
         let divider = app.descendants(matching: .any).matching(identifier: "columnDivider").firstMatch
+        #if os(iOS)
+        XCTAssertTrue(divider.waitForExistence(timeout: 5), "Wide native navigation must expose its divider: " + app.debugDescription)
+        #else
         XCTAssertTrue(divider.waitForExistence(timeout: 5), "Wide native navigation must expose its divider")
+        #endif
         let original = divider.frame.midX
         let start = divider.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4))
         start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 70, dy: 0)))

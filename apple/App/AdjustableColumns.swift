@@ -13,7 +13,7 @@ struct AdjustableSidebar: ViewModifier {
     @ScaledMetric(relativeTo: .body) private var detailMinimum = 340
     @Environment(\.layoutDirection) private var direction
     #if os(iOS)
-    @Environment(\.horizontalSizeClass) private var sizeClass
+    let allowsResize: Bool
     #endif
     @SceneStorage private var fraction: Double
     @State private var actual: CGFloat = 0
@@ -25,10 +25,17 @@ struct AdjustableSidebar: ViewModifier {
     @State private var hovering = false
     #endif
 
+    #if os(macOS)
     init(key: String, total: CGFloat, initial: CGFloat, minimum: CGFloat) {
         self.total = total; self.initial = initial; self.minimum = minimum
         _fraction = SceneStorage(wrappedValue: 0, key)
     }
+    #else
+    init(key: String, total: CGFloat, initial: CGFloat, minimum: CGFloat, allowsResize: Bool) {
+        self.total = total; self.initial = initial; self.minimum = minimum; self.allowsResize = allowsResize
+        _fraction = SceneStorage(wrappedValue: 0, key)
+    }
+    #endif
 
     private var layout: SplitColumnLayout {
         SplitColumnLayout(total: Double(total), minimum: Double(minimum),
@@ -37,7 +44,7 @@ struct AdjustableSidebar: ViewModifier {
 
     private var enabled: Bool {
         #if os(iOS)
-        return sizeClass == .regular && layout.canResize && actual < total - 100
+        return allowsResize && layout.canResize && actual < total - 100
         #else
         return layout.canResize && actual < total - 100
         #endif
