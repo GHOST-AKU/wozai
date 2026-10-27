@@ -39,6 +39,9 @@ public final class AutomaticFileHandoverTests {
             h.routes.a.platform.lanWriteDelay=h.routes.b.platform.lanWriteDelay=70;h.transfer();
             check(h.routes.a.files.route().equals("wifi-direct"),"A slower LAN displaced a healthy P2P lane");
             check(h.routes.a.files.diagnostics().contains("file_quality_result=keep_direct"),"Comparison did not resume the original P2P task");
+            String peerReport=h.routes.b.files.diagnostics();
+            check(peerReport.contains("file_quality_result=peer_retained_direct")&&peerReport.contains("file_quality_admission=peer_initiated"),"Peer must report its actual completed participation: "+peerReport);
+            check(peerReport.contains("file_quality_decision_available=false")&&peerReport.contains("file_quality_decision_reason=peer_decision_not_shared"),"Peer must not invent the coordinator's rates or decision reason");
         }
         for(boolean parentLoss:new boolean[]{false,true})try(Harness h=new Harness("bluetooth",0,false)){
             h.holdPause.set(true);CompletableFuture<Void> sending=CompletableFuture.runAsync(()->{try{h.transfer();}catch(Exception error){throw new CompletionException(error);}});

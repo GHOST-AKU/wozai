@@ -18,7 +18,7 @@ final class AdaptiveScaffold extends ViewGroup {
     private final Map<View,Rect> positions=new IdentityHashMap<>();
     private final Paint divider=new Paint();
     private final PaneDivider dividerControl;
-    private float splitPosition,splitMin,splitMax;
+    private float splitPosition,splitMin,splitMax,initialSplit;
     private boolean movableDivider;
     private int handleColor,activeHandleColor;
 
@@ -75,6 +75,8 @@ final class AdaptiveScaffold extends ViewGroup {
         if(movableDivider){
             var low=AdaptiveLayout.compute(w,h,getResources().getDisplayMetrics().density,config.fontScale,getLayoutDirection()==LAYOUT_DIRECTION_RTL,true,local,0);
             var high=AdaptiveLayout.compute(w,h,getResources().getDisplayMetrics().density,config.fontScale,getLayoutDirection()==LAYOUT_DIRECTION_RTL,true,local,1);
+            var initial=AdaptiveLayout.compute(w,h,getResources().getDisplayMetrics().density,config.fontScale,getLayoutDirection()==LAYOUT_DIRECTION_RTL,true,local);
+            initialSplit=getLayoutDirection()==LAYOUT_DIRECTION_RTL?initial.list().left():initial.list().right();
             splitMin=getLayoutDirection()==LAYOUT_DIRECTION_RTL?low.list().left():low.list().right();
             splitMax=getLayoutDirection()==LAYOUT_DIRECTION_RTL?high.list().left():high.list().right();
         }
@@ -108,23 +110,25 @@ final class AdaptiveScaffold extends ViewGroup {
     private void rememberSplit(){
         getContext().getSharedPreferences("ui",Context.MODE_PRIVATE).edit().putFloat("paneSplit",splitPosition).apply();
     }
-    private float constrainDivider(float x,boolean snap,boolean latched){
+    private float constrainDivider(float x,boolean snap,float latched){
         x=Math.max(splitMin,Math.min(splitMax,x));
         float center=(getWidth()-getPaddingLeft()-getPaddingRight())/2f;
-        return snap&&center>=splitMin&&center<=splitMax?AdaptiveLayout.snapDivider(x,center,getResources().getDisplayMetrics().density,latched):x;
+        if(!snap)return x;
+        float centerAnchor=center>=splitMin&&center<=splitMax?center:Float.NaN;
+        return AdaptiveLayout.snapDivider(x,centerAnchor,initialSplit,getResources().getDisplayMetrics().density,latched);
     }
-    private void moveDivider(float x,boolean snap,boolean latched){
+    private void moveDivider(float x,boolean snap){
         int width=getWidth()-getPaddingLeft()-getPaddingRight();if(width<=0||!movableDivider)return;
-        splitPosition=constrainDivider(x,snap,latched)/width;
+        splitPosition=constrainDivider(x,snap,Float.NaN)/width;
         splitPosition=Math.max(0,Math.min(1,splitPosition));requestLayout();
     }
     private final class PaneDivider extends View {
-        private float downX,startX,original;private boolean moved,snapped;
+        private float downX,startX,original,latched=Float.NaN;private boolean moved;
         private final Paint handle=new Paint(Paint.ANTI_ALIAS_FLAG);
         PaneDivider(Context context){
             super(context);setTag("paneDivider");setFocusable(true);setClickable(true);
             setContentDescription(AndroidText.get(context,"paneDivider"));
-            setOnClickListener(v->{moveDivider((getWidthOfWindow())/2f,false,false);rememberSplit();});
+            setOnClickListener(v->{moveDivider((getWidthOfWindow())/2f,false);rememberSplit();});
         }
         private int getWidthOfWindow(){return AdaptiveScaffold.this.getWidth()-getPaddingOfWindow();}
         private int getPaddingOfWindow(){return AdaptiveScaffold.this.getPaddingLeft()+AdaptiveScaffold.this.getPaddingRight();}
@@ -137,16 +141,16 @@ final class AdaptiveScaffold extends ViewGroup {
             if(!movableDivider)return false;
             switch(event.getActionMasked()){
                 case MotionEvent.ACTION_DOWN:
-                    downX=event.getRawX();startX=getLeft()+getWidth()/2f-AdaptiveScaffold.this.getPaddingLeft();original=splitPosition;moved=false;snapped=false;
+                    downX=event.getRawX();startX=getLeft()+getWidth()/2f-AdaptiveScaffold.this.getPaddingLeft();original=splitPosition;moved=false;latched=Float.NaN;
                     setPressed(true);getParent().requestDisallowInterceptTouchEvent(true);return true;
                 case MotionEvent.ACTION_MOVE:
                     float delta=event.getRawX()-downX;
                     if(!moved&&Math.abs(delta)<ViewConfiguration.get(getContext()).getScaledTouchSlop())return true;
                     moved=true;float raw=startX+delta;
-                    float next=constrainDivider(raw,true,snapped);
-                    boolean nowSnapped=next==getWidthOfWindow()/2f;
-                    if(nowSnapped&&!snapped)performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
-                    snapped=nowSnapped;moveDivider(next,false,false);return true;
+                    float next=constrainDivider(raw,true,latched);
+                    float nextAnchor=next==getWidthOfWindow()/2f||next==initialSplit?next:Float.NaN;
+                    if(Float.isFinite(nextAnchor)&&nextAnchor!=latched)performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
+                    latched=nextAnchor;moveDivider(next,false);return true;
                 case MotionEvent.ACTION_UP:
                     setPressed(false);getParent().requestDisallowInterceptTouchEvent(false);
                     if(moved)rememberSplit();else performClick();return true;
@@ -157,7 +161,7 @@ final class AdaptiveScaffold extends ViewGroup {
         }
         public boolean onKeyDown(int key,KeyEvent event){
             if(key==KeyEvent.KEYCODE_DPAD_LEFT||key==KeyEvent.KEYCODE_DPAD_RIGHT){
-                moveDivider(getLeft()+getWidth()/2f-AdaptiveScaffold.this.getPaddingLeft()+(key==KeyEvent.KEYCODE_DPAD_LEFT?-dp(24):dp(24)),true,false);rememberSplit();return true;
+                moveDivider(getLeft()+getWidth()/2f-AdaptiveScaffold.this.getPaddingLeft()+(key==KeyEvent.KEYCODE_DPAD_LEFT?-dp(24):dp(24)),true);rememberSplit();return true;
             }
             if(key==KeyEvent.KEYCODE_MOVE_HOME){performClick();return true;}
             return super.onKeyDown(key,event);
@@ -174,10 +178,10 @@ final class AdaptiveScaffold extends ViewGroup {
             if(!movableDivider)return false;
             if(action==AccessibilityNodeInfo.AccessibilityAction.ACTION_SET_PROGRESS.getId()&&arguments!=null){
                 float percent=arguments.getFloat(AccessibilityNodeInfo.ACTION_ARGUMENT_PROGRESS_VALUE,Float.NaN);
-                if(!Float.isFinite(percent))return false;moveDivider(getWidthOfWindow()*percent/100f,true,false);rememberSplit();return true;
+                if(!Float.isFinite(percent))return false;moveDivider(getWidthOfWindow()*percent/100f,true);rememberSplit();return true;
             }
             if(action==AccessibilityNodeInfo.ACTION_SCROLL_FORWARD||action==AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD){
-                moveDivider(getLeft()+getWidth()/2f-AdaptiveScaffold.this.getPaddingLeft()+(action==AccessibilityNodeInfo.ACTION_SCROLL_FORWARD?dp(24):-dp(24)),true,false);rememberSplit();return true;
+                moveDivider(getLeft()+getWidth()/2f-AdaptiveScaffold.this.getPaddingLeft()+(action==AccessibilityNodeInfo.ACTION_SCROLL_FORWARD?dp(24):-dp(24)),true);rememberSplit();return true;
             }
             return super.performAccessibilityAction(action,arguments);
         }

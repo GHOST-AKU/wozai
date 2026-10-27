@@ -239,6 +239,7 @@ final class FileRouteHandover implements AutoCloseable {
             if(wire!=controlWire()||host.lead()||retired.contains(packet.nonce))return;
             if(current(packet.nonce)){if(packet.number==3){fallbackBluetooth(false);return;}if(backup==null)ensureBackup();return;}
             if(busy()&&!phase.equals("requesting")){fail(new IOException("Overlapping migration transaction"),true);return;}
+            if(packet.number!=1){qualityAdmission="peer_initiated";qualityResult="comparing";}
             probeSender=packet.number==2;checkedAt=System.nanoTime();begin(packet.nonce,packet.number==1);return;
         }
         if(!current(packet.nonce)){
@@ -281,6 +282,7 @@ final class FileRouteHandover implements AutoCloseable {
             case PAUSED:if(wire!=controlWire()){fail(new IOException("Pause agreement on wrong lane"),true);return;}peerPaused=true;advance();break;
             case SELECT:
                 if(wire!=controlWire()||host.lead()||lease==null||!backupBound){fail(new IOException("Unprepared LAN selection"),true);return;}
+                if(!fault){qualityResult="peer_selected_lan";lastReason="peer_selected_lan";}
                 install();phase="selecting";send(FileLinkPacket.control(FileLinkPacket.Kind.SELECTED,nonce,host.generation(),0));break;
             case SELECTED:
                 if(wire!=controlWire()||!host.lead()||!selecting){fail(new IOException("Unexpected LAN selection reply"),true);return;}
@@ -290,6 +292,8 @@ final class FileRouteHandover implements AutoCloseable {
             case FAILED:if(wire==controlWire())candidateFailed(new IOException("Peer LAN unavailable"));else fail(new IOException("Migration failure on wrong lane"),true);break;
             case ABORT:
                 if(wire!=controlWire()||fault){fail(new IOException("Peer stopped automatic recovery"),false);return;}
+                // A retired standby lane may close before ABORT arrives on the independent control lane.
+                if(!host.lead()){qualityResult="peer_retained_direct";lastReason="peer_retained_direct";}
                 keepDirect(false);break;
             default:fail(new IOException("Unexpected migration phase record"),true);
         }
@@ -330,6 +334,10 @@ final class FileRouteHandover implements AutoCloseable {
     private void keepDirect(boolean notify){trace("retain");
         if(fault){advance();return;}
         boolean first=!retaining;retaining=true;phase="retaining";
+        if(first){
+            if(qualityResult.equals("not_measured")||qualityResult.equals("comparing"))qualityResult="inconclusive";
+            lastReason=qualityResult.equals("inconclusive")?"comparison_inconclusive":host.lead()?"direct_retained":"peer_retained_direct";
+        }
         if(probe!=null){probe.close();probe=null;}
         if(notify&&first)send(FileLinkPacket.control(FileLinkPacket.Kind.ABORT,nonce,host.generation(),0));
         disposeBackup();
@@ -403,10 +411,10 @@ final class FileRouteHandover implements AutoCloseable {
     TransferPath activityPath(){return fault?TransferPath.RECOVERING_LAN:phase.equals("measuring")?TransferPath.COMPARING:TransferPath.PENDING_LAN;}
     private String qualityDiagnostics(){
         var decision=qualityDecision;
-        return "file_quality_diagnostics_schema=1\nfile_quality_scope=last_assessment\n"
-            +"file_quality_decision_available="+(decision!=null)+"\nfile_quality_decision_owner="+(host.lead()?"coordinator":"peer")+"\n"
+        return "file_quality_diagnostics_schema=2\nfile_quality_scope=last_assessment\n"
+            +"file_quality_decision_available="+(decision!=null)+"\nfile_quality_decision_owner=coordinator\nfile_quality_local_role="+(host.lead()?"coordinator":"peer")+"\n"
             +"file_quality_required_margin_percent=25\nfile_quality_required_net_savings_ms=2000\nfile_quality_decision_cost_ms="+decisionCost/1_000_000+"\n"
-            +"file_quality_decision_reason="+(decision==null?qualityAdmission:decision.reason())+"\n"
+            +"file_quality_decision_reason="+(decision==null?qualityResult.startsWith("peer_")?"peer_decision_not_shared":qualityAdmission:decision.reason())+"\n"
             +"file_quality_direct_bytes_per_second="+(decision==null?0:Math.round(decision.directBytesPerSecond()))+"\n"
             +"file_quality_lan_bytes_per_second="+(decision==null?0:Math.round(decision.lanBytesPerSecond()))+"\n"
             +"file_quality_net_savings_ms="+(decision==null?0:Math.round(decision.netSavingsSeconds()*1000))+"\n"

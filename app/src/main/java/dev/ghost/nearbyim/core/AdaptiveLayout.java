@@ -53,4 +53,17 @@ public final class AdaptiveLayout {
         float d=Float.isFinite(density)&&density>0?density:1;
         return Math.abs(x-center)<=(snapped?28:16)*d?center:x;
     }
+    /** Keep the current anchor until its release radius is crossed; otherwise choose the nearest. */
+    public static float snapDivider(float x,float center,float initial,float density,float latched){
+        float d=Float.isFinite(density)&&density>0?density:1;
+        float target=Float.NaN,distance=Float.POSITIVE_INFINITY;
+        for(float anchor:new float[]{center,initial})if(Float.isFinite(anchor)&&Math.abs(x-anchor)<distance){target=anchor;distance=Math.abs(x-anchor);}
+        if(Float.isFinite(latched)&&(latched==center||latched==initial)&&Math.abs(x-latched)<=28*d){
+            // Close anchors must remain reachable without dragging past both attraction zones.
+            boolean closerAnchor=target!=latched&&distance<=16*d&&distance+4*d<Math.abs(x-latched);
+            if(!closerAnchor)return latched;
+        }
+        return distance<=16*d?target:x;
+    }
+
 }

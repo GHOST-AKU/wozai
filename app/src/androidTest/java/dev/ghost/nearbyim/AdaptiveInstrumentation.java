@@ -141,6 +141,7 @@ public final class AdaptiveInstrumentation extends Instrumentation {
     }
     private void draggableDivider(AdaptiveScaffold root,View home,View chat,EditText draft)throws Exception {
         root.setPadding(0,0,0,0);measure(root,1280,800);
+        int defaultX=dev.ghost.nearbyim.core.AdaptiveLayout.compute(dp(1280),dp(800),root.getResources().getDisplayMetrics().density,root.getResources().getConfiguration().fontScale,false,true,null).list().right();
         View divider=root.findViewWithTag("paneDivider");
         check(divider.getVisibility()==View.VISIBLE&&divider.getWidth()>=dp(48),"Divider has a usable native touch target");
         float x=divider.getLeft()+divider.getWidth()/2f,y=dp(300);long now=SystemClock.uptimeMillis();
@@ -157,6 +158,9 @@ public final class AdaptiveInstrumentation extends Instrumentation {
         touch(root,now+60,MotionEvent.ACTION_DOWN,dp(640),y);touch(root,now+80,MotionEvent.ACTION_MOVE,dp(800),y);measure(root,1280,800);
         touch(root,now+100,MotionEvent.ACTION_CANCEL,dp(800),y);measure(root,1280,800);
         check(home.getRight()==dp(640),"Cancelled drag restores the prior split");
+        touch(root,now+120,MotionEvent.ACTION_DOWN,dp(640),y);touch(root,now+140,MotionEvent.ACTION_MOVE,defaultX+dp(8),y);measure(root,1280,800);
+        check(home.getRight()==defaultX,"Dragging near the original adaptive position snaps back exactly");
+        touch(root,now+160,MotionEvent.ACTION_UP,defaultX+dp(8),y);
         getTargetContext().getSharedPreferences("ui",Context.MODE_PRIVATE).edit().remove("paneSplit").apply();set(root,"splitPosition",Float.NaN);measure(root,1280,800);
     }
     private void touch(View root,long time,int action,float x,float y){

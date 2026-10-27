@@ -49,6 +49,16 @@ public final class AdaptiveLayoutTests {
             check((Float)snap.invoke(null,591f,600f,1f,false)==600f,"Dragging near the center snaps exactly");
             check((Float)snap.invoke(null,622f,600f,1f,true)==600f,"Snap hysteresis avoids center jitter");
             check((Float)snap.invoke(null,635f,600f,1f,true)==635f,"Dragging farther releases the center snap");
+            var anchors=AdaptiveLayout.class.getMethod("snapDivider",float.class,float.class,float.class,float.class,float.class);
+            check((Float)anchors.invoke(null,407f,640f,400f,1f,Float.NaN)==400f,"Original adaptive split is also a snap point");
+            check((Float)anchors.invoke(null,422f,640f,400f,1f,400f)==400f,"Original split has the same release hysteresis");
+            check((Float)anchors.invoke(null,435f,640f,400f,1f,400f)==435f,"Original split releases beyond its radius");
+            check((Float)anchors.invoke(null,632f,640f,400f,1f,400f)==640f,"Dragging from the original split can snap to center");
+            check((Float)anchors.invoke(null,510f,512f,500f,1f,Float.NaN)==512f,"Nearby anchors select the nearest one");
+            check((Float)anchors.invoke(null,512f,512f,500f,1f,500f)==512f,"Nearby default latch must allow reaching center");
+            check((Float)anchors.invoke(null,500f,512f,500f,1f,512f)==500f,"Nearby center latch must allow reaching default");
+            check((Float)anchors.invoke(null,506f,512f,500f,1f,500f)==500f,"Equal-distance motion keeps the current anchor");
+            check((Float)anchors.invoke(null,407f,Float.NaN,400f,1f,Float.NaN)==400f,"Default snap still works when center is constrained");
         }catch(ReflectiveOperationException missing){throw new AssertionError("Adaptive panes have no adjustable, snapping divider",missing);}
     }
     private static AdaptiveLayout.Plan plan(int w,int h){return AdaptiveLayout.compute(w,h,1,1,false,true,null);}

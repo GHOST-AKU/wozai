@@ -7,10 +7,10 @@ Development changes; not included in the published 0.3.2 release.
 
 - The rail's 56dp new-chat button centers its 24dp glyph with symmetric 16dp padding.
 - Drag the conversation divider to resize the existing list and chat views. Its 48dp-wide touch region has a visible handle. Tap the divider to center it; keyboard Left/Right adjusts it, Home centers it. Accessibility exposes a slider and a center action.
-- The center is the midpoint of the usable application window, including the navigation rail. Snap engages within 16dp and releases beyond 28dp. Haptic feedback honors the system setting. Each pane retains its font-scale-aware minimum; if the center cannot satisfy those minimums, it is not a snap point.
+- The center is the midpoint of the usable application window, including the navigation rail. Both the original adaptive position and the center are snap points. The nearest point engages within 16dp; the latched point releases beyond 28dp. The original default ratio and adjustment limits remain unchanged. Haptic feedback honors the system setting. Each pane retains its font-scale-aware minimum; if the center cannot satisfy those minimums, it is not a snap point.
 - Completed adjustments are stored locally as a window-relative position. Cancelled drags restore the previous position. Small windows retain single-pane behavior; a separating/occluding vertical hinge fixes the split and disables dragging. No connection/controller is recreated to resize panes.
 
-导航栏新聊天图标居中。拖动分隔线可调整两栏，点击可居中；靠近可用窗口中线时吸附，离开较大范围后释放，避免抖动。位置保存在本机，取消拖动恢复原位置。键盘及无障碍均可调整。两栏最小宽度、大字体、窄窗口和铰链避让优先于个人位置设置；调整时保留会话、输入与阅读位置。
+导航栏新聊天图标居中。拖动分隔线可调整两栏，点击可居中；靠近原始自适应位置或可用窗口中线时吸附，离开较大范围后释放，避免抖动。位置保存在本机，取消拖动恢复原位置。键盘及无障碍均可调整。两栏最小宽度、大字体、窄窗口和铰链避让优先于个人位置设置；调整时保留会话、输入与阅读位置。
 
 ## Routing / 选路
 
@@ -24,7 +24,7 @@ The Android and Windows/Linux Java clients share this policy. This change does n
 
 ### Diagnostics / 诊断
 
-`file_quality_scope=last_assessment`; these are per-routing-session assessment observations, not whole-file throughput statistics (#32). The coordinator computes the decision; `file_quality_decision_available` explicitly distinguishes missing local decision evidence from measured zero throughput.
+`file_quality_scope=last_assessment`; these are per-routing-session assessment observations, not whole-file throughput statistics (#32). Diagnostics schema 2 records peer participation (`peer_initiated`), peer-requested retention/selection (`peer_retained_direct` / `peer_selected_lan`) and a completed switch reason rather than leaving `comparing`. `file_quality_decision_owner=coordinator` identifies the authority; `file_quality_local_role` identifies this endpoint. A peer without the calculation reports `peer_decision_not_shared` and does not invent remote rates. The coordinator computes the decision; `file_quality_decision_available` explicitly distinguishes missing local decision evidence from measured zero throughput.
 
 - `file_quality_samples_bytes_ns_complete`: alternating `direct1;lan1;direct2;lan2`, each with acknowledged payload bytes, round-trip wall-clock nanoseconds and validity. Maximum 4 MiB per round / 16 MiB per assessment; probe window and protocol are unchanged.
 - `file_quality_{direct,lan}_bytes_per_second`: conservative, I/O-capped rates, in bytes/s (divide by 1,048,576 for MiB/s).
