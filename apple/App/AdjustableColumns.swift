@@ -49,8 +49,7 @@ struct AdjustableSidebar: ViewModifier {
             .navigationSplitViewColumnWidth(min: enabled ? width : minimum,
                                             ideal: enabled ? width : initial,
                                             max: enabled ? width : max(initial, minimum))
-            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { actual = $0 }
-            .background(NativeColumnWidth(width: width, enabled: enabled))
+            .background(NativeColumnWidth(width: width, enabled: enabled, measured: { actual = $0 }))
             .overlay(alignment: .trailing) {
                 if enabled {
                     Color.clear
@@ -76,7 +75,7 @@ struct AdjustableSidebar: ViewModifier {
                         .gesture(DragGesture(minimumDistance: 2, coordinateSpace: .global)
                             .updating($dragging) { _, value, _ in value = true }
                             .onChanged { value in
-                                if dragOrigin == nil { dragOrigin = Double(actual) }
+                                if dragOrigin == nil { dragOrigin = actual > 0 ? Double(actual) : layout.width(fraction: fraction) }
                                 let delta = Double(value.translation.width) * (direction == .rightToLeft ? -1 : 1)
                                 let raw = (dragOrigin ?? Double(actual)) + delta
                                 let snapped = layout.snap(raw, latched: latched)

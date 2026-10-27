@@ -1,4 +1,5 @@
 import SwiftUI
+import OSLog
 
 // SwiftUI column widths are preferences. Apply an explicit user resize to the existing
 // native container as well, without replacing its delegate, controllers or navigation state.
@@ -8,18 +9,22 @@ import AppKit
 struct NativeColumnWidth: NSViewRepresentable {
     let width: CGFloat
     let enabled: Bool
+    let measured: (CGFloat) -> Void
 
     func makeNSView(context: Context) -> ColumnWidthView { ColumnWidthView() }
     func updateNSView(_ view: ColumnWidthView, context: Context) {
         view.requested = enabled ? width : nil
+        view.measured = measured
         view.applyLater()
     }
     static func dismantleNSView(_ view: ColumnWidthView, coordinator: ()) { view.restore() }
 
     final class ColumnWidthView: NSView {
         var requested: CGFloat?
+        var measured: ((CGFloat) -> Void)?
         private weak var configuredItem: NSSplitViewItem?
         private var original: (CGFloat, CGFloat)?
+        private var reportedMissing = false
         override func hitTest(_ point: NSPoint) -> NSView? { nil }
         override func viewDidMoveToWindow() { super.viewDidMoveToWindow(); applyLater() }
 
@@ -31,9 +36,10 @@ struct NativeColumnWidth: NSViewRepresentable {
             guard window != nil, let width = requested else { restore(); return }
             var ancestor = superview
             while let view = ancestor {
-                if let split = view as? NSSplitView, split.isVertical, split.arrangedSubviews.count == 2 {
-                    let primary = split.arrangedSubviews[0]
-                    guard !split.isSubviewCollapsed(primary), abs(primary.frame.width - width) > 0.5 else { return }
+                if let split = view as? NSSplitView, split.isVertical, split.arrangedSubviews.count >= 2,
+                   let primary = split.arrangedSubviews.first, isDescendant(of: primary) {
+                    guard !split.isSubviewCollapsed(primary) else { return }
+                    if abs(primary.frame.width - width) <= 0.5 { measured?(primary.frame.width); return }
                     if let controller = split.delegate as? NSSplitViewController, let item = controller.splitViewItems.first {
                         if configuredItem !== item {
                             restore(); configuredItem = item
@@ -45,10 +51,23 @@ struct NativeColumnWidth: NSViewRepresentable {
                     }
                     let leadingOnRight = primary.frame.minX > split.arrangedSubviews[1].frame.minX
                     split.setPosition(leadingOnRight ? split.bounds.width - width - split.dividerThickness : width, ofDividerAt: 0)
+                    measured?(primary.frame.width)
+                    #if DEBUG
+                    Logger(subsystem: "dev.ghost.wozai.apple", category: "Columns")
+                        .debug("native columns=\(split.arrangedSubviews.count) requested=\(Double(width)) measured=\(Double(primary.frame.width))")
+                    #endif
                     return
                 }
                 ancestor = view.superview
             }
+            #if DEBUG
+            if !reportedMissing {
+                reportedMissing = true
+                var names: [String] = [], node = superview
+                while let view = node { names.append(String(describing: type(of: view))); node = view.superview }
+                Logger(subsystem: "dev.ghost.wozai.apple", category: "Columns").debug("native split not found: \(names.joined(separator: "/"), privacy: .public)")
+            }
+            #endif
         }
 
         func restore() {
@@ -67,16 +86,19 @@ import UIKit
 struct NativeColumnWidth: UIViewRepresentable {
     let width: CGFloat
     let enabled: Bool
+    let measured: (CGFloat) -> Void
 
     func makeUIView(context: Context) -> ColumnWidthView { ColumnWidthView() }
     func updateUIView(_ view: ColumnWidthView, context: Context) {
         view.requested = enabled ? width : nil
+        view.measured = measured
         view.applyLater()
     }
     static func dismantleUIView(_ view: ColumnWidthView, coordinator: ()) { view.restore() }
 
     final class ColumnWidthView: UIView {
         var requested: CGFloat?
+        var measured: ((CGFloat) -> Void)?
         private weak var configuredSplit: UISplitViewController?
         private var original: (CGFloat, CGFloat, CGFloat)?
         override func point(inside point: CGPoint, with event: UIEvent?) -> Bool { false }
@@ -101,6 +123,9 @@ struct NativeColumnWidth: UIViewRepresentable {
                             split.maximumPrimaryColumnWidth = max(split.maximumPrimaryColumnWidth, width)
                             split.minimumPrimaryColumnWidth = width; split.maximumPrimaryColumnWidth = width
                             split.preferredPrimaryColumnWidthFraction = width / max(1, split.view.bounds.width)
+                            split.view.setNeedsLayout()
+                            split.view.layoutIfNeeded()
+                            measured?(split.primaryColumnWidth)
                             return
                         }
                         parent = candidate.parent
