@@ -76,7 +76,7 @@ final class GalleryPublisher implements AutoCloseable {
                 try(ParcelFileDescriptor.AutoCloseOutputStream output=new ParcelFileDescriptor.AutoCloseOutputStream(fd)){VerifiedAttachmentCopy.copy(original,output,record.info,()->canceled(peer,expected));output.getChannel().force(true);}
             }else{
                 Path directory=Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES).toPath().resolve(GALLERY_DIRECTORY);Files.createDirectories(directory);if(Files.isSymbolicLink(directory))throw new IOException("Unsafe gallery directory");
-                String safe=AttachmentInfo.safeName(record.info.name);int dot=safe.lastIndexOf('.');String stem=dot>0?safe.substring(0,dot):safe,extension=dot>0?safe.substring(dot):"";if(stem.length()>100)stem=stem.substring(0,100);Path target=directory.resolve(stem+"-"+key(peer,record).substring(0,24)+extension);
+                Path target=directory.resolve(GalleryExportNames.legacyFilename(record.info.name,key(peer,record)));
                 destination=Uri.fromFile(target.toFile());journal.save(peer,record,new PhotoExportStore.Entry(PhotoExportStore.State.PENDING,destination.toString()));
                 if(Files.exists(target,LinkOption.NOFOLLOW_LINKS))VerifiedAttachmentCopy.copy(target,OutputStream.nullOutputStream(),record.info,()->canceled(peer,expected));
                 else{Path temporary=directory.resolve(".wozai-"+key(peer,record)+".tmp");try{
