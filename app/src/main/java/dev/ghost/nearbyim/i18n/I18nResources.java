@@ -400,6 +400,8 @@ public final class I18nResources {
             case "outgoingMessageMeta": return R.string.outgoing_message_meta;
             case "paired": return R.string.paired;
             case "pairedAddress": return R.string.paired_address;
+            case "paneDivider": return R.string.pane_divider;
+            case "paneDividerCenter": return R.string.pane_divider_center;
             case "pathDetailsBluetooth": return R.string.path_details_bluetooth;
             case "pathDetailsDisconnected": return R.string.path_details_disconnected;
             case "pathDetailsLan": return R.string.path_details_lan;

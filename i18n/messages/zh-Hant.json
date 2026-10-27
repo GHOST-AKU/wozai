@@ -537,5 +537,7 @@
   "attachmentPathLanDirect": "傳輸路徑：區域網路 → Wi-Fi 直連",
   "attachmentPathBluetoothDirect": "傳輸路徑：藍牙 → Wi-Fi 直連",
   "attachmentPathBluetoothLan": "傳輸路徑：藍牙 → 區域網路",
-  "attachmentPathAllLinks": "傳輸路徑：Wi-Fi 直連、區域網路、藍牙"
+  "attachmentPathAllLinks": "傳輸路徑：Wi-Fi 直連、區域網路、藍牙",
+  "paneDivider": "調整對話列表與聊天區域寬度",
+  "paneDividerCenter": "分隔線置中"
 }

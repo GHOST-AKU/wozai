@@ -392,6 +392,8 @@
     <string name="outgoing_message_meta" formatted="false">"{0} · {1}"</string>
     <string name="paired" formatted="false">"ペアリング済み"</string>
     <string name="paired_address" formatted="false">"ペアリング済み · {0}"</string>
+    <string name="pane_divider" formatted="false">"会話一覧とチャットの幅を調整"</string>
+    <string name="pane_divider_center" formatted="false">"区切り線を中央に移動"</string>
     <string name="path_details_bluetooth" formatted="false">"このファイルに記録された転送経路は Bluetooth です。大きなファイルは転送に時間がかかる場合があります。"</string>
     <string name="path_details_disconnected" formatted="false">"転送用の接続はありません。接続後に実際の経路が表示されます。"</string>
     <string name="path_details_lan" formatted="false">"このファイルに記録された転送経路は LAN です。ルーターやスマートフォンのホットスポットを経由したかは確認できません。"</string>

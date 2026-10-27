@@ -537,5 +537,7 @@
   "attachmentPathLanDirect": "传输路径：局域网 → Wi-Fi 直连",
   "attachmentPathBluetoothDirect": "传输路径：蓝牙 → Wi-Fi 直连",
   "attachmentPathBluetoothLan": "传输路径：蓝牙 → 局域网",
-  "attachmentPathAllLinks": "传输路径：Wi-Fi 直连、局域网、蓝牙"
+  "attachmentPathAllLinks": "传输路径：Wi-Fi 直连、局域网、蓝牙",
+  "paneDivider": "调整会话列表与聊天区域宽度",
+  "paneDividerCenter": "分隔线居中"
 }

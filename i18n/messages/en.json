@@ -537,5 +537,7 @@
   "attachmentPathLanDirect": "Transfer path: LAN → Wi-Fi Direct",
   "attachmentPathBluetoothDirect": "Transfer path: Bluetooth → Wi-Fi Direct",
   "attachmentPathBluetoothLan": "Transfer path: Bluetooth → LAN",
-  "attachmentPathAllLinks": "Transfer paths: Wi-Fi Direct, LAN, Bluetooth"
+  "attachmentPathAllLinks": "Transfer paths: Wi-Fi Direct, LAN, Bluetooth",
+  "paneDivider": "Resize conversation panes",
+  "paneDividerCenter": "Center divider"
 }

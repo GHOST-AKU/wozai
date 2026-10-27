@@ -392,6 +392,8 @@
     <string name="outgoing_message_meta" formatted="false">"{0} · {1}"</string>
     <string name="paired" formatted="false">"已配對"</string>
     <string name="paired_address" formatted="false">"已配對 · {0}"</string>
+    <string name="pane_divider" formatted="false">"調整對話列表與聊天區域寬度"</string>
+    <string name="pane_divider_center" formatted="false">"分隔線置中"</string>
     <string name="path_details_bluetooth" formatted="false">"這份檔案記錄的傳輸管道是藍牙。較大的檔案可能需要更長的傳輸時間。"</string>
     <string name="path_details_disconnected" formatted="false">"目前沒有已建立的傳輸通道。連線後會顯示實際使用的通道。"</string>
     <string name="path_details_lan" formatted="false">"這份檔案記錄的傳輸管道是區域網路。無法確認該管道是否經過路由器或手機熱點。"</string>

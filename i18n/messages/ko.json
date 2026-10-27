@@ -537,5 +537,7 @@
   "attachmentPathLanDirect": "전송 경로: LAN → Wi-Fi Direct",
   "attachmentPathBluetoothDirect": "전송 경로: Bluetooth → Wi-Fi Direct",
   "attachmentPathBluetoothLan": "전송 경로: Bluetooth → LAN",
-  "attachmentPathAllLinks": "전송 경로: Wi-Fi Direct, LAN, Bluetooth"
+  "attachmentPathAllLinks": "전송 경로: Wi-Fi Direct, LAN, Bluetooth",
+  "paneDivider": "대화 목록과 채팅 영역 너비 조절",
+  "paneDividerCenter": "구분선 가운데로 이동"
 }

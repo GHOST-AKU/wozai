@@ -288,14 +288,14 @@ public final class MainActivity extends Activity {
         root.addView(settingsPage); root.addView(chatPage);
         buildHome(); buildNearby(); buildSettings(); buildChat(); buildNavigation();
         LinearLayout placeholder=empty(t("chats"),t("noMessageTitle"));root.addView(placeholder);
-        root.bind(header,errorView,homePage,nearbyPage,settingsPage,chatPage,placeholder,bottomNav,line);
+        root.bind(header,errorView,homePage,nearbyPage,settingsPage,chatPage,placeholder,bottomNav,line,muted,accent);
         root.navigationChanged=rail->{
             bottomNav.setBackground(shape(rail?surface:background,0));
             pageTitle.setTextSize(rail?24:32);header.setPadding(dp(16),dp(rail?8:14),dp(16),dp(rail?8:10));
             updateHomeActionPlacement(rail);
         };
         root.geometryChanging=()->{if(!rebuildingMessages&&chatPage.getVisibility()==View.VISIBLE&&renderedPeer!=null&&messageScroll.getWidth()>0)pendingTimelinePosition=captureTimelinePosition();};
-        root.geometryChanged=()->{fitOpenDialogs();if(pendingTimelinePosition!=null){messageScroll.removeCallbacks(restoreTimelinePosition);messageScroll.post(restoreTimelinePosition);}};foldWindow=new FoldWindow(this,root::fold);root.requestApplyInsets();
+        root.geometryChanged=()->{updateMessageWidths();fitOpenDialogs();if(pendingTimelinePosition!=null){messageScroll.removeCallbacks(restoreTimelinePosition);messageScroll.post(restoreTimelinePosition);}};foldWindow=new FoldWindow(this,root::fold);root.requestApplyInsets();
     }
     private void applyRootPadding() {
         root.setPadding(sideInsetLeft, topInset, sideInsetRight, bottomInset);
@@ -304,7 +304,7 @@ public final class MainActivity extends Activity {
         bottomNav = horizontal(); bottomNav.setGravity(Gravity.CENTER); bottomNav.setPadding(dp(12), dp(9), dp(12), dp(7));
         GradientDrawable navSurface = shape(background, 0); bottomNav.setBackground(navSurface);
         LinearLayout compose = vertical();compose.setTag("railCompose");compose.setGravity(Gravity.CENTER);
-        Button composeAction=iconButton(R.drawable.outline_add_24,t("newChat"),accentInk);composeAction.setBackground(ripple(accent,18));
+        Button composeAction=iconButton(R.drawable.outline_add_24,t("newChat"),accentInk);composeAction.setBackground(ripple(accent,18));composeAction.setPadding(dp(16),dp(16),dp(16),dp(16));
         composeAction.setOnClickListener(v->navigate(1));compose.addView(composeAction,new LinearLayout.LayoutParams(dp(56),dp(56)));
         TextView composeLabel=label(t("newChat"),13,muted);composeLabel.setGravity(Gravity.CENTER);composeLabel.setMaxLines(2);composeLabel.setEllipsize(TextUtils.TruncateAt.END);compose.addView(composeLabel);
         bottomNav.addView(compose);navigationGap(1);

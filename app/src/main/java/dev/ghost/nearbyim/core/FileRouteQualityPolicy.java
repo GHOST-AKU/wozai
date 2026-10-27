@@ -24,15 +24,28 @@ public final class FileRouteQualityPolicy {
         return preferLan(direct,lan,remainingBytes,switchCostNanos,Double.POSITIVE_INFINITY);
     }
     public static boolean preferLan(Sample[] direct,Sample[] lan,long remainingBytes,long switchCostNanos,double capacity){
-        if(!(capacity>0))return false;
-        if(direct==null||lan==null||direct.length!=2||lan.length!=2||remainingBytes<=0||switchCostNanos<0)return false;
+        return evaluate(direct,lan,remainingBytes,switchCostNanos,capacity).preferLan();
+    }
+    public record Decision(boolean preferLan,String reason,double directBytesPerSecond,double lanBytesPerSecond,double netSavingsSeconds){}
+    /** Do not pause a file when even an infinitely fast candidate cannot repay the assessment. */
+    public static boolean assessmentWorthwhile(long remaining,double rate,long switchCostNanos){
+        return remaining>0&&Double.isFinite(rate)&&rate>0&&switchCostNanos>=0
+            &&remaining/rate>switchCostNanos/1e9+2+2;
+    }
+    public static Decision evaluate(Sample[] direct,Sample[] lan,long remaining,long cost,double capacity){
+        if(!(capacity>0)||remaining<=0||cost<0)return new Decision(false,"invalid_budget",0,0,0);
+        if(direct==null||lan==null||direct.length!=2||lan.length!=2)return new Decision(false,"samples_incomplete",0,0,0);
         double fastestDirect=0,slowestLan=Double.POSITIVE_INFINITY;
         for(int i=0;i<2;i++){
-            if(direct[i]==null||lan[i]==null||!direct[i].valid()||!lan[i].valid())return false;
-            if(lan[i].lowerRate()<direct[i].upperRate()*1.25)return false;
+            if(direct[i]==null||lan[i]==null||!direct[i].valid()||!lan[i].valid())return new Decision(false,"samples_incomplete",0,0,0);
             fastestDirect=Math.max(fastestDirect,direct[i].upperRate());slowestLan=Math.min(slowestLan,lan[i].lowerRate());
         }
-        double gainSeconds=remainingBytes/Math.min(capacity,fastestDirect)-remainingBytes/Math.min(capacity,slowestLan)-switchCostNanos/1e9;
-        return Double.isFinite(gainSeconds)&&gainSeconds>=2;
+        if(!Double.isFinite(fastestDirect))return new Decision(false,"direct_sample_too_short",0,slowestLan,0);
+        double directRate=Math.min(capacity,fastestDirect),lanRate=Math.min(capacity,slowestLan);
+        double gain=remaining/directRate-remaining/lanRate-cost/1e9;
+        // Compare the complete ranges, not two conveniently paired moments on a fluctuating radio.
+        if(lanRate<directRate*1.25)return new Decision(false,"lan_margin_insufficient",directRate,lanRate,gain);
+        boolean useful=Double.isFinite(gain)&&gain>=2;
+        return new Decision(useful,useful?"lan_faster":"net_gain_insufficient",directRate,lanRate,gain);
     }
 }

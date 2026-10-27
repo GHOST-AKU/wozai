@@ -27,6 +27,9 @@ public final class AutomaticFileHandoverTests {
         for(int sender=0;sender<2;sender++)try(Harness h=new Harness("lan",sender,false)){
             h.transfer();check(h.routes.a.files.route().equals("lan"),"A measured faster LAN was not selected: "+h.routes.a.files.diagnostics()+h.routes.b.files.diagnostics());
             check(h.routes.a.files.diagnostics().contains("file_quality_result=lan_faster"),"LAN selection was not based on completed samples");
+            String report=h.routes.a.files.diagnostics();
+            check(report.contains("file_quality_decision_reason=lan_faster")&&report.contains("file_quality_samples_bytes_ns_complete=direct1:"),"Real switch is missing its decision evidence: "+report);
+            check(!report.contains("file_quality_quiesce_to_resume_ms=0\n"),"Successful handover did not measure its pause/resume interval: "+report);
         }
         try(Harness h=new Harness("bluetooth")){
             h.routes.a.platform.lan=h.routes.b.platform.lan=false;h.transfer();

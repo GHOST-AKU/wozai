@@ -28,7 +28,28 @@ public final class AdaptiveLayoutTests {
             p=AdaptiveLayout.compute(w,h,1,1,direction,true,null);
             for(var rect:new AdaptiveLayout.Box[]{p.area(),p.list(),p.detail(),p.navigation()})check(rect.left()>=0&&rect.top()>=0&&rect.right()<=w&&rect.bottom()<=h&&rect.width()>=0&&rect.height()>=0,"All geometry stays inside current window");
         }
+        adjustableSplit();
         System.out.println("Adaptive layout: "+checks+" window/fold/RTL/height checks passed");
+    }
+    private static void adjustableSplit(){
+        try{
+            var compute=AdaptiveLayout.class.getMethod("compute",int.class,int.class,float.class,float.class,boolean.class,boolean.class,AdaptiveLayout.Fold.class,float.class);
+            for(boolean rtl:new boolean[]{false,true}){
+                var centered=(AdaptiveLayout.Plan)compute.invoke(null,1200,800,1f,1f,rtl,true,null,.5f);
+                check((rtl?centered.list().left():centered.list().right())==600,"Divider centers on the window, not the rail-excluded body");
+                for(float fraction:new float[]{-1,0,.2f,.8f,1,2,Float.NaN}){
+                    var p=(AdaptiveLayout.Plan)compute.invoke(null,1000,800,1f,1f,rtl,true,null,fraction);
+                    check(p.list().width()>=280&&p.detail().width()>=360,"Dragged split preserves both pane minimums");
+                }
+            }
+            var hinge=new AdaptiveLayout.Fold(480,0,520,800,true,true,true);
+            var p=(AdaptiveLayout.Plan)compute.invoke(null,1000,800,1f,1f,false,true,hinge,.7f);
+            check(p.list().right()==480&&p.detail().left()==520,"User preference cannot move a separating hinge");
+            var snap=AdaptiveLayout.class.getMethod("snapDivider",float.class,float.class,float.class,boolean.class);
+            check((Float)snap.invoke(null,591f,600f,1f,false)==600f,"Dragging near the center snaps exactly");
+            check((Float)snap.invoke(null,622f,600f,1f,true)==600f,"Snap hysteresis avoids center jitter");
+            check((Float)snap.invoke(null,635f,600f,1f,true)==635f,"Dragging farther releases the center snap");
+        }catch(ReflectiveOperationException missing){throw new AssertionError("Adaptive panes have no adjustable, snapping divider",missing);}
     }
     private static AdaptiveLayout.Plan plan(int w,int h){return AdaptiveLayout.compute(w,h,1,1,false,true,null);}
     private static void check(boolean value,String message){if(!value)throw new AssertionError(message);checks++;}
