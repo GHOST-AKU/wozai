@@ -41,6 +41,7 @@ final class FileRouteHandover implements AutoCloseable {
     private long comparisonRemaining,comparisonCost,comparisonCapacity,comparisonStarted;
     private FileRouteQualityPolicy.Sample[] comparison;
     private volatile FileRouteQualityPolicy.Decision qualityDecision;
+    private String lastAssessmentNonce;
     private volatile String qualitySamples="";
     private volatile long assessmentNanos,pauseRequestedAt,pauseNanos,probeStartedAt,probeNanos,setupNanos,decisionCost;
 
@@ -150,6 +151,7 @@ final class FileRouteHandover implements AutoCloseable {
         disposeBackup();backupBound=false;
         if(ready==null||ready.isDone())ready=new CompletableFuture<>();
         if(!lost){
+            lastAssessmentNonce=token;
             comparisonStarted=System.nanoTime();assessmentNanos=pauseNanos=probeStartedAt=probeNanos=setupNanos=pauseRequestedAt=decisionCost=0;
             qualityDecision=null;qualitySamples="";
         }
@@ -243,7 +245,13 @@ final class FileRouteHandover implements AutoCloseable {
             probeSender=packet.number==2;checkedAt=System.nanoTime();begin(packet.nonce,packet.number==1);return;
         }
         if(!current(packet.nonce)){
-            if(retired.contains(packet.nonce))return;
+            if(retired.contains(packet.nonce)){
+                // A late outcome only updates the last assessment's diagnostics, never its retired migration.
+                if(packet.kind==FileLinkPacket.Kind.ABORT&&wire==controlWire()&&!host.lead()&&Objects.equals(lastAssessmentNonce,packet.nonce)){
+                    qualityResult="peer_retained_direct";if(!busy())lastReason="peer_retained_direct";host.changed();
+                }
+                return;
+            }
             // The selected FILE stream can overtake PREPARE on a different parent stream.
             if(packet.kind==FileLinkPacket.Kind.PAUSE&&wire==host.selected()&&!busy()&&earlyPause==null){earlyPause=packet;return;}
             fail(new IOException("Unexpected migration transaction: "+packet.kind+" in "+phase),true);return;

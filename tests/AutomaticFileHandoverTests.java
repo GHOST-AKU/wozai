@@ -12,7 +12,7 @@ public final class AutomaticFileHandoverTests {
     public static void main(String[] args)throws Exception {
         if(args.length==1&&args[0].equals("--binding")){bindingScope();return;}
         if(args.length==1&&args[0].equals("--parent")){for(int repeat=0;repeat<10;repeat++)for(String parent:new String[]{"lan","bluetooth"})try(Harness h=new Harness(parent)){h.dropParent=true;h.transfer();}return;}
-        bindingScope();
+        bindingScope();latePeerDecision();
         try{AutomaticFileRoutes.class.getMethod("attachFiles",ClientAttachmentTransfers.class);}
         catch(NoSuchMethodException missing){throw new AssertionError("FILE routing cannot coordinate checkpoint recovery with its transfer engine",missing);}
         for(String parent:new String[]{"lan","bluetooth"})try(Harness h=new Harness(parent)){
@@ -56,6 +56,20 @@ public final class AutomaticFileHandoverTests {
             check(h.routes.a.files.route().equals(parentLoss?"lan":"wifi-direct"),"In-flight checkpoint cancellation stranded the original task");
         }
         System.out.println("Automatic FILE handover: LAN/Bluetooth parent, mid-DATA P2P loss, authenticated LAN, original bytes and one saved receipt passed");
+    }
+    static void latePeerDecision()throws Exception {
+        try(Harness h=new Harness("bluetooth",0,false)){
+            h.routes.a.platform.lanWriteDelay=h.routes.b.platform.lanWriteDelay=70;
+            AtomicReference<FileLinkPacket> held=new AtomicReference<>();
+            h.routes.b.linkConsumer=packet->{if(packet.kind==FileLinkPacket.Kind.ABORT)held.set(packet);else h.routes.b.files.receiveFileLink(packet);};
+            h.transfer();AutomaticFileRoutesTests.drainActor(h.routes.b.files);
+            check(held.get()!=null&&h.routes.b.files.diagnostics().contains("file_handover_phase=idle"),"Fixture must retire the comparison before delivering its delayed outcome");
+            h.routes.b.files.receiveFileLink(held.get());AutomaticFileRoutesTests.drainActor(h.routes.b.files);
+            String report=h.routes.b.files.diagnostics();
+            check(report.contains("file_quality_result=peer_retained_direct")&&report.contains("file_switch_reason=peer_retained_direct"),"Late authenticated outcome did not update the completed assessment: "+report);
+            check(report.contains("file_quality_decision_available=false")&&report.contains("file_quality_decision_reason=peer_decision_not_shared"),"Late peer outcome invented decision calculations");
+            check(report.contains("file_handover_phase=idle")&&h.savedCount.get()==1&&h.routes.b.wire.isReady(),"Diagnostic update restarted a retired transfer or disturbed chat");
+        }
     }
     static void bindingScope()throws Exception {
         try(Harness h=new Harness("lan")){
