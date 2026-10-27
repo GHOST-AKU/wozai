@@ -15,3 +15,10 @@
 - Confirm that a resource is temporary before deletion. Preserve implementation branches, reusable build dependencies and caches, committed regression tests, release artifacts, user data, and acceptance evidence.
 - Record progress and verification evidence in the corresponding GitHub Issues and PRs. Do not create TODO files.
 - Write code comments in English and PR descriptions in both Chinese and English.
+
+## Development versions
+
+- New development builds use the 0.3.3 preview series, starting at `0.3.3-preview.2`; do not relabel or replace published v0.3.2 or v0.3.3-preview.1 assets.
+- `i18n/config.json` is the release-version and build-number authority for all clients. After changing it, run `python3 tools/version.py --write` and `python3 tools/generate-i18n.py`; verify with `python3 tools/version.py --check`.
+- Synchronize this version change into an older implementation branch before building it. Preserve its actual source revision and feature/acceptance boundaries; sharing a version does not imply sharing every platform feature.
+- Keep Apple/Windows numeric package versions separate from the full preview identifier, and keep Debian previews ordered below the eventual stable release. Publishing and merging remain separate actions.
