@@ -4,6 +4,8 @@ on:
     branches: [main]
     paths:
       - 'terminal/**'
+      - 'i18n/config.json'
+      - 'tools/version.py'
       - 'app/src/main/java/dev/ghost/nearbyim/core/**'
       - 'app/src/main/java/dev/ghost/nearbyim/noise/**'
       - 'third_party/noise-java/**'
@@ -43,6 +45,8 @@ jobs:
       - name: Formatting and static checks
         shell: bash
         run: |
+          python tools/version.py --check
+          python tests/test_version.py
           cargo fmt --manifest-path terminal/Cargo.toml --check
           cargo clippy --manifest-path terminal/Cargo.toml --locked --all-targets -- -D warnings
       - name: Production NIM4 interoperability and terminal contracts

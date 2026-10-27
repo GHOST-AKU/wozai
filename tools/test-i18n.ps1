@@ -2,6 +2,8 @@ $ErrorActionPreference = 'Stop'
 Set-Location (Join-Path $PSScriptRoot '..')
 & python tools/generate-i18n.py --check
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+& python tests/test_version.py
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 & python tools/check-i18n.py
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 & python tests/i18n/generator_tests.py
