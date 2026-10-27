@@ -31,8 +31,8 @@ struct NativeColumnWidth: NSViewRepresentable {
             guard window != nil, let width = requested else { restore(); return }
             var ancestor = superview
             while let view = ancestor {
-                if let split = view as? NSSplitView, split.isVertical, split.subviews.count == 2 {
-                    let primary = split.subviews[0]
+                if let split = view as? NSSplitView, split.isVertical, split.arrangedSubviews.count == 2 {
+                    let primary = split.arrangedSubviews[0]
                     guard !split.isSubviewCollapsed(primary), abs(primary.frame.width - width) > 0.5 else { return }
                     if let controller = split.delegate as? NSSplitViewController, let item = controller.splitViewItems.first {
                         if configuredItem !== item {
@@ -43,7 +43,7 @@ struct NativeColumnWidth: NSViewRepresentable {
                         item.maximumThickness = max(item.maximumThickness, width)
                         item.minimumThickness = width; item.maximumThickness = width
                     }
-                    let leadingOnRight = primary.frame.minX > split.subviews[1].frame.minX
+                    let leadingOnRight = primary.frame.minX > split.arrangedSubviews[1].frame.minX
                     split.setPosition(leadingOnRight ? split.bounds.width - width - split.dividerThickness : width, ofDividerAt: 0)
                     return
                 }
