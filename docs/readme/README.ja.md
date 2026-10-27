@@ -12,6 +12,8 @@
 > 最新の試用版：**0.3.3-preview.1** · macOS / iPhone / iPad / Windows・Linux Terminal
 > [試用版を入手](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.3-preview.1) · [導入と署名の説明](../releases/native-preview-install.md)
 
+**今後の新規ビルドは `0.3.3-preview.2` に統一します。** Android・Windows/Linux GUI・Apple・Terminal が対象です。[0.3.3 の更新計画（中国語・英語）](../releases/0.3.3.md)を参照してください。これは開発中のソースの版番号で、新しい配布物はまだ公開していません。上の入手先は既存の公開版です。
+
 **正式版 0.3.2 を公開しました。** Android・Windows・Linux の通信仕様と操作画面を更新し、Linux 向けには AppImage / deb / tar.gz を提供しています。Noise による端末間暗号化、使用資源を制限した最大 10 GiB の分割転送と再起動後の転送再開、添付資料の通信経路自動選択、Android の受信先指定、大画面・折り畳み端末への基本対応を追加しました。変更点と検証範囲は [0.3.2 の更新内容](../releases/0.3.2.md)を参照してください。P2P の安定性、実機での速度や距離による切断からの復帰、長時間利用時のメモリ使用量、正式な性能評価は [#23](https://github.com/GHOST-AKU/wozai/issues/23) と [#9](https://github.com/GHOST-AKU/wozai/issues/9) で継続して確認しています。
 
 ## 🌱 「我在」を作る理由
@@ -72,7 +74,7 @@ iOS・iPadOS・macOS 向けには、Apple の標準部品を使った **Swift / 
 
 - NIM4 の端末承認と安全確認番号、LAN 探索・直接接続、文章、履歴・下書き、資料の分割転送・順次処理・一時停止・再開・保存後の受領通知に対応。利用者画像の同期と QR による照合も行えます。
 - **初期状態では LAN の接続待受を行いません。** 未知の端末や資料の受信を自動承認することもありません。TUI の初回起動時に設定を案内します。CLI は JSON 出力と終了状態を提供します。詳しくは [Terminal の使い方（英語）](../../terminal/README.md)を参照してください。
-- 内部の版番号は `0.1.0-dev` で、配布全体の `0.3.3-preview.1` とは別です。Windows 向けには Authenticode 署名がありません。今回の試用版に macOS 向け Terminal 実行形式は含まれません。
+- 公開済みの `0.3.3-preview.1` に含まれる Terminal の内部版番号は `0.1.0-dev` です。今後の新規ビルドは共通の `0.3.3-preview.2` を使います。Windows 向けには Authenticode 署名がありません。今回の試用版に macOS 向け Terminal 実行形式は含まれません。
 - Bluetooth/P2P などへの対応と全体の検証は開発中です。端末画面、IME、SSH/tmux、実機間通信、性能の検証範囲は [#38](https://github.com/GHOST-AKU/wozai/issues/38) で扱います。既存 GUI 版の置き換えではなく、正式版 0.3.2 の配布物も変更しません。
 
 ## 📡 会話を始める

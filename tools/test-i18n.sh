@@ -2,6 +2,7 @@
 set -eu
 cd "$(dirname "$0")/.."
 python3 tools/generate-i18n.py --check
+python3 tests/test_version.py
 python3 tools/check-i18n.py
 python3 tests/i18n/generator_tests.py
 mkdir -p build/i18n-tests

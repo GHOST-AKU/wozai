@@ -12,6 +12,8 @@
 > 最新预发布：**0.3.3-preview.1** · macOS / iPhone / iPad / Windows、Linux Terminal
 > [下载预览版](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.3-preview.1) · [安装与签名说明](docs/releases/native-preview-install.md)
 
+**后续新构建统一使用 `0.3.3-preview.2`**，覆盖 Android、Windows/Linux GUI、Apple 和 Terminal。[0.3.3 更新规划](docs/releases/0.3.3.md) · [范围与验收 #55](https://github.com/GHOST-AKU/wozai/issues/55)。这是源码开发版本，新包尚未发布；上方下载仍指向已发布附件。
+
 **0.3.2 正式版已发布**，Android、Windows、Linux 同步更新协议与界面，Linux 提供 AppImage / deb / tar.gz。新增 Noise 端到端加密、最大 10 GiB 的流式附件与持久续传、自动文件选路、Android 接收文件夹及平板/折叠基础适配。完整变化与验收范围见 [0.3.2 发布说明](docs/releases/0.3.2.md)；P2P 稳定性、真实速度/距离恢复、长期内存及正式性能继续在 [#23](https://github.com/GHOST-AKU/wozai/issues/23)、[#9](https://github.com/GHOST-AKU/wozai/issues/9) 跟进。
 
 ## 🌱 为什么做「我在」
@@ -70,7 +72,7 @@ iOS、iPadOS、macOS 提供 **Swift / SwiftUI 原生预览版**，使用 Apple �
 
 - 支持 NIM4 身份认可/安全码、LAN 发现/地址直连、文字、历史/草稿、流式文件、队列、暂停/续传及保存回执，也支持头像同步和二维码核验。
 - **默认关闭 LAN 监听**，不自动批准未知身份或接收文件。首次 TUI 启动会引导设置；CLI 接口提供 JSON 和退出码，详见 [Terminal 使用说明](terminal/README.zh-CN.md)。
-- 当前内部版本为 `0.1.0-dev`，与合集的 `0.3.3-preview.1` 分开；Windows 包无 Authenticode 签名，本次不包含 macOS Terminal 二进制。
+- 已发布 `0.3.3-preview.1` 中 Terminal 内部版本为 `0.1.0-dev`；后续新构建统一为 `0.3.3-preview.2`。Windows 包无 Authenticode 签名，现有预发布不包含 macOS Terminal 二进制。
 - 蓝牙/P2P 等适配与完整验收仍在开发；终端、IME、SSH/tmux、真机互通和性能范围见 [#38](https://github.com/GHOST-AKU/wozai/issues/38)。不替代现有 GUI，0.3.2 正式版附件保持不变。
 
 ## 📡 开始聊天

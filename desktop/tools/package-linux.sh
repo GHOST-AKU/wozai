@@ -1,19 +1,17 @@
 #!/usr/bin/env sh
 set -eu
 cd "$(dirname "$0")/.."
+python3 ../tools/version.py --check
 if [ -n "${JAVA_HOME:-}" ]; then PATH="$JAVA_HOME/bin:$PATH"; export PATH; fi
 command -v jpackage >/dev/null || { echo 'jpackage from a full JDK 17 is required.' >&2; exit 1; }
 if [ "$(uname -s)" != Linux ]; then echo 'Build the package on Linux.' >&2; exit 1; fi
 version=$(python3 -c 'import json; print(json.load(open("../i18n/config.json"))["appVersion"])')
-deb_version=$(python3 - <<'PY'
-import json, os, re
-version=json.load(open('../i18n/config.json'))['appVersion']
-tag=os.environ.get('WOZAI_RELEASE_TAG','')
-if tag and tag!='v'+version and not re.fullmatch(re.escape('v'+version)+r'-preview\.[1-9][0-9]*',tag):
-    raise SystemExit('Release tag does not match the package version')
-print(version+'~'+tag.split('-',1)[1] if '-preview.' in tag else version)
-PY
-)
+native_version=$(python3 ../tools/version.py --field base_version)
+deb_version=$(python3 ../tools/version.py --field debian_version)
+if [ -n "${WOZAI_RELEASE_TAG:-}" ] && [ "$WOZAI_RELEASE_TAG" != "v$version" ]; then
+    echo 'Release tag does not match the package version.' >&2
+    exit 1
+fi
 locales=$(python3 -c 'import json; print(",".join(x["tag"] for x in json.load(open("../i18n/config.json"))["languages"]))')
 case $(uname -m) in x86_64) architecture=x64; deb_arch=amd64;; aarch64) architecture=arm64; deb_arch=arm64;; *) echo 'Unsupported Linux architecture.' >&2; exit 1;; esac
 mkdir -p build/package-input build/package
@@ -21,7 +19,7 @@ rm -rf build/package-input/* build/package/NearbyIM
 cp build/lib/*.jar build/lib/libwozai_bluetooth.so build/package-input/
 # Constant-pool sharing raised Idle/Connected RSS in the matched Linux trials
 # (docs/performance.md). Keep modules uncompressed; tar/deb still compress them.
-jpackage --type app-image --name NearbyIM --app-version "$version" --vendor GHOST-AKU \
+jpackage --type app-image --name NearbyIM --app-version "$native_version" --vendor GHOST-AKU \
     --input build/package-input --main-jar nearbyim-desktop.jar --main-class dev.ghost.wozai.Main \
     --dest build/package --icon assets/icons/linux/hicolor/256x256/apps/nearbyim.png \
     --java-options '-Dwozai.installDir=$APPDIR/../..' \

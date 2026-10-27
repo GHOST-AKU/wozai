@@ -2,7 +2,7 @@
 
 独立 Rust 终端客户端，主命令 **`nearbyim`**（Windows：`nearbyim.exe`），使用生产 **NIM4**。运行无需 Java/JRE、GUI 或 Android SDK；无账户、无遥测、无云端聊天服务器。
 
-当前为 **0.1.0-dev 开发版本**，对应 [Issue #38](https://github.com/GHOST-AKU/wozai/issues/38)、[PR #41](https://github.com/GHOST-AKU/wozai/pull/41) 与用户提供的[设计手册 v0.2](docs/design-v0.2.md)。已有可运行代码和互通测试，但尚未完成真机、全部终端环境与性能验收。原有 GUI 和 v0.3.2 附件独立维护。
+新源码构建统一为 **0.3.3-preview.2**；已发布 preview.1 的内部 `0.1.0-dev` 版本保持不变。参见 [0.3.3 更新规划](../docs/releases/0.3.3.md)。实现对应 [Issue #38](https://github.com/GHOST-AKU/wozai/issues/38)、[PR #41](https://github.com/GHOST-AKU/wozai/pull/41) 与用户提供的[设计手册 v0.2](docs/design-v0.2.md)。已有可运行代码和互通测试，但尚未完成真机、全部终端环境与性能验收。原有 GUI 和 v0.3.2 附件独立维护。
 
 ## 构建与启动
 
