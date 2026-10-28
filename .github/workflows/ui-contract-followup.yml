@@ -1,4 +1,4 @@
-# Reuse exact f221fed packages; do not repeat the passing Windows legacy contract.
+# Reuse exact f221fed packages; native container Python/Pillow stays ABI-compatible.
 name: Unchanged native artifacts and legacy contract
 'on':
   push:
@@ -54,19 +54,6 @@ jobs:
         path: desktop/build
         run-id: '40653563567'
         github-token: ${{ github.token }}
-    - uses: actions/download-artifact@v4
-      if: matrix.distribution == '22.04'
-      with:
-        name: NearbyIM-0.3.3-preview.2-linux-x64
-        path: desktop/build
-        run-id: '40653563567'
-        github-token: ${{ github.token }}
-    - uses: actions/setup-python@v5
-      with:
-        python-version: '3.12'
-    - name: Verify unchanged portable launcher
-      if: matrix.distribution == '22.04'
-      run: xvfb-run -a -s '-screen 0 2560x1800x24' python3 desktop/tools/test-linux-package.py
     - name: Verify unchanged AppImage in clean runtime userspace
       run: 'cat /etc/os-release
 
@@ -85,6 +72,52 @@ jobs:
 
 
           desktop/build/linux-package*.txt
+
+          desktop/build/linux-package*.png'
+        if-no-files-found: error
+  portable-launcher:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - name: Verify unchanged candidate source and overlay updated launcher checks
+      run: 'git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+        git diff --exit-code f221fedfedf3878c79d3b8ac56dc5c57feebae4f HEAD -- app/src/main desktop/src/main desktop/native
+        i18n tools tests third_party '':(exclude)**/*.md''
+
+        git checkout --detach f221fedfedf3878c79d3b8ac56dc5c57feebae4f
+
+        git restore --source="$GITHUB_SHA" -- desktop/tools/test-linux-package.py desktop/tools/test-linux-appimage.py
+
+        locale -a
+
+        '
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - name: Install launcher-verifier dependencies
+      run: 'sudo apt-get update
+
+        sudo apt-get install -y xvfb xauth x11-utils desktop-file-utils libglib2.0-bin
+
+        python3 -m pip install Pillow
+
+        '
+    - uses: actions/download-artifact@v4
+      with:
+        name: NearbyIM-0.3.3-preview.2-linux-x64
+        path: desktop/build
+        run-id: '40653563567'
+        github-token: ${{ github.token }}
+    - name: Verify exact candidate portable launcher
+      run: xvfb-run -a -s '-screen 0 2560x1800x24' python3 desktop/tools/test-linux-package.py
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: linux-portable-followup-evidence
+        path: 'desktop/build/linux-package*.txt
 
           desktop/build/linux-package*.png'
         if-no-files-found: error
