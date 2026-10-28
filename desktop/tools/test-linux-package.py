@@ -149,8 +149,16 @@ def main():
                 env['LC_ALL'] = 'zh_CN.UTF-8'
                 profile = Path(env['XDG_DATA_HOME']) / 'wozai'
                 binary = package / 'bin/NearbyIM'
-                process = subprocess.Popen([binary, '--text-diagnostics'], cwd=fixture, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                active_window = await_condition(chat_window, 'Packaged launcher did not display its native chat window')
+                launch_log = BUILD / 'linux-package-launch.txt'
+                with launch_log.open('wb') as output:
+                    process = subprocess.Popen([binary, '--text-diagnostics'], cwd=fixture, env=env, stdout=output, stderr=subprocess.STDOUT)
+                try:
+                    active_window = await_condition(chat_window, 'Packaged launcher did not display its native chat window')
+                except AssertionError:
+                    print('Observed X11 windows:', windows())
+                    print('Launcher exit code:', process.poll())
+                    print(launch_log.read_text(errors='replace'))
+                    raise
                 identity = profile / 'identity.properties'
                 await_condition(lambda: identity.is_file(), 'Packaged launcher did not create the XDG identity')
                 before = identity.read_bytes()
@@ -167,7 +175,8 @@ def main():
                 x11.close_window(active_window)
                 assert process.wait(timeout=15) == 0, 'Native launcher did not exit cleanly'
                 active_window = None
-                _, errors = process.communicate()
+                process.communicate()
+                errors = launch_log.read_bytes()
                 assert b'Syntax error' not in errors, 'Packaged launcher queried install paths through an incorrectly quoted shell command'
                 assert identity.read_bytes() == before
                 result = subprocess.run([binary, '--install-desktop'], cwd=fixture, env=env, capture_output=True, text=True, timeout=15)

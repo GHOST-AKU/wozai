@@ -1,0 +1,125 @@
+# Reuse exact f221fed packages; only launcher checks and current peer fixtures change.
+name: Unchanged native artifacts and legacy contract
+'on':
+  push:
+    branches:
+    - verify/ui-contract-followup
+permissions:
+  contents: read
+  actions: read
+jobs:
+  windows-legacy:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 2
+    - name: Verify unchanged application and interoperability sources
+      shell: bash
+      run: git diff --exit-code f221fedfedf3878c79d3b8ac56dc5c57feebae4f HEAD -- app/src/main desktop/src/main desktop/native
+        i18n tools tests third_party ':(exclude)**/*.md'
+    - uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: '17'
+    - name: Compile current peer fixtures without running unrelated core suites
+      shell: pwsh
+      run: 'New-Item -ItemType Directory -Force -Path build/core-tests | Out-Null
+
+        $sourceFiles = @((Get-ChildItem app/src/main/java/dev/ghost/nearbyim/core/*.java).FullName) + @((Get-ChildItem tests/*.java).FullName)
+
+        $sourceFiles += (Resolve-Path app/src/main/java/dev/ghost/nearbyim/i18n/UiText.java).Path
+
+        $sourceFiles += (Resolve-Path app/src/main/java/dev/ghost/nearbyim/i18n/LocalizedIllegalArgumentException.java).Path
+
+        $sourceFiles += (Resolve-Path app/src/main/java/dev/ghost/nearbyim/GalleryExportNames.java).Path
+
+        $sourceFiles += (Get-ChildItem app/src/main/java/dev/ghost/nearbyim/noise -Recurse -Filter ''*.java'').FullName
+
+        $sourceFiles += (Get-ChildItem third_party/noise-java/src -Recurse -Filter ''*.java'').FullName
+
+        & java -m jdk.compiler/com.sun.tools.javac.Main -encoding UTF-8 -d build/core-tests @sourceFiles
+
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+        '
+    - name: Verify pinned old NIM4 text compatibility
+      shell: bash
+      run: sh tools/test-text-legacy.sh
+  appimage-runtime:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - distribution: '22.04'
+          audio: libasound2
+        - distribution: '24.04'
+          audio: libasound2t64
+    container: ubuntu:${{ matrix.distribution }}
+    steps:
+    - name: Install runtime-only GUI verification dependencies
+      run: 'apt-get update
+
+        DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates git python3 python3-pil
+        libstdc++6 libglib2.0-bin libx11-6 libxext6 libxi6 libxrender1 libxtst6 libfreetype6 libfontconfig1 ${{ matrix.audio
+        }} dbus-x11 xvfb xauth x11-utils desktop-file-utils
+
+        ! command -v javac
+
+        ! command -v g++
+
+        '
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 2
+    - name: Verify unchanged candidate source and overlay updated launcher checks
+      run: 'git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+        git diff --exit-code f221fedfedf3878c79d3b8ac56dc5c57feebae4f HEAD -- app/src/main desktop/src/main desktop/native
+        i18n tools tests third_party '':(exclude)**/*.md''
+
+        git checkout --detach f221fedfedf3878c79d3b8ac56dc5c57feebae4f
+
+        git restore --source="$GITHUB_SHA" -- desktop/tools/test-linux-package.py desktop/tools/test-linux-appimage.py
+
+        locale -a
+
+        '
+    - uses: actions/download-artifact@v4
+      with:
+        name: linux-appimage-runtime-input
+        path: desktop/build
+        run-id: '40653563567'
+        github-token: ${{ github.token }}
+    - uses: actions/download-artifact@v4
+      if: matrix.distribution == '22.04'
+      with:
+        name: NearbyIM-0.3.3-preview.2-linux-x64
+        path: desktop/build
+        run-id: '40653563567'
+        github-token: ${{ github.token }}
+    - name: Verify unchanged portable launcher
+      if: matrix.distribution == '22.04'
+      run: xvfb-run -a -s '-screen 0 2560x1800x24' python3 desktop/tools/test-linux-package.py
+    - name: Verify unchanged AppImage in clean runtime userspace
+      run: 'cat /etc/os-release
+
+        sha256sum desktop/build/*.AppImage
+
+        xvfb-run -a -s ''-screen 0 2560x1800x24'' python3 desktop/tools/test-linux-appimage.py
+
+        '
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: linux-appimage-ubuntu-${{ matrix.distribution }}-evidence
+        path: 'desktop/build/linux-appimage*.png
+
+          desktop/build/linux-appimage*.txt
+
+
+          desktop/build/linux-package*.txt
+
+          desktop/build/linux-package*.png'
+        if-no-files-found: error
