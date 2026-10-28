@@ -51,7 +51,7 @@ if args.baseline_code == 12:
     if digest(folder / "wrong.apk") != "041683734135c4bf8928c0f9edb7720ea4737d83b343ef6512fd1c6da29ad341":
         raise SystemExit("Wrong-signer fixture differs from the withdrawn f08e8ba APK")
     checks = [("published-v032.apk", ["--published-baseline", "v0.3.2"]),
-              ("candidate.apk", ["--source-commit", source]), ("test.apk", ["--ui-test-apk"]),
+              ("candidate.apk", ["--source-commit", source]), ("test.apk", ["--test-apk"]),
               ("wrong.apk", ["--wrong-signer"])]
 for name, flags in checks:
     subprocess.run(["python3", str(root / "tools/verify-android-signature.py"), str(folder / name), *flags], check=True)

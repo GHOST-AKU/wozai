@@ -63,7 +63,7 @@ with tempfile.TemporaryDirectory(prefix="wozai-signing-", dir=os.environ.get("RU
     folder.mkdir(parents=True, exist_ok=True)
     files = [(f"app/build/outputs/apk/{variant}/app-{variant}.apk", "candidate.apk", [])]
     if args.preview:
-        files += [("app/build/outputs/apk/androidTest/preview/app-preview-androidTest.apk", "test.apk", ["--ui-test-apk"])]
+        files += [("app/build/outputs/apk/androidTest/preview/app-preview-androidTest.apk", "native-test.apk", ["--ui-test-apk"])]
     if not candidate_only:
         files += [("app/build/outputs/apk/androidTest/release/app-release-androidTest.apk", "test.apk", ["--test-apk"]),
                   ("app/build/outputs/apk/debug/app-debug.apk", "wrong.apk", ["--wrong-signer"])]
@@ -72,5 +72,16 @@ with tempfile.TemporaryDirectory(prefix="wozai-signing-", dir=os.environ.get("RU
         if name == "candidate.apk":
             flags += ["--source-commit", source, "--output", str(folder / "signature.json")]
         subprocess.run(["python3", str(root / "tools/verify-android-signature.py"), str(folder / name), *flags],
+                       cwd=root, env=environment, check=True)
+    if args.preview:
+        # Android's runner declaration is configured per test APK. Reuse the same
+        # client and produce a separate fixed-signer APK for upgrade checks.
+        subprocess.run([str(root / "gradlew"), "--no-daemon", "-PtestBuildType=preview",
+                        "-PtestInstrumentationRunner=dev.ghost.nearbyim.SigningUpgradeInstrumentation",
+                        ":app:assemblePreviewAndroidTest"], cwd=root, env=environment, check=True)
+        if (root / f"app/build/outputs/apk/{variant}/app-{variant}.apk").read_bytes() != (folder / "candidate.apk").read_bytes():
+            raise SystemExit("Building the upgrade fixture changed the already verified client APK")
+        shutil.copyfile(root / "app/build/outputs/apk/androidTest/preview/app-preview-androidTest.apk", folder / "test.apk")
+        subprocess.run(["python3", str(root / "tools/verify-android-signature.py"), str(folder / "test.apk"), "--test-apk"],
                        cwd=root, env=environment, check=True)
 print("Signed build complete; temporary keystore and wrong-signer development key removed")

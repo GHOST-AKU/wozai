@@ -35,7 +35,7 @@ info = {"apk": args.apk.name, "sha256": digest, "certificate_sha256": certificat
 if args.test_apk or args.ui_test_apk:
     manifest = subprocess.check_output([str(sdk / "aapt2"), "dump", "xmltree", str(args.apk),
                                         "--file", "AndroidManifest.xml"], text=True)
-    runners = ["SigningUpgradeInstrumentation", "LocalizationInstrumentation"] if args.ui_test_apk else ["SigningUpgradeInstrumentation"]
+    runners = ["LocalizationInstrumentation"] if args.ui_test_apk else ["SigningUpgradeInstrumentation"]
     if (any('="dev.ghost.nearbyim.' + runner + '"' not in manifest for runner in runners)
             or '="dev.ghost.nearbyim"' not in manifest):
         raise SystemExit("Upgrade test APK does not register the expected instrumentation target")

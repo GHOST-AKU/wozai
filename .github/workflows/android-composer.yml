@@ -45,6 +45,7 @@ jobs:
           print(json.dumps(info))
           PY
       - uses: actions/upload-artifact@v4
+        if: always() && hashFiles('build/signing-upgrade/signature.json') != ''
         with:
           name: android-fixed-signature-preview
           path: |
@@ -56,7 +57,7 @@ jobs:
           name: INTERNAL-android-composer-native-input
           path: |
             build/signing-upgrade/candidate.apk
-            build/signing-upgrade/test.apk
+            build/signing-upgrade/native-test.apk
           if-no-files-found: error
       - uses: actions/download-artifact@v4
         with:
@@ -111,7 +112,7 @@ jobs:
           target: google_apis
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -camera-front none
-          script: ANDROID_APP_APK=build/composer-native/candidate.apk ANDROID_TEST_APK=build/composer-native/test.apk sh tools/test-android-i18n.sh
+          script: ANDROID_APP_APK=build/composer-native/candidate.apk ANDROID_TEST_APK=build/composer-native/native-test.apk sh tools/test-android-i18n.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
