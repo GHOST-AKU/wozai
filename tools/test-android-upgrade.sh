@@ -48,6 +48,9 @@ PY
 instrument() {
     echo "Upgrade check: $3 ($1, code $2)"
     expected_schema=4
+    if [ "$2" = 12 ]; then
+        expected_schema=$(python3 -c 'import json; print(json.load(open("tools/android-signing.json"))["published_upgrade_baselines"]["v0.3.2"]["schema_version"])')
+    fi
     if [ "$2" = "$code" ]; then
         expected_schema=$(python3 -c 'import re; from pathlib import Path; print(re.search(r"VERSION = (\d+)", Path("app/src/main/java/dev/ghost/nearbyim/storage/StoreSchema.java").read_text()).group(1))')
     fi

@@ -201,7 +201,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
 
     private void removeDraftFixture(java.nio.file.Path directory) throws Exception {
         try (var files = java.nio.file.Files.walk(directory)) {
-            for (var file : files.sorted(java.util.Comparator.reverseOrder()).toList()) java.nio.file.Files.delete(file);
+            for (var file : files.sorted(java.util.Comparator.reverseOrder()).collect(java.util.stream.Collectors.toList())) java.nio.file.Files.delete(file);
         }
     }
 
@@ -296,7 +296,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
             int panelHeight=onMain(panel::getHeight);
             screenshot("emoji-dock-" + AppLanguage.selection(activity));
             onMain(() -> {
-                emojiViews(panel).stream().filter(view -> view instanceof android.widget.ImageButton && AndroidText.get(activity, "emojiSearch").contentEquals(view.getContentDescription())).findFirst().orElseThrow().performClick();
+                emojiViews(panel).stream().filter(view -> view instanceof android.widget.ImageButton && AndroidText.get(activity, "emojiSearch").contentEquals(view.getContentDescription())).findFirst().orElseThrow(()->new AssertionError("Emoji search control missing")).performClick();
                 query.setText("❤️"); query.onEditorAction(android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH); return null;
             });
             await(() -> onMain(() -> list.findViewWithTag("❤️") != null&&panel.getHeight()==panelHeight), "Emoji search finds a visible cell after the IME closes");

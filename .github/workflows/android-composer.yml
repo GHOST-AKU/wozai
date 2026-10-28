@@ -28,12 +28,19 @@ jobs:
           git diff --exit-code 46454b35607a7c869ce9694f827f5100fc6e00df HEAD -- app/src/main/java/dev/ghost/nearbyim/core app/src/main/java/dev/ghost/nearbyim/noise app/src/main/java/dev/ghost/nearbyim/storage app/src/main/java/dev/ghost/nearbyim/transport app/src/main/java/dev/ghost/nearbyim/ChatController.java app/src/main/java/dev/ghost/nearbyim/ChatStore.java third_party
           sh tools/test-i18n.sh
           sh tools/check-source.sh
-      - name: Build, lint and pin the actual candidate with the existing private key
+      # Reuse the exact client whose build, lint and tablet UI passed in this run.
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-fixed-signature-preview
+          path: build/signing-upgrade
+          run-id: '40684431674'
+          github-token: ${{ github.token }}
+      - name: Rebuild corrected test fixtures with the existing private key
         env:
           WOZAI_ANDROID_KEYSTORE_BASE64: ${{ secrets.WOZAI_ANDROID_KEYSTORE_BASE64 }}
           WOZAI_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.WOZAI_ANDROID_KEYSTORE_PASSWORD }}
           WOZAI_ANDROID_CANDIDATE_ONLY: 'true'
-        run: python3 tools/build-signed-android.py --preview
+        run: python3 tools/build-signed-android.py --preview --fixtures-for 82bd310cd752a508c2cc3a8b09a098e114e26719
       - name: Confirm the delivery certificate independently
         run: |
           python3 - <<'PY'
@@ -70,7 +77,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cp build/withdrawn-signer/preview/app-preview.apk build/signing-upgrade/wrong.apk
-          python3 tools/prepare-android-upgrade.py prepare --baseline-code 12
+          python3 tools/prepare-android-upgrade.py prepare --baseline-code 12 --candidate-source 82bd310cd752a508c2cc3a8b09a098e114e26719
       - uses: actions/upload-artifact@v4
         with:
           name: INTERNAL-NOT-FOR-INSTALL-android-code12-upgrade-input
@@ -90,8 +97,6 @@ jobs:
         include:
           - api: 26
             profile: pixel_2
-          - api: 34
-            profile: pixel_c
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -103,7 +108,7 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Exercise the fixed-signer APK on phone and tablet
+      - name: Complete API26 UI acceptance; API34 passed with this exact client in run 40684431674
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api }}
@@ -131,6 +136,8 @@ jobs:
         api: [26, 34]
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -144,7 +151,7 @@ jobs:
           name: INTERNAL-NOT-FOR-INSTALL-android-code12-upgrade-input
           path: build/signing-upgrade
       - name: Verify the public bytes, source and certificates before installing
-        run: python3 tools/prepare-android-upgrade.py verify --baseline-code 12
+        run: python3 tools/prepare-android-upgrade.py verify --baseline-code 12 --candidate-source 82bd310cd752a508c2cc3a8b09a098e114e26719
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules

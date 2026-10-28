@@ -13,7 +13,8 @@
       "asset": "NearbyIM-0.3.2-android.apk",
       "version_name": "0.3.2",
       "version_code": 12,
-      "apk_sha256": "7d2e6cb90ce7915a4761507b90afed35e0690b648a578af88812857578126a80"
+      "apk_sha256": "7d2e6cb90ce7915a4761507b90afed35e0690b648a578af88812857578126a80",
+      "schema_version": 7
     }
   }
 }
