@@ -113,7 +113,7 @@ def launch_desktop(entry, environment):
     gobject = c.CDLL(ctypes.util.find_library('gobject-2.0'))
     gobject.g_object_unref.argtypes = [c.c_void_p]
     try:
-        for key in ('JAVA_TOOL_OPTIONS', 'XDG_DATA_HOME', 'DISPLAY', 'APPIMAGE_EXTRACT_AND_RUN'):
+        for key in ('JAVA_TOOL_OPTIONS', 'LC_ALL', 'LC_MESSAGES', 'LANG', 'XDG_DATA_HOME', 'DISPLAY', 'APPIMAGE_EXTRACT_AND_RUN'):
             if key in environment:
                 gio.g_app_launch_context_setenv(context, key.encode(), environment[key].encode())
         error = c.c_void_p()
@@ -145,7 +145,8 @@ def main():
             try:
                 env = os.environ.copy()
                 env['XDG_DATA_HOME'] = str(fixture / 'user-data')
-                env['JAVA_TOOL_OPTIONS'] = '-Duser.home="' + str(fixture / 'user-home') + '" -Duser.language=zh -Duser.country=CN'
+                env['JAVA_TOOL_OPTIONS'] = '-Duser.home="' + str(fixture / 'user-home') + '"'
+                env['LC_ALL'] = 'zh_CN.UTF-8'
                 profile = Path(env['XDG_DATA_HOME']) / 'wozai'
                 binary = package / 'bin/NearbyIM'
                 process = subprocess.Popen([binary, '--text-diagnostics'], cwd=fixture, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -159,6 +160,7 @@ def main():
                 report = profile / 'text-rendering.txt'
                 await_condition(lambda: report.exists(), 'Bundled runtime did not produce rendering evidence')
                 assert 'Noto Sans CJK SC' in report.read_text()
+                assert 'language.effective=zh-Hans\n' in report.read_text()
                 shutil.copyfile(report, BUILD / 'linux-package-text-rendering.txt')
                 width, height = screenshot(active_window, BUILD / 'linux-package-window.png')
                 assert width >= 760 and height >= 540

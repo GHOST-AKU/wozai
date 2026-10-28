@@ -112,7 +112,8 @@ def main():
             environment = os.environ.copy()
             environment["APPIMAGE_EXTRACT_AND_RUN"] = "1"
             environment["XDG_DATA_HOME"] = str(fixture / "user-data")
-            environment["JAVA_TOOL_OPTIONS"] = '-Duser.home="' + str(fixture / "user-home") + '" -Duser.language=zh -Duser.country=CN'
+            environment["JAVA_TOOL_OPTIONS"] = '-Duser.home="' + str(fixture / "user-home") + '"'
+            environment["LC_ALL"] = 'zh_CN.UTF-8'
             profile = Path(environment["XDG_DATA_HOME"]) / "wozai"
             with (BUILD / "linux-appimage-launch.txt").open("w") as log:
                 process = subprocess.Popen([artifact, "--text-diagnostics"], cwd=fixture, env=environment, stdout=log, stderr=subprocess.STDOUT)
@@ -125,6 +126,7 @@ def main():
                 report = profile / "text-rendering.txt"
                 smoke.await_condition(report.is_file, "AppImage bundled runtime did not report CJK font rendering")
                 assert "Noto Sans CJK SC" in report.read_text()
+                assert "language.effective=zh-Hans\n" in report.read_text()
                 shutil.copyfile(report, BUILD / "linux-appimage-text-rendering.txt")
                 width, height = smoke.screenshot(active, BUILD / "linux-appimage-window.png")
                 assert width >= 760 and height >= 540

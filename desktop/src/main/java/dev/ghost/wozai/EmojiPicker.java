@@ -5,11 +5,31 @@ import javax.swing.*;
 import javax.swing.event.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.awt.image.BufferedImage;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 /** A recycled Swing grid; catalog loading never blocks the event dispatch thread. */
 final class EmojiPicker extends JDialog {
+    private static final Font EMOJI_FONT=emojiFont();
+    private static Font emojiFont(){
+        Font logical=new Font("Dialog",Font.PLAIN,26);
+        if(paintsHeart(logical))return logical;
+        var installed=java.util.Set.of(GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames(java.util.Locale.ENGLISH));
+        // Some JDK/system color-font combinations report coverage but paint no pixels.
+        // Reuse an installed monochrome font; never ship replacement emoji glyphs.
+        for(String family:new String[]{"DejaVu Sans","Segoe UI Symbol","Symbola","Noto Emoji"}){
+            if(installed.contains(family)){Font candidate=new Font(family,Font.PLAIN,26);if(paintsHeart(candidate))return candidate;}
+        }
+        return logical;
+    }
+    private static boolean paintsHeart(Font font){
+        if(!font.canDisplay(0x2764))return false;
+        BufferedImage image=new BufferedImage(64,56,BufferedImage.TYPE_INT_ARGB);Graphics2D graphics=image.createGraphics();
+        try{graphics.setFont(font);graphics.setColor(Color.BLACK);graphics.drawString("❤️",8,36);}finally{graphics.dispose();}
+        for(int y=0;y<image.getHeight();y++)for(int x=0;x<image.getWidth();x++)if((image.getRGB(x,y)>>>24)!=0)return true;
+        return false;
+    }
     static final String[] CATEGORY_KEYS={"emojiCategory0","emojiCategory1","emojiCategory2","emojiCategory3","emojiCategory4","emojiCategory5","emojiCategory6","emojiCategory7","emojiCategory8"};
     private static final CompletableFuture<EmojiCatalog> DATA=CompletableFuture.supplyAsync(()->{
         try{return new EmojiCatalog(EmojiPicker.class.getResourceAsStream("emoji_catalog.gz"));}
@@ -30,7 +50,7 @@ final class EmojiPicker extends JDialog {
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);setLayout(new BorderLayout(8,8));
         JPanel top=new JPanel(new BorderLayout(6,6));top.add(categories,BorderLayout.NORTH);top.add(query);top.add(clear,BorderLayout.LINE_END);add(top,BorderLayout.NORTH);
         grid.setLayoutOrientation(JList.HORIZONTAL_WRAP);grid.setVisibleRowCount(-1);grid.setFixedCellWidth(64);grid.setFixedCellHeight(56);grid.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        grid.setCellRenderer((list,e,index,selected,focus)->{JLabel label=new DefaultListCellRenderer();label.setText(e.text);label.setFont(new Font("Dialog",Font.PLAIN,26));label.setHorizontalAlignment(SwingConstants.CENTER);label.setOpaque(true);label.setBackground(selected?list.getSelectionBackground():list.getBackground());label.setForeground(selected?list.getSelectionForeground():list.getForeground());label.setToolTipText(e.label(strings.locale()));label.getAccessibleContext().setAccessibleName(e.label(strings.locale()));return label;});
+        grid.setCellRenderer((list,e,index,selected,focus)->{JLabel label=new DefaultListCellRenderer();label.setText(e.text);label.setFont(EMOJI_FONT);label.setHorizontalAlignment(SwingConstants.CENTER);label.setOpaque(true);label.setBackground(selected?list.getSelectionBackground():list.getBackground());label.setForeground(selected?list.getSelectionForeground():list.getForeground());label.setToolTipText(e.label(strings.locale()));label.getAccessibleContext().setAccessibleName(e.label(strings.locale()));return label;});
         add(new JScrollPane(grid),BorderLayout.CENTER);JPanel bottom=new JPanel(new BorderLayout());bottom.add(state);JPanel actions=new JPanel();actions.add(variants);actions.add(insert);bottom.add(actions,BorderLayout.SOUTH);add(bottom,BorderLayout.SOUTH);
         clear.addActionListener(e->query.setText(""));categories.addActionListener(e->refresh());query.getDocument().addDocumentListener(new DocumentListener(){public void insertUpdate(DocumentEvent e){refresh();}public void removeUpdate(DocumentEvent e){refresh();}public void changedUpdate(DocumentEvent e){refresh();}});
         insert.addActionListener(e->pick(grid.getSelectedValue()));variants.addActionListener(e->variants());

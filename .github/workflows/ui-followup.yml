@@ -11,12 +11,17 @@ jobs:
     uses: ./.github/workflows/linux.yml
     with:
       packaging-only: true
-      measure-ui-size: false
+      measure-ui-size: true
   windows:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.ref != 'feat/apple-native' || !github.event.pull_request.draft
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 2
+    - name: Prove shared protocol and trust sources match the preceding verification
+      shell: bash
+      run: git diff --exit-code e5da12f3bd8868afe3655ecc39d8a7003b75cab8 HEAD -- app/src/main tests tools i18n third_party ':(exclude)**/*.md'
     - uses: actions/setup-java@v4
       with:
         distribution: temurin
@@ -38,15 +43,6 @@ jobs:
     - name: Measure controlled desktop package size delta
       shell: pwsh
       run: python tools/measure-ui-size.py desktop
-    - name: Test shared Android protocol and trust
-      shell: pwsh
-      run: |
-        ./tools/test-i18n.ps1
-        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-        ./tools/test-core.ps1
-        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-        ./tools/test-trust.ps1
-        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     - name: Verify text compatibility with pinned old NIM4 clients
       shell: bash
       run: sh tools/test-text-legacy.sh
