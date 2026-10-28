@@ -36,6 +36,12 @@ on:
         default: false
   workflow_call:
     inputs:
+      packaging-only:
+        type: boolean
+        default: false
+      measure-ui-size:
+        type: boolean
+        default: false
       release-tag:
         type: string
         default: ''

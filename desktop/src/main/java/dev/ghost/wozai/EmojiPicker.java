@@ -34,7 +34,7 @@ final class EmojiPicker extends JDialog {
         add(new JScrollPane(grid),BorderLayout.CENTER);JPanel bottom=new JPanel(new BorderLayout());bottom.add(state);JPanel actions=new JPanel();actions.add(variants);actions.add(insert);bottom.add(actions,BorderLayout.SOUTH);add(bottom,BorderLayout.SOUTH);
         clear.addActionListener(e->query.setText(""));categories.addActionListener(e->refresh());query.getDocument().addDocumentListener(new DocumentListener(){public void insertUpdate(DocumentEvent e){refresh();}public void removeUpdate(DocumentEvent e){refresh();}public void changedUpdate(DocumentEvent e){refresh();}});
         insert.addActionListener(e->pick(grid.getSelectedValue()));variants.addActionListener(e->variants());
-        grid.addMouseListener(new MouseAdapter(){public void mouseClicked(MouseEvent e){if(e.getClickCount()==2)pick(grid.getSelectedValue());}});
+        grid.addMouseListener(new MouseAdapter(){public void mouseClicked(MouseEvent e){if(e.getClickCount()==2){int index=grid.locationToIndex(e.getPoint());if(index>=0&&grid.getCellBounds(index,index).contains(e.getPoint()))pick(model.get(index));}}});
         grid.getInputMap().put(KeyStroke.getKeyStroke("ENTER"),"insert");grid.getActionMap().put("insert",new AbstractAction(){public void actionPerformed(ActionEvent e){pick(grid.getSelectedValue());}});
         getRootPane().registerKeyboardAction(e->dispose(),KeyStroke.getKeyStroke("ESCAPE"),JComponent.WHEN_IN_FOCUSED_WINDOW);
         addWindowListener(new WindowAdapter(){public void windowClosed(WindowEvent e){owner.requestFocus();}});
@@ -44,5 +44,12 @@ final class EmojiPicker extends JDialog {
     void translate(){int selected=Math.max(0,categories.getSelectedIndex());setTitle(strings.text("emoji"));categories.removeAllItems();categories.addItem(strings.text("emojiRecent"));for(int i=0;i<9;i++)categories.addItem(strings.text(CATEGORY_KEYS[i]));categories.setSelectedIndex(Math.min(selected,9));query.getAccessibleContext().setAccessibleName(strings.text("emojiSearch"));query.setToolTipText(strings.text("emojiSearch"));categories.getAccessibleContext().setAccessibleName(strings.text("emojiCategories"));grid.getAccessibleContext().setAccessibleName(strings.text("emoji"));clear.setText(strings.text("emojiClear"));insert.setText(strings.text("emojiInsert"));variants.setText(strings.text("emojiVariants"));refresh();}
     private void refresh(){if(catalog==null)return;int selected=Math.max(0,categories.getSelectedIndex());model.clear();for(var e:catalog.browse(selected==0?"recent":EmojiCatalog.CATEGORIES.get(selected-1),query.getText(),strings.locale(),recent))model.addElement(e);if(!model.isEmpty())grid.setSelectedIndex(0);state.setText(strings.text(model.isEmpty()?"emojiNoResults":"emojiInsertHint"));insert.setEnabled(!model.isEmpty());variants.setEnabled(!model.isEmpty());}
     private void pick(EmojiCatalog.Entry e){if(e==null)return;choose.accept(e.text);recent=catalog.remember(recent,e);save.accept(recent);}
-    private void variants(){var entry=grid.getSelectedValue();if(entry==null)return;JPopupMenu menu=new JPopupMenu();for(var e:catalog.variants(entry)){JMenuItem item=new JMenuItem(e.text+"  "+e.label(strings.locale()));item.addActionListener(event->pick(e));menu.add(item);}menu.show(variants,0,variants.getHeight());}
+    private void variants(){
+        var entry=grid.getSelectedValue();if(entry==null)return;
+        var choices=catalog.variants(entry);
+        String[] labels=choices.stream().map(e->e.text+"  "+e.label(strings.locale())).toArray(String[]::new);
+        // Swing uses a scrollable native list for large sets rather than a tall menu.
+        Object selected=JOptionPane.showInputDialog(this,strings.text("emojiVariants"),strings.text("emojiVariants"),JOptionPane.PLAIN_MESSAGE,null,labels,labels[0]);
+        if(selected!=null)for(int i=0;i<labels.length;i++)if(labels[i].equals(selected)){pick(choices.get(i));break;}
+    }
 }

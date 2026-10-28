@@ -126,7 +126,16 @@ public final class GuiTests {
             await(() -> components(w).stream().filter(c -> c instanceof MessagePane).map(c -> ((MessagePane)c).text()).findFirst().orElseThrow().contains("Delivered"), "Receipt lost after restoring text size");
             edt(()->{
                 JButton sendIcon=button(w,"Send");if(sendIcon.getIcon()==null||!sendIcon.getText().isEmpty())throw new AssertionError("Send icon not applied");
-                button(w,"Emoji").doClick();JPopupMenu emojis=(JPopupMenu)Arrays.stream(MenuSelectionManager.defaultManager().getSelectedPath()).filter(c->c instanceof JPopupMenu).findFirst().orElseThrow();button(emojis,"🙂").doClick();if(!area(w,"Type a message").getText().contains("🙂"))throw new AssertionError("Emoji did not enter composer");area(w,"Type a message").setText("");
+                button(w,"Emoji").doClick();return null;
+            });
+            JDialog emojis=edt(()->dialog(w,"Emoji"));
+            JTextField emojiSearch=edt(()->components(emojis).stream().filter(c->c instanceof JTextField f&&"Search emoji".equals(f.getAccessibleContext().getAccessibleName())).map(c->(JTextField)c).findFirst().orElseThrow());
+            edt(()->{emojiSearch.setText("🙂");return null;});
+            await(()->components(emojis).stream().anyMatch(c->c instanceof JList<?> list&&list.getModel().getSize()==1&&list.getModel().getElementAt(0) instanceof EmojiCatalog.Entry entry&&entry.text.equals("🙂")),"Native emoji search did not find the exact sequence");
+            edt(()->{button(emojis,"Insert").doClick();if(!area(w,"Type a message").getText().equals("🙂"))throw new AssertionError("Emoji did not enter the actual composer");if(!emojis.isVisible())throw new AssertionError("Picker cannot insert repeatedly");emojis.dispose();return null;});
+            if(text.poll(100,TimeUnit.MILLISECONDS)!=null)throw new AssertionError("Emoji picker automatically sent a message");
+            edt(()->{
+                area(w,"Type a message").setText("");
                 button(w,"Attachments").doClick();JPopupMenu choices=(JPopupMenu)Arrays.stream(MenuSelectionManager.defaultManager().getSelectedPath()).filter(c->c instanceof JPopupMenu).findFirst().orElseThrow();if(button(choices,"Photo").getIcon()==null||button(choices,"File").getIcon()==null)throw new AssertionError("Attachment icons missing");MenuSelectionManager.defaultManager().clearSelectedPath();return null;
             });
             Path photo=root.resolve("chat-photo.png");java.awt.image.BufferedImage pixels=new java.awt.image.BufferedImage(800,600,java.awt.image.BufferedImage.TYPE_INT_RGB);Graphics2D paint=pixels.createGraphics();paint.setPaint(new GradientPaint(0,0,new Color(80,185,210),0,600,new Color(240,224,159)));paint.fillRect(0,0,800,600);paint.setColor(new Color(25,100,80));paint.fillOval(-120,340,800,550);paint.dispose();ImageIO.write(pixels,"png",photo.toFile());
