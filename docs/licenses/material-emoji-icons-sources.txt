@@ -1,0 +1,48 @@
+Google Material Design Icons / Apache-2.0
+License: docs/licenses/material-icons-LICENSE.txt
+Pinned upstream commit: 10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7
+
+history
+https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/src/action/history/materialiconsoutlined/24px.svg
+SHA256 f31421e8e3ba19ff3fcd9affe72875171570ea405a4cbd114acecf0024f347e7
+
+front_hand
+https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/src/social/front_hand/materialiconsoutlined/24px.svg
+SHA256 07f097da92531ec916fde3591bcec7e6e5e6d59dfda001456564d1274e3193c9
+
+pets
+https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/src/action/pets/materialiconsoutlined/24px.svg
+SHA256 94395950bf9365a36bbf57ef8d6bd6e233f79e2e856e7fbe6639b056c2c1649b
+
+restaurant
+https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/src/maps/restaurant/materialiconsoutlined/24px.svg
+SHA256 07f1e48a6c74ce4829971613971aefaea7e0bb1c70b2c7441dc7edd07a58537d
+
+directions_car
+https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/src/maps/directions_car/materialiconsoutlined/24px.svg
+SHA256 642c96310c2388455bc7e4361ea470e29978caf88ef6a35a46a3c1bb0f3f8a1a
+
+sports_soccer
+https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/src/social/sports_soccer/materialiconsoutlined/24px.svg
+SHA256 26d49d79fa5012f08074ba1bf0ae61299c2e14953543954f4a9761b05e607b09
+
+lightbulb
+https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/src/action/lightbulb/materialiconsoutlined/24px.svg
+SHA256 da98bc3a4f1e0ddd22d795ec9e727ecfd7c51f657bb7ff33a6173ea8a6c7dfbf
+
+tag
+https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/src/content/tag/materialiconsoutlined/24px.svg
+SHA256 2b47ed4f9f7b457de6ae623a7225a74cf0267ae706fd61ddb8aaa2686b2f8ee4
+
+flag
+https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/src/content/flag/materialiconsoutlined/24px.svg
+SHA256 639b012fd7db328ce675000da8b83832f8ee393ddf8a802d3c8ee37277ca77e5
+
+keyboard
+https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/src/hardware/keyboard/materialiconsoutlined/24px.svg
+SHA256 c82fc3fa339dec36693b7fbe00f283b435fb0cef6ddf333dfb907a2a4296618d
+
+keyboard_arrow_down
+https://raw.githubusercontent.com/google/material-design-icons/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7/src/hardware/keyboard_arrow_down/materialiconsoutlined/24px.svg
+SHA256 680870053d36b699868cddae3b34e8ae5ce454c8ec4bfe0aeeb5cff79c69e10e
+

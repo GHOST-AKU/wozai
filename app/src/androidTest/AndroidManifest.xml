@@ -1,4 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- The same fixed-certificate test APK checks UI and in-place data upgrades. -->
+    <instrumentation android:name="dev.ghost.nearbyim.SigningUpgradeInstrumentation" android:targetPackage="dev.ghost.nearbyim" />
     <application>
         <!-- Synthetic fixtures only; this provider is absent from every client APK. -->
         <provider android:name="dev.ghost.nearbyim.SourceTestProvider" android:authorities="dev.ghost.nearbyim.test.sources" android:exported="true" android:grantUriPermissions="true">

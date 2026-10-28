@@ -54,7 +54,7 @@
   "saved": "Saved",
   "error": "Unable to complete action",
   "invalidNickname": "Use 1–32 characters with no control characters.",
-  "invalidMessage": "Enter valid text within the displayed UTF-8 byte limit. Your draft is preserved.",
+  "invalidMessage": "Unable to send this message. Shorten it or send a file. Your draft is kept.",
   "storageFailure": "Local data could not be saved. The connection was stopped. Check disk space and folder permissions.",
   "identityChanged": "This device identity differs from your history. Connection refused. Check whether the peer reinstalled the app.",
   "canceled": "Connection canceled",
@@ -566,5 +566,10 @@
   "emojiCategory8": "Flags",
   "emojiLoadFailed": "Emoji catalog could not be loaded. Close and reopen the picker.",
   "settingsSaveFailed": "Settings could not be saved. The previous choice was retained.",
-  "emojiRecentFailed": "Emoji inserted, but recent choices could not be saved."
+  "emojiRecentFailed": "Emoji inserted, but recent choices could not be saved.",
+  "draftSaveRetry": "Draft not saved. Tap to retry.",
+  "draftLoadRetry": "Could not load the draft. Tap to retry.",
+  "emojiKeyboard": "Keyboard",
+  "messageTooLong": "This message is too long. Shorten it or send a file. Your draft is kept.",
+  "messageIncomplete": "Finish editing this message before sending."
 }

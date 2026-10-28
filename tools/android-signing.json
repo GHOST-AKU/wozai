@@ -6,5 +6,14 @@
   "baseline_apk": "NearbyIM-0.3.1-android.apk",
   "baseline_version_code": 7,
   "baseline_apk_sha256": "2639536a577934ee497d43c655d2d61b8ef2a545996155588e605d82ac0eae83",
-  "baseline_version_name": "0.3.1"
+  "baseline_version_name": "0.3.1",
+  "published_upgrade_baselines": {
+    "v0.3.2": {
+      "tag": "v0.3.2",
+      "asset": "NearbyIM-0.3.2-android.apk",
+      "version_name": "0.3.2",
+      "version_code": 12,
+      "apk_sha256": "7d2e6cb90ce7915a4761507b90afed35e0690b648a578af88812857578126a80"
+    }
+  }
 }

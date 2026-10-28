@@ -278,8 +278,10 @@
     <string name="discovered" formatted="false">"已發現"</string>
     <string name="discovery_failed" formatted="false">"自動發現不可用，可透過 IP 位址連線。"</string>
     <string name="draft_edit_too_large" formatted="false">"此次編輯超過 {0} 位元組草稿上限，原草稿保持不變。大段文字請作為檔案傳送。"</string>
+    <string name="draft_load_retry" formatted="false">"無法讀取草稿，點按重試。"</string>
     <string name="draft_retained_hint" formatted="false">"連線後即可傳送，草稿會留在這裡。"</string>
     <string name="draft_save_failed" formatted="false">"草稿儲存失敗。請保持此對話開啟並複製文字。"</string>
+    <string name="draft_save_retry" formatted="false">"草稿尚未儲存，點按重試。"</string>
     <string name="earlier" formatted="false">"較早"</string>
     <string name="emoji" formatted="false">"表情"</string>
     <string name="emoji_categories" formatted="false">"表情分類"</string>
@@ -295,6 +297,7 @@
     <string name="emoji_clear" formatted="false">"清除"</string>
     <string name="emoji_insert" formatted="false">"插入"</string>
     <string name="emoji_insert_hint" formatted="false">"按兩下或按 Enter 插入"</string>
+    <string name="emoji_keyboard" formatted="false">"鍵盤"</string>
     <string name="emoji_load_failed" formatted="false">"表情目錄載入失敗，請關閉後重新開啟。"</string>
     <string name="emoji_no_results" formatted="false">"沒有符合的表情"</string>
     <string name="emoji_recent" formatted="false">"最近使用"</string>
@@ -351,7 +354,7 @@
     <string name="idle" formatted="false">"未連線"</string>
     <string name="initial_status" formatted="false">"選擇連線方式，找到身邊的人"</string>
     <string name="invalid_endpoint" formatted="false">"位址格式示例：192.168.1.20:54321 或 [fd00::1]:54321。"</string>
-    <string name="invalid_message" formatted="false">"請輸入有效文字，並遵守顯示的 UTF-8 位元組上限。草稿已保留。"</string>
+    <string name="invalid_message" formatted="false">"暫時無法傳送這則訊息，請縮短內容或改傳檔案。草稿已保留。"</string>
     <string name="invalid_nickname" formatted="false">"暱稱需為 1–32 個字元，不能包含控制字元。"</string>
     <string name="invalid_transport" formatted="false">"連線方式無效"</string>
     <string name="lan" formatted="false">"區域網路"</string>
@@ -374,9 +377,11 @@
     <string name="local_address_only" formatted="false">"僅支援區域網路 IP 位址。"</string>
     <string name="local_history_disconnected" formatted="false">"未連線 · 本機記錄"</string>
     <string name="message_date" formatted="false">"{0,date,long}"</string>
+    <string name="message_incomplete" formatted="false">"這則訊息尚未編輯完整，請繼續輸入。"</string>
     <string name="message_queue_full" formatted="false">"訊息處理佇列已滿，請重新連線。"</string>
     <string name="message_receipt" formatted="false">"{0,time,short} · {1}"</string>
     <string name="message_time" formatted="false">"{0,time,short}"</string>
+    <string name="message_too_long" formatted="false">"訊息太長，請縮短內容或改傳檔案。草稿已保留。"</string>
     <string name="messages" formatted="false">"聊天訊息"</string>
     <string name="more" formatted="false">"更多操作"</string>
     <string name="my_address" formatted="false">"我的連線位址"</string>

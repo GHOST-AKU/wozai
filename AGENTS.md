@@ -18,6 +18,8 @@
 
 ## Development versions
 
+- Every Android APK offered to the owner for installation must pass `tools/verify-android-signature.py` against the persistent certificate in `tools/android-signing.json`. A temporary debug certificate is not an acceptable delivery substitute. Keep debug/UI fixtures clearly labeled internal; never ask the owner to uninstall or clear data to bypass a certificate mismatch. Keep private signing material inside the existing signing step.
+
 - New development builds use the 0.3.3 preview series, starting at `0.3.3-preview.2`; do not relabel or replace published v0.3.2 or v0.3.3-preview.1 assets.
 - `i18n/config.json` is the release-version and build-number authority for all clients. After changing it, run `python3 tools/version.py --write` and `python3 tools/generate-i18n.py`; verify with `python3 tools/version.py --check`.
 - Synchronize this version change into an older implementation branch before building it. Preserve its actual source revision and feature/acceptance boundaries; sharing a version does not imply sharing every platform feature.

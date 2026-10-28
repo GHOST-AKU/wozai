@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Build using CI secrets or a private local keystore; never expose key material."""
 import base64
+import argparse
 import json
 import os
 from pathlib import Path
@@ -10,11 +11,16 @@ import subprocess
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--preview", action="store_true", help="Build a fixed-certificate native UI candidate and its test APK")
+args = parser.parse_args()
 pin = json.loads((root / "tools/android-signing.json").read_text())
 password = os.environ.get("WOZAI_ANDROID_KEYSTORE_PASSWORD")
 encoded = os.environ.get("WOZAI_ANDROID_KEYSTORE_BASE64")
 local = os.environ.get("WOZAI_ANDROID_KEYSTORE")
 candidate_only = os.environ.get("WOZAI_ANDROID_CANDIDATE_ONLY") == "true"
+if args.preview and not candidate_only:
+    raise SystemExit("The native UI preview requires WOZAI_ANDROID_CANDIDATE_ONLY=true")
 if not password or bool(encoded) == bool(local):
     raise SystemExit("Configure WOZAI_ANDROID_KEYSTORE_BASE64 and WOZAI_ANDROID_KEYSTORE_PASSWORD in repository Secrets, or supply a private local WOZAI_ANDROID_KEYSTORE path and password")
 code = int(re.search(r"versionCode\s*=\s*(\d+)", (root / "app/build.gradle.kts").read_text()).group(1))
@@ -45,15 +51,19 @@ with tempfile.TemporaryDirectory(prefix="wozai-signing-", dir=os.environ.get("RU
     fingerprint = re.search(r"SHA256:\s*([0-9A-F:]+)", certificate.stdout)
     if certificate.returncode or not fingerprint or fingerprint.group(1).replace(":", "").lower() != pin["certificate_sha256"]:
         raise SystemExit("Private keystore/password/alias does not match the persistent certificate; refusing to build")
-    tasks = [":app:assembleRelease", ":app:lintRelease"] if candidate_only else [
+    tasks = [":app:assemblePreview", ":app:assemblePreviewAndroidTest", ":app:lintPreview"] if args.preview else [":app:assembleRelease", ":app:lintRelease"] if candidate_only else [
         ":app:assembleRelease", ":app:assembleReleaseAndroidTest", ":app:assembleDebug", ":app:lintRelease"]
-    subprocess.run([str(root / "gradlew"), "--no-daemon", "-PtestBuildType=release",
-                    "-PtestInstrumentationRunner=dev.ghost.nearbyim.SigningUpgradeInstrumentation",
+    variant = "preview" if args.preview else "release"
+    runner = "LocalizationInstrumentation" if args.preview else "SigningUpgradeInstrumentation"
+    subprocess.run([str(root / "gradlew"), "--no-daemon", "-PtestBuildType=" + variant,
+                    "-PtestInstrumentationRunner=dev.ghost.nearbyim." + runner,
                     *tasks],
                    cwd=root, env=environment, check=True)
     folder = root / "build/signing-upgrade"
     folder.mkdir(parents=True, exist_ok=True)
-    files = [("app/build/outputs/apk/release/app-release.apk", "candidate.apk", [])]
+    files = [(f"app/build/outputs/apk/{variant}/app-{variant}.apk", "candidate.apk", [])]
+    if args.preview:
+        files += [("app/build/outputs/apk/androidTest/preview/app-preview-androidTest.apk", "test.apk", ["--ui-test-apk"])]
     if not candidate_only:
         files += [("app/build/outputs/apk/androidTest/release/app-release-androidTest.apk", "test.apk", ["--test-apk"]),
                   ("app/build/outputs/apk/debug/app-debug.apk", "wrong.apk", ["--wrong-signer"])]

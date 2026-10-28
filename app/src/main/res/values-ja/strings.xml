@@ -278,8 +278,10 @@
     <string name="discovered" formatted="false">"検出済み"</string>
     <string name="discovery_failed" formatted="false">"自動検出を利用できません。IP アドレスで接続してください。"</string>
     <string name="draft_edit_too_large" formatted="false">"この編集は下書きの上限 {0} バイトを超えています。元の下書きは変更されません。長い文章はファイルで送信してください。"</string>
+    <string name="draft_load_retry" formatted="false">"下書きを読み込めません。タップして再試行。"</string>
     <string name="draft_retained_hint" formatted="false">"接続すると送信できます。下書きはここに保持されます。"</string>
     <string name="draft_save_failed" formatted="false">"下書きを保存できませんでした。この会話を開いたまま文章をコピーしてください。"</string>
+    <string name="draft_save_retry" formatted="false">"下書きが保存されていません。タップして再試行。"</string>
     <string name="earlier" formatted="false">"以前"</string>
     <string name="emoji" formatted="false">"絵文字"</string>
     <string name="emoji_categories" formatted="false">"絵文字のカテゴリ"</string>
@@ -295,6 +297,7 @@
     <string name="emoji_clear" formatted="false">"クリア"</string>
     <string name="emoji_insert" formatted="false">"挿入"</string>
     <string name="emoji_insert_hint" formatted="false">"ダブルクリックまたは Enter で挿入"</string>
+    <string name="emoji_keyboard" formatted="false">"キーボード"</string>
     <string name="emoji_load_failed" formatted="false">"絵文字を読み込めません。閉じてから開き直してください。"</string>
     <string name="emoji_no_results" formatted="false">"一致する絵文字はありません"</string>
     <string name="emoji_recent" formatted="false">"最近使った絵文字"</string>
@@ -351,7 +354,7 @@
     <string name="idle" formatted="false">"未接続"</string>
     <string name="initial_status" formatted="false">"接続方式を選んで、近くの人を探しましょう"</string>
     <string name="invalid_endpoint" formatted="false">"192.168.1.20:54321 または [fd00::1]:54321 の形式で入力してください。"</string>
-    <string name="invalid_message" formatted="false">"表示された UTF-8 バイト上限内で有効な文章を入力してください。下書きは保持されます。"</string>
+    <string name="invalid_message" formatted="false">"このメッセージを送信できません。短くするかファイルで送信してください。下書きは保持されます。"</string>
     <string name="invalid_nickname" formatted="false">"制御文字を含まない 1～32 文字のニックネームを入力してください。"</string>
     <string name="invalid_transport" formatted="false">"接続方式が無効です"</string>
     <string name="lan" formatted="false">"LAN"</string>
@@ -374,9 +377,11 @@
     <string name="local_address_only" formatted="false">"LAN の IP アドレスのみ利用できます。"</string>
     <string name="local_history_disconnected" formatted="false">"未接続 · ローカル履歴"</string>
     <string name="message_date" formatted="false">"{0,date,long}"</string>
+    <string name="message_incomplete" formatted="false">"入力を完了してから送信してください。"</string>
     <string name="message_queue_full" formatted="false">"メッセージの処理待ちが上限に達しました。再接続してください。"</string>
     <string name="message_receipt" formatted="false">"{0,time,short} · {1}"</string>
     <string name="message_time" formatted="false">"{0,time,short}"</string>
+    <string name="message_too_long" formatted="false">"メッセージが長すぎます。短くするかファイルで送信してください。下書きは保持されます。"</string>
     <string name="messages" formatted="false">"チャットメッセージ"</string>
     <string name="more" formatted="false">"その他の操作"</string>
     <string name="my_address" formatted="false">"自分の接続アドレス"</string>

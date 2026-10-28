@@ -8,8 +8,12 @@ To update, fetch the files named in `sources.json` into a temporary directory, v
 
 Recent entries stay local in existing UI preferences (Android) / profile settings (desktop), at most 30 exact sequences, deduplicated newest first. No history synchronization. Unsupported glyphs use the system fallback and remain labeled/selectable.
 
+Android opens an embedded panel below the chat composer, with recent entries followed by the first emoji category, category icons and optional search. It has no modal backdrop or category dropdown. The composer button switches back to the keyboard; Back closes the panel before leaving the conversation. The panel follows the existing chat pane bounds and does not change the tablet split.
+
 Desktop checks that its logical emoji font actually paints a heart. If a JDK/system color-font combination reports coverage but paints nothing, the picker tries an installed monochrome system font. It adds no bundled glyphs and does not change the inserted sequence.
 
 共享源为 Unicode 16.0 / CLDR 47，3,781 条完整序列，五语标签和精简搜索词。分类网格、搜索、最近30项、肤色变体共用此数据。简繁/日/韩标签来自CLDR，Sark补充名称单独记录；不会在插入时拆分或规范化序列。更新时按 sources.json 下载并核对，再运行上述生成器；离线检查两端资源与许可一致。不捆绑表情图片/字体，不加运行时依赖、不联网搜索。实际字形取决于系统；Android长按查看变体，桌面选中后点“变体”，双击/Enter/插入按钮可连续插入，不发送消息。
 
 桌面会检查逻辑表情字体能否实际绘制爱心；若 JDK 与系统彩色字体组合报告支持却绘制为空白，选择器会尝试已安装的系统单色字体。不额外捆绑字形，也不改变插入的序列。
+
+Android 在聊天输入框下方展开嵌入式表情面板，最近使用后继续显示首组表情，底部提供分类图标，搜索按需展开。不使用居中弹窗、遮罩或分类下拉框；输入框按钮可切回键盘，返回先收起面板。面板沿用当前聊天栏边界，不改变平板分栏。

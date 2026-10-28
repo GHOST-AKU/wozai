@@ -29,6 +29,7 @@ baseline_code=$(python3 -c 'import json; print(json.load(open("tools/android-sig
 case "${UPGRADE_BASELINE_CODE:-7}" in
     7) ;;
     8) baseline=build/signing-upgrade/maintenance.apk; baseline_code=8 ;;
+    12) baseline=build/signing-upgrade/published-v032.apk; baseline_code=12 ;;
     *) echo 'Unsupported upgrade baseline'; exit 1 ;;
 esac
 launch() {

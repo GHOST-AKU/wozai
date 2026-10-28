@@ -278,8 +278,10 @@
     <string name="discovered" formatted="false">"已发现"</string>
     <string name="discovery_failed" formatted="false">"自动发现不可用，可通过 IP 地址连接。"</string>
     <string name="draft_edit_too_large" formatted="false">"此次编辑超过 {0} 字节草稿上限，原草稿保持不变。大段文字请作为文件发送。"</string>
+    <string name="draft_load_retry" formatted="false">"草稿读取失败，点按重试。"</string>
     <string name="draft_retained_hint" formatted="false">"连接后即可发送，草稿会留在这里。"</string>
     <string name="draft_save_failed" formatted="false">"草稿保存失败。请保持此会话打开并复制文字。"</string>
+    <string name="draft_save_retry" formatted="false">"草稿尚未保存，点按重试。"</string>
     <string name="earlier" formatted="false">"较早"</string>
     <string name="emoji" formatted="false">"表情"</string>
     <string name="emoji_categories" formatted="false">"表情分类"</string>
@@ -295,6 +297,7 @@
     <string name="emoji_clear" formatted="false">"清空"</string>
     <string name="emoji_insert" formatted="false">"插入"</string>
     <string name="emoji_insert_hint" formatted="false">"双击或按 Enter 插入"</string>
+    <string name="emoji_keyboard" formatted="false">"键盘"</string>
     <string name="emoji_load_failed" formatted="false">"表情目录加载失败，请关闭后重新打开。"</string>
     <string name="emoji_no_results" formatted="false">"没有匹配的表情"</string>
     <string name="emoji_recent" formatted="false">"最近使用"</string>
@@ -351,7 +354,7 @@
     <string name="idle" formatted="false">"未连接"</string>
     <string name="initial_status" formatted="false">"选择连接方式，找到身边的人"</string>
     <string name="invalid_endpoint" formatted="false">"地址格式示例：192.168.1.20:54321 或 [fd00::1]:54321。"</string>
-    <string name="invalid_message" formatted="false">"请输入有效文字，并遵守显示的 UTF-8 字节上限。草稿已保留。"</string>
+    <string name="invalid_message" formatted="false">"暂时无法发送这条消息，请缩短内容或改发文件。草稿已保留。"</string>
     <string name="invalid_nickname" formatted="false">"昵称需为 1–32 个字符，不能包含控制字符。"</string>
     <string name="invalid_transport" formatted="false">"连接方式无效"</string>
     <string name="lan" formatted="false">"局域网"</string>
@@ -374,9 +377,11 @@
     <string name="local_address_only" formatted="false">"仅支持局域网 IP 地址。"</string>
     <string name="local_history_disconnected" formatted="false">"未连接 · 本机记录"</string>
     <string name="message_date" formatted="false">"{0,date,long}"</string>
+    <string name="message_incomplete" formatted="false">"这条消息尚未编辑完整，请继续输入。"</string>
     <string name="message_queue_full" formatted="false">"消息处理队列已满，请重新连接。"</string>
     <string name="message_receipt" formatted="false">"{0,time,short} · {1}"</string>
     <string name="message_time" formatted="false">"{0,time,short}"</string>
+    <string name="message_too_long" formatted="false">"消息太长，请缩短内容或改发文件。草稿已保留。"</string>
     <string name="messages" formatted="false">"聊天消息"</string>
     <string name="more" formatted="false">"更多操作"</string>
     <string name="my_address" formatted="false">"我的连接地址"</string>

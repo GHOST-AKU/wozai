@@ -286,8 +286,10 @@ public final class I18nResources {
             case "discovered": return R.string.discovered;
             case "discoveryFailed": return R.string.discovery_failed;
             case "draftEditTooLarge": return R.string.draft_edit_too_large;
+            case "draftLoadRetry": return R.string.draft_load_retry;
             case "draftRetainedHint": return R.string.draft_retained_hint;
             case "draftSaveFailed": return R.string.draft_save_failed;
+            case "draftSaveRetry": return R.string.draft_save_retry;
             case "earlier": return R.string.earlier;
             case "emoji": return R.string.emoji;
             case "emojiCategories": return R.string.emoji_categories;
@@ -303,6 +305,7 @@ public final class I18nResources {
             case "emojiClear": return R.string.emoji_clear;
             case "emojiInsert": return R.string.emoji_insert;
             case "emojiInsertHint": return R.string.emoji_insert_hint;
+            case "emojiKeyboard": return R.string.emoji_keyboard;
             case "emojiLoadFailed": return R.string.emoji_load_failed;
             case "emojiNoResults": return R.string.emoji_no_results;
             case "emojiRecent": return R.string.emoji_recent;
@@ -382,9 +385,11 @@ public final class I18nResources {
             case "localAddressOnly": return R.string.local_address_only;
             case "localHistoryDisconnected": return R.string.local_history_disconnected;
             case "messageDate": return R.string.message_date;
+            case "messageIncomplete": return R.string.message_incomplete;
             case "messageQueueFull": return R.string.message_queue_full;
             case "messageReceipt": return R.string.message_receipt;
             case "messageTime": return R.string.message_time;
+            case "messageTooLong": return R.string.message_too_long;
             case "messages": return R.string.messages;
             case "more": return R.string.more;
             case "myAddress": return R.string.my_address;

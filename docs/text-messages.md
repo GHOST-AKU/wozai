@@ -13,9 +13,9 @@ Development work for Issue #30; the published 0.3.2 and 0.3.3-preview.1 binaries
 
 Count the UTF-8 bytes of the original text, not UTF-16 units, characters or grapheme clusters. Chinese characters commonly take three bytes, individual Emoji four, and ZWJ sequences more. Sending does not trim, normalize or split the payload. Text consisting solely of U+0000…U+0020 is blank; NBSP retains existing NIM4 semantics. Java drafts can preserve unfinished UTF-16 input, but malformed sequences cannot be sent.
 
-输入区显示当前连接上限。超过发送上限的草稿保留，可以缩短、复制或作为文件发送。超过 256 KiB 草稿预算的编辑整次拒绝，并提示原文保留；不截取粘贴文本的前半段。正常编辑直接保留输入法 spans。终端继续过滤不可显示的控制字符，避免终端转义执行。
+Android 正常输入不显示字节计数；超限时用自然语言提示，保留草稿，可以缩短、复制或作为文件发送。桌面和终端仍显示连接上限。超过 256 KiB 草稿预算的编辑整次拒绝，并提示原文保留；不截取粘贴文本的前半段。正常编辑直接保留输入法 spans。终端继续过滤不可显示的控制字符，避免终端转义执行。Android 草稿使用解析后的系统私有目录原子保存；真正的读写失败在当前会话显示一条可点按重试的状态，不反复弹出提示。
 
-The composer displays the connection limit. Oversized messages remain editable drafts: shorten, copy, or send as a file. An edit beyond the 256 KiB draft budget is rejected as a whole with visible feedback; no paste prefix is silently retained. Accepted Android edits preserve the original IME spans. Terminal input still filters control characters to prevent escape execution.
+Normal Android input has no byte counter. Oversized messages receive a plain-language explanation and remain editable drafts: shorten, copy, or send as a file. Desktop and terminal composers still display the connection limit. An edit beyond the 256 KiB draft budget is rejected as a whole with visible feedback; no paste prefix is silently retained. Accepted Android edits preserve the original IME spans. Terminal input still filters control characters to prevent escape execution. Android drafts are committed atomically below the resolved system-private directory; a real read/write failure appears as one retryable status in the affected conversation instead of repeated popups.
 
 ## 能力协商 / Capability negotiation
 
