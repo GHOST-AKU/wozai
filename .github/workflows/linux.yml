@@ -18,6 +18,14 @@ on:
         description: 'Run package/GUI checks only; requires separately recorded unchanged-core validation'
         type: boolean
         default: false
+      candidate-run-id:
+        description: 'Runtime-only: reuse the AppImage artifact from this successful build job'
+        type: string
+        default: ''
+      candidate-source:
+        description: 'Runtime-only: exact 40-character source SHA embedded in that candidate'
+        type: string
+        default: ''
       performance-baseline:
         description: 'Measure an informational baseline (no performance thresholds)'
         type: boolean
@@ -32,10 +40,11 @@ on:
         default: false
 permissions:
   contents: read
+  actions: read
 jobs:
   linux:
     # Native Apple drafts do not need another Linux package; review-ready PRs still run all checks.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.ref != 'feat/apple-native' || !github.event.pull_request.draft
+    if: inputs['candidate-run-id'] == '' && (github.event_name != 'pull_request' || github.event.pull_request.head.ref != 'feat/apple-native' || !github.event.pull_request.draft)
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -115,6 +124,7 @@ jobs:
           if-no-files-found: ignore
   appimage-runtime:
     needs: linux
+    if: ${{ !cancelled() && (needs.linux.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs['candidate-run-id'] != '')) }}
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -135,10 +145,26 @@ jobs:
           ! command -v javac
           ! command -v g++
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs['candidate-source'] || github.sha }}
+      - name: Validate candidate source and trust this checkout
+        env:
+          CANDIDATE_RUN: ${{ inputs['candidate-run-id'] }}
+          CANDIDATE_SOURCE: ${{ inputs['candidate-source'] }}
+        run: |
+          python3 - <<'PY'
+          import os, re
+          if os.environ['CANDIDATE_RUN']:
+              assert re.fullmatch(r'[0-9]+', os.environ['CANDIDATE_RUN']), 'A numeric candidate run is required'
+              assert re.fullmatch(r'[0-9a-f]{40}', os.environ['CANDIDATE_SOURCE']), 'An exact candidate source SHA is required'
+          PY
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - uses: actions/download-artifact@v4
         with:
           name: linux-appimage-runtime-input
           path: desktop/build
+          run-id: ${{ inputs['candidate-run-id'] || github.run_id }}
+          github-token: ${{ github.token }}
       - name: Verify unchanged AppImage in clean runtime userspace
         run: |
           cat /etc/os-release
