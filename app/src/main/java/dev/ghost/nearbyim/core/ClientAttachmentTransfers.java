@@ -46,7 +46,7 @@ public final class ClientAttachmentTransfers implements AutoCloseable {
     public java.util.List<AttachmentBatchQueue.Item> batchItems(){return batch==null?java.util.List.of():batch.items();}
     public CompletableFuture<Void> resumeBatch(){intent.resumeSending();return batch==null?failed(new IOException("Batch requires V2")):batch.resumeAll();}
     public FileTransferActivity activity(){return streaming==null?FileTransferActivity.IDLE:streaming.activity();}
-    public String diagnostics(){return metrics.snapshot()+(streaming==null?"attachment_v2=false\n":streaming.diagnostics());}
+    public String diagnostics(){return metrics.snapshot("source_preparation")+(streaming==null?"attachment_v2=false\n":streaming.diagnostics());}
     public boolean v2(){return streaming!=null;}
     boolean matches(String local,String remote,String generation){return streaming!=null&&streaming.matches(local,remote,generation);}
     public void receiveRecoveryOffer(TransferPacket packet)throws IOException{if(streaming==null)throw new IOException("Recovery requires V2");streaming.receiveRecoveryOffer(packet,true);}

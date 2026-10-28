@@ -132,7 +132,9 @@ public final class LocalizationInstrumentation extends Instrumentation {
         check(AndroidText.get(context, "myNickname", name).equals("I'm " + name), "ICU literal apostrophe survives Android resource compilation");
         check(AndroidText.get(context, "androidHelpBody").contains("\n\n"), "Android resources preserve paragraph breaks");
         check(AndroidText.get(context, "unknownRuntimeMessage").equals(AndroidText.get(context, "error")), "Unknown runtime keys fall back to a translated generic error");
-        check(AndroidText.messageState(context, ChatStore.PENDING).equals("Pending"), "Stored status code resolves to English");
+        check(AndroidText.messageState(context, ChatStore.PENDING).equals("Sending"), "Pending TEXT is still sending until the actual writer finishes");
+        check(AndroidText.messageState(context,"sent").equals("Sent"),"Written TEXT has a distinct localized sent state");
+        check(AndroidText.messageState(context,ChatStore.DELIVERED).equals("Delivered"),"Saved ACK remains distinct from sent and read");
         Context localized = AppLanguage.wrap(context);
         check(AppLanguage.wrap(localized) == localized, "An already localized context is reused");
         java.util.TimeZone originalZone = java.util.TimeZone.getDefault();

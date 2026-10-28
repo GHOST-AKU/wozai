@@ -4,9 +4,9 @@ Issue #32 开发中，仅适用于 Android/桌面共享 Java V2 文件实现；�
 
 Development for #32 covers the Java V2 implementation shared by Android and desktop. This is observability, not evidence of improved performance or physical-radio acceptance. It does not claim equivalent summaries for legacy V1, Apple or Rust.
 
-诊断保留 `transfer_summary={JSON}` 行。每个本地发送/接收尝试有随机 attempt_id，使用原 transfer_id 对应同一文件；两端 attempt_id 不相同。暂停、来源暂不可用会结束本次尝试，恢复建立新尝试。每个 pipeline 实例最多保留32条完成摘要和当前活动尝试；不写入用户文件、路径、URI、地址、设备身份或文件名，不持久化到磁盘。
+诊断保留 `transfer_summary={JSON}` 行。每个本地发送/接收尝试的 pipeline_counter_id 对应所属 V2 组件计数器，带随机 attempt_id，使用原 transfer_id 对应同一文件；两端 attempt_id 不相同。暂停、来源暂不可用会结束本次尝试，恢复建立新尝试。每个 pipeline 实例最多保留32条完成摘要和当前活动尝试；不写入用户文件、路径、URI、地址、设备身份或文件名，不持久化到磁盘。
 
-Each `transfer_summary={JSON}` is one local send/receive attempt, with a random attempt_id and the existing transfer_id for cross-endpoint correlation. Endpoint attempt IDs differ. Pause/source unavailability ends an attempt; resume starts another. A pipeline retains at most 32 finished summaries plus active attempts, in memory only. No filename, path, URI, address or device identity is included.
+Each `transfer_summary={JSON}` is one local send/receive attempt, with pipeline_counter_id linking its V2 component counters, a random attempt_id and the existing transfer_id for cross-endpoint correlation. Endpoint attempt IDs differ. Pause/source unavailability ends an attempt; resume starts another. A pipeline retains at most 32 finished summaries plus active attempts, in memory only. No filename, path, URI, address or device identity is included.
 
 | 字段 / Field | 口径 / Meaning |
 | --- | --- |
@@ -25,6 +25,6 @@ Each `transfer_summary={JSON}` is one local send/receive attempt, with a random 
 
 Resume prefixes can be reread and hashed, so source_read can exceed transmitted DATA. File size is distinct from newly transferred payload. Queued but unconfirmed bytes do not inflate goodput. Empty/zero-duration cases yield finite zero rates. Finished summaries are frozen, so idle socket waits cannot extend file duration.
 
-原 stage 计数器继续保留，作用域为其所属组件实例，自构造开始累计，不能相加当成墙钟关键路径。writer_queue/receive_queue 是排队等待，credit_wait 是背压；socket_header 包含等待下一条网络消息，不单独证明解析瓶颈。wire 计数可能包括控制、探测、包头及加密开销；队列 bytes 是保留内存预算，不等于有效文件大小。并发发送和接收共用的阶段计数不冒充单文件计数；每次尝试仅独立归属其有效载荷和状态墙钟阶段。
+原 stage 计数器通过 counter_component 和随机 counter_instance_id 区分来源/重建，继续保留，作用域为其所属组件实例，自构造开始累计，不能相加当成墙钟关键路径。writer_queue/receive_queue 是排队等待，credit_wait 是背压；socket_header 包含等待下一条网络消息，不单独证明解析瓶颈。wire 计数可能包括控制、探测、包头及加密开销；队列 bytes 是保留内存预算，不等于有效文件大小。并发发送和接收共用的阶段计数不冒充单文件计数；每次尝试仅独立归属其有效载荷和状态墙钟阶段。
 
-Existing stage counters remain cumulative within their owning component since construction. Overlapping totals are not additive wall-clock critical paths. Writer/receive queues measure queue wait, credit_wait is backpressure, and socket_header includes waiting for another network record. Wire bytes can include control/probe/framing/encryption overhead; queue bytes describe retained memory. Shared send/receive stage counters are not relabeled as per-file counters; only attempt payload and exclusive state durations have independent attribution.
+Existing stage counters identify their owner and reset instance with counter_component and a random counter_instance_id, and remain cumulative within their owning component since construction. Overlapping totals are not additive wall-clock critical paths. Writer/receive queues measure queue wait, credit_wait is backpressure, and socket_header includes waiting for another network record. Wire bytes can include control/probe/framing/encryption overhead; queue bytes describe retained memory. Shared send/receive stage counters are not relabeled as per-file counters; only attempt payload and exclusive state durations have independent attribution.

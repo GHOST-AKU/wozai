@@ -84,7 +84,7 @@ public final class AttachmentTransferV2 implements AutoCloseable {
         TransferByteWindow window;
         final Flow flow;
         boolean recoveryOffer,summaryPublished;
-        Task(AttachmentInfo info,boolean outgoing,String generation,Path partial,Flow flow){this.info=info;this.measurement=new TransferAttempt(info.id,outgoing);this.outgoing=outgoing;this.generation=generation;this.partial=partial;this.flow=flow;}
+        Task(AttachmentInfo info,boolean outgoing,String generation,Path partial,Flow flow,String counterId){this.info=info;this.measurement=new TransferAttempt(info.id,outgoing,counterId);this.outgoing=outgoing;this.generation=generation;this.partial=partial;this.flow=flow;}
     }
     public AttachmentTransferV2(Path privateRoot,String localRoot,String remoteRoot,String connectionGeneration,boolean rfcomm,Wire wire,Listener listener)throws IOException {
         this(privateRoot,localRoot,remoteRoot,connectionGeneration,rfcomm,wire,listener,new TransferStorageBudget(privateRoot,TransferStorageBudget.DEFAULT_QUOTA));
@@ -111,7 +111,7 @@ public final class AttachmentTransferV2 implements AutoCloseable {
     private Task task(AttachmentInfo info,boolean outgoing,String generation,Path partial){
         // Freeze the selected lane's limits for this attempt; resume takes a fresh profile.
         Flow flow=rfcomm&&!wire.highBandwidth()?RFCOMM:WIFI;lastFlow=flow;
-        return new Task(info,outgoing,generation,partial,flow);
+        return new Task(info,outgoing,generation,partial,flow,metrics.instanceId());
     }
     private void startCredits() {
         if(creditTimer!=null)return;
@@ -273,7 +273,7 @@ public final class AttachmentTransferV2 implements AutoCloseable {
             case COMPLETE:
                 require(task.outgoing&&(task.state.equals("awaitingReceipt")||task.state.equals("checking")));
                 if(task.state.equals("checking")&&task.info.hash==null)verifyCompletedSource(task,packet.hash);
-                require(task.info.hash.equals(AttachmentInfo.hex(packet.hash)));task.measurement.hashVerified();
+                require(task.info.hash.equals(AttachmentInfo.hex(packet.hash)));task.measurement.hashVerified();task.measurement.peerCompleteReceived();
                 task.written=task.verified=task.durable=task.info.size;checkpoints.complete(task.key,task.info.size,packet.hash);finish(task,"delivered",false);break;
             default:throw new IOException("Unsupported attachment state transition");
         }
@@ -623,7 +623,7 @@ public final class AttachmentTransferV2 implements AutoCloseable {
         synchronized(summaries){for(String summary:summaries)report.append("transfer_summary=").append(summary).append('\n');}
         for(Task task:new Task[]{outgoing,incoming})if(task!=null)report.append("transfer_summary=").append(task.measurement.snapshot(task.state,task.info.size,task.written,task.durable,task.info.hash,false)).append('\n');
         report.append("transfer_summary_scope=local_v2_attempt; start=task_creation; excludes=selection,route_preparation; end=local_saved_or_peer_complete; phases=exclusive_wall_time; rate=confirmed_DATA_payload_per_monotonic_attempt_time; submitted_bytes=sender_queue_accepted_or_receiver_written; peak=ack_or_write_samples_10x100ms; phase_saved=includes_history_save; history_limit=32\n");
-        return report.append(metrics.snapshot()).toString();
+        return report.append(metrics.snapshot("v2_pipeline")).toString();
     }
     public long queuedBytes(){return Math.max(0,queued.get());}
     public long retainedBufferBytes(){return buffers.retainedBytes();}

@@ -11,6 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -23,6 +25,15 @@ jobs:
         run: |
           sh tools/test-i18n.sh
           sh tools/check-source.sh
+      - name: Verify diagnostic edge cases and unchanged UI inputs
+        run: |
+          git diff --exit-code e7513458f72a13baffabc33cd641bc761046e032 HEAD -- desktop app/src/main/java/dev/ghost/nearbyim/MainActivity.java app/src/main/java/dev/ghost/nearbyim/AndroidText.java app/src/main/java/dev/ghost/nearbyim/ChatController.java app/src/main/java/dev/ghost/nearbyim/ChatStore.java app/src/main/java/dev/ghost/nearbyim/MessageReceiptDrawable.java app/src/main/java/dev/ghost/nearbyim/core/MessageReceipt.java app/src/main/res i18n app/build.gradle.kts app/proguard-instrumentation.pro
+          mkdir -p build/core-tests
+          find third_party/noise-java/src app/src/main/java/dev/ghost/nearbyim/noise -name '*.java' > build/core-tests/crypto-sources.txt
+          javac -encoding UTF-8 -d build/core-tests @build/core-tests/crypto-sources.txt app/src/main/java/dev/ghost/nearbyim/core/*.java app/src/main/java/dev/ghost/nearbyim/i18n/UiText.java app/src/main/java/dev/ghost/nearbyim/i18n/LocalizedIllegalArgumentException.java app/src/main/java/dev/ghost/nearbyim/GalleryExportNames.java tests/*.java
+          java -cp build/core-tests dev.ghost.nearbyim.core.TransferAttemptTests
+          java -cp build/core-tests dev.ghost.nearbyim.core.CoreTests
+          java -cp build/core-tests dev.ghost.nearbyim.core.AuthenticationTests
       - name: Build and lint the fixed-certificate client and native fixtures
         env:
           WOZAI_ANDROID_KEYSTORE_BASE64: ${{ secrets.WOZAI_ANDROID_KEYSTORE_BASE64 }}
@@ -89,9 +100,13 @@ jobs:
             build/android-i18n-logcat.txt
             build/android-i18n-screenshots/
   windows:
+    # Same desktop/UI sources passed in run 40714059795; do not repeat that job.
+    if: false
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

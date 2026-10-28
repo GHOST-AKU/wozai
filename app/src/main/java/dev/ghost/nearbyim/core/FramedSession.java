@@ -258,6 +258,6 @@ public final class FramedSession {
     /** Available only after proof verification, including during onHello. */
     public String remotePublicKey() { return noise==null?channel.remotePublicKey():noise.remotePublicKey(); }
     public boolean isReady() { return greeted && approved && remoteReady && !closed.get(); }
-    public String diagnostics(){return "protocol="+(noise==null?"NIM3":"NIM4")+"\nend_to_end_encrypted="+endToEndEncrypted()+"\ntext_send_limit_bytes="+textLimit()+"\ntext_receive_limit_bytes="+(textCapability==null?TextLimits.LEGACY_BYTES:textCapability.incoming())+"\nwriter_pending_bytes="+writer.pendingBytes()+"\n"+metrics.snapshot()+(noise==null?"":noise.diagnostics());}
+    public String diagnostics(){return "protocol="+(noise==null?"NIM3":"NIM4")+"\nend_to_end_encrypted="+endToEndEncrypted()+"\ntext_send_limit_bytes="+textLimit()+"\ntext_receive_limit_bytes="+(textCapability==null?TextLimits.LEGACY_BYTES:textCapability.incoming())+"\nwriter_pending_bytes="+writer.pendingBytes()+"\n"+metrics.snapshot("framed_session")+(noise==null?"":noise.diagnostics());}
     public boolean endToEndEncrypted(){return isReady()&&noise!=null&&noise.verified();}
 }

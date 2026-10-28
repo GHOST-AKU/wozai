@@ -5,7 +5,7 @@ import java.util.function.LongSupplier;
 
 /** One local V2 attempt; DATA accounting excludes restored prefixes and control records. */
 public final class TransferAttempt {
-    private final String id=UUID.randomUUID().toString(),transfer,role;
+    private final String id=UUID.randomUUID().toString(),transfer,role,pipeline;
     private final LongSupplier clock;
     private final long started,wall;
     private long changed,payload,prefix,confirmed,windowBytes,peak;
@@ -14,11 +14,13 @@ public final class TransferAttempt {
     private final long[] buckets=new long[10];
     private long bucketTick=Long.MIN_VALUE;
     private String completed;
-    private boolean verified;
+    private boolean verified,peerComplete;
+    public synchronized void peerCompleteReceived(){peerComplete=true;}
     public synchronized void hashVerified(){verified=true;}
-    public TransferAttempt(String transfer,boolean outgoing){this(transfer,outgoing,System::nanoTime,System.currentTimeMillis());}
-    TransferAttempt(String transfer,boolean outgoing,LongSupplier clock,long wall){
-        this.transfer=transfer;role=outgoing?"send":"receive";this.clock=clock;this.wall=wall;started=changed=clock.getAsLong();
+    public TransferAttempt(String transfer,boolean outgoing,String pipeline){this(transfer,outgoing,System::nanoTime,System.currentTimeMillis(),pipeline);}
+    TransferAttempt(String transfer,boolean outgoing,LongSupplier clock,long wall){this(transfer,outgoing,clock,wall,"test");}
+    private TransferAttempt(String transfer,boolean outgoing,LongSupplier clock,long wall,String pipeline){
+        this.pipeline=pipeline;this.transfer=transfer;role=outgoing?"send":"receive";this.clock=clock;this.wall=wall;started=changed=clock.getAsLong();
     }
     public synchronized void phase(String next){if(completed!=null||phase.equals(next))return;long now=clock.getAsLong();phases.merge(phase,Math.max(0,now-changed),Long::sum);phase=next;changed=now;}
     public synchronized void data(long offset,long bytes){
@@ -43,13 +45,13 @@ public final class TransferAttempt {
         boolean success=state.equals("delivered")||state.equals("received");
         long restored=success?Math.max(prefix,total-payload):prefix;
         StringBuilder json=new StringBuilder("{");
-        field(json,"schema",1);field(json,"transfer_id",transfer);field(json,"attempt_id",id);field(json,"role",role);
+        field(json,"schema",1);field(json,"pipeline_counter_id",pipeline);field(json,"transfer_id",transfer);field(json,"attempt_id",id);field(json,"role",role);
         field(json,"start_unix_ms",wall);field(json,"end_unix_ms",terminal?wall+elapsed/1_000_000L:null);
         field(json,"elapsed_ms",elapsed/1e6);field(json,"state",state);field(json,"file_bytes",total);
         field(json,"attempt_data_bytes",payload);field(json,"confirmed_payload_bytes",confirmed);field(json,"resumed_prefix_bytes",restored);field(json,"written_offset",written);field(json,"durable_offset",durable);
         field(json,"average_mib_s",elapsed==0?0:confirmed*1e9/elapsed/1048576.0);
         field(json,"peak_1s_mib_s",peak/1048576.0);field(json,"peak_window", "10x100ms_ack_or_write_buckets");
-        field(json,"sha256",hash);field(json,"peer_complete_received",state.equals("delivered"));
+        field(json,"sha256",hash);field(json,"peer_complete_received",peerComplete);
         field(json,"local_hash_verified",verified);field(json,"terminal",terminal);
         json.append("\"phase_ms\":{");boolean first=true;
         for(var entry:times.entrySet()){if(!first)json.append(',');first=false;json.append(quote(entry.getKey())).append(':').append(entry.getValue()/1e6);}

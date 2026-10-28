@@ -93,7 +93,7 @@ public final class NoiseRecordChannel implements AutoCloseable {
     public boolean automaticFilesSupported(){return verified()&&(localCapabilities&remoteCapabilities&AUTOMATIC_FILE_CAPABILITY)!=0;}
     public Frame remoteHello(){return verified()?remoteHello:null;}
     public String remotePublicKey(){return verified()?remoteRoot:null;}
-    public String diagnostics(){return metrics.snapshot();}
+    public String diagnostics(){return metrics.snapshot("noise_record_channel");}
     public String connectionGeneration(){return verified()?generation:null;}
     public void write(byte[] plaintext)throws IOException {
         synchronized(writeLock){if(!verified())throw new IOException("Unauthenticated write");if(plaintext==null||plaintext.length>MAX_PLAIN)throw new IOException("Record too large");

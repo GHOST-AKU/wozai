@@ -8,7 +8,7 @@ public final class TransferAttemptTests {
         attempt.phase("checking");clock.set(1_000_000_000L);attempt.phase("transferring");
         attempt.data(1048576,1048576);attempt.progress(2097152);
         clock.set(2_000_000_000L);
-        attempt.hashVerified();String summary=attempt.snapshot("delivered",2097152,2097152,2097152,"a".repeat(64),true);
+        attempt.hashVerified();attempt.peerCompleteReceived();String summary=attempt.snapshot("delivered",2097152,2097152,2097152,"a".repeat(64),true);
         check(summary.contains("\"average_mib_s\":0.5"),"Restored prefix inflated goodput");
         check(summary.contains("\"resumed_prefix_bytes\":1048576"),"Missing resumed prefix");
         check(summary.contains("\"peer_complete_received\":true"),"Missing saved receipt");
@@ -18,6 +18,8 @@ public final class TransferAttemptTests {
         clock.addAndGet(1_000_000_000L);String rejected=failure.snapshot("failed",1000,0,0,null,true);
         check(rejected.contains("\"confirmed_payload_bytes\":0")&&rejected.contains("\"average_mib_s\":0.0"),"Queued bytes claimed delivered goodput");
         check(rejected.contains("\"local_hash_verified\":false"),"Failure claimed hash success");
+        TransferAttempt savedFailure=new TransferAttempt("saved-failure",true,clock::get,2500);savedFailure.peerCompleteReceived();
+        check(savedFailure.snapshot("history_save_failed",0,0,0,null,true).contains("\"peer_complete_received\":true"),"Actual peer COMPLETE lost when local persistence failed");
         TransferAttempt empty=new TransferAttempt("empty",false,clock::get,3000);
         check(!empty.snapshot("received",0,0,0,"b".repeat(64),true).contains("NaN"),"Empty transfer has invalid rate");
         try(AttachmentV2Tests.Pair pair=new AttachmentV2Tests.Pair()){
