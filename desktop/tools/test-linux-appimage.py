@@ -66,6 +66,11 @@ def locale_matrix(artifact, fixture, x11):
                     identity=before
                     if index in (0,1,9):smoke.screenshot(active,BUILD/f'linux-appimage-i18n-{expected}.png')
                     x11.close_window(active);assert process.wait(timeout=20)==0;active=None
+                except Exception:
+                    print('Locale inputs:',inputs,'selection:',selection,'launcher exit:',process.poll())
+                    print('Profile files:',[str(path.relative_to(home)) for path in home.rglob('*')])
+                    if active:smoke.screenshot(active,BUILD/f'linux-appimage-i18n-{index}-{attempt}-failed.png')
+                    raise
                 finally:
                     if active:x11.close_window(active)
                     if process.poll() is None:process.terminate();process.wait(timeout=5)

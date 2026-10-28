@@ -1,4 +1,4 @@
-# Reuse exact f221fed packages; only launcher checks and current peer fixtures change.
+# Reuse exact f221fed packages; do not repeat the passing Windows legacy contract.
 name: Unchanged native artifacts and legacy contract
 'on':
   push:
@@ -8,44 +8,6 @@ permissions:
   contents: read
   actions: read
 jobs:
-  windows-legacy:
-    runs-on: windows-latest
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 2
-    - name: Verify unchanged application and interoperability sources
-      shell: bash
-      run: git diff --exit-code f221fedfedf3878c79d3b8ac56dc5c57feebae4f HEAD -- app/src/main desktop/src/main desktop/native
-        i18n tools tests third_party ':(exclude)**/*.md'
-    - uses: actions/setup-java@v4
-      with:
-        distribution: temurin
-        java-version: '17'
-    - name: Compile current peer fixtures without running unrelated core suites
-      shell: pwsh
-      run: 'New-Item -ItemType Directory -Force -Path build/core-tests | Out-Null
-
-        $sourceFiles = @((Get-ChildItem app/src/main/java/dev/ghost/nearbyim/core/*.java).FullName) + @((Get-ChildItem tests/*.java).FullName)
-
-        $sourceFiles += (Resolve-Path app/src/main/java/dev/ghost/nearbyim/i18n/UiText.java).Path
-
-        $sourceFiles += (Resolve-Path app/src/main/java/dev/ghost/nearbyim/i18n/LocalizedIllegalArgumentException.java).Path
-
-        $sourceFiles += (Resolve-Path app/src/main/java/dev/ghost/nearbyim/GalleryExportNames.java).Path
-
-        $sourceFiles += (Get-ChildItem app/src/main/java/dev/ghost/nearbyim/noise -Recurse -Filter ''*.java'').FullName
-
-        $sourceFiles += (Get-ChildItem third_party/noise-java/src -Recurse -Filter ''*.java'').FullName
-
-        & java -m jdk.compiler/com.sun.tools.javac.Main -encoding UTF-8 -d build/core-tests @sourceFiles
-
-        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-        '
-    - name: Verify pinned old NIM4 text compatibility
-      shell: bash
-      run: sh tools/test-text-legacy.sh
   appimage-runtime:
     runs-on: ubuntu-24.04
     strategy:
@@ -72,7 +34,7 @@ jobs:
         '
     - uses: actions/checkout@v4
       with:
-        fetch-depth: 2
+        fetch-depth: 0
     - name: Verify unchanged candidate source and overlay updated launcher checks
       run: 'git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
@@ -99,6 +61,9 @@ jobs:
         path: desktop/build
         run-id: '40653563567'
         github-token: ${{ github.token }}
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
     - name: Verify unchanged portable launcher
       if: matrix.distribution == '22.04'
       run: xvfb-run -a -s '-screen 0 2560x1800x24' python3 desktop/tools/test-linux-package.py

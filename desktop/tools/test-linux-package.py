@@ -158,6 +158,8 @@ def main():
                     print('Observed X11 windows:', windows())
                     print('Launcher exit code:', process.poll())
                     print(launch_log.read_text(errors='replace'))
+                    for observed, _ in windows():
+                        screenshot(observed, BUILD / f'linux-package-failed-{observed}.png')
                     raise
                 identity = profile / 'identity.properties'
                 await_condition(lambda: identity.is_file(), 'Packaged launcher did not create the XDG identity')
