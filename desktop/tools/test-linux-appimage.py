@@ -43,6 +43,15 @@ def main():
             assert (extracted / "usr/licenses/AppImage-runtime-LICENSE.txt").is_file()
             assert (extracted / "usr/lib/runtime/legal/java.base/LICENSE").is_file()
             assert (extracted / "usr/lib/app/libwozai_bluetooth.so").is_file()
+            shutil.copyfile(extracted / "usr/runtime-requirements.txt", BUILD / "linux-appimage-runtime-requirements.txt")
+            # Reuse the production encrypted LAN/consent/storage regression with
+            # the extracted AppImage's JVM and JARs, never the build-host JDK.
+            runtime = extracted / "usr/lib/runtime/bin/java"
+            with (BUILD / "linux-appimage-messaging.txt").open("w") as log:
+                subprocess.run([runtime, "-Dwozai.bluetooth.library=" + str(extracted / "usr/lib/app/libwozai_bluetooth.so"),
+                                "-cp", str(extracted / "usr/lib/app/*") + os.pathsep + str(BUILD / "tests"),
+                                "dev.ghost.wozai.DiscoveryTests"],
+                               stdout=log, stderr=subprocess.STDOUT, check=True, timeout=90)
             shutil.rmtree(extracted)
             environment = os.environ.copy()
             environment["APPIMAGE_EXTRACT_AND_RUN"] = "1"
@@ -81,7 +90,7 @@ def main():
             active = None
             assert hashlib.sha256(artifact.read_bytes()).hexdigest() == expected
             assert not list(fixture.glob("*.AppImage.home")) and not (fixture / "data").exists()
-            print("AppImage smoke: type-2 extraction, exact source/version, no-FUSE GUI, bundled JVM/CJK/JNI/licenses, read-only special path, private XDG identity, persistent menu/icon, GIO restart and clean exit passed")
+            print("AppImage smoke: type-2 extraction, exact source/version, bundled-runtime NIM4 LAN consent/messages/saved receipts, no-FUSE GUI, bundled JVM/CJK/JNI/licenses, read-only special path, private XDG identity, persistent menu/icon, GIO restart and clean exit passed")
     finally:
         if active:
             x11.close_window(active)

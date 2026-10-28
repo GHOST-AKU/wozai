@@ -60,6 +60,41 @@ class RuntimeDependenciesTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0, 'A missing runtime dependency was silently ignored')
         self.assertIn('libmissing.so.1', result.stderr)
 
+    def versioned_library(self, version, required=True):
+        private = self.image / 'lib/runtime/lib'
+        private.mkdir(parents=True, exist_ok=True)
+        script = self.root / 'versions.map'
+        script.write_text(version + ' { global: runtime_probe; local: *; };\n')
+        self.library(private / 'libprobe.so', 'int runtime_probe(void) { return 1; }',
+                     ('-Wl,--version-script=' + str(script),))
+        if required:
+            self.library(private / 'libjvm.so', 'extern int runtime_probe(void); int jvm(void) { return runtime_probe(); }',
+                         ('-L' + str(private), '-lprobe', '-Wl,-rpath,$ORIGIN'))
+
+    def test_newer_required_abis_fail_before_a_package_can_be_shipped(self):
+        for version in ('GLIBC_2.36', 'GLIBCXX_3.4.32', 'CXXABI_1.3.14', 'GLIBC_ABI_DT_RELR'):
+            with self.subTest(version=version):
+                self.versioned_library(version)
+                result = self.invoke()
+                self.assertNotEqual(result.returncode, 0, 'Ubuntu 22.04 cannot provide ' + version)
+                self.assertIn('Ubuntu 22.04', result.stderr)
+                self.assertIn('lib/runtime/lib/libjvm.so', result.stderr)
+                self.assertIn(version, result.stderr)
+
+    def test_exported_version_definitions_are_not_system_requirements(self):
+        self.versioned_library('GLIBCXX_99.0', required=False)
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn('GLIBCXX_99.0', (self.image / 'runtime-requirements.txt').read_text())
+
+    def test_baseline_boundary_versions_are_accepted(self):
+        for version in ('GLIBC_2.35', 'GLIBCXX_3.4.30', 'CXXABI_1.3.13'):
+            with self.subTest(version=version):
+                self.versioned_library(version)
+                result = self.invoke()
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn(version, (self.image / 'runtime-requirements.txt').read_text())
+
 
 if __name__ == '__main__':
     unittest.main()

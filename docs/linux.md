@@ -1,10 +1,28 @@
-# 我在 · NearbyIM · Linux 0.3.2 Preview 1
+# 我在 · NearbyIM · Linux
 
-Linux 客户端与 Android、Windows 共用 NIM4 Noise 端到端加密协议、设备身份、应用内信任、文字／文件／照片和保存回执。包含局域网发现／地址连接、经典蓝牙 RFCOMM、历史重连、会话草稿、浅深主题、大字体与五种语言。软件包自带 Java 17 和 Noto CJK 字体。本次为预览版，最新稳定版仍为0.3.1。
+Linux 客户端与 Android、Windows 共用 NIM4 Noise 端到端加密协议、设备身份、应用内信任、文字／文件／照片和保存回执。包含局域网发现／地址连接、经典蓝牙 RFCOMM、历史重连、会话草稿、浅深主题、大字体与五种语言。软件包自带 Java 17 和 Noto CJK 字体。最新稳定版为 0.3.2；开发源码为 0.3.3-preview.2，新版 Linux 包尚未发布。
+
+## 0.3.3 Linux 兼容基线 / Compatibility baseline
+
+0.3.3 候选 x64 软件包以 **Ubuntu 22.04** 的发行版工具链（默认 GCC 11）构建，目标为 Ubuntu 22.04 与较新受测系统；不承诺任意 Linux 发行版兼容。仍需要 X11/XWayland、系统图形/字体/音频库及 GIO，使用蓝牙时需要 BlueZ。不要为运行软件安装编译器或额外的 Java。
+
+打包前检查启动器、BlueZ JNI 和整个内置 JVM 的 ELF **所需符号**：GLIBC 不高于 2.35、GLIBCXX 不高于 3.4.30、CXXABI 不高于 1.3.13；超出或出现未知版本标签时直接失败。`dpkg-shlibdeps` 继续校验实际系统库并生成 deb 依赖，`runtime-requirements.txt` 记录真实要求；符号门槛不能代替实际启动测试。不随包覆盖系统 `libstdc++` 或 GLib，也不通过全局修改 `LD_LIBRARY_PATH` 绕过依赖。
+
+CI 只构建一次，在没有编译器/宿主 JDK 的干净 Ubuntu 22.04、24.04 用户空间中验证**同一份 AppImage**：真实窗口、包内 JVM/JAR 的 NIM4 发现/认可/双向消息/保存回执、无 FUSE 启动、只读特殊路径、用户身份及菜单重启。结果和精确来源见 [#42](https://github.com/GHOST-AKU/wozai/issues/42)；容器/Xvfb 不能代表实体蓝牙、Wayland 桌面或所有发行版验收。
+
+构建侧的包验证使用 Python 3.12，保留 tarfile 的 `data` 安全过滤：Ubuntu 22.04 系统 Python 3.10 的过滤器回移版本会误判 JVM 许可证的合法相对符号链接。应用本身不依赖 Python。手动工作流可选择 `packaging-only`，仅在核心源码不变、已另行记录通过提交与源码比较时复用核心检查；默认及发布复用调用仍执行完整检查。构建成功后立即留存候选，再做 GUI 检查，避免后续验证失败丢失已生成的包。
+
+**已发布 0.3.2 的 AppImage 在 Ubuntu 22.04 有 `GLIBCXX_3.4.32 not found` 启动缺陷。** 以下稳定版下载不包含本候选修复；候选构建通过不等于已发布，也不等于上游 AppImage 目录已重新验收。
+
+English: candidate 0.3.3 x64 packages use the Ubuntu 22.04 distribution toolchain (default GCC 11). Packaging rejects required ELF versions above GLIBC 2.35, GLIBCXX 3.4.30 or CXXABI 1.3.13, including requirements inside the bundled JVM; exported definitions are not mistaken for system requirements. Actual dependencies remain derived by `dpkg-shlibdeps`. Do not install a compiler/JDK to run the package, replace system C++/GLib libraries, or change global library paths. X11/XWayland and the documented system GUI/GIO/audio libraries remain required; Bluetooth needs BlueZ.
+
+CI builds once, then checks the identical AppImage in fresh Ubuntu 22.04/24.04 runtime-only userspaces: native window, bundled-JVM NIM4 discovery/consent/messages/saved receipts, no-FUSE execution, read-only special paths, private identity and menu restart. Exact results stay in #42. Published v0.3.2 still has the Ubuntu 22.04 `GLIBCXX_3.4.32` failure; these development changes are not a new release or upstream catalog acceptance. Container/Xvfb checks do not establish physical Bluetooth, Wayland or arbitrary-distribution support.
+
+Build-side package verification uses Python 3.12 and retains the tarfile `data` safety filter; Ubuntu 22.04's Python 3.10 backport misinterprets valid relative JVM license symlinks. The application has no Python dependency. Manual `packaging-only` runs require separately recorded passing core evidence and an unchanged-source comparison; default and reusable release calls keep the full checks. Upload the candidate immediately after building so a later GUI-test failure does not discard it.
 
 ## 运行与安装
 
-从 [0.3.2 Preview 1](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.2-preview.1) 下载 AppImage、tar.gz 或 deb，校验 `SHA256SUMS.txt`。应用内部版本为0.3.2，通信双方均须升级至NIM4，不能与0.3.1的NIM3互通。支持多选任务、暂停／继续、失败重发及打开保存位置，单文件上限10 GiB，照片可在应用内查看，完整保存后确认送达。图标来源与多尺寸接入见[图标说明](app-icon.md)。
+从 [稳定版 0.3.2](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.2) 下载 AppImage、tar.gz 或 deb，校验 `SHA256SUMS.txt`，并留意上面的 Ubuntu 22.04 限制。应用内部版本为0.3.2，通信双方均须升级至NIM4，不能与0.3.1的NIM3互通。支持多选任务、暂停／继续、失败重发及打开保存位置，单文件上限10 GiB，照片可在应用内查看，完整保存后确认送达。图标来源与多尺寸接入见[图标说明](app-icon.md)。
 
 首发构建为 Linux x64。需要满足包内 `runtime-requirements.txt` 所列的系统运行库版本、图形桌面（X11，或启用 XWayland 的 Wayland 桌面）、系统 X11／字体／音频库和 BlueZ 蓝牙服务。提供 AppImage、tar.gz 应用目录及 Debian／Ubuntu 的 deb 包；蓝牙需要支持经典蓝牙的适配器。ARM64 可在对应架构的 Linux 上从源码构建，尚未发布或验证其软件包。
 
@@ -68,13 +86,15 @@ Linux 使用 BlueZ 的 `Adapter1`、`Device1` 与 `ProfileManager1`，由系统�
 
 ## 从源码构建
 
-需要 Linux JDK 17、Python 3、C++17 编译器、pkg-config、GIO 开发包、D-Bus 工具；打包还需要 `dpkg-dev`、`binutils`、`squashfs-tools` 和 `desktop-file-utils`。Debian／Ubuntu 开发依赖通常可通过 `build-essential libglib2.0-dev dbus-x11 dpkg-dev binutils squashfs-tools desktop-file-utils` 安装；图形自动验证还需要 `xvfb xauth`。
+可分发 x64 包使用干净 Ubuntu 22.04 环境，需要 Linux JDK 17、Python 3、默认 C++17 编译器、pkg-config、GIO 开发包、D-Bus 工具；打包还需要 `dpkg-dev`、`binutils`、`squashfs-tools` 和 `desktop-file-utils`。开发依赖可通过 `build-essential libglib2.0-dev dbus-x11 dpkg-dev binutils squashfs-tools desktop-file-utils` 安装；图形自动验证还需要 `xvfb xauth x11-utils python3-pil libasound2`。完整构建与同包跨系统检查步骤见 `.github/workflows/linux.yml`。其他宿主系统的开发构建仍受 ABI 门槛约束，不能据宿主可运行推断符合分发基线。
 
 ```sh
 export JAVA_HOME=/path/to/jdk-17
 sh desktop/tools/build.sh --package
 ```
 
-构建下载并验证依赖与字体 SHA-256，编译 BlueZ JNI，运行桌面测试以及独立 D-Bus／真实文件描述符的蓝牙协议测试，再生成 `desktop/build/NearbyIM-0.3.2-linux-x64.tar.gz` 、AppImage 和可用时的 deb 包。`sh desktop/tools/build.sh --run` 运行开发界面。
+构建下载并验证依赖与字体 SHA-256，编译 BlueZ JNI，运行桌面测试以及独立 D-Bus／真实文件描述符的蓝牙协议测试，再生成 `desktop/build/NearbyIM-0.3.3-preview.2-linux-x64.tar.gz`、同版本 AppImage 和可用时的 deb 包。版本来自 `i18n/config.json`。`sh desktop/tools/build.sh --run` 运行开发界面。
+
+English build instructions: use a clean Ubuntu 22.04 x64 environment, JDK 17 and its default C++17 toolchain with the build dependencies above. Run `sh desktop/tools/build.sh --package` with `JAVA_HOME` set to the JDK. The workflow lists the complete setup and cross-distribution runtime checks. Filenames use the shared preview version from `i18n/config.json`; developer builds on newer hosts must still meet the ABI gate. Building on a newer host alone is not evidence of baseline compatibility.
 
 验证范围、实际环境与待完成的设备验收见 [Linux 验证记录](linux-verification.md)。
