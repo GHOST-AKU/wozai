@@ -44,7 +44,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     private final JTextArea composer = new JTextArea(3, 30), addresses = new JTextArea(4, 30);
     private final JTextArea feedback = new JTextArea(2, 40);
     private final JLabel status = plainLabel(""), chatTitle = plainLabel("");
-    private final JLabel textCapacity=plainLabel("");
+    private final JLabel composerNotice=plainLabel("");
     private final JButton listenButton = new JButton(), send = new JButton(),sendFile=new JButton(),sendPhoto=new JButton(),attach=new JButton(),emoji=new JButton();
     private final java.util.concurrent.ThreadPoolExecutor attachmentWorker=new java.util.concurrent.ThreadPoolExecutor(1,1,0,java.util.concurrent.TimeUnit.SECONDS,new java.util.concurrent.ArrayBlockingQueue<>(16),r->{Thread t=new Thread(r,"attachment-ui");t.setDaemon(true);return t;},new java.util.concurrent.ThreadPoolExecutor.AbortPolicy());
     private final Map<String,java.awt.image.BufferedImage> thumbnails=new LinkedHashMap<>();
@@ -205,7 +205,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         JPopupMenu attachmentMenu=new JPopupMenu();attachmentMenu.add(attachments);JLabel capacity=label("attachmentHintV2");capacity.setBorder(BorderFactory.createEmptyBorder(8,12,8,12));capacity.setForeground(AppTheme.muted);attachmentMenu.add(capacity);attach.addActionListener(e->attachmentMenu.show(attach,Math.min(0,attach.getWidth()-attachmentMenu.getPreferredSize().width),-attachmentMenu.getPreferredSize().height));
         sendFile.addActionListener(e->attachmentMenu.setVisible(false));sendPhoto.addActionListener(e->attachmentMenu.setVisible(false));
         ((javax.swing.text.AbstractDocument)composer.getDocument()).setDocumentFilter(new DraftDocumentFilter(()->notice(UiText.of("draftEditTooLarge",TextLimits.DRAFT_BYTES))));
-        textCapacity.setForeground(AppTheme.muted);JPanel composerArea=new JPanel(new BorderLayout());composerArea.setOpaque(false);composerArea.add(input,BorderLayout.CENTER);composerArea.add(textCapacity,BorderLayout.SOUTH);
+        composerNotice.setForeground(AppTheme.muted);JPanel composerArea=new JPanel(new BorderLayout());composerArea.setOpaque(false);composerArea.add(input,BorderLayout.CENTER);composerArea.add(composerNotice,BorderLayout.SOUTH);
         chat.add(composerArea, BorderLayout.SOUTH);
         history.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         history.addListSelectionListener(e -> { if (!e.getValueIsAdjusting() && !updatingSelection) select(history.getSelectedValue()); });
@@ -383,7 +383,8 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         refreshAvatarViews();
         int limit=client.textLimit(),bytes=TextLimits.utf8Bytes(composer.getText());
         send.setEnabled(selected != null && state.peer() != null && selected.equals(state.peer().id()) && state.phase().equals("ready") && TextLimits.canSend(composer.getText(),limit));
-        textCapacity.setText(bytes<0?strings.text("textInvalidUnicode"):strings.text(bytes>limit?"textOverLimit":"textByteCount",bytes,limit));textCapacity.setVisible(!composer.getText().isEmpty());
+        String notice=bytes>limit?strings.text("messageTooLong"):bytes<0?strings.text("messageIncomplete"):"";
+        composerNotice.setText(notice);composerNotice.setVisible(!notice.isEmpty());
         boolean fileReady=selected!=null&&state.peer()!=null&&selected.equals(state.peer().id())&&state.phase().equals("ready");sendFile.setEnabled(fileReady);sendPhoto.setEnabled(fileReady);attach.setEnabled(fileReady);emoji.setEnabled(selected!=null);
         composer.setEnabled(selected != null); refreshBluetoothText();
     }

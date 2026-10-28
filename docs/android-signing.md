@@ -34,7 +34,7 @@ GitHub Actions 的 **Build Android with the persistent signing certificate** 使
 
 ## 覆盖升级验收
 
-当前源码为 `0.3.3-preview.2`、code13，版本源为 `i18n/config.json`。历史签名维护使用 code7→code8；该历史基线和已发布标签／附件保持原状。当前候选另核对正式 0.3.2/code12→code13，公开基线哈希记入 `tools/android-signing.json`，不重新编译旧发行包。
+当前源码为 `0.3.3-preview.2`、code13，版本源为 `i18n/config.json`。历史签名维护使用 code7→code8；该历史基线和已发布标签／附件保持原状。当前候选另核对正式 0.3.2/code12→code13，公开基线哈希和实际 schema7 记入 `tools/android-signing.json`，不重新编译旧发行包。两条路径分别严格检查其预期 schema（code7/8 为4），不将旧夹具的版本假设用于新基线。
 
 API 26 / 34 自动检查安装的是公开 0.3.1 的确切字节，启动旧应用创建实际设备 UUID、SQLite 与 AndroidKeyStore 身份，然后在空白模拟器内写入测试消息、信任记录和设置。不同证书更新必须以 `INSTALL_FAILED_UPDATE_INCOMPATIBLE` 拒绝，拒绝后再次检查资料；同证书 code 8 通过 `adb install -r` 覆盖，重新启动应用，再检查 UID、聊天、会话、昵称、设备 UUID、公钥、旧签名证明、私钥继续签名、信任、界面设置及私有文件字节。测试只允许模拟器，发现已有消息或信任记录时拒绝写入测试资料。
 
@@ -48,4 +48,8 @@ Every APK offered for installation, including an unpublished preview, must match
 
 The fixed-signature native candidate uses `WOZAI_ANDROID_CANDIDATE_ONLY=true python3 tools/build-signed-android.py --preview`. Only the signing step receives existing repository Secrets; missing or different keys fail closed, and the private temporary file is removed. A restricted owner-controlled implementation branch or a manual main run may invoke this workflow; arbitrary PRs cannot. The user artifact contains only the client and public signature metadata. Test APKs and wrong-signer fixtures remain explicitly internal.
 
-The current source is preview.2/code13. Verification reuses the exact published code12 APK pinned by digest and exercises in-place upgrades, preserved identity/trust/history/settings and rejection of the withdrawn incorrect signer. Historical code7/code8 tests remain available. None of these workflows publishes a release. A device that already installed another certificate cannot be overwritten by the project certificate without the corresponding original signing authority; retain its data and resolve that case separately.
+The current source is preview.2/code13. Verification reuses the exact published code12 APK pinned by digest and schema7, and exercises in-place upgrades, preserved identity/trust/history/settings and rejection of the withdrawn incorrect signer. Historical code7/code8 uses schema4; each path checks its exact expected schema. Historical code7/code8 tests remain available. None of these workflows publishes a release. A device that already installed another certificate cannot be overwritten by the project certificate without the corresponding original signing authority; retain its data and resolve that case separately.
+
+测试代码修正而客户端输入未变时，可以通过 `--preview --fixtures-for <完整提交SHA>` 重建测试 APK；必须先放入已校验的 `candidate.apk`。脚本强制核对祖先关系、应用／资源／构建输入无差异、客户端来源与固定证书，以及重新生成的优化 DEX 与原 APK 完全一致；不重新交付另一份客户端。升级输入清单分别记录测试提交与客户端提交。
+
+For test-only corrections, `--preview --fixtures-for <full-commit-SHA>` can rebuild fixtures for an already verified `candidate.apk`. Reuse requires an ancestor commit, identical application/resource/build inputs, pinned provenance/certificate, and an exact match between regenerated optimized DEX and the original APK. The client bytes remain unchanged; the upgrade manifest records both fixture and client revisions.
