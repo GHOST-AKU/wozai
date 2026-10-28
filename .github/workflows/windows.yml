@@ -38,6 +38,9 @@ permissions:
   contents: read
 jobs:
   linux-compatibility:
+    permissions:
+      contents: read
+      actions: read
     if: inputs['include-linux'] || github.ref_name == 'feat/linux-client'
     uses: ./.github/workflows/linux.yml
     with:
