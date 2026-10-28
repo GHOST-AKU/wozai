@@ -170,7 +170,7 @@ public final class GuiTests {
             edt(() -> { chatScroll.getVerticalScrollBar().setValue(180); return null; });
             int previousScroll = edt(() -> chatScroll.getVerticalScrollBar().getValue());
             edt(() -> { language(languages, "zh-Hans"); return null; });
-            await(() -> area(w, "输入消息").getText().equals("unsent draft") && button(w, "发送").isEnabled() && messages.text().contains("已送达"), "Live language change interrupted session or draft");
+            await(() -> languages.isEnabled() && area(w, "输入消息").getText().equals("unsent draft") && button(w, "发送").isEnabled() && messages.text().contains("已送达"), "Live language change interrupted session or draft");
             await(() -> help.getTitle().equals("使用说明") && about.getTitle().equals("关于我在") && trust.getTitle().equals("已信任设备"), "Open dialogs kept the old language");
             if (!edt(() -> components(help).stream().anyMatch(c -> c instanceof JTextArea a && a.getText().contains("局域网")) && components(about).stream().anyMatch(c -> c instanceof JTextArea a && a.getText().contains(LanguageRegistry.VERSION)))) throw new AssertionError("Open information bodies/version did not refresh");
             if (!edt(() -> search.getText().equals("pho") && components(w).stream().anyMatch(c -> c instanceof JList<?> list && "聊天".equals(list.getAccessibleContext().getAccessibleName()) && list.getSelectedValue() instanceof DesktopStore.Peer peer && peer.id().equals(id)))) throw new AssertionError("Language change lost search or selected history");
@@ -178,7 +178,7 @@ public final class GuiTests {
             for (String tag : new String[]{"zh-Hant", "ja", "ko"}) {
                 Strings translated = new Strings(tag);
                 edt(() -> { language(languages, tag); return null; });
-                await(() -> area(w, translated.text("composer")).getText().equals("unsent draft")
+                await(() -> languages.isEnabled() && area(w, translated.text("composer")).getText().equals("unsent draft")
                         && button(w, translated.text("send")).isEnabled()
                         && messages.text().contains(translated.text("delivered"))
                         && help.getTitle().equals(translated.text("help"))
@@ -191,7 +191,7 @@ public final class GuiTests {
                 }
             }
             edt(() -> { Locale.setDefault(Locale.Category.DISPLAY, Locale.US); language(languages, LanguageRegistry.SYSTEM); return null; });
-            await(() -> area(w, "Type a message").getText().equals("unsent draft") && help.getTitle().equals("How to use"), "System choice did not resolve English");
+            await(() -> languages.isEnabled() && area(w, "Type a message").getText().equals("unsent draft") && help.getTitle().equals("How to use"), "System choice did not resolve English");
             edt(() -> { Locale.setDefault(Locale.Category.DISPLAY, Locale.SIMPLIFIED_CHINESE); return null; });
             await(() -> help.getTitle().equals("使用说明") && trust.getTitle().equals("已信任设备") && area(w, "输入消息").getText().equals("unsent draft"), "Running system language change did not refresh open UI");
             Path settingsFile=root.resolve("settings.properties"), savedSettings=root.resolve("settings-language-backup.properties");
