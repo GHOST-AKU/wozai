@@ -1,4 +1,4 @@
-# Reuse exact f221fed packages; native container Python/Pillow stays ABI-compatible.
+# Reuse exact f221fed packages; configure the UTF-8 display locale used by Unicode-path fixtures.
 name: Unchanged native artifacts and legacy contract
 'on':
   push:
@@ -25,7 +25,9 @@ jobs:
 
         DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates git python3 python3-pil
         libstdc++6 libglib2.0-bin libx11-6 libxext6 libxi6 libxrender1 libxtst6 libfreetype6 libfontconfig1 ${{ matrix.audio
-        }} dbus-x11 xvfb xauth x11-utils desktop-file-utils
+        }} dbus-x11 xvfb xauth x11-utils desktop-file-utils locales
+
+        localedef -i zh_CN -f UTF-8 zh_CN.UTF-8
 
         ! command -v javac
 
@@ -100,7 +102,9 @@ jobs:
     - name: Install launcher-verifier dependencies
       run: 'sudo apt-get update
 
-        sudo apt-get install -y xvfb xauth x11-utils desktop-file-utils libglib2.0-bin
+        sudo apt-get install -y xvfb xauth x11-utils desktop-file-utils libglib2.0-bin locales
+
+        sudo localedef -i zh_CN -f UTF-8 zh_CN.UTF-8
 
         python3 -m pip install Pillow
 

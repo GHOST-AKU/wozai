@@ -71,7 +71,9 @@ jobs:
       - name: Install Linux build and GUI verification dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config libglib2.0-dev dbus-x11 xvfb xauth x11-utils desktop-file-utils libasound2 squashfs-tools
+          sudo apt-get install -y build-essential pkg-config libglib2.0-dev dbus-x11 xvfb xauth x11-utils desktop-file-utils libasound2 squashfs-tools locales
+          # The Unicode-path fixture needs a valid display locale as well as LC_CTYPE.
+          sudo localedef -i zh_CN -f UTF-8 zh_CN.UTF-8
           python3 -m pip install Pillow
       - name: Read shared release version
         id: metadata
@@ -155,7 +157,8 @@ jobs:
       - name: Install runtime-only GUI verification dependencies
         run: |
           apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates git python3 python3-pil libstdc++6 libglib2.0-bin libx11-6 libxext6 libxi6 libxrender1 libxtst6 libfreetype6 libfontconfig1 ${{ matrix.audio }} dbus-x11 xvfb xauth x11-utils desktop-file-utils
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates git python3 python3-pil libstdc++6 libglib2.0-bin libx11-6 libxext6 libxi6 libxrender1 libxtst6 libfreetype6 libfontconfig1 ${{ matrix.audio }} dbus-x11 xvfb xauth x11-utils desktop-file-utils locales
+          localedef -i zh_CN -f UTF-8 zh_CN.UTF-8
           ! command -v javac
           ! command -v g++
       - uses: actions/checkout@v4
