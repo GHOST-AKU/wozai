@@ -1,5 +1,17 @@
 # Linux 客户端验证记录
 
+## 0.3.3 Ubuntu 22.04 基线（2026-10-28）
+
+[#42](https://github.com/GHOST-AKU/wozai/issues/42) 跟踪新候选的精确提交、失败证据和运行结果。已发布 v0.3.2 AppImage 的 SHA-256 为 `41ad19329f479b1add85786f26845e9e16bc04e78326215255f3eace4708536c`；其 `usr/bin/NearbyIM` 的 ELF 版本需求包含 `GLIBCXX_3.4.32`，在干净 Ubuntu 22.04 用户空间复现了同名缺失版本的加载失败，尚未进入 Java。这是包内启动器的动态 C++ ABI 要求，不是外层静态 AppImage runtime 的 FUSE 问题。
+
+新构建链路使用 Ubuntu 22.04 默认 GCC 11，检查所有包内 ELF 的所需 GLIBC/GLIBCXX/CXXABI 上限及实际 deb 依赖；同一 AppImage 分别进入干净 22.04/24.04 用户空间，不重复编译。符号门槛测试使用真实编译的版本化 ELF，覆盖超出基线、未知 ABI 标签、精确边界和“导出定义不是系统需求”；旧脚本在这些回归上确实失败。实际包检查保留原生窗口、包内运行时消息/认可/保存回执、菜单及身份重启的证据。
+
+新候选验证不复写下方旧提交/旧协议的历史结果。软件发布与上游目录重新验收仍未进行；容器自动化不替代无线/蓝牙/真实桌面验收。
+
+English: the published v0.3.2 AppImage hash above requires `GLIBCXX_3.4.32` in its inner launcher; clean Ubuntu 22.04 reproduces the loader failure before Java starts. The new pipeline builds once on Ubuntu 22.04/GCC 11, enforces required ELF ABI ceilings, and checks the same AppImage in clean 22.04/24.04 runtime userspaces. Real versioned-ELF regressions first failed on the old dependency checker. Exact candidate results and failures belong to #42; historical results below retain their original commits/protocols. No new release, upstream catalog acceptance or physical-radio claim.
+
+## 历史记录（2026-10-03）
+
 日期：2026-10-03。当前实现位于 `feat/linux-client`，基于已合并 Windows 客户端的 `2da6621`，应用版本沿用共享版本 0.3.1，NIM2 线协议未改。
 
 ## 本地自动验证

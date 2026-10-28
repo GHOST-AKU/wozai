@@ -32,7 +32,7 @@ jobs:
   linux:
     # Native Apple drafts do not need another Linux package; review-ready PRs still run all checks.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.ref != 'feat/apple-native' || !github.event.pull_request.draft
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -43,7 +43,7 @@ jobs:
       - name: Install Linux build and GUI verification dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config libglib2.0-dev dbus-x11 xvfb xauth x11-utils desktop-file-utils libasound2t64 squashfs-tools
+          sudo apt-get install -y build-essential pkg-config libglib2.0-dev dbus-x11 xvfb xauth x11-utils desktop-file-utils libasound2 squashfs-tools
           python3 -m pip install Pillow
       - name: Read shared release version
         id: metadata
@@ -61,13 +61,11 @@ jobs:
         run: sh desktop/tools/build.sh --package
       - name: Verify native GUI, bundled runtime, scaling, mDNS and actual packaged launcher
         run: xvfb-run -a -s '-screen 0 2560x1800x24' sh desktop/tools/test-linux-gui.sh
-      - name: Verify actual AppImage without FUSE and its persistent desktop entry
-        run: xvfb-run -a -s '-screen 0 2560x1800x24' python3 desktop/tools/test-linux-appimage.py
       - name: Measure desktop performance baseline
         if: inputs['performance-baseline']
         run: |
           python3 -m pip install psutil==7.2.2
-          xvfb-run -a -s '-screen 0 2560x1800x24' python3 desktop/tools/performance.py measure --image desktop/build/package/NearbyIM --test-classes desktop/build/tests --environment-kind ci --device 'GitHub ubuntu-24.04 x64 runner; Xvfb 2560x1800' --output desktop/build/performance-linux.json
+          xvfb-run -a -s '-screen 0 2560x1800x24' python3 desktop/tools/performance.py measure --image desktop/build/package/NearbyIM --test-classes desktop/build/tests --environment-kind ci --device 'GitHub ubuntu-22.04 x64 runner; Xvfb 2560x1800' --output desktop/build/performance-linux.json
       - uses: actions/upload-artifact@v4
         if: always() && inputs['performance-baseline']
         with:
@@ -75,6 +73,13 @@ jobs:
           path: |
             desktop/build/performance-linux.json
             desktop/build/performance-linux.logs
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-appimage-runtime-input
+          path: |
+            desktop/build/NearbyIM-*-linux-x64.AppImage
+            desktop/build/tests/dev/ghost/wozai/DiscoveryTests*.class
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
@@ -97,3 +102,42 @@ jobs:
             desktop/build/linux-appimage*.png
             desktop/build/linux-appimage*.txt
           if-no-files-found: ignore
+  appimage-runtime:
+    needs: linux
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - distribution: '22.04'
+            audio: libasound2
+          - distribution: '24.04'
+            audio: libasound2t64
+    # These fresh userspaces have runtime libraries, no compiler or host JDK.
+    # Both verify identical downloaded bytes from the single baseline build.
+    container: ubuntu:${{ matrix.distribution }}
+    steps:
+      - name: Install runtime-only GUI verification dependencies
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates git python3 python3-pil libstdc++6 libglib2.0-bin libx11-6 libxext6 libxi6 libxrender1 libxtst6 libfreetype6 libfontconfig1 ${{ matrix.audio }} dbus-x11 xvfb xauth x11-utils desktop-file-utils
+          ! command -v javac
+          ! command -v g++
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-appimage-runtime-input
+          path: desktop/build
+      - name: Verify unchanged AppImage in clean runtime userspace
+        run: |
+          cat /etc/os-release
+          sha256sum desktop/build/*.AppImage
+          xvfb-run -a -s '-screen 0 2560x1800x24' python3 desktop/tools/test-linux-appimage.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: linux-appimage-ubuntu-${{ matrix.distribution }}-evidence
+          path: |
+            desktop/build/linux-appimage*.png
+            desktop/build/linux-appimage*.txt
+          if-no-files-found: error
