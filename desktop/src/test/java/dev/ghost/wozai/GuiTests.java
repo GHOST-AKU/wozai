@@ -62,7 +62,7 @@ public final class GuiTests {
             store.setSetting("language", "en"); store.peer(new DesktopStore.Peer(id, "Phone", "", "")); store.draft(id, "saved draft");
             for (int i = 0; i < 35; i++) store.save(id, new DesktopStore.Message(UUID.randomUUID().toString(), "Earlier chat message " + i, 1_700_000_000_000L + i * 60_000L, false, "received"));
             DesktopIdentity.Identity identity = DesktopIdentity.load(root.resolve("identity.properties"));
-            window = edt(() -> { AppTheme.install(false); DesktopWindow w = new DesktopWindow(store, identity, root); w.setVisible(true); return w; });
+            window = edt(() -> { AppTheme.install(false); DesktopWindow w = new DesktopWindow(store, identity, root, DesktopBluetooth::openInquiry, ()->Locale.getDefault(Locale.Category.DISPLAY)); w.setVisible(true); return w; });
             DesktopWindow w = window;
             if (!w.getIconImages().stream().map(image -> image.getWidth(null)).toList().equals(DesktopIdentity.windows()
                     ? List.of(16, 24, 32, 48, 64, 128, 256) : List.of(16, 22, 24, 32, 48, 64, 96, 128, 256, 512)))
@@ -80,6 +80,7 @@ public final class GuiTests {
             edt(() -> { language(languages, "zh-Hans"); return null; });
             await(() -> w.getTitle().equals("我在") && area(w, "输入消息").getText().equals("saved draft"), "Language change lost draft");
             edt(() -> { language(languages, "en"); return null; });
+            await(() -> w.getTitle().equals("NearbyIM") && languages.isEnabled(), "English selection was not committed");
             float original = edt(() -> area(w, "Type a message").getFont().getSize2D());
             edt(() -> { components(w).stream().filter(c -> c instanceof JComboBox<?> b && "Standard".equals(b.getItemAt(0))).forEach(c -> ((JComboBox<?>) c).setSelectedIndex(2)); return null; });
             if (edt(() -> area(w, "Type a message").getFont().getSize2D()) <= original) throw new AssertionError("Text scaling did not affect composer");
@@ -107,7 +108,9 @@ public final class GuiTests {
             JDialog consent = edt(() -> dialog(w, "Chat request"));
             edt(() -> { language(languages, "zh-Hans"); return null; });
             await(() -> consent.isVisible() && consent.getTitle().equals("聊天请求") && button(consent, "同意并记住").isEnabled(), "Language change lost pending consent");
-            edt(() -> { language(languages, "en"); button(consent, "Approve and remember").doClick(); return null; });
+            edt(() -> { language(languages, "en"); return null; });
+            await(() -> consent.getTitle().equals("Chat request") && languages.isEnabled(), "Consent language save did not complete");
+            edt(() -> { button(consent, "Approve and remember").doClick(); return null; });
             if (!hello.await(3, TimeUnit.SECONDS)) throw new AssertionError("No phone HELLO");
             phoneTransfer=new AttachmentTransferV2(root.resolve("phone-attachments"),phoneRoot.fingerprint(),DeviceIdentity.fingerprint(phone.remotePublicKey()),phone.connectionGeneration(),false,new AttachmentTransferV2.Wire(){public boolean send(TransferPacket packet){return phone.sendTransfer(packet);}public void abort(){phone.close(UiText.EMPTY);}},record->{});transferRef.set(phoneTransfer);remote.approve();
             if (!ready.await(3, TimeUnit.SECONDS)) throw new AssertionError("GUI consent did not connect");
@@ -182,6 +185,13 @@ public final class GuiTests {
             await(() -> area(w, "Type a message").getText().equals("unsent draft") && help.getTitle().equals("How to use"), "System choice did not resolve English");
             edt(() -> { Locale.setDefault(Locale.Category.DISPLAY, Locale.SIMPLIFIED_CHINESE); return null; });
             await(() -> help.getTitle().equals("使用说明") && trust.getTitle().equals("已信任设备") && area(w, "输入消息").getText().equals("unsent draft"), "Running system language change did not refresh open UI");
+            Path settingsFile=root.resolve("settings.properties"), savedSettings=root.resolve("settings-language-backup.properties");
+            Files.move(settingsFile,savedSettings);Files.createDirectory(settingsFile);
+            try {
+                edt(()->{language(languages,"en");return null;});
+                await(()->languages.isEnabled()&&w.getTitle().equals("我在"),"Failed language save changed the visible language");
+                if(!edt(()->languages.getSelectedItem() instanceof DesktopWindow.LanguageOption option&&option.tag().equals(LanguageRegistry.SYSTEM)))throw new AssertionError("Failed save did not restore system selection");
+            } finally {Files.delete(settingsFile);Files.move(savedSettings,settingsFile);}
             if (!store.language().equals(LanguageRegistry.SYSTEM)) throw new AssertionError("System refresh replaced the saved system preference");
             if (!remote.isReady() || !remote.send(new Frame(Frame.TEXT, UUID.randomUUID().toString(), "Still connected after language changes", System.currentTimeMillis()))) throw new AssertionError("Language changes closed the live wire session");
             await(() -> messages.text().contains("Still connected after language changes"), "Live connection did not receive after language changes");

@@ -98,3 +98,9 @@ The desktop file-location control also uses Google's outlined `folder_open` icon
 ZXing core 3.5.3（Apache-2.0），仅用于离线二维码生成与读取。桌面与 Android 固定同一版本，JAR SHA-256 固定在 desktop/dependencies.txt，并在构建时检查；Android 由 R8 裁剪。许可证随客户端分发于 licenses/zxing-Apache-2.0.txt／Android assets。没有加入网络、分析或云端扫码服务。
 
 核验页新增的 lock、qr_code_scanner、content_copy 使用 Google Material Icons Outlined（Apache-2.0）。来源和原始文件摘要见 docs/licenses/material-verification-icons-sources.txt，许可沿用 docs/licenses/material-icons-LICENSE.txt。
+
+## Unicode emoji catalog
+
+Unicode emoji-test 16.0 and CLDR 47 annotations are used under the Unicode License (see `i18n/emoji/LICENSE.txt` and the license embedded beside each platform catalog). Data sources and hashes: `i18n/emoji/sources.json`. Labels/compact keywords are generated; four localized Sark territory names are documented supplements. No Unicode emoji artwork or font is distributed by this feature.
+
+Unicode 表情目录使用 Unicode 16.0 / CLDR 47 数据及 Unicode 许可，来源和哈希记录在 `i18n/emoji/`。不分发表情字形图片或字体。

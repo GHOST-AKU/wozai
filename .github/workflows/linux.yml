@@ -14,6 +14,10 @@ on:
       - '.gitignore'
   workflow_dispatch:
     inputs:
+      measure-ui-size:
+        description: 'Measure pre-change UI package size once for the localization/emoji increment'
+        type: boolean
+        default: false
       packaging-only:
         description: 'Run package/GUI checks only; requires separately recorded unchanged-core validation'
         type: boolean
@@ -78,6 +82,9 @@ jobs:
         env:
           WOZAI_RELEASE_TAG: ${{ inputs['release-tag'] }}
         run: sh desktop/tools/build.sh --package
+      - name: Measure controlled desktop package size delta
+        if: inputs['measure-ui-size']
+        run: python3 tools/measure-ui-size.py desktop
       # Retain the candidate even if a later verification step fails.
       - uses: actions/upload-artifact@v4
         with:
@@ -94,6 +101,7 @@ jobs:
             desktop/build/NearbyIM-*-linux-x64.deb
             desktop/build/NearbyIM-*-linux-x64.AppImage
             desktop/build/linux-checksums.txt
+            desktop/build/ui-size.json
           if-no-files-found: error
       - name: Verify native GUI, bundled runtime, scaling, mDNS and actual packaged launcher
         run: xvfb-run -a -s '-screen 0 2560x1800x24' sh desktop/tools/test-linux-gui.sh

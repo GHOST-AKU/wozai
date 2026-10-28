@@ -129,5 +129,8 @@ try {
     & java -cp build/core-tests dev.ghost.nearbyim.QrFocusPointTests
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     & java -cp build/core-tests dev.ghost.nearbyim.QrPreviewGeometryTests
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+java -cp build/core-tests dev.ghost.nearbyim.core.EmojiCatalogTests
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     exit $LASTEXITCODE
 } finally { Pop-Location }

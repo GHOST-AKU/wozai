@@ -14,6 +14,10 @@ on:
       - '.gitignore'
   workflow_dispatch:
     inputs:
+      measure-ui-size:
+        description: 'Measure pre-change UI package size once for the localization/emoji increment'
+        type: boolean
+        default: false
       native-only:
         description: 'After test-only changes, build optimized preview and run API 26/34 native checks only'
         type: boolean
@@ -64,6 +68,9 @@ jobs:
           sh tools/test-noise-candidate.sh
           sh tools/test-trust.sh
           sh tools/check-source.sh
+      - name: Measure pre-change optimized APK size
+        if: ${{ !inputs['native-only'] && inputs['measure-ui-size'] }}
+        run: python3 tools/measure-ui-size.py android-before
       - name: Build and lint
         if: ${{ !inputs['native-only'] }}
         run: |
@@ -79,6 +86,9 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs app/build/outputs/apk/debug/app-debug.apk > app/build/outputs/apk/signature.txt
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c 4 app/build/outputs/apk/debug/app-debug.apk
           sha256sum app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk > app/build/outputs/apk/checksums.txt
+      - name: Record optimized APK size delta
+        if: ${{ !inputs['native-only'] && inputs['measure-ui-size'] }}
+        run: python3 tools/measure-ui-size.py android-after
       - name: Verify preview APK signatures and alignment
         run: |
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs app/build/outputs/apk/preview/app-preview.apk > app/build/outputs/apk/preview-signature.txt
@@ -90,6 +100,7 @@ jobs:
           path: |
             app/build/outputs/apk/preview/app-preview.apk
             app/build/outputs/apk/androidTest/preview/app-preview-androidTest.apk
+            app/build/outputs/apk/ui-size.json
             app/build/outputs/apk/preview-checksums.txt
             app/build/outputs/apk/preview-signature.txt
           if-no-files-found: error

@@ -45,6 +45,7 @@ jobs:
       - name: Formatting and static checks
         shell: bash
         run: |
+          python terminal/tools/check-i18n.py
           python tools/version.py --check
           python tests/test_version.py
           cargo fmt --manifest-path terminal/Cargo.toml --check

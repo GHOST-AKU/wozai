@@ -1,0 +1,70 @@
+{
+  "LICENSE.txt": {
+    "url": "https://raw.githubusercontent.com/unicode-org/cldr/release-47/LICENSE",
+    "sha256": "b4c0ae8ef04f7059f96ce5bbe0467f9fe6f6d81bbe13517701dfeb961fb4d0b6"
+  },
+  "emoji-test.txt": {
+    "url": "https://www.unicode.org/Public/emoji/16.0/emoji-test.txt",
+    "sha256": "24f0c534e86cf142e2496953e8f0e46a3e702392911eddcd29c6cced85139697"
+  },
+  "en-annotations.xml": {
+    "url": "https://raw.githubusercontent.com/unicode-org/cldr/release-47/common/annotations/en.xml",
+    "sha256": "b33e2e88ed2fb8c438c1efa9747b9d845e8d7d74ef0c32342a805c0f46fdd7ec"
+  },
+  "en-annotationsDerived.xml": {
+    "url": "https://raw.githubusercontent.com/unicode-org/cldr/release-47/common/annotationsDerived/en.xml",
+    "sha256": "4f93a6780bcf83f85bf727af80ca18525b290910c378da169d5cb2ce938d765d"
+  },
+  "ja-annotations.xml": {
+    "url": "https://raw.githubusercontent.com/unicode-org/cldr/release-47/common/annotations/ja.xml",
+    "sha256": "5a382ade09fae626ce05f8cf74da8d5564d60f9716a9d5ac9d9a7cd4f245dc7f"
+  },
+  "ja-annotationsDerived.xml": {
+    "url": "https://raw.githubusercontent.com/unicode-org/cldr/release-47/common/annotationsDerived/ja.xml",
+    "sha256": "53d1983453d8439f509ce938fdb354c5b93686289396e4314c8e526c5809940d"
+  },
+  "ko-annotations.xml": {
+    "url": "https://raw.githubusercontent.com/unicode-org/cldr/release-47/common/annotations/ko.xml",
+    "sha256": "11041c6fea79ee364616750010112c96c80c478b6eeba491a4dba5a2a17d6b54"
+  },
+  "ko-annotationsDerived.xml": {
+    "url": "https://raw.githubusercontent.com/unicode-org/cldr/release-47/common/annotationsDerived/ko.xml",
+    "sha256": "846185e358c4ecab3bba81d6da9e48efa7b0b84370020f1ce07ac47cb52eb774"
+  },
+  "zh-annotations.xml": {
+    "url": "https://raw.githubusercontent.com/unicode-org/cldr/release-47/common/annotations/zh.xml",
+    "sha256": "06b289e1b563199df2e2c51ab93ca8a3780a57a7ee82f4600828936c8323af0d"
+  },
+  "zh-annotationsDerived.xml": {
+    "url": "https://raw.githubusercontent.com/unicode-org/cldr/release-47/common/annotationsDerived/zh.xml",
+    "sha256": "ff3f6baa2a6f1a8185b795e982a7712fd9aceed5e6c01cade13bb9f23687840b"
+  },
+  "zh_Hant-annotations.xml": {
+    "url": "https://raw.githubusercontent.com/unicode-org/cldr/release-47/common/annotations/zh_Hant.xml",
+    "sha256": "0edcae60777c5817fb48eac442b36f725b8a165940ee327643fda965fef771ee"
+  },
+  "zh_Hant-annotationsDerived.xml": {
+    "url": "https://raw.githubusercontent.com/unicode-org/cldr/release-47/common/annotationsDerived/zh_Hant.xml",
+    "sha256": "4ae84375225dcc776596ee62de5db0c76c0b1cdf77dc6e5ce45254b12a132001"
+  },
+  "en-territories.xml": {
+    "url": "https://raw.githubusercontent.com/unicode-org/cldr/release-47/common/main/en.xml",
+    "sha256": "cdb3d09f4d5cd206616a57cc8a8cb54c458c6678758c59b8b817125fe2dfb147"
+  },
+  "zh-territories.xml": {
+    "url": "https://raw.githubusercontent.com/unicode-org/cldr/release-47/common/main/zh.xml",
+    "sha256": "97fea2cfdb7bfe59a4e0ce712ca2e6ccba67ef211957296f60365c9f84b24d52"
+  },
+  "zh_Hant-territories.xml": {
+    "url": "https://raw.githubusercontent.com/unicode-org/cldr/release-47/common/main/zh_Hant.xml",
+    "sha256": "3495c56db66cd40d247967d9e887511ce037ca5d455e3246c25aed046161cc73"
+  },
+  "ja-territories.xml": {
+    "url": "https://raw.githubusercontent.com/unicode-org/cldr/release-47/common/main/ja.xml",
+    "sha256": "a19cd8bea5cc68b132ace70dd99b65935edf8114367a835f7717b3a3dbd81118"
+  },
+  "ko-territories.xml": {
+    "url": "https://raw.githubusercontent.com/unicode-org/cldr/release-47/common/main/ko.xml",
+    "sha256": "f7b9615d694e1821e4ad2bad8986cf3d57fe5f0f491662adb67b9833a43b036d"
+  }
+}

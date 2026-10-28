@@ -178,3 +178,6 @@
 # SAF receive-directory jobs are inspected by the separate native fixture.
 -keep class dev.ghost.nearbyim.core.AttachmentDirectoryStore { *; }
 -keep class dev.ghost.nearbyim.core.AttachmentDirectoryStore$* { *; }
+
+# Native picker instrumentation inspects its recycled grid and editable target.
+-keep class dev.ghost.nearbyim.EmojiPicker { *; }

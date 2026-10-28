@@ -336,8 +336,9 @@ fn setup(p: &mut Profile, cfg: &mut config::Config) -> Result<()> {
     );
     loop {
         let language = prompt(&i18n::text(&cfg.language, "setup.language"), &cfg.language)?;
-        if matches!(language.as_str(), "en" | "zh-CN") {
+        if i18n::supported(&language) {
             cfg.language = language;
+            i18n::set_current(&cfg.language);
             break;
         }
         eprintln!("{}", i18n::text(&cfg.language, "setup.invalid_language"));
@@ -431,6 +432,7 @@ fn run(mut cli: Cli) -> Result<()> {
     } else {
         profile.identity.name = cfg.nickname.clone();
     }
+    i18n::set_current(&cfg.language);
     let store = Arc::new(Mutex::new(profile));
     match &cli.command {
         Some(
@@ -451,22 +453,35 @@ fn run(mut cli: Cli) -> Result<()> {
                 return emit(
                     json!({"status":"ok","device_id":p.identity.id,"name":p.identity.name,"public_key":STANDARD.encode(&p.identity.public),"root_fingerprint":fingerprint}),
                     cli.json,
-                    format!(
-                        "{} · {}\nRoot fingerprint: {}",
-                        p.identity.name, p.identity.id, fingerprint
+                    i18n::current_format(
+                        "human.identity",
+                        &[
+                            ("name", &p.identity.name),
+                            ("id", &p.identity.id),
+                            ("fingerprint", &fingerprint),
+                        ],
                     ),
                 );
             }
             return emit(
                 json!({"schema":1,"status":"not_running","client":"NearbyIM Terminal","version":env!("CARGO_PKG_VERSION"),"protocol":"NIM4","device_id":p.identity.id,"name":p.identity.name,"root_fingerprint":fingerprint,"lan":true,"bluetooth":{"supported":false,"reason":"Classic Bluetooth RFCOMM backend not implemented"},"wifi_direct":{"supported":false,"reason":"native P2P adapter not implemented"},"identity_storage":if cfg!(windows){"current-user DPAPI"}else{"0700 profile / 0600 identity"},"history_encrypted_at_rest":false,"tty":interactive,"daemon":false,"listening_configured":cfg.lan_listen}),
                 cli.json,
-                format!(
-                    "NearbyIM Terminal {}\nProtocol: NIM4\nDevice: {} · {}\nRoot fingerprint: {}\nStatus: not_running (no daemon/IPC)\nLAN listening configured: {}\nBluetooth / Wi-Fi Direct: unsupported\nHistory is not encrypted at rest.",
-                    env!("CARGO_PKG_VERSION"),
-                    p.identity.name,
-                    p.identity.id,
-                    fingerprint,
-                    cfg.lan_listen
+                i18n::current_format(
+                    "human.status",
+                    &[
+                        ("version", env!("CARGO_PKG_VERSION")),
+                        ("name", &p.identity.name),
+                        ("id", &p.identity.id),
+                        ("fingerprint", &fingerprint),
+                        (
+                            "listening",
+                            &i18n::current_text(if cfg.lan_listen {
+                                "bool.true"
+                            } else {
+                                "bool.false"
+                            }),
+                        ),
+                    ],
                 ),
             );
         }
@@ -504,7 +519,7 @@ fn run(mut cli: Cli) -> Result<()> {
                 verification::export(&payload, path)?;
             }
             let display = if let Some(path) = output {
-                format!("Verification QR saved: {}", path.display())
+                i18n::current_format("human.qr_saved", &[("path", &path.display().to_string())])
             } else {
                 format!(
                     "{}\n{}",
@@ -534,9 +549,9 @@ fn run(mut cli: Cli) -> Result<()> {
                 json!({"status":"ok","peer_id":peer,"matches":matched,"trust_changed":false}),
                 cli.json,
                 if matched {
-                    "Full safety code matches; trust is unchanged."
+                    i18n::current_text("human.qr_matches")
                 } else {
-                    "The QR does not match; trust is unchanged."
+                    i18n::current_text("human.qr_mismatch")
                 },
             );
         }
@@ -582,8 +597,12 @@ fn run(mut cli: Cli) -> Result<()> {
                             format!(
                                 "{} {} [{}] {}",
                                 iso(m.time),
-                                if m.outgoing { "you" } else { "peer" },
-                                m.state,
+                                i18n::current_text(if m.outgoing {
+                                    "chat.you"
+                                } else {
+                                    "chat.peer"
+                                }),
+                                i18n::current_state(&m.state),
                                 m.body
                             )
                         })
@@ -620,7 +639,7 @@ fn run(mut cli: Cli) -> Result<()> {
                             "{} {} {} {}/{} {}",
                             s.info.id,
                             s.peer,
-                            s.state,
+                            i18n::current_state(&s.state),
                             s.offset,
                             s.info.size,
                             s.path.display()
@@ -651,7 +670,7 @@ fn run(mut cli: Cli) -> Result<()> {
             return emit(
                 json!({"status":"ok","transfer_id":id}),
                 cli.json,
-                "File operation completed.",
+                i18n::current_text("human.file_operation"),
             );
         }
         Some(Action::Files {
@@ -672,7 +691,7 @@ fn run(mut cli: Cli) -> Result<()> {
             return emit(
                 json!({"status":"canceled","transfer_id":id}),
                 cli.json,
-                "Transfer canceled locally; its tombstone prevents later resume.",
+                i18n::current_text("human.canceled"),
             );
         }
         Some(Action::Trust {
@@ -685,9 +704,28 @@ fn run(mut cli: Cli) -> Result<()> {
                 peers
                     .iter()
                     .map(|p| {
-                        format!(
-                            "{} {} remembered={} verified={}",
-                            p.id, p.name, p.remembered, p.verified
+                        i18n::current_format(
+                            "human.trust",
+                            &[
+                                ("id", &p.id),
+                                ("name", &p.name),
+                                (
+                                    "remembered",
+                                    &i18n::current_text(if p.remembered {
+                                        "bool.true"
+                                    } else {
+                                        "bool.false"
+                                    }),
+                                ),
+                                (
+                                    "verified",
+                                    &i18n::current_text(if p.verified {
+                                        "bool.true"
+                                    } else {
+                                        "bool.false"
+                                    }),
+                                ),
+                            ],
                         )
                     })
                     .collect::<Vec<_>>()
@@ -715,7 +753,10 @@ fn run(mut cli: Cli) -> Result<()> {
                     action: IdentityAction::Verify { qr, .. },
                 } => {
                     let code = profile::safety(&p.identity.public, &STANDARD.decode(&remote.root)?);
-                    eprintln!("Compare the full safety code out of band:\n{code}");
+                    eprintln!(
+                        "{}",
+                        i18n::current_format("human.compare", &[("code", &code)])
+                    );
                     if let Some(path) = qr {
                         let values = verification::read_image(path)?;
                         ensure!(
@@ -728,12 +769,12 @@ fn run(mut cli: Cli) -> Result<()> {
                             "QR safety code does not match"
                         );
                         ensure!(
-                            prompt("Full QR matches. Record manual verification? yes/no", "no")?
+                            prompt(&i18n::current_text("prompt.record_verification"), "no")?
                                 == "yes",
                             "verification canceled"
                         );
                     } else {
-                        let input = prompt("Enter the full matching code", "")?;
+                        let input = prompt(&i18n::current_text("prompt.full_code"), "")?;
                         ensure!(
                             input.split_whitespace().collect::<String>() == code,
                             "full safety code does not match"
@@ -746,16 +787,14 @@ fn run(mut cli: Cli) -> Result<()> {
                     action: IdentityAction::Forget { .. },
                 } => {
                     ensure!(
-                        prompt("To forget this identity pin, enter the device UUID", "")?
-                            == remote.id,
+                        prompt(&i18n::current_text("prompt.forget"), "")? == remote.id,
                         "identity forget canceled"
                     );
                     p.db.execute("DELETE FROM peers WHERE id=?", [peer])?;
                 }
                 _ => {
                     ensure!(
-                        prompt("Revoke remembered consent and verification? yes/no", "no")?
-                            == "yes",
+                        prompt(&i18n::current_text("prompt.revoke"), "no")? == "yes",
                         "trust revoke canceled"
                     );
                     remote.verified = false;
@@ -766,7 +805,7 @@ fn run(mut cli: Cli) -> Result<()> {
             return emit(
                 json!({"status":"ok","peer_id":peer,"manually_verified":remote.verified,"remembered":remote.remembered}),
                 cli.json,
-                "Trust record updated explicitly.",
+                i18n::current_text("human.trust_updated"),
             );
         }
         Some(Action::Peers {
@@ -951,9 +990,9 @@ fn foreground(
             json!({}),
             false,
             if runtime.port == 0 {
-                "Client mode; LAN listening disabled.".into()
+                i18n::current_text("human.client")
             } else {
-                format!("Listening on TCP port {}", runtime.port)
+                i18n::current_format("human.listening", &[("port", &runtime.port.to_string())])
             },
         )?;
     }
@@ -1041,10 +1080,11 @@ fn foreground(
                     }
                 } else {
                     eprintln!(
-                        "Identity: {} ({})\nSafety code: {}\nEncryption is established; identity is not manually verified.\nType once, remember, or reject:",
-                        safe(&peer.name),
-                        peer.id,
-                        safety
+                        "{}",
+                        safe(&i18n::current_format(
+                            "human.consent",
+                            &[("name", &peer.name), ("id", &peer.id), ("code", &safety)]
+                        ))
                     );
                     pending_consent = Some(reply);
                 }
@@ -1055,10 +1095,15 @@ fn foreground(
             Event::FileOffer { peer, info, reply } => {
                 if interactive {
                     eprintln!(
-                        "Receive {} ({} bytes) from {}? No overwrite; type yes or no:",
-                        safe(&info.name),
-                        info.size,
-                        peer
+                        "{}",
+                        safe(&i18n::current_format(
+                            "human.file_offer",
+                            &[
+                                ("name", &info.name),
+                                ("size", &info.size.to_string()),
+                                ("peer", &peer)
+                            ]
+                        ))
                     );
                     pending_file = Some(reply);
                 } else {
@@ -1074,21 +1119,30 @@ fn foreground(
                     emit(
                         json!({}),
                         false,
-                        format!(
-                            "Connected to {} · LAN · encrypted · identity {}",
-                            peer.name,
-                            if peer.verified {
-                                "verified"
-                            } else {
-                                "unverified"
-                            }
+                        i18n::current_format(
+                            "human.connected",
+                            &[
+                                ("name", &peer.name),
+                                (
+                                    "trust",
+                                    &i18n::current_text(if peer.verified {
+                                        "identity.verified"
+                                    } else {
+                                        "identity.unverified"
+                                    }),
+                                ),
+                            ],
                         ),
                     )?;
                 }
             }
             Event::TextLimit(_, limit) => {
                 if !cli.json {
-                    emit(json!({}), false, format!("Text limit: {limit} UTF-8 bytes"))?;
+                    emit(
+                        json!({}),
+                        false,
+                        i18n::current_format("human.text_limit", &[("limit", &limit.to_string())]),
+                    )?;
                 }
             }
             Event::Ready(id) => {
@@ -1120,8 +1174,8 @@ fn foreground(
                     cli.json,
                     format!(
                         "{} [{}] {}",
-                        if m.outgoing { "you" } else { "peer" },
-                        m.state,
+                        i18n::current_text(if m.outgoing { "chat.you" } else { "chat.peer" }),
+                        i18n::current_state(&m.state),
                         m.body
                     ),
                 )?;
@@ -1130,7 +1184,7 @@ fn foreground(
                 emit(
                     json!({"status":"saved","peer_id":peer,"message_id":id,"read":false,"protocol":"NIM4"}),
                     cli.json,
-                    format!("Saved by peer: {id} (not a read receipt)"),
+                    i18n::current_format("human.saved", &[("id", &id)]),
                 )?;
                 if submitted && matches!(cli.command, Some(Action::Send { text: Some(_), .. })) {
                     return Ok(());
@@ -1140,9 +1194,14 @@ fn foreground(
                 emit(
                     json!({"status":s.state,"transfer_id":s.info.id,"peer_id":s.peer,"bytes":s.offset,"total_bytes":s.info.size,"path":s.destination,"protocol":"NIM4"}),
                     cli.json,
-                    format!(
-                        "{} · {} / {} bytes · {}",
-                        s.info.id, s.offset, s.info.size, s.state
+                    i18n::current_format(
+                        "human.file_progress",
+                        &[
+                            ("id", &s.info.id),
+                            ("done", &s.offset.to_string()),
+                            ("total", &s.info.size.to_string()),
+                            ("state", &i18n::current_state(&s.state)),
+                        ],
                     ),
                 )?;
                 let resuming = match cli.command.as_ref() {
@@ -1164,9 +1223,9 @@ fn foreground(
                             emit(
                                 json!({"status":"saved","files":saved_files.values().collect::<Vec<_>>()}),
                                 cli.json,
-                                format!(
-                                    "All {} files saved by peer (not read receipts)",
-                                    saved_files.len()
+                                i18n::current_format(
+                                    "human.files_saved",
+                                    &[("count", &saved_files.len().to_string())],
                                 ),
                             )?;
                             return Ok(());
@@ -1190,7 +1249,14 @@ fn foreground(
             Event::Disconnected(id, reason) => {
                 connections.remove(&id);
                 if !cli.json {
-                    emit(json!({}), false, format!("Disconnected: {reason}"))?;
+                    emit(
+                        json!({}),
+                        false,
+                        i18n::current_format(
+                            "human.disconnected",
+                            &[("reason", &i18n::current_diagnostic(&reason))],
+                        ),
+                    )?;
                 }
                 if selected.as_ref() == Some(&id) {
                     if submitted {
@@ -1209,16 +1275,24 @@ fn foreground(
             } => {
                 if cli.verbose {
                     eprintln!(
-                        "Avatar {}: {}",
-                        peer,
-                        if let Some(code) = failure {
-                            format!("task failed ({code})")
-                        } else {
-                            format!(
-                                "cached revision {}",
-                                profile.map(|p| p.revision).unwrap_or(0)
+                        "{}",
+                        safe(&if let Some(code) = failure {
+                            i18n::current_format(
+                                "human.avatar_failed",
+                                &[("peer", &peer), ("code", &code.to_string())],
                             )
-                        }
+                        } else {
+                            i18n::current_format(
+                                "human.avatar_saved",
+                                &[
+                                    ("peer", &peer),
+                                    (
+                                        "revision",
+                                        &profile.map(|p| p.revision).unwrap_or(0).to_string(),
+                                    ),
+                                ],
+                            )
+                        })
                     );
                 }
             }
@@ -1241,7 +1315,7 @@ fn foreground(
                     return Err(fail(code, &e));
                 }
                 if cli.verbose {
-                    eprintln!("{}", safe(&e));
+                    eprintln!("{}", safe(&i18n::current_diagnostic(&e)));
                 }
             }
         }
@@ -1273,11 +1347,9 @@ fn localized_command(mut command: clap::Command, path: &str, language: &str) -> 
     if i18n::has(&key) {
         command = command.about(i18n::text(language, &key));
     }
-    if language == "zh-CN" {
+    if language != "en" {
         command = command
-            .help_template(
-                "{before-help}{about-with-newline}\n用法：{usage}\n\n{all-args}{after-help}",
-            )
+            .help_template(i18n::text(language, "cli.template"))
             .subcommand_help_heading(i18n::text(language, "cli.heading.commands"));
     }
     let ids: Vec<_> = command
@@ -1290,7 +1362,7 @@ fn localized_command(mut command: clap::Command, path: &str, language: &str) -> 
             if i18n::has(&key) {
                 arg = arg.help(i18n::text(language, &key));
             }
-            if language == "zh-CN" {
+            if language != "en" {
                 let mut description = arg.get_help().map(|h| h.to_string()).unwrap_or_default();
                 if let Some(values) = arg.get_value_parser().possible_values() {
                     let values = values
@@ -1353,6 +1425,7 @@ fn localized_command(mut command: clap::Command, path: &str, language: &str) -> 
 fn main() {
     let json_mode = std::env::args().any(|a| a == "--json");
     let language = i18n::cli_language(&std::env::args_os().collect::<Vec<_>>());
+    i18n::set_current(&language);
     let mut command = Cli::command();
     command.build();
     // Keep JSON errors on their original English contract; help is human output.
@@ -1376,6 +1449,23 @@ fn main() {
                     clap::error::ErrorKind::DisplayHelp | clap::error::ErrorKind::DisplayVersion
                 )
             {
+                if !json_mode
+                    && !matches!(
+                        e.kind(),
+                        clap::error::ErrorKind::DisplayHelp
+                            | clap::error::ErrorKind::DisplayVersion
+                    )
+                    && language != "en"
+                {
+                    eprintln!(
+                        "{}",
+                        safe(&i18n::current_format(
+                            "human.invalid_args",
+                            &[("detail", &e.to_string())]
+                        ))
+                    );
+                    std::process::exit(2);
+                }
                 e.exit();
             }
             let value = json!({"schema":1,"ok":false,"status":"error","exit_code":2,"error":{"code":"INVALID_INPUT","message":e.to_string()}});
@@ -1435,7 +1525,7 @@ fn main() {
         );
         output["error"] = json!({"code":error_code,"message":message});
         if !json_mode {
-            eprintln!("nearbyim: {}", safe(&message));
+            eprintln!("nearbyim: {}", safe(&i18n::current_diagnostic(&message)));
         }
         code
     } else {

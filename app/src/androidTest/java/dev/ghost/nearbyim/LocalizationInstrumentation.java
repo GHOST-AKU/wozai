@@ -180,12 +180,32 @@ public final class LocalizationInstrumentation extends Instrumentation {
             check(!scan.isFinishing(),"Optional focus request leaves scanner alive");return null;
         });}finally{onMain(()->{scan.finish();return null;});waitForIdleSync();}
     }
+    private void testEmojiPicker() throws Exception {
+        EditText input=onMain(()->{EditText value=new EditText(activity);value.setText("left REPLACE right");value.setSelection(5,12);return value;});
+        EmojiPicker picker=onMain(()->{EmojiPicker value=new EmojiPicker(activity,input,new android.app.AlertDialog.Builder(activity),key->AndroidText.get(activity,key),()->true);value.show();return value;});
+        android.widget.GridView grid=field(picker,"grid");EditText query=field(picker,"query");
+        android.app.AlertDialog dialog=field(picker,"dialog");
+        try {
+            await(()->onMain(()->grid.getAdapter().getCount()>0),"Native emoji catalog loads asynchronously");
+            onMain(()->{query.setText("❤️");return null;});
+            await(()->onMain(()->grid.getChildCount()>0),"Emoji grid has native recycled cells");
+            onMain(()->{grid.performItemClick(grid.getChildAt(0),0,0);grid.performItemClick(grid.getChildAt(0),0,0);return null;});
+            check(onMain(()->input.getText().toString().equals("left ❤️❤️ right")),"Emoji replaces selection, preserves VS16 and allows repeat insertion");
+            check(onMain(dialog::isShowing),"Emoji picker remains open after insertion");
+            check(onMain(()->grid.getChildAt(0).getContentDescription()!=null),"Emoji has a semantic accessibility label");
+            screenshot("emoji-native");
+            onMain(()->{query.setText("zz_no_result_99");return null;});
+            check(onMain(()->grid.getAdapter().getCount()==0),"Emoji no-result state");
+        } finally {onMain(()->{dialog.dismiss();return null;});}
+    }
+
     private void testRecreationWithLiveSession() throws Exception {
         activity = (MainActivity) startActivitySync(new Intent(getTargetContext(), MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         await(() -> onMain(() -> field(activity, "controller") != null), "Activity binds its service");
         ChatController controller = onMain(() -> field(activity, "controller"));
         liveController = controller;
         ChatService service = onMain(() -> field(activity, "service"));
+        testEmojiPicker();
         testEmptyNearbyRestoration(controller);
         testEmptySettingsRestoration(controller);
         testEmptyHistoryRestoration(controller);

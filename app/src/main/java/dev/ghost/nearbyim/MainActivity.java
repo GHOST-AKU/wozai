@@ -876,11 +876,11 @@ public final class MainActivity extends Activity {
         Button button=button(text,false);button.setBackground(ripple(Color.TRANSPARENT,18));button.setContentDescription(text);android.graphics.drawable.Drawable drawable=getDrawable(resource).mutate();drawable.setTint(accent);drawable.setBounds(0,0,dp(28),dp(28));button.setCompoundDrawables(null,drawable,null,null);button.setCompoundDrawablePadding(dp(4));button.setOnClickListener(v->action.run());return button;
     }
     private void showEmoji(){
-        if(!composer.isEnabled())return;GridLayout grid=new GridLayout(this);grid.setColumnCount(4);grid.setPadding(dp(12),dp(8),dp(12),dp(8));AlertDialog dialog=new AdaptiveDialogBuilder().setTitle(t("emoji")).setView(grid).create();
-        for(String emoji:new String[]{"😀","😂","🥰","😎","😭","🤔","👍","👋","❤️","🎉","🙏","✨"}){
-            Button choice=button(emoji,false);choice.setTextSize(26);choice.setContentDescription(emoji);choice.setBackground(ripple(Color.TRANSPARENT,18));choice.setOnClickListener(v->{int start=Math.max(0,composer.getSelectionStart()),end=Math.max(start,composer.getSelectionEnd());composer.getText().replace(start,end,emoji);dialog.dismiss();composer.requestFocus();});GridLayout.LayoutParams params=new GridLayout.LayoutParams();params.width=dp(64);params.height=dp(56);grid.addView(choice,params);
-        }dialog.show();
+        if(!composer.isEnabled())return;
+        String peer=composerPeer;
+        new EmojiPicker(this,composer,new AdaptiveDialogBuilder(),key->t(key),()->composer.isEnabled()&&Objects.equals(peer,composerPeer)).show();
     }
+
     private void chooseAttachment(boolean photo){
         if(controller==null||!controller.canSendAttachment())return;attachmentTray.setVisibility(View.GONE);pendingAttachmentPeer=controller.connectedPeerId;pendingAttachmentToken=controller.attachmentSessionToken();
         Intent intent=photo?AttachmentSelection.photosIntent(this):AttachmentSelection.filesIntent();

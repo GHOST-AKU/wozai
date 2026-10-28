@@ -55,9 +55,11 @@ nearbyim doctor --json
 
 ### 语言与帮助
 
-TUI 帮助、所有现有 CLI 命令的 `--help` 说明、首启向导和主要界面使用随包内嵌的中英语义消息资源。`config set language en|zh-CN` 保存选择，TUI 的 `set language en|zh-CN` 同时立即刷新界面。已有的明确 `en` / `zh-CN` 选择始终优先；缺失设置时按首个非空 `LC_ALL`、`LC_MESSAGES`、`LANG`，再按可用的 Windows 原生系统 locale 选择，简体中文对应 zh-CN，其余/不支持的语言回退 en。保存配置时写入已解析的语言。
+内嵌语义资源现覆盖英语、简体中文 `zh-CN`（兼容 `zh-Hans`）、繁体中文 `zh-Hant`（兼容 TW/HK/MO 别名）、日语 `ja`、韩语 `ko`：主要TUI、分组帮助、全部实际CLI命令帮助、首启向导、行式提示/确认及已登记的应用诊断。`config set language system|en|zh-CN|zh-Hant|ja|ko` 保存选择；TUI `set language ...` 保存成功后即时刷新，失败保留原语言。已有明确选择始终优先。新/缺失设置为 `system`，按首个非空白 LC_ALL、LC_MESSAGES、LANG，再按可用的 Windows 原生 locale 解析；最高优先级值无效/不支持即回退英文，中文显式脚本优先于地区。切回 `system` 后跨重启仍跟随系统。
 
-帮助只读取有大小上限的设置文件，支持 `--profile PATH` 和 `--profile=PATH`，不会创建目录、身份、锁或历史数据库。命令、旗标、设置键、补全语法、JSON 字段/值和退出码不翻译，JSON 错误诊断保留英文。**这仍不是全量中文完成**：行式客户端输出、领域/网络错误及部分设置/诊断显示继续由 #53 跟踪；Windows Terminal/IME、SSH/tmux、系统字体也需要单独证据。程序不能替终端选择或捆绑字体；建议使用支持合适等宽/CJK 字体的现代终端，框线字形不合适时可用 `--ascii`。
+帮助只读取有大小上限的设置，支持 `--profile PATH` / `--profile=PATH`，不创建目录、身份、锁或历史。命令、旗标、设置键、补全语法、JSON字段/值、退出码保持稳定，JSON错误仍英文。设置及结构化诊断保留稳定字段/枚举值。应用错误按完整语义模板翻译，不替换聊天正文/路径中的子字符串；底层OS、库、对端诊断作为明确标注的技术原文保留，未知诊断不会删除。`python3 terminal/tools/check-i18n.py` 检查五语、占位符及应用断言/上下文遗漏。
+
+Windows Terminal/IME、SSH/tmux、终端字宽规则和系统字体仍需单独环境证据，不能由资源齐全或构建通过推定。程序不捆绑终端字体；建议使用适合的等宽/CJK字体，框线不合适时使用 `--ascii`。
 
 ## 安全、文件和脚本
 
@@ -82,7 +84,7 @@ python3 terminal/tools/package.py
 
 经典蓝牙 RFCOMM、原生 Wi-Fi Direct、多活动会话、IPC、后台服务尚未实现。Rust 是已实现候选，不编造 Go 对照、冷启动或比 GUI 更轻的结论。[完整英文手册](README.md) · [架构与安全边界](docs/architecture.md)。
 
-历史按本地插入顺序分页，避免对端时钟偏差隐藏消息。`chats show DEVICE_UUID --limit 100 --before ROW_CURSOR` 返回 next_before/has_more；TUI 用 `older` / `latest` 翻页，内存不无限保留历史。帮助/首启/主要界面本地化见上文，全量覆盖的其余范围继续留在 #53。
+历史按本地插入顺序分页，避免对端时钟偏差隐藏消息。`chats show DEVICE_UUID --limit 100 --before ROW_CURSOR` 返回 next_before/has_more；TUI 用 `older` / `latest` 翻页，内存不无限保留历史。五语显示及诊断边界见上文；真实终端/IME验收继续留在 #53。
 
 多选文件使用独立身份绑定的持久队列：重复 `--file`（最多 256 个），CLI 等所有文件均收到保存回执才成功，并在单个 JSON 中返回全部结果。TUI 命令面板的 `files` 支持每行一个路径（`Ctrl+J` 换行），统一确认后入队。暂停当前任务会保留队列，取消当前任务后才能继续下一项；实际发送前重新检查源文件。图片 MIME 通过有界文件头读取识别，不只相信扩展名，不自动打开文件。
 

@@ -220,3 +220,5 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\test-core.ps1
 
 **我在。你也在。那就直接聊吧。**  
 `( *ˊᵕˋ)✩︎‧₊`
+
+表情按钮支持共享 Unicode 16 / CLDR 47 目录：五语分类与搜索、最近30项和肤色变体。Android 长按查看变体；桌面选中后点“变体”，按 Enter / 双击 / “插入”可连续添加。仅插入光标或选区，不自动发送；不捆绑表情字体/图片。详见[目录、许可与更新说明](i18n/emoji/README.md)。桌面语言设置保存成功后即时刷新；Linux 跟随系统按 LC_ALL → LC_MESSAGES → LANG，手动选择优先。

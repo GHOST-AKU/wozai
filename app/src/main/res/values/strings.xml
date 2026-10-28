@@ -282,6 +282,26 @@
     <string name="draft_save_failed" formatted="false">"The draft could not be saved. Keep this conversation open and copy the text."</string>
     <string name="earlier" formatted="false">"Earlier"</string>
     <string name="emoji" formatted="false">"Emoji"</string>
+    <string name="emoji_categories" formatted="false">"Emoji categories"</string>
+    <string name="emoji_category0" formatted="false">"Smileys &amp; emotion"</string>
+    <string name="emoji_category1" formatted="false">"People &amp; body"</string>
+    <string name="emoji_category2" formatted="false">"Animals &amp; nature"</string>
+    <string name="emoji_category3" formatted="false">"Food &amp; drink"</string>
+    <string name="emoji_category4" formatted="false">"Travel &amp; places"</string>
+    <string name="emoji_category5" formatted="false">"Activities"</string>
+    <string name="emoji_category6" formatted="false">"Objects"</string>
+    <string name="emoji_category7" formatted="false">"Symbols"</string>
+    <string name="emoji_category8" formatted="false">"Flags"</string>
+    <string name="emoji_clear" formatted="false">"Clear"</string>
+    <string name="emoji_insert" formatted="false">"Insert"</string>
+    <string name="emoji_insert_hint" formatted="false">"Double-click or Enter to insert"</string>
+    <string name="emoji_load_failed" formatted="false">"Emoji catalog could not be loaded. Close and reopen the picker."</string>
+    <string name="emoji_no_results" formatted="false">"No matching emoji"</string>
+    <string name="emoji_recent" formatted="false">"Recent"</string>
+    <string name="emoji_recent_failed" formatted="false">"Emoji inserted, but recent choices could not be saved."</string>
+    <string name="emoji_search" formatted="false">"Search emoji"</string>
+    <string name="emoji_variant_hint" formatted="false">"Hold an emoji for variants"</string>
+    <string name="emoji_variants" formatted="false">"Variants"</string>
     <string name="empty_chat" formatted="false">"Select a chat on the left, or connect to a device in Nearby."</string>
     <string name="encrypted_via" formatted="false">"End-to-end encrypted · {0}"</string>
     <string name="encryption_active" formatted="false">"Connection is end-to-end encrypted"</string>
@@ -469,6 +489,7 @@
     <string name="send_photo" formatted="false">"Photo"</string>
     <string name="service_connecting" formatted="false">"Connecting to the service…"</string>
     <string name="settings" formatted="false">"Settings"</string>
+    <string name="settings_save_failed" formatted="false">"Settings could not be saved. The previous choice was retained."</string>
     <string name="start_mode_reception_first" formatted="false">"Enable reception for this connection method first"</string>
     <string name="start_reception" formatted="false">"Start reception"</string>
     <string name="start_reception_first" formatted="false">"Enable reception first"</string>

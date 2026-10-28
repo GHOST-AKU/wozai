@@ -303,8 +303,10 @@ impl App {
             }
             "set" => {
                 let (key, value) = arg.split_once(' ').context("usage: set KEY VALUE")?;
-                self.cfg.set(key, value)?;
-                self.cfg.save(&self.store.lock().unwrap())?;
+                let mut updated = self.cfg.clone();
+                updated.set(key, value)?;
+                updated.save(&self.store.lock().unwrap())?;
+                self.cfg = updated;
                 if key == "language" {
                     self.scroll = 0;
                 }
@@ -639,7 +641,7 @@ impl App {
                 }) {
                     s.state = "paused".into();
                 }
-                self.status = why;
+                self.status = crate::i18n::diagnostic(&self.cfg.language, &why);
             }
             Event::Avatar {
                 peer,
@@ -647,15 +649,24 @@ impl App {
                 failure,
             } => {
                 self.status = if let Some(code) = failure {
-                    format!("Avatar task for {peer} failed ({code}); chat remains connected")
+                    self.fmt(
+                        "human.avatar_failed",
+                        &[("peer", &peer), ("code", &code.to_string())],
+                    )
                 } else {
-                    format!(
-                        "Avatar for {peer} saved (revision {})",
-                        profile.map(|p| p.revision).unwrap_or(0)
+                    self.fmt(
+                        "human.avatar_saved",
+                        &[
+                            ("peer", &peer),
+                            (
+                                "revision",
+                                &profile.map(|p| p.revision).unwrap_or(0).to_string(),
+                            ),
+                        ],
                     )
                 };
             }
-            Event::Error(e) => self.status = e,
+            Event::Error(e) => self.status = crate::i18n::diagnostic(&self.cfg.language, &e),
         }
         Ok(())
     }
@@ -1710,7 +1721,8 @@ pub fn run(
                             }
                             if target.as_ref() == Some(&id) {
                                 if let Err(e) = app.connect(&runtime, &id) {
-                                    app.status = e.to_string();
+                                    app.status =
+                                        crate::i18n::diagnostic(&app.cfg.language, &e.to_string());
                                 }
                                 target = None;
                             }
@@ -1752,7 +1764,8 @@ pub fn run(
                             KeyCode::Char('y') => {
                                 let paths = app.attach.take().unwrap();
                                 if let Err(e) = app.command(Command::Files(paths)) {
-                                    app.status = e.to_string();
+                                    app.status =
+                                        crate::i18n::diagnostic(&app.cfg.language, &e.to_string());
                                 }
                             }
                             KeyCode::Char('n') | KeyCode::Esc => {
@@ -1970,7 +1983,10 @@ pub fn run(
                     match result {
                         Ok(true) => break,
                         Ok(false) => {}
-                        Err(e) => app.status = format!("{e:#}"),
+                        Err(e) => {
+                            app.status =
+                                crate::i18n::diagnostic(&app.cfg.language, &format!("{e:#}"))
+                        }
                     }
                 }
                 InputEvent::Paste(s) => {
@@ -2137,16 +2153,25 @@ mod render_tests {
             reply,
             created: Instant::now(),
         });
-        for (width, height) in [(45, 16), (45, 24), (80, 24), (120, 24)] {
-            let text = screen(&app, width, height);
-            for label in ["1 仅本次", "2 记住", "3 拒绝"] {
-                assert!(text.contains(label), "{text}");
+        for (language, labels) in [
+            ("en", ["1 Accept once", "2 Remember", "3 Reject"]),
+            ("zh-CN", ["1 仅本次", "2 记住", "3 拒绝"]),
+            ("zh-Hant", ["1 僅本次", "2 記住", "3 拒絕"]),
+            ("ja", ["1 今回許可", "2 記憶", "3 拒否"]),
+            ("ko", ["1 한 번 허용", "2 기억", "3 거부"]),
+        ] {
+            app.cfg.language = language.into();
+            for (width, height) in [(45, 16), (45, 24), (80, 24), (120, 24)] {
+                let text = screen(&app, width, height);
+                for label in labels {
+                    assert!(text.contains(label), "{text}");
+                }
+                assert_eq!(
+                    text.matches("abcd1234").count(),
+                    8,
+                    "The complete code must remain visible: {text}"
+                );
             }
-            assert_eq!(
-                text.matches("abcd1234").count(),
-                8,
-                "The complete code must remain visible: {text}"
-            );
         }
     }
     #[test]

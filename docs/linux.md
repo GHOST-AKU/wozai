@@ -98,3 +98,11 @@ sh desktop/tools/build.sh --package
 English build instructions: use a clean Ubuntu 22.04 x64 environment, JDK 17 and its default C++17 toolchain with the build dependencies above. Run `sh desktop/tools/build.sh --package` with `JAVA_HOME` set to the JDK. The workflow lists the complete setup and cross-distribution runtime checks. Filenames use the shared preview version from `i18n/config.json`; developer builds on newer hosts must still meet the ABI gate. Building on a newer host alone is not evidence of baseline compatibility.
 
 验证范围、实际环境与待完成的设备验收见 [Linux 验证记录](linux-verification.md)。
+
+### Language and emoji / 语言与表情
+
+Desktop Settings supports Follow system, 简体中文, 繁體中文, English, 日本語 and 한국어. On Linux, the first nonblank LC_ALL, LC_MESSAGES, LANG wins; malformed/unsupported values fall back to English. Explicit script wins over Chinese region. A saved manual choice overrides the environment; switching back to Follow system restores locale detection. Changes take effect after settings are successfully saved, with drafts/connections retained. Stock Swing dialogs use the same UI locale; external OS windows follow the desktop session.
+
+The composer emoji button opens a native searchable categorized picker (Unicode 16 / CLDR 47). Select then Insert/Enter/double-click; use Variants for skin tones. Multiple insertions do not send the message. The last 30 selections stay in local profile settings. Glyphs use the system fallback, with semantic labels; no emoji font/images/network service is added. [Data and update procedure](../i18n/emoji/README.md).
+
+桌面设置保留五语和“跟随系统”。Linux 按首个非空 LC_ALL、LC_MESSAGES、LANG 解析，未知/无效值回退英文；中文显式脚本优先于地区。手动选择优先，保存成功后才刷新，失败恢复原选择。草稿、连接和已有昵称不随语言改变；外部系统窗口跟随桌面会话。表情按钮可分类/搜索、连续插入、选择肤色变体，最近30项仅存本地；不会自动发送，也不附带表情字体或图片。实际字形与桌面会话/无障碍体验仍需各环境验收。
