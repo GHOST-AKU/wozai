@@ -190,7 +190,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
             onMain(()->{query.setText("❤️");return null;});
             await(()->onMain(()->grid.getChildCount()>0),"Emoji grid has native recycled cells");
             onMain(()->{grid.performItemClick(grid.getChildAt(0),0,0);grid.performItemClick(grid.getChildAt(0),0,0);return null;});
-            check(onMain(()->input.getText().toString().equals("left ❤️❤️ right")),"Emoji replaces selection, preserves VS16 and allows repeat insertion");
+            check(onMain(()->input.getText().toString().equals("left ❤️❤️ right")),"Emoji replaces selection, preserves VS16 and allows repeat insertion: "+onMain(()->input.getText().toString()));
             check(onMain(dialog::isShowing),"Emoji picker remains open after insertion");
             check(onMain(()->grid.getChildAt(0).getContentDescription()!=null),"Emoji has a semantic accessibility label");
             screenshot("emoji-native");
