@@ -71,7 +71,9 @@ StartupNotify=true
 StartupWMClass=dev-ghost-wozai-Main
 EOF
     chmod -R a+rX "$staging"
-    dpkg-deb --root-owner-group -Zxz -z9 --threads-max=1 --build "$staging" "build/NearbyIM-$version-linux-$architecture.deb"
+    # Older dpkg is single-threaded; newer versions honor this environment
+    # setting without requiring the unsupported --threads-max flag on 22.04.
+    DPKG_DEB_THREADS_MAX=1 dpkg-deb --root-owner-group -Zxz -z9 --build "$staging" "build/NearbyIM-$version-linux-$architecture.deb"
 fi
 if [ "$architecture" = x64 ]; then python3 tools/build-appimage.py; fi
 python3 - <<'PY'
