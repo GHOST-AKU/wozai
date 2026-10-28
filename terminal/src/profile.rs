@@ -62,7 +62,15 @@ pub struct Profile {
     pub path: PathBuf,
     pub identity: Identity,
     pub db: Connection,
-    _lock: File,
+    _lock: ProfileLock,
+}
+struct ProfileLock(File);
+impl Drop for ProfileLock {
+    fn drop(&mut self) {
+        // Release ownership even if a concurrent fork briefly inherited the file.
+        // This field drops after the database, preserving the full profile lifetime.
+        let _ = FileExt::unlock(&self.0);
+    }
 }
 impl Profile {
     pub fn open(path: PathBuf, name: Option<&str>) -> Result<Self> {
@@ -167,7 +175,7 @@ impl Profile {
             path,
             identity,
             db,
-            _lock: lock,
+            _lock: ProfileLock(lock),
         })
     }
     pub fn peer(&self, id: &str) -> Result<Option<Peer>> {
@@ -447,6 +455,58 @@ fn dpapi(b: &[u8], encrypt: bool) -> Result<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
+    #[test]
+    fn closing_profile_releases_lock_even_with_an_inherited_descriptor() {
+        use std::os::fd::{FromRawFd, OwnedFd};
+        struct Child {
+            pid: libc::pid_t,
+            wake: Option<OwnedFd>,
+        }
+        impl Drop for Child {
+            fn drop(&mut self) {
+                self.wake.take();
+                // Closing the pipe wakes the child even when an assertion unwinds.
+                unsafe {
+                    while libc::waitpid(self.pid, std::ptr::null_mut(), 0) == -1
+                        && std::io::Error::last_os_error().raw_os_error() == Some(libc::EINTR)
+                    {
+                    }
+                }
+            }
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("profile");
+        let profile = Profile::open(path.clone(), None).unwrap();
+        let mut pipe = [-1; 2];
+        assert_eq!(unsafe { libc::pipe(pipe.as_mut_ptr()) }, 0);
+        // Model the fork-to-exec interval of a concurrent Java/OS subprocess.
+        let pid = unsafe { libc::fork() };
+        assert!(pid >= 0);
+        if pid == 0 {
+            // Only async-signal-safe calls are permitted in the forked child.
+            unsafe {
+                libc::close(pipe[1]);
+                let mut byte = 0u8;
+                loop {
+                    let n = libc::read(pipe[0], (&mut byte as *mut u8).cast(), 1);
+                    if n == 0 {
+                        break;
+                    }
+                }
+                libc::_exit(0);
+            }
+        }
+        unsafe { libc::close(pipe[0]) };
+        let _child = Child {
+            pid,
+            wake: Some(unsafe { OwnedFd::from_raw_fd(pipe[1]) }),
+        };
+        assert!(Profile::open(path.clone(), None).is_err());
+        drop(profile);
+        let reopened = Profile::open(path, None).expect("closed profile must release its own lock");
+        drop(reopened);
+    }
     #[test]
     fn identity_persists_and_corruption_fails_closed() {
         let d = tempfile::tempdir().unwrap();

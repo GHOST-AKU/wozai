@@ -14,4 +14,7 @@ $sources += (Resolve-Path tests/i18n/LanguageRegistryTests.java).Path
 & javac -encoding UTF-8 -d build/i18n-tests $sources
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 & java -cp build/i18n-tests dev.ghost.nearbyim.i18n.LanguageRegistryTests
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+python tools/check-emoji.py
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 exit $LASTEXITCODE

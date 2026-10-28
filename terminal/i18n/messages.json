@@ -1,0 +1,3334 @@
+{
+  "header.brand": {
+    "en": "NearbyIM Terminal · {name}",
+    "zh-CN": "NearbyIM Terminal · {name}",
+    "ja": "NearbyIM Terminal · {name}",
+    "ko": "NearbyIM Terminal · {name}",
+    "zh-Hant": "NearbyIM Terminal · {name}"
+  },
+  "header.nav": {
+    "en": "1 Chats   2 Nearby   3 Files   ? Help",
+    "zh-CN": "1 聊天   2 附近   3 文件   ? 帮助",
+    "ja": "1 チャット   2 近く   3 ファイル   ? ヘルプ",
+    "ko": "1 채팅   2 주변   3 파일   ? 도움말",
+    "zh-Hant": "1 聊天   2 附近   3 檔案   ? 幫助"
+  },
+  "footer.keys": {
+    "en": "{commands} commands · Tab focus · Esc back · ? help",
+    "zh-CN": "{commands} 命令 · Tab 切换 · Esc 返回 · ? 帮助",
+    "ja": "{commands} コマンド · Tab フォーカス · Esc 戻る · ? ヘルプ",
+    "ko": "{commands} 명령 · Tab 초점 · Esc 뒤로 · ? 도움말",
+    "zh-Hant": "{commands} 命令 · Tab 切換 · Esc 返回 · ? 幫助"
+  },
+  "footer.short": {
+    "en": "{commands} commands · ? help",
+    "zh-CN": "{commands} 命令 · ? 帮助",
+    "ja": "{commands} コマンド · ? ヘルプ",
+    "ko": "{commands} 명령 · ? 도움말",
+    "zh-Hant": "{commands} 命令 · ? 幫助"
+  },
+  "empty.title": {
+    "en": "Start with a nearby device",
+    "zh-CN": "从附近的一台设备开始",
+    "ja": "近くのデバイスから始めましょう",
+    "ko": "주변 기기에서 시작하세요",
+    "zh-Hant": "從附近的一臺裝置開始"
+  },
+  "empty.subtitle": {
+    "en": "Private conversations, without an account.",
+    "zh-CN": "无需账号，在附近安全交流。",
+    "ja": "アカウント不要のプライベートな会話。",
+    "ko": "계정 없이 안전하게 대화하세요.",
+    "zh-Hant": "無需賬號，在附近安全交流。"
+  },
+  "empty.scan": {
+    "en": "s   Find a nearby device",
+    "zh-CN": "s   搜索附近设备",
+    "ja": "s   近くのデバイスを検索",
+    "ko": "s   주변 기기 검색",
+    "zh-Hant": "s   搜尋附近裝置"
+  },
+  "empty.connect": {
+    "en": "c   connect HOST:PORT",
+    "zh-CN": "c   connect HOST:PORT",
+    "ja": "c   connect HOST:PORT",
+    "ko": "c   connect HOST:PORT",
+    "zh-Hant": "c   connect HOST:PORT"
+  },
+  "empty.note": {
+    "en": "LAN reception starts off. Conversations require mutual consent.",
+    "zh-CN": "默认关闭局域网接收，建立聊天需双方认可。",
+    "ja": "LAN受信は初期状態でオフです。会話には双方の同意が必要です。",
+    "ko": "LAN 수신은 기본으로 꺼져 있습니다. 대화에는 양쪽의 동의가 필요합니다.",
+    "zh-Hant": "預設關閉區域網接收，建立聊天需雙方認可。"
+  },
+  "label.peers": {
+    "en": "Conversations",
+    "zh-CN": "会话与设备",
+    "ja": "会話とデバイス",
+    "ko": "대화와 기기",
+    "zh-Hant": "會話與裝置"
+  },
+  "label.peers_focused": {
+    "en": "Conversations · selected",
+    "zh-CN": "会话与设备 · 焦点",
+    "ja": "会話とデバイス · 選択中",
+    "ko": "대화와 기기 · 선택됨",
+    "zh-Hant": "會話與裝置 · 焦點"
+  },
+  "label.chat": {
+    "en": "Chat",
+    "zh-CN": "聊天",
+    "ja": "チャット",
+    "ko": "채팅",
+    "zh-Hant": "聊天"
+  },
+  "label.messages": {
+    "en": "Messages · saved is not read",
+    "zh-CN": "消息 · 已保存不等于已读",
+    "ja": "メッセージ · 保存済みは既読ではありません",
+    "ko": "메시지 · 저장됨은 읽음이 아닙니다",
+    "zh-Hant": "訊息 · 已儲存不等於已讀"
+  },
+  "label.command": {
+    "en": "Command",
+    "zh-CN": "命令",
+    "ja": "コマンド",
+    "ko": "명령",
+    "zh-Hant": "命令"
+  },
+  "label.compose": {
+    "en": "Message · Enter send · Alt+Enter newline",
+    "zh-CN": "消息 · Enter 发送 · Alt+Enter 换行",
+    "ja": "入力 · Enter 送信 · Alt+Enter 改行",
+    "ko": "입력 · Enter 전송 · Alt+Enter 줄 바꿈",
+    "zh-Hant": "訊息 · Enter 傳送 · Alt+Enter 換行"
+  },
+  "label.details": {
+    "en": "Details",
+    "zh-CN": "设备详情",
+    "ja": "詳細",
+    "ko": "상세 정보",
+    "zh-Hant": "裝置詳情"
+  },
+  "label.exit": {
+    "en": "Exit?",
+    "zh-CN": "退出？",
+    "ja": "終了しますか？",
+    "ko": "종료할까요?",
+    "zh-Hant": "退出？"
+  },
+  "label.attach": {
+    "en": "Send attachment?",
+    "zh-CN": "发送附件？",
+    "ja": "添付ファイルを送信しますか？",
+    "ko": "첨부 파일을 보낼까요?",
+    "zh-Hant": "傳送附件？"
+  },
+  "label.receive": {
+    "en": "Receive file?",
+    "zh-CN": "接收文件？",
+    "ja": "ファイルを受信しますか？",
+    "ko": "파일을 받을까요?",
+    "zh-Hant": "接收檔案？"
+  },
+  "label.consent": {
+    "en": "Connection consent",
+    "zh-CN": "连接认可",
+    "ja": "接続への同意",
+    "ko": "연결 동의",
+    "zh-Hant": "連線認可"
+  },
+  "composer.rejected": {
+    "en": " · Edit too large; draft kept",
+    "zh-CN": " · 编辑过大，已保留草稿",
+    "ja": " · 入力が大きすぎます。下書きは保持されます",
+    "ko": " · 입력이 너무 큽니다. 초안은 유지됩니다",
+    "zh-Hant": " · 編輯過大，已保留草稿"
+  },
+  "composer.too_long": {
+    "en": " · Over connection limit; send as a file",
+    "zh-CN": " · 超过连接上限，可作为文件发送",
+    "ja": " · 接続の上限を超えています。ファイルとして送信してください",
+    "ko": " · 연결 한도를 초과했습니다. 파일로 보내세요",
+    "zh-Hant": " · 超過連線上限，可作為檔案傳送"
+  },
+  "composer.title": {
+    "en": "{label} · {used}/{limit} UTF-8 bytes{warning}",
+    "zh-CN": "{label} · {used}/{limit} UTF-8 字节{warning}",
+    "ja": "{label} · {used}/{limit} UTF-8 バイト{warning}",
+    "ko": "{label} · {used}/{limit} UTF-8 바이트{warning}",
+    "zh-Hant": "{label} · {used}/{limit} UTF-8 位元組{warning}"
+  },
+  "peer.connected": {
+    "en": "ready",
+    "zh-CN": "已连接",
+    "ja": "接続済み",
+    "ko": "연결됨",
+    "zh-Hant": "已連線"
+  },
+  "peer.seen": {
+    "en": "nearby",
+    "zh-CN": "已发现",
+    "ja": "近くで検出",
+    "ko": "주변에서 발견됨",
+    "zh-Hant": "已發現"
+  },
+  "peer.offline": {
+    "en": "offline",
+    "zh-CN": "离线",
+    "ja": "オフライン",
+    "ko": "오프라인",
+    "zh-Hant": "離線"
+  },
+  "identity.verified": {
+    "en": "manually verified",
+    "zh-CN": "已人工核验",
+    "ja": "手動確認済み",
+    "ko": "수동 확인됨",
+    "zh-Hant": "已人工核驗"
+  },
+  "identity.unverified": {
+    "en": "not manually verified",
+    "zh-CN": "未人工核验",
+    "ja": "手動未確認",
+    "ko": "수동 확인 안 됨",
+    "zh-Hant": "未人工核驗"
+  },
+  "chat.secure": {
+    "en": "LAN · encrypted · {identity}",
+    "zh-CN": "局域网 · 已加密 · {identity}",
+    "ja": "LAN · 暗号化 · {identity}",
+    "ko": "LAN · 암호화됨 · {identity}",
+    "zh-Hant": "區域網 · 已加密 · {identity}"
+  },
+  "chat.offline": {
+    "en": "Offline · Enter connects",
+    "zh-CN": "离线 · Enter 发起连接",
+    "ja": "オフライン · Enterで接続",
+    "ko": "오프라인 · Enter로 연결",
+    "zh-Hant": "離線 · Enter 發起連線"
+  },
+  "chat.you": {
+    "en": "You",
+    "zh-CN": "我",
+    "ja": "自分",
+    "ko": "나",
+    "zh-Hant": "我"
+  },
+  "chat.peer": {
+    "en": "Peer",
+    "zh-CN": "对方",
+    "ja": "相手",
+    "ko": "상대",
+    "zh-Hant": "對方"
+  },
+  "chat.empty": {
+    "en": "No messages yet. Connect to start a conversation.",
+    "zh-CN": "还没有消息，连接后就能开始交流。",
+    "ja": "メッセージはまだありません。接続して会話を始めましょう。",
+    "ko": "아직 메시지가 없습니다. 연결하여 대화를 시작하세요.",
+    "zh-Hant": "還沒有訊息，連線後就能開始交流。"
+  },
+  "file.summary": {
+    "en": "{name}\n{done}/{total} bytes · {state}\nID {id}",
+    "zh-CN": "{name}\n{done}/{total} 字节 · {state}\nID {id}",
+    "ja": "{name}\n{done}/{total} バイト · {state}\nID {id}",
+    "ko": "{name}\n{done}/{total} 바이트 · {state}\nID {id}",
+    "zh-Hant": "{name}\n{done}/{total} 位元組 · {state}\nID {id}"
+  },
+  "file.speed.wait": {
+    "en": "Collecting speed samples",
+    "zh-CN": "正在采集速度样本",
+    "ja": "速度の測定中",
+    "ko": "속도 측정 중",
+    "zh-Hant": "正在採集速度樣本"
+  },
+  "file.speed": {
+    "en": "{speed} MiB/s · avg {average} MiB/s · ~{eta}s left",
+    "zh-CN": "{speed} MiB/s · 平均 {average} MiB/s · 约剩 {eta} 秒",
+    "ja": "{speed} MiB/s · 平均 {average} MiB/s · 残り約{eta}秒",
+    "ko": "{speed} MiB/s · 평균 {average} MiB/s · 약 {eta}초 남음",
+    "zh-Hant": "{speed} MiB/s · 平均 {average} MiB/s · 約剩 {eta} 秒"
+  },
+  "details.body": {
+    "en": "Device\n{id}\n\nIdentity fingerprint\n{fingerprint}\n\n{trust}\n\nTransport: LAN\n\ncode · compare full code\nverify FULL_CODE\n\nfile PATH\npause ID · resume ID\ncancel ID",
+    "zh-CN": "设备\n{id}\n\n身份指纹\n{fingerprint}\n\n{trust}\n\n传输路径：局域网\n\ncode · 比较完整安全码\nverify FULL_CODE\n\nfile PATH\npause ID · resume ID\ncancel ID",
+    "ja": "デバイス\n{id}\n\n識別鍵の指紋\n{fingerprint}\n\n{trust}\n\n転送経路: LAN\n\ncode · 完全なコードを比較\nverify FULL_CODE\n\nfile PATH\npause ID · resume ID\ncancel ID",
+    "ko": "기기\n{id}\n\n신원 지문\n{fingerprint}\n\n{trust}\n\n전송 경로: LAN\n\ncode · 전체 코드 비교\nverify FULL_CODE\n\nfile PATH\npause ID · resume ID\ncancel ID",
+    "zh-Hant": "裝置\n{id}\n\n身份指紋\n{fingerprint}\n\n{trust}\n\n傳輸路徑：區域網\n\ncode · 比較完整安全碼\nverify FULL_CODE\n\nfile PATH\npause ID · resume ID\ncancel ID"
+  },
+  "details.none": {
+    "en": "Select or connect a peer",
+    "zh-CN": "选择或连接一台设备",
+    "ja": "デバイスを選択または接続してください",
+    "ko": "기기를 선택하거나 연결하세요",
+    "zh-Hant": "選擇或連線一臺裝置"
+  },
+  "transfers.item": {
+    "en": "{name} · {state} · {done}/{total} bytes\nID {id}\nSaved location {path}\n",
+    "zh-CN": "{name} · {state} · {done}/{total} 字节\nID {id}\n保存位置 {path}\n",
+    "ja": "{name} · {state} · {done}/{total} バイト\nID {id}\n保存先 {path}\n",
+    "ko": "{name} · {state} · {done}/{total} 바이트\nID {id}\n저장 위치 {path}\n",
+    "zh-Hant": "{name} · {state} · {done}/{total} 位元組\nID {id}\n儲存位置 {path}\n"
+  },
+  "security.item": {
+    "en": "{name} · {id}\nRemembered={remembered} · manually verified={verified}\nFingerprint {fingerprint}\n",
+    "zh-CN": "{name} · {id}\n已记住={remembered} · 已人工核验={verified}\n指纹 {fingerprint}\n",
+    "ja": "{name} · {id}\n記憶済み={remembered} · 手動確認={verified}\n指紋 {fingerprint}\n",
+    "ko": "{name} · {id}\n기억됨={remembered} · 수동 확인={verified}\n지문 {fingerprint}\n",
+    "zh-Hant": "{name} · {id}\n已記住={remembered} · 已人工核驗={verified}\n指紋 {fingerprint}\n"
+  },
+  "bool.true": {
+    "en": "yes",
+    "zh-CN": "是",
+    "ja": "はい",
+    "ko": "예",
+    "zh-Hant": "是"
+  },
+  "bool.false": {
+    "en": "no",
+    "zh-CN": "否",
+    "ja": "いいえ",
+    "ko": "아니요",
+    "zh-Hant": "否"
+  },
+  "qr.small": {
+    "en": "Enlarge the window or use: qr OUTPUT.png\n\n{payload}",
+    "zh-CN": "请增大窗口，或使用：qr OUTPUT.png\n\n{payload}",
+    "ja": "ウィンドウを拡大するか、qr OUTPUT.png を使用してください\n\n{payload}",
+    "ko": "창을 늘리거나 qr OUTPUT.png 를 사용하세요\n\n{payload}",
+    "zh-Hant": "請增大視窗，或使用：qr OUTPUT.png\n\n{payload}"
+  },
+  "qr.compare": {
+    "en": "{qr}\nCompare the complete identity QR on both devices.",
+    "zh-CN": "{qr}\n请比较双方设备的完整身份二维码。",
+    "ja": "{qr}\n両方のデバイスで完全な識別QRを比較してください。",
+    "ko": "{qr}\n양쪽 기기에서 전체 신원 QR을 비교하세요.",
+    "zh-Hant": "{qr}\n請比較雙方裝置的完整身份二維碼。"
+  },
+  "qr.none": {
+    "en": "Select a known authenticated peer",
+    "zh-CN": "请先选择已认证的设备",
+    "ja": "認証済みの既知のデバイスを選択してください",
+    "ko": "인증된 기존 기기를 선택하세요",
+    "zh-Hant": "請先選擇已認證的裝置"
+  },
+  "palette.title": {
+    "en": "Command · Enter run · Esc cancel",
+    "zh-CN": "命令 · Enter 执行 · Esc 取消",
+    "ja": "コマンド · Enter 実行 · Esc キャンセル",
+    "ko": "명령 · Enter 실행 · Esc 취소",
+    "zh-Hant": "命令 · Enter 執行 · Esc 取消"
+  },
+  "exit.body": {
+    "en": "Active files will pause and checkpoint. Nothing keeps transferring in the background.",
+    "zh-CN": "退出前会暂停文件并保存检查点，不会转入后台继续传输。",
+    "ja": "実行中のファイルを一時停止し、再開位置を保存します。バックグラウンド転送は行いません。",
+    "ko": "진행 중인 파일을 일시 중지하고 재개 위치를 저장합니다. 백그라운드 전송은 계속되지 않습니다.",
+    "zh-Hant": "退出前會暫停檔案並儲存檢查點，不會轉入後臺繼續傳輸。"
+  },
+  "attach.body": {
+    "en": "{count} files\n{names}\n{size} bytes · to {peer}\nEncrypted NIM4. No overwrite at receiver.",
+    "zh-CN": "{count} 个文件\n{names}\n{size} 字节 · 发给 {peer}\nNIM4 加密，接收端不会覆盖已有文件。",
+    "ja": "{count} ファイル\n{names}\n{size} バイト · 宛先 {peer}\n暗号化NIM4。受信側で上書きしません。",
+    "ko": "파일 {count}개\n{names}\n{size} 바이트 · 대상 {peer}\n암호화된 NIM4. 수신 측 파일을 덮어쓰지 않습니다.",
+    "zh-Hant": "{count} 個檔案\n{names}\n{size} 位元組 · 發給 {peer}\nNIM4 加密，接收端不會覆蓋已有檔案。"
+  },
+  "receive.body": {
+    "en": "{name}\n{size} bytes · from {peer}\nSave to {path}\nNo overwrite or automatic execution.",
+    "zh-CN": "{name}\n{size} 字节 · 来自 {peer}\n保存到 {path}\n不会覆盖文件，也不会自动执行。",
+    "ja": "{name}\n{size} バイト · 送信元 {peer}\n保存先 {path}\n上書きや自動実行は行いません。",
+    "ko": "{name}\n{size} 바이트 · 보낸 기기 {peer}\n저장 위치 {path}\n덮어쓰거나 자동 실행하지 않습니다.",
+    "zh-Hant": "{name}\n{size} 位元組 · 來自 {peer}\n儲存到 {path}\n不會覆蓋檔案，也不會自動執行。"
+  },
+  "consent.body": {
+    "en": "{name}\n{id}\nEncrypted · {trust}\nCompare the full code out of band:\n{code}\n\n50 seconds · Esc rejects",
+    "zh-CN": "{name}\n{id}\n已加密 · {trust}\n请通过其他可靠渠道比较完整安全码：\n{code}\n\n50 秒内选择 · Esc 拒绝",
+    "ja": "{name}\n{id}\n暗号化 · {trust}\n別の手段で完全なコードを比較:\n{code}\n\n50秒 · Esc 拒否",
+    "ko": "{name}\n{id}\n암호화됨 · {trust}\n별도 경로로 전체 코드를 비교하세요:\n{code}\n\n50초 · Esc 거부",
+    "zh-Hant": "{name}\n{id}\n已加密 · {trust}\n請透過其他可靠渠道比較完整安全碼：\n{code}\n\n50 秒內選擇 · Esc 拒絕"
+  },
+  "window.small": {
+    "en": "NearbyIM Terminal\nUse at least 45 columns × 16 rows. Ctrl+C quits.",
+    "zh-CN": "NearbyIM Terminal\n请增大到至少 45 列 × 16 行，Ctrl+C 退出。",
+    "ja": "NearbyIM Terminal\n45列 × 16行以上にしてください。Ctrl+Cで終了。",
+    "ko": "NearbyIM Terminal\n45열 × 16행 이상으로 늘리세요. Ctrl+C로 종료합니다.",
+    "zh-Hant": "NearbyIM Terminal\n請增大到至少 45 列 × 16 行，Ctrl+C 退出。"
+  },
+  "consent.small": {
+    "en": "Use at least 45 × 16 to review consent. Ctrl+C quits.",
+    "zh-CN": "请增大到至少 45 列 × 16 行查看连接认可，Ctrl+C 退出。",
+    "ja": "同意内容の確認には45 × 16以上が必要です。Ctrl+Cで終了。",
+    "ko": "동의 내용을 보려면 45 × 16 이상이 필요합니다. Ctrl+C로 종료합니다.",
+    "zh-Hant": "請增大到至少 45 列 × 16 行檢視連線認可，Ctrl+C 退出。"
+  },
+  "status.settings": {
+    "en": "Settings saved. Language applies now; theme/listener changes apply on restart.",
+    "zh-CN": "设置已保存。语言立即切换；主题和监听设置重启后生效。",
+    "ja": "設定を保存しました。言語は即時反映、テーマと受信設定は再起動後に反映されます。",
+    "ko": "설정을 저장했습니다. 언어는 즉시, 테마와 수신 설정은 재시작 후 적용됩니다.",
+    "zh-Hant": "設定已儲存。語言立即切換；主題和監聽設定重啟後生效。"
+  },
+  "status.requested": {
+    "en": "{command}: requested",
+    "zh-CN": "{command}：已请求",
+    "ja": "{command}: 要求済み",
+    "ko": "{command}: 요청됨",
+    "zh-Hant": "{command}：已請求"
+  },
+  "status.history": {
+    "en": "History loaded · older / latest switch pages",
+    "zh-CN": "历史已加载 · older / latest 翻页",
+    "ja": "履歴を読み込みました · older / latest で移動",
+    "ko": "기록을 불러왔습니다 · older / latest 로 이동",
+    "zh-Hant": "歷史已載入 · older / latest 翻頁"
+  },
+  "status.reveal": {
+    "en": "Requested the saved location in the OS file manager",
+    "zh-CN": "已请求在系统文件管理器中打开保存位置",
+    "ja": "OSのファイルマネージャーで保存先を開くよう要求しました",
+    "ko": "OS 파일 관리자에 저장 위치 열기를 요청했습니다",
+    "zh-Hant": "已請求在系統檔案管理器中開啟儲存位置"
+  },
+  "status.export": {
+    "en": "Verified file exported without overwrite",
+    "zh-CN": "已导出校验通过的文件，未覆盖已有文件",
+    "ja": "確認済みファイルを上書きせず書き出しました",
+    "ko": "검증된 파일을 덮어쓰지 않고 내보냈습니다",
+    "zh-Hant": "已匯出校驗透過的檔案，未覆蓋已有檔案"
+  },
+  "status.qr": {
+    "en": "Identity QR PNG exported without overwrite",
+    "zh-CN": "已导出身份二维码 PNG，未覆盖已有文件",
+    "ja": "識別QRのPNGを上書きせず保存しました",
+    "ko": "신원 QR PNG를 덮어쓰지 않고 저장했습니다",
+    "zh-Hant": "已匯出身份二維碼 PNG，未覆蓋已有檔案"
+  },
+  "status.verified_qr": {
+    "en": "Full pairwise identity QR matched; manual verification recorded",
+    "zh-CN": "双方完整身份二维码匹配，已记录人工核验",
+    "ja": "完全な相互識別QRが一致しました。手動確認を記録しました",
+    "ko": "전체 상호 신원 QR이 일치합니다. 수동 확인을 기록했습니다",
+    "zh-Hant": "雙方完整身份二維碼匹配，已記錄人工核驗"
+  },
+  "status.avatar": {
+    "en": "Avatar saved; sync uses the authenticated peer identity",
+    "zh-CN": "头像已保存，将通过已认证的设备身份同步",
+    "ja": "アバターを保存しました。認証済みの識別情報で同期します",
+    "ko": "아바타를 저장했습니다. 인증된 신원으로 동기화합니다",
+    "zh-Hant": "頭像已儲存，將透過已認證的裝置身份同步"
+  },
+  "status.ready": {
+    "en": "NIM4 ready · saved receipts are not read receipts",
+    "zh-CN": "NIM4 已就绪 · 保存回执不代表已读",
+    "ja": "NIM4 準備完了 · 保存の確認は既読ではありません",
+    "ko": "NIM4 준비됨 · 저장 확인은 읽음 확인이 아닙니다",
+    "zh-Hant": "NIM4 已就緒 · 儲存回執不代表已讀"
+  },
+  "status.scan": {
+    "en": "Scanning LAN for 8s · Esc cancels · connect HOST:PORT if multicast is blocked",
+    "zh-CN": "正在扫描局域网，最长 8 秒 · Esc 取消 · 组播受阻时可用 connect HOST:PORT",
+    "ja": "LANを8秒間検索中 · Esc キャンセル · マルチキャスト不可なら connect HOST:PORT",
+    "ko": "8초간 LAN 검색 중 · Esc 취소 · 멀티캐스트 차단 시 connect HOST:PORT",
+    "zh-Hant": "正在掃描區域網，最長 8 秒 · Esc 取消 · 組播受阻時可用 connect HOST:PORT"
+  },
+  "status.scan_done": {
+    "en": "Scan complete. Results are discovery hints, not online or identity proof.",
+    "zh-CN": "扫描完成。结果仅供发现，不代表设备在线或身份已核验。",
+    "ja": "検索完了。検出情報はオンライン状態や識別の証明ではありません。",
+    "ko": "검색 완료. 발견 정보는 온라인 상태나 신원을 증명하지 않습니다.",
+    "zh-Hant": "掃描完成。結果僅供發現，不代表裝置線上或身份已核驗。"
+  },
+  "status.scan_canceled": {
+    "en": "Scan canceled",
+    "zh-CN": "已取消扫描",
+    "ja": "検索をキャンセルしました",
+    "ko": "검색을 취소했습니다",
+    "zh-Hant": "已取消掃描"
+  },
+  "status.listener_off": {
+    "en": "LAN reception off · {commands}: scan / connect HOST:PORT / listen on",
+    "zh-CN": "局域网接收已关闭 · {commands}：scan / connect HOST:PORT / listen on",
+    "ja": "LAN受信オフ · {commands}: scan / connect HOST:PORT / listen on",
+    "ko": "LAN 수신 꺼짐 · {commands}: scan / connect HOST:PORT / listen on",
+    "zh-Hant": "區域網接收已關閉 · {commands}：scan / connect HOST:PORT / listen on"
+  },
+  "status.listener_on": {
+    "en": "Listening on port {port} · {commands}: scan / connect HOST:PORT",
+    "zh-CN": "正在监听端口 {port} · {commands}：scan / connect HOST:PORT",
+    "ja": "ポート{port}で受信待ち · {commands}: scan / connect HOST:PORT",
+    "ko": "포트 {port}에서 수신 대기 · {commands}: scan / connect HOST:PORT",
+    "zh-Hant": "正在監聽埠 {port} · {commands}：scan / connect HOST:PORT"
+  },
+  "help.navigation": {
+    "en": "PageUp/PageDown scroll · Esc returns",
+    "zh-CN": "PageUp/PageDown 翻页 · Esc 返回",
+    "ja": "PageUp/PageDown 移動 · Esc 戻る",
+    "ko": "PageUp/PageDown 이동 · Esc 뒤로",
+    "zh-Hant": "PageUp/PageDown 翻頁 · Esc 返回"
+  },
+  "setup.notice": {
+    "en": "NearbyIM Terminal creates a separate device identity and local history. No account, cloud, telemetry or GUI identity import. History is not encrypted at rest.",
+    "zh-CN": "NearbyIM Terminal 使用独立的设备身份和本地记录。无需账号，不使用云端、遥测或导入 GUI 身份。本地历史记录未额外加密。",
+    "ja": "NearbyIM Terminalは独立したデバイス識別情報とローカル履歴を作成します。アカウント、クラウド、テレメトリ、GUIからの識別情報の取り込みはありません。保存履歴は暗号化されません。",
+    "ko": "NearbyIM Terminal은 독립된 기기 신원과 로컬 기록을 만듭니다. 계정, 클라우드, 원격 측정, GUI 신원 가져오기는 없습니다. 저장된 기록은 암호화되지 않습니다.",
+    "zh-Hant": "NearbyIM Terminal 使用獨立的裝置身份和本地記錄。無需賬號，不使用雲端、遙測或匯入 GUI 身份。本地歷史記錄未額外加密。"
+  },
+  "setup.language": {
+    "en": "Interface language / 界面语言: system / en / zh-CN / zh-Hant / ja / ko",
+    "zh-CN": "Interface language / 界面语言：system / en / zh-CN / zh-Hant / ja / ko",
+    "ja": "表示言語: system / en / zh-CN / zh-Hant / ja / ko",
+    "ko": "화면 언어: system / en / zh-CN / zh-Hant / ja / ko",
+    "zh-Hant": "Interface language / 介面語言：system / en / zh-CN / zh-Hant / ja / ko"
+  },
+  "setup.invalid_language": {
+    "en": "Choose en, zh-CN, zh-Hant, ja or ko.",
+    "zh-CN": "请选择 en 或 zh-CN。",
+    "ja": "system / en / zh-CN / zh-Hant / ja / ko を選択してください。",
+    "ko": "system / en / zh-CN / zh-Hant / ja / ko 중 선택하세요.",
+    "zh-Hant": "請選擇 en 或 zh-CN。"
+  },
+  "setup.nickname": {
+    "en": "Nickname",
+    "zh-CN": "昵称",
+    "ja": "ニックネーム",
+    "ko": "별명",
+    "zh-Hant": "暱稱"
+  },
+  "setup.receive_dir": {
+    "en": "Receive directory",
+    "zh-CN": "接收目录",
+    "ja": "受信先フォルダー",
+    "ko": "수신 폴더",
+    "zh-Hant": "接收目錄"
+  },
+  "setup.listen": {
+    "en": "Enable LAN listening? yes/no",
+    "zh-CN": "开启局域网接收？yes/no",
+    "ja": "LAN受信を有効にしますか？ yes/no",
+    "ko": "LAN 수신을 켤까요? yes/no",
+    "zh-Hant": "開啟區域網接收？yes/no"
+  },
+  "setup.auto_receive": {
+    "en": "Automatically receive files from remembered devices? yes/no",
+    "zh-CN": "自动接收已记住设备的文件？yes/no",
+    "ja": "記憶したデバイスからファイルを自動受信しますか？ yes/no",
+    "ko": "기억한 기기의 파일을 자동 수신할까요? yes/no",
+    "zh-Hant": "自動接收已記住裝置的檔案？yes/no"
+  },
+  "view.chats": {
+    "en": "Chats",
+    "zh-CN": "聊天",
+    "ja": "チャット",
+    "ko": "채팅",
+    "zh-Hant": "聊天"
+  },
+  "view.nearby": {
+    "en": "Nearby",
+    "zh-CN": "附近",
+    "ja": "近く",
+    "ko": "주변",
+    "zh-Hant": "附近"
+  },
+  "view.transfers": {
+    "en": "Files",
+    "zh-CN": "文件",
+    "ja": "ファイル",
+    "ko": "파일",
+    "zh-Hant": "檔案"
+  },
+  "view.security": {
+    "en": "Security",
+    "zh-CN": "安全",
+    "ja": "セキュリティ",
+    "ko": "보안",
+    "zh-Hant": "安全"
+  },
+  "view.settings": {
+    "en": "Settings",
+    "zh-CN": "设置",
+    "ja": "設定",
+    "ko": "설정",
+    "zh-Hant": "設定"
+  },
+  "view.help": {
+    "en": "Help",
+    "zh-CN": "帮助",
+    "ja": "ヘルプ",
+    "ko": "도움말",
+    "zh-Hant": "幫助"
+  },
+  "view.qr": {
+    "en": "Identity QR",
+    "zh-CN": "身份二维码",
+    "ja": "識別QR",
+    "ko": "신원 QR",
+    "zh-Hant": "身份二維碼"
+  },
+  "view.status": {
+    "en": "Full status",
+    "zh-CN": "完整状态",
+    "ja": "完全な状態",
+    "ko": "전체 상태",
+    "zh-Hant": "完整狀態"
+  },
+  "cli.cmd.root": {
+    "en": "NearbyIM Terminal · independent NIM4 terminal client",
+    "zh-CN": "NearbyIM Terminal · 独立的 NIM4 终端客户端",
+    "ja": "NearbyIM Terminal · 独立したNIM4端末クライアント",
+    "ko": "NearbyIM Terminal · 독립형 NIM4 터미널 클라이언트",
+    "zh-Hant": "NearbyIM Terminal · 獨立的 NIM4 終端客戶端"
+  },
+  "cli.cmd.chat": {
+    "en": "Open the TUI focused on a peer; no background service.",
+    "zh-CN": "打开终端界面并选择设备，不启动后台服务。",
+    "ja": "指定デバイスでTUIを開きます。常駐サービスはありません。",
+    "ko": "기기를 선택하여 TUI를 엽니다. 백그라운드 서비스가 없습니다.",
+    "zh-Hant": "開啟終端介面並選擇裝置，不啟動後臺服務。"
+  },
+  "cli.cmd.connect": {
+    "en": "Foreground line client; stops when you exit.",
+    "zh-CN": "前台逐行客户端，退出后即停止。",
+    "ja": "前面で実行する行クライアント。終了時に停止します。",
+    "ko": "포그라운드 명령줄 클라이언트입니다. 종료하면 중지됩니다.",
+    "zh-Hant": "前臺逐行客戶端，退出後即停止。"
+  },
+  "cli.cmd.peers": {
+    "en": "Bounded LAN discovery, including Ethernet peers.",
+    "zh-CN": "有界扫描局域网设备，支持有线网卡。",
+    "ja": "有線を含むLANの有界検索。",
+    "ko": "유선 기기를 포함한 제한된 LAN 검색입니다.",
+    "zh-Hant": "有界掃描區域網裝置，支援有線網絡卡。"
+  },
+  "cli.cmd.peers.scan": {
+    "en": "Scan nearby LAN devices.",
+    "zh-CN": "扫描附近的局域网设备。",
+    "ja": "近くのLANデバイスを検索します。",
+    "ko": "주변 LAN 기기를 검색합니다.",
+    "zh-Hant": "掃描附近的區域網裝置。"
+  },
+  "cli.cmd.peers.show": {
+    "en": "Show a known peer.",
+    "zh-CN": "查看已知设备。",
+    "ja": "既知のデバイスを表示します。",
+    "ko": "기존 기기를 표시합니다.",
+    "zh-Hant": "檢視已知裝置。"
+  },
+  "cli.cmd.chats": {
+    "en": "Local conversations and message history.",
+    "zh-CN": "查看本地会话与消息历史。",
+    "ja": "ローカル会話とメッセージ履歴。",
+    "ko": "로컬 대화와 메시지 기록입니다.",
+    "zh-Hant": "檢視本地會話與訊息歷史。"
+  },
+  "cli.cmd.chats.list": {
+    "en": "List local conversations.",
+    "zh-CN": "列出本地会话。",
+    "ja": "ローカル会話を一覧表示します。",
+    "ko": "로컬 대화를 나열합니다.",
+    "zh-Hant": "列出本地會話。"
+  },
+  "cli.cmd.chats.show": {
+    "en": "Show paginated conversation history.",
+    "zh-CN": "分页查看会话历史。",
+    "ja": "会話履歴をページ単位で表示します。",
+    "ko": "대화 기록을 페이지 단위로 표시합니다.",
+    "zh-Hant": "分頁檢視會話歷史。"
+  },
+  "cli.cmd.send": {
+    "en": "Send text/files and wait for a durable saved receipt, not a read receipt.",
+    "zh-CN": "发送文字或文件，等待对方持久保存的回执；回执不代表已读。",
+    "ja": "テキストやファイルを送信し、保存確認を待ちます。既読ではありません。",
+    "ko": "텍스트/파일을 보내고 저장 확인을 기다립니다. 읽음 확인이 아닙니다.",
+    "zh-Hant": "傳送文字或檔案，等待對方持久儲存的回執；回執不代表已讀。"
+  },
+  "cli.cmd.files": {
+    "en": "Transfer records, checkpoints and local file operations.",
+    "zh-CN": "文件传输记录、检查点与本地文件操作。",
+    "ja": "転送記録、再開位置とローカルファイル操作。",
+    "ko": "전송 기록, 재개 위치 및 로컬 파일 작업입니다.",
+    "zh-Hant": "檔案傳輸記錄、檢查點與本地檔案操作。"
+  },
+  "cli.cmd.files.list": {
+    "en": "List file transfers.",
+    "zh-CN": "列出文件传输。",
+    "ja": "ファイル転送を一覧表示します。",
+    "ko": "파일 전송을 나열합니다.",
+    "zh-Hant": "列出檔案傳輸。"
+  },
+  "cli.cmd.files.resume": {
+    "en": "Resume an interrupted transfer from its checkpoint.",
+    "zh-CN": "从检查点继续中断的文件传输。",
+    "ja": "保存された再開位置から転送を再開します。",
+    "ko": "저장된 재개 위치부터 전송을 계속합니다.",
+    "zh-Hant": "從檢查點繼續中斷的檔案傳輸。"
+  },
+  "cli.cmd.files.cancel": {
+    "en": "Cancel a transfer and prevent late resume.",
+    "zh-CN": "取消传输，并阻止迟到事件重新恢复。",
+    "ja": "転送をキャンセルし、遅延した再開を防ぎます。",
+    "ko": "전송을 취소하고 늦은 재개를 방지합니다.",
+    "zh-Hant": "取消傳輸，並阻止遲到事件重新恢復。"
+  },
+  "cli.cmd.files.export": {
+    "en": "Copy a completed verified file without overwriting.",
+    "zh-CN": "导出已完成且校验通过的文件，不覆盖已有目标。",
+    "ja": "確認済みファイルを上書きせずコピーします。",
+    "ko": "검증된 파일을 덮어쓰지 않고 복사합니다.",
+    "zh-Hant": "匯出已完成且校驗透過的檔案，不覆蓋已有目標。"
+  },
+  "cli.cmd.files.reveal": {
+    "en": "Reveal a completed file in the OS file manager.",
+    "zh-CN": "在系统文件管理器中打开已完成文件的位置。",
+    "ja": "OSファイルマネージャーで完了ファイルを表示します。",
+    "ko": "OS 파일 관리자에서 완료된 파일을 표시합니다.",
+    "zh-Hant": "在系統檔案管理器中開啟已完成檔案的位置。"
+  },
+  "cli.cmd.resume": {
+    "en": "Compatibility shortcut for files resume.",
+    "zh-CN": "files resume 的兼容快捷命令。",
+    "ja": "files resume の互換ショートカット。",
+    "ko": "files resume 호환 단축 명령입니다.",
+    "zh-Hant": "files resume 的相容快捷命令。"
+  },
+  "cli.cmd.transfers": {
+    "en": "Compatibility shortcut for files list.",
+    "zh-CN": "files list 的兼容快捷命令。",
+    "ja": "files list の互換ショートカット。",
+    "ko": "files list 호환 단축 명령입니다.",
+    "zh-Hant": "files list 的相容快捷命令。"
+  },
+  "cli.cmd.listen": {
+    "en": "Foreground receiver; unknown peers require interactive approval.",
+    "zh-CN": "前台接收器；陌生设备需要交互认可。",
+    "ja": "前面受信。未知のデバイスには対話的な同意が必要です。",
+    "ko": "포그라운드 수신입니다. 모르는 기기에는 대화형 동의가 필요합니다.",
+    "zh-Hant": "前臺接收器；陌生裝置需要互動認可。"
+  },
+  "cli.cmd.identity": {
+    "en": "Device identity, full safety codes and verification QR.",
+    "zh-CN": "设备身份、完整安全码与核验二维码。",
+    "ja": "デバイス識別、完全な安全コードと確認QR。",
+    "ko": "기기 신원, 전체 안전 코드 및 확인 QR입니다.",
+    "zh-Hant": "裝置身份、完整安全碼與核驗二維碼。"
+  },
+  "cli.cmd.identity.show": {
+    "en": "Show this independent device identity.",
+    "zh-CN": "查看此独立客户端的设备身份。",
+    "ja": "この独立したデバイス識別を表示します。",
+    "ko": "이 독립된 기기 신원을 표시합니다.",
+    "zh-Hant": "檢視此獨立客戶端的裝置身份。"
+  },
+  "cli.cmd.identity.verify": {
+    "en": "Compare the full code before recording manual verification.",
+    "zh-CN": "比较完整安全码后，记录人工身份核验。",
+    "ja": "完全なコードを比較してから手動確認を記録します。",
+    "ko": "전체 코드를 비교한 후 수동 확인을 기록합니다.",
+    "zh-Hant": "比較完整安全碼後，記錄人工身份核驗。"
+  },
+  "cli.cmd.identity.qr": {
+    "en": "Display the pairwise QR, or save a PNG without overwriting.",
+    "zh-CN": "显示双方身份二维码，或保存 PNG；不覆盖已有文件。",
+    "ja": "相互確認QRを表示、または上書きせずPNG保存します。",
+    "ko": "상호 확인 QR을 표시하거나 덮어쓰지 않고 PNG로 저장합니다.",
+    "zh-Hant": "顯示雙方身份二維碼，或儲存 PNG；不覆蓋已有檔案。"
+  },
+  "cli.cmd.identity.check-qr": {
+    "en": "Compare an offline QR image without changing trust.",
+    "zh-CN": "比较离线二维码图片，不更改信任状态。",
+    "ja": "オフラインQR画像を比較します。信頼状態は変更しません。",
+    "ko": "오프라인 QR 이미지를 비교합니다. 신뢰 상태는 바꾸지 않습니다.",
+    "zh-Hant": "比較離線二維碼圖片，不更改信任狀態。"
+  },
+  "cli.cmd.identity.forget": {
+    "en": "Forget a peer after interactive confirmation.",
+    "zh-CN": "交互确认后取消记住该设备。",
+    "ja": "対話的な確認後にデバイスを忘れます。",
+    "ko": "대화형 확인 후 기기를 삭제합니다.",
+    "zh-Hant": "互動確認後取消記住該裝置。"
+  },
+  "cli.cmd.avatar": {
+    "en": "Identity-bound avatar settings and PNG export.",
+    "zh-CN": "与设备身份绑定的头像设置及 PNG 导出。",
+    "ja": "識別情報に紐付くアバター設定とPNG出力。",
+    "ko": "신원에 연결된 아바타 설정 및 PNG 내보내기입니다.",
+    "zh-Hant": "與裝置身份繫結的頭像設定及 PNG 匯出。"
+  },
+  "cli.cmd.avatar.show": {
+    "en": "Show your avatar or a known peer's avatar.",
+    "zh-CN": "查看自己的头像或已知设备头像。",
+    "ja": "自分または既知の相手のアバターを表示します。",
+    "ko": "자신 또는 기존 상대의 아바타를 표시합니다.",
+    "zh-Hant": "檢視自己的頭像或已知裝置頭像。"
+  },
+  "cli.cmd.avatar.set": {
+    "en": "Choose an image for this device's avatar.",
+    "zh-CN": "为本设备选择头像图片。",
+    "ja": "このデバイスのアバター画像を選択します。",
+    "ko": "이 기기의 아바타 이미지를 선택합니다.",
+    "zh-Hant": "為本裝置選擇頭像圖片。"
+  },
+  "cli.cmd.avatar.reset": {
+    "en": "Reset this device's avatar.",
+    "zh-CN": "重置本设备头像。",
+    "ja": "このデバイスのアバターをリセットします。",
+    "ko": "이 기기의 아바타를 초기화합니다.",
+    "zh-Hant": "重置本裝置頭像。"
+  },
+  "cli.cmd.avatar.export": {
+    "en": "Export an avatar PNG without overwriting.",
+    "zh-CN": "导出头像 PNG，不覆盖已有文件。",
+    "ja": "アバターを上書きせずPNG出力します。",
+    "ko": "아바타를 덮어쓰지 않고 PNG로 내보냅니다.",
+    "zh-Hant": "匯出頭像 PNG，不覆蓋已有檔案。"
+  },
+  "cli.cmd.trust": {
+    "en": "Remembered devices and explicit trust changes.",
+    "zh-CN": "已记住的设备与明确的信任操作。",
+    "ja": "記憶したデバイスと明示的な信頼変更。",
+    "ko": "기억한 기기 및 명시적 신뢰 변경입니다.",
+    "zh-Hant": "已記住的裝置與明確的信任操作。"
+  },
+  "cli.cmd.trust.list": {
+    "en": "List remembered devices and manual verification flags.",
+    "zh-CN": "列出已记住的设备及人工核验状态。",
+    "ja": "記憶済みと手動確認の状態を一覧表示します。",
+    "ko": "기억 여부와 수동 확인 상태를 나열합니다.",
+    "zh-Hant": "列出已記住的裝置及人工核驗狀態。"
+  },
+  "cli.cmd.trust.revoke": {
+    "en": "Revoke trust with interactive confirmation.",
+    "zh-CN": "交互确认后撤销设备信任。",
+    "ja": "対話的に確認して信頼を取り消します。",
+    "ko": "대화형 확인 후 신뢰를 취소합니다.",
+    "zh-Hant": "互動確認後撤銷裝置信任。"
+  },
+  "cli.cmd.config": {
+    "en": "Inspect or change this Terminal profile's settings.",
+    "zh-CN": "查看或修改此 Terminal Profile 的设置。",
+    "ja": "このTerminalプロファイルの設定を確認または変更します。",
+    "ko": "이 Terminal 프로필의 설정을 조회하거나 변경합니다.",
+    "zh-Hant": "檢視或修改此 Terminal Profile 的設定。"
+  },
+  "cli.cmd.config.list": {
+    "en": "List settings; keys and stored enum values stay stable.",
+    "zh-CN": "列出设置；键名和存储枚举值保持不变。",
+    "ja": "設定を一覧表示します。キーと保存値は変わりません。",
+    "ko": "설정을 나열합니다. 키와 저장된 값은 그대로 유지됩니다.",
+    "zh-Hant": "列出設定；鍵名和儲存列舉值保持不變。"
+  },
+  "cli.cmd.config.get": {
+    "en": "Read one setting.",
+    "zh-CN": "读取一个设置。",
+    "ja": "設定を1つ読み取ります。",
+    "ko": "설정 하나를 읽습니다.",
+    "zh-Hant": "讀取一個設定。"
+  },
+  "cli.cmd.config.set": {
+    "en": "Save one setting. Use language system|en|zh-CN|zh-Hant|ja|ko to change language.",
+    "zh-CN": "保存一个设置；使用 language system|en|zh-CN|zh-Hant|ja|ko 切换语言。",
+    "ja": "設定を保存します。language en/zh-CN/zh-Hant/ja/ko で言語を変更します。",
+    "ko": "설정을 저장합니다. language en/zh-CN/zh-Hant/ja/ko 로 언어를 바꿉니다.",
+    "zh-Hant": "儲存一個設定；使用 language system|en|zh-CN|zh-Hant|ja|ko 切換語言。"
+  },
+  "cli.cmd.status": {
+    "en": "Show local status, not another running process.",
+    "zh-CN": "查看本地状态，不查询其他运行进程。",
+    "ja": "他プロセスではなくローカル状態を表示します。",
+    "ko": "다른 프로세스가 아닌 로컬 상태를 표시합니다.",
+    "zh-Hant": "檢視本地狀態，不查詢其他執行程序。"
+  },
+  "cli.cmd.doctor": {
+    "en": "Redacted diagnostics for this Terminal profile.",
+    "zh-CN": "查看此 Terminal Profile 的脱敏诊断。",
+    "ja": "機密情報を除いたプロファイル診断。",
+    "ko": "민감한 정보를 제외한 프로필 진단입니다.",
+    "zh-Hant": "檢視此 Terminal Profile 的脫敏診斷。"
+  },
+  "cli.cmd.completion": {
+    "en": "Generate shell completions; command syntax remains English.",
+    "zh-CN": "生成 Shell 补全；命令语法保持英文。",
+    "ja": "シェル補完を生成します。コマンド構文は英語のままです。",
+    "ko": "셸 자동 완성을 만듭니다. 명령 구문은 영어로 유지됩니다.",
+    "zh-Hant": "生成 Shell 補全；命令語法保持英文。"
+  },
+  "cli.cmd.help": {
+    "en": "Print help for a command.",
+    "zh-CN": "查看命令帮助。",
+    "ja": "コマンドのヘルプを表示します。",
+    "ko": "명령 도움말을 표시합니다.",
+    "zh-Hant": "檢視命令幫助。"
+  },
+  "cli.arg.profile": {
+    "en": "Independent Terminal profile; never point at GUI data.",
+    "zh-CN": "独立的 Terminal 数据目录；不要指向 GUI 数据。",
+    "ja": "独立したTerminalプロファイル。GUIデータを指定しないでください。",
+    "ko": "독립된 Terminal 프로필입니다. GUI 데이터를 지정하지 마세요.",
+    "zh-Hant": "獨立的 Terminal 資料目錄；不要指向 GUI 資料。"
+  },
+  "cli.arg.name": {
+    "en": "Override the displayed device nickname.",
+    "zh-CN": "覆盖本次使用的设备昵称。",
+    "ja": "表示するニックネームを上書きします。",
+    "ko": "표시할 별명을 지정합니다.",
+    "zh-Hant": "覆蓋本次使用的裝置暱稱。"
+  },
+  "cli.arg.json": {
+    "en": "One versioned JSON result; never implies approval.",
+    "zh-CN": "输出一个带版本的 JSON 结果；不隐含任何认可。",
+    "ja": "バージョン付きJSON結果を1つ出力します。同意を意味しません。",
+    "ko": "버전이 있는 JSON 결과 하나를 출력합니다. 동의를 의미하지 않습니다.",
+    "zh-Hant": "輸出一個帶版本的 JSON 結果；不隱含任何認可。"
+  },
+  "cli.arg.no_color": {
+    "en": "Disable colored output.",
+    "zh-CN": "关闭彩色输出。",
+    "ja": "色を無効にします。",
+    "ko": "색상을 끕니다.",
+    "zh-Hant": "關閉彩色輸出。"
+  },
+  "cli.arg.theme": {
+    "en": "Terminal color theme.",
+    "zh-CN": "终端配色主题。",
+    "ja": "端末の配色テーマ。",
+    "ko": "터미널 색상 테마입니다.",
+    "zh-Hant": "終端配色主題。"
+  },
+  "cli.arg.ascii": {
+    "en": "Use ASCII borders for terminals with limited glyph support.",
+    "zh-CN": "使用 ASCII 边框，兼容字形支持有限的终端。",
+    "ja": "字形の制限がある端末向けASCII枠線。",
+    "ko": "글리프가 제한된 터미널용 ASCII 테두리입니다.",
+    "zh-Hant": "使用 ASCII 邊框，相容字形支援有限的終端。"
+  },
+  "cli.arg.timeout": {
+    "en": "Deadline: seconds or suffix s/m; 0 waits until interrupted.",
+    "zh-CN": "截止时间：秒数或 s/m 后缀；0 表示等到被中断。",
+    "ja": "期限は秒、s/m接尾辞。0は中断まで待ちます。",
+    "ko": "기한은 초 또는 s/m 접미사입니다. 0은 중단할 때까지 기다립니다.",
+    "zh-Hant": "截止時間：秒數或 s/m 字尾；0 表示等到被中斷。"
+  },
+  "cli.arg.receive_dir": {
+    "en": "Directory used for received files.",
+    "zh-CN": "接收文件的保存目录。",
+    "ja": "受信ファイルの保存先。",
+    "ko": "수신 파일 저장 위치입니다.",
+    "zh-Hant": "接收檔案的儲存目錄。"
+  },
+  "cli.arg.listen": {
+    "en": "Explicitly enable foreground LAN listening on HOST:PORT.",
+    "zh-CN": "明确开启前台局域网监听，地址为 HOST:PORT。",
+    "ja": "HOST:PORTで前面のLAN受信を明示的に開始します。",
+    "ko": "HOST:PORT에서 포그라운드 LAN 수신을 명시적으로 시작합니다.",
+    "zh-Hant": "明確開啟前臺區域網監聽，地址為 HOST:PORT。"
+  },
+  "cli.arg.address": {
+    "en": "Connect to HOST:PORT; identity approval remains required.",
+    "zh-CN": "连接 HOST:PORT，仍需设备身份认可。",
+    "ja": "HOST:PORTへ接続します。識別への同意は別途必要です。",
+    "ko": "HOST:PORT로 연결합니다. 신원 동의는 별도로 필요합니다.",
+    "zh-Hant": "連線 HOST:PORT，仍需裝置身份認可。"
+  },
+  "cli.arg.verbose": {
+    "en": "Additional diagnostics, never bodies or private keys.",
+    "zh-CN": "输出额外诊断，不包含消息正文或私钥。",
+    "ja": "本文や秘密鍵を除く追加の診断。",
+    "ko": "본문과 비밀 키를 제외한 추가 진단입니다.",
+    "zh-Hant": "輸出額外診斷，不包含訊息正文或私鑰。"
+  },
+  "cli.arg.help": {
+    "en": "Print help.",
+    "zh-CN": "查看帮助。",
+    "ja": "ヘルプを表示します。",
+    "ko": "도움말을 표시합니다.",
+    "zh-Hant": "檢視幫助。"
+  },
+  "cli.arg.version": {
+    "en": "Print version.",
+    "zh-CN": "查看版本。",
+    "ja": "バージョンを表示します。",
+    "ko": "버전을 표시합니다.",
+    "zh-Hant": "檢視版本。"
+  },
+  "cli.arg.peer": {
+    "en": "Peer UUID or connection address.",
+    "zh-CN": "设备 UUID 或连接地址。",
+    "ja": "相手のUUIDまたは接続先アドレス。",
+    "ko": "상대 UUID 또는 연결 주소입니다.",
+    "zh-Hant": "裝置 UUID 或連線地址。"
+  },
+  "cli.arg.text": {
+    "en": "Text to send; no automatic approval.",
+    "zh-CN": "要发送的文字，不会自动认可陌生设备。",
+    "ja": "送信テキスト。自動的に同意しません。",
+    "ko": "보낼 텍스트입니다. 자동 동의하지 않습니다.",
+    "zh-Hant": "要傳送的文字，不會自動認可陌生裝置。"
+  },
+  "cli.arg.file": {
+    "en": "File path; repeat this option to queue several files.",
+    "zh-CN": "文件路径；可重复此参数排队发送多个文件。",
+    "ja": "ファイルパス。複数指定でキューに追加できます。",
+    "ko": "파일 경로입니다. 여러 번 지정하여 대기열에 추가합니다.",
+    "zh-Hant": "檔案路徑；可重複此引數排隊傳送多個檔案。"
+  },
+  "cli.arg.stdin": {
+    "en": "Read message text from stdin.",
+    "zh-CN": "从标准输入读取消息文字。",
+    "ja": "標準入力から本文を読み取ります。",
+    "ko": "표준 입력에서 본문을 읽습니다.",
+    "zh-Hant": "從標準輸入讀取訊息文字。"
+  },
+  "cli.arg.lan": {
+    "en": "Enable the foreground LAN receiver.",
+    "zh-CN": "开启前台局域网接收。",
+    "ja": "前面のLAN受信を有効にします。",
+    "ko": "포그라운드 LAN 수신을 켭니다.",
+    "zh-Hant": "開啟前臺區域網接收。"
+  },
+  "cli.arg.id": {
+    "en": "Transfer ID.",
+    "zh-CN": "传输 ID。",
+    "ja": "転送ID。",
+    "ko": "전송 ID입니다.",
+    "zh-Hant": "傳輸 ID。"
+  },
+  "cli.arg.path": {
+    "en": "Local file path.",
+    "zh-CN": "本地文件路径。",
+    "ja": "ローカルファイルパス。",
+    "ko": "로컬 파일 경로입니다.",
+    "zh-Hant": "本地檔案路徑。"
+  },
+  "cli.arg.qr": {
+    "en": "Offline QR image used for identity comparison.",
+    "zh-CN": "用于身份比较的离线二维码图片。",
+    "ja": "識別比較用のオフラインQR画像。",
+    "ko": "신원 비교용 오프라인 QR 이미지입니다.",
+    "zh-Hant": "用於身份比較的離線二維碼圖片。"
+  },
+  "cli.arg.output": {
+    "en": "Save a PNG here without overwriting.",
+    "zh-CN": "在此保存 PNG，不覆盖已有文件。",
+    "ja": "上書きせずPNGを保存します。",
+    "ko": "덮어쓰지 않고 PNG로 저장합니다.",
+    "zh-Hant": "在此儲存 PNG，不覆蓋已有檔案。"
+  },
+  "cli.arg.key": {
+    "en": "Stable settings key.",
+    "zh-CN": "稳定的设置键名。",
+    "ja": "安定した設定キー。",
+    "ko": "고정된 설정 키입니다.",
+    "zh-Hant": "穩定的設定鍵名。"
+  },
+  "cli.arg.value": {
+    "en": "Setting value.",
+    "zh-CN": "设置值。",
+    "ja": "設定値。",
+    "ko": "설정값입니다.",
+    "zh-Hant": "設定值。"
+  },
+  "cli.arg.before": {
+    "en": "Read records before this timestamp.",
+    "zh-CN": "读取此时间戳之前的记录。",
+    "ja": "この時刻より前の記録を読み取ります。",
+    "ko": "이 시각 이전의 기록을 읽습니다.",
+    "zh-Hant": "讀取此時間戳之前的記錄。"
+  },
+  "cli.arg.limit": {
+    "en": "Maximum number of returned records.",
+    "zh-CN": "最多返回的记录条数。",
+    "ja": "取得する記録の最大数。",
+    "ko": "가져올 기록의 최대 개수입니다.",
+    "zh-Hant": "最多返回的記錄條數。"
+  },
+  "cli.arg.shell": {
+    "en": "Target shell for the completion script.",
+    "zh-CN": "补全脚本的目标 Shell。",
+    "ja": "補完スクリプトの対象シェル。",
+    "ko": "자동 완성 스크립트의 대상 셸입니다.",
+    "zh-Hant": "補全指令碼的目標 Shell。"
+  },
+  "cli.heading.arguments": {
+    "en": "Arguments",
+    "zh-CN": "参数",
+    "ja": "引数",
+    "ko": "인수",
+    "zh-Hant": "引數"
+  },
+  "cli.heading.options": {
+    "en": "Options",
+    "zh-CN": "选项",
+    "ja": "オプション",
+    "ko": "옵션",
+    "zh-Hant": "選項"
+  },
+  "cli.heading.commands": {
+    "en": "Commands",
+    "zh-CN": "命令",
+    "ja": "コマンド",
+    "ko": "명령",
+    "zh-Hant": "命令"
+  },
+  "cli.values": {
+    "en": "Possible values: {values}",
+    "zh-CN": "可选值：{values}",
+    "ja": "使用可能な値: {values}",
+    "ko": "가능한 값: {values}",
+    "zh-Hant": "可選值：{values}"
+  },
+  "cli.default": {
+    "en": "Default: {value}",
+    "zh-CN": "默认值：{value}",
+    "ja": "既定値: {value}",
+    "ko": "기본값: {value}",
+    "zh-Hant": "預設值：{value}"
+  },
+  "cli.safety": {
+    "en": "LAN listening is off by default. Unknown devices and incoming files require consent. Encryption and manual identity verification are separate. Saved receipts are not read receipts; local history is not encrypted at rest.",
+    "zh-CN": "默认关闭局域网监听。陌生设备连接和接收文件需要认可。传输加密不等于人工身份核验。保存回执不代表已读；本地历史记录未额外加密。",
+    "ja": "LAN受信は初期状態でオフです。未知のデバイスと受信ファイルには同意が必要です。暗号化と手動の識別確認は別です。保存確認は既読ではなく、ローカル履歴は暗号化されません。",
+    "ko": "LAN 수신은 기본으로 꺼져 있습니다. 모르는 기기와 수신 파일에는 동의가 필요합니다. 암호화와 수동 신원 확인은 별개입니다. 저장 확인은 읽음이 아니며 로컬 기록은 암호화되지 않습니다.",
+    "zh-Hant": "預設關閉區域網監聽。陌生裝置連線和接收檔案需要認可。傳輸加密不等於人工身份核驗。儲存回執不代表已讀；本地歷史記錄未額外加密。"
+  },
+  "state.pending": {
+    "en": "pending",
+    "zh-CN": "等待发送",
+    "ja": "保留中",
+    "ko": "대기 중",
+    "zh-Hant": "等待傳送"
+  },
+  "state.unconfirmed": {
+    "en": "unconfirmed",
+    "zh-CN": "未确认",
+    "ja": "未確認",
+    "ko": "확인 안 됨",
+    "zh-Hant": "未確認"
+  },
+  "state.saved": {
+    "en": "saved",
+    "zh-CN": "已保存",
+    "ja": "保存済み",
+    "ko": "저장됨",
+    "zh-Hant": "已儲存"
+  },
+  "state.received": {
+    "en": "received",
+    "zh-CN": "已接收",
+    "ja": "受信済み",
+    "ko": "수신됨",
+    "zh-Hant": "已接收"
+  },
+  "state.sending": {
+    "en": "sending",
+    "zh-CN": "发送中",
+    "ja": "送信中",
+    "ko": "전송 중",
+    "zh-Hant": "傳送中"
+  },
+  "state.receiving": {
+    "en": "receiving",
+    "zh-CN": "接收中",
+    "ja": "受信中",
+    "ko": "수신 중",
+    "zh-Hant": "接收中"
+  },
+  "state.paused": {
+    "en": "paused",
+    "zh-CN": "已暂停",
+    "ja": "一時停止",
+    "ko": "일시 중지됨",
+    "zh-Hant": "已暫停"
+  },
+  "state.canceled": {
+    "en": "canceled",
+    "zh-CN": "已取消",
+    "ja": "キャンセル済み",
+    "ko": "취소됨",
+    "zh-Hant": "已取消"
+  },
+  "state.failed": {
+    "en": "failed",
+    "zh-CN": "失败",
+    "ja": "失敗",
+    "ko": "실패",
+    "zh-Hant": "失敗"
+  },
+  "state.offered": {
+    "en": "offered",
+    "zh-CN": "等待认可",
+    "ja": "提案済み",
+    "ko": "제안됨",
+    "zh-Hant": "等待認可"
+  },
+  "state.waiting": {
+    "en": "waiting",
+    "zh-CN": "等待中",
+    "ja": "待機中",
+    "ko": "대기 중",
+    "zh-Hant": "等待中"
+  },
+  "state.verifying": {
+    "en": "verifying",
+    "zh-CN": "校验中",
+    "ja": "確認中",
+    "ko": "검증 중",
+    "zh-Hant": "校驗中"
+  },
+  "help.body": {
+    "en": "NEARBYIM TERMINAL\n\nCHAT & DEVICES\nchats                    Conversation list\nscan / nearby            Scan LAN for 8 seconds\nconnect HOST:PORT        Connect to an address\npeer ID                  Select a known device\ndisconnect               Pause files and close this session\nolder / latest           Page through local history\nsearch TEXT              Find text in the selected chat\n\nFILES\nfile PATH                Choose a file; confirm before sending\nfiles PATH               One path per line; Ctrl+J adds a line\ntransfers                Show transfer records\npause ID / resume ID     Pause or continue a file\ncancel ID                Cancel a transfer\nreveal ID                Open its saved location\nexport ID PATH           Export without overwrite\n\nIDENTITY & SAFETY\nsecurity                 Remembered devices and verification\ncode                     Show the complete safety code\nverify FULL_CODE         Record comparison of the full code\nunverify                 Remove manual verification\nqr [OUTPUT.png]          Show/save the complete identity QR\nverify-qr IMAGE          Compare a QR and record verification\navatar set PATH          Choose an avatar image\navatar reset / show      Reset or inspect the avatar\navatar export PATH       Export an avatar PNG\n\nSETTINGS & OTHER\nsettings                 Show settings\nset KEY VALUE            Save a setting\nset language system|en|zh-CN|zh-Hant|ja|ko    Switch language now\nlisten on|off            Explicit LAN reception\nstatus                   Read the full last status/error\nhelp                     Open this page\nquit / q                 Pause active files before exit\n\nKEYBOARD\n{commands}               Command palette\nTab / Shift+Tab          Change focus\nj/k or Up/Down           Choose a peer outside the composer\nEnter                    Connect or send\nAlt+Enter / Ctrl+J       Insert newline\nCtrl+F / /               Search (outside composer for /)\na                        Attach (outside composer)\nCtrl+U                   Clear the editor\nCtrl+L                   Return to chat composer\nPageUp / PageDown        Scroll\nEsc                      Cancel/back; never grants consent\nCtrl+C                   Exit and restore the terminal\n1 / 2 / 3                Chats / scan / files outside composer\n\nSAFETY NOTES\nListening is off by default. Discovery hints do not prove identity or online status.\nOnly one active session: disconnect before switching peers.\nIncoming files require approval unless remembered-device auto-receive is enabled.\nEncrypted transport, first-use consent and manual identity verification are separate.\nA saved receipt is not a read receipt. Local history is not encrypted at rest.\nNIM4 and terminal command names are unchanged.",
+    "zh-CN": "NEARBYIM TERMINAL\n\n聊天与设备\nchats                    会话列表\nscan / nearby            扫描局域网，最长 8 秒\nconnect HOST:PORT        使用地址连接\npeer ID                  选择已知设备\ndisconnect               暂停文件并断开本次连接\nolder / latest           翻阅本地历史\nsearch TEXT              搜索当前会话文字\n\n文件传输\nfile PATH                选择文件，确认后才发送\nfiles PATH               每行一个路径；Ctrl+J 换行\ntransfers                查看传输记录\npause ID / resume ID     暂停或继续文件\ncancel ID                取消传输\nreveal ID                打开文件保存位置\nexport ID PATH           导出文件，不覆盖已有目标\n\n身份与安全\nsecurity                 已记住的设备与核验状态\ncode                     查看完整安全码\nverify FULL_CODE         比较完整安全码后记录核验\nunverify                 取消人工核验标记\nqr [OUTPUT.png]          显示或保存完整身份二维码\nverify-qr IMAGE          比较二维码并记录核验\navatar set PATH          选择头像图片\navatar reset / show      重置或查看头像\navatar export PATH       导出头像 PNG\n\n设置与其他\nsettings                 查看设置\nset KEY VALUE            保存设置\nset language system|en|zh-CN|zh-Hant|ja|ko    立即切换语言\nlisten on|off            明确开启或关闭局域网接收\nstatus                   查看上一条完整状态或错误\nhelp                     打开此帮助\nquit / q                 退出前暂停在途文件\n\n快捷键\n{commands}               命令面板\nTab / Shift+Tab          切换焦点\nj/k 或 Up/Down           在输入区外选择设备\nEnter                    连接或发送\nAlt+Enter / Ctrl+J       输入换行\nCtrl+F / /               搜索（/ 仅在输入区外生效）\na                        添加附件（仅在输入区外）\nCtrl+U                   清空编辑区\nCtrl+L                   返回聊天输入区\nPageUp / PageDown        翻页\nEsc                      取消或返回，不会授予认可\nCtrl+C                   退出并恢复终端\n1 / 2 / 3                在输入区外进入聊天、扫描、文件\n\n安全说明\n默认关闭监听。扫描结果不能证明设备在线或身份可信。\n一次只保持一个活动会话；切换设备前请先断开。\n接收文件需要认可，除非已明确开启记住设备的自动接收。\n传输加密、首次使用认可和人工身份核验是不同的状态。\n保存回执不代表已读；本地历史记录未额外加密。\nNIM4 和终端命令名称保持不变。",
+    "zh-Hant": "NEARBYIM TERMINAL\n\n聊天與裝置\nchats                    會話列表\nscan / nearby            掃描區域網，最長 8 秒\nconnect HOST:PORT        使用地址連線\npeer ID                  選擇已知裝置\ndisconnect               暫停檔案並斷開本次連線\nolder / latest           翻閱本地歷史\nsearch TEXT              搜尋當前會話文字\n\n檔案傳輸\nfile PATH                選擇檔案，確認後才傳送\nfiles PATH               每行一個路徑；Ctrl+J 換行\ntransfers                檢視傳輸記錄\npause ID / resume ID     暫停或繼續檔案\ncancel ID                取消傳輸\nreveal ID                開啟檔案儲存位置\nexport ID PATH           匯出檔案，不覆蓋已有目標\n\n身份與安全\nsecurity                 已記住的裝置與核驗狀態\ncode                     檢視完整安全碼\nverify FULL_CODE         比較完整安全碼後記錄核驗\nunverify                 取消人工核驗標記\nqr [OUTPUT.png]          顯示或儲存完整身份二維碼\nverify-qr IMAGE          比較二維碼並記錄核驗\navatar set PATH          選擇頭像圖片\navatar reset / show      重置或檢視頭像\navatar export PATH       匯出頭像 PNG\n\n設定與其他\nsettings                 檢視設定\nset KEY VALUE            儲存設定\nset language system|en|zh-CN|zh-Hant|ja|ko    立即切換語言\nlisten on|off            明確開啟或關閉區域網接收\nstatus                   檢視上一條完整狀態或錯誤\nhelp                     開啟此幫助\nquit / q                 退出前暫停在途檔案\n\n快捷鍵\n{commands}               命令面板\nTab / Shift+Tab          切換焦點\nj/k 或 Up/Down           在輸入區外選擇裝置\nEnter                    連線或傳送\nAlt+Enter / Ctrl+J       輸入換行\nCtrl+F / /               搜尋（/ 僅在輸入區外生效）\na                        新增附件（僅在輸入區外）\nCtrl+U                   清空編輯區\nCtrl+L                   返回聊天輸入區\nPageUp / PageDown        翻頁\nEsc                      取消或返回，不會授予認可\nCtrl+C                   退出並恢復終端\n1 / 2 / 3                在輸入區外進入聊天、掃描、檔案\n\n安全說明\n預設關閉監聽。掃描結果不能證明裝置線上或身份可信。\n一次只保持一個活動會話；切換裝置前請先斷開。\n接收檔案需要認可，除非已明確開啟記住裝置的自動接收。\n傳輸加密、首次使用認可和人工身份核驗是不同的狀態。\n儲存回執不代表已讀；本地歷史記錄未額外加密。\nNIM4 和終端命令名稱保持不變。",
+    "ja": "NEARBYIM TERMINAL\n\nチャットとデバイス\nchats                    会話一覧\nscan / nearby            LANを8秒間検索\nconnect HOST:PORT        アドレスに接続\npeer ID                  既知のデバイスを選択\ndisconnect               ファイルを一時停止して切断\nolder / latest           ローカル履歴を移動\nsearch TEXT              選択した会話を検索\n\nファイル\nfile PATH                選択して確認後に送信\nfiles PATH               1行1パス、Ctrl+Jで改行\ntransfers                転送記録\npause ID / resume ID     一時停止または再開\ncancel ID                転送をキャンセル\nreveal ID                保存先を開く\nexport ID PATH           上書きせず書き出す\n\n識別と安全\nsecurity                 記憶したデバイスと確認状態\ncode                     完全な安全コードを表示\nverify FULL_CODE         完全なコードの比較を記録\nunverify                 手動確認を取り消す\nqr [OUTPUT.png]          完全な識別QRを表示・保存\nverify-qr IMAGE          QRを比較して確認を記録\navatar set PATH          アバター画像を選択\navatar reset / show      アバターをリセット・確認\navatar export PATH       アバターPNGを書き出す\n\n設定とその他\nsettings                 設定を表示\nset KEY VALUE            設定を保存\nset language system|en|zh-CN|zh-Hant|ja|ko\n                         言語を即時切り替え\nlisten on|off            LAN受信を明示的に切り替え\nstatus                   最後の状態・エラーを全文表示\nhelp                     このページ\nquit / q                 ファイルを一時停止して終了\n\nキー操作\n{commands}               コマンドパレット\nTab / Shift+Tab          フォーカス移動\nj/k / Up/Down            入力欄以外で相手を選択\nEnter                    接続または送信\nAlt+Enter / Ctrl+J       改行\nCtrl+F / /               検索（/ は入力欄以外）\na                        添付（入力欄以外）\nCtrl+U                   入力を消去\nCtrl+L                   チャット入力へ戻る\nPageUp / PageDown        スクロール\nEsc                      キャンセル・戻る。同意しません\nCtrl+C                   終了して端末を復元\n1 / 2 / 3                入力欄以外で会話・検索・ファイル\n\n安全上の注意\n受信は初期状態でオフです。検出情報はオンライン状態や識別の証明ではありません。\n同時に維持できる会話は1つです。相手を切り替える前に切断してください。\n記憶したデバイスの自動受信を有効にした場合を除き、受信には同意が必要です。\n転送の暗号化、初回の同意、手動の識別確認は別の状態です。\n保存の確認は既読ではありません。ローカル履歴は暗号化されません。\nNIM4と端末コマンド名は変わりません。",
+    "ko": "NEARBYIM TERMINAL\n\n채팅과 기기\nchats                    대화 목록\nscan / nearby            8초간 LAN 검색\nconnect HOST:PORT        주소로 연결\npeer ID                  기존 기기 선택\ndisconnect               파일 일시 중지 후 연결 종료\nolder / latest           로컬 기록 페이지 이동\nsearch TEXT              선택한 대화 검색\n\n파일\nfile PATH                선택 후 확인하여 전송\nfiles PATH               줄마다 경로 하나, Ctrl+J 줄 바꿈\ntransfers                전송 기록\npause ID / resume ID     일시 중지 또는 재개\ncancel ID                전송 취소\nreveal ID                저장 위치 열기\nexport ID PATH           덮어쓰지 않고 내보내기\n\n신원과 보안\nsecurity                 기억한 기기 및 확인 상태\ncode                     전체 안전 코드 표시\nverify FULL_CODE         전체 코드 비교를 기록\nunverify                 수동 확인 취소\nqr [OUTPUT.png]          전체 신원 QR 표시/저장\nverify-qr IMAGE          QR 비교 후 확인 기록\navatar set PATH          아바타 이미지 선택\navatar reset / show      아바타 초기화/조회\navatar export PATH       아바타 PNG 내보내기\n\n설정 및 기타\nsettings                 설정 표시\nset KEY VALUE            설정 저장\nset language system|en|zh-CN|zh-Hant|ja|ko\n                         언어 즉시 전환\nlisten on|off            명시적으로 LAN 수신 변경\nstatus                   마지막 상태/오류 전체 표시\nhelp                     이 페이지\nquit / q                 파일 일시 중지 후 종료\n\n단축키\n{commands}               명령 팔레트\nTab / Shift+Tab          초점 이동\nj/k / Up/Down            입력 영역 밖에서 기기 선택\nEnter                    연결 또는 전송\nAlt+Enter / Ctrl+J       줄 바꿈\nCtrl+F / /               검색 (/ 는 입력 영역 밖에서)\na                        첨부 (입력 영역 밖에서)\nCtrl+U                   편집 영역 지우기\nCtrl+L                   채팅 입력으로 돌아가기\nPageUp / PageDown        스크롤\nEsc                      취소/뒤로. 동의하지 않음\nCtrl+C                   종료하고 터미널 복원\n1 / 2 / 3                입력 영역 밖에서 채팅/검색/파일\n\n안전 안내\n수신은 기본으로 꺼져 있습니다. 발견 정보는 온라인 상태나 신원을 증명하지 않습니다.\n활성 대화는 하나입니다. 기기를 바꾸기 전에 연결을 끊으세요.\n기억한 기기 자동 수신을 켠 경우를 제외하면 파일 수신에는 동의가 필요합니다.\n전송 암호화, 최초 동의, 수동 신원 확인은 서로 다른 상태입니다.\n저장 확인은 읽음 확인이 아닙니다. 로컬 기록은 암호화되지 않습니다.\nNIM4와 터미널 명령 이름은 바뀌지 않습니다."
+  },
+  "label.input": {
+    "en": "Message",
+    "zh-CN": "输入",
+    "ja": "メッセージ",
+    "ko": "메시지",
+    "zh-Hant": "輸入"
+  },
+  "footer.compose": {
+    "en": "Enter send · Alt+Enter newline · {commands}",
+    "zh-CN": "Enter 发送 · Alt+Enter 换行 · {commands}",
+    "ja": "Enter 送信 · Alt+Enter 改行 · {commands}",
+    "ko": "Enter 전송 · Alt+Enter 줄 바꿈 · {commands}",
+    "zh-Hant": "Enter 傳送 · Alt+Enter 換行 · {commands}"
+  },
+  "footer.status": {
+    "en": "{commands} → status: full details · ? help",
+    "zh-CN": "{commands} → status 查看完整信息 · ? 帮助",
+    "ja": "{commands} → status: 完全な詳細 · ? ヘルプ",
+    "ko": "{commands} → status: 전체 상세 정보 · ? 도움말",
+    "zh-Hant": "{commands} → status 檢視完整資訊 · ? 幫助"
+  },
+  "consent.actions": {
+    "en": "1 Accept once  2 Remember  3 Reject",
+    "zh-CN": "1 仅本次  2 记住  3 拒绝",
+    "ja": "1 今回許可  2 記憶  3 拒否",
+    "ko": "1 한 번 허용  2 기억  3 거부",
+    "zh-Hant": "1 僅本次  2 記住  3 拒絕"
+  },
+  "attach.actions": {
+    "en": "y Send · n Cancel",
+    "zh-CN": "y 发送 · n 取消",
+    "ja": "y 送信 · n キャンセル",
+    "ko": "y 전송 · n 취소",
+    "zh-Hant": "y 傳送 · n 取消"
+  },
+  "receive.actions": {
+    "en": "y Accept · n Reject",
+    "zh-CN": "y 接收 · n 拒绝",
+    "ja": "y 許可 · n 拒否",
+    "ko": "y 허용 · n 거부",
+    "zh-Hant": "y 接收 · n 拒絕"
+  },
+  "exit.actions": {
+    "en": "y Exit and pause · n Continue",
+    "zh-CN": "y 退出并暂停 · n 继续使用",
+    "ja": "y 一時停止して終了 · n 続行",
+    "ko": "y 일시 중지 후 종료 · n 계속",
+    "zh-Hant": "y 退出並暫停 · n 繼續使用"
+  },
+  "cli.arg.subcommand": {
+    "en": "Command whose help to display.",
+    "zh-CN": "要查看帮助的命令。",
+    "ja": "ヘルプを表示するコマンド。",
+    "ko": "도움말을 표시할 명령입니다.",
+    "zh-Hant": "要檢視幫助的命令。"
+  },
+  "cli.template": {
+    "en": "{before-help}{about-with-newline}\nUsage: {usage}\n\n{all-args}{after-help}",
+    "zh-CN": "{before-help}{about-with-newline}\n用法：{usage}\n\n{all-args}{after-help}",
+    "zh-Hant": "{before-help}{about-with-newline}\n用法：{usage}\n\n{all-args}{after-help}",
+    "ja": "{before-help}{about-with-newline}\n使い方：{usage}\n\n{all-args}{after-help}",
+    "ko": "{before-help}{about-with-newline}\n사용법: {usage}\n\n{all-args}{after-help}"
+  },
+  "error.avatar.invalid_avatar_revision": {
+    "en": "invalid avatar revision",
+    "zh-CN": "头像版本无效",
+    "zh-Hant": "頭像版本無效",
+    "ja": "アバターのリビジョンが無効です",
+    "ko": "유효하지 않은 아바타 버전입니다"
+  },
+  "error.avatar.invalid_default_avatar": {
+    "en": "invalid default avatar",
+    "zh-CN": "默认头像无效",
+    "zh-Hant": "預設頭像無效",
+    "ja": "既定のアバターが無効です",
+    "ko": "유효하지 않은 기본 아바타입니다"
+  },
+  "error.avatar.invalid_avatar_profile": {
+    "en": "invalid avatar profile",
+    "zh-CN": "头像信息无效",
+    "zh-Hant": "頭像資訊無效",
+    "ja": "アバター情報が無効です",
+    "ko": "유효하지 않은 아바타 정보입니다"
+  },
+  "error.avatar.invalid_avatar_packet": {
+    "en": "invalid avatar packet",
+    "zh-CN": "头像数据包无效",
+    "zh-Hant": "頭像資料包無效",
+    "ja": "アバターパケットが無効です",
+    "ko": "유효하지 않은 아바타 패킷입니다"
+  },
+  "error.avatar.invalid_profile_update": {
+    "en": "invalid profile update",
+    "zh-CN": "资料更新无效",
+    "zh-Hant": "資料更新無效",
+    "ja": "プロフィール更新が無効です",
+    "ko": "유효하지 않은 프로필 업데이트입니다"
+  },
+  "error.avatar.invalid_avatar_task_identity": {
+    "en": "invalid avatar task identity",
+    "zh-CN": "头像任务标识无效",
+    "zh-Hant": "頭像任務標識無效",
+    "ja": "アバタータスクIDが無効です",
+    "ko": "유효하지 않은 아바타 작업 ID입니다"
+  },
+  "error.avatar.invalid_avatar_chunk": {
+    "en": "invalid avatar chunk",
+    "zh-CN": "头像分块无效",
+    "zh-Hant": "頭像分塊無效",
+    "ja": "アバターブロックが無効です",
+    "ko": "유효하지 않은 아바타 블록입니다"
+  },
+  "error.avatar.unexpected_avatar_payload": {
+    "en": "unexpected avatar payload",
+    "zh-CN": "收到非预期的头像载荷",
+    "zh-Hant": "收到非預期的頭像載荷",
+    "ja": "予期しないアバターデータです",
+    "ko": "예상하지 못한 아바타 데이터입니다"
+  },
+  "error.avatar.unexpected_avatar_offset": {
+    "en": "unexpected avatar offset",
+    "zh-CN": "收到非预期的头像偏移量",
+    "zh-Hant": "收到非預期的頭像偏移量",
+    "ja": "予期しないアバターのオフセットです",
+    "ko": "예상하지 못한 아바타 오프셋입니다"
+  },
+  "error.avatar.invalid_avatar_result": {
+    "en": "invalid avatar result",
+    "zh-CN": "头像结果无效",
+    "zh-Hant": "頭像結果無效",
+    "ja": "アバターの結果が無効です",
+    "ko": "유효하지 않은 아바타 결과입니다"
+  },
+  "error.avatar.invalid_avatar_cancel": {
+    "en": "invalid avatar cancel",
+    "zh-CN": "头像取消请求无效",
+    "zh-Hant": "頭像取消請求無效",
+    "ja": "アバターのキャンセルが無効です",
+    "ko": "유효하지 않은 아바타 취소 요청입니다"
+  },
+  "error.avatar.unexpected_avatar_code": {
+    "en": "unexpected avatar code",
+    "zh-CN": "收到非预期的头像状态码",
+    "zh-Hant": "收到非預期的頭像狀態碼",
+    "ja": "予期しないアバター状態コードです",
+    "ko": "예상하지 못한 아바타 상태 코드입니다"
+  },
+  "error.avatar.avatar_record_too_large": {
+    "en": "avatar record too large",
+    "zh-CN": "头像记录过大",
+    "zh-Hant": "頭像記錄過大",
+    "ja": "アバター記録が大きすぎます",
+    "ko": "아바타 기록이 너무 큽니다"
+  },
+  "error.avatar.invalid_avatar_record_size": {
+    "en": "invalid avatar record size",
+    "zh-CN": "头像记录大小无效",
+    "zh-Hant": "頭像記錄大小無效",
+    "ja": "アバター記録サイズが無効です",
+    "ko": "유효하지 않은 아바타 기록 크기입니다"
+  },
+  "error.avatar.invalid_avatar_record_header": {
+    "en": "invalid avatar record header",
+    "zh-CN": "头像记录头无效",
+    "zh-Hant": "頭像記錄頭無效",
+    "ja": "アバター記録ヘッダーが無効です",
+    "ko": "유효하지 않은 아바타 기록 헤더입니다"
+  },
+  "error.avatar.unknown_avatar_result": {
+    "en": "unknown avatar result",
+    "zh-CN": "未知头像结果",
+    "zh-Hant": "未知頭像結果",
+    "ja": "不明なアバターの結果です",
+    "ko": "알 수 없는 아바타 결과입니다"
+  },
+  "error.avatar.avatar_chunk_too_large": {
+    "en": "avatar chunk too large",
+    "zh-CN": "头像分块过大",
+    "zh-Hant": "頭像分塊過大",
+    "ja": "アバターブロックが大きすぎます",
+    "ko": "아바타 블록이 너무 큽니다"
+  },
+  "error.avatar.invalid_avatar_png_size_signature": {
+    "en": "invalid avatar PNG size/signature",
+    "zh-CN": "头像 PNG 大小或签名无效",
+    "zh-Hant": "頭像 PNG 大小或簽名無效",
+    "ja": "アバターPNGのサイズ・署名が無効です",
+    "ko": "유효하지 않은 아바타 PNG 크기/서명입니다"
+  },
+  "error.avatar.incomplete_png_chunk": {
+    "en": "incomplete PNG chunk",
+    "zh-CN": "PNG 分块不完整",
+    "zh-Hant": "PNG 分塊不完整",
+    "ja": "PNGブロックが不完全です",
+    "ko": "PNG 블록이 불완전합니다"
+  },
+  "error.avatar.png_chunk_exceeds_bounds": {
+    "en": "PNG chunk exceeds bounds",
+    "zh-CN": "PNG 分块越界",
+    "zh-Hant": "PNG 分塊越界",
+    "ja": "PNGブロックが範囲外です",
+    "ko": "PNG 블록이 범위를 벗어났습니다"
+  },
+  "error.avatar.invalid_png_chunk_type": {
+    "en": "invalid PNG chunk type",
+    "zh-CN": "PNG 分块类型无效",
+    "zh-Hant": "PNG 分塊型別無效",
+    "ja": "PNGブロックの種類が無効です",
+    "ko": "유효하지 않은 PNG 블록 유형입니다"
+  },
+  "error.avatar.png_crc_mismatch": {
+    "en": "PNG CRC mismatch",
+    "zh-CN": "PNG CRC不匹配",
+    "zh-Hant": "PNG CRC不匹配",
+    "ja": "PNG CRCが一致しません",
+    "ko": "PNG CRC: 일치하지 않음"
+  },
+  "error.avatar.png_header_must_be_first": {
+    "en": "PNG header must be first",
+    "zh-CN": "PNG 文件头必须位于开头",
+    "zh-Hant": "PNG 檔案頭必須位於開頭",
+    "ja": "PNGヘッダーは先頭に必要です",
+    "ko": "PNG 헤더는 맨 앞에 있어야 합니다"
+  },
+  "error.avatar.invalid_png_header": {
+    "en": "invalid PNG header",
+    "zh-CN": "PNG 文件头无效",
+    "zh-Hant": "PNG 檔案頭無效",
+    "ja": "PNGヘッダーが無効です",
+    "ko": "유효하지 않은 PNG 헤더입니다"
+  },
+  "error.avatar.invalid_png_dimensions_format": {
+    "en": "invalid PNG dimensions/format",
+    "zh-CN": "PNG 尺寸或格式无效",
+    "zh-Hant": "PNG 尺寸或格式無效",
+    "ja": "PNGの寸法・形式が無効です",
+    "ko": "유효하지 않은 PNG 크기/형식입니다"
+  },
+  "error.avatar.invalid_png_palette": {
+    "en": "invalid PNG palette",
+    "zh-CN": "PNG 调色板无效",
+    "zh-Hant": "PNG 調色盤無效",
+    "ja": "PNGパレットが無効です",
+    "ko": "유효하지 않은 PNG 팔레트입니다"
+  },
+  "error.avatar.invalid_png_data_order": {
+    "en": "invalid PNG data order",
+    "zh-CN": "PNG 数据顺序无效",
+    "zh-Hant": "PNG 資料順序無效",
+    "ja": "PNGデータの順序が無効です",
+    "ko": "유효하지 않은 PNG 데이터 순서입니다"
+  },
+  "error.avatar.incomplete_trailing_png_data": {
+    "en": "incomplete/trailing PNG data",
+    "zh-CN": "PNG 数据不完整或有尾随数据",
+    "zh-Hant": "PNG 資料不完整或有尾隨資料",
+    "ja": "PNGデータが不完全、または余分な末尾データがあります",
+    "ko": "PNG 데이터가 불완전하거나 불필요한 후행 데이터가 있습니다"
+  },
+  "error.avatar.unknown_critical_png_chunk": {
+    "en": "unknown critical PNG chunk",
+    "zh-CN": "未知关键 PNG 分块",
+    "zh-Hant": "未知關鍵 PNG 分塊",
+    "ja": "不明な重要PNGブロックです",
+    "ko": "알 수 없는 중요 PNG 블록입니다"
+  },
+  "error.avatar.incomplete_png": {
+    "en": "incomplete PNG",
+    "zh-CN": "PNG 不完整",
+    "zh-Hant": "PNG 不完整",
+    "ja": "PNGが不完全です",
+    "ko": "PNG가 불완전합니다"
+  },
+  "error.avatar.invalid_trailing_png_compressed_pixels": {
+    "en": "invalid/trailing PNG compressed pixels",
+    "zh-CN": "PNG 压缩像素无效或有尾随数据",
+    "zh-Hant": "PNG 壓縮畫素無效或有尾隨資料",
+    "ja": "PNG圧縮画素が無効、または余分なデータがあります",
+    "ko": "PNG 압축 픽셀이 잘못되었거나 후행 데이터가 있습니다"
+  },
+  "error.avatar.invalid_png_row_filter": {
+    "en": "invalid PNG row filter",
+    "zh-CN": "PNG 行过滤器无效",
+    "zh-Hant": "PNG 行過濾器無效",
+    "ja": "PNG行フィルターが無効です",
+    "ko": "유효하지 않은 PNG 행 필터입니다"
+  },
+  "error.avatar.default_avatar_has_content": {
+    "en": "default avatar has content",
+    "zh-CN": "默认头像不应包含内容",
+    "zh-Hant": "預設頭像不應包含內容",
+    "ja": "既定アバターにデータが含まれています",
+    "ko": "기본 아바타에 데이터가 포함되어 있습니다"
+  },
+  "error.avatar.avatar_content_hash_mismatch": {
+    "en": "avatar content/hash mismatch",
+    "zh-CN": "头像内容或哈希不匹配",
+    "zh-Hant": "頭像內容或雜湊不匹配",
+    "ja": "アバターの内容・ハッシュが一致しません",
+    "ko": "아바타 내용/해시: 일치하지 않음"
+  },
+  "error.avatar.avatar_dimensions_mismatch": {
+    "en": "avatar dimensions mismatch",
+    "zh-CN": "头像尺寸不匹配",
+    "zh-Hant": "頭像尺寸不匹配",
+    "ja": "アバターの寸法が一致しません",
+    "ko": "아바타 크기: 일치하지 않음"
+  },
+  "error.avatar.conflicting_persisted_avatar_revision": {
+    "en": "conflicting persisted avatar revision",
+    "zh-CN": "存储的头像版本冲突",
+    "zh-Hant": "儲存的頭像版本衝突",
+    "ja": "保存されたアバターのリビジョンが競合しています",
+    "ko": "저장된 아바타 버전이 충돌합니다"
+  },
+  "error.avatar.avatar_source_must_be_a_regular_file_of_at_most_32_mib": {
+    "en": "avatar source must be a regular file of at most 32 MiB",
+    "zh-CN": "头像必须是最多 32 MiB 的普通文件",
+    "zh-Hant": "頭像必須是最多 32 MiB 的普通檔案",
+    "ja": "アバターは32 MiB以下の通常ファイルが必要です",
+    "ko": "아바타는 32 MiB 이하의 일반 파일이어야 합니다"
+  },
+  "error.avatar.avatar_source_grew_beyond_32_mib": {
+    "en": "avatar source grew beyond 32 MiB",
+    "zh-CN": "头像源文件已超出 32 MiB",
+    "zh-Hant": "頭像原始檔已超出 32 MiB",
+    "ja": "アバター元ファイルが32 MiBを超えました",
+    "ko": "아바타 원본이 32 MiB를 초과했습니다"
+  },
+  "error.avatar.choose_a_png_jpeg_or_webp_image": {
+    "en": "choose a PNG, JPEG or WebP image",
+    "zh-CN": "请选择 PNG、JPEG 或 WebP 图片",
+    "zh-Hant": "請選擇 PNG、JPEG 或 WebP 圖片",
+    "ja": "PNG・JPEG・WebP画像を選択してください",
+    "ko": "PNG, JPEG 또는 WebP 이미지를 선택하세요"
+  },
+  "error.avatar.avatar_source_exceeds_32_megapixels": {
+    "en": "avatar source exceeds 32 megapixels",
+    "zh-CN": "头像源图片超过 3200 万像素",
+    "zh-Hant": "頭像源圖片超過 3200 萬畫素",
+    "ja": "アバター画像が3200万画素を超えています",
+    "ko": "아바타 원본이 3,200만 화소를 초과합니다"
+  },
+  "error.avatar.this_identity_uses_the_default_avatar": {
+    "en": "this identity uses the default avatar",
+    "zh-CN": "此身份使用默认头像",
+    "zh-Hant": "此身份使用預設頭像",
+    "ja": "この識別情報は既定アバターを使用しています",
+    "ko": "이 신원은 기본 아바타를 사용합니다"
+  },
+  "error.avatar.local_and_remote_avatar_roots_must_differ": {
+    "en": "local and remote avatar roots must differ",
+    "zh-CN": "本地与对端头像根身份必须不同",
+    "zh-Hant": "本地與對端頭像根身份必須不同",
+    "ja": "自分と相手のアバターのルート識別は異なる必要があります",
+    "ko": "로컬 및 상대 아바타 루트 신원이 달라야 합니다"
+  },
+  "error.avatar.excess_canceled_avatar_window": {
+    "en": "excess canceled avatar window",
+    "zh-CN": "已取消头像任务的窗口超限",
+    "zh-Hant": "已取消頭像任務的視窗超限",
+    "ja": "キャンセル済みアバターのウィンドウが上限を超えています",
+    "ko": "취소된 아바타 작업의 윈도 크기가 한도를 초과합니다"
+  },
+  "error.avatar.invalid_canceled_avatar_acknowledgement": {
+    "en": "invalid canceled avatar acknowledgement",
+    "zh-CN": "已取消头像任务的确认无效",
+    "zh-Hant": "已取消頭像任務的確認無效",
+    "ja": "キャンセル済みアバターの確認が無効です",
+    "ko": "유효하지 않은 취소된 아바타 작업 확인입니다"
+  },
+  "error.avatar.conflicting_avatar_revision": {
+    "en": "conflicting avatar revision",
+    "zh-CN": "头像版本冲突",
+    "zh-Hant": "頭像版本衝突",
+    "ja": "アバターのリビジョンが競合しています",
+    "ko": "아바타 버전이 충돌합니다"
+  },
+  "error.avatar.reused_avatar_task_identity": {
+    "en": "reused avatar task identity",
+    "zh-CN": "头像任务标识被重复使用",
+    "zh-Hant": "頭像任務標識被重複使用",
+    "ja": "アバタータスクIDが再利用されました",
+    "ko": "아바타 작업 ID가 재사용되었습니다"
+  },
+  "error.avatar.out_of_order_excess_avatar_chunk": {
+    "en": "out of order/excess avatar chunk",
+    "zh-CN": "头像分块乱序或超量",
+    "zh-Hant": "頭像分塊亂序或超量",
+    "ja": "アバターブロックの順序・量が不正です",
+    "ko": "아바타 블록의 순서 또는 양이 잘못되었습니다"
+  },
+  "error.avatar.unexpected_avatar_acknowledgement": {
+    "en": "unexpected avatar acknowledgement",
+    "zh-CN": "收到非预期的头像确认",
+    "zh-Hant": "收到非預期的頭像確認",
+    "ja": "予期しないアバターの確認です",
+    "ko": "예상하지 못한 아바타 확인입니다"
+  },
+  "error.avatar.avatar_success_before_complete_acknowledgement": {
+    "en": "avatar success before complete acknowledgement",
+    "zh-CN": "头像未完整确认却报告成功",
+    "zh-Hant": "頭像未完整確認卻報告成功",
+    "ja": "完全な確認前にアバターの成功が報告されました",
+    "ko": "전체 확인 전에 아바타 성공이 보고되었습니다"
+  },
+  "error.avatar.animated_avatars_are_unsupported": {
+    "en": "animated avatars are unsupported",
+    "zh-CN": "不支持动态头像",
+    "zh-Hant": "不支援動態頭像",
+    "ja": "アニメーションアバターには対応していません",
+    "ko": "움직이는 아바타는 지원하지 않습니다"
+  },
+  "error.avatar.cannot_encode_avatar_within_128_kib": {
+    "en": "cannot encode avatar within 128 KiB",
+    "zh-CN": "无法将头像编码到 128 KiB 内",
+    "zh-Hant": "無法將頭像編碼到 128 KiB 內",
+    "ja": "アバターを128 KiB以内に変換できません",
+    "ko": "아바타를 128 KiB 이내로 인코딩할 수 없습니다"
+  },
+  "error.avatar.avatar_profile_missing": {
+    "en": "avatar profile missing",
+    "zh-CN": "缺少头像信息",
+    "zh-Hant": "缺少頭像資訊",
+    "ja": "アバター情報がありません",
+    "ko": "아바타 정보가 없습니다"
+  },
+  "error.avatar.avatar_metadata_exceeds_bounds": {
+    "en": "avatar metadata exceeds bounds",
+    "zh-CN": "头像元数据越界",
+    "zh-Hant": "頭像後設資料越界",
+    "ja": "アバターのメタデータが範囲外です",
+    "ko": "아바타 메타데이터가 범위를 벗어났습니다"
+  },
+  "error.avatar.avatar_cache_exceeds_bounds": {
+    "en": "avatar cache exceeds bounds",
+    "zh-CN": "头像缓存超限",
+    "zh-Hant": "頭像快取超限",
+    "ja": "アバターキャッシュが上限を超えています",
+    "ko": "아바타 캐시가 한도를 초과합니다"
+  },
+  "error.avatar.avatar_revision_exhausted": {
+    "en": "avatar revision exhausted",
+    "zh-CN": "头像版本号已耗尽",
+    "zh-Hant": "頭像版本號已耗盡",
+    "ja": "アバターのリビジョン番号を使い切りました",
+    "ko": "아바타 버전 번호가 소진되었습니다"
+  },
+  "error.avatar.missing_avatar_task": {
+    "en": "missing avatar task",
+    "zh-CN": "缺少头像任务",
+    "zh-Hant": "缺少頭像任務",
+    "ja": "アバタータスクがありません",
+    "ko": "아바타 작업: 누락됨"
+  },
+  "error.avatar.unknown_avatar_task": {
+    "en": "unknown avatar task",
+    "zh-CN": "未知头像任务",
+    "zh-Hant": "未知頭像任務",
+    "ja": "不明なアバタータスクです",
+    "ko": "알 수 없는 아바타 작업입니다"
+  },
+  "error.config.config_too_large": {
+    "en": "config too large",
+    "zh-CN": "配置文件过大",
+    "zh-Hant": "配置檔案過大",
+    "ja": "設定ファイルが大きすぎます",
+    "ko": "설정 파일이 너무 큽니다"
+  },
+  "error.config.unsupported_settings_version": {
+    "en": "unsupported settings version",
+    "zh-CN": "不支持设置版本",
+    "zh-Hant": "不支援設定版本",
+    "ja": "設定バージョンには対応していません",
+    "ko": "지원하지 않는 설정 버전입니다"
+  },
+  "error.config.receive_directory_must_not_be_empty": {
+    "en": "receive directory must not be empty",
+    "zh-CN": "接收目录不能为空",
+    "zh-Hant": "接收目錄不能為空",
+    "ja": "受信フォルダーを空にできません",
+    "ko": "수신 폴더는 비워 둘 수 없습니다"
+  },
+  "error.config.unknown_theme": {
+    "en": "unknown theme",
+    "zh-CN": "未知主题",
+    "zh-Hant": "未知主題",
+    "ja": "不明なテーマです",
+    "ko": "알 수 없는 테마입니다"
+  },
+  "error.config.unknown_color_mode": {
+    "en": "unknown color mode",
+    "zh-CN": "未知颜色模式",
+    "zh-Hant": "未知顏色模式",
+    "ja": "不明な色モードです",
+    "ko": "알 수 없는 색상 모드입니다"
+  },
+  "error.config.language_must_be_system_en_zh_cn_zh_hant_ja_or_ko": {
+    "en": "language must be system, en, zh-CN, zh-Hant, ja or ko",
+    "zh-CN": "language 必须为 system、en、zh-CN、zh-Hant、ja 或 ko",
+    "zh-Hant": "language 必須為 system、en、zh-CN、zh-Hant、ja 或 ko",
+    "ja": "language は system・en・zh-CN・zh-Hant・ja・ko が必要です",
+    "ko": "language는 system, en, zh-CN, zh-Hant, ja 또는 ko여야 합니다"
+  },
+  "error.config.command_key_must_be_k_or_p": {
+    "en": "command_key must be k or p",
+    "zh-CN": "command_key 必须为 k 或 p",
+    "zh-Hant": "command_key 必須為 k 或 p",
+    "ja": "command_key は k または p が必要です",
+    "ko": "command_key는 k 또는 p여야 합니다"
+  },
+  "error.config.unknown_setting": {
+    "en": "unknown setting",
+    "zh-CN": "未知设置项",
+    "zh-Hant": "未知設定項",
+    "ja": "不明な設定項目です",
+    "ko": "알 수 없는 설정 항목입니다"
+  },
+  "error.crypto.noise_nonce_exhausted": {
+    "en": "Noise nonce exhausted",
+    "zh-CN": "Noise 随机序号已耗尽",
+    "zh-Hant": "Noise 隨機序號已耗盡",
+    "ja": "Noiseのノンスを使い切りました",
+    "ko": "Noise 논스가 소진되었습니다"
+  },
+  "error.crypto.invalid_envelope_size": {
+    "en": "invalid envelope size",
+    "zh-CN": "信封大小无效",
+    "zh-Hant": "信封大小無效",
+    "ja": "エンベロープのサイズが無効です",
+    "ko": "유효하지 않은 봉투 크기입니다"
+  },
+  "error.crypto.unsupported_envelope_header": {
+    "en": "unsupported envelope header",
+    "zh-CN": "不支持信封头",
+    "zh-Hant": "不支援信封頭",
+    "ja": "エンベロープヘッダーには対応していません",
+    "ko": "지원하지 않는 봉투 헤더입니다"
+  },
+  "error.crypto.invalid_peer_role_version": {
+    "en": "invalid peer role/version",
+    "zh-CN": "对端角色或版本无效",
+    "zh-Hant": "對端角色或版本無效",
+    "ja": "相手の役割・バージョンが無効です",
+    "ko": "유효하지 않은 상대 역할/버전입니다"
+  },
+  "error.crypto.invalid_peer_uuid": {
+    "en": "invalid peer UUID",
+    "zh-CN": "对端 UUID无效",
+    "zh-Hant": "對端 UUID無效",
+    "ja": "相手のUUIDが無効です",
+    "ko": "유효하지 않은 상대 UUID입니다"
+  },
+  "error.crypto.noise_static_key_does_not_match_claim": {
+    "en": "Noise static key does not match claim",
+    "zh-CN": "Noise 静态密钥与声明不符",
+    "zh-Hant": "Noise 靜態金鑰與宣告不符",
+    "ja": "Noise静的鍵が申告値と一致しません",
+    "ko": "Noise 정적 키가 선언과 일치하지 않습니다"
+  },
+  "error.crypto.unsupported_nim4_capabilities_limits": {
+    "en": "unsupported NIM4 capabilities/limits",
+    "zh-CN": "不支持NIM4 能力或限制",
+    "zh-Hant": "不支援NIM4 能力或限制",
+    "ja": "NIM4の機能・上限には対応していません",
+    "ko": "지원하지 않는 NIM4 기능/한도입니다"
+  },
+  "error.crypto.nonempty_initial_noise_message": {
+    "en": "nonempty initial Noise message",
+    "zh-CN": "初始 Noise 消息应为空",
+    "zh-Hant": "初始 Noise 訊息應為空",
+    "ja": "最初のNoiseメッセージが空ではありません",
+    "ko": "초기 Noise 메시지가 비어 있지 않습니다"
+  },
+  "error.crypto.incomplete_noise_handshake": {
+    "en": "incomplete Noise handshake",
+    "zh-CN": "Noise 握手不完整",
+    "zh-Hant": "Noise 握手不完整",
+    "ja": "Noiseハンドシェイクが不完全です",
+    "ko": "Noise 핸드셰이크가 불완전합니다"
+  },
+  "error.crypto.oversized_root_proof": {
+    "en": "oversized root proof",
+    "zh-CN": "根身份凭据过大",
+    "zh-Hant": "根身份憑據過大",
+    "ja": "ルート識別の証明が大きすぎます",
+    "ko": "루트 신원 증명이 너무 큽니다"
+  },
+  "error.crypto.record_encryption_failed": {
+    "en": "record encryption failed",
+    "zh-CN": "记录加密失败",
+    "zh-Hant": "記錄加密失敗",
+    "ja": "レコードの暗号化に失敗しました",
+    "ko": "레코드 암호화에 실패했습니다"
+  },
+  "error.crypto.record_authentication_failed": {
+    "en": "record authentication failed",
+    "zh-CN": "记录认证失败",
+    "zh-Hant": "記錄認證失敗",
+    "ja": "レコードの認証に失敗しました",
+    "ko": "레코드 인증에 실패했습니다"
+  },
+  "error.crypto.missing_remote_static": {
+    "en": "missing remote static",
+    "zh-CN": "缺少对端静态密钥",
+    "zh-Hant": "缺少對端靜態金鑰",
+    "ja": "相手の静的鍵がありません",
+    "ko": "상대 정적 키가 없습니다"
+  },
+  "error.crypto.invalid_persistent_root_proof": {
+    "en": "invalid persistent root proof",
+    "zh-CN": "持久根身份凭据无效",
+    "zh-Hant": "持久根身份憑據無效",
+    "ja": "永続ルート識別の証明が無効です",
+    "ko": "유효하지 않은 영구 루트 신원 증명입니다"
+  },
+  "error.files.excess_late_file_data": {
+    "en": "excess late file data",
+    "zh-CN": "迟到文件数据超量",
+    "zh-Hant": "遲到檔案資料超量",
+    "ja": "遅延ファイルデータが過剰です",
+    "ko": "늦은 파일 데이터가 너무 많습니다"
+  },
+  "error.files.excess_late_file_controls": {
+    "en": "excess late file controls",
+    "zh-CN": "迟到文件控制消息超量",
+    "zh-Hant": "遲到檔案控制訊息超量",
+    "ja": "遅延ファイル制御が過剰です",
+    "ko": "늦은 파일 제어 메시지가 너무 많습니다"
+  },
+  "error.files.select_1_256_files_within_queue_capacity": {
+    "en": "select 1-256 files within queue capacity",
+    "zh-CN": "请选择 1–256 个文件，且不要超出队列容量",
+    "zh-Hant": "請選擇 1–256 個檔案，且不要超出佇列容量",
+    "ja": "キュー容量内で1～256ファイルを選択してください",
+    "ko": "대기열 용량 내에서 파일 1~256개를 선택하세요"
+  },
+  "error.files.source_must_be_a_regular_file_of_at_most_10_gib": {
+    "en": "source must be a regular file of at most 10 GiB",
+    "zh-CN": "源文件必须是最多 10 GiB 的普通文件",
+    "zh-Hant": "原始檔必須是最多 10 GiB 的普通檔案",
+    "ja": "送信元は10 GiB以下の通常ファイルが必要です",
+    "ko": "원본은 10 GiB 이하의 일반 파일이어야 합니다"
+  },
+  "error.files.stored_file_queue_exceeds_its_limit": {
+    "en": "stored file queue exceeds its limit",
+    "zh-CN": "存储的文件队列超限",
+    "zh-Hant": "儲存的檔案佇列超限",
+    "ja": "保存されたファイルキューが上限を超えています",
+    "ko": "저장된 파일 대기열이 한도를 초과합니다"
+  },
+  "error.files.queued_source_changed": {
+    "en": "queued source changed",
+    "zh-CN": "排队中的源文件已改变",
+    "zh-Hant": "排隊中的原始檔已改變",
+    "ja": "待機中の送信元ファイルが変更されました",
+    "ko": "대기 중인 원본이 변경되었습니다"
+  },
+  "error.files.transfer_cannot_be_resumed": {
+    "en": "transfer cannot be resumed",
+    "zh-CN": "此传输无法续传",
+    "zh-Hant": "此傳輸無法續傳",
+    "ja": "この転送は再開できません",
+    "ko": "이 전송은 재개할 수 없습니다"
+  },
+  "error.files.file_queue_is_full": {
+    "en": "file queue is full",
+    "zh-CN": "文件队列已满",
+    "zh-Hant": "檔案佇列已滿",
+    "ja": "ファイルキューが満杯です",
+    "ko": "파일 대기열이 가득 찼습니다"
+  },
+  "error.files.resume_or_cancel_the_earlier_paused_transfer_first": {
+    "en": "resume or cancel the earlier paused transfer first",
+    "zh-CN": "请先继续或取消此前暂停的传输",
+    "zh-Hant": "請先繼續或取消此前暫停的傳輸",
+    "ja": "先に一時停止中の転送を再開またはキャンセルしてください",
+    "ko": "이전의 일시 중지된 전송을 먼저 재개하거나 취소하세요"
+  },
+  "error.files.another_send_is_active": {
+    "en": "another send is active",
+    "zh-CN": "已有其他发送任务",
+    "zh-Hant": "已有其他傳送任務",
+    "ja": "別の送信が実行中です",
+    "ko": "다른 전송이 진행 중입니다"
+  },
+  "error.files.source_changed_refusing_resume": {
+    "en": "source changed; refusing resume",
+    "zh-CN": "源文件已改变，拒绝续传",
+    "zh-Hant": "原始檔已改變，拒絕續傳",
+    "ja": "送信元が変更されたため再開を拒否しました",
+    "ko": "원본이 변경되어 재개를 거부했습니다"
+  },
+  "error.files.wait_for_file_acceptance_before_pausing_cancel_remains_available": {
+    "en": "wait for file acceptance before pausing; cancel remains available",
+    "zh-CN": "请在文件获准后暂停；仍可取消",
+    "zh-Hant": "請在檔案獲准後暫停；仍可取消",
+    "ja": "受信許可後に一時停止してください。キャンセルは可能です",
+    "ko": "파일 승인 후 일시 중지하세요. 취소는 가능합니다"
+  },
+  "error.files.completed_transfer_cannot_be_canceled": {
+    "en": "completed transfer cannot be canceled",
+    "zh-CN": "已完成的传输不能取消",
+    "zh-Hant": "已完成的傳輸不能取消",
+    "ja": "完了した転送はキャンセルできません",
+    "ko": "완료된 전송은 취소할 수 없습니다"
+  },
+  "error.files.transfer_is_not_active_on_this_connection": {
+    "en": "transfer is not active on this connection",
+    "zh-CN": "此传输不属于当前连接的活动任务",
+    "zh-Hant": "此傳輸不屬於當前連線的活動任務",
+    "ja": "この転送は現在の接続で実行中ではありません",
+    "ko": "이 전송은 현재 연결에서 활성 상태가 아닙니다"
+  },
+  "error.files.stale_file_connection_generation": {
+    "en": "stale file connection generation",
+    "zh-CN": "文件连接代次已失效",
+    "zh-Hant": "檔案連線代次已失效",
+    "ja": "ファイル接続の世代が古くなっています",
+    "ko": "파일 연결 세대가 만료되었습니다"
+  },
+  "error.files.insufficient_receive_disk_space": {
+    "en": "insufficient receive disk space",
+    "zh-CN": "接收磁盘空间不足",
+    "zh-Hant": "接收磁碟空間不足",
+    "ja": "受信先のディスク容量が不足しています",
+    "ko": "수신 디스크 공간이 부족합니다"
+  },
+  "error.files.unexpected_destination_conflicts_with_partial_transfer": {
+    "en": "unexpected destination conflicts with partial transfer",
+    "zh-CN": "目标位置与部分传输冲突",
+    "zh-Hant": "目標位置與部分傳輸衝突",
+    "ja": "保存先が部分転送と競合しています",
+    "ko": "대상 위치가 부분 전송과 충돌합니다"
+  },
+  "error.files.completed_file_changed": {
+    "en": "completed file changed",
+    "zh-CN": "已完成的文件已改变",
+    "zh-Hant": "已完成的檔案已改變",
+    "ja": "完了ファイルが変更されました",
+    "ko": "완료된 파일이 변경되었습니다"
+  },
+  "error.files.completed_file_hash_changed": {
+    "en": "completed file hash changed",
+    "zh-CN": "已完成文件的哈希已改变",
+    "zh-Hant": "已完成檔案的雜湊已改變",
+    "ja": "完了ファイルのハッシュが変更されました",
+    "ko": "완료된 파일의 해시가 변경되었습니다"
+  },
+  "error.files.another_receive_is_active": {
+    "en": "another receive is active",
+    "zh-CN": "已有其他接收任务",
+    "zh-Hant": "已有其他接收任務",
+    "ja": "別の受信が実行中です",
+    "ko": "다른 수신이 진행 중입니다"
+  },
+  "error.files.partial_file_truncated": {
+    "en": "partial file truncated",
+    "zh-CN": "部分文件被截断",
+    "zh-Hant": "部分檔案被截斷",
+    "ja": "部分ファイルが切り詰められました",
+    "ko": "부분 파일이 잘렸습니다"
+  },
+  "error.files.partial_file_hash_mismatch": {
+    "en": "partial file hash mismatch",
+    "zh-CN": "部分文件哈希不匹配",
+    "zh-Hant": "部分檔案雜湊不匹配",
+    "ja": "部分ファイルのハッシュが一致しません",
+    "ko": "부분 파일 해시: 일치하지 않음"
+  },
+  "error.files.file_task_size_changed": {
+    "en": "file task size changed",
+    "zh-CN": "文件任务大小已改变",
+    "zh-Hant": "檔案任務大小已改變",
+    "ja": "ファイルタスクのサイズが変更されました",
+    "ko": "파일 작업 크기가 변경되었습니다"
+  },
+  "error.files.invalid_file_accept": {
+    "en": "invalid file accept",
+    "zh-CN": "文件接收确认无效",
+    "zh-Hant": "檔案接收確認無效",
+    "ja": "ファイル受信許可が無効です",
+    "ko": "유효하지 않은 파일 수신 승인입니다"
+  },
+  "error.files.invalid_resume": {
+    "en": "invalid resume",
+    "zh-CN": "续传请求无效",
+    "zh-Hant": "續傳請求無效",
+    "ja": "再開要求が無効です",
+    "ko": "유효하지 않은 재개 요청입니다"
+  },
+  "error.files.source_prefix_does_not_match_receiver": {
+    "en": "source prefix does not match receiver",
+    "zh-CN": "源文件前缀与接收端不符",
+    "zh-Hant": "原始檔字首與接收端不符",
+    "ja": "送信元の先頭データが受信側と一致しません",
+    "ko": "원본 앞부분이 수신 측과 일치하지 않습니다"
+  },
+  "error.files.invalid_credit": {
+    "en": "invalid credit",
+    "zh-CN": "流量额度无效",
+    "zh-Hant": "流量額度無效",
+    "ja": "フロー制御クレジットが無効です",
+    "ko": "유효하지 않은 흐름 제어 크레딧입니다"
+  },
+  "error.files.out_of_order_excess_file_data": {
+    "en": "out-of-order/excess file data",
+    "zh-CN": "文件数据乱序或超量",
+    "zh-Hant": "檔案資料亂序或超量",
+    "ja": "ファイルデータの順序・量が不正です",
+    "ko": "파일 데이터의 순서 또는 양이 잘못되었습니다"
+  },
+  "error.files.invalid_block_boundary": {
+    "en": "invalid block boundary",
+    "zh-CN": "分块边界无效",
+    "zh-Hant": "分塊邊界無效",
+    "ja": "ブロック境界が無効です",
+    "ko": "유효하지 않은 블록 경계입니다"
+  },
+  "error.files.file_block_hash_mismatch": {
+    "en": "file block hash mismatch",
+    "zh-CN": "文件分块哈希不匹配",
+    "zh-Hant": "檔案分塊雜湊不匹配",
+    "ja": "ファイルブロックのハッシュが一致しません",
+    "ko": "파일 블록 해시: 일치하지 않음"
+  },
+  "error.files.premature_file_end": {
+    "en": "premature file end",
+    "zh-CN": "文件传输过早结束",
+    "zh-Hant": "檔案傳輸過早結束",
+    "ja": "ファイル転送が早期終了しました",
+    "ko": "파일 전송이 너무 일찍 끝났습니다"
+  },
+  "error.files.whole_file_hash_mismatch": {
+    "en": "whole-file hash mismatch",
+    "zh-CN": "整文件哈希不匹配",
+    "zh-Hant": "整檔案雜湊不匹配",
+    "ja": "ファイル全体のハッシュが一致しません",
+    "ko": "전체 파일 해시: 일치하지 않음"
+  },
+  "error.files.invalid_saved_file_receipt_direction": {
+    "en": "invalid saved file receipt direction",
+    "zh-CN": "文件保存回执方向无效",
+    "zh-Hant": "檔案儲存回執方向無效",
+    "ja": "ファイル保存確認の方向が無効です",
+    "ko": "유효하지 않은 파일 저장 확인 방향입니다"
+  },
+  "error.files.invalid_saved_file_receipt": {
+    "en": "invalid saved file receipt",
+    "zh-CN": "文件保存回执无效",
+    "zh-Hant": "檔案儲存回執無效",
+    "ja": "ファイル保存確認が無効です",
+    "ko": "유효하지 않은 파일 저장 확인입니다"
+  },
+  "error.files.source_changed_during_transfer": {
+    "en": "source changed during transfer",
+    "zh-CN": "传输期间源文件改变",
+    "zh-Hant": "傳輸期間原始檔改變",
+    "ja": "転送中に送信元ファイルが変更されました",
+    "ko": "전송 중 원본 파일이 변경되었습니다"
+  },
+  "error.files.file_must_be_regular": {
+    "en": "file must be regular",
+    "zh-CN": "文件必须是普通文件",
+    "zh-Hant": "檔案必須是普通檔案",
+    "ja": "通常ファイルが必要です",
+    "ko": "일반 파일이어야 합니다"
+  },
+  "error.files.file_is_no_longer_regular": {
+    "en": "file is no longer regular",
+    "zh-CN": "文件已不再是普通文件",
+    "zh-Hant": "檔案已不再是普通檔案",
+    "ja": "通常ファイルではなくなりました",
+    "ko": "더 이상 일반 파일이 아닙니다"
+  },
+  "error.files.only_completed_files_can_be_exported": {
+    "en": "only completed files can be exported",
+    "zh-CN": "仅可导出已完成的文件",
+    "zh-Hant": "僅可匯出已完成的檔案",
+    "ja": "完了ファイルのみ書き出せます",
+    "ko": "완료된 파일만 내보낼 수 있습니다"
+  },
+  "error.files.completed_file_size_changed": {
+    "en": "completed file size changed",
+    "zh-CN": "已完成文件的大小改变",
+    "zh-Hant": "已完成檔案的大小改變",
+    "ja": "完了ファイルのサイズが変更されました",
+    "ko": "완료된 파일 크기가 변경되었습니다"
+  },
+  "error.files.export_destination_already_exists": {
+    "en": "export destination already exists",
+    "zh-CN": "导出目标已存在",
+    "zh-Hant": "匯出目標已存在",
+    "ja": "書き出し先が既に存在します",
+    "ko": "내보내기 대상이 이미 존재합니다"
+  },
+  "error.files.only_completed_files_can_be_revealed": {
+    "en": "only completed files can be revealed",
+    "zh-CN": "仅可显示已完成文件的位置",
+    "zh-Hant": "僅可顯示已完成檔案的位置",
+    "ja": "完了ファイルの保存先のみ表示できます",
+    "ko": "완료된 파일 위치만 표시할 수 있습니다"
+  },
+  "error.files.unknown_file_task": {
+    "en": "unknown file task",
+    "zh-CN": "未知文件任务",
+    "zh-Hant": "未知檔案任務",
+    "ja": "不明なファイルタスクです",
+    "ko": "알 수 없는 파일 작업입니다"
+  },
+  "error.files.unsupported_file_transition": {
+    "en": "unsupported file transition",
+    "zh-CN": "不支持文件状态变更",
+    "zh-Hant": "不支援檔案狀態變更",
+    "ja": "ファイル状態遷移には対応していません",
+    "ko": "지원하지 않는 파일 상태 전환입니다"
+  },
+  "error.files.missing_filename": {
+    "en": "missing filename",
+    "zh-CN": "缺少文件名",
+    "zh-Hant": "缺少檔名",
+    "ja": "ファイル名がありません",
+    "ko": "파일명: 누락됨"
+  },
+  "error.files.filename_must_be_utf_8": {
+    "en": "filename must be UTF-8",
+    "zh-CN": "文件名必须为 UTF-8",
+    "zh-Hant": "檔名必須為 UTF-8",
+    "ja": "ファイル名はUTF-8が必要です",
+    "ko": "파일명은 UTF-8이어야 합니다"
+  },
+  "error.files.no_checkpoint_for_this_peer_and_transfer": {
+    "en": "no checkpoint for this peer and transfer",
+    "zh-CN": "此设备与传输没有检查点",
+    "zh-Hant": "此裝置與傳輸沒有檢查點",
+    "ja": "この相手と転送の再開位置がありません",
+    "ko": "이 기기와 전송의 재개 위치가 없습니다"
+  },
+  "error.files.unknown_transfer": {
+    "en": "unknown transfer",
+    "zh-CN": "未知传输任务",
+    "zh-Hant": "未知傳輸任務",
+    "ja": "不明な転送タスクです",
+    "ko": "알 수 없는 전송 작업입니다"
+  },
+  "error.files.cannot_publish_received_file_without_overwrite": {
+    "en": "cannot publish received file without overwrite",
+    "zh-CN": "无法在不覆盖已有文件的情况下保存接收文件",
+    "zh-Hant": "無法在不覆蓋已有檔案的情況下儲存接收檔案",
+    "ja": "上書きせずに受信ファイルを確定できません",
+    "ko": "덮어쓰지 않고 수신 파일을 확정할 수 없습니다"
+  },
+  "error.files.choose_an_export_filename": {
+    "en": "choose an export filename",
+    "zh-CN": "请选择导出文件名",
+    "zh-Hant": "請選擇匯出檔名",
+    "ja": "書き出すファイル名を選択してください",
+    "ko": "내보낼 파일명을 선택하세요"
+  },
+  "error.files.file_has_no_parent_directory": {
+    "en": "file has no parent directory",
+    "zh-CN": "文件没有父目录",
+    "zh-Hant": "檔案沒有父目錄",
+    "ja": "ファイルの親フォルダーがありません",
+    "ko": "파일의 상위 폴더가 없습니다"
+  },
+  "error.files.os_file_manager_unavailable_use_files_export_or_the_saved_locatio": {
+    "en": "OS file manager unavailable; use files export or the saved location",
+    "zh-CN": "系统文件管理器不可用，请使用 files export 或保存位置",
+    "zh-Hant": "系統檔案管理器不可用，請使用 files export 或儲存位置",
+    "ja": "OSファイルマネージャーが使えません。files export または保存先を使用してください",
+    "ko": "OS 파일 관리자를 사용할 수 없습니다. files export 또는 저장 위치를 사용하세요"
+  },
+  "error.main.input_closed": {
+    "en": "input closed",
+    "zh-CN": "输入已关闭",
+    "zh-Hant": "輸入已關閉",
+    "ja": "入力が閉じられました",
+    "ko": "입력이 닫혔습니다"
+  },
+  "error.main.verification_canceled": {
+    "en": "verification canceled",
+    "zh-CN": "已取消核验",
+    "zh-Hant": "已取消核驗",
+    "ja": "確認をキャンセルしました",
+    "ko": "확인을 취소했습니다"
+  },
+  "error.main.identity_forget_canceled": {
+    "en": "identity forget canceled",
+    "zh-CN": "已取消遗忘身份",
+    "zh-Hant": "已取消遺忘身份",
+    "ja": "識別情報の削除をキャンセルしました",
+    "ko": "신원 삭제를 취소했습니다"
+  },
+  "error.main.trust_revoke_canceled": {
+    "en": "trust revoke canceled",
+    "zh-CN": "已取消撤销信任",
+    "zh-Hant": "已取消撤銷信任",
+    "ja": "信頼の取り消しをキャンセルしました",
+    "ko": "신뢰 취소를 중단했습니다"
+  },
+  "error.main.receive_path_must_be_utf_8": {
+    "en": "receive path must be UTF-8",
+    "zh-CN": "接收路径必须为 UTF-8",
+    "zh-Hant": "接收路徑必須為 UTF-8",
+    "ja": "受信パスはUTF-8が必要です",
+    "ko": "수신 경로는 UTF-8이어야 합니다"
+  },
+  "error.main.the_tui_requires_a_terminal_use_help_status_listen_or_send": {
+    "en": "the TUI requires a terminal; use --help, status, listen, or send",
+    "zh-CN": "TUI 需要终端，请使用 --help、status、listen 或 send",
+    "zh-Hant": "TUI 需要終端，請使用 --help、status、listen 或 send",
+    "ja": "TUIには端末が必要です。--help・status・listen・send を使用してください",
+    "ko": "TUI에는 터미널이 필요합니다. --help, status, listen 또는 send를 사용하세요"
+  },
+  "error.main.term_dumb_cannot_display_a_tui_use_a_cli_subcommand": {
+    "en": "TERM=dumb cannot display a TUI; use a CLI subcommand",
+    "zh-CN": "TERM=dumb 无法显示 TUI，请使用 CLI 子命令",
+    "zh-Hant": "TERM=dumb 無法顯示 TUI，請使用 CLI 子命令",
+    "ja": "TERM=dumbではTUIを表示できません。CLIサブコマンドを使用してください",
+    "ko": "TERM=dumb에서는 TUI를 표시할 수 없습니다. CLI 하위 명령을 사용하세요"
+  },
+  "error.main.stdin_exceeds_8192_utf_8_bytes": {
+    "en": "stdin exceeds 8192 UTF-8 bytes",
+    "zh-CN": "标准输入超出 8192 UTF-8 字节",
+    "zh-Hant": "標準輸入超出 8192 UTF-8 位元組",
+    "ja": "標準入力が8192 UTF-8バイトを超えています",
+    "ko": "표준 입력이 8192 UTF-8 바이트를 초과합니다"
+  },
+  "error.main.stdin_must_be_valid_utf_8": {
+    "en": "stdin must be valid UTF-8",
+    "zh-CN": "标准输入必须为有效 UTF-8",
+    "zh-Hant": "標準輸入必須為有效 UTF-8",
+    "ja": "標準入力は有効なUTF-8が必要です",
+    "ko": "표준 입력은 유효한 UTF-8이어야 합니다"
+  },
+  "error.main.select_at_most_256_files": {
+    "en": "select at most 256 files",
+    "zh-CN": "最多选择 256 个文件",
+    "zh-Hant": "最多選擇 256 個檔案",
+    "ja": "256ファイルまで選択できます",
+    "ko": "파일을 최대 256개까지 선택하세요"
+  },
+  "error.main.unknown_peer": {
+    "en": "unknown peer",
+    "zh-CN": "未知设备",
+    "zh-Hant": "未知裝置",
+    "ja": "不明なデバイスです",
+    "ko": "알 수 없는 기기입니다"
+  },
+  "error.main.trust_changes_require_interactive_comparison_confirmation": {
+    "en": "trust changes require interactive comparison/confirmation",
+    "zh-CN": "信任变更需要交互式比较或确认",
+    "zh-Hant": "信任變更需要互動式比較或確認",
+    "ja": "信頼の変更には対話的な比較・確認が必要です",
+    "ko": "신뢰 변경에는 대화형 비교/확인이 필요합니다"
+  },
+  "error.main.peer_not_discovered_use_address_host_port": {
+    "en": "peer not discovered; use --address HOST:PORT",
+    "zh-CN": "未发现设备，请使用 --address HOST:PORT",
+    "zh-Hant": "未發現裝置，請使用 --address HOST:PORT",
+    "ja": "デバイスが見つかりません。--address HOST:PORT を使用してください",
+    "ko": "기기를 찾지 못했습니다. --address HOST:PORT를 사용하세요"
+  },
+  "error.main.specify_a_peer_or_address_host_port": {
+    "en": "specify a peer or --address HOST:PORT",
+    "zh-CN": "请指定设备或 --address HOST:PORT",
+    "zh-Hant": "請指定裝置或 --address HOST:PORT",
+    "ja": "デバイスまたは --address HOST:PORT を指定してください",
+    "ko": "기기 또는 --address HOST:PORT를 지정하세요"
+  },
+  "error.main.canceled_by_user_active_files_are_checkpointed": {
+    "en": "canceled by user; active files are checkpointed",
+    "zh-CN": "用户已取消，活动文件已保存检查点",
+    "zh-Hant": "使用者已取消，活動檔案已儲存檢查點",
+    "ja": "ユーザーがキャンセルしました。実行中ファイルの再開位置を保存しました",
+    "ko": "사용자가 취소했습니다. 진행 중인 파일의 재개 위치를 저장했습니다"
+  },
+  "error.main.no_remote_saved_receipt_before_deadline_result_unconfirmed": {
+    "en": "no remote saved receipt before deadline; result unconfirmed",
+    "zh-CN": "期限前未收到对端保存回执，结果未确认",
+    "zh-Hant": "期限前未收到對端儲存回執，結果未確認",
+    "ja": "期限内に相手の保存確認が届かず、結果は未確認です",
+    "ko": "기한 내 상대 저장 확인을 받지 못해 결과가 미확인 상태입니다"
+  },
+  "error.main.not_connected": {
+    "en": "not connected",
+    "zh-CN": "未连接",
+    "zh-Hant": "未連線",
+    "ja": "未接続です",
+    "ko": "연결되지 않았습니다"
+  },
+  "error.main.network_worker_stopped": {
+    "en": "network worker stopped",
+    "zh-CN": "网络工作线程已停止",
+    "zh-Hant": "網路工作執行緒已停止",
+    "ja": "ネットワーク処理が停止しました",
+    "ko": "네트워크 작업 스레드가 중지되었습니다"
+  },
+  "error.main.unknown_unremembered_peer_requires_interactive_consent_use_chat_o": {
+    "en": "unknown/unremembered peer requires interactive consent; use chat or connect",
+    "zh-CN": "未知或未记住的设备需要交互式认可，请使用 chat 或 connect",
+    "zh-Hant": "未知或未記住的裝置需要互動式認可，請使用 chat 或 connect",
+    "ja": "未知・未記憶のデバイスには対話的な同意が必要です。chat または connect を使用してください",
+    "ko": "모르거나 기억하지 않은 기기에는 대화형 동의가 필요합니다. chat 또는 connect를 사용하세요"
+  },
+  "error.main.peer_file_transfer_failed_no_saved_receipt": {
+    "en": "peer file transfer failed; no saved receipt",
+    "zh-CN": "对端文件传输失败，没有保存回执",
+    "zh-Hant": "對端檔案傳輸失敗，沒有儲存回執",
+    "ja": "相手のファイル転送が失敗し、保存確認がありません",
+    "ko": "상대 파일 전송이 실패했으며 저장 확인이 없습니다"
+  },
+  "error.main.file_rejected_or_canceled": {
+    "en": "file rejected or canceled",
+    "zh-CN": "文件被拒绝或已取消",
+    "zh-Hant": "檔案被拒絕或已取消",
+    "ja": "ファイルが拒否またはキャンセルされました",
+    "ko": "파일이 거부되거나 취소되었습니다"
+  },
+  "error.main.disconnected_before_saved_receipt_checkpoints_remain_resumable": {
+    "en": "disconnected before saved receipt; checkpoints remain resumable",
+    "zh-CN": "保存回执前连接已断开，仍可从检查点续传",
+    "zh-Hant": "儲存回執前連線已斷開，仍可從檢查點續傳",
+    "ja": "保存確認前に切断されました。保存された位置から再開できます",
+    "ko": "저장 확인 전에 연결이 끊겼습니다. 저장된 위치부터 재개할 수 있습니다"
+  },
+  "error.network.endpoint_must_resolve_to_a_lan_link_local_or_loopback_address_wit": {
+    "en": "endpoint must resolve to a LAN, link-local, or loopback address with a port",
+    "zh-CN": "端点必须解析为带端口的局域网、链路本地或回环地址",
+    "zh-Hant": "端點必須解析為帶埠的區域網、鏈路本地或迴環地址",
+    "ja": "接続先にはポート付きのLAN・リンクローカル・ループバックアドレスが必要です",
+    "ko": "엔드포인트는 포트가 있는 LAN, 링크 로컬 또는 루프백 주소여야 합니다"
+  },
+  "error.network.endpoint_returned_a_different_device_identity": {
+    "en": "endpoint returned a different device identity",
+    "zh-CN": "端点返回了不同的设备身份",
+    "zh-Hant": "端點返回了不同的裝置身份",
+    "ja": "接続先から異なるデバイス識別情報が返されました",
+    "ko": "엔드포인트가 다른 기기 신원을 반환했습니다"
+  },
+  "error.network.identity_changed_compare_safety_codes_revoke_forget_explicitly_be": {
+    "en": "IDENTITY CHANGED: compare safety codes; revoke/forget explicitly before accepting the replacement",
+    "zh-CN": "身份已改变：请比较安全码，并在接受新身份前明确撤销或遗忘旧身份",
+    "zh-Hant": "身份已改變：請比較安全碼，並在接受新身份前明確撤銷或遺忘舊身份",
+    "ja": "識別情報が変更されました。安全コードを比較し、置き換えを許可する前に古い信頼を明示的に取り消してください",
+    "ko": "신원이 변경되었습니다. 안전 코드를 비교하고 새 신원을 허용하기 전에 이전 신뢰를 명시적으로 취소하거나 삭제하세요"
+  },
+  "error.network.short_encrypted_record": {
+    "en": "short encrypted record",
+    "zh-CN": "加密记录不完整",
+    "zh-Hant": "加密記錄不完整",
+    "ja": "暗号化レコードが短すぎます",
+    "ko": "암호화된 레코드가 불완전합니다"
+  },
+  "error.network.duplicate_ready": {
+    "en": "duplicate ready",
+    "zh-CN": "重复的就绪消息",
+    "zh-Hant": "重複的就緒訊息",
+    "ja": "準備完了メッセージが重複しています",
+    "ko": "준비 완료 메시지가 중복되었습니다"
+  },
+  "error.network.heartbeat_before_mutual_consent": {
+    "en": "heartbeat before mutual consent",
+    "zh-CN": "双方认可前收到心跳",
+    "zh-Hant": "雙方認可前收到心跳",
+    "ja": "双方の同意前にハートビートを受信しました",
+    "ko": "양쪽 동의 전에 하트비트를 받았습니다"
+  },
+  "error.network.text_before_mutual_consent": {
+    "en": "text before mutual consent",
+    "zh-CN": "双方认可前收到文本",
+    "zh-Hant": "雙方認可前收到文字",
+    "ja": "双方の同意前にテキストを受信しました",
+    "ko": "양쪽 동의 전에 텍스트를 받았습니다"
+  },
+  "error.network.message_id_reused_with_different_content": {
+    "en": "message ID reused with different content",
+    "zh-CN": "消息 ID 被用于不同内容",
+    "zh-Hant": "訊息 ID 被用於不同內容",
+    "ja": "同じメッセージIDが異なる内容に使われました",
+    "ko": "동일한 메시지 ID가 다른 내용에 사용되었습니다"
+  },
+  "error.network.unexpected_saved_receipt": {
+    "en": "unexpected saved receipt",
+    "zh-CN": "收到非预期的保存回执",
+    "zh-Hant": "收到非預期的儲存回執",
+    "ja": "予期しない保存確認です",
+    "ko": "예상하지 못한 저장 확인입니다"
+  },
+  "error.network.file_before_mutual_consent": {
+    "en": "file before mutual consent",
+    "zh-CN": "双方认可前收到文件",
+    "zh-Hant": "雙方認可前收到檔案",
+    "ja": "双方の同意前にファイルを受信しました",
+    "ko": "양쪽 동의 전에 파일을 받았습니다"
+  },
+  "error.network.avatar_before_mutual_consent_capability": {
+    "en": "avatar before mutual consent/capability",
+    "zh-CN": "双方认可或能力协商前收到头像",
+    "zh-Hant": "雙方認可或能力協商前收到頭像",
+    "ja": "双方の同意・機能確認前にアバターを受信しました",
+    "ko": "양쪽 동의/기능 확인 전에 아바타를 받았습니다"
+  },
+  "error.network.waiting_for_peer_consent": {
+    "en": "waiting for peer consent",
+    "zh-CN": "等待对端认可",
+    "zh-Hant": "等待對端認可",
+    "ja": "相手の同意を待っています",
+    "ko": "상대 동의를 기다리는 중입니다"
+  },
+  "error.network.too_many_unconfirmed_messages": {
+    "en": "too many unconfirmed messages",
+    "zh-CN": "未确认消息过多",
+    "zh-Hant": "未確認訊息過多",
+    "ja": "未確認メッセージが多すぎます",
+    "ko": "미확인 메시지가 너무 많습니다"
+  },
+  "error.network.peer_consent_timed_out": {
+    "en": "peer consent timed out",
+    "zh-CN": "等待对端认可超时",
+    "zh-Hant": "等待對端認可超時",
+    "ja": "相手の同意待ちがタイムアウトしました",
+    "ko": "상대 동의 대기 시간이 초과되었습니다"
+  },
+  "error.network.peer_idle_timeout": {
+    "en": "peer idle timeout",
+    "zh-CN": "对端空闲超时",
+    "zh-Hant": "對端空閒超時",
+    "ja": "相手の応答待ちがタイムアウトしました",
+    "ko": "상대 유휴 시간이 초과되었습니다"
+  },
+  "error.network.connection_rejected": {
+    "en": "connection rejected",
+    "zh-CN": "连接被拒绝",
+    "zh-Hant": "連線被拒絕",
+    "ja": "接続が拒否されました",
+    "ko": "연결이 거부되었습니다"
+  },
+  "error.network.unsupported_frame": {
+    "en": "unsupported frame",
+    "zh-CN": "不支持数据帧",
+    "zh-Hant": "不支援資料幀",
+    "ja": "フレームには対応していません",
+    "ko": "지원하지 않는 프레임입니다"
+  },
+  "error.network.reader_stopped": {
+    "en": "reader stopped",
+    "zh-CN": "读取线程已停止",
+    "zh-Hant": "讀取執行緒已停止",
+    "ja": "読み取り処理が停止しました",
+    "ko": "읽기 스레드가 중지되었습니다"
+  },
+  "error.network.connection_consent_timed_out": {
+    "en": "connection consent timed out",
+    "zh-CN": "连接认可超时",
+    "zh-Hant": "連線認可超時",
+    "ja": "接続への同意がタイムアウトしました",
+    "ko": "연결 동의 시간이 초과되었습니다"
+  },
+  "error.profile.profile_must_be_a_real_directory": {
+    "en": "profile must be a real directory",
+    "zh-CN": "配置目录必须是真实目录",
+    "zh-Hant": "配置目錄必須是真實目錄",
+    "ja": "プロファイルは実際のフォルダーが必要です",
+    "ko": "프로필은 실제 디렉터리여야 합니다"
+  },
+  "error.profile.profile_must_belong_to_this_user_with_mode_0700": {
+    "en": "profile must belong to this user with mode 0700",
+    "zh-CN": "配置目录必须属于当前用户，权限为 0700",
+    "zh-Hant": "配置目錄必須屬於當前使用者，許可權為 0700",
+    "ja": "プロファイルは現在のユーザー所有で権限0700が必要です",
+    "ko": "프로필은 현재 사용자 소유이며 권한이 0700이어야 합니다"
+  },
+  "error.profile.this_is_a_gui_profile_choose_a_separate_terminal_directory": {
+    "en": "this is a GUI profile; choose a separate Terminal directory",
+    "zh-CN": "这是 GUI 数据目录，请为 Terminal 选择独立目录",
+    "zh-Hant": "這是 GUI 資料目錄，請為 Terminal 選擇獨立目錄",
+    "ja": "これはGUIプロファイルです。Terminalには別のフォルダーを選択してください",
+    "ko": "GUI 프로필입니다. Terminal 전용 폴더를 선택하세요"
+  },
+  "error.profile.identity_must_be_a_regular_file": {
+    "en": "identity must be a regular file",
+    "zh-CN": "身份信息必须是普通文件",
+    "zh-Hant": "身份資訊必須是普通檔案",
+    "ja": "識別情報は通常ファイルが必要です",
+    "ko": "신원 정보는 일반 파일이어야 합니다"
+  },
+  "error.profile.invalid_stored_identity": {
+    "en": "invalid stored identity",
+    "zh-CN": "存储的身份信息无效",
+    "zh-Hant": "儲存的身份資訊無效",
+    "ja": "保存された識別情報が無効です",
+    "ko": "유효하지 않은 저장된 신원 정보입니다"
+  },
+  "error.profile.identity_missing_from_an_established_profile_restore_its_backup": {
+    "en": "identity missing from an established profile; restore its backup",
+    "zh-CN": "已有配置缺少身份信息，请恢复备份",
+    "zh-Hant": "已有配置缺少身份資訊，請恢復備份",
+    "ja": "既存プロファイルの識別情報がありません。バックアップを復元してください",
+    "ko": "기존 프로필의 신원 정보가 없습니다. 백업을 복원하세요"
+  },
+  "error.profile.history_must_be_a_regular_file": {
+    "en": "history must be a regular file",
+    "zh-CN": "历史记录必须是普通文件",
+    "zh-Hant": "歷史記錄必須是普通檔案",
+    "ja": "履歴は通常ファイルが必要です",
+    "ko": "기록은 일반 파일이어야 합니다"
+  },
+  "error.profile.unsupported_history_schema_refusing_migration": {
+    "en": "unsupported history schema; refusing migration",
+    "zh-CN": "不支持此历史结构，拒绝迁移",
+    "zh-Hant": "不支援此歷史結構，拒絕遷移",
+    "ja": "未対応の履歴形式のため移行を拒否しました",
+    "ko": "지원하지 않는 기록 형식이므로 마이그레이션을 거부했습니다"
+  },
+  "error.profile.receipt_for_incoming_text": {
+    "en": "receipt for incoming text",
+    "zh-CN": "收到针对接收文本的异常回执",
+    "zh-Hant": "收到針對接收文字的異常回執",
+    "ja": "受信テキストに対する不正な確認が届きました",
+    "ko": "수신 텍스트에 대한 잘못된 확인을 받았습니다"
+  },
+  "error.profile.history_limit_must_be_1_500": {
+    "en": "history limit must be 1–500",
+    "zh-CN": "历史记录数量必须为 1–500",
+    "zh-Hant": "歷史記錄數量必須為 1–500",
+    "ja": "履歴件数は1～500が必要です",
+    "ko": "기록 개수는 1~500이어야 합니다"
+  },
+  "error.profile.draft_exceeds_resource_budget": {
+    "en": "draft exceeds resource budget",
+    "zh-CN": "草稿超出资源预算",
+    "zh-Hant": "草稿超出資源預算",
+    "ja": "下書きがリソース上限を超えています",
+    "ko": "초안이 리소스 한도를 초과합니다"
+  },
+  "error.profile.noncanonical_root_key": {
+    "en": "noncanonical root key",
+    "zh-CN": "根密钥格式不规范",
+    "zh-Hant": "根金鑰格式不規範",
+    "ja": "ルート鍵の形式が正規ではありません",
+    "ko": "루트 키 형식이 표준에 맞지 않습니다"
+  },
+  "error.profile.not_a_regular_file": {
+    "en": "not a regular file",
+    "zh-CN": "不是普通文件",
+    "zh-Hant": "不是普通檔案",
+    "ja": "通常ファイルではありません",
+    "ko": "일반 파일이 아닙니다"
+  },
+  "error.profile.private_identity_permissions_are_too_broad": {
+    "en": "private identity permissions are too broad",
+    "zh-CN": "私密身份文件权限过宽",
+    "zh-Hant": "私密身份檔案許可權過寬",
+    "ja": "秘密の識別情報の権限が広すぎます",
+    "ko": "비공개 신원 파일의 권한이 너무 넓습니다"
+  },
+  "error.profile.identity_too_large": {
+    "en": "identity too large",
+    "zh-CN": "身份信息过大",
+    "zh-Hant": "身份資訊過大",
+    "ja": "識別情報が大きすぎます",
+    "ko": "신원 정보가 너무 큽니다"
+  },
+  "error.profile.windows_dpapi_identity_protection_failed": {
+    "en": "Windows DPAPI identity protection failed",
+    "zh-CN": "Windows DPAPI 身份保护失败",
+    "zh-Hant": "Windows DPAPI 身份保護失敗",
+    "ja": "Windows DPAPIの識別保護に失敗しました",
+    "ko": "Windows DPAPI 신원 보호에 실패했습니다"
+  },
+  "error.profile.receipt_for_unknown_text": {
+    "en": "receipt for unknown text",
+    "zh-CN": "收到未知文本的回执",
+    "zh-Hant": "收到未知文字的回執",
+    "ja": "未知のテキストへの確認が届きました",
+    "ko": "알 수 없는 텍스트에 대한 확인을 받았습니다"
+  },
+  "error.profile.profile_is_busy_close_the_other_nearbyim_process_or_use_profile": {
+    "en": "profile is busy; close the other nearbyim process or use --profile",
+    "zh-CN": "配置目录正被占用，请关闭其他 nearbyim 进程或使用 --profile",
+    "zh-Hant": "配置目錄正被佔用，請關閉其他 nearbyim 程序或使用 --profile",
+    "ja": "プロファイルは使用中です。別のnearbyimを終了するか --profile を使用してください",
+    "ko": "프로필이 사용 중입니다. 다른 nearbyim 프로세스를 닫거나 --profile을 사용하세요"
+  },
+  "error.profile.identity_is_corrupt_refusing_to_replace_it": {
+    "en": "identity is corrupt; refusing to replace it",
+    "zh-CN": "身份信息损坏，拒绝替换",
+    "zh-Hant": "身份資訊損壞，拒絕替換",
+    "ja": "識別情報が破損しているため置き換えを拒否しました",
+    "ko": "신원 정보가 손상되어 교체를 거부했습니다"
+  },
+  "error.profile.invalid_identity_private_key_refusing_rotation": {
+    "en": "invalid identity private key; refusing rotation",
+    "zh-CN": "身份私钥无效，拒绝自动换钥",
+    "zh-Hant": "身份私鑰無效，拒絕自動換鑰",
+    "ja": "識別秘密鍵が無効なため鍵の置き換えを拒否しました",
+    "ko": "신원 비밀 키가 잘못되어 자동 키 교체를 거부했습니다"
+  },
+  "error.ui.an_active_session_exists_use_disconnect_to_pause_files_and_close_": {
+    "en": "An active session exists. Use disconnect to pause files and close it before switching peers.",
+    "zh-CN": "已有活动会话，请先用 disconnect 暂停文件并断开，再切换设备",
+    "zh-Hant": "已有活動會話，請先用 disconnect 暫停檔案並斷開，再切換裝置",
+    "ja": "実行中の会話があります。disconnect でファイルを一時停止して切断してから相手を切り替えてください",
+    "ko": "활성 대화가 있습니다. disconnect로 파일을 일시 중지하고 연결을 끊은 후 기기를 바꾸세요"
+  },
+  "error.ui.peer_has_no_known_listening_address_use_connect_host_port": {
+    "en": "peer has no known listening address; use :connect host:port",
+    "zh-CN": "设备没有已知监听地址，请使用 connect HOST:PORT",
+    "zh-Hant": "裝置沒有已知監聽地址，請使用 connect HOST:PORT",
+    "ja": "相手の受信アドレスが不明です。connect HOST:PORT を使用してください",
+    "ko": "기기의 수신 주소를 알 수 없습니다. connect HOST:PORT를 사용하세요"
+  },
+  "error.ui.disconnect_the_active_session_first": {
+    "en": "disconnect the active session first",
+    "zh-CN": "请先断开活动会话",
+    "zh-Hant": "請先斷開活動會話",
+    "ja": "先に実行中の会話を切断してください",
+    "ko": "먼저 활성 대화의 연결을 끊으세요"
+  },
+  "error.ui.usage_file_path": {
+    "en": "usage: file PATH",
+    "zh-CN": "用法：file PATH",
+    "zh-Hant": "用法：file PATH",
+    "ja": "使い方: file PATH",
+    "ko": "사용법: file PATH"
+  },
+  "error.ui.choose_a_regular_file": {
+    "en": "choose a regular file",
+    "zh-CN": "请选择普通文件",
+    "zh-Hant": "請選擇普通檔案",
+    "ja": "通常ファイルを選択してください",
+    "ko": "일반 파일을 선택하세요"
+  },
+  "error.ui.usage_files_path_one_path_per_line_ctrl_j_adds_a_line": {
+    "en": "usage: files PATH (one path per line; Ctrl+J adds a line)",
+    "zh-CN": "用法：files PATH（每行一个路径，Ctrl+J 换行）",
+    "zh-Hant": "用法：files PATH（每行一個路徑，Ctrl+J 換行）",
+    "ja": "使い方: files PATH（1行1パス、Ctrl+Jで改行）",
+    "ko": "사용법: files PATH (줄마다 경로 하나, Ctrl+J 줄 바꿈)"
+  },
+  "error.ui.choose_regular_files_of_at_most_10_gib": {
+    "en": "choose regular files of at most 10 GiB",
+    "zh-CN": "请选择最多 10 GiB 的普通文件",
+    "zh-Hant": "請選擇最多 10 GiB 的普通檔案",
+    "ja": "10 GiB以下の通常ファイルを選択してください",
+    "ko": "10 GiB 이하의 일반 파일을 선택하세요"
+  },
+  "error.ui.qr_safety_code_does_not_match_trust_unchanged": {
+    "en": "QR safety code does not match; trust unchanged",
+    "zh-CN": "二维码安全码不匹配，信任未改变",
+    "zh-Hant": "二維碼安全碼不匹配，信任未改變",
+    "ja": "QRの安全コードが一致しません。信頼は変更されていません",
+    "ko": "QR 안전 코드가 일치하지 않습니다. 신뢰는 변경되지 않았습니다"
+  },
+  "error.ui.full_safety_code_does_not_match_compare_it_out_of_band_first": {
+    "en": "full safety code does not match; compare it out of band first",
+    "zh-CN": "完整安全码不匹配，请先通过其他渠道比较",
+    "zh-Hant": "完整安全碼不匹配，請先透過其他渠道比較",
+    "ja": "完全な安全コードが一致しません。先に別の手段で比較してください",
+    "ko": "전체 안전 코드가 일치하지 않습니다. 먼저 별도 경로로 비교하세요"
+  },
+  "error.ui.usage_listen_on_off": {
+    "en": "usage: listen on|off",
+    "zh-CN": "用法：listen on|off",
+    "zh-Hant": "用法：listen on|off",
+    "ja": "使い方: listen on|off",
+    "ko": "사용법: listen on|off"
+  },
+  "error.ui.usage_avatar_set_path_reset_show_export_path": {
+    "en": "usage: avatar set PATH | reset | show | export PATH",
+    "zh-CN": "用法：avatar set PATH | reset | show | export PATH",
+    "zh-Hant": "用法：avatar set PATH | reset | show | export PATH",
+    "ja": "使い方: avatar set PATH | reset | show | export PATH",
+    "ko": "사용법: avatar set PATH | reset | show | export PATH"
+  },
+  "error.ui.unknown_command_ctrl_p_then_help": {
+    "en": "unknown command; Ctrl+P then help",
+    "zh-CN": "未知命令，请按 Ctrl+P 后输入 help",
+    "zh-Hant": "未知命令，請按 Ctrl+P 後輸入 help",
+    "ja": "不明なコマンドです。Ctrl+P の後に help を入力してください",
+    "ko": "알 수 없는 명령입니다. Ctrl+P를 누른 후 help를 입력하세요"
+  },
+  "error.ui.select_a_peer_first": {
+    "en": "select a peer first",
+    "zh-CN": "请先选择设备",
+    "zh-Hant": "請先選擇裝置",
+    "ja": "先にデバイスを選択してください",
+    "ko": "먼저 기기를 선택하세요"
+  },
+  "error.ui.connect_to_this_peer_first": {
+    "en": "connect to this peer first",
+    "zh-CN": "请先连接此设备",
+    "zh-Hant": "請先連線此裝置",
+    "ja": "先にこのデバイスへ接続してください",
+    "ko": "먼저 이 기기에 연결하세요"
+  },
+  "error.ui.usage_set_key_value": {
+    "en": "usage: set KEY VALUE",
+    "zh-CN": "用法：set KEY VALUE",
+    "zh-Hant": "用法：set KEY VALUE",
+    "ja": "使い方: set KEY VALUE",
+    "ko": "사용법: set KEY VALUE"
+  },
+  "error.ui.select_a_chat": {
+    "en": "select a chat",
+    "zh-CN": "请选择会话",
+    "zh-Hant": "請選擇會話",
+    "ja": "会話を選択してください",
+    "ko": "대화를 선택하세요"
+  },
+  "error.ui.unknown_transfer_id": {
+    "en": "unknown transfer ID",
+    "zh-CN": "未知传输 ID",
+    "zh-Hant": "未知傳輸 ID",
+    "ja": "不明な転送IDです",
+    "ko": "알 수 없는 전송 ID입니다"
+  },
+  "error.ui.usage_export_transfer_id_path": {
+    "en": "usage: export TRANSFER_ID PATH",
+    "zh-CN": "用法：export TRANSFER_ID PATH",
+    "zh-Hant": "用法：export TRANSFER_ID PATH",
+    "ja": "使い方: export TRANSFER_ID PATH",
+    "ko": "사용법: export TRANSFER_ID PATH"
+  },
+  "error.ui.connect_to_authenticate_this_identity_first": {
+    "en": "connect to authenticate this identity first",
+    "zh-CN": "请先连接以认证此身份",
+    "zh-Hant": "請先連線以認證此身份",
+    "ja": "先に接続してこの識別情報を認証してください",
+    "ko": "먼저 연결하여 이 신원을 인증하세요"
+  },
+  "error.ui.unknown_peer_id": {
+    "en": "unknown peer ID",
+    "zh-CN": "未知设备 ID",
+    "zh-Hant": "未知裝置 ID",
+    "ja": "不明なデバイスIDです",
+    "ko": "알 수 없는 기기 ID입니다"
+  },
+  "error.ui.connect_first": {
+    "en": "connect first",
+    "zh-CN": "请先连接",
+    "zh-Hant": "請先連線",
+    "ja": "先に接続してください",
+    "ko": "먼저 연결하세요"
+  },
+  "error.ui.select_a_peer": {
+    "en": "select a peer",
+    "zh-CN": "请选择设备",
+    "zh-Hant": "請選擇裝置",
+    "ja": "デバイスを選択してください",
+    "ko": "기기를 선택하세요"
+  },
+  "error.verification.invalid_identity_qr_payload": {
+    "en": "invalid identity QR payload",
+    "zh-CN": "身份二维码载荷无效",
+    "zh-Hant": "身份二維碼載荷無效",
+    "ja": "識別QRのデータが無効です",
+    "ko": "유효하지 않은 신원 QR 데이터입니다"
+  },
+  "error.verification.too_many_qr_codes_in_one_image": {
+    "en": "too many QR codes in one image",
+    "zh-CN": "单张图片中的二维码过多",
+    "zh-Hant": "單張圖片中的二維碼過多",
+    "ja": "画像内のQRコードが多すぎます",
+    "ko": "이미지 하나에 QR 코드가 너무 많습니다"
+  },
+  "error.verification.qr_content_exceeds_identity_payload_bounds": {
+    "en": "QR content exceeds identity payload bounds",
+    "zh-CN": "二维码内容超出身份载荷上限",
+    "zh-Hant": "二維碼內容超出身份載荷上限",
+    "ja": "QRの内容が識別データの上限を超えています",
+    "ko": "QR 내용이 신원 데이터 한도를 초과합니다"
+  },
+  "error.wire.invalid_nickname": {
+    "en": "invalid nickname",
+    "zh-CN": "昵称无效",
+    "zh-Hant": "暱稱無效",
+    "ja": "ニックネームが無効です",
+    "ko": "유효하지 않은 별명입니다"
+  },
+  "error.wire.invalid_saved_receipt": {
+    "en": "invalid saved receipt",
+    "zh-CN": "保存回执无效",
+    "zh-Hant": "儲存回執無效",
+    "ja": "保存確認が無効です",
+    "ko": "유효하지 않은 저장 확인입니다"
+  },
+  "error.wire.invalid_filename": {
+    "en": "invalid filename",
+    "zh-CN": "文件名无效",
+    "zh-Hant": "檔名無效",
+    "ja": "ファイル名が無効です",
+    "ko": "유효하지 않은 파일명입니다"
+  },
+  "error.main.qr_safety_code_does_not_match": {
+    "en": "QR safety code does not match",
+    "zh-CN": "二维码安全码不匹配",
+    "zh-Hant": "二維碼安全碼不匹配",
+    "ja": "QRの安全コードが一致しません",
+    "ko": "QR 안전 코드가 일치하지 않습니다"
+  },
+  "error.main.full_safety_code_does_not_match": {
+    "en": "full safety code does not match",
+    "zh-CN": "完整安全码不匹配",
+    "zh-Hant": "完整安全碼不匹配",
+    "ja": "完全な安全コードが一致しません",
+    "ko": "전체 안전 코드가 일치하지 않습니다"
+  },
+  "error.wire.invalid_text_capacity": {
+    "en": "invalid text capacity",
+    "zh-CN": "文本容量无效",
+    "zh-Hant": "文字容量無效",
+    "ja": "テキスト容量が無効です",
+    "ko": "유효하지 않은 텍스트 용량입니다"
+  },
+  "error.wire.text_must_contain_1_limit_utf_8_bytes_draft_preserved": {
+    "en": "text must contain 1–{limit} UTF-8 bytes; draft preserved",
+    "zh-CN": "文本须为 1–{limit} UTF-8 字节；草稿已保留",
+    "zh-Hant": "文字須為 1–{limit} UTF-8 位元組；草稿已保留",
+    "ja": "テキストは1～{limit} UTF-8バイトが必要です。下書きは保持されています",
+    "ko": "텍스트는 1~{limit} UTF-8 바이트여야 합니다. 초안은 유지됩니다"
+  },
+  "error.wire.truncated_packet": {
+    "en": "truncated packet",
+    "zh-CN": "数据包被截断",
+    "zh-Hant": "資料包被截斷",
+    "ja": "パケットが切り詰められています",
+    "ko": "패킷이 잘렸습니다"
+  },
+  "error.wire.negative_integer": {
+    "en": "negative integer",
+    "zh-CN": "整数不能为负数",
+    "zh-Hant": "整數不能為負數",
+    "ja": "整数を負にできません",
+    "ko": "정수는 음수일 수 없습니다"
+  },
+  "error.wire.oversized_string": {
+    "en": "oversized string",
+    "zh-CN": "字符串过大",
+    "zh-Hant": "字串過大",
+    "ja": "文字列が大きすぎます",
+    "ko": "문자열이 너무 큽니다"
+  },
+  "error.wire.oversized_field": {
+    "en": "oversized field",
+    "zh-CN": "字段过大",
+    "zh-Hant": "欄位過大",
+    "ja": "フィールドが大きすぎます",
+    "ko": "필드가 너무 큽니다"
+  },
+  "error.wire.trailing_packet_bytes": {
+    "en": "trailing packet bytes",
+    "zh-CN": "数据包存在尾随字节",
+    "zh-Hant": "資料包存在尾隨位元組",
+    "ja": "パケット末尾に余分なバイトがあります",
+    "ko": "패킷 뒤에 불필요한 바이트가 있습니다"
+  },
+  "error.wire.invalid_timestamp": {
+    "en": "invalid timestamp",
+    "zh-CN": "时间戳无效",
+    "zh-Hant": "時間戳無效",
+    "ja": "タイムスタンプが無効です",
+    "ko": "유효하지 않은 타임스탬프입니다"
+  },
+  "error.wire.invalid_message_id": {
+    "en": "invalid message ID",
+    "zh-CN": "消息 ID无效",
+    "zh-Hant": "訊息 ID無效",
+    "ja": "メッセージIDが無効です",
+    "ko": "유효하지 않은 메시지 ID입니다"
+  },
+  "error.wire.invalid_control": {
+    "en": "invalid control",
+    "zh-CN": "控制消息无效",
+    "zh-Hant": "控制訊息無效",
+    "ja": "制御メッセージが無効です",
+    "ko": "유효하지 않은 제어 메시지입니다"
+  },
+  "error.wire.invalid_file_metadata": {
+    "en": "invalid file metadata",
+    "zh-CN": "文件元数据无效",
+    "zh-Hant": "檔案後設資料無效",
+    "ja": "ファイルのメタデータが無効です",
+    "ko": "유효하지 않은 파일 메타데이터입니다"
+  },
+  "error.wire.unexpected_binary_data": {
+    "en": "unexpected binary data",
+    "zh-CN": "收到非预期的二进制数据",
+    "zh-Hant": "收到非預期的二進位制資料",
+    "ja": "予期しないバイナリデータです",
+    "ko": "예상하지 못한 바이너리 데이터입니다"
+  },
+  "error.wire.record_too_large": {
+    "en": "record too large",
+    "zh-CN": "记录过大",
+    "zh-Hant": "記錄過大",
+    "ja": "レコードが大きすぎます",
+    "ko": "레코드가 너무 큽니다"
+  },
+  "error.wire.invalid_record_size": {
+    "en": "invalid record size",
+    "zh-CN": "记录大小无效",
+    "zh-Hant": "記錄大小無效",
+    "ja": "レコードサイズが無効です",
+    "ko": "유효하지 않은 레코드 크기입니다"
+  },
+  "error.wire.unsupported_record_version": {
+    "en": "unsupported record version",
+    "zh-CN": "不支持记录版本",
+    "zh-Hant": "不支援記錄版本",
+    "ja": "レコードバージョンには対応していません",
+    "ko": "지원하지 않는 레코드 버전입니다"
+  },
+  "error.wire.oversized_file_packet": {
+    "en": "oversized file packet",
+    "zh-CN": "文件数据包过大",
+    "zh-Hant": "檔案資料包過大",
+    "ja": "ファイルパケットが大きすぎます",
+    "ko": "파일 패킷이 너무 큽니다"
+  },
+  "error.wire.invalid_mime_type": {
+    "en": "invalid MIME type",
+    "zh-CN": "MIME 类型无效",
+    "zh-Hant": "MIME 型別無效",
+    "ja": "MIMEタイプが無効です",
+    "ko": "유효하지 않은 MIME 유형입니다"
+  },
+  "error.wire.invalid_file_size_time": {
+    "en": "invalid file size/time",
+    "zh-CN": "文件大小或时间无效",
+    "zh-Hant": "檔案大小或時間無效",
+    "ja": "ファイルサイズ・時刻が無効です",
+    "ko": "유효하지 않은 파일 크기/시간입니다"
+  },
+  "error.wire.offer_must_not_contain_whole_file_hash": {
+    "en": "offer must not contain whole-file hash",
+    "zh-CN": "文件提议不能携带整文件哈希",
+    "zh-Hant": "檔案提議不能攜帶整檔案雜湊",
+    "ja": "ファイル提案に全体ハッシュを含めることはできません",
+    "ko": "파일 제안에 전체 파일 해시를 포함할 수 없습니다"
+  },
+  "error.wire.invalid_transfer_identity": {
+    "en": "invalid transfer identity",
+    "zh-CN": "传输标识无效",
+    "zh-Hant": "傳輸標識無效",
+    "ja": "転送IDが無効です",
+    "ko": "유효하지 않은 전송 ID입니다"
+  },
+  "error.wire.invalid_transfer_range": {
+    "en": "invalid transfer range",
+    "zh-CN": "传输范围无效",
+    "zh-Hant": "傳輸範圍無效",
+    "ja": "転送範囲が無効です",
+    "ko": "유효하지 않은 전송 범위입니다"
+  },
+  "error.wire.invalid_progress": {
+    "en": "invalid progress",
+    "zh-CN": "进度无效",
+    "zh-Hant": "進度無效",
+    "ja": "進捗が無効です",
+    "ko": "유효하지 않은 진행률입니다"
+  },
+  "error.wire.unexpected_progress": {
+    "en": "unexpected progress",
+    "zh-CN": "收到非预期的进度",
+    "zh-Hant": "收到非預期的進度",
+    "ja": "予期しない進捗です",
+    "ko": "예상하지 못한 진행률입니다"
+  },
+  "error.wire.invalid_hash_presence": {
+    "en": "invalid hash presence",
+    "zh-CN": "哈希存在标记无效",
+    "zh-Hant": "雜湊存在標記無效",
+    "ja": "ハッシュの存在フラグが無効です",
+    "ko": "유효하지 않은 해시 존재 플래그입니다"
+  },
+  "error.wire.invalid_payload_presence": {
+    "en": "invalid payload presence",
+    "zh-CN": "载荷存在标记无效",
+    "zh-Hant": "載荷存在標記無效",
+    "ja": "データの存在フラグが無効です",
+    "ko": "유효하지 않은 데이터 존재 플래그입니다"
+  },
+  "error.wire.invalid_reason": {
+    "en": "invalid reason",
+    "zh-CN": "原因无效",
+    "zh-Hant": "原因無效",
+    "ja": "理由が無効です",
+    "ko": "유효하지 않은 이유입니다"
+  },
+  "error.wire.unexpected_window": {
+    "en": "unexpected window",
+    "zh-CN": "收到非预期的传输窗口",
+    "zh-Hant": "收到非預期的傳輸視窗",
+    "ja": "予期しない転送ウィンドウです",
+    "ko": "예상하지 못한 전송 윈도입니다"
+  },
+  "error.wire.invalid_offer_offset": {
+    "en": "invalid offer offset",
+    "zh-CN": "文件提议偏移无效",
+    "zh-Hant": "檔案提議偏移無效",
+    "ja": "ファイル提案のオフセットが無効です",
+    "ko": "유효하지 않은 파일 제안 오프셋입니다"
+  },
+  "error.wire.invalid_completion_offset": {
+    "en": "invalid completion offset",
+    "zh-CN": "完成偏移无效",
+    "zh-Hant": "完成偏移無效",
+    "ja": "完了オフセットが無効です",
+    "ko": "유효하지 않은 완료 오프셋입니다"
+  },
+  "error.wire.invalid_sender_direction": {
+    "en": "invalid sender direction",
+    "zh-CN": "发送方向无效",
+    "zh-Hant": "傳送方向無效",
+    "ja": "送信方向が無効です",
+    "ko": "유효하지 않은 송신 방향입니다"
+  },
+  "error.wire.invalid_receiver_direction": {
+    "en": "invalid receiver direction",
+    "zh-CN": "接收方向无效",
+    "zh-Hant": "接收方向無效",
+    "ja": "受信方向が無効です",
+    "ko": "유효하지 않은 수신 방향입니다"
+  },
+  "error.wire.changed_offer_metadata": {
+    "en": "changed offer metadata",
+    "zh-CN": "文件提议的元数据已改变",
+    "zh-Hant": "檔案提議的後設資料已改變",
+    "ja": "ファイル提案のメタデータが変更されました",
+    "ko": "파일 제안의 메타데이터가 변경되었습니다"
+  },
+  "error.wire.file_packet_too_large": {
+    "en": "file packet too large",
+    "zh-CN": "文件数据包过大",
+    "zh-Hant": "檔案資料包過大",
+    "ja": "ファイルパケットが大きすぎます",
+    "ko": "파일 패킷이 너무 큽니다"
+  },
+  "error.wire.invalid_file_framing": {
+    "en": "invalid file framing",
+    "zh-CN": "文件帧格式无效",
+    "zh-Hant": "檔案幀格式無效",
+    "ja": "ファイルのフレーム形式が無効です",
+    "ko": "유효하지 않은 파일 프레임 형식입니다"
+  },
+  "error.wire.oversized_data": {
+    "en": "oversized data",
+    "zh-CN": "数据过大",
+    "zh-Hant": "資料過大",
+    "ja": "データが大きすぎます",
+    "ko": "데이터가 너무 큽니다"
+  },
+  "error.wire.invalid_boolean": {
+    "en": "invalid boolean",
+    "zh-CN": "布尔值无效",
+    "zh-Hant": "布林值無效",
+    "ja": "真偽値が無効です",
+    "ko": "유효하지 않은 불리언 값입니다"
+  },
+  "error.wire.unsupported_nim4_record_type": {
+    "en": "unsupported NIM4 record type {}",
+    "zh-CN": "不支持的 NIM4 记录类型 {}",
+    "zh-Hant": "不支援的 NIM4 記錄型別 {}",
+    "ja": "未対応のNIM4レコード種類 {}",
+    "ko": "지원하지 않는 NIM4 레코드 유형 {}"
+  },
+  "human.diagnostic": {
+    "en": "Operation failed. Technical diagnostic: {detail}",
+    "zh-CN": "操作失败。技术诊断原文：{detail}",
+    "zh-Hant": "操作失敗。技術診斷原文：{detail}",
+    "ja": "操作に失敗しました。技術的な診断原文: {detail}",
+    "ko": "작업에 실패했습니다. 기술 진단 원문: {detail}"
+  },
+  "human.identity": {
+    "en": "{name} · {id}\nRoot fingerprint: {fingerprint}",
+    "zh-CN": "{name} · {id}\n根身份指纹：{fingerprint}",
+    "zh-Hant": "{name} · {id}\n根身份指紋：{fingerprint}",
+    "ja": "{name} · {id}\nルート識別の指紋: {fingerprint}",
+    "ko": "{name} · {id}\n루트 신원 지문: {fingerprint}"
+  },
+  "human.status": {
+    "en": "NearbyIM Terminal {version}\nProtocol: NIM4\nDevice: {name} · {id}\nRoot fingerprint: {fingerprint}\nStatus: not_running (no daemon/IPC)\nLAN listening configured: {listening}\nBluetooth / Wi-Fi Direct: unsupported\nHistory is not encrypted at rest.",
+    "zh-CN": "NearbyIM Terminal {version}\n协议：NIM4\n设备：{name} · {id}\n根身份指纹：{fingerprint}\n状态：not_running（无常驻进程/IPC）\n已配置局域网监听：{listening}\n蓝牙 / Wi-Fi Direct：不支持\n本地历史记录未额外加密。",
+    "zh-Hant": "NearbyIM Terminal {version}\n協議：NIM4\n裝置：{name} · {id}\n根身份指紋：{fingerprint}\n狀態：not_running（無常駐程序/IPC）\n已配置區域網監聽：{listening}\n藍芽 / Wi-Fi Direct：不支援\n本地歷史記錄未額外加密。",
+    "ja": "NearbyIM Terminal {version}\nプロトコル: NIM4\nデバイス: {name} · {id}\nルート識別の指紋: {fingerprint}\n状態: not_running（常駐処理・IPCなし）\nLAN受信設定: {listening}\nBluetooth / Wi-Fi Direct: 未対応\n保存履歴は暗号化されません。",
+    "ko": "NearbyIM Terminal {version}\n프로토콜: NIM4\n기기: {name} · {id}\n루트 신원 지문: {fingerprint}\n상태: not_running (상주 프로세스/IPC 없음)\nLAN 수신 설정: {listening}\n블루투스 / Wi-Fi Direct: 지원 안 됨\n로컬 기록은 암호화되지 않습니다."
+  },
+  "human.qr_saved": {
+    "en": "Verification QR saved: {path}",
+    "zh-CN": "核验二维码已保存：{path}",
+    "zh-Hant": "核驗二維碼已儲存：{path}",
+    "ja": "確認QRを保存しました: {path}",
+    "ko": "확인 QR 저장됨: {path}"
+  },
+  "human.qr_matches": {
+    "en": "Full safety code matches; trust is unchanged.",
+    "zh-CN": "完整安全码匹配；信任未改变。",
+    "zh-Hant": "完整安全碼匹配；信任未改變。",
+    "ja": "完全な安全コードが一致しました。信頼は変更されていません。",
+    "ko": "전체 안전 코드가 일치합니다. 신뢰는 변경되지 않았습니다."
+  },
+  "human.qr_mismatch": {
+    "en": "The QR does not match; trust is unchanged.",
+    "zh-CN": "二维码不匹配；信任未改变。",
+    "zh-Hant": "二維碼不匹配；信任未改變。",
+    "ja": "QRが一致しません。信頼は変更されていません。",
+    "ko": "QR이 일치하지 않습니다. 신뢰는 변경되지 않았습니다."
+  },
+  "human.file_operation": {
+    "en": "File operation completed.",
+    "zh-CN": "文件操作已完成。",
+    "zh-Hant": "檔案操作已完成。",
+    "ja": "ファイル操作が完了しました。",
+    "ko": "파일 작업이 완료되었습니다."
+  },
+  "human.canceled": {
+    "en": "Transfer canceled locally; its tombstone prevents later resume.",
+    "zh-CN": "已在本地取消传输；取消记录会阻止后续续传。",
+    "zh-Hant": "已在本地取消傳輸；取消記錄會阻止後續續傳。",
+    "ja": "ローカルで転送をキャンセルしました。取消記録が後の再開を防ぎます。",
+    "ko": "로컬에서 전송을 취소했습니다. 취소 기록이 이후 재개를 방지합니다."
+  },
+  "human.trust_updated": {
+    "en": "Trust record updated explicitly.",
+    "zh-CN": "已明确更新信任记录。",
+    "zh-Hant": "已明確更新信任記錄。",
+    "ja": "信頼記録を明示的に更新しました。",
+    "ko": "신뢰 기록을 명시적으로 업데이트했습니다."
+  },
+  "human.compare": {
+    "en": "Compare the full safety code out of band:\n{code}",
+    "zh-CN": "请通过其他渠道比较完整安全码：\n{code}",
+    "zh-Hant": "請透過其他渠道比較完整安全碼：\n{code}",
+    "ja": "別の手段で完全な安全コードを比較してください:\n{code}",
+    "ko": "별도 경로로 전체 안전 코드를 비교하세요:\n{code}"
+  },
+  "prompt.record_verification": {
+    "en": "Full QR matches. Record manual verification? yes/no",
+    "zh-CN": "完整二维码匹配。记录人工核验吗？yes/no",
+    "zh-Hant": "完整二維碼匹配。記錄人工核驗嗎？yes/no",
+    "ja": "完全なQRが一致しました。手動確認を記録しますか？ yes/no",
+    "ko": "전체 QR이 일치합니다. 수동 확인을 기록할까요? yes/no"
+  },
+  "prompt.full_code": {
+    "en": "Enter the full matching code",
+    "zh-CN": "请输入匹配的完整安全码",
+    "zh-Hant": "請輸入匹配的完整安全碼",
+    "ja": "一致する完全なコードを入力",
+    "ko": "일치하는 전체 코드를 입력하세요"
+  },
+  "prompt.forget": {
+    "en": "To forget this identity pin, enter the device UUID",
+    "zh-CN": "若要遗忘此固定身份，请输入设备 UUID",
+    "zh-Hant": "若要遺忘此固定身份，請輸入裝置 UUID",
+    "ja": "この識別情報を削除するにはデバイスUUIDを入力",
+    "ko": "고정된 신원을 삭제하려면 기기 UUID를 입력하세요"
+  },
+  "prompt.revoke": {
+    "en": "Revoke remembered consent and verification? yes/no",
+    "zh-CN": "撤销已记住的认可与核验吗？yes/no",
+    "zh-Hant": "撤銷已記住的認可與核驗嗎？yes/no",
+    "ja": "記憶した同意と確認を取り消しますか？ yes/no",
+    "ko": "기억한 동의와 확인을 취소할까요? yes/no"
+  },
+  "human.client": {
+    "en": "Client mode; LAN listening disabled.",
+    "zh-CN": "客户端模式；局域网监听已关闭。",
+    "zh-Hant": "客戶端模式；區域網監聽已關閉。",
+    "ja": "クライアントモード。LAN受信は無効です。",
+    "ko": "클라이언트 모드입니다. LAN 수신이 꺼져 있습니다."
+  },
+  "human.listening": {
+    "en": "Listening on TCP port {port}",
+    "zh-CN": "正在监听 TCP 端口 {port}",
+    "zh-Hant": "正在監聽 TCP 埠 {port}",
+    "ja": "TCPポート{port}で受信待ち",
+    "ko": "TCP 포트 {port}에서 수신 대기 중"
+  },
+  "human.consent": {
+    "en": "Identity: {name} ({id})\nSafety code: {code}\nEncryption is established; identity is not manually verified.\nType once, remember, or reject:",
+    "zh-CN": "身份：{name}（{id}）\n安全码：{code}\n已建立加密连接；身份尚未人工核验。\n请输入 once、remember 或 reject：",
+    "zh-Hant": "身份：{name}（{id}）\n安全碼：{code}\n已建立加密連線；身份尚未人工核驗。\n請輸入 once、remember 或 reject：",
+    "ja": "識別: {name}（{id}）\n安全コード: {code}\n暗号化は確立済み。識別情報は手動未確認です。\nonce・remember・reject を入力:",
+    "ko": "신원: {name} ({id})\n안전 코드: {code}\n암호화가 설정되었습니다. 신원은 수동 확인되지 않았습니다.\nonce, remember 또는 reject를 입력하세요:"
+  },
+  "human.file_offer": {
+    "en": "Receive {name} ({size} bytes) from {peer}? No overwrite; type yes or no:",
+    "zh-CN": "接收来自 {peer} 的 {name}（{size} 字节）吗？不覆盖；请输入 yes 或 no：",
+    "zh-Hant": "接收來自 {peer} 的 {name}（{size} 位元組）嗎？不覆蓋；請輸入 yes 或 no：",
+    "ja": "{peer}から{name}（{size}バイト）を受信しますか？上書きしません。yes/no:",
+    "ko": "{peer}의 {name} ({size}바이트)을 받을까요? 덮어쓰지 않습니다. yes 또는 no:"
+  },
+  "human.connected": {
+    "en": "Connected to {name} · LAN · encrypted · {trust}",
+    "zh-CN": "已连接 {name} · 局域网 · 已加密 · {trust}",
+    "zh-Hant": "已連線 {name} · 區域網 · 已加密 · {trust}",
+    "ja": "{name}に接続 · LAN · 暗号化 · {trust}",
+    "ko": "{name}에 연결됨 · LAN · 암호화됨 · {trust}"
+  },
+  "human.text_limit": {
+    "en": "Text limit: {limit} UTF-8 bytes",
+    "zh-CN": "文本上限：{limit} UTF-8 字节",
+    "zh-Hant": "文字上限：{limit} UTF-8 位元組",
+    "ja": "テキスト上限: {limit} UTF-8バイト",
+    "ko": "텍스트 한도: {limit} UTF-8 바이트"
+  },
+  "human.saved": {
+    "en": "Saved by peer: {id} (not a read receipt)",
+    "zh-CN": "对端已保存：{id}（不代表已读）",
+    "zh-Hant": "對端已儲存：{id}（不代表已讀）",
+    "ja": "相手が保存済み: {id}（既読ではありません）",
+    "ko": "상대가 저장함: {id} (읽음 확인이 아님)"
+  },
+  "human.file_progress": {
+    "en": "{id} · {done} / {total} bytes · {state}",
+    "zh-CN": "{id} · {done} / {total} 字节 · {state}",
+    "zh-Hant": "{id} · {done} / {total} 位元組 · {state}",
+    "ja": "{id} · {done} / {total} バイト · {state}",
+    "ko": "{id} · {done} / {total} 바이트 · {state}"
+  },
+  "human.files_saved": {
+    "en": "All {count} files saved by peer (not read receipts)",
+    "zh-CN": "对端已保存全部 {count} 个文件（不代表已读）",
+    "zh-Hant": "對端已儲存全部 {count} 個檔案（不代表已讀）",
+    "ja": "相手が全{count}ファイルを保存済み（既読ではありません）",
+    "ko": "상대가 파일 {count}개를 모두 저장함 (읽음 확인이 아님)"
+  },
+  "human.disconnected": {
+    "en": "Disconnected: {reason}",
+    "zh-CN": "已断开：{reason}",
+    "zh-Hant": "已斷開：{reason}",
+    "ja": "切断されました: {reason}",
+    "ko": "연결 끊김: {reason}"
+  },
+  "human.avatar_failed": {
+    "en": "Avatar task for {peer} failed ({code}); chat remains connected",
+    "zh-CN": "{peer} 的头像任务失败（{code}）；聊天仍已连接",
+    "zh-Hant": "{peer} 的頭像任務失敗（{code}）；聊天仍已連線",
+    "ja": "{peer}のアバタータスクが失敗（{code}）。会話は接続中です",
+    "ko": "{peer}의 아바타 작업 실패 ({code}). 채팅 연결은 유지됩니다"
+  },
+  "human.avatar_saved": {
+    "en": "Avatar for {peer} saved (revision {revision})",
+    "zh-CN": "{peer} 的头像已保存（版本 {revision}）",
+    "zh-Hant": "{peer} 的頭像已儲存（版本 {revision}）",
+    "ja": "{peer}のアバターを保存（リビジョン{revision}）",
+    "ko": "{peer}의 아바타 저장됨 (버전 {revision})"
+  },
+  "human.invalid_args": {
+    "en": "Invalid command arguments. Use --help for usage.\nDiagnostic: {detail}",
+    "zh-CN": "命令参数无效，请使用 --help 查看用法。\n诊断原文：{detail}",
+    "zh-Hant": "命令引數無效，請使用 --help 檢視用法。\n診斷原文：{detail}",
+    "ja": "コマンド引数が無効です。--help を参照してください。\n診断原文: {detail}",
+    "ko": "명령 인수가 올바르지 않습니다. --help를 확인하세요.\n진단 원문: {detail}"
+  },
+  "state.queued": {
+    "en": "queued",
+    "zh-CN": "排队中",
+    "zh-Hant": "排隊中",
+    "ja": "待機中",
+    "ko": "대기열에 있음"
+  },
+  "state.awaiting_saved": {
+    "en": "awaiting saved receipt",
+    "zh-CN": "等待保存回执",
+    "zh-Hant": "等待儲存回執",
+    "ja": "保存確認待ち",
+    "ko": "저장 확인 대기 중"
+  },
+  "state.publishing": {
+    "en": "publishing",
+    "zh-CN": "正在保存",
+    "zh-Hant": "正在儲存",
+    "ja": "保存処理中",
+    "ko": "저장 중"
+  },
+  "error.network.listener": {
+    "en": "listener: {e}",
+    "zh-CN": "监听失败：{e}",
+    "zh-Hant": "監聽失敗：{e}",
+    "ja": "受信エラー: {e}",
+    "ko": "수신 오류: {e}"
+  },
+  "error.network.session": {
+    "en": "session {id}: {e:#}",
+    "zh-CN": "会话 {id}：{e:#}",
+    "zh-Hant": "會話 {id}：{e:#}",
+    "ja": "会話 {id}: {e:#}",
+    "ko": "대화 {id}: {e:#}"
+  },
+  "error.network.handshake": {
+    "en": "NIM4 handshake rejected: {e:#}",
+    "zh-CN": "NIM4 握手被拒绝：{e:#}",
+    "zh-Hant": "NIM4 握手被拒絕：{e:#}",
+    "ja": "NIM4ハンドシェイク拒否: {e:#}",
+    "ko": "NIM4 핸드셰이크 거부: {e:#}"
+  },
+  "error.network.command": {
+    "en": "command failed: {e:#}",
+    "zh-CN": "命令失败：{e:#}",
+    "zh-Hant": "命令失敗：{e:#}",
+    "ja": "コマンド失敗: {e:#}",
+    "ko": "명령 실패: {e:#}"
+  },
+  "error.network.timeout": {
+    "en": "connection timed out",
+    "zh-CN": "连接超时",
+    "zh-Hant": "連線超時",
+    "ja": "接続がタイムアウトしました",
+    "ko": "연결 시간이 초과되었습니다"
+  },
+  "error.network.busy": {
+    "en": "single active session is busy; disconnect it before switching",
+    "zh-CN": "唯一活动会话正忙，请先断开后再切换",
+    "zh-Hant": "唯一活動會話正忙，請先斷開後再切換",
+    "ja": "実行中の会話は使用中です。切り替える前に切断してください",
+    "ko": "활성 대화가 사용 중입니다. 연결을 끊은 후 바꾸세요"
+  },
+  "error.main.seconds": {
+    "en": "expected seconds, e.g. 8s or 1m",
+    "zh-CN": "需要时长，例如 8s 或 1m",
+    "zh-Hant": "需要時長，例如 8s 或 1m",
+    "ja": "時間を指定してください（例: 8s、1m）",
+    "ko": "시간을 지정하세요 (예: 8s, 1m)"
+  },
+  "error.main.timeout_overflow": {
+    "en": "timeout overflow",
+    "zh-CN": "超时时长溢出",
+    "zh-Hant": "超時時長溢位",
+    "ja": "待機時間が範囲を超えています",
+    "ko": "대기 시간이 범위를 초과합니다"
+  },
+  "error.main.timeout_max": {
+    "en": "timeout must not exceed 24 hours",
+    "zh-CN": "超时时长不能超过 24 小时",
+    "zh-Hant": "超時時長不能超過 24 小時",
+    "ja": "待機時間は24時間以内が必要です",
+    "ko": "대기 시간은 24시간을 초과할 수 없습니다"
+  },
+  "human.trust": {
+    "en": "{name} · {id}\nRemembered={remembered} · manually verified={verified}",
+    "zh-CN": "{name} · {id}\n已记住={remembered} · 人工核验={verified}",
+    "zh-Hant": "{name} · {id}\n已記住={remembered} · 人工核驗={verified}",
+    "ja": "{name} · {id}\n記憶済み={remembered} · 手動確認={verified}",
+    "ko": "{name} · {id}\n기억됨={remembered} · 수동 확인={verified}"
+  }
+}

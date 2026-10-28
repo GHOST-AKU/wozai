@@ -278,10 +278,33 @@
     <string name="discovered" formatted="false">"발견됨"</string>
     <string name="discovery_failed" formatted="false">"자동 검색을 사용할 수 없습니다. IP 주소로 연결하세요."</string>
     <string name="draft_edit_too_large" formatted="false">"이 편집은 초안 한도 {0}바이트를 초과합니다. 기존 초안은 그대로 유지됩니다. 긴 글은 파일로 보내세요."</string>
+    <string name="draft_load_retry" formatted="false">"초안을 불러오지 못했습니다. 눌러서 다시 시도하세요."</string>
     <string name="draft_retained_hint" formatted="false">"연결하면 메시지를 보낼 수 있습니다. 초안은 여기에 남습니다."</string>
     <string name="draft_save_failed" formatted="false">"초안을 저장하지 못했습니다. 이 대화를 열어 두고 내용을 복사하세요."</string>
+    <string name="draft_save_retry" formatted="false">"초안이 저장되지 않았습니다. 눌러서 다시 시도하세요."</string>
     <string name="earlier" formatted="false">"이전"</string>
     <string name="emoji" formatted="false">"이모지"</string>
+    <string name="emoji_categories" formatted="false">"이모지 카테고리"</string>
+    <string name="emoji_category0" formatted="false">"얼굴과 감정"</string>
+    <string name="emoji_category1" formatted="false">"사람과 신체"</string>
+    <string name="emoji_category2" formatted="false">"동물과 자연"</string>
+    <string name="emoji_category3" formatted="false">"음식과 음료"</string>
+    <string name="emoji_category4" formatted="false">"여행과 장소"</string>
+    <string name="emoji_category5" formatted="false">"활동"</string>
+    <string name="emoji_category6" formatted="false">"사물"</string>
+    <string name="emoji_category7" formatted="false">"기호"</string>
+    <string name="emoji_category8" formatted="false">"깃발"</string>
+    <string name="emoji_clear" formatted="false">"지우기"</string>
+    <string name="emoji_insert" formatted="false">"삽입"</string>
+    <string name="emoji_insert_hint" formatted="false">"두 번 클릭하거나 Enter로 삽입"</string>
+    <string name="emoji_keyboard" formatted="false">"키보드"</string>
+    <string name="emoji_load_failed" formatted="false">"이모지를 불러오지 못했습니다. 닫은 후 다시 여세요."</string>
+    <string name="emoji_no_results" formatted="false">"일치하는 이모지가 없습니다"</string>
+    <string name="emoji_recent" formatted="false">"최근 사용"</string>
+    <string name="emoji_recent_failed" formatted="false">"이모지는 삽입되었지만 최근 사용 기록을 저장하지 못했습니다."</string>
+    <string name="emoji_search" formatted="false">"이모지 검색"</string>
+    <string name="emoji_variant_hint" formatted="false">"길게 눌러 변형 선택"</string>
+    <string name="emoji_variants" formatted="false">"변형"</string>
     <string name="empty_chat" formatted="false">"왼쪽에서 채팅을 선택하거나 ‘근처’에서 기기에 연결하세요."</string>
     <string name="encrypted_via" formatted="false">"종단 간 암호화 · {0}"</string>
     <string name="encryption_active" formatted="false">"연결이 종단 간 암호화됨"</string>
@@ -331,7 +354,7 @@
     <string name="idle" formatted="false">"연결 안 됨"</string>
     <string name="initial_status" formatted="false">"연결 방식을 선택하고 근처 사람을 찾아보세요"</string>
     <string name="invalid_endpoint" formatted="false">"192.168.1.20:54321 또는 [fd00::1]:54321 형식으로 입력하세요."</string>
-    <string name="invalid_message" formatted="false">"표시된 UTF-8 바이트 한도 내에서 올바른 텍스트를 입력하세요. 초안은 유지됩니다."</string>
+    <string name="invalid_message" formatted="false">"이 메시지를 보낼 수 없습니다. 내용을 줄이거나 파일로 보내세요. 초안은 유지됩니다."</string>
     <string name="invalid_nickname" formatted="false">"제어 문자를 포함하지 않는 1~32자의 닉네임을 입력하세요."</string>
     <string name="invalid_transport" formatted="false">"올바르지 않은 연결 방식"</string>
     <string name="lan" formatted="false">"LAN"</string>
@@ -354,9 +377,11 @@
     <string name="local_address_only" formatted="false">"LAN IP 주소만 지원합니다."</string>
     <string name="local_history_disconnected" formatted="false">"연결 안 됨 · 로컬 기록"</string>
     <string name="message_date" formatted="false">"{0,date,long}"</string>
+    <string name="message_incomplete" formatted="false">"입력을 완료한 후 전송하세요."</string>
     <string name="message_queue_full" formatted="false">"메시지 처리 대기열이 가득 찼습니다. 다시 연결하세요."</string>
     <string name="message_receipt" formatted="false">"{0,time,short} · {1}"</string>
     <string name="message_time" formatted="false">"{0,time,short}"</string>
+    <string name="message_too_long" formatted="false">"메시지가 너무 깁니다. 내용을 줄이거나 파일로 보내세요. 초안은 유지됩니다."</string>
     <string name="messages" formatted="false">"채팅 메시지"</string>
     <string name="more" formatted="false">"더 보기"</string>
     <string name="my_address" formatted="false">"내 연결 주소"</string>
@@ -469,6 +494,7 @@
     <string name="send_photo" formatted="false">"사진"</string>
     <string name="service_connecting" formatted="false">"서비스에 연결 중…"</string>
     <string name="settings" formatted="false">"설정"</string>
+    <string name="settings_save_failed" formatted="false">"설정을 저장하지 못했습니다. 이전 선택을 유지했습니다."</string>
     <string name="start_mode_reception_first" formatted="false">"먼저 이 연결 방식의 수신을 켜세요"</string>
     <string name="start_reception" formatted="false">"수신 시작"</string>
     <string name="start_reception_first" formatted="false">"먼저 수신을 켜세요"</string>

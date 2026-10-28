@@ -19,7 +19,7 @@ class VersionTests(unittest.TestCase):
             config = root / "i18n/config.json"
             for name, debian, channel in [("0.3.3-preview.2", "0.3.3~preview.2", "preview"),
                                            ("0.3.3", "0.3.3", "stable")]:
-                config.write_text(json.dumps({"appVersion": name, "buildNumber": 13}))
+                config.write_text(json.dumps({"appVersion": name, "buildNumber": 13}), encoding="utf-8")
                 info = version.metadata(root)
                 self.assertEqual(info["version"], name)
                 self.assertEqual(info["base_version"], "0.3.3")
@@ -27,7 +27,7 @@ class VersionTests(unittest.TestCase):
                 self.assertEqual(info["tag"], "v" + name)
                 self.assertEqual(info["channel"], channel)
             for name in ["0.3", "0.3.3-preview.0", "0.3.3-preview.02", "0.3.3 preview", "0.3.3-beta.1"]:
-                config.write_text(json.dumps({"appVersion": name, "buildNumber": 13}))
+                config.write_text(json.dumps({"appVersion": name, "buildNumber": 13}), encoding="utf-8")
                 with self.subTest(name=name), self.assertRaises(ValueError):
                     version.metadata(root)
 
@@ -42,15 +42,15 @@ class VersionTests(unittest.TestCase):
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes((ROOT / relative).read_bytes())
             config = root / "i18n/config.json"
-            data = json.loads(config.read_text())
+            data = json.loads(config.read_text(encoding="utf-8"))
             data.update(appVersion="0.3.3-preview.3", buildNumber=info["build_number"] + 1)
-            config.write_text(json.dumps(data))
+            config.write_text(json.dumps(data), encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "Version drift"):
                 version.synchronize(root, check=True)
             _, changed = version.synchronize(root)
             self.assertEqual(len(changed), 4)
             version.synchronize(root, check=True)
-            project = (root / "apple/NearbyIM.xcodeproj/project.pbxproj").read_text()
+            project = (root / "apple/NearbyIM.xcodeproj/project.pbxproj").read_text(encoding="utf-8")
             self.assertEqual(project.count('WOZAI_VERSION = "0.3.3-preview.3";'), 2)
             self.assertEqual(project.count('MARKETING_VERSION = 0.3.3;'), 2)
 

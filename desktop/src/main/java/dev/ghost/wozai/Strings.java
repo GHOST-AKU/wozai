@@ -39,7 +39,7 @@ final class Strings {
         }
         return false;
     }
-    Strings(String language) { this(language, () -> Locale.getDefault(Locale.Category.DISPLAY)); }
+    Strings(String language) { this(language, DesktopLocale::systemDisplayLocale); }
     Strings(String language, Supplier<Locale> systemLocale) { this.systemLocale = systemLocale; language(language); }
     synchronized void language(String language) {
         selection = LanguageRegistry.normalizeSelection(language);

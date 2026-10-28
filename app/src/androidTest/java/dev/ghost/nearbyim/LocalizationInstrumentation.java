@@ -180,12 +180,146 @@ public final class LocalizationInstrumentation extends Instrumentation {
             check(!scan.isFinishing(),"Optional focus request leaves scanner alive");return null;
         });}finally{onMain(()->{scan.finish();return null;});waitForIdleSync();}
     }
+    private java.util.concurrent.ExecutorService draftWorker(AndroidDrafts drafts) throws Exception {
+        return field(drafts, "worker");
+    }
+
+    private String freshDraft(android.content.Context context, String peer) throws Exception {
+        AndroidDrafts reader = new AndroidDrafts(context);
+        try {
+            java.util.concurrent.CompletableFuture<String> value = new java.util.concurrent.CompletableFuture<>();
+            reader.load(peer, (text, error) -> { if (error == null) value.complete(text); else value.completeExceptionally(error); });
+            return value.get(5, TimeUnit.SECONDS);
+        } finally { draftWorker(reader).shutdownNow(); }
+    }
+
+    private void commitDraft(AndroidDrafts drafts, String peer, String text) throws Exception {
+        java.util.concurrent.CompletableFuture<Void> done = new java.util.concurrent.CompletableFuture<>();
+        drafts.save(peer, text, error -> { if (error == null) done.complete(null); else done.completeExceptionally(error); });
+        done.get(5, TimeUnit.SECONDS);
+    }
+
+    private void removeDraftFixture(java.nio.file.Path directory) throws Exception {
+        try (var files = java.nio.file.Files.walk(directory)) {
+            for (var file : files.sorted(java.util.Comparator.reverseOrder()).collect(java.util.stream.Collectors.toList())) java.nio.file.Files.delete(file);
+        }
+    }
+
+    private void testDraftPersistence() throws Exception {
+        String peer = UUID.randomUUID().toString(), text = "Disk draft 👩🏽‍💻 e\u0301\ud800";
+        AndroidDrafts writer = new AndroidDrafts(getTargetContext());
+        try {
+            commitDraft(writer, peer, text);
+            check(text.equals(freshDraft(getTargetContext(), peer)), "Android draft survives a new reader, not only Activity memory");
+            commitDraft(writer, peer, "");
+            check("".equals(freshDraft(getTargetContext(), peer)), "Cleared Android draft survives a new reader");
+        } finally {
+            draftWorker(writer).shutdownNow();
+            java.nio.file.Files.deleteIfExists(getTargetContext().getFilesDir().getCanonicalFile().toPath().resolve("drafts-v1").resolve(peer + ".draft"));
+        }
+        java.nio.file.Path fixture = java.nio.file.Files.createTempDirectory(getTargetContext().getFilesDir().getCanonicalFile().toPath(), "draft-link-");
+        java.nio.file.Path root = java.nio.file.Files.createDirectory(fixture.resolve("root")), outside = java.nio.file.Files.createDirectory(fixture.resolve("outside"));
+        java.nio.file.Files.createSymbolicLink(root.resolve("drafts-v1"), outside);
+        android.content.Context context = new android.content.ContextWrapper(getTargetContext()) { @Override public File getFilesDir() { return root.toFile(); } };
+        AndroidDrafts unsafe = new AndroidDrafts(context);
+        try {
+            java.util.concurrent.CompletableFuture<IOException> failed = new java.util.concurrent.CompletableFuture<>();
+            unsafe.save(peer, text, failed::complete);
+            check(failed.get(5, TimeUnit.SECONDS) != null, "Draft child-directory symlink remains rejected");
+            check(text.equals(unsafe.cached(peer)), "Failed draft remains in memory");
+            try (var files = java.nio.file.Files.list(outside)) { check(!files.findAny().isPresent(), "Rejected draft did not write outside its root"); }
+        } finally { draftWorker(unsafe).shutdownNow(); removeDraftFixture(fixture); }
+    }
+
+    private void testDraftFailureFeedback() throws Exception {
+        EditText input = onMain(() -> field(activity, "composer"));
+        String original = onMain(() -> input.getText().toString());
+        String peer = onMain(() -> field(activity, "composerPeer"));
+        AndroidDrafts saved = AndroidDrafts.get(activity);
+        java.nio.file.Path fixture = java.nio.file.Files.createTempDirectory(getTargetContext().getFilesDir().getCanonicalFile().toPath(), "draft-failure-");
+        java.nio.file.Path root = fixture.resolve("files");
+        java.nio.file.Files.write(root, new byte[]{1});
+        android.content.Context context = new android.content.ContextWrapper(getTargetContext()) { @Override public File getFilesDir() { return root.toFile(); } };
+        AndroidDrafts broken = new AndroidDrafts(context);
+        Field singleton = AndroidDrafts.class.getDeclaredField("instance"); singleton.setAccessible(true);
+        try {
+            onMain(() -> { singleton.set(null, broken); input.setText("draft failure stays 🙂"); return null; });
+            android.widget.TextView status = onMain(() -> field(activity, "draftStatus"));
+            await(() -> onMain(() -> status.getVisibility() == android.view.View.VISIBLE), "Real draft failure appears inline");
+            onMain(() -> { input.append("abc"); return null; });
+            await(() -> onMain(() -> "draft failure stays 🙂abc".equals(broken.cached(peer))), "Latest failed draft stays available");
+            draftWorker(broken).submit(() -> { }).get(5,TimeUnit.SECONDS);
+            check(onMain(() -> input.isEnabled() && status.getText().toString().equals(AndroidText.get(activity, "draftSaveRetry"))), "Draft failure is one actionable status, not a modal interruption");
+            java.nio.file.Files.delete(root); java.nio.file.Files.createDirectory(root);
+            onMain(() -> { status.performClick(); return null; });
+            await(() -> onMain(() -> status.getVisibility() == android.view.View.GONE), "Retry clears the failure only after a disk commit");
+            check("draft failure stays 🙂abc".equals(freshDraft(context, peer)), "Retry really persisted the complete draft");
+        } finally {
+            onMain(() -> { singleton.set(null, saved); input.setText(original);invoke(activity,"updateDraftStatus",new Class<?>[0]);return null; });
+            draftWorker(broken).shutdownNow(); removeDraftFixture(fixture);
+        }
+    }
+
+    private java.util.List<android.view.View> emojiViews(android.view.View view) {
+        java.util.List<android.view.View> out = new java.util.ArrayList<>(); out.add(view);
+        if (view instanceof android.view.ViewGroup group) for (int index = 0; index < group.getChildCount(); index++) out.addAll(emojiViews(group.getChildAt(index)));
+        return out;
+    }
+
+    private void tapEmoji(android.view.View view) throws Exception {
+        int[] point=onMain(()->{int[] position=new int[2];view.getLocationOnScreen(position);return new int[]{position[0]+view.getWidth()/2,position[1]+view.getHeight()/2};});
+        long time=android.os.SystemClock.uptimeMillis();
+        android.view.MotionEvent down=android.view.MotionEvent.obtain(time,time,android.view.MotionEvent.ACTION_DOWN,point[0],point[1],0);
+        android.view.MotionEvent up=android.view.MotionEvent.obtain(time,time+20,android.view.MotionEvent.ACTION_UP,point[0],point[1],0);
+        try{sendPointerSync(down);sendPointerSync(up);waitForIdleSync();}finally{down.recycle();up.recycle();}
+    }
+
+    private void testEmojiPicker() throws Exception {
+        EditText input = onMain(() -> field(activity, "composer"));
+        String original = onMain(() -> input.getText().toString());
+        int start = onMain(input::getSelectionStart), end = onMain(input::getSelectionEnd);
+        onMain(() -> { input.setText("*"); return null; });
+        check(onMain(() -> ((android.widget.TextView) field(activity, "composerNotice")).getVisibility() == android.view.View.GONE), "Ordinary typing has no byte counter");
+        onMain(() -> { input.setText(String.join("",java.util.Collections.nCopies(8193,"a"))); return null; });
+        check(onMain(() -> ((android.widget.TextView) field(activity, "composerNotice")).getText().toString().equals(AndroidText.get(activity, "messageTooLong"))), "Over-limit feedback uses ordinary language without changing the legacy boundary");
+        onMain(() -> { input.setText("left REPLACE right"); input.setSelection(5, 12); ((android.view.View) field(activity, "emojiButton")).performClick(); return null; });
+        EmojiPicker picker = onMain(() -> field(activity, "emojiPicker"));
+        android.widget.LinearLayout panel = field(picker, "root"), host = field(activity, "chatPage");
+        android.widget.ListView list = field(picker, "list");
+        EditText query = field(picker, "query");
+        try {
+            await(() -> onMain(() -> list.getChildCount() > 0 && panel.getHeight() > 0), "Docked emoji rows load");
+            check(onMain(() -> panel.getParent() == host && panel.getWindowToken().equals(input.getWindowToken())), "Emoji panel belongs to the chat window without a modal overlay");
+            check(onMain(() -> panel.getWidth() == host.getWidth() && panel.getBottom() <= host.getHeight()), "Emoji panel fits the current detail pane");
+            check(onMain(() -> { int[] a=new int[2],b=new int[2];input.getLocationOnScreen(a);panel.getLocationOnScreen(b);return a[1]+input.getHeight()<=b[1]; }), "Composer remains above the emoji dock");
+            check(onMain(() -> list.getAdapter().getCount() > 5), "Recent tab continues into the main emoji group");
+            int panelHeight=onMain(panel::getHeight);
+            screenshot("emoji-dock-" + AppLanguage.selection(activity));
+            onMain(() -> {
+                emojiViews(panel).stream().filter(view -> view instanceof android.widget.ImageButton && AndroidText.get(activity, "emojiSearch").contentEquals(view.getContentDescription())).findFirst().orElseThrow(()->new AssertionError("Emoji search control missing")).performClick();
+                query.setText("❤️"); query.onEditorAction(android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH); return null;
+            });
+            await(() -> onMain(() -> list.findViewWithTag("❤️") != null&&panel.getHeight()==panelHeight), "Emoji search finds a visible cell after the IME closes");
+            android.view.View heart=onMain(()->list.findViewWithTag("❤️"));tapEmoji(heart);tapEmoji(heart);
+            check(onMain(() -> input.getText().toString().equals("left ❤️❤️ right")), "Emoji replaces selection, preserves VS16 and allows repeat insertion");
+            check(onMain(picker::isShowing), "Dock stays open after repeated insertion");
+            check(onMain(() -> list.findViewWithTag("❤️").getContentDescription() != null), "Emoji has a semantic accessibility label");
+            onMain(() -> { query.setText("zz_no_result_99"); return null; });
+            check(onMain(() -> list.getAdapter().getCount() == 0), "Emoji no-result state");
+            onMain(() -> { invoke(activity, "handleBack", new Class<?>[0]); return null; });
+            check(onMain(() -> !picker.isShowing() && (Boolean) field(activity, "detail")), "Back closes the dock before leaving the conversation");
+        } finally {
+            onMain(() -> { if(picker.isShowing())picker.close();input.setText(original);input.setSelection(Math.max(0,start),Math.max(0,end));return null; });
+        }
+    }
+
     private void testRecreationWithLiveSession() throws Exception {
         activity = (MainActivity) startActivitySync(new Intent(getTargetContext(), MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         await(() -> onMain(() -> field(activity, "controller") != null), "Activity binds its service");
         ChatController controller = onMain(() -> field(activity, "controller"));
         liveController = controller;
         ChatService service = onMain(() -> field(activity, "service"));
+        testDraftPersistence();
         testEmptyNearbyRestoration(controller);
         testEmptySettingsRestoration(controller);
         testEmptyHistoryRestoration(controller);
@@ -197,9 +331,12 @@ public final class LocalizationInstrumentation extends Instrumentation {
             controller.selectConversation(new ChatStore.Conversation(peerId, name, 0));
             setField(activity, "detail", true); setField(activity, "page", 0);
             invoke(activity, "render", new Class<?>[0]);
-            EditText composer = field(activity, "composer"); composer.setText(draft); composer.setSelection(5, 12);
             return null;
         });
+        await(() -> onMain(() -> ((EditText) field(activity,"composer")).isEnabled()), "Selected conversation loads its draft");
+        testDraftFailureFeedback();
+        testEmojiPicker();
+        onMain(() -> { EditText composer=field(activity,"composer");composer.setText(draft);composer.setSelection(5,12);return null; });
         BlockingQueue<String> receipts = new LinkedBlockingQueue<>();
         CountDownLatch ready = new CountDownLatch(1);
         AtomicReference<FramedSession> reference = new AtomicReference<>();

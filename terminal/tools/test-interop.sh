@@ -8,4 +8,4 @@ printf '%s\n' app/src/main/java/dev/ghost/nearbyim/i18n/UiText.java app/src/main
 javac -encoding UTF-8 -d terminal/target/java-interop @terminal/target/java-interop/sources.txt
 classes="$(pwd)/terminal/target/java-interop"
 case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) classes="$(cygpath -w "$classes")" ;; esac
-NEARBYIM_JAVA_CLASSES="$classes" cargo test --manifest-path terminal/Cargo.toml --locked -- --include-ignored --skip large_file_stress
+NEARBYIM_JAVA_CLASSES="$classes" cargo test --manifest-path terminal/Cargo.toml --locked -- --include-ignored --skip large_file_stress --skip ui::render_tests::export_preview

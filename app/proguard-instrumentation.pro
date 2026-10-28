@@ -10,6 +10,7 @@
 -keep class dev.ghost.nearbyim.AndroidText { public *; }
 # The test APK supplies its own rejection callback; preserve the Runnable constructor.
 -keep class dev.ghost.nearbyim.DraftInputFilter { *; }
+-keep class dev.ghost.nearbyim.AndroidDrafts { *; }
 -keep class dev.ghost.nearbyim.ChatController { public *; }
 # The separate test APK supplies its own Hooks implementations. Keep this API open
 # so R8 cannot replace its interface dispatch with the app's sole concrete callback.
@@ -178,3 +179,6 @@
 # SAF receive-directory jobs are inspected by the separate native fixture.
 -keep class dev.ghost.nearbyim.core.AttachmentDirectoryStore { *; }
 -keep class dev.ghost.nearbyim.core.AttachmentDirectoryStore$* { *; }
+
+# Native picker instrumentation inspects its recycled grid and editable target.
+-keep class dev.ghost.nearbyim.EmojiPicker { *; }

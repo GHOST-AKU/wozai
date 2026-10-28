@@ -28,6 +28,128 @@ fn help_completions_and_non_tty_are_plain() {
     let value: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(value["exit_code"], 2);
 }
+
+#[test]
+fn localized_help_uses_explicit_profile_without_opening_it() {
+    let d = tempfile::tempdir().unwrap();
+    let profile = d.path().join("中文 profile");
+    std::fs::create_dir(&profile).unwrap();
+    for (language, expected) in [("zh-CN", "用法"), ("en", "Usage")] {
+        std::fs::write(
+            profile.join("config.json"),
+            format!(r#"{{"language":"{language}"}}"#),
+        )
+        .unwrap();
+        for args in [
+            vec!["--help"],
+            vec!["send", "--help"],
+            vec!["files", "resume", "--help"],
+            vec!["help", "identity"],
+        ] {
+            let out = bin()
+                .env("LC_ALL", "zh_CN.UTF-8")
+                .arg(format!("--profile={}", profile.display()))
+                .args(args)
+                .output()
+                .unwrap();
+            assert!(
+                out.status.success(),
+                "{}",
+                String::from_utf8_lossy(&out.stderr)
+            );
+            let help = String::from_utf8_lossy(&out.stdout);
+            assert!(help.contains(expected), "{help}");
+            assert!(!out.stdout.contains(&27));
+        }
+    }
+    assert_eq!(
+        std::fs::read_dir(&profile).unwrap().count(),
+        1,
+        "Help must not create identity, lock or history files"
+    );
+    let missing = d.path().join("missing");
+    let out = bin()
+        .env("LC_ALL", "zh_CN.UTF-8")
+        .args(["--profile", missing.to_str().unwrap(), "--help"])
+        .output()
+        .unwrap();
+    assert!(String::from_utf8_lossy(&out.stdout).contains("用法"));
+    assert!(!missing.exists());
+}
+
+#[test]
+fn localized_help_covers_real_subcommands_and_keeps_command_names() {
+    let d = tempfile::tempdir().unwrap();
+    std::fs::write(d.path().join("config.json"), r#"{"language":"zh-CN"}"#).unwrap();
+    for command in [
+        "chat",
+        "connect",
+        "peers",
+        "chats",
+        "send",
+        "files",
+        "resume",
+        "transfers",
+        "listen",
+        "identity",
+        "avatar",
+        "trust",
+        "config",
+        "status",
+        "doctor",
+        "completion",
+    ] {
+        let out = bin()
+            .args(["--profile", d.path().to_str().unwrap(), command, "--help"])
+            .output()
+            .unwrap();
+        assert!(out.status.success());
+        let help = String::from_utf8_lossy(&out.stdout);
+        assert!(help.contains("用法"), "{command}: {help}");
+        assert!(help.contains(command), "{command}: {help}");
+    }
+}
+
+#[test]
+fn language_does_not_translate_json_codes_or_error_messages() {
+    let d = tempfile::tempdir().unwrap();
+    let mut errors = Vec::new();
+    for language in ["en", "zh-CN"] {
+        let path = d.path().join(language);
+        assert!(
+            bin()
+                .args([
+                    "--profile",
+                    path.to_str().unwrap(),
+                    "config",
+                    "set",
+                    "language",
+                    language
+                ])
+                .output()
+                .unwrap()
+                .status
+                .success()
+        );
+        let out = bin()
+            .args([
+                "--profile",
+                path.to_str().unwrap(),
+                "--json",
+                "trust",
+                "revoke",
+                "unknown",
+            ])
+            .output()
+            .unwrap();
+        let value: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        assert_eq!(out.status.code(), Some(6));
+        assert_eq!(value["error"]["code"], "INTERACTION_REQUIRED");
+        assert_eq!(value["status"], "error");
+        errors.push(value["error"].clone());
+    }
+    assert_eq!(errors[0], errors[1]);
+}
 #[test]
 fn avatar_selection_export_and_reset_are_persistent_without_a_listener() {
     let d = tempfile::tempdir().unwrap();
@@ -505,4 +627,55 @@ fn scripts_require_consent_and_only_return_saved_after_ack() {
     assert_eq!(std::fs::read(&exported).unwrap(), [93u8; 8193]);
     server.kill().unwrap();
     server.wait().unwrap();
+}
+
+#[test]
+fn five_languages_cover_human_status_errors_and_stable_json() {
+    let d = tempfile::tempdir().unwrap();
+    for (language, heading, history, error) in [
+        ("en", "Usage", "History is not encrypted", "interactive"),
+        ("zh-CN", "用法", "本地历史记录未额外加密", "交互式"),
+        ("zh-Hant", "用法", "本地歷史記錄未額外加密", "互動式"),
+        ("ja", "使い方", "保存履歴は暗号化されません", "対話的"),
+        ("ko", "사용법", "로컬 기록은 암호화되지 않습니다", "대화형"),
+    ] {
+        let profile = d.path().join(language);
+        let path = profile.to_str().unwrap();
+        assert!(
+            bin()
+                .args(["--profile", path, "config", "set", "language", language])
+                .output()
+                .unwrap()
+                .status
+                .success()
+        );
+        let help = bin().args(["--profile", path, "--help"]).output().unwrap();
+        assert!(String::from_utf8_lossy(&help.stdout).contains(heading));
+        let status = bin().args(["--profile", path, "status"]).output().unwrap();
+        assert!(
+            String::from_utf8_lossy(&status.stdout).contains(history),
+            "{}",
+            String::from_utf8_lossy(&status.stdout)
+        );
+        let failed = bin()
+            .args(["--profile", path, "trust", "revoke", "unknown"])
+            .output()
+            .unwrap();
+        assert_eq!(failed.status.code(), Some(6));
+        assert!(
+            String::from_utf8_lossy(&failed.stderr).contains(error),
+            "{}",
+            String::from_utf8_lossy(&failed.stderr)
+        );
+        let json = bin()
+            .args(["--profile", path, "--json", "trust", "revoke", "unknown"])
+            .output()
+            .unwrap();
+        let value: serde_json::Value = serde_json::from_slice(&json.stdout).unwrap();
+        assert_eq!(value["error"]["code"], "INTERACTION_REQUIRED");
+        assert_eq!(
+            value["error"]["message"],
+            "trust changes require interactive comparison/confirmation"
+        );
+    }
 }

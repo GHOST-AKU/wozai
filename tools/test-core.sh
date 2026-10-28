@@ -65,3 +65,5 @@ java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.TextCapacityTests
 java -Xmx32m -cp build/core-tests dev.ghost.nearbyim.core.TextInputTests
 
 sh tools/test-text-legacy.sh
+
+java -cp build/core-tests dev.ghost.nearbyim.core.EmojiCatalogTests

@@ -27,6 +27,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     private final DesktopAvatars avatars;
     private final AppTheme.Avatar ownAvatar=new AppTheme.Avatar(null),chatAvatar=new AppTheme.Avatar(null);
     private AvatarDialog avatarDialog;
+    private EmojiPicker emojiPicker;
     private final List<JList<DesktopStore.Peer>> avatarLists=new ArrayList<>();
     private final Map<String,AppTheme.Avatar> detailAvatars=new HashMap<>();
     private final Map<String,JDialog> avatarDetails=new HashMap<>();
@@ -43,7 +44,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     private final JTextArea composer = new JTextArea(3, 30), addresses = new JTextArea(4, 30);
     private final JTextArea feedback = new JTextArea(2, 40);
     private final JLabel status = plainLabel(""), chatTitle = plainLabel("");
-    private final JLabel textCapacity=plainLabel("");
+    private final JLabel composerNotice=plainLabel("");
     private final JButton listenButton = new JButton(), send = new JButton(),sendFile=new JButton(),sendPhoto=new JButton(),attach=new JButton(),emoji=new JButton();
     private final java.util.concurrent.ThreadPoolExecutor attachmentWorker=new java.util.concurrent.ThreadPoolExecutor(1,1,0,java.util.concurrent.TimeUnit.SECONDS,new java.util.concurrent.ArrayBlockingQueue<>(16),r->{Thread t=new Thread(r,"attachment-ui");t.setDaemon(true);return t;},new java.util.concurrent.ThreadPoolExecutor.AbortPolicy());
     private final Map<String,java.awt.image.BufferedImage> thumbnails=new LinkedHashMap<>();
@@ -94,11 +95,14 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         this(store, identity, dataPath, DesktopBluetooth::openInquiry);
     }
     DesktopWindow(DesktopStore store, DesktopIdentity.Identity identity, Path dataPath, InquiryFactory inquiryFactory) throws IOException {
+        this(store,identity,dataPath,inquiryFactory,DesktopLocale::systemDisplayLocale);
+    }
+    DesktopWindow(DesktopStore store, DesktopIdentity.Identity identity, Path dataPath, InquiryFactory inquiryFactory, java.util.function.Supplier<Locale> systemLocale) throws IOException {
         this.inquiryFactory = inquiryFactory;
         this.store = store; this.identity = identity;
         String language = store.language();
         AppTheme.install(store.setting("theme", "light").equals("dark"));
-        strings = new Strings(language); nicknameValue = store.nickname();
+        strings = new Strings(language,systemLocale); nicknameValue = store.nickname();
         setIconImages(AppIcons.load());
         client = new DesktopClient(store, identity, this);
         avatars = new DesktopAvatars(client::avatar,this::refreshAvatarViews);
@@ -177,9 +181,17 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         translations.add(()->{emoji.setToolTipText(strings.text("emoji"));emoji.getAccessibleContext().setAccessibleName(strings.text("emoji"));attach.setToolTipText(strings.text("attachments"));attach.getAccessibleContext().setAccessibleName(strings.text("attachments"));});
         capsule.add(emoji,BorderLayout.LINE_START);capsule.add(attach,BorderLayout.LINE_END);input.add(capsule,BorderLayout.CENTER);
         JPanel sendHolder=new JPanel(new BorderLayout());sendHolder.setOpaque(false);sendHolder.add(send,BorderLayout.SOUTH);input.add(sendHolder,BorderLayout.LINE_END);
-        JPopupMenu emojiMenu=new JPopupMenu();JPanel emojiChoices=new JPanel(new GridLayout(3,4,2,2));
-        for(String value:new String[]{"😀","😂","🙂","😍","😎","🥳","👍","❤️","🎉","🙏","👋","🔥"}){JButton choice=new JButton(value);choice.setPreferredSize(new Dimension(48,44));choice.getAccessibleContext().setAccessibleName(value);choice.addActionListener(e->{composer.replaceSelection(value);composer.requestFocusInWindow();emojiMenu.setVisible(false);});emojiChoices.add(choice);}
-        emojiMenu.add(emojiChoices);emoji.addActionListener(e->emojiMenu.show(emoji,0,-emojiMenu.getPreferredSize().height));
+        emoji.addActionListener(e -> {
+            if(emojiPicker!=null&&emojiPicker.isDisplayable()){emojiPicker.toFront();return;}
+            String target=selected;
+            try {
+                EmojiPicker picker=new EmojiPicker(this,strings,store.setting("emojiRecent",""),
+                    value->handle(client.setting("emojiRecent",value),"emojiRecentFailed"),value->{if(Objects.equals(target,selected)&&composer.isEnabled())composer.replaceSelection(value);});
+                emojiPicker=picker;
+                picker.addWindowListener(new WindowAdapter(){@Override public void windowClosed(WindowEvent e){emojiPicker=null;composer.requestFocusInWindow();}});
+                picker.setVisible(true);
+            } catch(IOException failure){notice("emojiLoadFailed");}
+        });
         composer.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "send");
         composer.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, InputEvent.SHIFT_DOWN_MASK), "insert-break");
         composer.getActionMap().put("send", new AbstractAction() { public void actionPerformed(ActionEvent e) { sendMessage(); } });
@@ -193,7 +205,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         JPopupMenu attachmentMenu=new JPopupMenu();attachmentMenu.add(attachments);JLabel capacity=label("attachmentHintV2");capacity.setBorder(BorderFactory.createEmptyBorder(8,12,8,12));capacity.setForeground(AppTheme.muted);attachmentMenu.add(capacity);attach.addActionListener(e->attachmentMenu.show(attach,Math.min(0,attach.getWidth()-attachmentMenu.getPreferredSize().width),-attachmentMenu.getPreferredSize().height));
         sendFile.addActionListener(e->attachmentMenu.setVisible(false));sendPhoto.addActionListener(e->attachmentMenu.setVisible(false));
         ((javax.swing.text.AbstractDocument)composer.getDocument()).setDocumentFilter(new DraftDocumentFilter(()->notice(UiText.of("draftEditTooLarge",TextLimits.DRAFT_BYTES))));
-        textCapacity.setForeground(AppTheme.muted);JPanel composerArea=new JPanel(new BorderLayout());composerArea.setOpaque(false);composerArea.add(input,BorderLayout.CENTER);composerArea.add(textCapacity,BorderLayout.SOUTH);
+        composerNotice.setForeground(AppTheme.muted);JPanel composerArea=new JPanel(new BorderLayout());composerArea.setOpaque(false);composerArea.add(input,BorderLayout.CENTER);composerArea.add(composerNotice,BorderLayout.SOUTH);
         chat.add(composerArea, BorderLayout.SOUTH);
         history.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         history.addListSelectionListener(e -> { if (!e.getValueIsAdjusting() && !updatingSelection) select(history.getSelectedValue()); });
@@ -245,8 +257,15 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
             for (int i = 0; i < model.getSize(); i++) if (model.getElementAt(i).tag().equals(strings.selection())) languages.setSelectedIndex(i);
         });
         content.add(settingRow("language",languages,null)); languages.addActionListener(e -> {
-            if (translating || !(languages.getSelectedItem() instanceof LanguageOption language)) return;
-            strings.language(language.tag()); translate(); handle(client.setting("language", strings.selection()), "storageFailure");
+            if (translating || !languages.isEnabled() || !(languages.getSelectedItem() instanceof LanguageOption language)) return;
+            String previous = strings.selection();
+            languages.setEnabled(false);
+            client.setting("language", language.tag()).whenComplete((ignored, failure) -> SwingUtilities.invokeLater(() -> {
+                if (failure == null) strings.language(language.tag());
+                else strings.language(previous);
+                translate(); languages.setEnabled(true);
+                if (failure != null) notice("settingsSaveFailed");
+            }));
         });
         JComboBox<String> sizes=new JComboBox<>();
         translations.add(() -> { sizes.setModel(new DefaultComboBoxModel<>(new String[]{strings.text("normal"),strings.text("large"),strings.text("largest")})); sizes.setSelectedIndex(fontScale==1?0:fontScale==1.25f?1:2); });
@@ -314,7 +333,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         if (component instanceof Container container) for (Component child : container.getComponents()) scaleFonts(child, scale);
         revalidate(); repaint();
     }
-    void writeTextDiagnostics(Path file) throws IOException { TextRenderingDiagnostics.write(this, file, fontScale); }
+    void writeTextDiagnostics(Path file) throws IOException { TextRenderingDiagnostics.write(this, file, fontScale); Files.writeString(file,"\nlanguage.selection="+strings.selection()+"\nlanguage.effective="+LanguageRegistry.resolve(strings.selection(),strings.locale()).tag+"\n",java.nio.file.StandardOpenOption.APPEND); }
     private Map<JScrollPane, Point> scrollPositions() {
         Map<JScrollPane, Point> positions = new IdentityHashMap<>();
         captureScroll(this, positions);
@@ -328,6 +347,8 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     private void refreshSystemLanguage() { if (!shuttingDown && strings.refreshSystemLanguage()) translate(); }
     private void translate() {
         Map<JScrollPane, Point> positions = scrollPositions();
+        JComponent.setDefaultLocale(DesktopLocale.swingLocale(strings.locale()));
+        for (Window child : getOwnedWindows()) if (child instanceof EmojiPicker picker) picker.translate();
         setTitle(strings.text("app")); translating = true;
         try {
             translations.forEach(Runnable::run);
@@ -362,7 +383,8 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         refreshAvatarViews();
         int limit=client.textLimit(),bytes=TextLimits.utf8Bytes(composer.getText());
         send.setEnabled(selected != null && state.peer() != null && selected.equals(state.peer().id()) && state.phase().equals("ready") && TextLimits.canSend(composer.getText(),limit));
-        textCapacity.setText(bytes<0?strings.text("textInvalidUnicode"):strings.text(bytes>limit?"textOverLimit":"textByteCount",bytes,limit));textCapacity.setVisible(!composer.getText().isEmpty());
+        String notice=bytes>limit?strings.text("messageTooLong"):bytes<0?strings.text("messageIncomplete"):"";
+        composerNotice.setText(notice);composerNotice.setVisible(!notice.isEmpty());
         boolean fileReady=selected!=null&&state.peer()!=null&&selected.equals(state.peer().id())&&state.phase().equals("ready");sendFile.setEnabled(fileReady);sendPhoto.setEnabled(fileReady);attach.setEnabled(fileReady);emoji.setEnabled(selected!=null);
         composer.setEnabled(selected != null); refreshBluetoothText();
     }

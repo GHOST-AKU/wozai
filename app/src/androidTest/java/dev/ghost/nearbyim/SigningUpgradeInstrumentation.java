@@ -71,7 +71,8 @@ public final class SigningUpgradeInstrumentation extends Instrumentation {
         generator.initialize(new ECGenParameterSpec("secp256r1"));
         String publicKey = Base64.encodeToString(generator.generateKeyPair().getPublic().getEncoded(), Base64.NO_WRAP);
         try (SQLiteDatabase database = database(context)) {
-            check(database.getVersion() == 4, "Baseline database schema");
+            int expectedSchema=Integer.parseInt(arguments.getString("schema_version","4"));
+            check(database.getVersion() == expectedSchema, "Baseline database schema: expected "+expectedSchema+", actual "+database.getVersion());
             for (String table : new String[]{"messages", "conversations", "trusted_devices"}) {
                 try (Cursor cursor = database.rawQuery("SELECT count(*) FROM " + table, null)) {
                     check(cursor.moveToFirst() && cursor.getInt(0) == 0, "Refuse to modify existing user " + table);

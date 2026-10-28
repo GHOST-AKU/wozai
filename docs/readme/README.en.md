@@ -223,3 +223,5 @@ Unless otherwise noted, this project's source code is released under the **GNU A
 
 **I'm here. You're here. So let's chat directly.**  
 `( *ˊᵕˋ)✩︎‧₊`
+
+The composer emoji button now uses a shared Unicode 16 / CLDR 47 catalog: five-language categories/search, 30 local recents and skin variants. Hold an emoji on Android for variants; select Variants on desktop. Desktop Enter/double-click/Insert supports repeated insertion at the caret/selection without sending. No emoji fonts/images are bundled. [Catalog, license and updates](../../i18n/emoji/README.md). Desktop language changes apply after successful persistence; Linux Follow system honors LC_ALL → LC_MESSAGES → LANG, while a manual selection always wins.

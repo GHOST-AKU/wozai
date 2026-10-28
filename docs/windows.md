@@ -114,3 +114,9 @@ Linux 另有 BlueZ JNI 后端、软件包和自动验证，使用范围见 [Linu
 Windows 应用内文字使用灰度抗锯齿，避免 LCD 子像素抗锯齿在中英文边缘产生蓝红色边。字体仍为包内 Noto Sans CJK SC Regular／Bold，保留字号、系统缩放与应用大字体设置；Linux 继续采用原有系统策略。
 
 `TextRenderingTests` 在 100%、125%、150%、200% 缩放下检查标签、帮助正文使用的透明文字区、按钮与输入框，覆盖浅色／深色主题及已打开控件的 UI 重建。测试检查控件缓存的实际文字 hint，用 Robot 原始分辨率截图统计中性黑字白底下的彩色边缘，并用不透明 RGB 图像上的强制 LCD 绘制作为阳性对照。JPEG 图片或被聊天工具缩放的截图不能替代原始像素证据。报告和 PNG 随 Windows verification artifact 保存。
+
+### Language and emoji / 语言与表情
+
+Settings offers Follow system and all five UI languages. Windows uses its JVM display locale rather than Linux locale environment overrides. Manual choice is persisted before the UI changes; failed saves retain the previous language. Native Swing dialogs share the UI locale. The emoji button now provides a searchable categorized Unicode-native grid; Insert/Enter/double-click inserts at the selection without sending. Variants exposes skin tones; recent 30 entries remain in this local profile. Glyph appearance depends on system fonts; no emoji font/images or runtime dependencies are added. [Catalog/license/update procedure](../i18n/emoji/README.md).
+
+设置保留跟随系统及五语，Windows 使用系统显示语言，不受 Linux 环境变量覆盖。语言保存成功后再刷新，失败保留原选择；Swing 对话框使用相同界面语言。表情支持分类、五语搜索、连续插入、肤色变体和本地最近30项；选中后点插入、双击或按Enter，不发送消息，不增加表情字体/图片或运行时依赖。真实字体、键盘及屏幕阅读器仍需系统环境验收。

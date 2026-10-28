@@ -29,7 +29,7 @@ impl Default for Config {
             auto_receive_trusted: false,
             listen: "0.0.0.0:47832".into(),
             theme: "midnight".into(),
-            language: "en".into(),
+            language: "system".into(),
             color: "auto".into(),
             command_key: "k".into(),
         }
@@ -73,8 +73,8 @@ impl Config {
             "unknown color mode"
         );
         ensure!(
-            ["en", "zh-CN"].contains(&self.language.as_str()),
-            "language must be en or zh-CN"
+            crate::i18n::supported(&self.language),
+            "language must be system, en, zh-CN, zh-Hant, ja or ko"
         );
         ensure!(
             ["k", "p"].contains(&self.command_key.as_str()),

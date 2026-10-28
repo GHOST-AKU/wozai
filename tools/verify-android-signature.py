@@ -15,6 +15,8 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("apk", type=Path)
 mode = parser.add_mutually_exclusive_group()
 mode.add_argument("--test-apk", action="store_true")
+mode.add_argument("--ui-test-apk", action="store_true")
+mode.add_argument("--published-baseline", choices=list(pin.get("published_upgrade_baselines", {})))
 mode.add_argument("--baseline", action="store_true")
 mode.add_argument("--maintenance", action="store_true", help="Verify the fixed 0.3.1/code8 maintenance source")
 mode.add_argument("--wrong-signer", action="store_true")
@@ -30,18 +32,24 @@ subprocess.run([str(sdk / "zipalign"), "-c", "4", str(args.apk)], check=True)
 with args.apk.open("rb") as stream:
     digest = hashlib.file_digest(stream, "sha256").hexdigest()
 info = {"apk": args.apk.name, "sha256": digest, "certificate_sha256": certificates[0]}
-if args.test_apk:
+if args.test_apk or args.ui_test_apk:
     manifest = subprocess.check_output([str(sdk / "aapt2"), "dump", "xmltree", str(args.apk),
                                         "--file", "AndroidManifest.xml"], text=True)
-    if ('="dev.ghost.nearbyim.SigningUpgradeInstrumentation"' not in manifest
+    runners = ["LocalizationInstrumentation"] if args.ui_test_apk else ["SigningUpgradeInstrumentation"]
+    if (any('="dev.ghost.nearbyim.' + runner + '"' not in manifest for runner in runners)
             or '="dev.ghost.nearbyim"' not in manifest):
         raise SystemExit("Upgrade test APK does not register the expected instrumentation target")
-if not args.test_apk:
+if not (args.test_apk or args.ui_test_apk):
     badging = subprocess.check_output([str(sdk / "aapt2"), "dump", "badging", str(args.apk)], text=True)
     package = badging.splitlines()[0]
     version = pin["baseline_version_name"] if args.baseline or args.maintenance else json.loads((root / "i18n/config.json").read_text())["appVersion"]
     code = 8 if args.maintenance else pin["baseline_version_code"] if args.baseline else int(re.search(
         r"versionCode\s*=\s*(\d+)", (root / "app/build.gradle.kts").read_text()).group(1))
+    if args.published_baseline:
+        baseline = pin["published_upgrade_baselines"][args.published_baseline]
+        version, code = baseline["version_name"], baseline["version_code"]
+        if digest != baseline["apk_sha256"]:
+            raise SystemExit("Published upgrade baseline APK digest mismatch")
     if (f"name='{pin['application_id']}'" not in package or f"versionCode='{code}'" not in package
             or f"versionName='{version}'" not in package or (not args.wrong_signer and "application-debuggable" in badging)):
         raise SystemExit("Wrong APK package/version or debuggable release")

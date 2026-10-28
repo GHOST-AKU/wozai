@@ -105,6 +105,7 @@ def launch_desktop(entry, environment):
     gio.g_desktop_app_info_new_from_filename.restype = c.c_void_p
     gio.g_app_launch_context_new.restype = c.c_void_p
     gio.g_app_launch_context_setenv.argtypes = [c.c_void_p, c.c_char_p, c.c_char_p]
+    gio.g_app_launch_context_unsetenv.argtypes = [c.c_void_p, c.c_char_p]
     gio.g_app_info_launch.argtypes = [c.c_void_p, c.c_void_p, c.c_void_p, c.POINTER(c.c_void_p)]
     app = gio.g_desktop_app_info_new_from_filename(os.fsencode(entry))
     if not app:
@@ -113,9 +114,11 @@ def launch_desktop(entry, environment):
     gobject = c.CDLL(ctypes.util.find_library('gobject-2.0'))
     gobject.g_object_unref.argtypes = [c.c_void_p]
     try:
-        for key in ('JAVA_TOOL_OPTIONS', 'XDG_DATA_HOME', 'DISPLAY', 'APPIMAGE_EXTRACT_AND_RUN'):
+        for key in ('JAVA_TOOL_OPTIONS', 'LC_ALL', 'LC_CTYPE', 'LC_MESSAGES', 'LANG', 'XDG_DATA_HOME', 'DISPLAY', 'APPIMAGE_EXTRACT_AND_RUN'):
             if key in environment:
                 gio.g_app_launch_context_setenv(context, key.encode(), environment[key].encode())
+            else:
+                gio.g_app_launch_context_unsetenv(context, key.encode())
         error = c.c_void_p()
         if not gio.g_app_info_launch(app, None, context, c.byref(error)):
             raise AssertionError('GIO could not execute the desktop entry')
@@ -145,11 +148,24 @@ def main():
             try:
                 env = os.environ.copy()
                 env['XDG_DATA_HOME'] = str(fixture / 'user-data')
-                env['JAVA_TOOL_OPTIONS'] = '-Duser.home="' + str(fixture / 'user-home') + '" -Duser.language=zh -Duser.country=CN'
+                env['JAVA_TOOL_OPTIONS'] = '-Duser.home="' + str(fixture / 'user-home') + '"'
+                env.pop('LC_ALL', None)
+                env['LC_CTYPE'] = 'C.UTF-8'
+                env['LC_MESSAGES'] = 'zh_CN.UTF-8'
                 profile = Path(env['XDG_DATA_HOME']) / 'wozai'
                 binary = package / 'bin/NearbyIM'
-                process = subprocess.Popen([binary, '--text-diagnostics'], cwd=fixture, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                active_window = await_condition(chat_window, 'Packaged launcher did not display its native chat window')
+                launch_log = BUILD / 'linux-package-launch.txt'
+                with launch_log.open('wb') as output:
+                    process = subprocess.Popen([binary, '--text-diagnostics'], cwd=fixture, env=env, stdout=output, stderr=subprocess.STDOUT)
+                try:
+                    active_window = await_condition(chat_window, 'Packaged launcher did not display its native chat window')
+                except AssertionError:
+                    print('Observed X11 windows:', windows())
+                    print('Launcher exit code:', process.poll())
+                    print(launch_log.read_text(errors='replace'))
+                    for observed, _ in windows():
+                        screenshot(observed, BUILD / f'linux-package-failed-{observed}.png')
+                    raise
                 identity = profile / 'identity.properties'
                 await_condition(lambda: identity.is_file(), 'Packaged launcher did not create the XDG identity')
                 before = identity.read_bytes()
@@ -159,13 +175,15 @@ def main():
                 report = profile / 'text-rendering.txt'
                 await_condition(lambda: report.exists(), 'Bundled runtime did not produce rendering evidence')
                 assert 'Noto Sans CJK SC' in report.read_text()
+                assert 'language.effective=zh-Hans\n' in report.read_text()
                 shutil.copyfile(report, BUILD / 'linux-package-text-rendering.txt')
                 width, height = screenshot(active_window, BUILD / 'linux-package-window.png')
                 assert width >= 760 and height >= 540
                 x11.close_window(active_window)
                 assert process.wait(timeout=15) == 0, 'Native launcher did not exit cleanly'
                 active_window = None
-                _, errors = process.communicate()
+                process.communicate()
+                errors = launch_log.read_bytes()
                 assert b'Syntax error' not in errors, 'Packaged launcher queried install paths through an incorrectly quoted shell command'
                 assert identity.read_bytes() == before
                 result = subprocess.run([binary, '--install-desktop'], cwd=fixture, env=env, capture_output=True, text=True, timeout=15)

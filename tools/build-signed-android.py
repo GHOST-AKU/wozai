@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Build using CI secrets or a private local keystore; never expose key material."""
 import base64
+import argparse
 import json
 import os
 from pathlib import Path
@@ -8,13 +9,22 @@ import re
 import shutil
 import subprocess
 import tempfile
+from android_candidate import matching_dex, unchanged
 
 root = Path(__file__).resolve().parents[1]
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--preview", action="store_true", help="Build a fixed-certificate native UI candidate and its test APK")
+parser.add_argument("--fixtures-for", help="Rebuild only tests for an existing, source-identical preview APK")
+args = parser.parse_args()
 pin = json.loads((root / "tools/android-signing.json").read_text())
 password = os.environ.get("WOZAI_ANDROID_KEYSTORE_PASSWORD")
 encoded = os.environ.get("WOZAI_ANDROID_KEYSTORE_BASE64")
 local = os.environ.get("WOZAI_ANDROID_KEYSTORE")
 candidate_only = os.environ.get("WOZAI_ANDROID_CANDIDATE_ONLY") == "true"
+if args.preview and not candidate_only:
+    raise SystemExit("The native UI preview requires WOZAI_ANDROID_CANDIDATE_ONLY=true")
+if args.fixtures_for and not args.preview:
+    raise SystemExit("Fixture reuse requires the restricted preview mode")
 if not password or bool(encoded) == bool(local):
     raise SystemExit("Configure WOZAI_ANDROID_KEYSTORE_BASE64 and WOZAI_ANDROID_KEYSTORE_PASSWORD in repository Secrets, or supply a private local WOZAI_ANDROID_KEYSTORE path and password")
 code = int(re.search(r"versionCode\s*=\s*(\d+)", (root / "app/build.gradle.kts").read_text()).group(1))
@@ -23,6 +33,13 @@ if code <= pin["baseline_version_code"]:
 source = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
 if subprocess.check_output(["git", "status", "--porcelain"], cwd=root, text=True).strip():
     raise SystemExit("Signed release builds require a clean source tree")
+folder = root / "build/signing-upgrade"
+folder.mkdir(parents=True, exist_ok=True)
+if args.fixtures_for:
+    unchanged(root, args.fixtures_for)
+    subprocess.run(["python3", str(root / "tools/verify-android-signature.py"), str(folder / "candidate.apk"),
+                    "--source-commit", args.fixtures_for], cwd=root, check=True)
+    candidate_bytes = (folder / "candidate.apk").read_bytes()
 with tempfile.TemporaryDirectory(prefix="wozai-signing-", dir=os.environ.get("RUNNER_TEMP")) as private:
     key = Path(private) / "signing.p12"
     if encoded:
@@ -45,15 +62,19 @@ with tempfile.TemporaryDirectory(prefix="wozai-signing-", dir=os.environ.get("RU
     fingerprint = re.search(r"SHA256:\s*([0-9A-F:]+)", certificate.stdout)
     if certificate.returncode or not fingerprint or fingerprint.group(1).replace(":", "").lower() != pin["certificate_sha256"]:
         raise SystemExit("Private keystore/password/alias does not match the persistent certificate; refusing to build")
-    tasks = [":app:assembleRelease", ":app:lintRelease"] if candidate_only else [
+    tasks = [":app:assemblePreviewAndroidTest"] if args.fixtures_for else [":app:assemblePreview", ":app:assemblePreviewAndroidTest", ":app:lintPreview"] if args.preview else [":app:assembleRelease", ":app:lintRelease"] if candidate_only else [
         ":app:assembleRelease", ":app:assembleReleaseAndroidTest", ":app:assembleDebug", ":app:lintRelease"]
-    subprocess.run([str(root / "gradlew"), "--no-daemon", "-PtestBuildType=release",
-                    "-PtestInstrumentationRunner=dev.ghost.nearbyim.SigningUpgradeInstrumentation",
+    variant = "preview" if args.preview else "release"
+    runner = "LocalizationInstrumentation" if args.preview else "SigningUpgradeInstrumentation"
+    subprocess.run([str(root / "gradlew"), "--no-daemon", "-PtestBuildType=" + variant,
+                    "-PtestInstrumentationRunner=dev.ghost.nearbyim." + runner,
                     *tasks],
                    cwd=root, env=environment, check=True)
-    folder = root / "build/signing-upgrade"
-    folder.mkdir(parents=True, exist_ok=True)
-    files = [("app/build/outputs/apk/release/app-release.apk", "candidate.apk", [])]
+    files = [] if args.fixtures_for else [(f"app/build/outputs/apk/{variant}/app-{variant}.apk", "candidate.apk", [])]
+    if args.fixtures_for:
+        matching_dex(root, folder / "candidate.apk")
+    if args.preview:
+        files += [("app/build/outputs/apk/androidTest/preview/app-preview-androidTest.apk", "native-test.apk", ["--ui-test-apk"])]
     if not candidate_only:
         files += [("app/build/outputs/apk/androidTest/release/app-release-androidTest.apk", "test.apk", ["--test-apk"]),
                   ("app/build/outputs/apk/debug/app-debug.apk", "wrong.apk", ["--wrong-signer"])]
@@ -62,5 +83,20 @@ with tempfile.TemporaryDirectory(prefix="wozai-signing-", dir=os.environ.get("RU
         if name == "candidate.apk":
             flags += ["--source-commit", source, "--output", str(folder / "signature.json")]
         subprocess.run(["python3", str(root / "tools/verify-android-signature.py"), str(folder / name), *flags],
+                       cwd=root, env=environment, check=True)
+    if args.preview:
+        # Android's runner declaration is configured per test APK. Reuse the same
+        # client and produce a separate fixed-signer APK for upgrade checks.
+        subprocess.run([str(root / "gradlew"), "--no-daemon", "-PtestBuildType=preview",
+                        "-PtestInstrumentationRunner=dev.ghost.nearbyim.SigningUpgradeInstrumentation",
+                        ":app:assemblePreviewAndroidTest"], cwd=root, env=environment, check=True)
+        if args.fixtures_for:
+            matching_dex(root, folder / "candidate.apk")
+        client = (folder / "candidate.apk").read_bytes() if args.fixtures_for else (root / f"app/build/outputs/apk/{variant}/app-{variant}.apk").read_bytes()
+        expected = candidate_bytes if args.fixtures_for else (folder / "candidate.apk").read_bytes()
+        if client != expected:
+            raise SystemExit("Building the upgrade fixture changed the already verified client APK")
+        shutil.copyfile(root / "app/build/outputs/apk/androidTest/preview/app-preview-androidTest.apk", folder / "test.apk")
+        subprocess.run(["python3", str(root / "tools/verify-android-signature.py"), str(folder / "test.apk"), "--test-apk"],
                        cwd=root, env=environment, check=True)
 print("Signed build complete; temporary keystore and wrong-signer development key removed")
