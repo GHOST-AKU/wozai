@@ -14,6 +14,10 @@ on:
       - '.gitignore'
   workflow_dispatch:
     inputs:
+      packaging-only:
+        description: 'Run package/GUI checks only; requires separately recorded unchanged-core validation'
+        type: boolean
+        default: false
       performance-baseline:
         description: 'Measure an informational baseline (no performance thresholds)'
         type: boolean
@@ -40,6 +44,11 @@ jobs:
           distribution: temurin
           java-version: '17'
           architecture: x64
+      # Ubuntu 22.04's Python 3.10 backport resolves relative symlink targets
+      # from the archive root. Keep the data filter on a maintained verifier.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - name: Install Linux build and GUI verification dependencies
         run: |
           sudo apt-get update
@@ -49,6 +58,7 @@ jobs:
         id: metadata
         run: python3 -c 'import json; print("version=" + json.load(open("i18n/config.json"))["appVersion"])' >> "$GITHUB_OUTPUT"
       - name: Verify protocol, trust and generated translations
+        if: inputs['packaging-only'] != true
         run: |
           python3 tests/test_appimage_runtime.py
           sh tools/test-i18n.sh
@@ -59,21 +69,7 @@ jobs:
         env:
           WOZAI_RELEASE_TAG: ${{ inputs['release-tag'] }}
         run: sh desktop/tools/build.sh --package
-      - name: Verify native GUI, bundled runtime, scaling, mDNS and actual packaged launcher
-        run: xvfb-run -a -s '-screen 0 2560x1800x24' sh desktop/tools/test-linux-gui.sh
-      - name: Measure desktop performance baseline
-        if: inputs['performance-baseline']
-        run: |
-          python3 -m pip install psutil==7.2.2
-          xvfb-run -a -s '-screen 0 2560x1800x24' python3 desktop/tools/performance.py measure --image desktop/build/package/NearbyIM --test-classes desktop/build/tests --environment-kind ci --device 'GitHub ubuntu-22.04 x64 runner; Xvfb 2560x1800' --output desktop/build/performance-linux.json
-      - uses: actions/upload-artifact@v4
-        if: always() && inputs['performance-baseline']
-        with:
-          name: linux-performance-baseline
-          path: |
-            desktop/build/performance-linux.json
-            desktop/build/performance-linux.logs
-          if-no-files-found: error
+      # Retain the candidate even if a later verification step fails.
       - uses: actions/upload-artifact@v4
         with:
           name: linux-appimage-runtime-input
@@ -89,6 +85,21 @@ jobs:
             desktop/build/NearbyIM-*-linux-x64.deb
             desktop/build/NearbyIM-*-linux-x64.AppImage
             desktop/build/linux-checksums.txt
+          if-no-files-found: error
+      - name: Verify native GUI, bundled runtime, scaling, mDNS and actual packaged launcher
+        run: xvfb-run -a -s '-screen 0 2560x1800x24' sh desktop/tools/test-linux-gui.sh
+      - name: Measure desktop performance baseline
+        if: inputs['performance-baseline']
+        run: |
+          python3 -m pip install psutil==7.2.2
+          xvfb-run -a -s '-screen 0 2560x1800x24' python3 desktop/tools/performance.py measure --image desktop/build/package/NearbyIM --test-classes desktop/build/tests --environment-kind ci --device 'GitHub ubuntu-22.04 x64 runner; Xvfb 2560x1800' --output desktop/build/performance-linux.json
+      - uses: actions/upload-artifact@v4
+        if: always() && inputs['performance-baseline']
+        with:
+          name: linux-performance-baseline
+          path: |
+            desktop/build/performance-linux.json
+            desktop/build/performance-linux.logs
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         if: always()

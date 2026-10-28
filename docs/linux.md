@@ -10,11 +10,15 @@ Linux 客户端与 Android、Windows 共用 NIM4 Noise 端到端加密协议、�
 
 CI 只构建一次，在没有编译器/宿主 JDK 的干净 Ubuntu 22.04、24.04 用户空间中验证**同一份 AppImage**：真实窗口、包内 JVM/JAR 的 NIM4 发现/认可/双向消息/保存回执、无 FUSE 启动、只读特殊路径、用户身份及菜单重启。结果和精确来源见 [#42](https://github.com/GHOST-AKU/wozai/issues/42)；容器/Xvfb 不能代表实体蓝牙、Wayland 桌面或所有发行版验收。
 
+构建侧的包验证使用 Python 3.12，保留 tarfile 的 `data` 安全过滤：Ubuntu 22.04 系统 Python 3.10 的过滤器回移版本会误判 JVM 许可证的合法相对符号链接。应用本身不依赖 Python。手动工作流可选择 `packaging-only`，仅在核心源码不变、已另行记录通过提交与源码比较时复用核心检查；默认及发布复用调用仍执行完整检查。构建成功后立即留存候选，再做 GUI 检查，避免后续验证失败丢失已生成的包。
+
 **已发布 0.3.2 的 AppImage 在 Ubuntu 22.04 有 `GLIBCXX_3.4.32 not found` 启动缺陷。** 以下稳定版下载不包含本候选修复；候选构建通过不等于已发布，也不等于上游 AppImage 目录已重新验收。
 
 English: candidate 0.3.3 x64 packages use the Ubuntu 22.04 distribution toolchain (default GCC 11). Packaging rejects required ELF versions above GLIBC 2.35, GLIBCXX 3.4.30 or CXXABI 1.3.13, including requirements inside the bundled JVM; exported definitions are not mistaken for system requirements. Actual dependencies remain derived by `dpkg-shlibdeps`. Do not install a compiler/JDK to run the package, replace system C++/GLib libraries, or change global library paths. X11/XWayland and the documented system GUI/GIO/audio libraries remain required; Bluetooth needs BlueZ.
 
 CI builds once, then checks the identical AppImage in fresh Ubuntu 22.04/24.04 runtime-only userspaces: native window, bundled-JVM NIM4 discovery/consent/messages/saved receipts, no-FUSE execution, read-only special paths, private identity and menu restart. Exact results stay in #42. Published v0.3.2 still has the Ubuntu 22.04 `GLIBCXX_3.4.32` failure; these development changes are not a new release or upstream catalog acceptance. Container/Xvfb checks do not establish physical Bluetooth, Wayland or arbitrary-distribution support.
+
+Build-side package verification uses Python 3.12 and retains the tarfile `data` safety filter; Ubuntu 22.04's Python 3.10 backport misinterprets valid relative JVM license symlinks. The application has no Python dependency. Manual `packaging-only` runs require separately recorded passing core evidence and an unchanged-source comparison; default and reusable release calls keep the full checks. Upload the candidate immediately after building so a later GUI-test failure does not discard it.
 
 ## 运行与安装
 
