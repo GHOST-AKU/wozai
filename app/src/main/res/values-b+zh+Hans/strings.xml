@@ -380,6 +380,8 @@
     <string name="message_incomplete" formatted="false">"这条消息尚未编辑完整，请继续输入。"</string>
     <string name="message_queue_full" formatted="false">"消息处理队列已满，请重新连接。"</string>
     <string name="message_receipt" formatted="false">"{0,time,short} · {1}"</string>
+    <string name="message_send_failed" formatted="false">"发送失败"</string>
+    <string name="message_sending" formatted="false">"发送中"</string>
     <string name="message_time" formatted="false">"{0,time,short}"</string>
     <string name="message_too_long" formatted="false">"消息太长，请缩短内容或改发文件。草稿已保留。"</string>
     <string name="messages" formatted="false">"聊天消息"</string>
@@ -492,6 +494,7 @@
     <string name="send_hint" formatted="false">"Enter 发送 · Shift+Enter 换行 · 最多 8192 UTF-8 字节"</string>
     <string name="send_interrupted" formatted="false">"消息发送中断，请重新连接。"</string>
     <string name="send_photo" formatted="false">"照片"</string>
+    <string name="sent" formatted="false">"已发送"</string>
     <string name="service_connecting" formatted="false">"正在连接服务…"</string>
     <string name="settings" formatted="false">"设置"</string>
     <string name="settings_save_failed" formatted="false">"设置保存失败，已保留原选择。"</string>

@@ -388,6 +388,8 @@ public final class I18nResources {
             case "messageIncomplete": return R.string.message_incomplete;
             case "messageQueueFull": return R.string.message_queue_full;
             case "messageReceipt": return R.string.message_receipt;
+            case "messageSendFailed": return R.string.message_send_failed;
+            case "messageSending": return R.string.message_sending;
             case "messageTime": return R.string.message_time;
             case "messageTooLong": return R.string.message_too_long;
             case "messages": return R.string.messages;
@@ -500,6 +502,7 @@ public final class I18nResources {
             case "sendHint": return R.string.send_hint;
             case "sendInterrupted": return R.string.send_interrupted;
             case "sendPhoto": return R.string.send_photo;
+            case "sent": return R.string.sent;
             case "serviceConnecting": return R.string.service_connecting;
             case "settings": return R.string.settings;
             case "settingsSaveFailed": return R.string.settings_save_failed;

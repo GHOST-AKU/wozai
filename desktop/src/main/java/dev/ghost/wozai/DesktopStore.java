@@ -116,7 +116,7 @@ public final class DesktopStore implements AutoCloseable {
         Properties v = AtomicFiles.read(file,256*1024);
         try {
             String status = AtomicFiles.required(v, "status"), outgoing = AtomicFiles.required(v, "outgoing");
-            if (!Set.of("received", "pending", "delivered", "unknown").contains(status) || !Set.of("true", "false").contains(outgoing)) throw new IOException("Invalid message state");
+            if (!Set.of("received", "pending", "sent", "delivered", "unknown").contains(status) || !Set.of("true", "false").contains(outgoing)) throw new IOException("Invalid message state");
             String filename = file.getFileName().toString().replace(".properties", "");
             boolean direction = Boolean.parseBoolean(outgoing);
             if (filename.startsWith("in-") || filename.startsWith("out-")) {
@@ -142,6 +142,10 @@ public final class DesktopStore implements AutoCloseable {
             }
         }
         return latest.stream().sorted(order).toList();
+    }
+    public synchronized void sent(String peer,String id)throws IOException {
+        Path file=messageFile(peer,id,true);if(!Files.exists(file))return;
+        Message m=readMessage(file);if(m.outgoing()&&m.status().equals("pending"))status(peer,id,"sent");
     }
     public synchronized void acknowledge(String peer, String id) throws IOException { status(peer, id, "delivered"); }
     public synchronized void status(String peer, String id, String status) throws IOException {

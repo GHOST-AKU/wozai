@@ -78,6 +78,10 @@ public final class ChatStore extends SQLiteOpenHelper {
             db.setTransactionSuccessful();
         } finally { db.endTransaction(); }
     }
+    public void sent(String peerId,String messageId) {
+        ContentValues values=new ContentValues();values.put("state","sent");
+        getWritableDatabase().update("messages",values,"peer_id=? AND id=? AND outgoing=1 AND state=?",new String[]{peerId,messageId,PENDING});
+    }
     public void delivered(String peerId, String messageId) {
         ContentValues values = new ContentValues(); values.put("state", DELIVERED);
         getWritableDatabase().update("messages", values, "peer_id=? AND id=? AND outgoing=1", new String[]{peerId, messageId});

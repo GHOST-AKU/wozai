@@ -407,6 +407,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
             check(id.equals(receipts.poll(10, TimeUnit.SECONDS)), "Android saves and receipts timeline text " + i);
         }
         await(() -> onMain(() -> controller.messages.size() >= 35), "Saved timeline loads");
+        testReceiptPresentation(controller);
         testLiveAttachmentFeedback(controller,peerId);
         testBatchRefreshResponsiveness(controller,peerId);
         testBatchPhotoRetention(controller,peerId);
@@ -779,7 +780,26 @@ public final class LocalizationInstrumentation extends Instrumentation {
         check(clicked,"Native diagnostics menu dispatches copy action");waitForIdleSync();
         String report=onMain(()->{android.content.ClipboardManager clipboard=(android.content.ClipboardManager)activity.getSystemService(Context.CLIPBOARD_SERVICE);android.content.ClipData data=clipboard.getPrimaryClip();return data==null?"":data.getItemAt(0).coerceToText(activity).toString();});
         check(report.contains("endpoint=android")&&report.contains("end_to_end_encrypted=true")&&report.contains("source_read")&&report.contains("socket_write"),"Native clipboard contains actual source and encrypted socket timing");
+        check(report.contains("transfer_summary=")&&report.contains("average_mib_s")&&report.contains("counter_scope="),"Diagnostics expose actual transfer attempts and explicit counter scope");
         check(!report.contains(peer)&&!report.contains("native-photo.png")&&!report.contains("content://")&&!report.contains(getTargetContext().getFilesDir().toString()),"Clipboard diagnostic excludes peer, filename, URI and private path");
+    }
+    private void testReceiptPresentation(ChatController controller)throws Exception {
+        java.util.List<ChatStore.Message> history=onMain(()->controller.messages);
+        java.util.List<ChatStore.Message> fixture=new ArrayList<>();
+        for(String state:java.util.List.of("pending","sent","delivered","unknown","failed"))fixture.add(new ChatStore.Message(UUID.randomUUID().toString(),state.equals("delivered")?String.join("",java.util.Collections.nCopies(6,"长消息的时间和状态应当清楚地排列在文字下方。🙂 ")):"你好，消息到了吗？🙂",state,true,1_700_000_000_000L+fixture.size()*60000));
+        try {
+            onMain(()->{controller.messages=fixture;invoke(activity,"renderChat",new Class<?>[0]);return null;});waitForIdleSync();
+            await(()->onMain(()->{android.view.ViewGroup rows=field(activity,"bubbles");return rows.getWidth()>0&&rows.findViewWithTag("message:"+fixture.get(0).id+":true")!=null;}),"Receipt fixture laid out");
+            onMain(()->{android.view.ViewGroup rows=field(activity,"bubbles");
+                for(ChatStore.Message message:fixture){
+                    android.view.View row=rows.findViewWithTag("message:"+message.id+":true");android.widget.TextView meta=row.findViewWithTag("messageMeta");
+                    String state=AndroidText.messageState(activity,message.state);
+                    check(meta.getCompoundDrawablesRelative()[2]!=null&&meta.getContentDescription().toString().contains(state),"Receipt has a native icon and real accessible state: "+message.state);
+                    check(!meta.getText().toString().contains(state),"Receipt time has no visible state text");
+                    check(meta.getWidth()>=meta.getPaint().measureText(meta.getText().toString())+meta.getCompoundPaddingLeft()+meta.getCompoundPaddingRight(),"Time and receipt icon fit without overlap");
+                }return null;});
+            screenshot("message-receipts");
+        } finally {onMain(()->{controller.messages=history;invoke(activity,"renderChat",new Class<?>[0]);return null;});waitForIdleSync();}
     }
     private void testLiveAttachmentFeedback(ChatController controller,String peer)throws Exception {
         Class<?> feedbackType=Class.forName("dev.ghost.nearbyim.ChatController$Feedback");
@@ -832,7 +852,10 @@ public final class LocalizationInstrumentation extends Instrumentation {
                     controller.messages=next;invoke(activity,"renderChat",new Class<?>[0]);
                     if(before!=bubbles.findViewWithTag("message:"+timeline.get(0).id+":true"))replaced++;
                     android.view.View row=bubbles.findViewWithTag("message:"+next.get(80).id+":true");
-                    check(row!=null&&((android.widget.TextView)row.findViewWithTag("messageMeta")).getText().toString().contains(AndroidText.get(activity,next.get(80).attachment.stateKey())),"Changed batch row shows its current state: "+state);
+                    check(row!=null,"Changed batch row remains visible: "+state);
+                    android.widget.TextView receipt=row.findViewWithTag("messageMeta");
+                    check(receipt.getContentDescription().toString().contains(AndroidText.get(activity,next.get(80).attachment.stateKey()))&&receipt.getCompoundDrawablesRelative()[2]!=null,"Changed batch row exposes its current icon and accessible state: "+state);
+                    check(!receipt.getText().toString().contains(AndroidText.get(activity,next.get(80).attachment.stateKey())),"Receipt state must not occupy the visible time label: "+state);
                     timeline=next;
                 }
                 if(replaced!=0)failures.add("unrelated saved rows rebuilt "+replaced+"/"+states.length+" times during one file's states");

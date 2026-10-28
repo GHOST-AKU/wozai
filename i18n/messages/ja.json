@@ -571,5 +571,8 @@
   "draftLoadRetry": "下書きを読み込めません。タップして再試行。",
   "emojiKeyboard": "キーボード",
   "messageTooLong": "メッセージが長すぎます。短くするかファイルで送信してください。下書きは保持されます。",
-  "messageIncomplete": "入力を完了してから送信してください。"
+  "messageIncomplete": "入力を完了してから送信してください。",
+  "sent": "送信済み",
+  "messageSending": "送信中",
+  "messageSendFailed": "送信失敗"
 }

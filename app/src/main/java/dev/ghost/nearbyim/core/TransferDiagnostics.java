@@ -26,7 +26,9 @@ public final class TransferDiagnostics {
     public boolean active(Stage... stages){for(Stage stage:stages)if(active.get(stage.ordinal())!=0)return true;return false;}
     /** Formatting happens only when requested, never in the DATA packet path. */
     public String snapshot() {
-        StringBuilder report=new StringBuilder();long now=System.nanoTime();
+        StringBuilder report=new StringBuilder("counter_scope=owning_component_instance; reset=construction; totals=sum_of_samples_not_wall_time; overlapping_stages=not_additive\n"
+            +"counter_bytes=source_read_includes_resume_hash_rereads; hash_includes_prefix_verification; wire_includes_control_probe_and_framing; queue_bytes=retained_memory_not_payload\n"
+            +"counter_waits=credit_wait:backpressure,receive_queue:enqueue_to_actor,writer_queue:enqueue_to_writer,socket_header:network_wait_and_header_read; active_ms=unfinished_sample_not_transfer_duration\n");long now=System.nanoTime();
         for(Stage stage:Stage.values()) {
             int i=stage.ordinal();long count=counts.get(i),began=active.get(i);if(count==0&&began==0)continue;
             report.append(String.format(Locale.ROOT,"%s: count=%d, bytes=%d, total_ms=%.3f, max_ms=%.3f, active_ms=%.3f%n",

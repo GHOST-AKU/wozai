@@ -112,6 +112,8 @@ jobs:
       - name: Exercise native GUI and mDNS
         shell: pwsh
         run: |
+          & "$env:JAVA_HOME/bin/java.exe" -cp 'desktop/build/classes;desktop/build/tests;desktop/build/lib/*' dev.ghost.wozai.ReceiptGuiTests desktop/build/gui-windows-receipts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & "$env:JAVA_HOME/bin/java.exe" "-Dwozai.bluetooth.library=$((Resolve-Path desktop/build/lib/wozai_bluetooth.dll).Path)" -cp 'desktop/build/classes;desktop/build/tests;desktop/build/lib/*' dev.ghost.wozai.DiscoveryTests
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & "$env:JAVA_HOME/bin/java.exe" -cp 'desktop/build/classes;desktop/build/tests;desktop/build/lib/*' dev.ghost.wozai.LanDiscoveryTopologyTests

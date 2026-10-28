@@ -865,7 +865,14 @@ public final class MainActivity extends Activity {
             }
             bubble.setOnLongClickListener(v->{attachmentMenu(bubble,peer,attachment);return true;});
         }
-        String time=AndroidText.date(this,message.time,"jm");TextView meta=label(message.outgoing?t("outgoingMessageMeta",time,attachment==null?AndroidText.messageState(this,message.state):attachmentState(attachment)):time,10,muted);
+        String time=AndroidText.date(this,message.time,"jm");TextView meta=label(time,10,muted);
+        meta.setSingleLine(true);
+        if(message.outgoing){
+            String state=attachment==null?message.state:attachment.state;
+            meta.setCompoundDrawablesRelativeWithIntrinsicBounds(null,null,new MessageReceiptDrawable(dev.ghost.nearbyim.core.MessageReceipt.of(state),"failed".equals(state)?(isDark()?0xfff2b8b5:0xffb3261e):muted,getResources().getDisplayMetrics().density),null);
+            meta.setCompoundDrawablePadding(dp(4));
+            meta.setContentDescription(t("outgoingMessageMeta",time,attachment==null?AndroidText.messageState(this,state):attachmentState(attachment)));
+        }
         meta.setTag("messageMeta");meta.setGravity(Gravity.END);meta.setPadding(dp(6),dp(4),dp(6),0);bubble.addView(meta);row.addView(bubble,new LinearLayout.LayoutParams(-2,-2));
         if(messageWidth>0){TextView body=row.findViewWithTag("messageBody");if(body!=null)body.setMaxWidth(messageWidth);meta.setMaxWidth(messageWidth);}return row;
     }

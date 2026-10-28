@@ -571,5 +571,8 @@
   "draftLoadRetry": "草稿读取失败，点按重试。",
   "emojiKeyboard": "键盘",
   "messageTooLong": "消息太长，请缩短内容或改发文件。草稿已保留。",
-  "messageIncomplete": "这条消息尚未编辑完整，请继续输入。"
+  "messageIncomplete": "这条消息尚未编辑完整，请继续输入。",
+  "sent": "已发送",
+  "messageSending": "发送中",
+  "messageSendFailed": "发送失败"
 }

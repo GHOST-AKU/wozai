@@ -8,13 +8,14 @@ import dev.ghost.nearbyim.i18n.UiText;
 public final class SessionTests {
     static final class Events implements FramedSession.Listener {
         final BlockingQueue<Frame> hello = new LinkedBlockingQueue<>(), text = new LinkedBlockingQueue<>();
-        final BlockingQueue<String> ack = new LinkedBlockingQueue<>();
+        final BlockingQueue<String> ack = new LinkedBlockingQueue<>(),written=new LinkedBlockingQueue<>();
         final BlockingQueue<UiText> closed = new LinkedBlockingQueue<>();
         final CountDownLatch ready = new CountDownLatch(1);
         public void onHello(Frame frame) { hello.add(frame); }
         public void onReady() { ready.countDown(); }
         public void onText(Frame frame) { text.add(frame); }
         public void onAck(String id) { ack.add(id); }
+        public void onTextWritten(String id){written.add(id);}
         public void onClosed(dev.ghost.nearbyim.i18n.UiText reason) { closed.add(reason); }
     }
     static StreamConnection connection(Socket socket) {
@@ -73,6 +74,7 @@ public final class SessionTests {
                 CoreTests.check(pair.a.send(new Frame(Frame.TEXT, CoreTests.A, "你好 🕷️", 42)), "Send rejected");
                 Frame received = pair.eb.text.poll(2, TimeUnit.SECONDS);
                 CoreTests.check(received != null && received.body.equals("你好 🕷️"), "Text lost");
+                CoreTests.check(CoreTests.A.equals(pair.ea.written.poll(2,TimeUnit.SECONDS)),"Actual TEXT write completion missing");
                 CoreTests.check(pair.ea.ack.isEmpty(), "Receipt emitted before receiver requested it");
                 pair.b.acknowledge(received.id);
                 CoreTests.check(CoreTests.A.equals(pair.ea.ack.poll(2, TimeUnit.SECONDS)), "Receipt lost");
@@ -193,6 +195,8 @@ public final class SessionTests {
                     CoreTests.check(peer.read().type == Frame.READY && events.ready.await(2, TimeUnit.SECONDS), "Not connected");
                     peer.write(new Frame(Frame.PING, "", "", 1));
                     CoreTests.check(peer.read().type == Frame.PONG, "Writer did not reach gate");
+                    CoreTests.check(session.send(new Frame(Frame.TEXT,java.util.UUID.randomUUID().toString(),"queued behind blocked write",1)),"Queued TEXT rejected");
+                    CoreTests.check(events.written.isEmpty(),"Enqueue incorrectly emitted a written receipt");
                     for (int i = 0; i < 65; i++) peer.write(new Frame(Frame.PING, "", "", 1));
                     UiText reason = events.closed.poll(2, TimeUnit.SECONDS);
                     CoreTests.check(reason != null && reason.key.equals("messageQueueFull"), "Writer queue accepted an unbounded burst: " + reason);

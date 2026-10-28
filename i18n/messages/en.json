@@ -571,5 +571,8 @@
   "draftLoadRetry": "Could not load the draft. Tap to retry.",
   "emojiKeyboard": "Keyboard",
   "messageTooLong": "This message is too long. Shorten it or send a file. Your draft is kept.",
-  "messageIncomplete": "Finish editing this message before sending."
+  "messageIncomplete": "Finish editing this message before sending.",
+  "sent": "Sent",
+  "messageSending": "Sending",
+  "messageSendFailed": "Send failed"
 }

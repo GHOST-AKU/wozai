@@ -67,7 +67,6 @@ public final class AndroidText {
     }
     public static String messageState(Context context, String code) {
         if (code == null || code.isEmpty()) return "";
-        return get(context, ChatStore.PENDING.equals(code) ? "pending"
-                : ChatStore.DELIVERED.equals(code) ? "delivered" : "unknown");
+        return get(context,dev.ghost.nearbyim.core.MessageReceipt.of(code).textKey());
     }
 }
