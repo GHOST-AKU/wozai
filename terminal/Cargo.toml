@@ -14,7 +14,7 @@ path = "src/main.rs"
 anyhow = "1"
 aes-gcm = "0.10"
 base64 = "0.22"
-clap = { version = "4", features = ["derive"] }
+clap = { version = "4", features = ["derive", "string"] }
 clap_complete = "4"
 crossterm = "0.28"
 ctrlc = "3"
@@ -42,7 +42,7 @@ qrcode = { version = "0.14.1", default-features = false }
 rqrr = "0.10"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61", features = ["Win32_Security_Cryptography", "Win32_Foundation", "Win32_System_Memory", "Win32_Storage_FileSystem"] }
+windows-sys = { version = "0.61", features = ["Win32_Security_Cryptography", "Win32_Foundation", "Win32_System_Memory", "Win32_Storage_FileSystem", "Win32_Globalization"] }
 
 [dev-dependencies]
 tempfile = "3"

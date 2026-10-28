@@ -48,9 +48,16 @@ nearbyim doctor --json
 - 非编辑区 `a` 输入附件路径；发送前确认接收端和大小。
 - Esc 返回/取消扫描；Ctrl+C 或非编辑区 q 退出；活动文件需确认暂停退出。
 - Quiet Terminal 的 midnight、paper、sage、mono、system 主题；`--no-color`、`NO_COLOR`、`--ascii`；颜色回退可配置。
-- ≥110 列三栏，72–109 双栏，45–71 单栏；不足 45 列/16 行显示增宽提示。
+- 空状态直接说明扫描与地址连接，不再预留空的列表/详情大框。≥120 列且选择已认证设备时显示详情栏，≥72 列为列表/消息双栏，45–71 为单焦点窗格；不足45列/16行提示增宽，不允许盲选连接认可。框线重点用于输入区和确认弹窗，身份/消息状态仍明确显示。
+- 在输入区外按 `1` 聊天、`2` 有界扫描附近、`3` 文件；空会话页按 `s` 扫描、`c` 打开地址连接命令。PageUp/PageDown 翻阅帮助与状态。命令面板 `status` 可查看底栏放不下的完整状态/错误，不会清空草稿或删除错误细节。
 
-面板命令：`chats`、`scan`、`transfers`、`security`、`settings`、`connect HOST:PORT`、`disconnect`、`listen on|off`、`file PATH`、`pause/resume/cancel ID`、`code`、`verify FULL_CODE`、`unverify`、`search TEXT`、`set KEY VALUE`、`help`、`quit`。原生 IME 与复杂 Emoji 的表现仍取决于终端，需要实测，不能用自动化字宽测试代替全部平台验收。
+面板命令：`chats`、`scan`、`transfers`、`security`、`settings`、`connect HOST:PORT`、`disconnect`、`listen on|off`、`file PATH`、`pause/resume/cancel ID`、`code`、`verify FULL_CODE`、`unverify`、`search TEXT`、`set KEY VALUE`、`help`、`status`、`quit`。原生 IME 与复杂 Emoji 的表现仍取决于终端，需要实测，不能用自动化字宽测试代替全部平台验收。
+
+### 语言与帮助
+
+TUI 帮助、所有现有 CLI 命令的 `--help` 说明、首启向导和主要界面使用随包内嵌的中英语义消息资源。`config set language en|zh-CN` 保存选择，TUI 的 `set language en|zh-CN` 同时立即刷新界面。已有的明确 `en` / `zh-CN` 选择始终优先；缺失设置时按首个非空 `LC_ALL`、`LC_MESSAGES`、`LANG`，再按可用的 Windows 原生系统 locale 选择，简体中文对应 zh-CN，其余/不支持的语言回退 en。保存配置时写入已解析的语言。
+
+帮助只读取有大小上限的设置文件，支持 `--profile PATH` 和 `--profile=PATH`，不会创建目录、身份、锁或历史数据库。命令、旗标、设置键、补全语法、JSON 字段/值和退出码不翻译，JSON 错误诊断保留英文。**这仍不是全量中文完成**：行式客户端输出、领域/网络错误及部分设置/诊断显示继续由 #53 跟踪；Windows Terminal/IME、SSH/tmux、系统字体也需要单独证据。程序不能替终端选择或捆绑字体；建议使用支持合适等宽/CJK 字体的现代终端，框线字形不合适时可用 `--ascii`。
 
 ## 安全、文件和脚本
 
@@ -75,7 +82,7 @@ python3 terminal/tools/package.py
 
 经典蓝牙 RFCOMM、原生 Wi-Fi Direct、多活动会话、IPC、后台服务尚未实现。Rust 是已实现候选，不编造 Go 对照、冷启动或比 GUI 更轻的结论。[完整英文手册](README.md) · [架构与安全边界](docs/architecture.md)。
 
-历史按本地插入顺序分页，避免对端时钟偏差隐藏消息。`chats show DEVICE_UUID --limit 100 --before ROW_CURSOR` 返回 next_before/has_more；TUI 用 `older` / `latest` 翻页，内存不无限保留历史。`language=zh-CN` 已有初步界面标签翻译，部分帮助和协议诊断仍为英文。
+历史按本地插入顺序分页，避免对端时钟偏差隐藏消息。`chats show DEVICE_UUID --limit 100 --before ROW_CURSOR` 返回 next_before/has_more；TUI 用 `older` / `latest` 翻页，内存不无限保留历史。帮助/首启/主要界面本地化见上文，全量覆盖的其余范围继续留在 #53。
 
 多选文件使用独立身份绑定的持久队列：重复 `--file`（最多 256 个），CLI 等所有文件均收到保存回执才成功，并在单个 JSON 中返回全部结果。TUI 命令面板的 `files` 支持每行一个路径（`Ctrl+J` 换行），统一确认后入队。暂停当前任务会保留队列，取消当前任务后才能继续下一项；实际发送前重新检查源文件。图片 MIME 通过有界文件头读取识别，不只相信扩展名，不自动打开文件。
 

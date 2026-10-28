@@ -1,0 +1,710 @@
+{
+  "header.brand": {
+    "en": "NearbyIM Terminal · {name}",
+    "zh-CN": "NearbyIM Terminal · {name}"
+  },
+  "header.nav": {
+    "en": "1 Chats   2 Nearby   3 Files   ? Help",
+    "zh-CN": "1 聊天   2 附近   3 文件   ? 帮助"
+  },
+  "footer.keys": {
+    "en": "{commands} commands · Tab focus · Esc back · ? help",
+    "zh-CN": "{commands} 命令 · Tab 切换 · Esc 返回 · ? 帮助"
+  },
+  "footer.short": {
+    "en": "{commands} commands · ? help",
+    "zh-CN": "{commands} 命令 · ? 帮助"
+  },
+  "empty.title": {
+    "en": "Start with a nearby device",
+    "zh-CN": "从附近的一台设备开始"
+  },
+  "empty.subtitle": {
+    "en": "Private conversations, without an account.",
+    "zh-CN": "无需账号，在附近安全交流。"
+  },
+  "empty.scan": {
+    "en": "s   Find a nearby device",
+    "zh-CN": "s   搜索附近设备"
+  },
+  "empty.connect": {
+    "en": "c   connect HOST:PORT",
+    "zh-CN": "c   connect HOST:PORT"
+  },
+  "empty.note": {
+    "en": "LAN reception starts off. Conversations require mutual consent.",
+    "zh-CN": "默认关闭局域网接收，建立聊天需双方认可。"
+  },
+  "label.peers": {
+    "en": "Conversations",
+    "zh-CN": "会话与设备"
+  },
+  "label.peers_focused": {
+    "en": "Conversations · selected",
+    "zh-CN": "会话与设备 · 焦点"
+  },
+  "label.chat": {
+    "en": "Chat",
+    "zh-CN": "聊天"
+  },
+  "label.messages": {
+    "en": "Messages · saved is not read",
+    "zh-CN": "消息 · 已保存不等于已读"
+  },
+  "label.command": {
+    "en": "Command",
+    "zh-CN": "命令"
+  },
+  "label.compose": {
+    "en": "Message · Enter send · Alt+Enter newline",
+    "zh-CN": "消息 · Enter 发送 · Alt+Enter 换行"
+  },
+  "label.details": {
+    "en": "Details",
+    "zh-CN": "设备详情"
+  },
+  "label.exit": {
+    "en": "Exit?",
+    "zh-CN": "退出？"
+  },
+  "label.attach": {
+    "en": "Send attachment?",
+    "zh-CN": "发送附件？"
+  },
+  "label.receive": {
+    "en": "Receive file?",
+    "zh-CN": "接收文件？"
+  },
+  "label.consent": {
+    "en": "Connection consent",
+    "zh-CN": "连接认可"
+  },
+  "composer.rejected": {
+    "en": " · Edit too large; draft kept",
+    "zh-CN": " · 编辑过大，已保留草稿"
+  },
+  "composer.too_long": {
+    "en": " · Over connection limit; send as a file",
+    "zh-CN": " · 超过连接上限，可作为文件发送"
+  },
+  "composer.title": {
+    "en": "{label} · {used}/{limit} UTF-8 bytes{warning}",
+    "zh-CN": "{label} · {used}/{limit} UTF-8 字节{warning}"
+  },
+  "peer.connected": {
+    "en": "ready",
+    "zh-CN": "已连接"
+  },
+  "peer.seen": {
+    "en": "nearby",
+    "zh-CN": "已发现"
+  },
+  "peer.offline": {
+    "en": "offline",
+    "zh-CN": "离线"
+  },
+  "identity.verified": {
+    "en": "manually verified",
+    "zh-CN": "已人工核验"
+  },
+  "identity.unverified": {
+    "en": "not manually verified",
+    "zh-CN": "未人工核验"
+  },
+  "chat.secure": {
+    "en": "LAN · encrypted · {identity}",
+    "zh-CN": "局域网 · 已加密 · {identity}"
+  },
+  "chat.offline": {
+    "en": "Offline · Enter connects",
+    "zh-CN": "离线 · Enter 发起连接"
+  },
+  "chat.you": {
+    "en": "You",
+    "zh-CN": "我"
+  },
+  "chat.peer": {
+    "en": "Peer",
+    "zh-CN": "对方"
+  },
+  "chat.empty": {
+    "en": "No messages yet. Connect to start a conversation.",
+    "zh-CN": "还没有消息，连接后就能开始交流。"
+  },
+  "file.summary": {
+    "en": "{name}\n{done}/{total} bytes · {state}\nID {id}",
+    "zh-CN": "{name}\n{done}/{total} 字节 · {state}\nID {id}"
+  },
+  "file.speed.wait": {
+    "en": "Collecting speed samples",
+    "zh-CN": "正在采集速度样本"
+  },
+  "file.speed": {
+    "en": "{speed} MiB/s · avg {average} MiB/s · ~{eta}s left",
+    "zh-CN": "{speed} MiB/s · 平均 {average} MiB/s · 约剩 {eta} 秒"
+  },
+  "details.body": {
+    "en": "Device\n{id}\n\nIdentity fingerprint\n{fingerprint}\n\n{trust}\n\nTransport: LAN\n\ncode · compare full code\nverify FULL_CODE\n\nfile PATH\npause ID · resume ID\ncancel ID",
+    "zh-CN": "设备\n{id}\n\n身份指纹\n{fingerprint}\n\n{trust}\n\n传输路径：局域网\n\ncode · 比较完整安全码\nverify FULL_CODE\n\nfile PATH\npause ID · resume ID\ncancel ID"
+  },
+  "details.none": {
+    "en": "Select or connect a peer",
+    "zh-CN": "选择或连接一台设备"
+  },
+  "transfers.item": {
+    "en": "{name} · {state} · {done}/{total} bytes\nID {id}\nSaved location {path}\n",
+    "zh-CN": "{name} · {state} · {done}/{total} 字节\nID {id}\n保存位置 {path}\n"
+  },
+  "security.item": {
+    "en": "{name} · {id}\nRemembered={remembered} · manually verified={verified}\nFingerprint {fingerprint}\n",
+    "zh-CN": "{name} · {id}\n已记住={remembered} · 已人工核验={verified}\n指纹 {fingerprint}\n"
+  },
+  "bool.true": {
+    "en": "yes",
+    "zh-CN": "是"
+  },
+  "bool.false": {
+    "en": "no",
+    "zh-CN": "否"
+  },
+  "qr.small": {
+    "en": "Enlarge the window or use: qr OUTPUT.png\n\n{payload}",
+    "zh-CN": "请增大窗口，或使用：qr OUTPUT.png\n\n{payload}"
+  },
+  "qr.compare": {
+    "en": "{qr}\nCompare the complete identity QR on both devices.",
+    "zh-CN": "{qr}\n请比较双方设备的完整身份二维码。"
+  },
+  "qr.none": {
+    "en": "Select a known authenticated peer",
+    "zh-CN": "请先选择已认证的设备"
+  },
+  "palette.title": {
+    "en": "Command · Enter run · Esc cancel",
+    "zh-CN": "命令 · Enter 执行 · Esc 取消"
+  },
+  "exit.body": {
+    "en": "Active files will pause and checkpoint. Nothing keeps transferring in the background.",
+    "zh-CN": "退出前会暂停文件并保存检查点，不会转入后台继续传输。"
+  },
+  "attach.body": {
+    "en": "{count} files\n{names}\n{size} bytes · to {peer}\nEncrypted NIM4. No overwrite at receiver.",
+    "zh-CN": "{count} 个文件\n{names}\n{size} 字节 · 发给 {peer}\nNIM4 加密，接收端不会覆盖已有文件。"
+  },
+  "receive.body": {
+    "en": "{name}\n{size} bytes · from {peer}\nSave to {path}\nNo overwrite or automatic execution.",
+    "zh-CN": "{name}\n{size} 字节 · 来自 {peer}\n保存到 {path}\n不会覆盖文件，也不会自动执行。"
+  },
+  "consent.body": {
+    "en": "{name}\n{id}\nEncrypted · {trust}\nCompare the full code out of band:\n{code}\n\n50 seconds · Esc rejects",
+    "zh-CN": "{name}\n{id}\n已加密 · {trust}\n请通过其他可靠渠道比较完整安全码：\n{code}\n\n50 秒内选择 · Esc 拒绝"
+  },
+  "window.small": {
+    "en": "NearbyIM Terminal\nUse at least 45 columns × 16 rows. Ctrl+C quits.",
+    "zh-CN": "NearbyIM Terminal\n请增大到至少 45 列 × 16 行，Ctrl+C 退出。"
+  },
+  "consent.small": {
+    "en": "Use at least 45 × 16 to review consent. Ctrl+C quits.",
+    "zh-CN": "请增大到至少 45 列 × 16 行查看连接认可，Ctrl+C 退出。"
+  },
+  "status.settings": {
+    "en": "Settings saved. Language applies now; theme/listener changes apply on restart.",
+    "zh-CN": "设置已保存。语言立即切换；主题和监听设置重启后生效。"
+  },
+  "status.requested": {
+    "en": "{command}: requested",
+    "zh-CN": "{command}：已请求"
+  },
+  "status.history": {
+    "en": "History loaded · older / latest switch pages",
+    "zh-CN": "历史已加载 · older / latest 翻页"
+  },
+  "status.reveal": {
+    "en": "Requested the saved location in the OS file manager",
+    "zh-CN": "已请求在系统文件管理器中打开保存位置"
+  },
+  "status.export": {
+    "en": "Verified file exported without overwrite",
+    "zh-CN": "已导出校验通过的文件，未覆盖已有文件"
+  },
+  "status.qr": {
+    "en": "Identity QR PNG exported without overwrite",
+    "zh-CN": "已导出身份二维码 PNG，未覆盖已有文件"
+  },
+  "status.verified_qr": {
+    "en": "Full pairwise identity QR matched; manual verification recorded",
+    "zh-CN": "双方完整身份二维码匹配，已记录人工核验"
+  },
+  "status.avatar": {
+    "en": "Avatar saved; sync uses the authenticated peer identity",
+    "zh-CN": "头像已保存，将通过已认证的设备身份同步"
+  },
+  "status.ready": {
+    "en": "NIM4 ready · saved receipts are not read receipts",
+    "zh-CN": "NIM4 已就绪 · 保存回执不代表已读"
+  },
+  "status.scan": {
+    "en": "Scanning LAN for 8s · Esc cancels · connect HOST:PORT if multicast is blocked",
+    "zh-CN": "正在扫描局域网，最长 8 秒 · Esc 取消 · 组播受阻时可用 connect HOST:PORT"
+  },
+  "status.scan_done": {
+    "en": "Scan complete. Results are discovery hints, not online or identity proof.",
+    "zh-CN": "扫描完成。结果仅供发现，不代表设备在线或身份已核验。"
+  },
+  "status.scan_canceled": {
+    "en": "Scan canceled",
+    "zh-CN": "已取消扫描"
+  },
+  "status.listener_off": {
+    "en": "LAN reception off · {commands}: scan / connect HOST:PORT / listen on",
+    "zh-CN": "局域网接收已关闭 · {commands}：scan / connect HOST:PORT / listen on"
+  },
+  "status.listener_on": {
+    "en": "Listening on port {port} · {commands}: scan / connect HOST:PORT",
+    "zh-CN": "正在监听端口 {port} · {commands}：scan / connect HOST:PORT"
+  },
+  "help.navigation": {
+    "en": "PageUp/PageDown scroll · Esc returns",
+    "zh-CN": "PageUp/PageDown 翻页 · Esc 返回"
+  },
+  "setup.notice": {
+    "en": "NearbyIM Terminal creates a separate device identity and local history. No account, cloud, telemetry or GUI identity import. History is not encrypted at rest.",
+    "zh-CN": "NearbyIM Terminal 使用独立的设备身份和本地记录。无需账号，不使用云端、遥测或导入 GUI 身份。本地历史记录未额外加密。"
+  },
+  "setup.language": {
+    "en": "Interface language / 界面语言: en / zh-CN",
+    "zh-CN": "Interface language / 界面语言：en / zh-CN"
+  },
+  "setup.invalid_language": {
+    "en": "Choose en or zh-CN.",
+    "zh-CN": "请选择 en 或 zh-CN。"
+  },
+  "setup.nickname": {
+    "en": "Nickname",
+    "zh-CN": "昵称"
+  },
+  "setup.receive_dir": {
+    "en": "Receive directory",
+    "zh-CN": "接收目录"
+  },
+  "setup.listen": {
+    "en": "Enable LAN listening? yes/no",
+    "zh-CN": "开启局域网接收？yes/no"
+  },
+  "setup.auto_receive": {
+    "en": "Automatically receive files from remembered devices? yes/no",
+    "zh-CN": "自动接收已记住设备的文件？yes/no"
+  },
+  "view.chats": {
+    "en": "Chats",
+    "zh-CN": "聊天"
+  },
+  "view.nearby": {
+    "en": "Nearby",
+    "zh-CN": "附近"
+  },
+  "view.transfers": {
+    "en": "Files",
+    "zh-CN": "文件"
+  },
+  "view.security": {
+    "en": "Security",
+    "zh-CN": "安全"
+  },
+  "view.settings": {
+    "en": "Settings",
+    "zh-CN": "设置"
+  },
+  "view.help": {
+    "en": "Help",
+    "zh-CN": "帮助"
+  },
+  "view.qr": {
+    "en": "Identity QR",
+    "zh-CN": "身份二维码"
+  },
+  "view.status": {
+    "en": "Full status",
+    "zh-CN": "完整状态"
+  },
+  "cli.cmd.root": {
+    "en": "NearbyIM Terminal · independent NIM4 terminal client",
+    "zh-CN": "NearbyIM Terminal · 独立的 NIM4 终端客户端"
+  },
+  "cli.cmd.chat": {
+    "en": "Open the TUI focused on a peer; no background service.",
+    "zh-CN": "打开终端界面并选择设备，不启动后台服务。"
+  },
+  "cli.cmd.connect": {
+    "en": "Foreground line client; stops when you exit.",
+    "zh-CN": "前台逐行客户端，退出后即停止。"
+  },
+  "cli.cmd.peers": {
+    "en": "Bounded LAN discovery, including Ethernet peers.",
+    "zh-CN": "有界扫描局域网设备，支持有线网卡。"
+  },
+  "cli.cmd.peers.scan": {
+    "en": "Scan nearby LAN devices.",
+    "zh-CN": "扫描附近的局域网设备。"
+  },
+  "cli.cmd.peers.show": {
+    "en": "Show a known peer.",
+    "zh-CN": "查看已知设备。"
+  },
+  "cli.cmd.chats": {
+    "en": "Local conversations and message history.",
+    "zh-CN": "查看本地会话与消息历史。"
+  },
+  "cli.cmd.chats.list": {
+    "en": "List local conversations.",
+    "zh-CN": "列出本地会话。"
+  },
+  "cli.cmd.chats.show": {
+    "en": "Show paginated conversation history.",
+    "zh-CN": "分页查看会话历史。"
+  },
+  "cli.cmd.send": {
+    "en": "Send text/files and wait for a durable saved receipt, not a read receipt.",
+    "zh-CN": "发送文字或文件，等待对方持久保存的回执；回执不代表已读。"
+  },
+  "cli.cmd.files": {
+    "en": "Transfer records, checkpoints and local file operations.",
+    "zh-CN": "文件传输记录、检查点与本地文件操作。"
+  },
+  "cli.cmd.files.list": {
+    "en": "List file transfers.",
+    "zh-CN": "列出文件传输。"
+  },
+  "cli.cmd.files.resume": {
+    "en": "Resume an interrupted transfer from its checkpoint.",
+    "zh-CN": "从检查点继续中断的文件传输。"
+  },
+  "cli.cmd.files.cancel": {
+    "en": "Cancel a transfer and prevent late resume.",
+    "zh-CN": "取消传输，并阻止迟到事件重新恢复。"
+  },
+  "cli.cmd.files.export": {
+    "en": "Copy a completed verified file without overwriting.",
+    "zh-CN": "导出已完成且校验通过的文件，不覆盖已有目标。"
+  },
+  "cli.cmd.files.reveal": {
+    "en": "Reveal a completed file in the OS file manager.",
+    "zh-CN": "在系统文件管理器中打开已完成文件的位置。"
+  },
+  "cli.cmd.resume": {
+    "en": "Compatibility shortcut for files resume.",
+    "zh-CN": "files resume 的兼容快捷命令。"
+  },
+  "cli.cmd.transfers": {
+    "en": "Compatibility shortcut for files list.",
+    "zh-CN": "files list 的兼容快捷命令。"
+  },
+  "cli.cmd.listen": {
+    "en": "Foreground receiver; unknown peers require interactive approval.",
+    "zh-CN": "前台接收器；陌生设备需要交互认可。"
+  },
+  "cli.cmd.identity": {
+    "en": "Device identity, full safety codes and verification QR.",
+    "zh-CN": "设备身份、完整安全码与核验二维码。"
+  },
+  "cli.cmd.identity.show": {
+    "en": "Show this independent device identity.",
+    "zh-CN": "查看此独立客户端的设备身份。"
+  },
+  "cli.cmd.identity.verify": {
+    "en": "Compare the full code before recording manual verification.",
+    "zh-CN": "比较完整安全码后，记录人工身份核验。"
+  },
+  "cli.cmd.identity.qr": {
+    "en": "Display the pairwise QR, or save a PNG without overwriting.",
+    "zh-CN": "显示双方身份二维码，或保存 PNG；不覆盖已有文件。"
+  },
+  "cli.cmd.identity.check-qr": {
+    "en": "Compare an offline QR image without changing trust.",
+    "zh-CN": "比较离线二维码图片，不更改信任状态。"
+  },
+  "cli.cmd.identity.forget": {
+    "en": "Forget a peer after interactive confirmation.",
+    "zh-CN": "交互确认后取消记住该设备。"
+  },
+  "cli.cmd.avatar": {
+    "en": "Identity-bound avatar settings and PNG export.",
+    "zh-CN": "与设备身份绑定的头像设置及 PNG 导出。"
+  },
+  "cli.cmd.avatar.show": {
+    "en": "Show your avatar or a known peer's avatar.",
+    "zh-CN": "查看自己的头像或已知设备头像。"
+  },
+  "cli.cmd.avatar.set": {
+    "en": "Choose an image for this device's avatar.",
+    "zh-CN": "为本设备选择头像图片。"
+  },
+  "cli.cmd.avatar.reset": {
+    "en": "Reset this device's avatar.",
+    "zh-CN": "重置本设备头像。"
+  },
+  "cli.cmd.avatar.export": {
+    "en": "Export an avatar PNG without overwriting.",
+    "zh-CN": "导出头像 PNG，不覆盖已有文件。"
+  },
+  "cli.cmd.trust": {
+    "en": "Remembered devices and explicit trust changes.",
+    "zh-CN": "已记住的设备与明确的信任操作。"
+  },
+  "cli.cmd.trust.list": {
+    "en": "List remembered devices and manual verification flags.",
+    "zh-CN": "列出已记住的设备及人工核验状态。"
+  },
+  "cli.cmd.trust.revoke": {
+    "en": "Revoke trust with interactive confirmation.",
+    "zh-CN": "交互确认后撤销设备信任。"
+  },
+  "cli.cmd.config": {
+    "en": "Inspect or change this Terminal profile's settings.",
+    "zh-CN": "查看或修改此 Terminal Profile 的设置。"
+  },
+  "cli.cmd.config.list": {
+    "en": "List settings; keys and stored enum values stay stable.",
+    "zh-CN": "列出设置；键名和存储枚举值保持不变。"
+  },
+  "cli.cmd.config.get": {
+    "en": "Read one setting.",
+    "zh-CN": "读取一个设置。"
+  },
+  "cli.cmd.config.set": {
+    "en": "Save one setting. Use language en|zh-CN to change language.",
+    "zh-CN": "保存一个设置；使用 language en|zh-CN 切换语言。"
+  },
+  "cli.cmd.status": {
+    "en": "Show local status, not another running process.",
+    "zh-CN": "查看本地状态，不查询其他运行进程。"
+  },
+  "cli.cmd.doctor": {
+    "en": "Redacted diagnostics for this Terminal profile.",
+    "zh-CN": "查看此 Terminal Profile 的脱敏诊断。"
+  },
+  "cli.cmd.completion": {
+    "en": "Generate shell completions; command syntax remains English.",
+    "zh-CN": "生成 Shell 补全；命令语法保持英文。"
+  },
+  "cli.cmd.help": {
+    "en": "Print help for a command.",
+    "zh-CN": "查看命令帮助。"
+  },
+  "cli.arg.profile": {
+    "en": "Independent Terminal profile; never point at GUI data.",
+    "zh-CN": "独立的 Terminal 数据目录；不要指向 GUI 数据。"
+  },
+  "cli.arg.name": {
+    "en": "Override the displayed device nickname.",
+    "zh-CN": "覆盖本次使用的设备昵称。"
+  },
+  "cli.arg.json": {
+    "en": "One versioned JSON result; never implies approval.",
+    "zh-CN": "输出一个带版本的 JSON 结果；不隐含任何认可。"
+  },
+  "cli.arg.no_color": {
+    "en": "Disable colored output.",
+    "zh-CN": "关闭彩色输出。"
+  },
+  "cli.arg.theme": {
+    "en": "Terminal color theme.",
+    "zh-CN": "终端配色主题。"
+  },
+  "cli.arg.ascii": {
+    "en": "Use ASCII borders for terminals with limited glyph support.",
+    "zh-CN": "使用 ASCII 边框，兼容字形支持有限的终端。"
+  },
+  "cli.arg.timeout": {
+    "en": "Deadline: seconds or suffix s/m; 0 waits until interrupted.",
+    "zh-CN": "截止时间：秒数或 s/m 后缀；0 表示等到被中断。"
+  },
+  "cli.arg.receive_dir": {
+    "en": "Directory used for received files.",
+    "zh-CN": "接收文件的保存目录。"
+  },
+  "cli.arg.listen": {
+    "en": "Explicitly enable foreground LAN listening on HOST:PORT.",
+    "zh-CN": "明确开启前台局域网监听，地址为 HOST:PORT。"
+  },
+  "cli.arg.address": {
+    "en": "Connect to HOST:PORT; identity approval remains required.",
+    "zh-CN": "连接 HOST:PORT，仍需设备身份认可。"
+  },
+  "cli.arg.verbose": {
+    "en": "Additional diagnostics, never bodies or private keys.",
+    "zh-CN": "输出额外诊断，不包含消息正文或私钥。"
+  },
+  "cli.arg.help": {
+    "en": "Print help.",
+    "zh-CN": "查看帮助。"
+  },
+  "cli.arg.version": {
+    "en": "Print version.",
+    "zh-CN": "查看版本。"
+  },
+  "cli.arg.peer": {
+    "en": "Peer UUID or connection address.",
+    "zh-CN": "设备 UUID 或连接地址。"
+  },
+  "cli.arg.text": {
+    "en": "Text to send; no automatic approval.",
+    "zh-CN": "要发送的文字，不会自动认可陌生设备。"
+  },
+  "cli.arg.file": {
+    "en": "File path; repeat this option to queue several files.",
+    "zh-CN": "文件路径；可重复此参数排队发送多个文件。"
+  },
+  "cli.arg.stdin": {
+    "en": "Read message text from stdin.",
+    "zh-CN": "从标准输入读取消息文字。"
+  },
+  "cli.arg.lan": {
+    "en": "Enable the foreground LAN receiver.",
+    "zh-CN": "开启前台局域网接收。"
+  },
+  "cli.arg.id": {
+    "en": "Transfer ID.",
+    "zh-CN": "传输 ID。"
+  },
+  "cli.arg.path": {
+    "en": "Local file path.",
+    "zh-CN": "本地文件路径。"
+  },
+  "cli.arg.qr": {
+    "en": "Offline QR image used for identity comparison.",
+    "zh-CN": "用于身份比较的离线二维码图片。"
+  },
+  "cli.arg.output": {
+    "en": "Save a PNG here without overwriting.",
+    "zh-CN": "在此保存 PNG，不覆盖已有文件。"
+  },
+  "cli.arg.key": {
+    "en": "Stable settings key.",
+    "zh-CN": "稳定的设置键名。"
+  },
+  "cli.arg.value": {
+    "en": "Setting value.",
+    "zh-CN": "设置值。"
+  },
+  "cli.arg.before": {
+    "en": "Read records before this timestamp.",
+    "zh-CN": "读取此时间戳之前的记录。"
+  },
+  "cli.arg.limit": {
+    "en": "Maximum number of returned records.",
+    "zh-CN": "最多返回的记录条数。"
+  },
+  "cli.arg.shell": {
+    "en": "Target shell for the completion script.",
+    "zh-CN": "补全脚本的目标 Shell。"
+  },
+  "cli.heading.arguments": {
+    "en": "Arguments",
+    "zh-CN": "参数"
+  },
+  "cli.heading.options": {
+    "en": "Options",
+    "zh-CN": "选项"
+  },
+  "cli.heading.commands": {
+    "en": "Commands",
+    "zh-CN": "命令"
+  },
+  "cli.values": {
+    "en": "Possible values: {values}",
+    "zh-CN": "可选值：{values}"
+  },
+  "cli.default": {
+    "en": "Default: {value}",
+    "zh-CN": "默认值：{value}"
+  },
+  "cli.safety": {
+    "en": "LAN listening is off by default. Unknown devices and incoming files require consent. Encryption and manual identity verification are separate. Saved receipts are not read receipts; local history is not encrypted at rest.",
+    "zh-CN": "默认关闭局域网监听。陌生设备连接和接收文件需要认可。传输加密不等于人工身份核验。保存回执不代表已读；本地历史记录未额外加密。"
+  },
+  "state.pending": {
+    "en": "pending",
+    "zh-CN": "等待发送"
+  },
+  "state.unconfirmed": {
+    "en": "unconfirmed",
+    "zh-CN": "未确认"
+  },
+  "state.saved": {
+    "en": "saved",
+    "zh-CN": "已保存"
+  },
+  "state.received": {
+    "en": "received",
+    "zh-CN": "已接收"
+  },
+  "state.sending": {
+    "en": "sending",
+    "zh-CN": "发送中"
+  },
+  "state.receiving": {
+    "en": "receiving",
+    "zh-CN": "接收中"
+  },
+  "state.paused": {
+    "en": "paused",
+    "zh-CN": "已暂停"
+  },
+  "state.canceled": {
+    "en": "canceled",
+    "zh-CN": "已取消"
+  },
+  "state.failed": {
+    "en": "failed",
+    "zh-CN": "失败"
+  },
+  "state.offered": {
+    "en": "offered",
+    "zh-CN": "等待认可"
+  },
+  "state.waiting": {
+    "en": "waiting",
+    "zh-CN": "等待中"
+  },
+  "state.verifying": {
+    "en": "verifying",
+    "zh-CN": "校验中"
+  },
+  "help.body": {
+    "en": "NEARBYIM TERMINAL\n\nCHAT & DEVICES\nchats                    Conversation list\nscan / nearby            Scan LAN for 8 seconds\nconnect HOST:PORT        Connect to an address\npeer ID                  Select a known device\ndisconnect               Pause files and close this session\nolder / latest           Page through local history\nsearch TEXT              Find text in the selected chat\n\nFILES\nfile PATH                Choose a file; confirm before sending\nfiles PATH               One path per line; Ctrl+J adds a line\ntransfers                Show transfer records\npause ID / resume ID     Pause or continue a file\ncancel ID                Cancel a transfer\nreveal ID                Open its saved location\nexport ID PATH           Export without overwrite\n\nIDENTITY & SAFETY\nsecurity                 Remembered devices and verification\ncode                     Show the complete safety code\nverify FULL_CODE         Record comparison of the full code\nunverify                 Remove manual verification\nqr [OUTPUT.png]          Show/save the complete identity QR\nverify-qr IMAGE          Compare a QR and record verification\navatar set PATH          Choose an avatar image\navatar reset / show      Reset or inspect the avatar\navatar export PATH       Export an avatar PNG\n\nSETTINGS & OTHER\nsettings                 Show settings\nset KEY VALUE            Save a setting\nset language en|zh-CN    Switch language now\nlisten on|off            Explicit LAN reception\nstatus                   Read the full last status/error\nhelp                     Open this page\nquit / q                 Pause active files before exit\n\nKEYBOARD\n{commands}               Command palette\nTab / Shift+Tab          Change focus\nj/k or Up/Down           Choose a peer outside the composer\nEnter                    Connect or send\nAlt+Enter / Ctrl+J       Insert newline\nCtrl+F / /               Search (outside composer for /)\na                        Attach (outside composer)\nCtrl+U                   Clear the editor\nCtrl+L                   Return to chat composer\nPageUp / PageDown        Scroll\nEsc                      Cancel/back; never grants consent\nCtrl+C                   Exit and restore the terminal\n1 / 2 / 3                Chats / scan / files outside composer\n\nSAFETY NOTES\nListening is off by default. Discovery hints do not prove identity or online status.\nOnly one active session: disconnect before switching peers.\nIncoming files require approval unless remembered-device auto-receive is enabled.\nEncrypted transport, first-use consent and manual identity verification are separate.\nA saved receipt is not a read receipt. Local history is not encrypted at rest.\nNIM4 and terminal command names are unchanged.",
+    "zh-CN": "NEARBYIM TERMINAL\n\n聊天与设备\nchats                    会话列表\nscan / nearby            扫描局域网，最长 8 秒\nconnect HOST:PORT        使用地址连接\npeer ID                  选择已知设备\ndisconnect               暂停文件并断开本次连接\nolder / latest           翻阅本地历史\nsearch TEXT              搜索当前会话文字\n\n文件传输\nfile PATH                选择文件，确认后才发送\nfiles PATH               每行一个路径；Ctrl+J 换行\ntransfers                查看传输记录\npause ID / resume ID     暂停或继续文件\ncancel ID                取消传输\nreveal ID                打开文件保存位置\nexport ID PATH           导出文件，不覆盖已有目标\n\n身份与安全\nsecurity                 已记住的设备与核验状态\ncode                     查看完整安全码\nverify FULL_CODE         比较完整安全码后记录核验\nunverify                 取消人工核验标记\nqr [OUTPUT.png]          显示或保存完整身份二维码\nverify-qr IMAGE          比较二维码并记录核验\navatar set PATH          选择头像图片\navatar reset / show      重置或查看头像\navatar export PATH       导出头像 PNG\n\n设置与其他\nsettings                 查看设置\nset KEY VALUE            保存设置\nset language en|zh-CN    立即切换语言\nlisten on|off            明确开启或关闭局域网接收\nstatus                   查看上一条完整状态或错误\nhelp                     打开此帮助\nquit / q                 退出前暂停在途文件\n\n快捷键\n{commands}               命令面板\nTab / Shift+Tab          切换焦点\nj/k 或 Up/Down           在输入区外选择设备\nEnter                    连接或发送\nAlt+Enter / Ctrl+J       输入换行\nCtrl+F / /               搜索（/ 仅在输入区外生效）\na                        添加附件（仅在输入区外）\nCtrl+U                   清空编辑区\nCtrl+L                   返回聊天输入区\nPageUp / PageDown        翻页\nEsc                      取消或返回，不会授予认可\nCtrl+C                   退出并恢复终端\n1 / 2 / 3                在输入区外进入聊天、扫描、文件\n\n安全说明\n默认关闭监听。扫描结果不能证明设备在线或身份可信。\n一次只保持一个活动会话；切换设备前请先断开。\n接收文件需要认可，除非已明确开启记住设备的自动接收。\n传输加密、首次使用认可和人工身份核验是不同的状态。\n保存回执不代表已读；本地历史记录未额外加密。\nNIM4 和终端命令名称保持不变。"
+  },
+  "label.input": {
+    "en": "Message",
+    "zh-CN": "输入"
+  },
+  "footer.compose": {
+    "en": "Enter send · Alt+Enter newline · {commands}",
+    "zh-CN": "Enter 发送 · Alt+Enter 换行 · {commands}"
+  },
+  "footer.status": {
+    "en": "{commands} → status: full details · ? help",
+    "zh-CN": "{commands} → status 查看完整信息 · ? 帮助"
+  },
+  "consent.actions": {
+    "en": "1 Accept once  2 Remember  3 Reject",
+    "zh-CN": "1 仅本次  2 记住  3 拒绝"
+  },
+  "attach.actions": {
+    "en": "y Send · n Cancel",
+    "zh-CN": "y 发送 · n 取消"
+  },
+  "receive.actions": {
+    "en": "y Accept · n Reject",
+    "zh-CN": "y 接收 · n 拒绝"
+  },
+  "exit.actions": {
+    "en": "y Exit and pause · n Continue",
+    "zh-CN": "y 退出并暂停 · n 继续使用"
+  },
+  "cli.arg.subcommand": {
+    "en": "Command whose help to display.",
+    "zh-CN": "要查看帮助的命令。"
+  }
+}

@@ -3,6 +3,7 @@ mod config;
 mod crypto;
 mod discovery;
 mod files;
+mod i18n;
 mod network;
 mod profile;
 mod publish;
@@ -13,7 +14,7 @@ mod wire;
 
 use anyhow::{Context, Result, ensure};
 use base64::{Engine, engine::general_purpose::STANDARD};
-use clap::{CommandFactory, Parser, Subcommand};
+use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
 use discovery::Discovery;
 use network::{Command, Consent, Event, Runtime};
 use profile::Profile;
@@ -315,7 +316,7 @@ fn emit(value: impl Serialize, json_mode: bool, plain: impl AsRef<str>) -> Resul
     Ok(())
 }
 fn prompt(question: &str, default: &str) -> Result<String> {
-    eprint!("{question} [{default}]: ");
+    eprint!("{} [{}]: ", safe(question), safe(default));
     use io::Write;
     io::stderr().flush()?;
     let mut s = String::new();
@@ -329,22 +330,29 @@ fn prompt(question: &str, default: &str) -> Result<String> {
 }
 fn setup(p: &mut Profile, cfg: &mut config::Config) -> Result<()> {
     eprintln!(
-        "NearbyIM Terminal creates a separate device identity and local history. No account, cloud, telemetry or GUI identity import. History is not encrypted at rest."
+        "{}\n{}",
+        i18n::text("en", "setup.notice"),
+        i18n::text("zh-CN", "setup.notice")
     );
-    cfg.language = prompt("Interface language: en / zh-CN", &cfg.language)?;
-    cfg.nickname = prompt("Nickname", &cfg.nickname)?;
+    loop {
+        let language = prompt(&i18n::text(&cfg.language, "setup.language"), &cfg.language)?;
+        if matches!(language.as_str(), "en" | "zh-CN") {
+            cfg.language = language;
+            break;
+        }
+        eprintln!("{}", i18n::text(&cfg.language, "setup.invalid_language"));
+    }
+    cfg.nickname = prompt(&i18n::text(&cfg.language, "setup.nickname"), &cfg.nickname)?;
     cfg.receive_dir = prompt(
-        "Receive directory",
+        &i18n::text(&cfg.language, "setup.receive_dir"),
         cfg.receive_dir
             .to_str()
             .context("receive path must be UTF-8")?,
     )?
     .into();
-    cfg.lan_listen = prompt("Enable LAN listening? yes/no", "no")? == "yes";
-    cfg.auto_receive_trusted = prompt(
-        "Automatically receive files from remembered devices? yes/no",
-        "no",
-    )? == "yes";
+    cfg.lan_listen = prompt(&i18n::text(&cfg.language, "setup.listen"), "no")? == "yes";
+    cfg.auto_receive_trusted =
+        prompt(&i18n::text(&cfg.language, "setup.auto_receive"), "no")? == "yes";
     cfg.save(p)?;
     p.identity.name = cfg.nickname.clone();
     Ok(())
@@ -404,11 +412,7 @@ fn run(mut cli: Cli) -> Result<()> {
             }
         }
     }
-    let path = cli.profile.clone().unwrap_or_else(|| {
-        dirs::data_local_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("nearbyim-terminal")
-    });
+    let path = cli.profile.clone().unwrap_or_else(i18n::default_profile);
     let first = !path.join("config.json").exists();
     let mut profile = Profile::open(path, cli.name.as_deref()).map_err(|e| {
         if e.to_string().contains("profile is busy") {
@@ -1264,11 +1268,108 @@ fn iso(millis: u64) -> String {
         millis % 1000
     )
 }
+fn localized_command(mut command: clap::Command, path: &str, language: &str) -> clap::Command {
+    let key = format!("cli.cmd.{}", if path.is_empty() { "root" } else { path });
+    if i18n::has(&key) {
+        command = command.about(i18n::text(language, &key));
+    }
+    if language == "zh-CN" {
+        command = command
+            .help_template(
+                "{before-help}{about-with-newline}\n用法：{usage}\n\n{all-args}{after-help}",
+            )
+            .subcommand_help_heading(i18n::text(language, "cli.heading.commands"));
+    }
+    let ids: Vec<_> = command
+        .get_arguments()
+        .map(|a| a.get_id().to_string())
+        .collect();
+    for id in ids {
+        command = command.mut_arg(&id, |mut arg| {
+            let key = format!("cli.arg.{id}");
+            if i18n::has(&key) {
+                arg = arg.help(i18n::text(language, &key));
+            }
+            if language == "zh-CN" {
+                let mut description = arg.get_help().map(|h| h.to_string()).unwrap_or_default();
+                if let Some(values) = arg.get_value_parser().possible_values() {
+                    let values = values
+                        .filter(|v| !v.is_hide_set())
+                        .map(|v| v.get_name().to_owned())
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    if !values.is_empty() {
+                        description.push_str(&format!(
+                            "\n{}",
+                            i18n::format(language, "cli.values", &[("values", &values)])
+                        ));
+                    }
+                }
+                let defaults = arg
+                    .get_default_values()
+                    .iter()
+                    .map(|v| v.to_string_lossy())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                if !defaults.is_empty() {
+                    description.push_str(&format!(
+                        "\n{}",
+                        i18n::format(language, "cli.default", &[("value", &defaults)])
+                    ));
+                }
+                let heading = if arg.is_positional() {
+                    "cli.heading.arguments"
+                } else {
+                    "cli.heading.options"
+                };
+                arg = arg
+                    .help(description)
+                    .help_heading(i18n::text(language, heading))
+                    .hide_possible_values(true)
+                    .hide_default_value(true);
+            }
+            arg
+        });
+    }
+    let names: Vec<_> = command
+        .get_subcommands()
+        .map(|s| s.get_name().to_owned())
+        .collect();
+    for name in names {
+        let next = if name == "help" {
+            "help".into()
+        } else if path.is_empty() || path == "help" {
+            name.clone()
+        } else {
+            format!("{path}.{name}")
+        };
+        command = command.mut_subcommand(name, |sub| localized_command(sub, &next, language));
+    }
+    if path.is_empty() {
+        command = command.after_help(i18n::text(language, "cli.safety"));
+    }
+    command
+}
 fn main() {
     let json_mode = std::env::args().any(|a| a == "--json");
-    let cli = match Cli::try_parse() {
+    let language = i18n::cli_language(&std::env::args_os().collect::<Vec<_>>());
+    let mut command = Cli::command();
+    command.build();
+    // Keep JSON errors on their original English contract; help is human output.
+    let command = localized_command(command, "", if json_mode { "en" } else { &language });
+    let cli = match command
+        .try_get_matches()
+        .and_then(|matches| Cli::from_arg_matches(&matches))
+    {
         Ok(c) => c,
         Err(e) => {
+            if json_mode && language != "en" && e.kind() == clap::error::ErrorKind::DisplayHelp {
+                let mut command = Cli::command();
+                command.build();
+                if let Err(help) = localized_command(command, "", &language).try_get_matches() {
+                    help.exit();
+                }
+            }
             if !json_mode
                 || matches!(
                     e.kind(),
@@ -1357,3 +1458,35 @@ fn main() {
 }
 #[cfg(test)]
 mod interop;
+
+#[cfg(test)]
+mod help_tests {
+    use super::*;
+    #[test]
+    fn every_actual_command_and_argument_has_a_semantic_message() {
+        fn check(command: &clap::Command, path: &str) {
+            let id = format!("cli.cmd.{}", if path.is_empty() { "root" } else { path });
+            assert!(i18n::has(&id), "{id}");
+            for arg in command.get_arguments() {
+                let id = format!("cli.arg.{}", arg.get_id());
+                assert!(i18n::has(&id), "{path}: {id}");
+            }
+            for sub in command.get_subcommands() {
+                if sub.get_name() == "help" {
+                    continue;
+                }
+                check(
+                    sub,
+                    &if path.is_empty() {
+                        sub.get_name().to_string()
+                    } else {
+                        format!("{path}.{}", sub.get_name())
+                    },
+                );
+            }
+        }
+        let mut command = Cli::command();
+        command.build();
+        check(&command, "");
+    }
+}

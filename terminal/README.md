@@ -45,7 +45,7 @@ Ethernet computers and Wi-Fi devices can share the same LAN. Multi-address disco
 
 ## TUI
 
-Quiet Terminal themes: `--theme midnight` (default), `paper`, `sage`, `mono`, `system`; `--no-color` / `NO_COLOR`; `--ascii`. `config set color auto|truecolor|256|16|none` controls fallback. At 110+ columns, chats/messages/details use three columns; 72–109 use two; 45–71 use one. Below 45 columns or 16 rows, enlarge the terminal to edit safely.
+Quiet Terminal themes: `--theme midnight` (default), `paper`, `sage`, `mono`, `system`; `--no-color` / `NO_COLOR`; `--ascii`. `config set color auto|truecolor|256|16|none` controls fallback. The empty screen explains scanning/address connection without reserving empty columns. At 120+ columns a selected authenticated peer gets a details column; 72+ columns use a list/message split, and 45–71 use a single focused pane. Below 45 columns or 16 rows, enlarge the terminal to edit/review consent safely. Borders emphasize the composer and confirmations; identity and message states remain explicit.
 
 - Tab / Shift+Tab: focus; arrows or j/k outside composer: select.
 - Ctrl+K / Ctrl+P: command palette; `?` outside composer: help; `/` or Ctrl+F: search.
@@ -53,8 +53,15 @@ Quiet Terminal themes: `--theme midnight` (default), `paper`, `sage`, `mono`, `s
 - Left/right/backspace/delete edit Unicode grapheme clusters, not UTF-16 units. New peers negotiate **32768 UTF-8 bytes** per message; older peers keep **8192 bytes**. The composer shows the connection limit and preserves oversized drafts (up to **256 KiB**); an edit beyond the draft budget is rejected as a whole. See [text limits and compatibility](../docs/text-messages.md).
 - `a` outside composer: attach by path; confirm recipient/size before sending.
 - Esc: close palette, cancel scan, return; Ctrl+C / q outside composer: exit; active transfers require exit confirmation and are checkpointed.
+- Outside the composer: `1` chats, `2` bounded nearby scan, `3` transfers. On an empty chat screen, `s` scans and `c` opens `connect HOST:PORT`. PageUp/PageDown scroll help and status pages. `status` in the palette shows the complete last notice/error when the footer is too small; it does not clear drafts or hide the original details.
 
-Palette: `chats`, `scan`, `transfers`, `security`, `settings`, `help`, `connect HOST:PORT`, `disconnect`, `listen on|off`, `file PATH`, `pause ID`, `resume ID`, `cancel ID`, `code`, `verify FULL_CODE`, `unverify`, `search TEXT`, `set KEY VALUE`, `quit`.
+Palette: `chats`, `scan`, `transfers`, `security`, `settings`, `help`, `status`, `connect HOST:PORT`, `disconnect`, `listen on|off`, `file PATH`, `pause ID`, `resume ID`, `cancel ID`, `code`, `verify FULL_CODE`, `unverify`, `search TEXT`, `set KEY VALUE`, `quit`.
+
+### Language and help
+
+TUI help, all existing CLI command `--help` descriptions, first-run onboarding and the main presentation use an embedded English/Simplified Chinese catalog with semantic message IDs. `config set language en|zh-CN` persists the selection; TUI `set language en|zh-CN` also refreshes the screen immediately. An existing `en` or `zh-CN` setting always wins. When the setting is absent, use the first nonempty `LC_ALL`, `LC_MESSAGES`, `LANG`, then Windows' native locale where available; Simplified Chinese locales resolve to `zh-CN`, other/unsupported locales to `en`. Saving settings stores the resolved language.
+
+Help reads only the bounded settings file, including `--profile PATH` / `--profile=PATH`; it does not create a directory, identity, lock or history database. Commands, flag names, settings keys, completion syntax, JSON keys/values and exit codes remain stable. JSON errors retain English diagnostic messages. **This is not full localization:** remaining line-client output, domain/network errors and some settings/diagnostic displays still need #53; physical Windows Terminal/IME, SSH/tmux and system fonts need their own evidence. The program cannot select or bundle your terminal's font; use a modern terminal with a suitable monospace/CJK font, or `--ascii` when line glyphs do not fit.
 
 IME composition and emoji display still depend on the terminal. Automated cell-width/grapheme/PTY tests are evidence for those cases, not a claim that all Windows/Linux terminal/IME combinations have passed.
 
@@ -113,7 +120,7 @@ The interop fixture compiles the **shipping Java** `NoiseRecordChannel`, `Protoc
 
 Rust is the implemented candidate; there is no fabricated Go comparison or GUI performance win. Package/startup/RSS/CPU measurements must record their environment and distinguish warm-cache samples from cold starts. Bluetooth RFCOMM, native Wi-Fi Direct, multiple simultaneous active peers, IPC and background services are not implemented. This development build must not be presented as a completed lightweight stable release until the manual's blocking matrix passes.
 
-History is stored independently of peer clocks. `chats show DEVICE_UUID --limit 100 --before ROW_CURSOR` pages older records; JSON returns `next_before` and `has_more`. In the TUI, `older` / `latest` load bounded history pages rather than retaining an unbounded message list. Interface labels have an initial `zh-CN` translation; protocol diagnostics and some help text remain English.
+History is stored independently of peer clocks. `chats show DEVICE_UUID --limit 100 --before ROW_CURSOR` pages older records; JSON returns `next_before` and `has_more`. In the TUI, `older` / `latest` load bounded history pages rather than retaining an unbounded message list. Help/onboarding/main-screen localization is described above; remaining full localization stays in #53.
 
 Multiple selections use one persistent, identity-bound queue. Repeat `--file` (up to 256) and the CLI waits for every saved receipt, returning all results in one JSON object. The TUI `files` command accepts one path per line (`Ctrl+J` adds a line) and shows one confirmation before enqueueing. A paused active transfer holds the queue; canceling it allows the next selection to proceed. Sources are rechecked before transmission. Common image MIME hints are detected with bounded header reads; an extension alone does not turn an arbitrary file into an image, and no file is automatically opened.
 

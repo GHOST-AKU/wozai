@@ -52,6 +52,16 @@ jobs:
       - name: Production NIM4 interoperability and terminal contracts
         shell: bash
         run: terminal/tools/test-interop.sh
+      - name: Export actual terminal layout cells
+        shell: bash
+        env:
+          NEARBYIM_UI_PREVIEW_DIR: ${{ github.workspace }}/terminal/target/ui-previews
+        run: cargo test --manifest-path terminal/Cargo.toml --locked --bin nearbyim export_preview -- --ignored
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nearbyim-terminal-${{ runner.os }}-ui-layout
+          path: terminal/target/ui-previews/*.json
+          if-no-files-found: error
       - name: Release executable
         shell: bash
         run: cargo build --manifest-path terminal/Cargo.toml --locked --release

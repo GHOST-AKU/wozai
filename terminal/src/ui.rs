@@ -19,7 +19,7 @@ use crossterm::{
 };
 use ratatui::{
     prelude::*,
-    widgets::{Block, Clear, List, ListItem, ListState, Paragraph, Wrap},
+    widgets::{Block, Borders, Clear, List, ListItem, ListState, Padding, Paragraph, Wrap},
 };
 use std::{
     collections::{BTreeMap, HashMap, VecDeque},
@@ -112,17 +112,26 @@ impl Rate {
             self.last_bytes = bytes;
         }
     }
-    fn display(&self, bytes: u64, total: u64) -> String {
+    fn display(&self, bytes: u64, total: u64, language: &str) -> String {
         let seconds = self.start.elapsed().as_secs_f64();
         if seconds < 1.0 || bytes <= self.initial {
-            return "Collecting speed samples".into();
+            return crate::i18n::text(language, "file.speed.wait");
         }
         let average = (bytes - self.initial) as f64 / seconds;
-        format!(
-            "{:.1} MiB/s · avg {:.1} MiB/s · ETA ~{} s",
-            self.instant.unwrap_or(average) / 1048576.0,
-            average / 1048576.0,
-            ((total.saturating_sub(bytes)) as f64 / average).ceil() as u64
+        crate::i18n::format(
+            language,
+            "file.speed",
+            &[
+                (
+                    "speed",
+                    &format!("{:.1}", self.instant.unwrap_or(average) / 1048576.0),
+                ),
+                ("average", &format!("{:.1}", average / 1048576.0)),
+                (
+                    "eta",
+                    &(((total.saturating_sub(bytes)) as f64 / average).ceil() as u64).to_string(),
+                ),
+            ],
         )
     }
 }
@@ -174,27 +183,26 @@ struct App {
     attach: Option<Vec<std::path::PathBuf>>,
 }
 impl App {
-    fn t(&self, en: &'static str) -> String {
-        if self.cfg.language != "zh-CN" {
-            return en.into();
+    fn t(&self, key: &str) -> String {
+        crate::i18n::text(&self.cfg.language, key)
+    }
+    fn fmt(&self, key: &str, values: &[(&str, &str)]) -> String {
+        crate::i18n::format(&self.cfg.language, key, values)
+    }
+    fn shortcuts(&self) -> String {
+        if self.cfg.command_key == "p" {
+            "Ctrl+P".into()
+        } else {
+            "Ctrl+K".into()
         }
-        match en {
-            "Peers" => "会话与设备",
-            "Peers [focused]" => "会话与设备 [焦点]",
-            "Chat" => "聊天",
-            "Messages · saved ≠ read" => "消息 · 已保存不等于已读",
-            "Command" => "命令",
-            " · Edit too large; previous draft kept" => " · 编辑过大，已保留原草稿",
-            " · Too long; shorten or send a file" => " · 超过连接上限，请缩短或作为文件发送",
-            "Compose · Enter send · Alt+Enter newline" => "输入 · Enter 发送 · Alt+Enter 换行",
-            "Details" => "设备详情",
-            "Exit?" => "退出？",
-            "Confirm attachment" => "确认发送附件",
-            "Receive file?" => "接收文件？",
-            "Connection consent" => "设备连接认可",
-            _ => en,
+    }
+    fn state(&self, code: &str) -> String {
+        let key = format!("state.{code}");
+        if crate::i18n::has(&key) {
+            self.t(&key)
+        } else {
+            safe(code)
         }
-        .into()
     }
     fn ids(&self) -> Vec<String> {
         let mut ids: Vec<_> = self
@@ -287,11 +295,20 @@ impl App {
                 self.view = verb.into();
                 self.focus = 1;
             }
+            "status" => {
+                self.view = "status".into();
+                self.scroll = 0;
+                self.focus = 1;
+                return Ok(false);
+            }
             "set" => {
                 let (key, value) = arg.split_once(' ').context("usage: set KEY VALUE")?;
                 self.cfg.set(key, value)?;
                 self.cfg.save(&self.store.lock().unwrap())?;
-                self.status = "Settings saved; listener/theme changes apply on restart".into();
+                if key == "language" {
+                    self.scroll = 0;
+                }
+                self.status = self.t("status.settings");
                 return Ok(false);
             }
             "listen" => {
@@ -329,8 +346,7 @@ impl App {
                 }
                 self.scroll = 0;
                 self.view = "chats".into();
-                self.status =
-                    "History page loaded; older / latest navigate without unbounded memory".into();
+                self.status = self.t("status.history");
                 return Ok(false);
             }
             "connect" => self.connect(runtime, arg)?,
@@ -367,7 +383,7 @@ impl App {
                     .find(|s| s.info.id == arg)
                     .context("unknown transfer ID")?;
                 crate::files::reveal(saved)?;
-                self.status = "Requested the saved location in the OS file manager".into();
+                self.status = self.t("status.reveal");
                 return Ok(false);
             }
             "export" => {
@@ -380,7 +396,7 @@ impl App {
                     .find(|s| s.info.id == id)
                     .context("unknown transfer ID")?;
                 crate::files::export(saved, std::path::Path::new(path))?;
-                self.status = "Verified file exported without overwrite".into();
+                self.status = self.t("status.export");
                 return Ok(false);
             }
             "cancel" => self.command(Command::Cancel(arg.into()))?,
@@ -398,7 +414,7 @@ impl App {
                 )?;
                 if !arg.is_empty() {
                     crate::verification::export(&payload, std::path::Path::new(arg))?;
-                    self.status = "Identity QR PNG exported without overwrite".into();
+                    self.status = self.t("status.qr");
                 } else {
                     self.view = "qr".into();
                     self.scroll = 0;
@@ -424,8 +440,7 @@ impl App {
                 );
                 peer.verified = true;
                 p.save_peer(peer)?;
-                self.status =
-                    "Full pairwise identity QR matched; manual verification recorded".into();
+                self.status = self.t("status.verified_qr");
                 return Ok(false);
             }
             "avatar" => {
@@ -467,8 +482,7 @@ impl App {
                         tx.try_send(Command::AvatarChanged)?;
                     }
                 }
-                self.status =
-                    "Avatar saved; synchronization uses the authenticated peer identity".into();
+                self.status = self.t("status.avatar");
                 return Ok(false);
             }
             "search" => {
@@ -510,12 +524,13 @@ impl App {
             "help" | "" => {
                 self.view = "help".into();
                 self.focus = 1;
-                self.status="Commands: connect HOST:PORT | file PATH | avatar set/reset/show/export | pause/cancel/resume ID | code | verify FULL_CODE | unverify | search TEXT | peer ID | quit".into();
+                self.scroll = 0;
+                self.status = self.t("help.navigation");
                 return Ok(false);
             }
             _ => anyhow::bail!("unknown command; Ctrl+P then help"),
         }
-        self.status = format!("{verb}: requested");
+        self.status = self.fmt("status.requested", &[("command", verb)]);
         Ok(false)
     }
     fn has_active_files(&self) -> bool {
@@ -564,8 +579,7 @@ impl App {
             }
             Event::Ready(id) => {
                 self.ready.insert(id);
-                self.status =
-                    "Encrypted connection ready; identity verification is separate".into();
+                self.status = self.t("status.ready");
             }
             Event::Message(m) => {
                 if self.scroll > 0 && self.current().as_ref() == Some(&m.peer) {
@@ -645,70 +659,272 @@ impl App {
         }
         Ok(())
     }
+    fn message_width(&self, width: u16) -> u16 {
+        let sidebar = if width >= 72 {
+            (width / 4).clamp(22, 28)
+        } else {
+            0
+        };
+        let details = if width >= 120
+            && self
+                .current()
+                .is_some_and(|id| self.peers.contains_key(&id))
+        {
+            26
+        } else {
+            0
+        };
+        width.saturating_sub(sidebar + details + 2).max(1)
+    }
+    fn page(&mut self, up: bool) {
+        // Chat scroll is distance from the bottom; document pages start at the top.
+        let increase = if matches!(self.view.as_str(), "chats" | "nearby") {
+            up
+        } else {
+            !up
+        };
+        self.scroll = if increase {
+            self.scroll.saturating_add(10)
+        } else {
+            self.scroll.saturating_sub(10)
+        };
+    }
+    fn draw_composer(
+        &self,
+        f: &mut ratatui::Frame,
+        area: Rect,
+        base: Style,
+        accent: Style,
+        muted: Style,
+    ) {
+        let input_width = area.width.saturating_sub(2).max(1) as usize;
+        let (composer, cursor_row, cursor_col) = editor_lines(&self.editor, input_width);
+        let input_height = area.height.saturating_sub(2).max(1) as usize;
+        let input_scroll = cursor_row.saturating_sub(input_height - 1);
+        let limit = self
+            .current()
+            .and_then(|id| self.text_limits.get(&id).copied())
+            .unwrap_or(crate::wire::LEGACY_TEXT);
+        let warning = if self.editor.rejected {
+            self.t("composer.rejected")
+        } else if self.editor.text.len() > limit {
+            self.t("composer.too_long")
+        } else {
+            String::new()
+        };
+        let title = self.fmt(
+            "composer.title",
+            &[
+                (
+                    "label",
+                    &self.t(if self.palette {
+                        "label.command"
+                    } else {
+                        "label.input"
+                    }),
+                ),
+                ("used", &self.editor.text.len().to_string()),
+                ("limit", &limit.to_string()),
+                ("warning", &warning),
+            ],
+        );
+        f.render_widget(
+            Paragraph::new(composer)
+                .scroll((input_scroll.min(u16::MAX as usize) as u16, 0))
+                .block(panel(self.ascii, title).border_style(if self.focus == 2 {
+                    accent
+                } else {
+                    muted
+                }))
+                .style(base),
+            area,
+        );
+        if self.focus == 2
+            && self.prompts.is_empty()
+            && self.file_prompts.is_empty()
+            && self.attach.is_none()
+            && !self.quit_confirm
+            && !self.palette
+        {
+            f.set_cursor_position((
+                area.x + 1 + cursor_col.min(input_width - 1) as u16,
+                area.y + 1 + (cursor_row - input_scroll) as u16,
+            ));
+        }
+    }
     fn draw(&self, f: &mut ratatui::Frame) {
         let area = f.area();
         if area.width < 45 || area.height < 16 {
             f.render_widget(
-                Paragraph::new(
-                    "NearbyIM Terminal\nEnlarge to at least 45 columns × 16 rows. Ctrl+C quits.",
-                ),
+                Paragraph::new(self.t("window.small")).wrap(Wrap { trim: false }),
                 area,
             );
             return;
         }
+        let (foreground, background, accent_rgb, muted_rgb) = match self.theme {
+            crate::Theme::Paper => ((38, 55, 46), (244, 242, 236), (63, 96, 83), (100, 120, 109)),
+            crate::Theme::Sage => (
+                (225, 241, 226),
+                (24, 48, 37),
+                (193, 221, 172),
+                (171, 197, 168),
+            ),
+            _ => (
+                (226, 235, 227),
+                (17, 26, 23),
+                (156, 209, 169),
+                (146, 171, 152),
+            ),
+        };
+        let base = if self.no_color || matches!(self.theme, crate::Theme::System) {
+            Style::default()
+        } else {
+            Style::default()
+                .fg(color_for(foreground, &self.cfg.color))
+                .bg(color_for(background, &self.cfg.color))
+        };
+        let accent = if self.no_color {
+            Style::default().bold()
+        } else {
+            base.fg(color_for(accent_rgb, &self.cfg.color)).bold()
+        };
+        let secondary = color_for(muted_rgb, &self.cfg.color);
+        let muted = if self.no_color || matches!(self.theme, crate::Theme::System) {
+            Style::default()
+        } else {
+            base.fg(match secondary {
+                Color::Rgb(..) | Color::Indexed(_) => secondary,
+                _ => Color::DarkGray,
+            })
+        };
+        let selection_style = if self.no_color || matches!(self.theme, crate::Theme::System) {
+            Style::default().add_modifier(Modifier::REVERSED)
+        } else {
+            let shade = color_for(
+                if matches!(self.theme, crate::Theme::Paper) {
+                    (229, 232, 224)
+                } else {
+                    (39, 68, 53)
+                },
+                &self.cfg.color,
+            );
+            base.fg(color_for(foreground, &self.cfg.color))
+                .bg(match shade {
+                    Color::Rgb(..) | Color::Indexed(_) => shade,
+                    _ => Color::DarkGray,
+                })
+                .bold()
+        };
+        f.render_widget(Block::default().style(base), area);
+        let status_lines = self
+            .status
+            .lines()
+            .map(|line| {
+                UnicodeWidthStr::width(line)
+                    .max(1)
+                    .div_ceil(area.width as usize)
+            })
+            .sum::<usize>();
         let rows = Layout::vertical([
-            Constraint::Length(2),
-            Constraint::Min(3),
-            Constraint::Length(2),
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Min(4),
+            Constraint::Length(status_lines.clamp(1, 3) as u16),
+            Constraint::Length(1),
         ])
         .split(area);
         let own = self.store.lock().unwrap().identity.name.clone();
-        let color = if self.no_color {
-            Color::Reset
-        } else {
-            match self.theme {
-                crate::Theme::Paper => color_for((63, 96, 83), &self.cfg.color),
-                crate::Theme::Sage => color_for((193, 221, 172), &self.cfg.color),
-                _ => color_for((156, 209, 169), &self.cfg.color),
-            }
-        };
-        let base = if self.no_color {
-            Style::default()
-        } else {
-            match self.theme {
-                crate::Theme::Midnight => Style::default()
-                    .fg(color_for((226, 235, 227), &self.cfg.color))
-                    .bg(color_for((17, 26, 23), &self.cfg.color)),
-                crate::Theme::Sage => Style::default()
-                    .fg(color_for((225, 241, 226), &self.cfg.color))
-                    .bg(color_for((24, 48, 37), &self.cfg.color)),
-                crate::Theme::Paper => Style::default()
-                    .fg(color_for((38, 55, 46), &self.cfg.color))
-                    .bg(color_for((244, 242, 236), &self.cfg.color)),
-                _ => Style::default(),
-            }
-        };
-        f.render_widget(Block::default().style(base), area);
-        f.render_widget(Paragraph::new(format!("NearbyIM Terminal · {}\nTab focus · Ctrl+K commands · / search · ? help · Ctrl+C quit",safe(&own))).style(Style::default().fg(color)),rows[0]);
-        let center = rows[1];
-        let wide = center.width >= 72;
-        let triple = center.width >= 110;
-        let mut parts = vec![];
-        if wide {
-            parts.push(Constraint::Length(27));
-            parts.push(Constraint::Min(30));
-            if triple {
-                parts.push(Constraint::Length(26));
-            }
-        } else {
-            parts.push(Constraint::Percentage(100));
-        }
-        let cols = Layout::horizontal(parts).split(center);
+        f.render_widget(
+            Paragraph::new(if own == "NearbyIM Terminal" {
+                "NearbyIM Terminal".into()
+            } else {
+                self.fmt("header.brand", &[("name", &safe(&own))])
+            })
+            .style(base.bold()),
+            rows[0],
+        );
+        let nav = [
+            ("chats", "1"),
+            ("nearby", "2"),
+            ("transfers", "3"),
+            ("help", "?"),
+        ]
+        .into_iter()
+        .flat_map(|(view, key)| {
+            let label = self.t(&format!("view.{view}"));
+            let text = if self.focus == 2 && !self.palette {
+                format!(" {label} ")
+            } else {
+                format!(" {key} {label} ")
+            };
+            [
+                Span::styled(
+                    text,
+                    if self.view == view {
+                        accent.add_modifier(Modifier::UNDERLINED)
+                    } else {
+                        muted
+                    },
+                ),
+                Span::raw("  "),
+            ]
+        })
+        .collect::<Vec<_>>();
+        f.render_widget(Paragraph::new(Line::from(nav)), rows[1]);
+        let center = rows[2];
         let ids = self.ids();
         let selected = self.current();
-        if self.view == "chats" || self.view == "nearby" {
+        let peer = selected.as_ref().and_then(|id| self.peers.get(id));
+        if matches!(self.view.as_str(), "chats" | "nearby") && ids.is_empty() {
+            let welcome = Text::from(vec![
+                Line::styled(self.t("empty.title"), base.bold()),
+                Line::raw(""),
+                Line::styled(self.t("empty.subtitle"), muted),
+                Line::raw(""),
+                Line::styled(self.t("empty.scan"), accent),
+                Line::styled(self.t("empty.connect"), accent),
+                Line::raw(""),
+                Line::styled(self.t("empty.note"), muted),
+            ]);
+            let editing = self.focus == 2 || (!self.editor.text.is_empty() && !self.palette);
+            let space = Layout::vertical([
+                Constraint::Min(4),
+                Constraint::Length(if editing { 5 } else { 0 }),
+            ])
+            .split(center);
+            let welcome = if editing {
+                Text::from(vec![
+                    Line::styled(self.t("empty.scan"), accent),
+                    Line::styled(self.t("empty.connect"), accent),
+                ])
+            } else {
+                welcome
+            };
+            f.render_widget(
+                Paragraph::new(welcome)
+                    .alignment(Alignment::Center)
+                    .wrap(Wrap { trim: false }),
+                centered(space[0], 64, if editing { 3 } else { 11 }),
+            );
+            if editing {
+                self.draw_composer(f, space[1], base, accent, muted);
+            }
+        } else if matches!(self.view.as_str(), "chats" | "nearby") {
+            let wide = center.width >= 72;
+            let triple = center.width >= 120 && peer.is_some();
+            let mut constraints = vec![];
+            if wide {
+                constraints.push(Constraint::Length((center.width / 4).clamp(22, 28)));
+                constraints.push(Constraint::Min(30));
+                if triple {
+                    constraints.push(Constraint::Length(26));
+                }
+            } else {
+                constraints.push(Constraint::Percentage(100));
+            }
+            let cols = Layout::horizontal(constraints).split(center);
             if wide || self.focus == 0 {
-                let items: Vec<ListItem> = ids
+                let items = ids
                     .iter()
                     .map(|id| {
                         let name = self
@@ -718,31 +934,44 @@ impl App {
                             .or_else(|| self.nearby.get(id).map(|p| p.name.as_str()))
                             .unwrap_or(id);
                         let state = if self.ready.contains(id) {
-                            "connected"
+                            "peer.connected"
                         } else if self.nearby.contains_key(id) {
-                            "seen in last scan"
+                            "peer.seen"
                         } else {
-                            "offline"
+                            "peer.offline"
                         };
-                        ListItem::new(format!("{}\n{state} · {}", safe(name), &id[..8]))
+                        ListItem::new(vec![
+                            Line::styled(
+                                fit(&safe(name), cols[0].width.saturating_sub(4) as usize),
+                                base.bold(),
+                            ),
+                            Line::styled(
+                                format!("{} · {}", id.get(..8).unwrap_or(id), self.t(state)),
+                                muted,
+                            ),
+                        ])
                     })
-                    .collect();
+                    .collect::<Vec<_>>();
                 let mut state = ListState::default().with_selected(
                     selected
                         .as_ref()
                         .and_then(|id| ids.iter().position(|p| p == id)),
                 );
+                let block = panel(
+                    self.ascii,
+                    self.t(if self.focus == 0 {
+                        "label.peers_focused"
+                    } else {
+                        "label.peers"
+                    }),
+                )
+                .borders(Borders::RIGHT)
+                .padding(Padding::new(1, 1, 1, 0))
+                .border_style(muted);
                 f.render_stateful_widget(
                     List::new(items)
-                        .block(panel(
-                            self.ascii,
-                            if self.focus == 0 {
-                                "Peers [focused]"
-                            } else {
-                                "Peers"
-                            },
-                        ))
-                        .highlight_style(Style::default().add_modifier(Modifier::REVERSED))
+                        .block(block)
+                        .highlight_style(selection_style)
                         .highlight_symbol(if self.ascii { "> " } else { "› " }),
                     cols[0],
                     &mut state,
@@ -756,38 +985,60 @@ impl App {
                     Constraint::Length(5),
                 ])
                 .split(chat);
-                let peer = selected.as_ref().and_then(|id| self.peers.get(id));
-                let verified = peer.is_some_and(|p| p.verified);
                 let ready = selected.as_ref().is_some_and(|id| self.ready.contains(id));
                 let status = if ready {
-                    format!(
-                        "LAN · end-to-end encrypted · identity {}",
-                        if verified { "verified" } else { "unverified" }
+                    self.fmt(
+                        "chat.secure",
+                        &[(
+                            "identity",
+                            &self.t(if peer.is_some_and(|p| p.verified) {
+                                "identity.verified"
+                            } else {
+                                "identity.unverified"
+                            }),
+                        )],
                     )
                 } else {
-                    "Offline · Enter on a peer connects".into()
+                    self.t("chat.offline")
                 };
+                let name = peer
+                    .map(|p| safe(&p.name))
+                    .or_else(|| {
+                        selected
+                            .as_ref()
+                            .and_then(|id| self.nearby.get(id))
+                            .map(|p| safe(&p.name))
+                    })
+                    .unwrap_or_else(|| self.t("label.chat"));
                 f.render_widget(
-                    Paragraph::new(status)
-                        .wrap(Wrap { trim: false })
-                        .block(panel(
-                            self.ascii,
-                            peer.map_or("Chat".into(), |p| safe(&p.name)),
-                        )),
+                    Paragraph::new(vec![
+                        Line::styled(
+                            fit(&name, chat.width.saturating_sub(2) as usize),
+                            base.bold(),
+                        ),
+                        Line::styled(status, muted),
+                    ])
+                    .block(Block::default().padding(Padding::horizontal(1))),
                     chatrows[0],
                 );
-                let mut lines: Vec<Line> = vec![];
+                let mut lines = vec![];
                 for m in self.messages.iter().filter(|m| {
                     Some(&m.peer) == selected.as_ref()
                         && (self.search.is_empty() || m.body.contains(&self.search))
                 }) {
-                    let prefix = if m.outgoing { "You" } else { "Peer" };
+                    let who = self.t(if m.outgoing { "chat.you" } else { "chat.peer" });
+                    let timestamp = crate::iso(m.time);
                     lines.push(Line::styled(
-                        format!("{prefix} · {} · {}", crate::iso(m.time), safe(&m.state)),
-                        Style::default().fg(color),
+                        format!(
+                            "{}  {} UTC · {}",
+                            who,
+                            timestamp.get(11..16).unwrap_or(&timestamp),
+                            self.state(&m.state)
+                        ),
+                        muted,
                     ));
                     for line in safe(&m.body).split('\n') {
-                        lines.push(Line::raw(line.to_string()));
+                        lines.push(Line::styled(line.to_string(), base));
                     }
                     lines.push(Line::raw(""));
                 }
@@ -796,31 +1047,29 @@ impl App {
                     .values()
                     .filter(|s| Some(&s.peer) == selected.as_ref())
                 {
-                    lines.push(Line::raw(format!(
-                        "File {}\n{} / {} bytes · {}\nID: {}",
-                        safe(&s.info.name),
-                        s.offset,
-                        s.info.size,
-                        s.state,
-                        s.info.id
+                    lines.push(Line::raw(self.fmt(
+                        "file.summary",
+                        &[
+                            ("name", &safe(&s.info.name)),
+                            ("done", &s.offset.to_string()),
+                            ("total", &s.info.size.to_string()),
+                            ("state", &self.state(&s.state)),
+                            ("id", &s.info.id),
+                        ],
                     )));
-                }
-                for s in self
-                    .files
-                    .values()
-                    .filter(|s| Some(&s.peer) == selected.as_ref())
-                {
                     if let Some(rate) = self.rates.get(&s.info.id)
                         && !["received", "saved", "paused", "canceled", "failed"]
                             .contains(&s.state.as_str())
                     {
-                        lines.push(Line::raw(rate.display(s.offset, s.info.size)));
+                        lines.push(Line::styled(
+                            rate.display(s.offset, s.info.size, &self.cfg.language),
+                            muted,
+                        ));
                     }
+                    lines.push(Line::raw(""));
                 }
                 if lines.is_empty() {
-                    lines.push(Line::raw(
-                        "No messages. Connect to a nearby device to start.",
-                    ));
+                    lines.push(Line::styled(self.t("chat.empty"), muted));
                 }
                 let text = Text::from(lines);
                 let width = chatrows[1].width.saturating_sub(2).max(1) as usize;
@@ -830,102 +1079,175 @@ impl App {
                     .map(|l| l.width().max(1).div_ceil(width))
                     .sum::<usize>();
                 let offset = count
-                    .saturating_sub(chatrows[1].height.saturating_sub(2) as usize)
+                    .saturating_sub(chatrows[1].height as usize)
                     .saturating_sub(self.scroll as usize)
                     .min(u16::MAX as usize) as u16;
                 f.render_widget(
                     Paragraph::new(text)
                         .wrap(Wrap { trim: false })
                         .scroll((offset, 0))
-                        .block(panel(self.ascii, self.t("Messages · saved ≠ read"))),
+                        .block(Block::default().padding(Padding::horizontal(1))),
                     chatrows[1],
                 );
-                let input_width = chatrows[2].width.saturating_sub(2).max(1) as usize;
-                let (composer, cursor_row, cursor_col) = editor_lines(&self.editor, input_width);
-                let input_height = chatrows[2].height.saturating_sub(2).max(1) as usize;
-                let input_scroll = cursor_row.saturating_sub(input_height - 1);
-                f.render_widget(
-                    Paragraph::new(composer)
-                        .scroll((input_scroll.min(u16::MAX as usize) as u16, 0))
-                        .block(panel(
-                            self.ascii,
-                            format!(
-                                "{} · {} / {} UTF-8 bytes{}",
-                                if self.palette {
-                                    "Command"
-                                } else {
-                                    "Compose · Enter send · Alt+Enter newline"
-                                },
-                                self.editor.text.len(),
-                                self.current()
-                                    .and_then(|id| self.text_limits.get(&id).copied())
-                                    .unwrap_or(crate::wire::LEGACY_TEXT),
-                                if self.editor.rejected {
-                                    self.t(" · Edit too large; previous draft kept")
-                                } else if self.editor.text.len()
-                                    > self
-                                        .current()
-                                        .and_then(|id| self.text_limits.get(&id).copied())
-                                        .unwrap_or(crate::wire::LEGACY_TEXT)
-                                {
-                                    self.t(" · Too long; shorten or send a file")
-                                } else {
-                                    String::new()
-                                }
-                            ),
-                        ))
-                        .style(if self.focus == 2 {
-                            Style::default().fg(color)
-                        } else {
-                            Style::default()
-                        }),
-                    chatrows[2],
-                );
-                if self.focus == 2 && self.prompts.is_empty() {
-                    f.set_cursor_position((
-                        chatrows[2].x + 1 + cursor_col.min(input_width - 1) as u16,
-                        chatrows[2].y + 1 + (cursor_row - input_scroll) as u16,
-                    ));
-                }
+                self.draw_composer(f, chatrows[2], base, accent, muted);
                 if triple {
-                    let info=peer.map(|p|format!("Device\n{}\n\nIdentity fingerprint\n{}\n\nTrust\n{}\n\nFile transport\nLAN\n\n:code to compare\n:verify FULL_CODE\n\nFiles\n:file PATH\n:pause ID\n:resume ID\n:cancel ID",p.id,crate::profile::fingerprint(&STANDARD.decode(&p.root).unwrap_or_default()),if p.verified{"manually verified"}else{"not manually verified"})).unwrap_or_else(||"Select or connect a peer".into());
+                    let info = peer
+                        .map(|p| {
+                            self.fmt(
+                                "details.body",
+                                &[
+                                    ("id", &p.id),
+                                    (
+                                        "fingerprint",
+                                        &crate::profile::fingerprint(
+                                            &STANDARD.decode(&p.root).unwrap_or_default(),
+                                        ),
+                                    ),
+                                    (
+                                        "trust",
+                                        &self.t(if p.verified {
+                                            "identity.verified"
+                                        } else {
+                                            "identity.unverified"
+                                        }),
+                                    ),
+                                ],
+                            )
+                        })
+                        .unwrap_or_default();
                     f.render_widget(
                         Paragraph::new(info)
                             .wrap(Wrap { trim: false })
-                            .block(panel(self.ascii, self.t("Details"))),
+                            .style(muted)
+                            .block(
+                                panel(self.ascii, self.t("label.details"))
+                                    .borders(Borders::LEFT)
+                                    .padding(Padding::new(1, 0, 1, 0))
+                                    .border_style(muted),
+                            ),
                         cols[2],
                     );
                 }
             }
         } else {
-            let body=match self.view.as_str(){
-                "transfers"=>self.files.values().map(|s|format!("{} · {} · {}/{} bytes\nID {}\nSaved location {}\n",safe(&s.info.name),s.state,s.offset,s.info.size,s.info.id,s.destination.display())).collect::<Vec<_>>().join("\n"),
-                "security"=>self.peers.values().map(|p|format!("{} · {}\nRemembered={} · manually verified={}\nFingerprint {}\n",safe(&p.name),p.id,p.remembered,p.verified,crate::profile::fingerprint(&STANDARD.decode(&p.root).unwrap_or_default()))).collect::<Vec<_>>().join("\n"),
-                "settings"=>serde_json::to_string_pretty(&self.cfg).unwrap_or_default(),
-                "qr"=>self.current().and_then(|id|self.peers.get(&id)).and_then(|p|{
-                    let own=self.store.lock().unwrap();let payload=crate::verification::payload(&own.identity.public,&STANDARD.decode(&p.root).ok()?).ok()?;
-                    let text=crate::verification::terminal(&payload,self.ascii).ok()?;
-                    if text.lines().next()?.chars().count()>center.width.saturating_sub(2) as usize || text.lines().count()>center.height.saturating_sub(4) as usize{Some(format!("Enlarge the window or use :qr OUTPUT.png\n\n{payload}"))}else{Some(format!("{text}\nCompare both devices' complete identity QR"))}
-                }).unwrap_or_else(||"Select a known authenticated peer".into()),
-                _=>"Quiet Terminal · NearbyIM\n\nCtrl+K command palette (Ctrl+P alias) · Tab focus · Esc back\n? help / search j/k navigation · Enter open/send\nCtrl+J or Alt+Enter newline · a attach outside composer\n\nCommands: chats | scan | transfers | security | settings\nconnect HOST:PORT | disconnect | listen on|off\nfile PATH | files PATH (one per line; confirm before send) | pause ID | resume ID | cancel ID\navatar set PATH | avatar reset | avatar show | avatar export PATH\nreveal ID | export ID PATH\ncode | qr [OUTPUT.png] | verify-qr IMAGE | verify FULL_CODE | unverify | search TEXT\nset KEY VALUE | quit\n\nLAN discovery is bounded and explicit. Default listening is off.\nOne active session; disconnect safely before switching peers.\nFiles are received only with approval unless trusted auto-receive is enabled.\nEncryption, TOFU consent and manual identity verification are separate.\nA saved receipt is not a read receipt. History is not encrypted at rest.".into(),
+            let body = match self.view.as_str() {
+                "transfers" => self
+                    .files
+                    .values()
+                    .map(|s| {
+                        self.fmt(
+                            "transfers.item",
+                            &[
+                                ("name", &safe(&s.info.name)),
+                                ("state", &self.state(&s.state)),
+                                ("done", &s.offset.to_string()),
+                                ("total", &s.info.size.to_string()),
+                                ("id", &s.info.id),
+                                ("path", &safe(&s.destination.display().to_string())),
+                            ],
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+                "security" => self
+                    .peers
+                    .values()
+                    .map(|p| {
+                        self.fmt(
+                            "security.item",
+                            &[
+                                ("name", &safe(&p.name)),
+                                ("id", &p.id),
+                                (
+                                    "remembered",
+                                    &self.t(if p.remembered {
+                                        "bool.true"
+                                    } else {
+                                        "bool.false"
+                                    }),
+                                ),
+                                (
+                                    "verified",
+                                    &self.t(if p.verified {
+                                        "bool.true"
+                                    } else {
+                                        "bool.false"
+                                    }),
+                                ),
+                                (
+                                    "fingerprint",
+                                    &crate::profile::fingerprint(
+                                        &STANDARD.decode(&p.root).unwrap_or_default(),
+                                    ),
+                                ),
+                            ],
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+                "settings" => serde_json::to_string_pretty(&self.cfg).unwrap_or_default(),
+                "status" => self.status.clone(),
+                "qr" => self
+                    .current()
+                    .and_then(|id| self.peers.get(&id))
+                    .and_then(|p| {
+                        let own = self.store.lock().unwrap();
+                        let payload = crate::verification::payload(
+                            &own.identity.public,
+                            &STANDARD.decode(&p.root).ok()?,
+                        )
+                        .ok()?;
+                        let text = crate::verification::terminal(&payload, self.ascii).ok()?;
+                        if text.lines().next()?.width() > center.width.saturating_sub(2) as usize
+                            || text.lines().count() > center.height.saturating_sub(4) as usize
+                        {
+                            Some(self.fmt("qr.small", &[("payload", &payload)]))
+                        } else {
+                            Some(self.fmt("qr.compare", &[("qr", &text)]))
+                        }
+                    })
+                    .unwrap_or_else(|| self.t("qr.none")),
+                _ => self.fmt("help.body", &[("commands", &self.shortcuts())]),
             };
             f.render_widget(
                 Paragraph::new(safe(&body))
                     .style(if self.view == "qr" {
                         Style::default().fg(Color::Black).bg(Color::White)
                     } else {
-                        Style::default()
+                        base
                     })
                     .wrap(Wrap { trim: false })
                     .scroll((self.scroll, 0))
-                    .block(panel(self.ascii, self.view.clone())),
+                    .block(
+                        panel(self.ascii, self.t(&format!("view.{}", self.view)))
+                            .borders(Borders::TOP)
+                            .border_style(muted)
+                            .padding(Padding::horizontal(1)),
+                    ),
                 center,
             );
         }
         f.render_widget(
-            Paragraph::new(safe(&self.status)).wrap(Wrap { trim: false }),
-            rows[2],
+            Paragraph::new(safe(&self.status))
+                .style(muted)
+                .wrap(Wrap { trim: false }),
+            rows[3],
         );
+        let hint = if status_lines > 3 {
+            self.fmt("footer.status", &[("commands", &self.shortcuts())])
+        } else if self.focus == 2 && !self.palette && !ids.is_empty() {
+            self.fmt("footer.compose", &[("commands", &self.shortcuts())])
+        } else {
+            self.fmt(
+                if area.width < 100 {
+                    "footer.short"
+                } else {
+                    "footer.keys"
+                },
+                &[("commands", &self.shortcuts())],
+            )
+        };
+        f.render_widget(Paragraph::new(hint).style(muted), rows[4]);
         if self.palette {
             let p = centered(area, 80, 8);
             f.render_widget(Clear, p);
@@ -935,7 +1257,8 @@ impl App {
             f.render_widget(
                 Paragraph::new(text)
                     .scroll((scroll as u16, 0))
-                    .block(panel(self.ascii, "Command · Enter run · Esc cancel")),
+                    .style(base)
+                    .block(panel(self.ascii, self.t("palette.title")).border_style(accent)),
                 p,
             );
             if self.prompts.is_empty() && self.file_prompts.is_empty() {
@@ -946,13 +1269,18 @@ impl App {
             }
         }
         if self.quit_confirm {
-            let p = centered(area, 70, 7);
-            f.render_widget(Clear, p);
-            f.render_widget(Paragraph::new("Active transfers will pause and checkpoint before exit. No background transfer continues.\n\ny Exit and pause · n Continue").wrap(Wrap{trim:false}).block(panel(self.ascii,"Exit?")),p);
+            draw_dialog(
+                f,
+                centered(area, 70, 9),
+                self.t("label.exit"),
+                self.t("exit.body"),
+                self.t("exit.actions"),
+                self.ascii,
+                base,
+                accent,
+            );
         }
         if let Some(paths) = &self.attach {
-            let p = centered(area, 75, 10);
-            f.render_widget(Clear, p);
             let size = paths
                 .iter()
                 .map(|path| std::fs::metadata(path).map_or(0, |m| m.len()))
@@ -963,27 +1291,49 @@ impl App {
                 .map(|p| p.display().to_string())
                 .collect::<Vec<_>>()
                 .join("\n");
-            f.render_widget(Paragraph::new(format!("{}\n{} bytes · recipient {}\nNo overwrite at receiver. Encrypted NIM4.\n\ny Send · n Cancel",format_args!("{} files\n{}", paths.len(), safe(&names)),size,self.current().unwrap_or_default())).wrap(Wrap{trim:false}).block(panel(self.ascii,"Confirm attachment")),p);
+            let body = self.fmt(
+                "attach.body",
+                &[
+                    ("count", &paths.len().to_string()),
+                    ("names", &safe(&names)),
+                    ("size", &size.to_string()),
+                    ("peer", &self.current().unwrap_or_default()),
+                ],
+            );
+            draw_dialog(
+                f,
+                centered(area, 75, 13),
+                self.t("label.attach"),
+                body,
+                self.t("attach.actions"),
+                self.ascii,
+                base,
+                accent,
+            );
         }
         if let Some(pending) = self.file_prompts.front() {
-            let p = centered(area, 75, 10);
-            f.render_widget(Clear, p);
-            f.render_widget(Paragraph::new(format!("{}\n{} bytes · sender {}\nSave to {}\nNo overwrite; file is never executed automatically.\n\ny Accept · n Reject",safe(&pending.name),pending.size,pending.peer,safe(&self.cfg.receive_dir.display().to_string()))).wrap(Wrap{trim:false}).block(panel(self.ascii,"Receive file?")),p);
+            let body = self.fmt(
+                "receive.body",
+                &[
+                    ("name", &safe(&pending.name)),
+                    ("size", &pending.size.to_string()),
+                    ("peer", &pending.peer),
+                    ("path", &safe(&self.cfg.receive_dir.display().to_string())),
+                ],
+            );
+            draw_dialog(
+                f,
+                centered(area, 75, 13),
+                self.t("label.receive"),
+                body,
+                self.t("receive.actions"),
+                self.ascii,
+                base,
+                accent,
+            );
         }
-
         if let Some(prompt) = self.prompts.front() {
-            if area.width < 40 || area.height < 16 {
-                f.render_widget(Clear, area);
-                f.render_widget(
-                    Paragraph::new(
-                        "Enlarge to 40 × 16 to review connection consent. Ctrl+C quits.",
-                    ),
-                    area,
-                );
-                return;
-            }
             let popup = centered(area, 80, 16);
-            f.render_widget(Clear, popup);
             let code = prompt
                 .code
                 .as_bytes()
@@ -991,9 +1341,87 @@ impl App {
                 .map(|b| std::str::from_utf8(b).unwrap())
                 .collect::<Vec<_>>()
                 .join(" ");
-            f.render_widget(Paragraph::new(format!("{}\n{}\nEncrypted; identity unverified.\nCompare this code out of band:\n\n{}\n\n1 Accept once  2 Remember  3 Reject\nConsent expires after 50 seconds.",safe(&prompt.peer.name),prompt.peer.id,code)).wrap(Wrap{trim:false}).block(panel(self.ascii,"Connection consent")),popup);
+            let body = self.fmt(
+                "consent.body",
+                &[
+                    (
+                        "name",
+                        &fit(
+                            &safe(&prompt.peer.name),
+                            popup.width.saturating_sub(2) as usize,
+                        ),
+                    ),
+                    ("id", &prompt.peer.id),
+                    ("code", &code),
+                    (
+                        "trust",
+                        &self.t(if prompt.peer.verified {
+                            "identity.verified"
+                        } else {
+                            "identity.unverified"
+                        }),
+                    ),
+                ],
+            );
+            draw_dialog(
+                f,
+                popup,
+                self.t("label.consent"),
+                body,
+                self.t("consent.actions"),
+                self.ascii,
+                base,
+                accent,
+            );
         }
     }
+}
+// Truncate display-only names on complete grapheme boundaries, never message text.
+fn fit(value: &str, width: usize) -> String {
+    if value.width() <= width {
+        return value.into();
+    }
+    let mut result = String::new();
+    let mut used = 0;
+    for grapheme in value.graphemes(true) {
+        let w = grapheme.width();
+        if used + w > width.saturating_sub(1) {
+            break;
+        }
+        result.push_str(grapheme);
+        used += w;
+    }
+    if width > 0 {
+        result.push('…');
+    }
+    result
+}
+#[allow(clippy::too_many_arguments)]
+fn draw_dialog(
+    f: &mut ratatui::Frame,
+    area: Rect,
+    title: String,
+    body: String,
+    actions: String,
+    ascii: bool,
+    style: Style,
+    accent: Style,
+) {
+    f.render_widget(Clear, area);
+    let block = panel(ascii, title).style(style).border_style(accent);
+    let inner = block.inner(area);
+    f.render_widget(block, area);
+    let rows = Layout::vertical([Constraint::Min(1), Constraint::Length(2)]).split(inner);
+    f.render_widget(
+        Paragraph::new(body).wrap(Wrap { trim: false }).style(style),
+        rows[0],
+    );
+    f.render_widget(
+        Paragraph::new(actions)
+            .wrap(Wrap { trim: false })
+            .style(accent),
+        rows[1],
+    );
 }
 fn color_for(rgb: (u8, u8, u8), mode: &str) -> Color {
     let truecolor = mode == "truecolor"
@@ -1130,14 +1558,25 @@ pub fn run(
         editor: Editor::default(),
         palette: false,
         chat_draft: None,
-        status: if runtime.port == 0 {
-            "LAN listening disabled · Ctrl+K: scan / connect HOST:PORT / listen on".into()
-        } else {
-            format!(
-                "Listening on port {} · Ctrl+K: scan / connect HOST:PORT",
-                runtime.port
-            )
-        },
+        status: crate::i18n::format(
+            &cfg.language,
+            if runtime.port == 0 {
+                "status.listener_off"
+            } else {
+                "status.listener_on"
+            },
+            &[
+                (
+                    "commands",
+                    if cfg.command_key == "p" {
+                        "Ctrl+P"
+                    } else {
+                        "Ctrl+K"
+                    },
+                ),
+                ("port", &runtime.port.to_string()),
+            ],
+        ),
         search: String::new(),
         messages,
         history_before: None,
@@ -1232,14 +1671,13 @@ pub fn run(
                 app.nearby.clear();
                 discovery = Some(Discovery::start(&app.store.lock().unwrap().identity, 0)?);
                 scan_deadline = Some(Instant::now() + Duration::from_secs(8));
-                app.status="Scanning LAN for 8 seconds; Esc cancels. Use connect HOST:PORT if multicast is blocked.".into();
+                app.status = app.t("status.scan");
                 dirty = true;
             }
             if scan_deadline.is_some_and(|d| Instant::now() >= d) {
                 discovery.take();
                 scan_deadline = None;
-                app.status =
-                    "Scan complete. Results are discovery hints, not online/identity proof.".into();
+                app.status = app.t("status.scan_done");
                 dirty = true;
             }
             app.file_prompts
@@ -1284,13 +1722,7 @@ pub fn run(
             }
             if dirty {
                 let width = terminal.size()?.width;
-                app.last_message_width = if width >= 110 {
-                    width.saturating_sub(55)
-                } else if width >= 72 {
-                    width.saturating_sub(29)
-                } else {
-                    width.saturating_sub(2)
-                };
+                app.last_message_width = app.message_width(width);
                 terminal.draw(|f| app.draw(f))?;
                 dirty = false;
             }
@@ -1342,7 +1774,7 @@ pub fn run(
                     }
                     if let Some(prompt) = app.prompts.front() {
                         let size = terminal.size()?;
-                        if size.width < 40 || size.height < 16 {
+                        if size.width < 45 || size.height < 16 {
                             continue;
                         }
                         let c = match k.code {
@@ -1397,13 +1829,25 @@ pub fn run(
                             return Ok(false);
                         }
                         match k.code {
-                            KeyCode::Tab => app.focus = (app.focus + 1) % 3,
-                            KeyCode::BackTab => app.focus = (app.focus + 2) % 3,
+                            KeyCode::Tab => {
+                                app.focus = if app.ids().is_empty() {
+                                    if app.focus == 0 { 2 } else { 0 }
+                                } else {
+                                    (app.focus + 1) % 3
+                                }
+                            }
+                            KeyCode::BackTab => {
+                                app.focus = if app.ids().is_empty() {
+                                    if app.focus == 0 { 2 } else { 0 }
+                                } else {
+                                    (app.focus + 2) % 3
+                                }
+                            }
                             KeyCode::Esc => {
                                 if scan_deadline.is_some() {
                                     discovery.take();
                                     scan_deadline = None;
-                                    app.status = "Scan canceled".into();
+                                    app.status = app.t("status.scan_canceled");
                                 }
                                 if app.palette {
                                     app.palette = false;
@@ -1411,6 +1855,33 @@ pub fn run(
                                 } else {
                                     app.focus = 0;
                                     app.view = "chats".into();
+                                }
+                            }
+                            KeyCode::Char('1' | '2' | '3') if app.focus != 2 && !app.palette => {
+                                let action = match k.code {
+                                    KeyCode::Char('1') => "chats",
+                                    KeyCode::Char('2') => "scan",
+                                    _ => "transfers",
+                                };
+                                app.execute(&runtime, action)?;
+                            }
+                            KeyCode::Char('s' | 'c')
+                                if app.ids().is_empty()
+                                    && app.focus != 2
+                                    && !app.palette
+                                    && matches!(app.view.as_str(), "chats" | "nearby") =>
+                            {
+                                if k.code == KeyCode::Char('s') {
+                                    app.execute(&runtime, "scan")?;
+                                } else {
+                                    app.chat_draft = Some(std::mem::take(&mut app.editor));
+                                    app.palette = true;
+                                    app.editor = Editor {
+                                        rejected: false,
+                                        text: "connect ".into(),
+                                        cursor: 8,
+                                    };
+                                    app.focus = 2;
                                 }
                             }
                             KeyCode::Char('?') if app.focus != 2 => {
@@ -1458,8 +1929,8 @@ pub fn run(
                                     app.view = "chats".into();
                                 }
                             }
-                            KeyCode::PageUp => app.scroll = app.scroll.saturating_add(10),
-                            KeyCode::PageDown => app.scroll = app.scroll.saturating_sub(10),
+                            KeyCode::PageUp => app.page(true),
+                            KeyCode::PageDown => app.page(false),
                             KeyCode::Enter if k.modifiers.contains(KeyModifiers::ALT) => {
                                 app.editor.insert("\n")
                             }
@@ -1555,8 +2026,7 @@ mod tests {
 #[cfg(test)]
 mod render_tests {
     use super::*;
-    #[test]
-    fn renders_narrow_wide_cjk_and_consent() {
+    fn fixture() -> (tempfile::TempDir, App) {
         let d = tempfile::tempdir().unwrap();
         let store = Arc::new(Mutex::new(Profile::open(d.path().join("p"), None).unwrap()));
         let peer = Peer {
@@ -1570,7 +2040,7 @@ mod render_tests {
         };
         let mut peers = BTreeMap::new();
         peers.insert(peer.id.clone(), peer.clone());
-        let mut app = App {
+        let app = App {
             store,
             peers,
             nearby: BTreeMap::new(),
@@ -1606,7 +2076,10 @@ mod render_tests {
             no_color: true,
             ascii: true,
             theme: crate::Theme::System,
-            cfg: Config::default(),
+            cfg: Config {
+                language: "en".into(),
+                ..Config::default()
+            },
             view: "chats".into(),
             scan_request: false,
             listen_request: false,
@@ -1614,6 +2087,209 @@ mod render_tests {
             quit_confirm: false,
             attach: None,
         };
+        (d, app)
+    }
+    fn screen(app: &App, width: u16, height: u16) -> String {
+        let mut terminal =
+            Terminal::new(ratatui::backend::TestBackend::new(width, height)).unwrap();
+        terminal.draw(|f| app.draw(f)).unwrap();
+        let buffer = terminal.backend().buffer();
+        let mut result = String::new();
+        for y in 0..height {
+            let mut x = 0;
+            while x < width {
+                let symbol = buffer[(x, y)].symbol();
+                result.push_str(symbol);
+                x += UnicodeWidthStr::width(symbol).max(1) as u16;
+            }
+            result.push('\n');
+        }
+        result
+    }
+    #[test]
+    fn empty_screen_explains_how_to_connect_without_empty_details() {
+        let (_d, mut app) = fixture();
+        app.cfg.language = "zh-CN".into();
+        app.peers.clear();
+        app.selection = None;
+        app.messages.clear();
+        app.focus = 0;
+        for width in [45, 80, 120] {
+            let text = screen(&app, width, 24);
+            assert!(text.contains("搜索附近设备"), "{text}");
+            assert!(text.contains("connect HOST:PORT"), "{text}");
+            assert!(
+                !text.contains("设备详情"),
+                "Empty state must not reserve a details column: {text}"
+            );
+        }
+    }
+    #[test]
+    fn compact_consent_keeps_all_choices_and_full_code_visible() {
+        let (_d, mut app) = fixture();
+        app.cfg.language = "zh-CN".into();
+        let (reply, _) = std::sync::mpsc::sync_channel(1);
+        let mut peer = app.peers.values().next().unwrap().clone();
+        peer.name = "中文👩‍💻".repeat(8);
+        app.prompts.push_back(Prompt {
+            peer,
+            code: "abcd1234".repeat(8),
+            reply,
+            created: Instant::now(),
+        });
+        for (width, height) in [(45, 16), (45, 24), (80, 24), (120, 24)] {
+            let text = screen(&app, width, height);
+            for label in ["1 仅本次", "2 记住", "3 拒绝"] {
+                assert!(text.contains(label), "{text}");
+            }
+            assert_eq!(
+                text.matches("abcd1234").count(),
+                8,
+                "The complete code must remain visible: {text}"
+            );
+        }
+    }
+    #[test]
+    fn full_status_view_preserves_the_original_error_and_draft() {
+        let (_d, mut app) = fixture();
+        let runtime = Runtime::client(app.store.clone(), app.cfg.receive_dir.clone());
+        app.status = "Network failure details ".repeat(100);
+        let original = app.status.clone();
+        let draft = app.editor.text.clone();
+        app.execute(&runtime, "status").unwrap();
+        assert_eq!(app.status, original);
+        assert_eq!(app.editor.text, draft);
+        assert_eq!(app.view, "status");
+    }
+    #[test]
+    fn pasted_draft_remains_visible_without_a_selected_peer() {
+        let (_d, mut app) = fixture();
+        app.peers.clear();
+        app.selection = None;
+        app.messages.clear();
+        app.editor.text = "Unsaved draft".into();
+        app.focus = 2;
+        assert!(screen(&app, 45, 24).contains("Unsaved draft"));
+        assert_eq!(fit("👩‍💻中文", 3), "👩‍💻…");
+    }
+    #[test]
+    fn selected_row_keeps_one_background_across_primary_and_secondary_text() {
+        let (_d, mut app) = fixture();
+        app.no_color = false;
+        app.ascii = false;
+        app.theme = crate::Theme::Midnight;
+        app.cfg.color = "truecolor".into();
+        let mut terminal = Terminal::new(ratatui::backend::TestBackend::new(80, 24)).unwrap();
+        terminal.draw(|f| app.draw(f)).unwrap();
+        let buffer = terminal.backend().buffer();
+        let (x, y) = (0..24)
+            .flat_map(|y| (0..80).map(move |x| (x, y)))
+            .find(|p| buffer[*p].symbol() == "›")
+            .unwrap();
+        let effective = |cell: &ratatui::buffer::Cell| {
+            if cell.modifier.contains(Modifier::REVERSED) {
+                cell.fg
+            } else {
+                cell.bg
+            }
+        };
+        let selected = effective(&buffer[(x, y)]);
+        for row in [y, y + 1] {
+            let mut col = x;
+            // Continuation cells of a wide glyph are not painted by the backend.
+            while col < x + 15 {
+                assert_eq!(effective(&buffer[(col, row)]), selected);
+                col += buffer[(col, row)].symbol().width().max(1) as u16;
+            }
+        }
+        assert_ne!(selected, effective(&buffer[(x, y + 3)]));
+    }
+    #[test]
+    fn help_is_localized_and_language_switch_keeps_draft() {
+        let (_d, mut app) = fixture();
+        let runtime = Runtime::client(app.store.clone(), app.cfg.receive_dir.clone());
+        let draft = app.editor.text.clone();
+        app.execute(&runtime, "help").unwrap();
+        assert!(screen(&app, 80, 30).contains("CHAT & DEVICES"));
+        let first = screen(&app, 80, 24);
+        app.page(false);
+        assert_ne!(screen(&app, 80, 24), first);
+        assert!(!screen(&app, 80, 24).contains("CHAT & DEVICES"));
+        app.page(true);
+        assert_eq!(screen(&app, 80, 24), first);
+        app.execute(&runtime, "set language zh-CN").unwrap();
+        for width in [45, 80, 120] {
+            let text = screen(&app, width, 30);
+            assert!(text.contains("聊天与设备"), "{text}");
+            assert!(!text.contains("CHAT & DEVICES"), "{text}");
+        }
+        assert_eq!(app.editor.text, draft);
+        assert_eq!(
+            Config::load(&app.store.lock().unwrap()).unwrap().language,
+            "zh-CN"
+        );
+    }
+    #[test]
+    #[ignore = "Export actual Ratatui cells only when a preview directory is requested"]
+    fn export_preview() {
+        let directory = std::path::PathBuf::from(
+            std::env::var("NEARBYIM_UI_PREVIEW_DIR").expect("preview directory"),
+        );
+        std::fs::create_dir_all(&directory).unwrap();
+        let (_d, mut app) = fixture();
+        app.cfg.language = "zh-CN".into();
+        app.cfg.color = "truecolor".into();
+        app.no_color = false;
+        app.ascii = false;
+        app.theme = crate::Theme::Midnight;
+        app.store.lock().unwrap().identity.name = "我的电脑".into();
+        let peer = app.peers.values_mut().next().unwrap();
+        peer.name = "小林的手机".into();
+        app.ready.insert(peer.id.clone());
+        app.messages.truncate(1);
+        app.messages[0].time = 1_700_000_000_000;
+        app.messages[0].body = "这份文件已经收到了，谢谢！\n稍后我把整理后的版本发给你。".into();
+        app.editor.text = "好的，收到后我再确认一下。".into();
+        app.editor.cursor = app.editor.text.len();
+        app.status = app.t("status.ready");
+        for (name, width, height) in [
+            ("chat-80", 80, 28),
+            ("chat-120", 120, 30),
+            ("chat-45", 45, 24),
+            ("empty-80", 80, 28),
+            ("help-80", 80, 30),
+        ] {
+            let mut terminal =
+                Terminal::new(ratatui::backend::TestBackend::new(width, height)).unwrap();
+            if name.starts_with("empty") {
+                app.peers.clear();
+                app.selection = None;
+                app.messages.clear();
+                app.focus = 0;
+                app.editor = Editor::default();
+                app.status = app.fmt("status.listener_off", &[("commands", &app.shortcuts())]);
+            }
+            if name.starts_with("help") {
+                app.view = "help".into();
+                app.focus = 1;
+                app.status = app.t("help.navigation");
+            }
+            terminal.draw(|f| app.draw(f)).unwrap();
+            let buffer = terminal.backend().buffer();
+            let cells=buffer.content.iter().map(|c|serde_json::json!({"text":c.symbol(),"width":c.symbol().width(),"fg":format!("{:?}",c.fg),"bg":format!("{:?}",c.bg),"modifiers":format!("{:?}",c.modifier)})).collect::<Vec<_>>();
+            std::fs::write(
+                directory.join(format!("{name}.json")),
+                serde_json::to_vec(
+                    &serde_json::json!({"width":width,"height":height,"cells":cells}),
+                )
+                .unwrap(),
+            )
+            .unwrap();
+        }
+    }
+    #[test]
+    fn renders_narrow_wide_cjk_and_consent() {
+        let (_d, mut app) = fixture();
         for (w, h) in [(40, 16), (80, 24), (120, 30), (160, 40)] {
             let backend = ratatui::backend::TestBackend::new(w, h);
             let mut t = Terminal::new(backend).unwrap();
@@ -1629,6 +2305,7 @@ mod render_tests {
             assert!(!text.contains('\u{1b}'));
         }
         let (reply, _) = std::sync::mpsc::sync_channel(1);
+        let peer = app.peers.values().next().unwrap().clone();
         app.prompts.push_back(Prompt {
             peer,
             code: "a".repeat(64),

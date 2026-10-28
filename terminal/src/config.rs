@@ -29,7 +29,7 @@ impl Default for Config {
             auto_receive_trusted: false,
             listen: "0.0.0.0:47832".into(),
             theme: "midnight".into(),
-            language: "en".into(),
+            language: crate::i18n::system_language().into(),
             color: "auto".into(),
             command_key: "k".into(),
         }
