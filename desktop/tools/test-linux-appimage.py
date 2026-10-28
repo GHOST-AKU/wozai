@@ -44,13 +44,20 @@ def locale_matrix(artifact, fixture, x11):
         home=fixture/f'locale-{index}'
         environment['XDG_DATA_HOME']=str(home)
         profile=home/'wozai';profile.mkdir(parents=True,mode=0o700)
-        (profile/'settings.properties').write_text('language='+selection+'\n',encoding='ascii')
         def matching_window():
             for window,title in smoke.windows():
                 if title in ('我在','NearbyIM'):
                     metadata=subprocess.check_output(['xprop','-id',hex(window),'WM_CLASS'],text=True)
                     if 'dev-ghost-wozai-Main' in metadata:return window
-        for attempt in range(2 if selection!='system' else 1):
+        # Bootstrap identity through the real application before creating preferences.
+        # Existing files without an identity must continue to trigger the safety guard.
+        phases=[('system',expected)] if selection=='system' else [('system','zh-Hans' if inputs['LANG'].startswith('zh') else 'en'),(selection,expected),(selection,expected)]
+        identity=None
+        for attempt,(saved_selection,effective) in enumerate(phases):
+            if saved_selection!='system' and attempt==1:
+                settings=profile/'settings.properties'
+                settings.write_text('language='+saved_selection+'\n',encoding='ascii')
+                settings.chmod(0o600)
             report=profile/'text-rendering.txt';report.unlink(missing_ok=True)
             with (BUILD/f'linux-appimage-i18n-{index}-{attempt}.txt').open('w') as log:
                 process=subprocess.Popen([artifact,'--text-diagnostics'],env=environment,cwd=fixture,stdout=log,stderr=subprocess.STDOUT)
@@ -59,10 +66,10 @@ def locale_matrix(artifact, fixture, x11):
                     active=smoke.await_condition(matching_window,'locale window missing',timeout=30)
                     smoke.await_condition(lambda:report.exists() and 'language.effective=' in report.read_text(), 'locale diagnostic missing',timeout=30)
                     actual=report.read_text()
-                    assert 'language.effective='+expected+'\n' in actual,(inputs,selection,actual)
-                    assert 'language.selection='+selection+'\n' in actual
+                    assert 'language.effective='+effective+'\n' in actual,(inputs,saved_selection,actual)
+                    assert 'language.selection='+saved_selection+'\n' in actual
                     before=(profile/'identity.properties').read_bytes()
-                    if attempt:assert before==identity,'restart replaced identity'
+                    if identity is not None:assert before==identity,'restart replaced identity'
                     identity=before
                     if index in (0,1,9):smoke.screenshot(active,BUILD/f'linux-appimage-i18n-{expected}.png')
                     x11.close_window(active);assert process.wait(timeout=20)==0;active=None
@@ -118,7 +125,9 @@ def main():
             environment["APPIMAGE_EXTRACT_AND_RUN"] = "1"
             environment["XDG_DATA_HOME"] = str(fixture / "user-data")
             environment["JAVA_TOOL_OPTIONS"] = '-Duser.home="' + str(fixture / "user-home") + '"'
-            environment["LC_ALL"] = 'zh_CN.UTF-8'
+            environment.pop('LC_ALL',None)
+            environment['LC_CTYPE']='C.UTF-8'
+            environment['LC_MESSAGES']='zh_CN.UTF-8'
             profile = Path(environment["XDG_DATA_HOME"]) / "wozai"
             with (BUILD / "linux-appimage-launch.txt").open("w") as log:
                 process = subprocess.Popen([artifact, "--text-diagnostics"], cwd=fixture, env=environment, stdout=log, stderr=subprocess.STDOUT)

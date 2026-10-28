@@ -105,6 +105,7 @@ def launch_desktop(entry, environment):
     gio.g_desktop_app_info_new_from_filename.restype = c.c_void_p
     gio.g_app_launch_context_new.restype = c.c_void_p
     gio.g_app_launch_context_setenv.argtypes = [c.c_void_p, c.c_char_p, c.c_char_p]
+    gio.g_app_launch_context_unsetenv.argtypes = [c.c_void_p, c.c_char_p]
     gio.g_app_info_launch.argtypes = [c.c_void_p, c.c_void_p, c.c_void_p, c.POINTER(c.c_void_p)]
     app = gio.g_desktop_app_info_new_from_filename(os.fsencode(entry))
     if not app:
@@ -113,9 +114,11 @@ def launch_desktop(entry, environment):
     gobject = c.CDLL(ctypes.util.find_library('gobject-2.0'))
     gobject.g_object_unref.argtypes = [c.c_void_p]
     try:
-        for key in ('JAVA_TOOL_OPTIONS', 'LC_ALL', 'LC_MESSAGES', 'LANG', 'XDG_DATA_HOME', 'DISPLAY', 'APPIMAGE_EXTRACT_AND_RUN'):
+        for key in ('JAVA_TOOL_OPTIONS', 'LC_ALL', 'LC_CTYPE', 'LC_MESSAGES', 'LANG', 'XDG_DATA_HOME', 'DISPLAY', 'APPIMAGE_EXTRACT_AND_RUN'):
             if key in environment:
                 gio.g_app_launch_context_setenv(context, key.encode(), environment[key].encode())
+            else:
+                gio.g_app_launch_context_unsetenv(context, key.encode())
         error = c.c_void_p()
         if not gio.g_app_info_launch(app, None, context, c.byref(error)):
             raise AssertionError('GIO could not execute the desktop entry')
@@ -146,7 +149,9 @@ def main():
                 env = os.environ.copy()
                 env['XDG_DATA_HOME'] = str(fixture / 'user-data')
                 env['JAVA_TOOL_OPTIONS'] = '-Duser.home="' + str(fixture / 'user-home') + '"'
-                env['LC_ALL'] = 'zh_CN.UTF-8'
+                env.pop('LC_ALL', None)
+                env['LC_CTYPE'] = 'C.UTF-8'
+                env['LC_MESSAGES'] = 'zh_CN.UTF-8'
                 profile = Path(env['XDG_DATA_HOME']) / 'wozai'
                 binary = package / 'bin/NearbyIM'
                 launch_log = BUILD / 'linux-package-launch.txt'
