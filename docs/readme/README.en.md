@@ -12,7 +12,7 @@ Wozai (NearbyIM) is an open-source chat application for nearby communication. St
 > Latest prerelease: **0.3.3-preview.1** · macOS / iPhone / iPad / Windows and Linux Terminal
 > [Download preview](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.3-preview.1) · [Installation and signing](../releases/native-preview-install.md)
 
-**New builds use `0.3.3-preview.2`** across Android, Windows/Linux GUI, Apple and Terminal. See the [0.3.3 release plan](../releases/0.3.3.md) and [scope/acceptance #55](https://github.com/GHOST-AKU/wozai/issues/55). This is the development source version; new packages are not published yet. Download links above still refer to existing releases.
+**The current development version is `0.3.3-preview.3` / build14** across Android, Windows/Linux GUI, Apple and Terminal. See the [0.3.3 release plan](../releases/0.3.3.md) and [scope/acceptance #55](https://github.com/GHOST-AKU/wozai/issues/55). This is the development source version; new packages are not published yet. Download links above still refer to existing releases.
 
 **0.3.2 is now a stable release**, with matching protocol and UI updates for Android, Windows and Linux, including Linux AppImage / deb / tar.gz packages. It adds Noise end-to-end encryption, bounded streaming files up to 10 GiB with durable resume, automatic file routing, an Android receiving folder and adaptive tablet/foldable layouts. See the [0.3.2 release notes](../releases/0.3.2.md) for changes and acceptance scope. P2P reliability, device throughput/distance recovery, long-term memory and formal performance remain tracked in [#23](https://github.com/GHOST-AKU/wozai/issues/23) and [#9](https://github.com/GHOST-AKU/wozai/issues/9).
 
@@ -38,7 +38,7 @@ NearbyIM currently focuses on **one-to-one communication between directly reacha
 
 The following primarily describes the stable Android/Windows/Linux clients; Apple and Terminal preview capabilities are listed under platform status.
 
-The `0.3.3-preview.3` development branch adds [text read receipts](../read-receipts.md), enabled by default with an opt-out. Both peers must enable them, and the message must actually be displayed in the foreground conversation. This change is not merged or published and is not implied to be present in the downloads above.
+The `0.3.3-preview.3` development source adds [text read receipts](../read-receipts.md), enabled by default with an opt-out. Both peers must enable them, and the message must actually be displayed in the foreground conversation. This is implemented in source but not published and is not implied to be present in the downloads above.
 
 - **Direct LAN connections**: automatic discovery via NSD / mDNS, with direct IP + port connections also supported
 - **Classic Bluetooth communication**: secure RFCOMM with device discovery, pairing, and reconnection

@@ -44,12 +44,31 @@ The protocol above specifies the generation-bound, legacy-safe PONG tokens and b
 
 ## 验证来源 / Verification sources
 
-- 客户端b8fa2f5：[构建、原签名、API26手机1126/API34深色平板1127项原生检查、Windows及Java/Swift互通](https://github.com/GHOST-AKU/wozai/actions/runs/40837394492)。Windows Desktop73、ReadReceiptStore23、MessagePane16与实际窗口焦点/隐藏/屏外、六态明暗/窄宽检查通过。原签名APK为1,465,793bytes，SHA256 `b69c6621a1c1c14a0ba7ca1bd2b1f4d435a08a025e132da9b41df543ba0ec26d`。随后仅测试/文档/CI改动，未重新打包。
+- 客户端b8fa2f5：[构建、原签名、API26手机1126/API34深色平板1127项原生检查、Windows及Java/Swift互通](https://github.com/GHOST-AKU/wozai/actions/runs/40837394492)。Windows Desktop73、ReadReceiptStore23、MessagePane16与实际窗口焦点/隐藏/屏外、六态明暗/窄宽检查通过。原签名APK为1,465,793bytes，SHA256 `b69c6621a1c1c14a0ba7ca1bd2b1f4d435a08a025e132da9b41df543ba0ec26d`。该 APK 不含后续 #66CCFF 外观、诊断 ID 摘要与预合入审查修正；后续整合验证另列，不将其冒充最新 APK。
 - Apple核心与macOS/iOS编译：[3693578](https://github.com/GHOST-AKU/wozai/actions/runs/40836512497)；b8fa2f5强制比较相同原生源码后复用此结果。
 - Apple实际可见性：[e182600的iPad通过](https://github.com/GHOST-AKU/wozai/actions/runs/40838101747)；[fbbbbe8的macOS通过](https://github.com/GHOST-AKU/wozai/actions/runs/40838728335)。macOS首轮失败为测试控制监听晚于文字交换的竞态；阻塞握手的独立socket红/绿回归证实提前绑定可修复，不修改客户端、已读断言或超时。保留失败和成功运行，iPad不重复跑。
 - e182600添加的Linux真实双DesktopClient32项检查，覆盖read历史落盘失败不确认、原始记录恢复、离线具体ID与重连补发、迟到ACK单调性。本地证据保留于`/workspace/artifacts/read-receipts/`；Windows23项是较早测试范围，不能冒称Windows新跑32项。
 
-These links identify exact sources: b8fa2f5 is the Android/Windows client and two-role Java/Swift interoperability source; identical Apple core/device-build inputs reuse3693578. Native iPad passes at e182600; macOS passes at fbbbbe8 after a test-driver listener race was reproduced and fixed without changing clients, assertions or timeouts. The expanded32-check disk-failure/offline/reconnect suite was run locally on Linux; Windows ran the earlier23-check storage scope. Subsequent documentation/test wiring does not represent a fresh APK build, merged-main validation, physical-device acceptance, or release publication.
+These links identify exact sources: b8fa2f5 is the Android/Windows client and two-role Java/Swift interoperability source; identical Apple core/device-build inputs reuse3693578. Native iPad passes at e182600; macOS passes at fbbbbe8 after a test-driver listener race was reproduced and fixed without changing clients, assertions or timeouts. The expanded32-check disk-failure/offline/reconnect suite was run locally on Linux; Windows ran the earlier23-check storage scope. This APK predates the later cyan appearance, diagnostic-ID digest and premerge observation/batching fixes. Later integration checks are recorded separately; older evidence is not a new APK, merged-main validation, physical-device acceptance or release publication.
+
+### 本轮整合检查 / Integration verification
+
+最终 Java/Android/桌面/终端实现为 fe7b830；后续 89bac04 只修正 Apple Bash 3.2 夹具启动，864b842 补 Apple 全局弹层观察条件；e6a72ef 释放附近表单在连接/离开时的输入焦点。后续夹具准备、阶段计时及原生返回导航修正不改变应用超时。文件诊断 ID 现在为带用途前缀的 SHA-256 摘要，保留两端/重试关联，不导出原始协议 UUID；Android 对大小写别名先归并再按32个ID分批。Apple 只观察正文，滚动即时重置停留时间，保留屏上旧页的可见记录，弹层遮挡时停止观察。
+
+The Java/Android/desktop/terminal implementation is fe7b830. Later 89bac04 changes only the Apple Bash 3.2 UI driver; 864b842 adds root-overlay exclusion; e6a72ef releases address-form focus on connection/page exit. Later fixture preparation, tracing and native navigation changes retain existing application timeouts. Diagnostic IDs use domain-separated SHA-256 while retaining endpoint/retry correlation. Android deduplicates case aliases before the32-ID limit. Apple observes body text, resets dwell immediately on scrolling, retains visibility for displayed historical rows and suspends observation under modal overlays.
+
+| 来源 / Source | 实际结果 / Verified scope |
+| --- | --- |
+| fe7b830 [Android](https://github.com/GHOST-AKU/wozai/actions/runs/40859125474) | 完整核心/协议/翻译检查、构建、Lint及API26 **1129** / API34 **1130** 原生检查通过，包含真实SQLite的33个UUID/66条大小写别名分批、回执构造与确认清理。内部测试签名产物，不作为覆盖安装交付包。 / Full checks, build/lint and native SQLite case-alias regression; internal test signing only. |
+| fe7b830 [Windows](https://github.com/GHOST-AKU/wozai/actions/runs/40859125433) | Desktop73、ReadReceiptStore32、真实焦点/屏外/明暗六态GUI与100–200%打包运行时缩放通过。图片测试严格区分两张ImageIcon与一个原生回执图标。 / Desktop/storage/native GUI and bundled-runtime scaling pass. |
+| fe7b830 [Linux](https://github.com/GHOST-AKU/wozai/actions/runs/40859125388) | Desktop72、ReadReceiptStore32、真实窗口、打包启动与Ubuntu22.04/24.04 AppImage运行通过。 / Native window/package/launcher and both AppImage runtime environments pass. |
+| fe7b830 [Terminal](https://github.com/GHOST-AKU/wozai/actions/runs/40859125379) | Windows/Linux静态检查、NIM4互通、布局与打包通过；终端仍只有送达状态，不宣称新增已读。 / Both-platform checks/interoperability/layout/package pass; terminal read support is not implemented. |
+| fe7b830 [Apple核心与Release编译](https://github.com/GHOST-AKU/wozai/actions/runs/40859125392) | 核心/生命周期、Java↔Swift互通、macOS通用与iOS设备Release编译通过；后续UI夹具被Bash3.2空数组错误挡住。此Release编译早于864b842的最后弹层条件，不冒充该提交的新构建。 / Core/interop/Release builds pass; failed UI-driver evidence retained, final overlay change excluded from that build scope. |
+| e6a72ef [Apple最终原生UI](https://github.com/GHOST-AKU/wozai/actions/runs/40869636047) | **macOS、iPhone、iPad全部通过**：前台真实READ、附近页/安全码/文件确认框下不误报、关闭弹层后确切UUID回执，以及地址键盘焦点释放。CI先强制比较实际实现与验证控制分支；未改动的其他平台输入与fe7b830一致。 / All three native UI targets pass; exact source comparisons precede execution. |
+
+版本测试硬编码当前preview、诊断原始ID暴露、图片测试误计回执图标及Bash3.2空数组失败均保留原始运行与本地红/绿证据，未放宽产品安全边界、断言或等待时间。以上不是无线真机验收，也不是发布。Apple最新原生界面结果与源码比较见[#31](https://github.com/GHOST-AKU/wozai/issues/31)。
+
+The original version-fixture/privacy/photo-classification/Bash failures and red/green evidence are retained in the linked Issues/runs. No product safety assertions or timeouts were relaxed. These checks are not physical-radio acceptance or software publication; latest Apple native UI evidence and source comparisons are tracked in #31.
 
 ### 回归入口 / Regression entry points
 
@@ -57,3 +76,7 @@ These links identify exact sources: b8fa2f5 is the Android/Windows client and tw
 - 桌面存储和GUI：`desktop/tools/build.sh`/`build.ps1`包含ReadReceiptStoreTests；常规Windows/Linux GUI工作流包含ReadReceiptGuiTests。轻量Windows入口为`desktop/tools/test-receipts.ps1`。
 - Apple：`swift test --package-path apple`及`tools/test-apple-interop.sh`（包含两个连接角色的真实已读交换）。独立互通入口为`tools/test-read-receipt-interop.sh`。
 - Apple定向原生UI：先用`tools/test-apple-interop.sh --compile-java`构建独立Java夹具，然后设置`WOZAI_APPLE_READ_UI=true`、`WOZAI_APPLE_UI_TEST=NearbyIMUITests/NativeChatTests/testReadReceiptForegroundVisibilityWithJavaPeer`，运行`tools/test-apple-ui.sh <destination> <evidence-label>`。默认入口仍选择原有完整聊天测试，各次启动独立夹具，避免两个测试争用同一会话。
+
+最新Apple通过结果不能抹去此前独立握手超时。该失败及其准确阶段、界面层级、录屏帧与后续计时保留在 #31；未证明全部连接可靠性问题已解决。没有发布或提供包含最终改动的新原签名APK。
+
+The final native UI pass does not erase the isolated earlier handshake timeout. Its stage, hierarchy, video frames and subsequent timing evidence remain in #31; complete connection reliability is not claimed. No final original-signer APK or release was delivered.
