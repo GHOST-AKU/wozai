@@ -22,9 +22,9 @@ struct ChatDetailView: View {
     @State private var readVisibility = ReadVisibility()
     private var readForeground: Bool {
         #if os(macOS)
-        scenePhase == .active && controlActiveState == .key && model.readReceiptsEnabled
+        scenePhase == .active && controlActiveState == .key && model.readReceiptsEnabled && !safety && !forget
         #else
-        scenePhase == .active && model.readReceiptsEnabled
+        scenePhase == .active && model.readReceiptsEnabled && !safety && !forget
         #endif
     }
 
@@ -68,10 +68,11 @@ struct ChatDetailView: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Menu {
-                    Button("Safety code", systemImage: "lock.shield") { safety = true }.disabled(!connected)
+                    Button("Safety code", systemImage: "lock.shield") { readVisibility = ReadVisibility(); safety = true }.disabled(!connected)
                     if connected { Button("Disconnect", systemImage: "xmark.circle") { model.disconnect() } }
-                    if contact.remembered { Button("Forget device", systemImage: "person.crop.circle.badge.minus", role: .destructive) { forget = true } }
+                    if contact.remembered { Button("Forget device", systemImage: "person.crop.circle.badge.minus", role: .destructive) { readVisibility = ReadVisibility(); forget = true } }
                 } label: { Label("Conversation actions", systemImage: "ellipsis.circle") }
+                .accessibilityIdentifier("conversationActions")
             }
         }
         .task(id: refreshKey) {
@@ -118,14 +119,9 @@ struct ChatDetailView: View {
                         ContentUnavailableView("No messages yet", systemImage: "bubble.left", description: Text("Send a greeting when the devices are connected."))
                     }
                     ForEach(messages, id: \.rowID) { message in
-                        MessageBubble(message: message).id(message.rowID)
-                            .onGeometryChange(for: Bool.self) { geometry in
-                                let frame = geometry.frame(in: .scrollView)
-                                let height = geometry.bounds(of: .scrollView)?.height ?? 0
-                                return !message.outgoing && ReadVisibility.visible(top: Double(frame.minY), height: Double(frame.height), viewportHeight: Double(height))
-                            } action: { visible in
-                                if visible { readVisible.insert(message.id) } else { readVisible.remove(message.id) }
-                            }
+                        MessageBubble(message: message, visibilityChanged: { visible in
+                            if visible { readVisible.insert(message.id) } else { readVisible.remove(message.id) }
+                        }).id(message.rowID)
                     }
                     AttachmentTimeline(contact: contact)
                     Color.clear.frame(height: 1).id("latest")
@@ -165,8 +161,10 @@ struct ChatDetailView: View {
             .scrollDismissesKeyboard(.interactively)
             .scrollBounceBehavior(.always, axes: .vertical)
             .modifier(UserScrollObserver(began: {
+                readVisibility = ReadVisibility()
                 userScrolling = true; pendingScroll = false; forceLatest = false; followingLatest = false
             }, ended: {
+                readVisibility = ReadVisibility()
                 userScrolling = false; updateFollowing()
             }))
             .overlay(alignment: .bottomTrailing) {
@@ -191,7 +189,6 @@ struct ChatDetailView: View {
 
     private func applyPage(_ result: MessagePage) {
         let page = result.messages
-        readVisible.formIntersection(Set(page.filter { !$0.outgoing }.map(\.id)))
         let pageChanged = displayedPage != before
         if loaded, before == nil, !followingLatest, !forceLatest {
             // Keep a bounded, stable page while reading; delivery updates still reach visible rows.
@@ -209,6 +206,7 @@ struct ChatDetailView: View {
                 pendingScroll = true; pageRevision &+= 1
             }
         }
+        readVisible.formIntersection(Set(messages.filter { !$0.outgoing }.map(\.id)))
         displayedPage = before
         loaded = true
     }
@@ -301,6 +299,7 @@ private struct MessageBubble: View {
     @Environment(\.colorScheme) private var colorScheme
     private let readColor = Color(red: 102.0 / 255, green: 204.0 / 255, blue: 1)
     let message: ChatMessage
+    var visibilityChanged: (Bool) -> Void = { _ in }
     private var time: Date { Date(timeIntervalSince1970: Double(message.timestamp) / 1000) }
     private var status: LocalizedStringKey {
         switch message.status {
@@ -324,6 +323,11 @@ private struct MessageBubble: View {
             if message.outgoing { Spacer(minLength: 32) }
             VStack(alignment: .leading, spacing: 6) {
                 Text(verbatim: message.body).textSelection(.enabled)
+                    .onGeometryChange(for: Bool.self) { geometry in
+                        let frame = geometry.frame(in: .scrollView)
+                        let height = geometry.bounds(of: .scrollView)?.height ?? 0
+                        return !message.outgoing && ReadVisibility.visible(top: Double(frame.minY), height: Double(frame.height), viewportHeight: Double(height))
+                    } action: { visibilityChanged($0) }
                 HStack(spacing: 8) {
                     Text(time, format: .dateTime.hour().minute())
                     if message.outgoing {

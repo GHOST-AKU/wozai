@@ -34,6 +34,19 @@ final class NativeChatTests: XCTestCase {
         #endif
         XCTAssertTrue(app.staticTexts["Read receipt hidden probe"].waitForExistence(timeout: 8))
         try drivePeer("read-visible-check")
+        let actions = app.descendants(matching: .any).matching(identifier: "conversationActions").firstMatch
+        XCTAssertTrue(actions.waitForExistence(timeout: 5)); actions.tap()
+        #if os(macOS)
+        app.menuItems["Safety code"].tap()
+        #else
+        app.buttons["Safety code"].tap()
+        #endif
+        let done = app.buttons["Done"].firstMatch
+        XCTAssertTrue(done.waitForExistence(timeout: 5))
+        try drivePeer("read-hidden-send")
+        try drivePeer("read-hidden-check")
+        done.tap()
+        try drivePeer("read-visible-check")
         let evidence = XCTAttachment(screenshot: app.screenshot())
         evidence.name = "native-read-receipt-real-visibility"
         evidence.lifetime = .keepAlways; add(evidence)

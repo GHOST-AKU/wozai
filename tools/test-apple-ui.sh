@@ -5,7 +5,7 @@ destination="$1"
 label="$2"
 mode="${3:---all}"
 case "$mode" in --all|--prepare-only|--test-only) ;; *) echo 'Expected --all, --prepare-only or --test-only' >&2; exit 2 ;; esac
-derived="apple/UITestBuild-$label"
+derived="apple/UITestBuild-${WOZAI_APPLE_UI_BUILD_LABEL:-$label}"
 if [[ "$destination" == *"platform=iOS Simulator"* ]]; then derived="apple/UITestBuild-ios"; fi
 mkdir -p build/apple-ui
 peer_pid=""

@@ -93,7 +93,7 @@ public final class ChatStore extends SQLiteOpenHelper {
         }finally{db.endTransaction();}
     }
     public List<String> pendingReads(String peer){
-        List<String> ids=new ArrayList<>();try(Cursor rows=getReadableDatabase().query("messages",new String[]{"id"},"peer_id=? AND outgoing=0 AND attachment IS NULL AND state='read_pending'",new String[]{peer},null,null,"rowid", "32")){while(rows.moveToNext())ids.add(rows.getString(0).toLowerCase(Locale.ROOT));}return ids;
+        List<String> ids=new ArrayList<>();try(Cursor rows=getReadableDatabase().query("messages",new String[]{"lower(id) AS id"},"peer_id=? AND outgoing=0 AND attachment IS NULL AND state='read_pending'",new String[]{peer},"lower(id)",null,"MIN(rowid)", "32")){while(rows.moveToNext())ids.add(rows.getString(0));}return ids;
     }
     public void read(String peer,List<String> ids){
         SQLiteDatabase db=getWritableDatabase();db.beginTransaction();try{

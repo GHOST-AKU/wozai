@@ -795,6 +795,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
     private void testNativeReadReceipts(ChatController controller,String peer,BlockingQueue<String> delivery)throws Exception {
         String hidden=UUID.randomUUID().toString(),disabled=UUID.randomUUID().toString(),outgoingBody="Native real read receipt verification";
         ChatStore store=field(controller,"store");java.util.concurrent.ExecutorService worker=field(controller,"storage");
+        worker.submit(()->testCanonicalReadBatches(store)).get(10,TimeUnit.SECONDS);
         int originalY=onMain(()->((ScrollView)field(activity,"messageScroll")).getScrollY());
         try {
             onMain(()->{setField(activity,"detail",false);setField(activity,"page",2);invoke(activity,"render",new Class<?>[0]);return null;});
@@ -829,6 +830,28 @@ public final class LocalizationInstrumentation extends Instrumentation {
             onMain(()->{controller.setReadReceiptsEnabled(true);return null;});
             worker.submit(()->{for(String id:java.util.List.of(hidden,disabled,remoteTextIds.getOrDefault(outgoingBody,UUID.randomUUID().toString())))store.getWritableDatabase().delete("messages","peer_id=? AND id=?",new String[]{peer,id});}).get(10,TimeUnit.SECONDS);
             onMain(()->{setField(activity,"detail",true);setField(activity,"page",0);invoke(controller,"refresh",new Class<?>[0]);invoke(activity,"render",new Class<?>[0]);((ScrollView)field(activity,"messageScroll")).scrollTo(0,originalY);return null;});
+        }
+    }
+    private void testCanonicalReadBatches(ChatStore store) {
+        String peer=UUID.randomUUID().toString().replace("-","").repeat(2);
+        java.util.List<String> ids=new ArrayList<>();
+        try {
+            for(int i=0;i<33;i++){
+                String id=String.format(java.util.Locale.ROOT,"abcdefab-1234-4abc-8abc-%012x",i);ids.add(id);
+                for(String alias:java.util.List.of(id,id.toUpperCase(java.util.Locale.ROOT)))
+                    store.save(peer,"Read batch fixture",new Frame(Frame.TEXT,alias,"Canonical read batch",i),false);
+            }
+            store.observed(peer,ids);
+            java.util.List<String> batch=store.pendingReads(peer);
+            check(batch.equals(ids.subList(0,32)),"Native SQLite deduplicates canonical IDs before the 32-ID limit");
+            dev.ghost.nearbyim.core.ReadReceiptPacket.receipt(dev.ghost.nearbyim.core.ReadReceiptPacket.READ,1,1,batch);
+            store.readAcknowledged(peer,batch);
+            check(store.pendingReads(peer).equals(ids.subList(32,33)),"One ACK retires both case aliases without starving the next batch");
+            store.readAcknowledged(peer,ids.subList(32,33));
+            check(store.pendingReads(peer).isEmpty(),"Canonical native outbox is empty after both batches");
+        } finally {
+            store.getWritableDatabase().delete("messages","peer_id=?",new String[]{peer});
+            store.getWritableDatabase().delete("conversations","peer_id=?",new String[]{peer});
         }
     }
     private void testReceiptPresentation(ChatController controller)throws Exception {
