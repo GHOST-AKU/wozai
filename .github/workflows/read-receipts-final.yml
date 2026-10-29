@@ -1,0 +1,83 @@
+name: Inspect existing Apple UI failures
+on:
+  push:
+    branches: [verify/read-receipts-final]
+    paths: ['.github/workflows/read-receipts-final.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect:
+    runs-on: macos-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: GHOST-AKU/wozai
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download existing failed evidence without rerunning tests
+        run: |
+          gh run download 40861098510 --name apple-ui-final-ios --dir build/failure-40861098510
+          gh run download 40863098876 --name apple-ui-final-ios --dir build/failure-40863098876
+      - name: Export existing failure attachments and summaries
+        run: |
+          python3 - <<'PY'
+          import pathlib,subprocess,json
+          output=pathlib.Path('build/apple-failure-inspection')
+          output.mkdir(parents=True)
+          for run in ['40861098510','40863098876']:
+              result=next(pathlib.Path('build/failure-'+run).rglob('iphone-read.xcresult'))
+              root=output/run
+              root.mkdir()
+              for name,args in [
+                  ('summary',['get','test-results','summary']),
+                  ('tests',['get','test-results','tests']),
+                  ('activities',['get','test-results','activities','--test-id','NativeChatTests/testReadReceiptForegroundVisibilityWithJavaPeer()']),
+                  ('objects',['get','object','--legacy','--format','json'])
+              ]:
+                  with (root/(name+'.json')).open('w') as log:
+                      subprocess.run(['xcrun','xcresulttool',*args,'--path',str(result)],stdout=log,check=False)
+              activity=json.loads((root/'activities.json').read_text())
+              attachments={}
+              def walk(value):
+                  if isinstance(value,dict):
+                      for item in value.get('attachments',[]): attachments[item['payloadId']]=item
+                      for child in value.values(): walk(child)
+                  elif isinstance(value,list):
+                      for child in value: walk(child)
+              walk(activity)
+              for prefix,target in [('App UI hierarchy','hierarchy.bin'),('UI Snapshot','snapshot.bin'),('Debug description','query.txt'),('Screen Recording','recording.mp4')]:
+                  choices=[a for a in attachments.values() if a['name'].startswith(prefix)]
+                  if not choices: continue
+                  item=max(choices,key=lambda a:a.get('timestamp',0))
+                  outputfile=root/target if target!='recording.mp4' else pathlib.Path('build')/(run+'-recording.mp4')
+                  subprocess.run(['xcrun','xcresulttool','export','object','--legacy','--type','file','--id',item['payloadId'],'--path',str(result),'--output-path',str(outputfile)],check=True)
+                  if target=='recording.mp4':
+                      swift='''import AVFoundation
+          import AppKit
+          import Foundation
+          let asset = AVURLAsset(url: URL(fileURLWithPath: CommandLine.arguments[1]))
+          let generator = AVAssetImageGenerator(asset: asset)
+          generator.appliesPreferredTrackTransform = true
+          let duration = CMTimeGetSeconds(asset.duration)
+          for offset in [1.0, 8.0, 20.0] {
+              let image = try generator.copyCGImage(at: CMTime(seconds: max(0, duration-offset), preferredTimescale: 600), actualTime: nil)
+              let bitmap = NSBitmapImageRep(cgImage: image)
+              try bitmap.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: CommandLine.arguments[2]).appendingPathComponent("last-\\(Int(offset)).png"))
+          }
+          '''
+                      script=pathlib.Path('build/extract-existing-video.swift')
+                      script.write_text(swift)
+                      subprocess.run(['swift',str(script),str(outputfile),str(root)],check=True)
+              print('EXPORTED',run)
+              print((root/'summary.json').read_text()[:6000])
+              for file in root.rglob('*'):
+                  if file.is_file():
+                      print(str(file),file.stat().st_size)
+                      if file.suffix in ['.txt','.log']: print(file.read_text(errors='replace')[:8000])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: apple-failure-inspection
+          path: build/apple-failure-inspection/
