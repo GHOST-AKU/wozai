@@ -47,6 +47,17 @@ final class NativeChatTests: XCTestCase {
         try drivePeer("read-hidden-check")
         done.tap()
         try drivePeer("read-visible-check")
+        try drivePeer("file-offer")
+        #if os(macOS)
+        let reject = app.windows.sheets.buttons["Reject"].firstMatch
+        #else
+        let reject = app.buttons["Reject"].firstMatch
+        #endif
+        XCTAssertTrue(reject.waitForExistence(timeout: 8))
+        try drivePeer("read-hidden-send")
+        try drivePeer("read-hidden-check")
+        reject.tap()
+        try drivePeer("read-visible-check")
         let evidence = XCTAttachment(screenshot: app.screenshot())
         evidence.name = "native-read-receipt-real-visibility"
         evidence.lifetime = .keepAlways; add(evidence)

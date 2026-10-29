@@ -20,11 +20,14 @@ struct ChatDetailView: View {
     #endif
     @State private var readVisible = Set<String>()
     @State private var readVisibility = ReadVisibility()
+    private var readUnobscured: Bool {
+        !safety && !forget && model.consent == nil && model.fileOfferPresentation == nil && model.notice == nil
+    }
     private var readForeground: Bool {
         #if os(macOS)
-        scenePhase == .active && controlActiveState == .key && model.readReceiptsEnabled && !safety && !forget
+        scenePhase == .active && controlActiveState == .key && model.readReceiptsEnabled && readUnobscured
         #else
-        scenePhase == .active && model.readReceiptsEnabled && !safety && !forget
+        scenePhase == .active && model.readReceiptsEnabled && readUnobscured
         #endif
     }
 
