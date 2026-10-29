@@ -20,7 +20,12 @@ public final class TransferAttempt {
     public TransferAttempt(String transfer,boolean outgoing,String pipeline){this(transfer,outgoing,System::nanoTime,System.currentTimeMillis(),pipeline);}
     TransferAttempt(String transfer,boolean outgoing,LongSupplier clock,long wall){this(transfer,outgoing,clock,wall,"test");}
     private TransferAttempt(String transfer,boolean outgoing,LongSupplier clock,long wall,String pipeline){
-        this.pipeline=pipeline;this.transfer=transfer;role=outgoing?"send":"receive";this.clock=clock;this.wall=wall;started=changed=clock.getAsLong();
+        this.pipeline=pipeline;this.transfer=diagnosticId(transfer);role=outgoing?"send":"receive";this.clock=clock;this.wall=wall;started=changed=clock.getAsLong();
+    }
+    /** Correlate endpoints and retries without exporting the protocol/history UUID. */
+    private static String diagnosticId(String transfer){
+        try{return AttachmentInfo.hex(java.security.MessageDigest.getInstance("SHA-256").digest(("wozai-transfer-diagnostic-v1\0"+transfer).getBytes(java.nio.charset.StandardCharsets.UTF_8)));}
+        catch(java.security.NoSuchAlgorithmException impossible){throw new AssertionError(impossible);}
     }
     public synchronized void phase(String next){if(completed!=null||phase.equals(next))return;long now=clock.getAsLong();phases.merge(phase,Math.max(0,now-changed),Long::sum);phase=next;changed=now;}
     /** Preserve the restored position even if no DATA can be opened or submitted. */
