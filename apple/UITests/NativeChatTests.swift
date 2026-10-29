@@ -35,6 +35,12 @@ final class NativeChatTests: XCTestCase {
         #endif
         selectDestination(app, "Nearby")
         XCTAssertTrue(host.waitForExistence(timeout: 8), app.debugDescription)
+        #if os(iOS)
+        if reopenConversation {
+            let released = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in !app.keyboards.firstMatch.exists }, object: app)
+            XCTAssertEqual(XCTWaiter.wait(for: [released], timeout: 8), .completed, "Returning to Nearby must not restore the address keyboard: " + app.debugDescription)
+        }
+        #endif
         try drivePeer("read-hidden-send")
         try drivePeer("read-hidden-check")
         #if os(macOS)
