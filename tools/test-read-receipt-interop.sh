@@ -2,6 +2,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 if [[ ${1:-} != --compiled ]]; then bash tools/test-apple-interop.sh --compile-java; fi
+javac -cp build/apple-interop/java -d build/apple-interop/java tests/apple/AppleReadControlReadinessTests.java
+java -cp build/apple-interop/java dev.ghost.nearbyim.core.AppleReadControlReadinessTests
 swift build --package-path apple --product WozaiInterop
 apple_binary="$(swift build --package-path apple --show-bin-path)/WozaiInterop"
 peer_pid=""

@@ -38,6 +38,8 @@
 
 以下主要描述 Android / Windows / Linux 正式版；Apple 与 Terminal 的预览范围见平台状态。
 
+开发分支 `0.3.3-preview.3` 新增[文字已读回执](docs/read-receipts.md)：默认开启，可随时关闭，双方开启才生效，且须消息实际在前台聊天中显示。此改动尚未合并或发布，不代表上方下载包已经包含。
+
 - **局域网直连**：NSD / mDNS 自动发现，也支持 IP + 端口直连
 - **经典蓝牙通信**：使用安全 RFCOMM，可搜索、配对和重连
 - **跨平台聊天**：Android、Windows、Linux 共用 NIM4 加密协议

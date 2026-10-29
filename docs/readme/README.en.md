@@ -38,6 +38,8 @@ NearbyIM currently focuses on **one-to-one communication between directly reacha
 
 The following primarily describes the stable Android/Windows/Linux clients; Apple and Terminal preview capabilities are listed under platform status.
 
+The `0.3.3-preview.3` development branch adds [text read receipts](../read-receipts.md), enabled by default with an opt-out. Both peers must enable them, and the message must actually be displayed in the foreground conversation. This change is not merged or published and is not implied to be present in the downloads above.
+
 - **Direct LAN connections**: automatic discovery via NSD / mDNS, with direct IP + port connections also supported
 - **Classic Bluetooth communication**: secure RFCOMM with device discovery, pairing, and reconnection
 - **Cross-platform chat**: Android, Windows, and Linux clients share encrypted NIM4 records
