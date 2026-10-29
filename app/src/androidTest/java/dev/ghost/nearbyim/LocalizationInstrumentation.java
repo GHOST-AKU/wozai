@@ -58,6 +58,8 @@ public final class LocalizationInstrumentation extends Instrumentation {
     private String originalLanguage;
     private MainActivity activity;
     private FramedSession remote;
+    private final Set<String> remoteReadIds=java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final java.util.concurrent.ConcurrentMap<String,String> remoteTextIds=new java.util.concurrent.ConcurrentHashMap<>();
     private volatile AttachmentTransferV2 remoteTransfers;
     private volatile CountDownLatch resumePauseBlocked,resumePauseRelease;
     private final BlockingQueue<AttachmentRecord> remoteFileStates=new LinkedBlockingQueue<>();
@@ -360,7 +362,11 @@ public final class LocalizationInstrumentation extends Instrumentation {
                     remoteTransfers.receive(packet,true);
                 }catch(InterruptedException failure){Thread.currentThread().interrupt();throw new IllegalStateException(failure);}catch(IOException failure){throw new java.io.UncheckedIOException(failure);}}
                 public void onReady() { ready.countDown(); }
-                public void onText(Frame frame) { reference.get().acknowledge(frame.id); }
+                public void onText(Frame frame) {remoteTextIds.put(frame.body,frame.id); reference.get().acknowledge(frame.id); }
+                public void onReadReceipt(dev.ghost.nearbyim.core.ReadReceiptPacket packet){
+                    if(packet.kind==dev.ghost.nearbyim.core.ReadReceiptPacket.READ){remoteReadIds.addAll(packet.ids);reference.get().acknowledgeReadReceipt(packet);}
+                    else reference.get().readReceiptPersisted(packet);
+                }
                 public void onAck(String id) { receipts.add(id); }
                 public void onClosed(UiText reason) { remoteClosed.compareAndSet(null,reason); }
             });
@@ -409,6 +415,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
             check(id.equals(receipts.poll(10, TimeUnit.SECONDS)), "Android saves and receipts timeline text " + i);
         }
         await(() -> onMain(() -> controller.messages.size() >= 35), "Saved timeline loads");
+        testNativeReadReceipts(controller,peerId,receipts);
         testReceiptPresentation(controller);
         testLiveAttachmentFeedback(controller,peerId);
         testBatchRefreshResponsiveness(controller,peerId);
@@ -784,6 +791,45 @@ public final class LocalizationInstrumentation extends Instrumentation {
         check(report.contains("endpoint=android")&&report.contains("end_to_end_encrypted=true")&&report.contains("source_read")&&report.contains("socket_write"),"Native clipboard contains actual source and encrypted socket timing");
         check(report.contains("transfer_summary=")&&report.contains("average_mib_s")&&report.contains("counter_scope="),"Diagnostics expose actual transfer attempts and explicit counter scope");
         check(!report.contains(peer)&&!report.contains("native-photo.png")&&!report.contains("content://")&&!report.contains(getTargetContext().getFilesDir().toString()),"Clipboard diagnostic excludes peer, filename, URI and private path");
+    }
+    private void testNativeReadReceipts(ChatController controller,String peer,BlockingQueue<String> delivery)throws Exception {
+        String hidden=UUID.randomUUID().toString(),disabled=UUID.randomUUID().toString(),outgoingBody="Native real read receipt verification";
+        ChatStore store=field(controller,"store");java.util.concurrent.ExecutorService worker=field(controller,"storage");
+        int originalY=onMain(()->((ScrollView)field(activity,"messageScroll")).getScrollY());
+        try {
+            onMain(()->{setField(activity,"detail",false);setField(activity,"page",2);invoke(activity,"render",new Class<?>[0]);return null;});
+            await(()->onMain(()->!((android.view.View)field(activity,"chatPage")).isShown()),"Settings hides the actual chat timeline");
+            remote.setReadReceiptsEnabled(true);
+            await(()->remote.readReceiptsActive()&&onMain(()->controller.canObserveMessages(peer)),"Both native peers negotiate reciprocal reads");
+            check(remote.send(new Frame(Frame.TEXT,hidden,"Hidden text must stay delivered",System.currentTimeMillis())),"Hidden read fixture sent");
+            check(hidden.equals(delivery.poll(10,TimeUnit.SECONDS)),"Hidden message is durably delivered");
+            Thread.sleep(650);check(!remoteReadIds.contains(hidden),"Settings/background receipt must not be read");
+            onMain(()->{setField(activity,"detail",true);setField(activity,"page",0);invoke(activity,"render",new Class<?>[0]);return null;});
+            await(()->onMain(()->{android.view.View row=((android.view.ViewGroup)field(activity,"bubbles")).findViewWithTag("message:"+hidden+":false");return row!=null&&row.getHeight()>0&&field(activity,"renderedMessages")==controller.messages;}),"Visible read fixture has real layout");
+            onMain(()->{((ScrollView)field(activity,"messageScroll")).scrollTo(0,((android.view.View)field(activity,"bubbles")).getHeight());return null;});
+            await(()->remoteReadIds.contains(hidden),"Actual foreground visibility produces a read");
+            await(()->worker.submit(()->!store.pendingReads(peer).contains(hidden)).get(10,TimeUnit.SECONDS),"Remote confirmation retires native durable read outbox");
+            onMain(()->{controller.setReadReceiptsEnabled(false);return null;});
+            await(()->!remote.readReceiptsActive(),"Native privacy off revokes reciprocal wire policy");
+            check(remote.send(new Frame(Frame.TEXT,disabled,"Reading with receipts disabled",System.currentTimeMillis())),"Disabled read fixture sent");
+            check(disabled.equals(delivery.poll(10,TimeUnit.SECONDS)),"Privacy off preserves normal delivery");
+            await(()->onMain(()->controller.messages.stream().anyMatch(m->m.id.equals(disabled))),"Disabled text in native history");
+            onMain(()->{((ScrollView)field(activity,"messageScroll")).scrollTo(0,((android.view.View)field(activity,"bubbles")).getHeight());return null;});
+            Thread.sleep(650);check(!remoteReadIds.contains(disabled),"Privacy off never sends visible read");
+            onMain(()->{setField(activity,"detail",false);setField(activity,"page",2);invoke(activity,"render",new Class<?>[0]);controller.setReadReceiptsEnabled(true);return null;});
+            await(()->remote.readReceiptsActive(),"Native privacy on restores negotiation");
+            Thread.sleep(650);check(!remoteReadIds.contains(disabled),"Re-enable must not backfill an offscreen disabled observation");
+            onMain(()->{check(controller.send(outgoingBody),"Native outgoing read fixture accepted");return null;});
+            await(()->remoteTextIds.containsKey(outgoingBody),"Synthetic peer receives actual native TEXT");String outgoing=remoteTextIds.get(outgoingBody);
+            await(()->onMain(()->controller.messages.stream().anyMatch(m->m.id.equals(outgoing)&&m.outgoing&&m.state.equals("delivered"))),"Native outgoing starts delivered, not read");
+            check(remote.sendReadReceipts(java.util.List.of(outgoing)),"Synthetic peer submits explicit display evidence");
+            await(()->onMain(()->controller.messages.stream().anyMatch(m->m.id.equals(outgoing)&&m.outgoing&&m.state.equals("read"))),"Actual peer read packet persists in native SQLite");
+        } finally {
+            remote.setReadReceiptsEnabled(false);
+            onMain(()->{controller.setReadReceiptsEnabled(true);return null;});
+            worker.submit(()->{for(String id:java.util.List.of(hidden,disabled,remoteTextIds.getOrDefault(outgoingBody,UUID.randomUUID().toString())))store.getWritableDatabase().delete("messages","peer_id=? AND id=?",new String[]{peer,id});}).get(10,TimeUnit.SECONDS);
+            onMain(()->{setField(activity,"detail",true);setField(activity,"page",0);invoke(controller,"refresh",new Class<?>[0]);invoke(activity,"render",new Class<?>[0]);((ScrollView)field(activity,"messageScroll")).scrollTo(0,originalY);return null;});
+        }
     }
     private void testReceiptPresentation(ChatController controller)throws Exception {
         String peer=onMain(()->controller.selectedId),name=onMain(()->controller.selectedName);

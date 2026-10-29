@@ -10,21 +10,22 @@ import java.util.UUID;
 /** Uses the shipping Java codecs and Noise channel, independently of the Swift implementation. */
 public final class AppleInteropPeer {
     public static void main(String[] args) throws Exception {
+        boolean reads=java.util.Arrays.asList(args).contains("--reads");
         boolean ui = args[0].equals("ui-server");
         boolean initiator = args[0].equals("client");
         if (initiator) {
-            try (Socket socket = new Socket("127.0.0.1", Integer.parseInt(args[1]))) { exchange(socket, true, false); }
+            try (Socket socket = new Socket("127.0.0.1", Integer.parseInt(args[1]))) { exchange(socket, true, false, reads); }
         } else {
             try (ServerSocket listener = new ServerSocket(ui ? 47831 : 0, 1, InetAddress.getByName("127.0.0.1"))) {
                 listener.setSoTimeout(ui ? 300_000 : 30_000);
                 Files.writeString(Path.of(args[1]), Integer.toString(listener.getLocalPort()));
-                try (Socket socket = listener.accept()) { exchange(socket, false, ui); }
+                try (Socket socket = listener.accept()) { exchange(socket, false, ui, reads); }
             }
         }
         System.out.println("PASS: production Java / Apple NIM4, root proofs, consent, bidirectional text/ACK, safety code, file refusal, heartbeat");
     }
 
-    private static void exchange(Socket socket, boolean initiator, boolean ui) throws Exception {
+    private static void exchange(Socket socket, boolean initiator, boolean ui, boolean reads) throws Exception {
         socket.setSoTimeout(ui ? 90_000 : 20_000); socket.setTcpNoDelay(true);
         StreamConnection connection = new StreamConnection() {
             public InputStream input() throws IOException { return socket.getInputStream(); }
@@ -41,6 +42,9 @@ public final class AppleInteropPeer {
             channel.write(ProtocolV4.encode(new Frame(Frame.READY, "", "", 0)));
             Frame ready = ProtocolV4.decode(channel.read()); require(ready.type == Frame.READY, "Missing consent READY");
             TextCapability capacity=new TextCapability(channel.connectionGeneration(),time->{try{channel.write(ProtocolV4.encode(new Frame(Frame.PONG,"","",time)));}catch(IOException error){throw new java.io.UncheckedIOException(error);}},()->{});
+            java.util.Set<String> observed=new java.util.LinkedHashSet<>(),ownReads=new java.util.HashSet<>();
+            ReadReceiptCapability readCapability=new ReadReceiptCapability(channel.connectionGeneration(),time->{try{channel.write(ProtocolV4.encode(new Frame(Frame.PONG,"","",time)));}catch(IOException error){throw new java.io.UncheckedIOException(error);}},(packet,current)->{try{if(current.getAsBoolean())channel.write(ProtocolV4.encode(new Frame(Frame.READ_RECEIPT,"","",0,0,packet.encode())));return true;}catch(IOException error){throw new java.io.UncheckedIOException(error);}},()->{});
+            if(reads){readCapability.configure(true);readCapability.start();}
             if(!ui)capacity.start();
             String longID=UUID.randomUUID().toString(),longBody="中".repeat(10922)+"ab";boolean longSent=ui,longReceived=ui,longAck=ui;
             String textID = UUID.randomUUID().toString().toUpperCase(java.util.Locale.ROOT), whitespaceID = UUID.randomUUID().toString();
@@ -56,7 +60,7 @@ public final class AppleInteropPeer {
                 fileID, source, channel.connectionGeneration(), true, 3, 0, 0, null, "")));
             channel.write(ProtocolV4.encode(new Frame(Frame.PING, "", "", 0)));
             boolean receivedText = false, receivedACK = false, whitespaceACK = ui, rejectedFile = false, receivedPong = false;
-            for (int records = 0; records < 32 && !(receivedText && receivedACK && whitespaceACK && rejectedFile && receivedPong && longReceived && longAck); records++) {
+            for (int records = 0; records < 64 && !(receivedText && receivedACK && whitespaceACK && rejectedFile && receivedPong && longReceived && longAck && (!reads||(ownReads.containsAll(java.util.List.of(textID.toLowerCase(java.util.Locale.ROOT),whitespaceID,longID))&&observed.isEmpty()))); records++) {
                 ProtocolV4.Record record = ProtocolV4.decodeRecord(channel.read(),capacity.incoming());
                 if (record.transfer != null) {
                     TransferPacket packet = record.transfer;
@@ -69,6 +73,7 @@ public final class AppleInteropPeer {
                 Frame frame = record.frame; require(frame != null, "Unexpected record family");
                 switch (frame.type) {
                     case Frame.TEXT:
+                        if(reads)observed.add(frame.id.toLowerCase(java.util.Locale.ROOT));
                         if(frame.body.equals(longBody)&&!ui){require(!longReceived,"Duplicate long text");longReceived=true;}
                         else{require(!receivedText && frame.body.equals("Hello from Apple" + (ui ? "" : "\n" + safety)), "Text or safety-code mismatch");receivedText=true;}
                         channel.write(ProtocolV4.encode(new Frame(Frame.ACK, frame.id, "", 0)));
@@ -78,14 +83,23 @@ public final class AppleInteropPeer {
                         else if (frame.id.equals(textID)) { receivedACK = true; }
                         else { require(!ui && frame.id.equals(whitespaceID), "Wrong text ACK"); whitespaceACK = true; }
                         break;
+                    case Frame.READ_RECEIPT:
+                        require(reads,"Unexpected negotiated read record");ReadReceiptPacket read=ReadReceiptPacket.decode(frame.data);
+                        if(readCapability.receive(read)){
+                            if(read.kind==ReadReceiptPacket.READ){ownReads.addAll(read.ids);readCapability.acknowledge(read);}
+                            else{observed.removeAll(read.ids);readCapability.persisted(read);}
+                        }break;
                     case Frame.PONG:
+                        if(reads)readCapability.receiveToken(frame.timestamp);
                         if(frame.timestamp==0)receivedPong=true;
                         if(!ui){capacity.receive(frame.timestamp);if(!longSent&&capacity.outgoing()==32768){longSent=true;channel.write(ProtocolV4.encode(new Frame(Frame.TEXT,longID,longBody,1236),capacity.outgoing()));}}
                         break;
                     case Frame.PING: channel.write(ProtocolV4.encode(new Frame(Frame.PONG, "", "", 0))); break;
                     default: throw new AssertionError("Unexpected frame: " + frame.type);
                 }
+                if(reads&&readCapability.active()&&!observed.isEmpty())readCapability.send(new java.util.ArrayList<>(observed));
             }
+            if(reads){require(ownReads.containsAll(java.util.List.of(textID.toLowerCase(java.util.Locale.ROOT),whitespaceID,longID))&&observed.isEmpty(),"Incomplete bidirectional read receipts");System.out.println("PASS: Java/Swift negotiated read receipts, both directions, exact UUIDs and durable ACK retirement");}
             require(receivedText && receivedACK && whitespaceACK && rejectedFile && receivedPong && longReceived && longAck, "Incomplete exchange");
             if (ui) { exerciseReadingPosition(channel); }
             channel.write(ProtocolV4.encode(new Frame(Frame.BYE, "", "", 0)));
