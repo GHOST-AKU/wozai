@@ -298,6 +298,8 @@ private struct UserScrollObserver: ViewModifier {
 
 @MainActor
 private struct MessageBubble: View {
+    @Environment(\.colorScheme) private var colorScheme
+    private let readColor = Color(red: 102.0 / 255, green: 204.0 / 255, blue: 1)
     let message: ChatMessage
     private var time: Date { Date(timeIntervalSince1970: Double(message.timestamp) / 1000) }
     private var status: LocalizedStringKey {
@@ -324,7 +326,14 @@ private struct MessageBubble: View {
                 Text(verbatim: message.body).textSelection(.enabled)
                 HStack(spacing: 8) {
                     Text(time, format: .dateTime.hour().minute())
-                    if message.outgoing { Label(status, systemImage: symbol).foregroundStyle(message.status == .read ? Color.accentColor : Color.secondary).accessibilityIdentifier("deliveryStatus") }
+                    if message.outgoing {
+                        Label { Text(status) } icon: {
+                            Image(systemName: symbol)
+                                .shadow(color: message.status == .read && colorScheme == .dark ? readColor.opacity(0.35) : .clear, radius: 1.5, x: 0, y: 0)
+                        }
+                        .foregroundStyle(message.status == .read ? readColor : Color.secondary)
+                        .accessibilityIdentifier("deliveryStatus")
+                    }
                 }
                 .font(.caption2)
                 .foregroundStyle(.secondary)

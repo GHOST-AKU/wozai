@@ -893,7 +893,7 @@ public final class MainActivity extends Activity {
         meta.setSingleLine(true);
         if(message.outgoing){
             String state=attachment==null?message.state:attachment.state;
-            meta.setCompoundDrawablesRelativeWithIntrinsicBounds(null,null,new MessageReceiptDrawable(dev.ghost.nearbyim.core.MessageReceipt.of(state),"read".equals(state)?accent:"failed".equals(state)?(isDark()?0xfff2b8b5:0xffb3261e):muted,getResources().getDisplayMetrics().density),null);
+            meta.setCompoundDrawablesRelativeWithIntrinsicBounds(null,null,new MessageReceiptDrawable(dev.ghost.nearbyim.core.MessageReceipt.of(state),"read".equals(state)?0xff66ccff:"failed".equals(state)?(isDark()?0xfff2b8b5:0xffb3261e):muted,getResources().getDisplayMetrics().density,isDark()),null);
             meta.setCompoundDrawablePadding(dp(4));
             meta.setContentDescription(t("outgoingMessageMeta",time,attachment==null?AndroidText.messageState(this,state):attachmentState(attachment)));
         }

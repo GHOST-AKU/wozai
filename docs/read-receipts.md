@@ -9,7 +9,7 @@
 - 等待时钟：尚未完成实际写入。
 - 单勾：本端已实际写出。
 - 灰色双勾：对方已保存，返回送达确认。
-- 高亮双勾：对方产生真实已读回执，本端成功保存。Apple 保持现有原生状态标签，以主题强调色显示“已读”；图标来源调整另行考虑。
+- 高亮双勾：对方产生真实已读回执，本端成功保存。已读颜色为 `#66CCFF`，深色主题仅图标增加淡光晕，浅色主题不发光。Apple 保持现有原生状态标签；图标来源调整另行考虑。
 
 关闭后立即停止新的已读收发、撤销尚未写出的旧策略回执并清除待补发阅读队列；已经进入网络的记录无法撤回。已确认的历史已读保留。重新开启不补报关闭期间的阅读。离线期间在本机开启设置时显示的文字可保留待补发事实，重连后仍须双方开启；不是以最后阅读时间推断整段消息。
 
@@ -34,7 +34,7 @@ response = 0x5253 || SHA256(UTF8("wozai-read-receipt-v1\0response\0" + generatio
 
 The native preview.3 implementation negotiates real **text-message** read receipts, enabled by default with an optional setting. Both peers must enable them on the current authenticated NIM4 chat connection. Unsupported/older peers retain sent/delivered states without changing the handshake, capability bits, text capacity, or connection mode. Dedicated FILE lanes reject the extension.
 
-Read means the app stably displayed that exact text in the focused foreground conversation, not proof of human comprehension. At least half the message must be visible (capped at half the viewport for very long messages) for250ms. Background delivery, notification previews, locked screens, other conversations, offscreen rows and quick scrolling do not qualify. Attachment completion/opening semantics are unchanged. Android/desktop highlight their existing double checks; Apple retains its native status label and highlights Read.
+Read means the app stably displayed that exact text in the focused foreground conversation, not proof of human comprehension. At least half the message must be visible (capped at half the viewport for very long messages) for250ms. Background delivery, notification previews, locked screens, other conversations, offscreen rows and quick scrolling do not qualify. Attachment completion/opening semantics are unchanged. Read uses `#66CCFF`, with a subtle icon-only glow in dark mode and no glow in light mode. Android/desktop highlight their existing double checks; Apple retains its native status label and highlights Read.
 
 Turning the setting off revokes queued old-policy records and clears pending local read receipts. Records already handed to the network cannot be recalled. Confirmed historical read states remain; enabling does not backfill observations made while disabled. Locally enabled offline observations may be retained, but transmission still requires mutual opt-in after reconnect.
 
