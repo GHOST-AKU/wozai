@@ -1,0 +1,66 @@
+name: Final read-receipt Apple UI verification
+on:
+  push:
+    branches: [verify/read-receipts-final]
+    paths: ['.github/workflows/read-receipts-final.yml']
+permissions:
+  contents: read
+env:
+  IMPLEMENTATION_SHA: f6fd26f648943d567732d3abd8e9f9256b78cfd0
+jobs:
+  ios:
+    runs-on: macos-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify exact implementation and reused build inputs
+        run: |
+          git diff --exit-code "$IMPLEMENTATION_SHA" HEAD -- . ':!.github/workflows/read-receipts-final.yml'
+          git diff --exit-code fe7b830d18b09df0879b0b153c19574461344ee5 "$IMPLEMENTATION_SHA" -- . ':!tools/test-apple-ui.sh' ':!apple/App/ChatDetailView.swift' ':!apple/UITests/NativeChatTests.swift' ':!tests/apple/AppleInteropPeer.java'
+          git diff --exit-code 864b842199620857b0a56bec6eeff2ab56f37418 "$IMPLEMENTATION_SHA" -- . ':!apple/UITests/NativeChatTests.swift' ':!tests/apple/AppleInteropPeer.java'
+          git diff --exit-code aa480f581ae343d191ad455db9a83e0f0107b266 "$IMPLEMENTATION_SHA" -- . ':!apple/UITests/NativeChatTests.swift'
+          /bin/bash --version
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Compile previously verified independent Java peer
+        run: bash tools/test-apple-interop.sh --compile-java
+      - name: Select available iPhone and iPad simulators
+        id: simulators
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess
+          devices = json.loads(subprocess.check_output(['xcrun','simctl','list','devices','available','--json']))['devices']
+          ios = [(runtime,d) for runtime,values in devices.items() if '.iOS-' in runtime for d in values]
+          with open(os.environ['GITHUB_OUTPUT'],'a') as output:
+              for key,prefix in [('iphone','iPhone'),('ipad','iPad')]:
+                  runtime,template = next((r,d) for r,d in ios if d['name'].startswith(prefix))
+                  device = subprocess.check_output(['xcrun','simctl','create','Wozai final '+prefix,template['deviceTypeIdentifier'],runtime],text=True).strip()
+                  output.write(f"{key}={device}\n")
+          PY
+      - name: Prepare iPhone and native UI test bundle
+        timeout-minutes: 12
+        run: bash tools/test-apple-ui.sh 'platform=iOS Simulator,id=${{ steps.simulators.outputs.iphone }}' iphone --prepare-only
+      - name: Exercise iPhone read visibility and modal exclusion
+        timeout-minutes: 8
+        env:
+          WOZAI_APPLE_READ_UI: 'true'
+          WOZAI_APPLE_UI_TEST: NearbyIMUITests/NativeChatTests/testReadReceiptForegroundVisibilityWithJavaPeer
+        run: bash tools/test-apple-ui.sh 'platform=iOS Simulator,id=${{ steps.simulators.outputs.iphone }}' iphone-read --test-only
+      - name: Prepare iPad using the same UI bundle
+        timeout-minutes: 12
+        run: bash tools/test-apple-ui.sh 'platform=iOS Simulator,id=${{ steps.simulators.outputs.ipad }}' ipad --prepare-only
+      - name: Exercise iPad read visibility and safety sheet
+        timeout-minutes: 8
+        env:
+          WOZAI_APPLE_READ_UI: 'true'
+          WOZAI_APPLE_UI_TEST: NearbyIMUITests/NativeChatTests/testReadReceiptForegroundVisibilityWithJavaPeer
+        run: bash tools/test-apple-ui.sh 'platform=iOS Simulator,id=${{ steps.simulators.outputs.ipad }}' ipad-read --test-only
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: apple-ui-final-ios
+          path: build/apple-ui/
