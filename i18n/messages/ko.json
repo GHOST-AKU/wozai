@@ -571,5 +571,8 @@
   "draftLoadRetry": "초안을 불러오지 못했습니다. 눌러서 다시 시도하세요.",
   "emojiKeyboard": "키보드",
   "messageTooLong": "메시지가 너무 깁니다. 내용을 줄이거나 파일로 보내세요. 초안은 유지됩니다.",
-  "messageIncomplete": "입력을 완료한 후 전송하세요."
+  "messageIncomplete": "입력을 완료한 후 전송하세요.",
+  "sent": "전송됨",
+  "messageSending": "전송 중",
+  "messageSendFailed": "전송 실패"
 }

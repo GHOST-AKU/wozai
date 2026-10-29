@@ -15,6 +15,8 @@ public final class FramedSession {
         default void onFileRoute(FileRoutePacket packet) { throw new IllegalStateException("Automatic file routes unavailable"); }
         default void onFileLink(FileLinkPacket packet) { throw new IllegalStateException("FILE migration unavailable"); }
         default void onFailure(IOException error) {}
+        /** Called only after the complete TEXT record was written, never on enqueue. */
+        default void onTextWritten(String id) {}
         default void onAvatar(AvatarPacket packet) { throw new IllegalStateException("Avatars unavailable"); }
         void onHello(Frame hello); void onReady(); void onText(Frame frame); void onAck(String id); void onClosed(UiText reason);
     }
@@ -230,10 +232,10 @@ public final class FramedSession {
     private void writeFrame(Frame frame)throws IOException {if(noise==null)channel.write(output,frame);else noise.write(ProtocolV4.encode(frame,textLimit()));}
     private boolean enqueueFrame(Frame frame) {
         if(noise!=null){
-            try{byte[] bytes=ProtocolV4.encode(frame,textLimit());return enqueue(()->noise.write(bytes),bytes.length+256,frame.type>=Frame.FILE_OFFER);}
+            try{byte[] bytes=ProtocolV4.encode(frame,textLimit());return enqueue(()->{noise.write(bytes);if(frame.type==Frame.TEXT)listener.onTextWritten(frame.id);},bytes.length+256,frame.type>=Frame.FILE_OFFER);}
             catch(IOException invalid){return false;}
         }
-        return enqueue(()->writeFrame(frame),frame.data.length+frame.body.length()*2+256,frame.type>=Frame.FILE_OFFER);
+        return enqueue(()->{writeFrame(frame);if(frame.type==Frame.TEXT)listener.onTextWritten(frame.id);},frame.data.length+frame.body.length()*2+256,frame.type>=Frame.FILE_OFFER);
     }
     private boolean enqueue(Write operation) {
         return enqueue(operation,512,false);
@@ -256,6 +258,6 @@ public final class FramedSession {
     /** Available only after proof verification, including during onHello. */
     public String remotePublicKey() { return noise==null?channel.remotePublicKey():noise.remotePublicKey(); }
     public boolean isReady() { return greeted && approved && remoteReady && !closed.get(); }
-    public String diagnostics(){return "protocol="+(noise==null?"NIM3":"NIM4")+"\nend_to_end_encrypted="+endToEndEncrypted()+"\ntext_send_limit_bytes="+textLimit()+"\ntext_receive_limit_bytes="+(textCapability==null?TextLimits.LEGACY_BYTES:textCapability.incoming())+"\nwriter_pending_bytes="+writer.pendingBytes()+"\n"+metrics.snapshot()+(noise==null?"":noise.diagnostics());}
+    public String diagnostics(){return "protocol="+(noise==null?"NIM3":"NIM4")+"\nend_to_end_encrypted="+endToEndEncrypted()+"\ntext_send_limit_bytes="+textLimit()+"\ntext_receive_limit_bytes="+(textCapability==null?TextLimits.LEGACY_BYTES:textCapability.incoming())+"\nwriter_pending_bytes="+writer.pendingBytes()+"\n"+metrics.snapshot("framed_session")+(noise==null?"":noise.diagnostics());}
     public boolean endToEndEncrypted(){return isReady()&&noise!=null&&noise.verified();}
 }

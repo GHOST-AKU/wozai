@@ -110,14 +110,20 @@ final class MessagePane extends JPanel implements Scrollable {
             }
             Key key = new Key(message.id(), message.outgoing()); liveRows.add(key); MessageRow row = rows.get(key);
             if (row == null || !row.message.equals(message)) {
-                String receipt = message.outgoing() ? strings.text("messageReceipt", new Date(message.time()), strings.text(message.status())) : strings.text("messageTime", new Date(message.time()));
+                String receipt = strings.text("messageTime", new Date(message.time()));
                 if (row == null) { row = new MessageRow(message, receipt,strings); rows.put(key, row); }
                 else row.update(message, receipt,strings);
             }
             if(row.bubble.photoBubble!=(previewIds.contains(key)&&!row.bubble.previewFailed))row.bubble.attachment(message,strings);
             else if(message.attachment()!=null&&(message.attachment().active()||message.attachment().outgoing&&message.attachment().state.equals("failed")))row.bubble.attachment(message,strings);
             if(message.attachment()!=null)row.bubble.updatePath(message,strings);
-            String receipt = row.bubble.receipt.getText();
+            String state=message.attachment()==null?message.status():message.attachment().state;
+            row.bubble.receipt.setForeground(AppTheme.muted);
+            row.bubble.receipt.setIcon(message.outgoing()?new MessageReceiptIcon(dev.ghost.nearbyim.core.MessageReceipt.of(state),scale):null);
+            row.bubble.receipt.setHorizontalTextPosition(SwingConstants.LEADING);
+            row.bubble.receipt.setIconTextGap(Math.round(4*scale));
+            row.bubble.receipt.getAccessibleContext().setAccessibleName(message.outgoing()?strings.text("messageReceipt",new Date(message.time()),message.attachment()==null?strings.text(dev.ghost.nearbyim.core.MessageReceipt.of(state).textKey()):strings.text(message.attachment().stateKey())):row.bubble.receipt.getText());
+            String receipt = row.bubble.receipt.getAccessibleContext().getAccessibleName();
             content.append(message.body()).append('\n').append(receipt).append('\n');
             desired.addAll(row.components);
         }
@@ -144,7 +150,7 @@ final class MessagePane extends JPanel implements Scrollable {
             this.outgoing=outgoing; bodyText=text; setOpaque(false); setLayout(new BorderLayout(0,6)); setBorder(BorderFactory.createEmptyBorder(12,16,10,16));
             body=new JTextArea(text); body.setMargin(new Insets(0,0,0,0)); body.setBorder(BorderFactory.createEmptyBorder()); body.setEditable(false); body.setOpaque(false); body.setLineWrap(true); body.setWrapStyleWord(true); body.setForeground(AppTheme.ink); body.setFont(body.getFont().deriveFont(15f*scale));
             body.getAccessibleContext().setAccessibleName(text);
-            receipt=new JLabel(status, SwingConstants.TRAILING); receipt.setForeground(AppTheme.muted); receipt.setFont(receipt.getFont().deriveFont(12f*scale));
+            receipt=new JLabel(status, SwingConstants.TRAILING); receipt.setAlignmentX(Component.RIGHT_ALIGNMENT); receipt.setForeground(AppTheme.muted); receipt.setFont(receipt.getFont().deriveFont(12f*scale));
             pathLabel.setName("attachmentPath");pathLabel.putClientProperty("html.disable",true);pathLabel.setForeground(AppTheme.muted);pathLabel.setFont(pathLabel.getFont().deriveFont(12f*scale));
             footer.setOpaque(false);footer.setLayout(new BoxLayout(footer,BoxLayout.Y_AXIS));footer.add(receipt);add(body,BorderLayout.CENTER);add(footer,BorderLayout.SOUTH);thumbnail.setHorizontalAlignment(SwingConstants.CENTER);
         }

@@ -202,6 +202,10 @@ public final class DesktopTests {
             check(store.messages(PEER).get(0).status().equals("unknown"), "Cross-conversation receipt changed message");
             store.acknowledge(PEER, mid);
             check(store.messages(PEER).get(0).status().equals("delivered"), "Receipt did not persist");
+            store.sent(PEER,mid);
+            check(store.messages(PEER).get(0).status().equals("delivered"),"Late writer completion downgraded saved ACK");
+            String sentId=UUID.randomUUID().toString();store.save(PEER,new DesktopStore.Message(sentId,"written",125,true,"pending"));store.sent(PEER,sentId);
+            check(store.messages(PEER).stream().anyMatch(m->m.id().equals(sentId)&&m.status().equals("sent")),"Real write state did not persist");
             store.clear(PEER);
             check(store.messages(PEER).isEmpty() && store.peer(PEER).publicKey().equals("pin"), "Clear also revoked trust");
             store.revoke(PEER);

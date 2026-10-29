@@ -285,6 +285,10 @@ public final class DesktopClient implements AutoCloseable {
                 wire.acknowledge(frame.id); publish();
             } catch (IOException e) { failure(); }
         }); }
+        public void onTextWritten(String id) { event(()->{
+            if(current!=this||peer==null)return;
+            try{store.sent(peer.id(),id);publish();}catch(IOException error){failure();}
+        }); }
         public void onAck(String id) { event(() -> {
             if (current != this || peer == null) return;
             try { store.acknowledge(peer.id(), id); publish(); }

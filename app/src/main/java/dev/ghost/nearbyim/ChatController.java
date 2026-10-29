@@ -344,6 +344,10 @@ public final class ChatController implements TransportListener {
                 db(() -> store.save(id, name, frame, false), () -> { reference[0].acknowledge(frame.id); refresh(); });
             }); }
             public void onTextLimit(int bytes){main.post(()->{if(active==reference[0])changed();});}
+            public void onTextWritten(String id) { main.post(()->{
+                if(active!=reference[0]||remoteHello==null)return;
+                String peerId=remoteHello.id;db(()->store.sent(peerId,id),ChatController.this::refresh);
+            }); }
             public void onAck(String id) { main.post(() -> {
                 if (active != reference[0] || remoteHello == null) return;
                 String peerId = remoteHello.id; db(() -> store.delivered(peerId, id), ChatController.this::refresh);
