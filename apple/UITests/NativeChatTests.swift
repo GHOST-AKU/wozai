@@ -23,8 +23,15 @@ final class NativeChatTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Hello from Java"].waitForExistence(timeout: 15))
         composer.tap(); composer.typeText("Hello from Apple"); app.buttons["sendMessage"].tap()
         try drivePeer("read-initial-check")
+        #if os(iOS)
+        if app.keyboards.firstMatch.exists {
+            app.scrollViews["messageTimeline"].swipeDown()
+            let hidden = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in !app.keyboards.firstMatch.exists }, object: app)
+            XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 8), .completed, "Dismiss the keyboard before tab navigation: " + app.debugDescription)
+        }
+        #endif
         selectDestination(app, "Nearby")
-        XCTAssertTrue(host.waitForExistence(timeout: 8))
+        XCTAssertTrue(host.waitForExistence(timeout: 8), app.debugDescription)
         try drivePeer("read-hidden-send")
         try drivePeer("read-hidden-check")
         #if os(macOS)
