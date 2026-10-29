@@ -43,9 +43,9 @@ fi
 if [[ "$mode" == --prepare-only ]]; then prepared=true; exit 0; fi
 port_file="build/apple-ui/$label.port"
 rm -f "$port_file"
-read_peer_args=()
-if [[ ${WOZAI_APPLE_READ_UI:-false} == true ]]; then read_peer_args+=(--read-ui); fi
-java -cp build/apple-interop/java dev.ghost.nearbyim.core.AppleInteropPeer ui-server "$port_file" "${read_peer_args[@]}" > "build/apple-ui/$label-java.log" 2>&1 &
+peer_args=(ui-server "$port_file")
+if [[ ${WOZAI_APPLE_READ_UI:-false} == true ]]; then peer_args+=(--read-ui); fi
+java -cp build/apple-interop/java dev.ghost.nearbyim.core.AppleInteropPeer "${peer_args[@]}" > "build/apple-ui/$label-java.log" 2>&1 &
 peer_pid=$!
 python3 - "$port_file" "$peer_pid" <<'PY'
 import os, pathlib, sys, time
