@@ -16,6 +16,6 @@ Development for #29, not published. Android and desktop draw native receipt stro
 
 Enqueue does not mean sent, and a local write does not mean peer persistence. A written event only promotes pending; late/duplicate events cannot overwrite delivered. Existing histories remain readable with no database schema or wire protocol change. Screen readers retain localized state descriptions and the semantic plain-text representation includes them.
 
-当前协议没有已读回执，因此不提供高亮“已读”双勾或伪造已读状态。文字连接中断后的 unknown 仍是未确认，不能冒充明确失败；既有附件进度、暂停、取消及重试动作保持原语义。图标与文字均随现有字号/主题缩放；未改变平板分栏和吸附。
+当前协议没有已读回执，因此不提供高亮“已读”双勾或伪造已读状态。文字连接中断后的 unknown 仍是未确认，不能冒充明确失败；既有附件进度、暂停、取消及重试动作保持原语义。文字遵循系统字号，Android图标按屏幕密度绘制，桌面图标随现有字号比例缩放；两端均适配主题；未改变平板分栏和吸附。
 
-The protocol has no read receipt, so there are no highlighted read checks. An unknown text result after disconnect remains unconfirmed. Existing attachment progress, pause, cancel and retry retain their semantics. Icons follow the current text scale and theme; tablet splits and snapping are unchanged.
+The protocol has no read receipt, so there are no highlighted read checks. An unknown text result after disconnect remains unconfirmed. Existing attachment progress, pause, cancel and retry retain their semantics. Text follows the system font size. Android icons use density-scaled coordinates; desktop icons follow the existing text scale. Both adapt to the theme; tablet splits and snapping are unchanged.
