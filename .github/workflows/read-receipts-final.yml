@@ -1,0 +1,52 @@
+name: Inspect existing Apple UI failures
+on:
+  push:
+    branches: [verify/read-receipts-final]
+    paths: ['.github/workflows/read-receipts-final.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect:
+    runs-on: macos-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: GHOST-AKU/wozai
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download existing failed evidence without rerunning tests
+        run: |
+          gh run download 40861098510 --name apple-ui-final-ios --dir build/failure-40861098510
+          gh run download 40863098876 --name apple-ui-final-ios --dir build/failure-40863098876
+      - name: Export existing failure attachments and summaries
+        run: |
+          python3 - <<'PY'
+          import pathlib,subprocess,json
+          output=pathlib.Path('build/apple-failure-inspection')
+          output.mkdir(parents=True)
+          for run in ['40861098510','40863098876']:
+              result=next(pathlib.Path('build/failure-'+run).rglob('iphone-read.xcresult'))
+              root=output/run
+              root.mkdir()
+              for name,args in [
+                  ('summary',['get','test-results','summary']),
+                  ('tests',['get','test-results','tests']),
+                  ('activities',['get','test-results','activities','--test-id','NativeChatTests/testReadReceiptForegroundVisibilityWithJavaPeer()']),
+                  ('objects',['get','object','--legacy','--format','json'])
+              ]:
+                  with (root/(name+'.json')).open('w') as log:
+                      subprocess.run(['xcrun','xcresulttool',*args,'--path',str(result)],stdout=log,check=False)
+              subprocess.run(['xcrun','xcresulttool','export','attachments','--path',str(result),'--output-path',str(root/'attachments'),'--only-failures'],check=True)
+              print('EXPORTED',run)
+              print((root/'summary.json').read_text()[:6000])
+              for file in (root/'attachments').rglob('*'):
+                  if file.is_file():
+                      print(str(file),file.stat().st_size)
+                      if file.suffix in ['.txt','.log']: print(file.read_text(errors='replace')[:8000])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: apple-failure-inspection
+          path: build/apple-failure-inspection/
