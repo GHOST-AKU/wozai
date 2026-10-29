@@ -1,0 +1,117 @@
+name: Verify restored-prefix accounting with the persistent signer
+on:
+  push:
+    branches: [verify/transfer-prefix]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  android-build:
+    if: github.repository == 'GHOST-AKU/wozai' && github.ref == 'refs/heads/verify/transfer-prefix'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
+      - name: Check localization and source
+        run: |
+          sh tools/test-i18n.sh
+          sh tools/check-source.sh
+      - name: Verify pre-DATA restore failures, resume safety and unchanged UI inputs
+        run: |
+          git diff --exit-code e7513458f72a13baffabc33cd641bc761046e032 HEAD -- desktop app/src/main/java/dev/ghost/nearbyim/MainActivity.java app/src/main/java/dev/ghost/nearbyim/AndroidText.java app/src/main/java/dev/ghost/nearbyim/ChatController.java app/src/main/java/dev/ghost/nearbyim/ChatStore.java app/src/main/java/dev/ghost/nearbyim/MessageReceiptDrawable.java app/src/main/java/dev/ghost/nearbyim/core/MessageReceipt.java app/src/main/res i18n app/build.gradle.kts app/proguard-instrumentation.pro
+          mkdir -p build/core-tests
+          find third_party/noise-java/src app/src/main/java/dev/ghost/nearbyim/noise -name '*.java' > build/core-tests/crypto-sources.txt
+          javac -encoding UTF-8 -d build/core-tests @build/core-tests/crypto-sources.txt app/src/main/java/dev/ghost/nearbyim/core/*.java app/src/main/java/dev/ghost/nearbyim/i18n/UiText.java app/src/main/java/dev/ghost/nearbyim/i18n/LocalizedIllegalArgumentException.java app/src/main/java/dev/ghost/nearbyim/GalleryExportNames.java tests/*.java
+          java -cp build/core-tests dev.ghost.nearbyim.core.TransferAttemptTests
+          java -Xmx64m -cp build/core-tests dev.ghost.nearbyim.core.AttachmentResumeTests
+      - name: Build and lint the fixed-certificate client and native fixtures
+        env:
+          WOZAI_ANDROID_KEYSTORE_BASE64: ${{ secrets.WOZAI_ANDROID_KEYSTORE_BASE64 }}
+          WOZAI_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.WOZAI_ANDROID_KEYSTORE_PASSWORD }}
+          WOZAI_ANDROID_CANDIDATE_ONLY: 'true'
+        run: python3 tools/build-signed-android.py --preview
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-fixed-signature-preview
+          path: |
+            build/signing-upgrade/candidate.apk
+            build/signing-upgrade/signature.json
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: INTERNAL-native-receipt-fixture
+          path: build/signing-upgrade/native-test.apk
+          if-no-files-found: error
+  android-ui:
+    needs: android-build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - api: 34
+            profile: pixel_c
+            night: 'yes'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-fixed-signature-preview
+          path: build/receipt-native
+      - uses: actions/download-artifact@v4
+        with:
+          name: INTERNAL-native-receipt-fixture
+          path: build/receipt-native
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          profile: ${{ matrix.profile }}
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -camera-front none
+          script: |
+            adb shell cmd uimode night ${{ matrix.night }}
+            ANDROID_APP_APK=build/receipt-native/candidate.apk ANDROID_TEST_APK=build/receipt-native/native-test.apk sh tools/test-android-i18n.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-receipts-api-${{ matrix.api }}
+          path: |
+            build/android-i18n-device.txt
+            build/android-i18n-logcat.txt
+            build/android-i18n-screenshots/
+  windows:
+    # Same desktop/UI sources passed in run 40714059795; do not repeat that job.
+    if: false
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Compile and exercise the changed desktop surface without repackaging
+        shell: pwsh
+        run: desktop/tools/test-receipts.ps1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-message-receipts
+          path: desktop/build/receipt-windows-*.png

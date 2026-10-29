@@ -13,7 +13,7 @@ Each `transfer_summary={JSON}` is one local send/receive attempt, with pipeline_
 | start_unix_ms / end_unix_ms | 起点墙钟；终点由该起点加单调耗时估算，避免系统时钟调整改变耗时 / Wall-clock start, end estimated from that start plus monotonic elapsed time |
 | elapsed_ms / phase_ms | 从任务创建到本端保存成功或收到有效完成回执；互斥状态阶段；不含任务创建前的文件选择、来源准备/快照、路由准备和排队时间 / Task creation to local saved completion or validated peer completion; exclusive state phases, excluding selection, source preparation/snapshots, routing and queueing before task creation |
 | attempt_data_bytes | 发送端成功交给文件wire队列的DATA；接收端实际写入的DATA，不是加密线速 / Sender DATA accepted by its wire queue; receiver DATA written; not encrypted wire throughput |
-| resumed_prefix_bytes | 本次恢复前已存在的前缀，不计为本次传输有效载荷 / Previously existing resume prefix, excluded from this attempt's payload |
+| resumed_prefix_bytes | 按检查点/协商位置记录的恢复前缀，首个DATA之前亦保留；checking阶段可因校验进一步回退，不计为本次有效载荷 / Restored checkpoint/negotiated prefix retained before first DATA; checking may roll it back, and it is excluded from new payload |
 | confirmed_payload_bytes | 本次DATA中已由对端CREDIT/COMPLETE确认写入或本端实际写入的字节 / Attempt DATA covered by peer CREDIT/COMPLETE or local writes |
 | average_mib_s | confirmed_payload_bytes / 单调耗时，除以1048576；含检查、等待、验证、历史保存 / Confirmed payload per monotonic elapsed second divided by1048576, including checking, waits, verification and history saving |
 | peak_1s_mib_s | ACK/写入进度采样的10个100ms桶之和，固定除以1秒与1048576；不足1秒不宣称峰值 / Ten 100ms buckets of acknowledged/written progress divided by one second and1048576; no peak claim before a full second |

@@ -23,6 +23,11 @@ public final class TransferAttempt {
         this.pipeline=pipeline;this.transfer=transfer;role=outgoing?"send":"receive";this.clock=clock;this.wall=wall;started=changed=clock.getAsLong();
     }
     public synchronized void phase(String next){if(completed!=null||phase.equals(next))return;long now=clock.getAsLong();phases.merge(phase,Math.max(0,now-changed),Long::sum);phase=next;changed=now;}
+    /** Preserve the restored position even if no DATA can be opened or submitted. */
+    public synchronized void restoredPrefix(long offset){
+        if(offset<0)throw new IllegalArgumentException("Invalid restored prefix");
+        if(completed==null&&payload==0)prefix=offset;
+    }
     public synchronized void data(long offset,long bytes){
         if(completed!=null||bytes<0||offset<0)throw new IllegalArgumentException("Invalid attempt DATA sample");
         if(payload==0)prefix=offset;

@@ -26,7 +26,7 @@ public final class TransferAttemptTests {
             var file=pair.root.resolve("summary.txt");java.nio.file.Files.writeString(file,"diagnostic test");
             pair.a.offer(new FileAttachmentSource(file),"summary.txt","text/plain").get(3,java.util.concurrent.TimeUnit.SECONDS);
             long end=System.nanoTime()+java.util.concurrent.TimeUnit.SECONDS.toNanos(5);
-            while(!pair.a.diagnostics().contains("\"state\":\"delivered\"" )&&System.nanoTime()<end)Thread.sleep(10);
+            while(System.nanoTime()<end){String value=pair.a.diagnostics();if(value.contains("\"state\":\"delivered\"")&&value.contains("\"terminal\":true"))break;Thread.sleep(10);}
             String sent=pair.a.diagnostics(),received=pair.b.diagnostics();
             check(sent.contains("\"terminal\":true")&&sent.contains("\"attempt_data_bytes\":15"),"Missing completed sender summary");
             check(received.contains("\"local_hash_verified\":true"),"Missing receiver hash proof");
@@ -42,6 +42,42 @@ public final class TransferAttemptTests {
             check(pair.completeCount.get()==0,"Failed history save emitted COMPLETE");
             check(!pair.a.diagnostics().contains("\"peer_complete_received\":true"),"Sender claimed a missing saved receipt");
         }
+        TransferAttempt paused=new TransferAttempt("paused",true,clock::get,4000);paused.restoredPrefix(1024);
+        check(paused.snapshot("paused",2048,1024,1024,null,true).contains("\"resumed_prefix_bytes\":1024"),"Pre-DATA pause lost checkpoint prefix");
+        TransferAttempt rollback=new TransferAttempt("rollback",false,clock::get,4000);rollback.restoredPrefix(1024);rollback.restoredPrefix(0);
+        check(rollback.snapshot("failed",2048,0,0,null,true).contains("\"resumed_prefix_bytes\":0"),"Verified prefix rollback was ignored");
+        resumeWithoutData();
         System.out.println("TransferAttemptTests: real transfer summaries, monotonic duration, restored prefix, failed queue, empty file and idle freeze passed");
     }
+    private static void resumeWithoutData()throws Exception {
+        var root=java.nio.file.Files.createTempDirectory("attempt-prefix-");
+        byte[] bytes=new byte[TransferLimits.BLOCK_BYTES+17];var file=root.resolve("source.bin");java.nio.file.Files.write(file,bytes);
+        String id=java.util.UUID.randomUUID().toString(),generation=java.util.UUID.randomUUID().toString();
+        var send=new TransferTaskKey("a".repeat(64),"b".repeat(64),TransferTaskKey.Direction.SEND,id,generation);
+        var receive=new TransferTaskKey("b".repeat(64),"a".repeat(64),TransferTaskKey.Direction.RECEIVE,id,generation);
+        var info=AttachmentInfo.v2(id,"source.bin","application/octet-stream",bytes.length,null,1);
+        var original=new FileAttachmentSource(file,generation);long offset=TransferLimits.BLOCK_BYTES;
+        var a=new TransferCheckpointStore(root.resolve("a/.tasks-v2"));var b=new TransferCheckpointStore(root.resolve("b/.tasks-v2"));
+        a.appendBlock(send,offset,java.security.MessageDigest.getInstance("SHA-256").digest(java.util.Arrays.copyOf(bytes,(int)offset)));
+        a.checkpoint(new TransferCheckpoint(send,info,original.persistentReference(),offset,offset,offset,TransferCheckpoint.State.PAUSED,System.currentTimeMillis()));
+        java.nio.file.Files.write(root.resolve("b").resolve(receive.fileName()+".part"),java.util.Arrays.copyOf(bytes,(int)offset));
+        b.appendBlock(receive,offset,java.security.MessageDigest.getInstance("SHA-256").digest(java.util.Arrays.copyOf(bytes,(int)offset)));
+        b.checkpoint(new TransferCheckpoint(receive,info,"",offset,offset,offset,TransferCheckpoint.State.PAUSED,System.currentTimeMillis()));
+        try(AttachmentV2Tests.Pair pair=new AttachmentV2Tests.Pair(root,true,AttachmentV2Tests.CONNECTION)){
+            AttachmentSource unavailable=new AttachmentSource(){
+                public long size(){return original.size();}public String generation(){return original.generation();}public boolean seekable(){return true;}
+                public String persistentReference(){return original.persistentReference();}public void verifyUnchanged()throws java.io.IOException{original.verifyUnchanged();}
+                public java.io.InputStream open(long start)throws java.io.IOException{if(start>0)throw new java.io.IOException("Injected source open failure after prefix negotiation");return original.open(start);}
+                public void close()throws java.io.IOException{original.close();}
+            };
+            pair.a.resume(send,unavailable).get(3,java.util.concurrent.TimeUnit.SECONDS);
+            long end=System.nanoTime()+java.util.concurrent.TimeUnit.SECONDS.toNanos(5);
+            while(System.nanoTime()<end){String value=pair.a.diagnostics();if(value.contains("\"state\":\"sourceUnavailable\"")&&value.contains("\"terminal\":true"))break;Thread.sleep(10);}
+            String report=pair.a.diagnostics();
+            check(report.contains("\"terminal\":true")&&report.contains("\"resumed_prefix_bytes\":1048576"),"Pre-DATA source failure lost negotiated resume prefix: "+report);
+            check(report.contains("\"attempt_data_bytes\":0")&&report.contains("\"confirmed_payload_bytes\":0")&&pair.dataBytes.get()==0,"Restored prefix counted as new DATA");
+            check(java.nio.file.Files.size(file)==bytes.length,"Diagnostic failure handling damaged original source");
+        }
+    }
+
 }

@@ -237,7 +237,7 @@ public final class AttachmentTransferV2 implements AutoCloseable {
         switch(packet.kind) {
             case ACCEPT:
                 require(task.outgoing&&(task.state.equals("offered")||task.state.equals("checking")&&task.recoveryOffer)&&packet.offset==0&&packet.windowBytes>0);
-                if(task.recoveryOffer){task.recoveryOffer=false;task.sent=task.written=task.verified=task.durable=0;checkpoints.truncateIndex(task.key,0);task.info=AttachmentInfo.v2(task.info.id,task.info.name,task.info.mime,task.info.size,null,task.info.time);if(task.source==null){pauseUnavailable(task);break;}}
+                if(task.recoveryOffer){task.recoveryOffer=false;task.sent=task.written=task.verified=task.durable=0;task.measurement.restoredPrefix(0);checkpoints.truncateIndex(task.key,0);task.info=AttachmentInfo.v2(task.info.id,task.info.name,task.info.mime,task.info.size,null,task.info.time);if(task.source==null){pauseUnavailable(task);break;}}
                 task.window=new TransferByteWindow(packet.windowBytes,task.flow.maxWindow);task.whole=digest();task.block=digest();
                 task.source.verifyUnchanged();try{task.input=openSource(task,0);}catch(SourceUnavailableException error){pauseUnavailable(task);break;}
                 task.state="transferring";notice(task,true);pump(task);break;
@@ -426,7 +426,7 @@ public final class AttachmentTransferV2 implements AutoCloseable {
         if(saved.info().hash==null){require(source.seekable()&&source.size()==saved.info().size&&source.generation().equals(saved.key().sourceGeneration())&&source.persistentReference().equals(saved.sourceReference()));source.verifyUnchanged();}
         routePaused.remove(saved.key());
         if(saved.state()==TransferCheckpoint.State.COMPLETE){closeResource(source);listener.changed(new AttachmentRecord(saved.info(),true,"delivered",saved.info().size));return;}
-        Task task=task(saved.info(),true,saved.key().sourceGeneration(),null);task.key=saved.key();task.reference=saved.sourceReference();task.source=source;task.written=saved.writtenOffset();task.verified=saved.verifiedOffset();task.durable=saved.durableOffset();task.state="checking";outgoing=task;notice(task,true);
+        Task task=task(saved.info(),true,saved.key().sourceGeneration(),null);task.key=saved.key();task.reference=saved.sourceReference();task.source=source;task.written=saved.writtenOffset();task.verified=saved.verifiedOffset();task.durable=saved.durableOffset();task.measurement.restoredPrefix(task.written);task.state="checking";outgoing=task;notice(task,true);
         if(automatic){task.recoveryOffer=true;AttachmentInfo info=AttachmentInfo.v2(task.info.id,task.info.name,task.info.mime,task.info.size,null,task.info.time);if(wire.restoreOffer(TransferPacket.offer(info,task.generation,connection)))return;task.recoveryOffer=false;}
         send(control(task,TransferPacket.Kind.STATUS,true,0,0,null,""));
     }
@@ -454,11 +454,11 @@ public final class AttachmentTransferV2 implements AutoCloseable {
             listener.changed(new AttachmentRecord(saved.info(),false,"received",saved.info().size));send(control(packet,TransferPacket.Kind.COMPLETE,false,saved.info().size,0,hash,""));return;
         }
         if(incoming!=null){require(matches(incoming,packet)&&incoming.info.size==packet.totalSize);return;}
-        routePaused.remove(key);Task task=task(saved.info(),false,key.sourceGeneration(),partial(key));task.key=key;task.reference=saved.sourceReference();task.written=task.verified=task.durable=saved.durableOffset();task.state="checking";incoming=task;notice(task,true);
+        routePaused.remove(key);Task task=task(saved.info(),false,key.sourceGeneration(),partial(key));task.key=key;task.reference=saved.sourceReference();task.written=task.verified=task.durable=saved.durableOffset();task.measurement.restoredPrefix(task.written);task.state="checking";incoming=task;notice(task,true);
         TransferCheckpointStore.PrefixResult prefix;
         checkingProgress(task,0,saved.durableOffset(),true);
         try{prefix=checkpoints.verifyPrefix(saved,task.partial,()->closed||task.canceled.get(),bytes->checkingProgress(task,bytes,saved.durableOffset(),false));checkingProgress(task,prefix.offset(),saved.durableOffset(),true);}catch(IOException error){if(!closed&&!task.canceled.get())finish(task,"failed",true);return;}
-        task.written=task.verified=task.durable=prefix.offset();task.lastCredit=task.lastCreditVerified=task.lastCreditDurable=prefix.offset();task.whole=prefix.whole();task.block=digest();
+        task.written=task.verified=task.durable=prefix.offset();task.lastCredit=task.lastCreditVerified=task.lastCreditDurable=prefix.offset();task.whole=prefix.whole();task.block=digest();task.measurement.restoredPrefix(prefix.offset());
         task.reservation=storage.reserve(key,task.info.size,task.durable);task.output=FileChannel.open(task.partial,StandardOpenOption.WRITE,LinkOption.NOFOLLOW_LINKS);task.output.truncate(task.durable);task.output.position(task.durable);checkpoints.truncateIndex(key,task.durable);
         task.state="transferring";task.lastCreditNs=System.nanoTime();checkpoint(task,TransferCheckpoint.State.ACTIVE);startCredits();notice(task,true);
         send(TransferPacket.progress(TransferPacket.Kind.RESUME,task.info.id,task.generation,connection,task.info.size,task.durable,task.durable,task.durable,task.flow.window,prefix.sha256()));
@@ -474,6 +474,7 @@ public final class AttachmentTransferV2 implements AutoCloseable {
     }
     private void restoreSource(Task task,TransferPacket packet)throws Exception {
         require(packet.offset>=task.durable&&(packet.offset%TransferLimits.BLOCK_BYTES==0||packet.offset==task.info.size));
+        task.measurement.restoredPrefix(packet.offset);
         if(task.source==null){pauseTask(task,true);return;}
         if(!task.source.seekable()||task.source.size()!=task.info.size||!task.source.generation().equals(task.generation)||!task.source.persistentReference().equals(task.reference)){finish(task,"failed",true);return;}
         try{scanSource(task,packet.offset,packet.hash);}catch(IOException error){if(!closed&&!task.canceled.get()){if(error instanceof SourceUnavailableException)pauseUnavailable(task);else finish(task,"failed",true);}return;}
