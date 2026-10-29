@@ -17,7 +17,7 @@ final class NativeChatTests: XCTestCase {
         let port = app.textFields["manualPort"]; port.tap(); port.typeText("47831")
         app.buttons["manualConnect"].tap()
         let consent = app.buttons["consentOnce"]
-        XCTAssertTrue(consent.waitForExistence(timeout: 15)); consent.tap()
+        XCTAssertTrue(consent.waitForExistence(timeout: 15), app.debugDescription); consent.tap()
         let composer = app.descendants(matching: .any).matching(identifier: "composer").firstMatch
         XCTAssertTrue(composer.waitForExistence(timeout: 15))
         XCTAssertTrue(app.staticTexts["Hello from Java"].waitForExistence(timeout: 15))
@@ -336,6 +336,13 @@ final class NativeChatTests: XCTestCase {
         }
         connection.start(queue: DispatchQueue(label: "apple-ui-driver"))
         wait(for: [completed], timeout: 10)
-        if let failure { throw failure }
+        if let failure {
+            let app = XCUIApplication()
+            print("Native UI after failed peer command \(command): \(app.debugDescription)")
+            let evidence = XCTAttachment(screenshot: app.screenshot())
+            evidence.name = "failed-peer-" + command
+            evidence.lifetime = .keepAlways; add(evidence)
+            throw failure
+        }
     }
 }

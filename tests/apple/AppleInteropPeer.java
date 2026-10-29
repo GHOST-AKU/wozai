@@ -13,32 +13,57 @@ public final class AppleInteropPeer {
         boolean reads=java.util.Arrays.asList(args).contains("--reads")||java.util.Arrays.asList(args).contains("--read-ui");
         boolean ui = args[0].equals("ui-server");
         boolean initiator = args[0].equals("client");
+        PreparedPeer prepared=new PreparedPeer(initiator,ui);
         if (initiator) {
-            try (Socket socket = new Socket("127.0.0.1", Integer.parseInt(args[1]))) { exchange(socket, true, false, reads); }
+            try (Socket socket = new Socket("127.0.0.1", Integer.parseInt(args[1]))) { exchange(socket, true, false, reads,prepared); }
         } else {
             try (ServerSocket listener = new ServerSocket(ui ? 47831 : 0, 1, InetAddress.getByName("127.0.0.1"))) {
                 listener.setSoTimeout(ui ? 300_000 : 30_000);
                 Files.writeString(Path.of(args[1]), Integer.toString(listener.getLocalPort()));
-                try (Socket socket = listener.accept()) { exchange(socket, false, ui, reads); }
+                try (Socket socket = listener.accept()) { exchange(socket, false, ui, reads,prepared); }
             }
         }
         System.out.println("PASS: production Java / Apple NIM4, root proofs, consent, bidirectional text/ACK, safety code, file refusal, heartbeat");
     }
 
-    private static void exchange(Socket socket, boolean initiator, boolean ui, boolean reads) throws Exception {
+    /** Complete server identity/static-key preparation before publishing the listening port. */
+    private static final class PreparedPeer implements StreamConnection {
+        final DeviceIdentity identity;
+        final NoiseRecordChannel channel;
+        final boolean trace;
+        volatile Socket socket;
+        volatile boolean authenticated;
+        long began;
+        PreparedPeer(boolean initiator,boolean ui)throws Exception {
+            long setup=System.nanoTime();trace=ui;identity=DeviceIdentity.generate();
+            byte[] key=new byte[32];new SecureRandom().nextBytes(key);
+            channel=new NoiseRecordChannel(this,initiator,identity,UUID.randomUUID().toString(),ui?"Java interop peer":"\u00a0",key,null,null,false,false);
+            java.util.Arrays.fill(key,(byte)0);
+            if(trace)System.out.println("UI peer preparation_ms="+(System.nanoTime()-setup)/1_000_000.0+"; ready published afterward");
+        }
+        private Socket connected()throws IOException {Socket value=socket;if(value==null)throw new IOException("Fixture used before accept");return value;}
+        private void sample(String direction,int bytes){if(trace&&!authenticated)System.out.println("UI handshake "+direction+" bytes="+bytes+" elapsed_ms="+(System.nanoTime()-began)/1_000_000.0);}
+        public InputStream input()throws IOException {return new FilterInputStream(connected().getInputStream()){
+            public int read()throws IOException {int value=in.read();sample("read",value<0?-1:1);return value;}
+            public int read(byte[] data,int from,int count)throws IOException {int bytes=in.read(data,from,count);sample("read",bytes);return bytes;}
+        };}
+        public OutputStream output()throws IOException {return new FilterOutputStream(connected().getOutputStream()){
+            public void write(int value)throws IOException {out.write(value);sample("write",1);}
+            public void write(byte[] data,int from,int count)throws IOException {out.write(data,from,count);sample("write",count);}
+        };}
+        public String label(){return "synthetic loopback interop peer";}
+        public void close()throws IOException {Socket value=socket;if(value!=null)value.close();}
+    }
+
+    private static void exchange(Socket socket, boolean initiator, boolean ui, boolean reads,PreparedPeer prepared) throws Exception {
         socket.setSoTimeout(ui ? 90_000 : 20_000); socket.setTcpNoDelay(true);
-        StreamConnection connection = new StreamConnection() {
-            public InputStream input() throws IOException { return socket.getInputStream(); }
-            public OutputStream output() throws IOException { return socket.getOutputStream(); }
-            public String label() { return "synthetic loopback interop peer"; }
-            public void close() throws IOException { socket.close(); }
-        };
-        DeviceIdentity identity = DeviceIdentity.generate();
-        byte[] key = new byte[32]; new SecureRandom().nextBytes(key);
+        prepared.socket=socket;prepared.began=System.nanoTime();
+        DeviceIdentity identity=prepared.identity;
         try (ServerSocket control=ui?new ServerSocket(47832,1,InetAddress.getByName("127.0.0.1")):null;
-             NoiseRecordChannel channel = new NoiseRecordChannel(connection, initiator, identity,
-                UUID.randomUUID().toString(), ui ? "Java interop peer" : "\u00a0", key, null, null, false, false)) {
+             NoiseRecordChannel channel=prepared.channel) {
             channel.establish(); require(channel.verified(), "Unauthenticated channel");
+            prepared.authenticated=true;
+            if(ui)System.out.println("UI handshake verified_ms="+(System.nanoTime()-prepared.began)/1_000_000.0);
             String safety = new SafetyCode(identity.publicKey(), channel.remotePublicKey()).hex();
             channel.write(ProtocolV4.encode(new Frame(Frame.READY, "", "", 0)));
             Frame ready = ProtocolV4.decode(channel.read()); require(ready.type == Frame.READY, "Missing consent READY");
