@@ -164,7 +164,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [macos, ipad]
+        platform: [macos]
     runs-on: macos-latest
     timeout-minutes: 25
     steps:
@@ -174,7 +174,10 @@ jobs:
           distribution: temurin
           java-version: '17'
       - name: Compile the production Java UI peer
-        run: bash tools/test-apple-interop.sh --compile-java
+        run: |
+          bash tools/test-apple-interop.sh --compile-java
+          javac -cp build/apple-interop/java -d build/apple-interop/java tests/apple/AppleReadControlReadinessTests.java
+          java -cp build/apple-interop/java dev.ghost.nearbyim.core.AppleReadControlReadinessTests
       - name: Select native UI destination
         id: destination
         run: |

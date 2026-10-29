@@ -35,7 +35,8 @@ public final class AppleInteropPeer {
         };
         DeviceIdentity identity = DeviceIdentity.generate();
         byte[] key = new byte[32]; new SecureRandom().nextBytes(key);
-        try (NoiseRecordChannel channel = new NoiseRecordChannel(connection, initiator, identity,
+        try (ServerSocket control=ui?new ServerSocket(47832,1,InetAddress.getByName("127.0.0.1")):null;
+             NoiseRecordChannel channel = new NoiseRecordChannel(connection, initiator, identity,
                 UUID.randomUUID().toString(), ui ? "Java interop peer" : "\u00a0", key, null, null, false, false)) {
             channel.establish(); require(channel.verified(), "Unauthenticated channel");
             String safety = new SafetyCode(identity.publicKey(), channel.remotePublicKey()).hex();
@@ -101,13 +102,13 @@ public final class AppleInteropPeer {
             }
             if(reads&&!ui){require(ownReads.containsAll(java.util.List.of(textID.toLowerCase(java.util.Locale.ROOT),whitespaceID,longID))&&observed.isEmpty(),"Incomplete bidirectional read receipts");System.out.println("PASS: Java/Swift negotiated read receipts, both directions, exact UUIDs and durable ACK retirement");}
             require(receivedText && receivedACK && whitespaceACK && rejectedFile && receivedPong && longReceived && longAck, "Incomplete exchange");
-            if (ui) { exerciseReadingPosition(channel,reads?readCapability:null,ownReads,textID.toLowerCase(java.util.Locale.ROOT)); }
+            if (ui) { exerciseReadingPosition(channel,reads?readCapability:null,ownReads,textID.toLowerCase(java.util.Locale.ROOT),control); }
             channel.write(ProtocolV4.encode(new Frame(Frame.BYE, "", "", 0)));
         }
     }
 
     /** An out-of-band test driver injects real encrypted messages while the UI is reading history. */
-    private static void exerciseReadingPosition(NoiseRecordChannel channel,ReadReceiptCapability readCapability,java.util.Set<String> ownReads,String initialID) throws Exception {
+    private static void exerciseReadingPosition(NoiseRecordChannel channel,ReadReceiptCapability readCapability,java.util.Set<String> ownReads,String initialID,ServerSocket control) throws Exception {
         java.util.concurrent.atomic.AtomicReference<String> readProbe=new java.util.concurrent.atomic.AtomicReference<>();
         java.util.concurrent.atomic.AtomicInteger acknowledgements = new java.util.concurrent.atomic.AtomicInteger();
         Path fileRoot = Files.createTempDirectory("wozai-ui-files-");
@@ -140,7 +141,7 @@ public final class AppleInteropPeer {
         }, "apple-ui-receipts");
         receipts.setDaemon(true);
         receipts.start();
-        try (ServerSocket control = new ServerSocket(47832, 1, InetAddress.getByName("127.0.0.1"))) {
+        try {
             control.setSoTimeout(90_000);
             // A skewed peer clock must not hide subsequent normal-time messages from the latest page.
             long timestamp = System.currentTimeMillis() + java.util.concurrent.TimeUnit.DAYS.toMillis(3650);
