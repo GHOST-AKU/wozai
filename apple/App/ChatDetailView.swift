@@ -14,6 +14,23 @@ import UIKit
 struct ChatDetailView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.findNearby) private var findNearby
+    @Environment(\.scenePhase) private var scenePhase
+    #if os(macOS)
+    @Environment(\.controlActiveState) private var controlActiveState
+    #endif
+    @State private var readVisible = Set<String>()
+    @State private var readVisibility = ReadVisibility()
+    private var readUnobscured: Bool {
+        !safety && !forget && model.consent == nil && model.fileOfferPresentation == nil && model.notice == nil
+    }
+    private var readForeground: Bool {
+        #if os(macOS)
+        scenePhase == .active && controlActiveState == .key && model.readReceiptsEnabled && readUnobscured
+        #else
+        scenePhase == .active && model.readReceiptsEnabled && readUnobscured
+        #endif
+    }
+
     let contact: Conversation
     @State private var messages: [ChatMessage] = []
     @State private var hasEarlier = false
@@ -54,10 +71,11 @@ struct ChatDetailView: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Menu {
-                    Button("Safety code", systemImage: "lock.shield") { safety = true }.disabled(!connected)
+                    Button("Safety code", systemImage: "lock.shield") { readVisibility = ReadVisibility(); safety = true }.disabled(!connected)
                     if connected { Button("Disconnect", systemImage: "xmark.circle") { model.disconnect() } }
-                    if contact.remembered { Button("Forget device", systemImage: "person.crop.circle.badge.minus", role: .destructive) { forget = true } }
+                    if contact.remembered { Button("Forget device", systemImage: "person.crop.circle.badge.minus", role: .destructive) { readVisibility = ReadVisibility(); forget = true } }
                 } label: { Label("Conversation actions", systemImage: "ellipsis.circle") }
+                .accessibilityIdentifier("conversationActions")
             }
         }
         .task(id: refreshKey) {
@@ -65,6 +83,16 @@ struct ChatDetailView: View {
             guard !Task.isCancelled else { return }
             applyPage(loaded)
         }
+        .task(id: contact.id + (readForeground ? ":reads-on" : ":reads-off")) {
+            readVisibility = ReadVisibility()
+            guard readForeground else { return }
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .milliseconds(250)) } catch { return }
+                let ids = readVisibility.update(peer: contact.id, visible: readVisible, foreground: readForeground && !userScrolling && !pendingScroll)
+                if !ids.isEmpty, !(await model.observedMessages(peerID: contact.id, ids: ids)) { readVisibility.retry(ids) }
+            }
+        }
+        .onDisappear { readVisible.removeAll(); readVisibility = ReadVisibility() }
         .task(id: contact.id) {
             await model.loadDraft(peerID: contact.id)
         }
@@ -93,7 +121,11 @@ struct ChatDetailView: View {
                     else if messages.isEmpty {
                         ContentUnavailableView("No messages yet", systemImage: "bubble.left", description: Text("Send a greeting when the devices are connected."))
                     }
-                    ForEach(messages, id: \.rowID) { message in MessageBubble(message: message).id(message.rowID) }
+                    ForEach(messages, id: \.rowID) { message in
+                        MessageBubble(message: message, visibilityChanged: { visible in
+                            if visible { readVisible.insert(message.id) } else { readVisible.remove(message.id) }
+                        }).id(message.rowID)
+                    }
                     AttachmentTimeline(contact: contact)
                     Color.clear.frame(height: 1).id("latest")
                         .onGeometryChange(for: TailObservation.self) { geometry in
@@ -132,8 +164,10 @@ struct ChatDetailView: View {
             .scrollDismissesKeyboard(.interactively)
             .scrollBounceBehavior(.always, axes: .vertical)
             .modifier(UserScrollObserver(began: {
+                readVisibility = ReadVisibility()
                 userScrolling = true; pendingScroll = false; forceLatest = false; followingLatest = false
             }, ended: {
+                readVisibility = ReadVisibility()
                 userScrolling = false; updateFollowing()
             }))
             .overlay(alignment: .bottomTrailing) {
@@ -175,6 +209,7 @@ struct ChatDetailView: View {
                 pendingScroll = true; pageRevision &+= 1
             }
         }
+        readVisible.formIntersection(Set(messages.filter { !$0.outgoing }.map(\.id)))
         displayedPage = before
         loaded = true
     }
@@ -264,13 +299,17 @@ private struct UserScrollObserver: ViewModifier {
 
 @MainActor
 private struct MessageBubble: View {
+    @Environment(\.colorScheme) private var colorScheme
+    private let readColor = Color(red: 102.0 / 255, green: 204.0 / 255, blue: 1)
     let message: ChatMessage
+    var visibilityChanged: (Bool) -> Void = { _ in }
     private var time: Date { Date(timeIntervalSince1970: Double(message.timestamp) / 1000) }
     private var status: LocalizedStringKey {
         switch message.status {
         case .pending: return "Sending"
         case .sent: return "Sent"
         case .delivered: return "Delivered"
+        case .read: return "Read"
         case .unconfirmed: return "Unconfirmed"
         }
     }
@@ -278,7 +317,7 @@ private struct MessageBubble: View {
         switch message.status {
         case .pending: return "clock"
         case .sent: return "checkmark"
-        case .delivered: return "checkmark.circle"
+        case .delivered, .read: return "checkmark.circle"
         case .unconfirmed: return "questionmark.circle"
         }
     }
@@ -287,9 +326,21 @@ private struct MessageBubble: View {
             if message.outgoing { Spacer(minLength: 32) }
             VStack(alignment: .leading, spacing: 6) {
                 Text(verbatim: message.body).textSelection(.enabled)
+                    .onGeometryChange(for: Bool.self) { geometry in
+                        let frame = geometry.frame(in: .scrollView)
+                        let height = geometry.bounds(of: .scrollView)?.height ?? 0
+                        return !message.outgoing && ReadVisibility.visible(top: Double(frame.minY), height: Double(frame.height), viewportHeight: Double(height))
+                    } action: { visibilityChanged($0) }
                 HStack(spacing: 8) {
                     Text(time, format: .dateTime.hour().minute())
-                    if message.outgoing { Label(status, systemImage: symbol).accessibilityIdentifier("deliveryStatus") }
+                    if message.outgoing {
+                        Label { Text(status) } icon: {
+                            Image(systemName: symbol)
+                                .shadow(color: message.status == .read && colorScheme == .dark ? readColor.opacity(0.35) : .clear, radius: 1.5, x: 0, y: 0)
+                        }
+                        .foregroundStyle(message.status == .read ? readColor : Color.secondary)
+                        .accessibilityIdentifier("deliveryStatus")
+                    }
                 }
                 .font(.caption2)
                 .foregroundStyle(.secondary)

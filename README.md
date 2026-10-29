@@ -12,7 +12,7 @@
 > 最新预发布：**0.3.3-preview.1** · macOS / iPhone / iPad / Windows、Linux Terminal
 > [下载预览版](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.3-preview.1) · [安装与签名说明](docs/releases/native-preview-install.md)
 
-**后续新构建统一使用 `0.3.3-preview.2`**，覆盖 Android、Windows/Linux GUI、Apple 和 Terminal。[0.3.3 更新规划](docs/releases/0.3.3.md) · [范围与验收 #55](https://github.com/GHOST-AKU/wozai/issues/55)。这是源码开发版本，新包尚未发布；上方下载仍指向已发布附件。
+**当前开发版本为 `0.3.3-preview.3` / build14**，覆盖 Android、Windows/Linux GUI、Apple 和 Terminal。[0.3.3 更新规划](docs/releases/0.3.3.md) · [范围与验收 #55](https://github.com/GHOST-AKU/wozai/issues/55)。这是源码开发版本，新包尚未发布；上方下载仍指向已发布附件。
 
 **0.3.2 正式版已发布**，Android、Windows、Linux 同步更新协议与界面，Linux 提供 AppImage / deb / tar.gz。新增 Noise 端到端加密、最大 10 GiB 的流式附件与持久续传、自动文件选路、Android 接收文件夹及平板/折叠基础适配。完整变化与验收范围见 [0.3.2 发布说明](docs/releases/0.3.2.md)；P2P 稳定性、真实速度/距离恢复、长期内存及正式性能继续在 [#23](https://github.com/GHOST-AKU/wozai/issues/23)、[#9](https://github.com/GHOST-AKU/wozai/issues/9) 跟进。
 
@@ -37,6 +37,8 @@
 ## ✨ 现在能做什么
 
 以下主要描述 Android / Windows / Linux 正式版；Apple 与 Terminal 的预览范围见平台状态。
+
+当前开发源码 `0.3.3-preview.3` 新增[文字已读回执](docs/read-receipts.md)：默认开启，可随时关闭，双方开启才生效，且须消息实际在前台聊天中显示。源码已实现，尚未发布，不代表上方下载包已经包含。
 
 - **局域网直连**：NSD / mDNS 自动发现，也支持 IP + 端口直连
 - **经典蓝牙通信**：使用安全 RFCOMM，可搜索、配对和重连

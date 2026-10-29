@@ -12,6 +12,10 @@ try {
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     & java -cp build/core-tests dev.ghost.nearbyim.core.CoreTests
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    foreach ($readTest in @('ReadReceiptTests','ReadVisibilityTests','ReadReceiptSecurityTests')) {
+        & java -cp build/core-tests "dev.ghost.nearbyim.core.$readTest"
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    }
     & java -cp build/core-tests dev.ghost.nearbyim.core.AuthenticationTests
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     & java -cp build/core-tests dev.ghost.nearbyim.core.AttachmentTests

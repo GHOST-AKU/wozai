@@ -13,6 +13,10 @@ public final class TransferAttemptTests {
         check(summary.contains("\"resumed_prefix_bytes\":1048576"),"Missing resumed prefix");
         check(summary.contains("\"peer_complete_received\":true"),"Missing saved receipt");
         check(summary.contains("\"checking\":1000.0"),"Missing phase time");
+        String diagnosticId=AttachmentInfo.hex(java.security.MessageDigest.getInstance("SHA-256").digest("wozai-transfer-diagnostic-v1\0test".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        check(summary.contains("\"transfer_id\":\""+diagnosticId+"\""),"Diagnostic transfer ID must be domain-separated, not raw");
+        String retry=new TransferAttempt("test",false,clock::get,2000).snapshot("offered",0,0,0,null,false);
+        check(retry.contains("\"transfer_id\":\""+diagnosticId+"\""),"Retry and opposite role lost diagnostic correlation");
         clock.set(100_000_000_000L);check(summary.equals(attempt.snapshot("delivered",2097152,2097152,2097152,null,true)),"Idle time changed completed summary");
         TransferAttempt failure=new TransferAttempt("test",true,clock::get,2000);failure.data(0,1000);
         clock.addAndGet(1_000_000_000L);String rejected=failure.snapshot("failed",1000,0,0,null,true);
@@ -24,10 +28,13 @@ public final class TransferAttemptTests {
         check(!empty.snapshot("received",0,0,0,"b".repeat(64),true).contains("NaN"),"Empty transfer has invalid rate");
         try(AttachmentV2Tests.Pair pair=new AttachmentV2Tests.Pair()){
             var file=pair.root.resolve("summary.txt");java.nio.file.Files.writeString(file,"diagnostic test");
-            pair.a.offer(new FileAttachmentSource(file),"summary.txt","text/plain").get(3,java.util.concurrent.TimeUnit.SECONDS);
+            String transfer=pair.a.offer(new FileAttachmentSource(file),"summary.txt","text/plain").get(3,java.util.concurrent.TimeUnit.SECONDS);
             long end=System.nanoTime()+java.util.concurrent.TimeUnit.SECONDS.toNanos(5);
             while(System.nanoTime()<end){String value=pair.a.diagnostics();if(value.contains("\"state\":\"delivered\"")&&value.contains("\"terminal\":true"))break;Thread.sleep(10);}
             String sent=pair.a.diagnostics(),received=pair.b.diagnostics();
+            String correlation=AttachmentInfo.hex(java.security.MessageDigest.getInstance("SHA-256").digest(("wozai-transfer-diagnostic-v1\0"+transfer).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            check(sent.contains("\"transfer_id\":\""+correlation+"\"")&&received.contains("\"transfer_id\":\""+correlation+"\""),"Real peers lost diagnostic correlation");
+            check(!sent.contains(transfer)&&!received.contains(transfer),"Raw transfer identity leaked");
             check(sent.contains("\"terminal\":true")&&sent.contains("\"attempt_data_bytes\":15"),"Missing completed sender summary");
             check(received.contains("\"local_hash_verified\":true"),"Missing receiver hash proof");
             check(sent.contains("\"sha256\":\"")&&received.contains("\"sha256\":\""),"Missing hash");

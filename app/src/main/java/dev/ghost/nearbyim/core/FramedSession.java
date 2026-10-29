@@ -10,6 +10,8 @@ import dev.ghost.nearbyim.noise.NoiseRecordChannel;
 public final class FramedSession {
     public interface Listener {
         default void onTextLimit(int bytes) {}
+        default void onReadReceiptPolicy() {}
+        default void onReadReceipt(ReadReceiptPacket packet) {}
         default void onAttachment(Frame frame) { throw new IllegalStateException("Attachments unavailable"); }
         default void onTransfer(TransferPacket packet) { throw new IllegalStateException("Encrypted attachments unavailable"); }
         default void onFileRoute(FileRoutePacket packet) { throw new IllegalStateException("Automatic file routes unavailable"); }
@@ -31,6 +33,8 @@ public final class FramedSession {
     private volatile boolean greeted, approved, remoteReady;
     private boolean fileLane;private volatile boolean fileLinkEnabled;
     private volatile TextCapability textCapability;
+    private volatile ReadReceiptCapability readReceipts;
+    private volatile boolean readReceiptsEnabled;
     private volatile OutputStream output;
     private volatile long lastReadNanos = System.nanoTime();
     private final Map<String, Integer> receiving = new HashMap<>();
@@ -79,6 +83,7 @@ public final class FramedSession {
                 if (!enqueue(() -> channel.writeProof(output))) return;
                 channel.readProof(input);
             }else {noise.establish();output=connection.output();if(!fileLane)textCapability=new TextCapability(noise.connectionGeneration(),time->enqueueFrame(new Frame(Frame.PONG,"","",time)),()->listener.onTextLimit(textLimit()));}
+            if(noise!=null&&!fileLane){ReadReceiptCapability capability=new ReadReceiptCapability(noise.connectionGeneration(),time->enqueueFrame(new Frame(Frame.PONG,"","",time)),this::enqueueReadReceipt,listener::onReadReceiptPolicy);capability.configure(readReceiptsEnabled);readReceipts=capability;}
             greeted = true; listener.onHello(noise==null?channel.remoteHello():noise.remoteHello());
             while (!closed.get()) {
                 Frame frame;
@@ -107,6 +112,10 @@ public final class FramedSession {
                             receiving.put(frame.id, receiving.getOrDefault(frame.id, 0) + 1); unpersisted++;
                         }
                         listener.onText(frame); break;
+                    case Frame.READ_RECEIPT:
+                        if(fileLane||!isReady()||readReceipts==null)throw new IOException("Read receipt outside chat approval");
+                        ReadReceiptPacket packet=ReadReceiptPacket.decode(frame.data);
+                        if(readReceipts.receive(packet))listener.onReadReceipt(packet);break;
                     case Frame.ACK:
                         if(fileLane)throw new NoiseRecordChannel.AuthenticationException("Receipt on FILE lane");
                         if (!isReady()) throw new IOException("Receipt before approval");
@@ -118,7 +127,8 @@ public final class FramedSession {
                         enqueueFrame(new Frame(Frame.PONG, "", "", System.currentTimeMillis())); break;
                     case Frame.PONG:
                         if (!isReady()) throw new IOException("Heartbeat before approval");
-                        if(textCapability!=null)textCapability.receive(frame.timestamp);break;
+                        if(textCapability!=null)textCapability.receive(frame.timestamp);
+                        if(readReceipts!=null)readReceipts.receiveToken(frame.timestamp);break;
                     default:
                         if(noise!=null&&frame.type==Frame.ATTACHMENT_V2&&isReady())listener.onTransfer(TransferCodec.read(new ByteArrayInputStream(frame.data)));
                         else if(noise==null&&frame.type>=Frame.FILE_OFFER && frame.type<=Frame.FILE_CANCEL && isReady() && channel.attachments())listener.onAttachment(frame);
@@ -153,7 +163,19 @@ public final class FramedSession {
             }, 5, 5, TimeUnit.SECONDS);
             listener.onReady();
             if(textCapability!=null)textCapability.start();
+            if(readReceipts!=null)readReceipts.start();
         }
+    }
+    public void setReadReceiptsEnabled(boolean enabled){readReceiptsEnabled=enabled;ReadReceiptCapability capability=readReceipts;if(capability!=null)capability.configure(enabled);}
+    public boolean readReceiptsActive(){ReadReceiptCapability capability=readReceipts;return isReady()&&!fileLane&&capability!=null&&capability.active();}
+    public boolean currentReadReceipt(ReadReceiptPacket packet){ReadReceiptCapability capability=readReceipts;return readReceiptsActive()&&capability.current(packet);}
+    public boolean sendReadReceipts(List<String> ids){ReadReceiptCapability capability=readReceipts;return readReceiptsActive()&&capability.send(ids);}
+    public boolean acknowledgeReadReceipt(ReadReceiptPacket packet){ReadReceiptCapability capability=readReceipts;return readReceiptsActive()&&capability.acknowledge(packet);}
+    public void readReceiptPersisted(ReadReceiptPacket packet){ReadReceiptCapability capability=readReceipts;if(capability!=null)capability.persisted(packet);}
+    private boolean enqueueReadReceipt(ReadReceiptPacket packet,java.util.function.BooleanSupplier current){
+        if(fileLane||!isReady()||noise==null)return false;
+        try{byte[] bytes=ProtocolV4.encode(new Frame(Frame.READ_RECEIPT,"","",0,0,packet.encode()));return enqueue(()->{if(current.getAsBoolean())noise.write(bytes);},bytes.length+256,false);}
+        catch(IOException invalid){return false;}
     }
     public boolean attachmentsSupported() { return isReady() && (noise!=null||channel.attachments()); }
     public boolean attachmentsV2(){return isReady()&&noise!=null;}
@@ -250,6 +272,7 @@ public final class FramedSession {
         if (!closed.compareAndSet(false, true)) return;
         try { connection.close(); } catch (IOException ignored) {}
         timer.shutdownNow(); writer.close();
+        ReadReceiptCapability capability=readReceipts;if(capability!=null)capability.close();
         synchronized(avatarWrites){for(AvatarWrite write:avatarWrites)write.plaintext=null;avatarWrites.clear();}
         if(noise!=null)try{noise.close();}catch(IOException ignored){}
         synchronized(receiving){receiving.clear();unpersisted=0;}synchronized(awaitingReceipts){awaitingReceipts.clear();}

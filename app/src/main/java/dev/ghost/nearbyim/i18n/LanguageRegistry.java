@@ -6,7 +6,7 @@ import java.util.*;
 /** Supported display languages, independent of either platform's widgets. */
 public final class LanguageRegistry {
     public static final String SYSTEM = "system";
-    public static final String VERSION = "0.3.3-preview.2";
+    public static final String VERSION = "0.3.3-preview.3";
     public static final String FALLBACK = "en";
     public static final class Language {
         public final String tag, nativeName;

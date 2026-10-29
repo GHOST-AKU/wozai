@@ -5,6 +5,91 @@ import UIKit
 #endif
 
 final class NativeChatTests: XCTestCase {
+    func testReadReceiptForegroundVisibilityWithJavaPeer() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        let host = app.textFields["manualHost"]
+        if !host.waitForExistence(timeout: 5) { selectDestination(app, "Nearby") }
+        XCTAssertTrue(host.waitForExistence(timeout: 8))
+        host.tap(); host.typeText("127.0.0.1")
+        let port = app.textFields["manualPort"]; port.tap(); port.typeText("47831")
+        app.buttons["manualConnect"].tap()
+        let consent = app.buttons["consentOnce"]
+        XCTAssertTrue(consent.waitForExistence(timeout: 15), app.debugDescription); consent.tap()
+        let composer = app.descendants(matching: .any).matching(identifier: "composer").firstMatch
+        XCTAssertTrue(composer.waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["Hello from Java"].waitForExistence(timeout: 15))
+        composer.tap(); composer.typeText("Hello from Apple"); app.buttons["sendMessage"].tap()
+        try drivePeer("read-initial-check")
+        #if os(iOS)
+        let reopenConversation = UIDevice.current.userInterfaceIdiom == .phone
+        if reopenConversation {
+            let back = app.navigationBars.buttons["BackButton"].firstMatch
+            XCTAssertTrue(back.waitForExistence(timeout: 5), app.debugDescription)
+            back.tap()
+            let hidden = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in !app.keyboards.firstMatch.exists }, object: app)
+            XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 8), .completed, "The native back action must dismiss the conversation keyboard: " + app.debugDescription)
+        }
+        #endif
+        selectDestination(app, "Nearby")
+        XCTAssertTrue(host.waitForExistence(timeout: 8), app.debugDescription)
+        #if os(iOS)
+        if reopenConversation {
+            let released = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in !app.keyboards.firstMatch.exists }, object: app)
+            XCTAssertEqual(XCTWaiter.wait(for: [released], timeout: 8), .completed, "Returning to Nearby must not restore the address keyboard: " + app.debugDescription)
+        }
+        #endif
+        try drivePeer("read-hidden-send")
+        try drivePeer("read-hidden-check")
+        #if os(macOS)
+        app.staticTexts["Java interop peer"].firstMatch.tap()
+        #else
+        selectDestination(app, "Chats")
+        if reopenConversation {
+            let row = app.staticTexts["Java interop peer"].firstMatch
+            XCTAssertTrue(row.waitForExistence(timeout: 8), app.debugDescription)
+            row.tap()
+        }
+        #endif
+        XCTAssertTrue(app.staticTexts["Read receipt hidden probe"].waitForExistence(timeout: 8))
+        try drivePeer("read-visible-check")
+        let actions = app.descendants(matching: .any).matching(identifier: "conversationActions").firstMatch
+        XCTAssertTrue(actions.waitForExistence(timeout: 5)); actions.tap()
+        #if os(macOS)
+        app.menuItems["Safety code"].tap()
+        #else
+        app.buttons["Safety code"].tap()
+        #endif
+        let done = app.buttons["Done"].firstMatch
+        XCTAssertTrue(done.waitForExistence(timeout: 5))
+        try drivePeer("read-hidden-send")
+        try drivePeer("read-hidden-check")
+        done.tap()
+        try drivePeer("read-visible-check")
+        try drivePeer("file-offer")
+        #if os(macOS)
+        let reject = app.windows.sheets.buttons["Reject"].firstMatch
+        #else
+        let reject = app.buttons["Reject"].firstMatch
+        #endif
+        XCTAssertTrue(reject.waitForExistence(timeout: 8))
+        try drivePeer("read-hidden-send")
+        try drivePeer("read-hidden-check")
+        reject.tap()
+        try drivePeer("read-visible-check")
+        let evidence = XCTAttachment(screenshot: app.screenshot())
+        evidence.name = "native-read-receipt-real-visibility"
+        evidence.lifetime = .keepAlways; add(evidence)
+        try drivePeer("finish")
+    }
+    private func selectDestination(_ app: XCUIApplication, _ name: String) {
+        if app.tabBars.buttons[name].exists { app.tabBars.buttons[name].tap() }
+        else if app.buttons[name].firstMatch.exists { app.buttons[name].firstMatch.tap() }
+        else { let destination = app.staticTexts[name].firstMatch; XCTAssertTrue(destination.exists, app.debugDescription); destination.tap() }
+    }
+
     func testNativeConnectionConsentAndDurableReceiptsWithJavaPeer() throws {
         continueAfterFailure = false
         let app = XCUIApplication()
@@ -265,6 +350,13 @@ final class NativeChatTests: XCTestCase {
         }
         connection.start(queue: DispatchQueue(label: "apple-ui-driver"))
         wait(for: [completed], timeout: 10)
-        if let failure { throw failure }
+        if let failure {
+            let app = XCUIApplication()
+            print("Native UI after failed peer command \(command): \(app.debugDescription)")
+            let evidence = XCTAttachment(screenshot: app.screenshot())
+            evidence.name = "failed-peer-" + command
+            evidence.lifetime = .keepAlways; add(evidence)
+            throw failure
+        }
     }
 }

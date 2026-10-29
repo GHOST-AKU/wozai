@@ -574,5 +574,8 @@
   "messageIncomplete": "입력을 완료한 후 전송하세요.",
   "sent": "전송됨",
   "messageSending": "전송 중",
-  "messageSendFailed": "전송 실패"
+  "messageSendFailed": "전송 실패",
+  "read": "읽음",
+  "readReceipts": "읽음 확인",
+  "readReceiptsSummary": "양쪽 모두 켜면 실제로 표시된 메시지의 읽음 확인을 보냅니다. 끄면 새로운 읽음 확인을 보내거나 받지 않습니다. 이미 확인된 기록은 유지됩니다."
 }

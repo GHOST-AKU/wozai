@@ -38,6 +38,10 @@ public final class ChatController implements TransportListener {
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService storage = Executors.newSingleThreadExecutor();
     private final SharedPreferences preferences;
+    private volatile boolean readReceiptsEnabled;
+    private volatile long readPolicyRevision;
+    private boolean flushingReads;
+    private final java.util.concurrent.atomic.AtomicBoolean readPolicyNoticeQueued=new java.util.concurrent.atomic.AtomicBoolean();
     private final ChatStore store;
     private final LanTransport lan;
     private final BluetoothTransport bluetooth;
@@ -82,6 +86,7 @@ public final class ChatController implements TransportListener {
 
     public ChatController(Context context, Hooks hooks) {
         this.hooks = hooks;applicationContext=context.getApplicationContext();resolver=applicationContext.getContentResolver();preferences = context.getSharedPreferences("identity", Context.MODE_PRIVATE);
+        readReceiptsEnabled=preferences.getBoolean("readReceipts",true);
         String id = preferences.getString("id", null);
         boolean existingIdentity = id != null;
         if (id == null) { id = UUID.randomUUID().toString(); preferences.edit().putString("id", id).apply(); }
@@ -117,6 +122,29 @@ public final class ChatController implements TransportListener {
     public boolean searching(int mode) { return mode==Peer.LAN?lanSearching:mode==Peer.BLUETOOTH&&bluetoothSearching; }
     public boolean listening(int mode) { return mode==Peer.LAN?lanListening:mode==Peer.BLUETOOTH&&bluetoothListening; }
     public UiText info(int mode) { return mode==Peer.LAN?lanInfo:bluetoothInfo; }
+    public boolean canObserveMessages(String peer){FramedSession wire=active;return readReceiptsEnabled&&(wire==null||!Objects.equals(connectedPeerId,peer)||wire.readReceiptsActive());}
+    public boolean readReceiptsEnabled(){return readReceiptsEnabled;}
+    public void setReadReceiptsEnabled(boolean enabled){
+        if(readReceiptsEnabled==enabled)return;
+        readReceiptsEnabled=enabled;long revision=++readPolicyRevision;FramedSession wire=active;
+        // Revocation is immediate; enabling waits for the durable preference and outbox cleanup.
+        if(wire!=null)wire.setReadReceiptsEnabled(false);
+        db(()->{if(!enabled)store.clearPendingReads();if(!preferences.edit().putBoolean("readReceipts",enabled).commit())throw new IllegalStateException("Read preference save failed");},()->{
+            if(readPolicyRevision!=revision)return;
+            if(active!=null)active.setReadReceiptsEnabled(enabled);changed();flushReadReceipts();
+        },()->{readReceiptsEnabled=false;if(active!=null)active.setReadReceiptsEnabled(false);});changed();
+    }
+    public void observedMessages(String peer,List<String> ids){
+        if(!readReceiptsEnabled||peer==null||!Objects.equals(selectedId,peer)||ids.isEmpty())return;
+        FramedSession wire=active;if(wire!=null&&Objects.equals(connectedPeerId,peer)&&!wire.readReceiptsActive())return;
+        long revision=readPolicyRevision;List<String> batch=new ArrayList<>(ids.subList(0,Math.min(32,ids.size())));
+        db(()->{if(readReceiptsEnabled&&readPolicyRevision==revision)store.observed(peer,batch);},this::flushReadReceipts);
+    }
+    private void flushReadReceipts(){
+        FramedSession wire=active;String peer=connectedPeerId;if(flushingReads||peer==null||wire==null||!wire.readReceiptsActive())return;
+        flushingReads=true;List<String> ids=new ArrayList<>();
+        db(()->ids.addAll(store.pendingReads(peer)),()->{flushingReads=false;if(active==wire&&Objects.equals(peer,connectedPeerId)&&wire.readReceiptsActive()&&!ids.isEmpty())wire.sendReadReceipts(ids);else if(active!=wire)flushReadReceipts();},()->flushingReads=false);
+    }
     public void setNickname(String name) {
         String clean = name.trim();
         try { Protocol.write(new ByteArrayOutputStream(), new Frame(Frame.HELLO, localId, clean, 1)); }
@@ -343,6 +371,15 @@ public final class ChatController implements TransportListener {
                 String id = remoteHello.id, name = remoteHello.body;
                 db(() -> store.save(id, name, frame, false), () -> { reference[0].acknowledge(frame.id); refresh(); });
             }); }
+            public void onReadReceiptPolicy(){if(readPolicyNoticeQueued.compareAndSet(false,true))main.post(()->{readPolicyNoticeQueued.set(false);flushReadReceipts();});}
+            public void onReadReceipt(ReadReceiptPacket packet){main.post(()->{
+                FramedSession wire=reference[0];if(active!=wire||remoteHello==null||!wire.currentReadReceipt(packet))return;
+                String peer=remoteHello.id;
+                db(()->{if(active==wire&&wire.currentReadReceipt(packet)){if(packet.kind==ReadReceiptPacket.READ)store.read(peer,packet.ids);else store.readAcknowledged(peer,packet.ids);}},()->{
+                    if(active!=wire||!wire.currentReadReceipt(packet))return;
+                    if(packet.kind==ReadReceiptPacket.READ){wire.acknowledgeReadReceipt(packet);refresh();}else wire.readReceiptPersisted(packet);
+                });
+            });}
             public void onTextLimit(int bytes){main.post(()->{if(active==reference[0])changed();});}
             public void onTextWritten(String id) { main.post(()->{
                 if(active!=reference[0]||remoteHello==null)return;
@@ -362,7 +399,7 @@ public final class ChatController implements TransportListener {
                 releaseSession(reference[0],reason);
             }); }
         },true,true);}catch(IOException failure){close(connection);cancelOutgoing();status=UiText.of("connectionUnavailable");fail(UiText.of("identityUnavailableRestart"));return;}
-        attachmentToken++;active = reference[0]; active.start(); changed();
+        attachmentToken++;active = reference[0];active.setReadReceiptsEnabled(readReceiptsEnabled); active.start(); changed();
     }
     public void approve(String token) { approve(token, true); }
     private void startFileRoutes(FramedSession wire,TrustPolicy.Authorization grant) {

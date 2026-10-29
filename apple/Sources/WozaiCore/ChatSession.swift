@@ -49,6 +49,7 @@ public actor ChatSession {
     private var announced = false
     private var ended = false
     private var pending = Set<String>()
+    private var readEnabled = true
     private var timer: Task<Void, Never>?
     private var deadlines = SessionDeadlines()
     private var isReady: Bool { approved && remoteReady && !ended }
@@ -67,6 +68,8 @@ public actor ChatSession {
             }
         }
         do {
+            readEnabled = try await store.readReceiptsEnabled()
+            try await channel.configureReadReceipts(readEnabled)
             let authenticated = try await channel.establish(expectedID: expectedID)
             guard !ended else { return }
             let pin = try await store.trustedRoot(peerID: authenticated.id)
@@ -105,6 +108,22 @@ public actor ChatSession {
                     let previous = await channel.textLimit
                     let limit = try await channel.handleTextCapability(frame.timestamp)
                     if limit != previous { await event(.textLimit(authenticated.id, limit)) }
+                    try await channel.handleReadToken(frame.timestamp)
+                    try await flushReadReceipts()
+                case .readReceipt:
+                    guard isReady else { throw WozaiError.protocolViolation }
+                    let packet = try ReadReceiptPacket.decode(frame.binary)
+                    if try await channel.handleReadPacket(packet) {
+                        if packet.kind == .read {
+                            try await store.read(peerID: authenticated.id, ids: packet.ids)
+                            try await channel.acknowledgeReadReceipt(packet)
+                            await event(.changed(authenticated.id))
+                        } else {
+                            try await store.readAcknowledged(peerID: authenticated.id, ids: packet.ids)
+                            await channel.readReceiptPersisted(packet)
+                        }
+                    }
+                    try await flushReadReceipts()
                 case .attachment:
                     guard isReady else { throw WozaiError.protocolViolation }
                     if let attachments {
@@ -151,8 +170,26 @@ public actor ChatSession {
         try await store.recordPeer(peer, remember: remember, localRoot: identity.root)
         guard !ended else { return }
         try await channel.startTextNegotiation()
+        try await channel.startReadNegotiation()
         await event(.ready(peer))
         await event(.textLimit(peer.id, await channel.textLimit))
+    }
+
+    public func configureReadReceipts(_ enabled: Bool) async throws {
+        readEnabled = enabled
+        try await channel.configureReadReceipts(enabled)
+        try await flushReadReceipts()
+    }
+    public func observedMessages(peerID: String, ids: [String]) async throws -> Bool {
+        guard readEnabled, isReady, peer?.id == peerID, await channel.readReceiptsActive else { return false }
+        try await store.observed(peerID: peerID, ids: ids)
+        try await flushReadReceipts()
+        return true
+    }
+    private func flushReadReceipts() async throws {
+        guard isReady, readEnabled, let peer, await channel.readReceiptsActive else { return }
+        let ids = try await store.pendingReads(peerID: peer.id)
+        try await channel.sendReadReceipts(ids)
     }
 
     public func sendFile(_ url: URL, mime: String = "application/octet-stream") async throws -> String {

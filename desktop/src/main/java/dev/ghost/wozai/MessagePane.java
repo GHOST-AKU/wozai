@@ -88,6 +88,13 @@ final class MessagePane extends JPanel implements Scrollable {
     MessagePane() { addComponentListener(new java.awt.event.ComponentAdapter() { public void componentResized(java.awt.event.ComponentEvent e) { for(Component child:getComponents())child.invalidate(); revalidate(); } }); setLayout(new BoxLayout(this, BoxLayout.Y_AXIS)); setBorder(BorderFactory.createEmptyBorder(16,20,16,20)); }
     String text() { return text; }
     void scale(float value) { scale = value; }
+    List<String> visibleIncomingText(){
+        Rectangle viewport=getVisibleRect();List<String> visible=new ArrayList<>();if(pendingScroll!=null)return visible;
+        for(var entry:rows.entrySet()){MessageRow row=entry.getValue();if(row.message.outgoing()||row.message.attachment()!=null)continue;
+            Rectangle body=SwingUtilities.convertRectangle(row.bubble.body.getParent(),row.bubble.body.getBounds(),this);
+            if(dev.ghost.nearbyim.core.ReadVisibility.visible(body.y-viewport.y,body.height,viewport.height))visible.add(row.message.id());
+        }return visible;
+    }
     void render(List<DesktopStore.Message> messages, Strings strings) {
         ScrollAnchor anchor=scrollAnchor();
         currentStrings=strings;ZoneId zone = ZoneId.systemDefault();

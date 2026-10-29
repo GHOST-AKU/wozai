@@ -574,5 +574,8 @@
   "messageIncomplete": "Finish editing this message before sending.",
   "sent": "Sent",
   "messageSending": "Sending",
-  "messageSendFailed": "Send failed"
+  "messageSendFailed": "Send failed",
+  "read": "Read",
+  "readReceipts": "Read receipts",
+  "readReceiptsSummary": "When both people enable this, visible messages send read receipts. Turning this off stops sending and receiving new read receipts. Previously confirmed receipts stay in history."
 }

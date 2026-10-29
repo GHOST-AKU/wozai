@@ -30,10 +30,10 @@ Copy-Item src/main/resources/* build/classes -Recurse -Force
 New-Item -ItemType Directory -Force build/classes/dev/ghost/wozai/fonts, build/classes/dev/ghost/wozai/app-icons | Out-Null
 Copy-Item build/fonts/*.otf build/classes/dev/ghost/wozai/fonts -Force
 Copy-Item assets/icons/windows/nearbyim.ico build/classes/dev/ghost/wozai/app-icons/nearbyim.ico -Force
-$tests=@('DesktopTests','TestNoise','MessagePaneTests','ReceiptGuiTests') | ForEach-Object { "src/test/java/dev/ghost/wozai/$_.java" }
+$tests=@('DesktopTests','ReadReceiptStoreTests','TestNoise','MessagePaneTests','ReceiptGuiTests','ReadReceiptGuiTests') | ForEach-Object { "src/test/java/dev/ghost/wozai/$_.java" }
 & "$env:JAVA_HOME/bin/javac.exe" --release 17 -encoding UTF-8 -cp 'build/classes;build/lib/*' -d build/tests @tests
 if ($LASTEXITCODE -ne 0) { throw 'Test compilation failed' }
-foreach ($test in @('DesktopTests','MessagePaneTests','ReceiptGuiTests')) {
+foreach ($test in @('DesktopTests','ReadReceiptStoreTests','MessagePaneTests','ReceiptGuiTests','ReadReceiptGuiTests')) {
     & "$env:JAVA_HOME/bin/java.exe" -cp 'build/classes;build/tests;build/lib/*' "dev.ghost.wozai.$test" build/receipt-windows
     if ($LASTEXITCODE -ne 0) { throw "$test failed" }
 }

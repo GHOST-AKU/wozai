@@ -1,7 +1,7 @@
 import Foundation
 import SQLite3
 
-public enum MessageStatus: String, Codable, Sendable { case pending, sent, delivered, unconfirmed }
+public enum MessageStatus: String, Codable, Sendable { case pending, sent, delivered, read, unconfirmed }
 
 public struct MessageCursor: Equatable, Sendable {
     public let sequence: Int64
@@ -57,6 +57,8 @@ public actor ChatStore {
         // SQLite indexes include rowid, so peer + local insertion order needs no timestamp index.
         try database.run("CREATE INDEX IF NOT EXISTS message_receipt_order ON messages(peer)")
         try database.run("DROP INDEX IF EXISTS message_order")
+        try database.run("CREATE TABLE IF NOT EXISTS local_reads (peer TEXT NOT NULL,id TEXT NOT NULL,state TEXT NOT NULL,PRIMARY KEY(peer,id))")
+        try database.run("CREATE TABLE IF NOT EXISTS preferences (key TEXT PRIMARY KEY,value TEXT NOT NULL)")
         try database.run("CREATE TABLE IF NOT EXISTS drafts (peer TEXT PRIMARY KEY, body TEXT NOT NULL)")
         try database.run("UPDATE messages SET status='unconfirmed' WHERE outgoing=1 AND status IN ('pending','sent')")
     }
@@ -121,8 +123,35 @@ public actor ChatStore {
 
     public func setOutgoingStatus(peerID: String, id: String, status: MessageStatus) throws {
         // Socket completion cannot overwrite either a durable ACK or disconnect uncertainty.
-        let condition = status == .sent ? "status='pending'" : "status!='delivered'"
-        try database.run("UPDATE messages SET status=? WHERE peer=? AND id=? AND outgoing=1 AND " + condition, [.text(status.rawValue), .text(peerID), .text(id)])
+        let condition = status == .read ? "1=1" : status == .sent ? "status='pending'" : status == .delivered ? "status!='read'" : "status NOT IN ('delivered','read')"
+        try database.run("UPDATE messages SET status=? WHERE peer=? AND id=? COLLATE NOCASE AND outgoing=1 AND " + condition, [.text(status.rawValue), .text(peerID), .text(id)])
+    }
+
+    public func readReceiptsEnabled() throws -> Bool {
+        try database.rows("SELECT value FROM preferences WHERE key='readReceipts'").first?["value"]?.text != "false"
+    }
+    public func setReadReceiptsEnabled(_ enabled: Bool) throws {
+        try database.run("BEGIN IMMEDIATE")
+        do {
+            if !enabled { try database.run("UPDATE local_reads SET state='notified' WHERE state='pending'") }
+            try database.run("INSERT INTO preferences(key,value) VALUES('readReceipts',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", [.text(enabled ? "true" : "false")])
+            try database.run("COMMIT")
+        } catch { try? database.run("ROLLBACK"); throw error }
+    }
+    public func observed(peerID: String, ids: [String]) throws {
+        guard try readReceiptsEnabled(), ids.count <= 32, ids.allSatisfy({ $0.utf8.count == 36 && UUID(uuidString: $0) != nil }) else { return }
+        for id in ids {
+            try database.run("INSERT OR IGNORE INTO local_reads(peer,id,state) SELECT peer,lower(id),'pending' FROM messages WHERE peer=? AND id=? COLLATE NOCASE AND outgoing=0", [.text(peerID), .text(id)])
+        }
+    }
+    public func pendingReads(peerID: String) throws -> [String] {
+        try database.rows("SELECT id FROM local_reads WHERE peer=? AND state='pending' ORDER BY rowid LIMIT 32", [.text(peerID)]).map { $0["id"]!.text }
+    }
+    public func read(peerID: String, ids: [String]) throws {
+        for id in ids { try setOutgoingStatus(peerID: peerID, id: id, status: .read) }
+    }
+    public func readAcknowledged(peerID: String, ids: [String]) throws {
+        for id in ids { try database.run("UPDATE local_reads SET state='notified' WHERE peer=? AND id=? AND state='pending'", [.text(peerID), .text(id)]) }
     }
 
     public func messages(peerID: String, before: MessageCursor? = nil) throws -> [ChatMessage] {

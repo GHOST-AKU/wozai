@@ -52,7 +52,8 @@ public final class AttachmentGuiTests {
             pane.render(List.of(message(info,false),message(info,true)),strings);
             check(actions.contains("false:preview")&&actions.contains("true:preview"),"Sent or received thumbnail not requested");
             pane.thumbnail(info.id,false,new BufferedImage(200,100,BufferedImage.TYPE_INT_RGB));pane.thumbnail(info.id,true,new BufferedImage(100,200,BufferedImage.TYPE_INT_RGB));
-            List<JLabel> photos=components(pane).stream().filter(c->c instanceof JLabel l&&l.getIcon()!=null).map(c->(JLabel)c).toList();check(photos.size()==2,"Direction collision lost a photo");
+            List<JLabel> photos=components(pane).stream().filter(c->c instanceof JLabel l&&l.getIcon() instanceof ImageIcon).map(c->(JLabel)c).toList();check(photos.size()==2,"Direction collision lost a photo");
+            check(components(pane).stream().filter(c->c instanceof JLabel l&&l.getIcon() instanceof MessageReceiptIcon).count()==1,"Outgoing photo lost its native receipt");
             for(JLabel photo:photos){photo.dispatchEvent(new MouseEvent(photo,MouseEvent.MOUSE_CLICKED,1,0,10,10,1,false,MouseEvent.BUTTON1));JPopupMenu menu=photo.getComponentPopupMenu();check(menu!=null&&menu.getComponentCount()>=2,"Photo save menu missing");((JMenuItem)menu.getComponent(1)).doClick();}
             JButton folder=components(pane).stream().filter(c->c instanceof JButton b&&strings.text("attachmentShowInFolder").equals(b.getToolTipText())).map(c->(JButton)c).findFirst().orElseThrow(()->new AssertionError("Completed file has no visible location control"));folder.doClick();check(actions.stream().anyMatch(a->a.endsWith(":folder")),"File location control does not dispatch");
             check(actions.containsAll(List.of("false:view","true:view","false:save","true:save")),"Photo gesture did not invoke internal viewer/save");

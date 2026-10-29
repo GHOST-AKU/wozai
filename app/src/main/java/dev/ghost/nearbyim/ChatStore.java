@@ -84,8 +84,30 @@ public final class ChatStore extends SQLiteOpenHelper {
     }
     public void delivered(String peerId, String messageId) {
         ContentValues values = new ContentValues(); values.put("state", DELIVERED);
-        getWritableDatabase().update("messages", values, "peer_id=? AND id=? AND outgoing=1", new String[]{peerId, messageId});
+        getWritableDatabase().update("messages", values, "peer_id=? AND id=? AND outgoing=1 AND state<>'read'", new String[]{peerId, messageId});
     }
+    public void observed(String peer,List<String> ids){
+        SQLiteDatabase db=getWritableDatabase();db.beginTransaction();try{
+            for(String id:ids)db.execSQL("UPDATE messages SET state='read_pending' WHERE peer_id=? AND id=? COLLATE NOCASE AND outgoing=0 AND attachment IS NULL AND state NOT IN ('read_pending','read_notified')",new Object[]{peer,id});
+            db.setTransactionSuccessful();
+        }finally{db.endTransaction();}
+    }
+    public List<String> pendingReads(String peer){
+        List<String> ids=new ArrayList<>();try(Cursor rows=getReadableDatabase().query("messages",new String[]{"lower(id) AS id"},"peer_id=? AND outgoing=0 AND attachment IS NULL AND state='read_pending'",new String[]{peer},"lower(id)",null,"MIN(rowid)", "32")){while(rows.moveToNext())ids.add(rows.getString(0));}return ids;
+    }
+    public void read(String peer,List<String> ids){
+        SQLiteDatabase db=getWritableDatabase();db.beginTransaction();try{
+            for(String id:ids)db.execSQL("UPDATE messages SET state='read' WHERE peer_id=? AND id=? COLLATE NOCASE AND outgoing=1 AND attachment IS NULL",new Object[]{peer,id});
+            db.setTransactionSuccessful();
+        }finally{db.endTransaction();}
+    }
+    public void readAcknowledged(String peer,List<String> ids){
+        SQLiteDatabase db=getWritableDatabase();db.beginTransaction();try{
+            for(String id:ids)db.execSQL("UPDATE messages SET state='read_notified' WHERE peer_id=? AND id=? COLLATE NOCASE AND outgoing=0 AND state='read_pending'",new Object[]{peer,id});
+            db.setTransactionSuccessful();
+        }finally{db.endTransaction();}
+    }
+    public void clearPendingReads(){getWritableDatabase().execSQL("UPDATE messages SET state='read_notified' WHERE outgoing=0 AND state='read_pending'");}
     public void uncertain(String peerId) {
         ContentValues values = new ContentValues(); values.put("state", UNKNOWN);
         getWritableDatabase().update("messages", values, "peer_id=? AND outgoing=1 AND state=?", new String[]{peerId, PENDING});

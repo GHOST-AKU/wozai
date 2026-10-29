@@ -28,6 +28,9 @@ final class AppModel {
     private var transferPaths: [String: LocalPathSnapshot] = [:]
     var connectionState = ConnectionState.idle
     var textLimit = TextLimits.legacy
+    var readReceiptsEnabled = true
+    var readSettingSaving = false
+    @ObservationIgnored private var readPolicyRevision: UInt64 = 0
     var activePeer: VerifiedPeer?
     var consent: VerifiedPeer?
     var notice: Notice?
@@ -63,6 +66,7 @@ final class AppModel {
             let identity = try IdentityKeychain.loadOrCreate()
             let directory = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true).appendingPathComponent("NearbyIM", isDirectory: true)
             store = try ChatStore(url: directory.appendingPathComponent("chat.sqlite"))
+            readReceiptsEnabled = try await store!.readReceiptsEnabled()
             self.identity = identity
             discovery = LANDiscovery(peers: { [weak self] peers in
                 Task { @MainActor in self?.nearby = peers }
@@ -276,6 +280,26 @@ final class AppModel {
             connectionPath.diagnostics
     }
 
+    func setReadReceiptsEnabled(_ enabled: Bool) async {
+        guard let store, !readSettingSaving else { return }
+        readSettingSaving = true
+        defer { readSettingSaving = false }
+        readPolicyRevision &+= 1
+        readReceiptsEnabled = false
+        do {
+            try await session?.configureReadReceipts(false)
+            try await store.setReadReceiptsEnabled(enabled)
+            readReceiptsEnabled = enabled
+            try await session?.configureReadReceipts(enabled)
+        } catch { notice = Notice(message: error.localizedDescription) }
+    }
+    func observedMessages(peerID: String, ids: [String]) async -> Bool {
+        guard readReceiptsEnabled, foreground, let store else { return false }
+        do {
+            if let session, activePeer?.id == peerID { return try await session.observedMessages(peerID: peerID, ids: ids) }
+            else { try await store.observed(peerID: peerID, ids: ids); return true }
+        } catch { notice = Notice(message: error.localizedDescription); return false }
+    }
     func resume() { foreground = true; reconnectDiscovery() }
 
     func suspend() async {

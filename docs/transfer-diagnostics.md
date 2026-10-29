@@ -4,9 +4,9 @@ Issue #32 开发中，仅适用于 Android/桌面共享 Java V2 文件实现；�
 
 Development for #32 covers the Java V2 implementation shared by Android and desktop. This is observability, not evidence of improved performance or physical-radio acceptance. It does not claim equivalent summaries for legacy V1, Apple or Rust.
 
-诊断保留 `transfer_summary={JSON}` 行。每个本地发送/接收尝试的 pipeline_counter_id 对应所属 V2 组件计数器，带随机 attempt_id，使用原 transfer_id 对应同一文件；两端 attempt_id 不相同。暂停、来源暂不可用会结束本次尝试，恢复建立新尝试。每个 pipeline 实例最多保留32条完成摘要和当前活动尝试；不写入用户文件、路径、URI、地址、设备身份或文件名，不持久化到磁盘。
+诊断保留 `transfer_summary={JSON}` 行。每个本地发送/接收尝试的 pipeline_counter_id 对应所属 V2 组件计数器，带随机 attempt_id，transfer_id 为 SHA-256(UTF-8("wozai-transfer-diagnostic-v1\0" + 原始协议 transfer ID)) 的64位小写十六进制摘要，用于同一文件的两端及重试关联；不输出原始协议/历史 UUID，两端 attempt_id 不相同。暂停、来源暂不可用会结束本次尝试，恢复建立新尝试。每个 pipeline 实例最多保留32条完成摘要和当前活动尝试；不写入用户文件、路径、URI、地址、设备身份或文件名，不持久化到磁盘。诊断摘要仍可关联同一传输；此摘要不是匿名化证明，也不隐藏文档中列出的完整文件哈希。
 
-Each `transfer_summary={JSON}` is one local send/receive attempt, with pipeline_counter_id linking its V2 component counters, a random attempt_id and the existing transfer_id for cross-endpoint correlation. Endpoint attempt IDs differ. Pause/source unavailability ends an attempt; resume starts another. A pipeline retains at most 32 finished summaries plus active attempts, in memory only. No filename, path, URI, address or device identity is included.
+Each `transfer_summary={JSON}` is one local send/receive attempt, with pipeline_counter_id linking its V2 component counters, a random attempt_id and a diagnostic transfer_id: the 64-character lowercase hex SHA-256 of UTF-8("wozai-transfer-diagnostic-v1\0" + the raw protocol transfer ID), with \0 denoting a NUL byte. This preserves cross-endpoint/retry correlation without exporting the protocol/history UUID. Endpoint attempt IDs differ. Pause/source unavailability ends an attempt; resume starts another. A pipeline retains at most 32 finished summaries plus active attempts, in memory only. No filename, path, URI, address or device identity is included. The diagnostic ID remains linkable for the same transfer; it is not an anonymity guarantee and does not conceal the documented whole-file hash.
 
 | 字段 / Field | 口径 / Meaning |
 | --- | --- |

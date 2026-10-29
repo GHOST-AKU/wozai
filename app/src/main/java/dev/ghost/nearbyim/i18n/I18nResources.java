@@ -454,6 +454,9 @@ public final class I18nResources {
             case "portableHint": return R.string.portable_hint;
             case "privacy": return R.string.privacy;
             case "quit": return R.string.quit;
+            case "read": return R.string.read;
+            case "readReceipts": return R.string.read_receipts;
+            case "readReceiptsSummary": return R.string.read_receipts_summary;
             case "ready": return R.string.ready;
             case "receiveFolder": return R.string.receive_folder;
             case "receiveFolderChoose": return R.string.receive_folder_choose;

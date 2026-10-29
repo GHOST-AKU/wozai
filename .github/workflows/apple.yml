@@ -57,6 +57,14 @@ jobs:
         if: ${{ inputs.validation != 'core-builds' && inputs.validation != 'core-ios' && inputs.validation != 'mobile-ui' }}
         timeout-minutes: 8
         run: bash tools/test-apple-ui.sh 'platform=macOS' macos
+      - name: Verify native macOS read visibility and safety-sheet exclusion
+        if: ${{ inputs.validation != 'core-builds' && inputs.validation != 'core-ios' && inputs.validation != 'mobile-ui' }}
+        timeout-minutes: 8
+        env:
+          WOZAI_APPLE_READ_UI: 'true'
+          WOZAI_APPLE_UI_BUILD_LABEL: macos
+          WOZAI_APPLE_UI_TEST: NearbyIMUITests/NativeChatTests/testReadReceiptForegroundVisibilityWithJavaPeer
+        run: bash tools/test-apple-ui.sh 'platform=macOS' macos-read --test-only
       - name: Select available iPhone and iPad simulators
         if: ${{ inputs.validation != 'macos-ui' && inputs.validation != 'core-builds' }}
         id: simulators
@@ -90,6 +98,13 @@ jobs:
         if: ${{ !cancelled() && steps.ipad_prepare.outcome == 'success' }}
         timeout-minutes: 12
         run: bash tools/test-apple-ui.sh 'platform=iOS Simulator,id=${{ steps.simulators.outputs.ipad }}' ipad --test-only
+      - name: Verify native iPad read visibility and safety-sheet exclusion
+        if: ${{ !cancelled() && steps.ipad_prepare.outcome == 'success' }}
+        timeout-minutes: 8
+        env:
+          WOZAI_APPLE_READ_UI: 'true'
+          WOZAI_APPLE_UI_TEST: NearbyIMUITests/NativeChatTests/testReadReceiptForegroundVisibilityWithJavaPeer
+        run: bash tools/test-apple-ui.sh 'platform=iOS Simulator,id=${{ steps.simulators.outputs.ipad }}' ipad-read --test-only
       - uses: actions/upload-artifact@v4
         if: always()
         with:

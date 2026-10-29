@@ -574,5 +574,8 @@
   "messageIncomplete": "這則訊息尚未編輯完整，請繼續輸入。",
   "sent": "已傳送",
   "messageSending": "傳送中",
-  "messageSendFailed": "傳送失敗"
+  "messageSendFailed": "傳送失敗",
+  "read": "已讀",
+  "readReceipts": "已讀回條",
+  "readReceiptsSummary": "雙方開啟後，實際顯示的訊息才傳送已讀回條。關閉後停止傳送及接收新的已讀回條，已確認的歷史狀態保留。"
 }

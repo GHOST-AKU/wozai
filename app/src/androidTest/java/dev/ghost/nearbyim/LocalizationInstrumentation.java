@@ -58,6 +58,8 @@ public final class LocalizationInstrumentation extends Instrumentation {
     private String originalLanguage;
     private MainActivity activity;
     private FramedSession remote;
+    private final Set<String> remoteReadIds=java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final java.util.concurrent.ConcurrentMap<String,String> remoteTextIds=new java.util.concurrent.ConcurrentHashMap<>();
     private volatile AttachmentTransferV2 remoteTransfers;
     private volatile CountDownLatch resumePauseBlocked,resumePauseRelease;
     private final BlockingQueue<AttachmentRecord> remoteFileStates=new LinkedBlockingQueue<>();
@@ -360,7 +362,11 @@ public final class LocalizationInstrumentation extends Instrumentation {
                     remoteTransfers.receive(packet,true);
                 }catch(InterruptedException failure){Thread.currentThread().interrupt();throw new IllegalStateException(failure);}catch(IOException failure){throw new java.io.UncheckedIOException(failure);}}
                 public void onReady() { ready.countDown(); }
-                public void onText(Frame frame) { reference.get().acknowledge(frame.id); }
+                public void onText(Frame frame) {remoteTextIds.put(frame.body,frame.id); reference.get().acknowledge(frame.id); }
+                public void onReadReceipt(dev.ghost.nearbyim.core.ReadReceiptPacket packet){
+                    if(packet.kind==dev.ghost.nearbyim.core.ReadReceiptPacket.READ){remoteReadIds.addAll(packet.ids);reference.get().acknowledgeReadReceipt(packet);}
+                    else reference.get().readReceiptPersisted(packet);
+                }
                 public void onAck(String id) { receipts.add(id); }
                 public void onClosed(UiText reason) { remoteClosed.compareAndSet(null,reason); }
             });
@@ -409,6 +415,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
             check(id.equals(receipts.poll(10, TimeUnit.SECONDS)), "Android saves and receipts timeline text " + i);
         }
         await(() -> onMain(() -> controller.messages.size() >= 35), "Saved timeline loads");
+        testNativeReadReceipts(controller,peerId,receipts);
         testReceiptPresentation(controller);
         testLiveAttachmentFeedback(controller,peerId);
         testBatchRefreshResponsiveness(controller,peerId);
@@ -785,11 +792,73 @@ public final class LocalizationInstrumentation extends Instrumentation {
         check(report.contains("transfer_summary=")&&report.contains("average_mib_s")&&report.contains("counter_scope="),"Diagnostics expose actual transfer attempts and explicit counter scope");
         check(!report.contains(peer)&&!report.contains("native-photo.png")&&!report.contains("content://")&&!report.contains(getTargetContext().getFilesDir().toString()),"Clipboard diagnostic excludes peer, filename, URI and private path");
     }
+    private void testNativeReadReceipts(ChatController controller,String peer,BlockingQueue<String> delivery)throws Exception {
+        String hidden=UUID.randomUUID().toString(),disabled=UUID.randomUUID().toString(),outgoingBody="Native real read receipt verification";
+        ChatStore store=field(controller,"store");java.util.concurrent.ExecutorService worker=field(controller,"storage");
+        worker.submit(()->testCanonicalReadBatches(store)).get(10,TimeUnit.SECONDS);
+        int originalY=onMain(()->((ScrollView)field(activity,"messageScroll")).getScrollY());
+        try {
+            onMain(()->{setField(activity,"detail",false);setField(activity,"page",2);invoke(activity,"render",new Class<?>[0]);return null;});
+            await(()->onMain(()->!((android.view.View)field(activity,"chatPage")).isShown()),"Settings hides the actual chat timeline");
+            remote.setReadReceiptsEnabled(true);
+            await(()->remote.readReceiptsActive()&&onMain(()->controller.canObserveMessages(peer)),"Both native peers negotiate reciprocal reads");
+            check(remote.send(new Frame(Frame.TEXT,hidden,"Hidden text must stay delivered",System.currentTimeMillis())),"Hidden read fixture sent");
+            check(hidden.equals(delivery.poll(10,TimeUnit.SECONDS)),"Hidden message is durably delivered");
+            Thread.sleep(650);check(!remoteReadIds.contains(hidden),"Settings/background receipt must not be read");
+            onMain(()->{setField(activity,"detail",true);setField(activity,"page",0);invoke(activity,"render",new Class<?>[0]);return null;});
+            await(()->onMain(()->{android.view.View row=((android.view.ViewGroup)field(activity,"bubbles")).findViewWithTag("message:"+hidden+":false");return row!=null&&row.getHeight()>0&&field(activity,"renderedMessages")==controller.messages;}),"Visible read fixture has real layout");
+            onMain(()->{((ScrollView)field(activity,"messageScroll")).scrollTo(0,((android.view.View)field(activity,"bubbles")).getHeight());return null;});
+            await(()->remoteReadIds.contains(hidden),"Actual foreground visibility produces a read");
+            await(()->worker.submit(()->!store.pendingReads(peer).contains(hidden)).get(10,TimeUnit.SECONDS),"Remote confirmation retires native durable read outbox");
+            onMain(()->{controller.setReadReceiptsEnabled(false);return null;});
+            await(()->!remote.readReceiptsActive(),"Native privacy off revokes reciprocal wire policy");
+            check(remote.send(new Frame(Frame.TEXT,disabled,"Reading with receipts disabled",System.currentTimeMillis())),"Disabled read fixture sent");
+            check(disabled.equals(delivery.poll(10,TimeUnit.SECONDS)),"Privacy off preserves normal delivery");
+            await(()->onMain(()->controller.messages.stream().anyMatch(m->m.id.equals(disabled))),"Disabled text in native history");
+            onMain(()->{((ScrollView)field(activity,"messageScroll")).scrollTo(0,((android.view.View)field(activity,"bubbles")).getHeight());return null;});
+            Thread.sleep(650);check(!remoteReadIds.contains(disabled),"Privacy off never sends visible read");
+            onMain(()->{setField(activity,"detail",false);setField(activity,"page",2);invoke(activity,"render",new Class<?>[0]);controller.setReadReceiptsEnabled(true);return null;});
+            await(()->remote.readReceiptsActive(),"Native privacy on restores negotiation");
+            Thread.sleep(650);check(!remoteReadIds.contains(disabled),"Re-enable must not backfill an offscreen disabled observation");
+            onMain(()->{check(controller.send(outgoingBody),"Native outgoing read fixture accepted");return null;});
+            await(()->remoteTextIds.containsKey(outgoingBody),"Synthetic peer receives actual native TEXT");String outgoing=remoteTextIds.get(outgoingBody);
+            await(()->onMain(()->controller.messages.stream().anyMatch(m->m.id.equals(outgoing)&&m.outgoing&&m.state.equals("delivered"))),"Native outgoing starts delivered, not read");
+            check(remote.sendReadReceipts(java.util.List.of(outgoing)),"Synthetic peer submits explicit display evidence");
+            await(()->onMain(()->controller.messages.stream().anyMatch(m->m.id.equals(outgoing)&&m.outgoing&&m.state.equals("read"))),"Actual peer read packet persists in native SQLite");
+        } finally {
+            remote.setReadReceiptsEnabled(false);
+            onMain(()->{controller.setReadReceiptsEnabled(true);return null;});
+            worker.submit(()->{for(String id:java.util.List.of(hidden,disabled,remoteTextIds.getOrDefault(outgoingBody,UUID.randomUUID().toString())))store.getWritableDatabase().delete("messages","peer_id=? AND id=?",new String[]{peer,id});}).get(10,TimeUnit.SECONDS);
+            onMain(()->{setField(activity,"detail",true);setField(activity,"page",0);invoke(controller,"refresh",new Class<?>[0]);invoke(activity,"render",new Class<?>[0]);((ScrollView)field(activity,"messageScroll")).scrollTo(0,originalY);return null;});
+        }
+    }
+    private void testCanonicalReadBatches(ChatStore store) {
+        String peer=UUID.randomUUID().toString().replace("-","").repeat(2);
+        java.util.List<String> ids=new ArrayList<>();
+        try {
+            for(int i=0;i<33;i++){
+                String id=String.format(java.util.Locale.ROOT,"abcdefab-1234-4abc-8abc-%012x",i);ids.add(id);
+                for(String alias:java.util.List.of(id,id.toUpperCase(java.util.Locale.ROOT)))
+                    store.save(peer,"Read batch fixture",new Frame(Frame.TEXT,alias,"Canonical read batch",i),false);
+            }
+            store.observed(peer,ids);
+            java.util.List<String> batch=store.pendingReads(peer);
+            check(batch.equals(ids.subList(0,32)),"Native SQLite deduplicates canonical IDs before the 32-ID limit");
+            dev.ghost.nearbyim.core.ReadReceiptPacket.receipt(dev.ghost.nearbyim.core.ReadReceiptPacket.READ,1,1,batch);
+            store.readAcknowledged(peer,batch);
+            check(store.pendingReads(peer).equals(ids.subList(32,33)),"One ACK retires both case aliases without starving the next batch");
+            store.readAcknowledged(peer,ids.subList(32,33));
+            check(store.pendingReads(peer).isEmpty(),"Canonical native outbox is empty after both batches");
+        } finally {
+            store.getWritableDatabase().delete("messages","peer_id=?",new String[]{peer});
+            store.getWritableDatabase().delete("conversations","peer_id=?",new String[]{peer});
+        }
+    }
     private void testReceiptPresentation(ChatController controller)throws Exception {
         String peer=onMain(()->controller.selectedId),name=onMain(()->controller.selectedName);
         ChatStore store=field(controller,"store");java.util.concurrent.ExecutorService worker=field(controller,"storage");
         java.util.List<ChatStore.Message> fixture=new ArrayList<>();
-        for(String state:java.util.List.of("pending","sent","delivered","unknown","failed"))fixture.add(new ChatStore.Message(UUID.randomUUID().toString(),state.equals("delivered")?String.join("",java.util.Collections.nCopies(6,"长消息的时间和状态应当清楚地排列在文字下方。🙂 ")):"你好，消息到了吗？🙂",state,true,System.currentTimeMillis()+fixture.size()*60000));
+        for(String state:java.util.List.of("pending","sent","delivered","read","unknown","failed"))fixture.add(new ChatStore.Message(UUID.randomUUID().toString(),state.equals("delivered")?String.join("",java.util.Collections.nCopies(6,"长消息的时间和状态应当清楚地排列在文字下方。🙂 ")):"你好，消息到了吗？🙂",state,true,System.currentTimeMillis()+fixture.size()*60000));
         try {
             // Use the real store so asynchronous history refresh cannot replace synthetic rows.
             worker.submit(()->{
@@ -797,6 +866,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
                     store.save(peer,name,new Frame(Frame.TEXT,message.id,message.text,message.time),true);
                     if(message.state.equals("sent"))store.sent(peer,message.id);
                     else if(message.state.equals("delivered")){store.delivered(peer,message.id);store.sent(peer,message.id);}
+                    else if(message.state.equals("read")){store.read(peer,java.util.List.of(message.id));store.delivered(peer,message.id);store.sent(peer,message.id);}
                     else if(!message.state.equals("pending")){
                         android.content.ContentValues values=new android.content.ContentValues();values.put("state",message.state);
                         if(store.getWritableDatabase().update("messages",values,"peer_id=? AND id=? AND outgoing=1",new String[]{peer,message.id})!=1)throw new AssertionError("Receipt fixture row missing");
