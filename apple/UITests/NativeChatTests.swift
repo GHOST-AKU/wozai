@@ -5,6 +5,46 @@ import UIKit
 #endif
 
 final class NativeChatTests: XCTestCase {
+    func testReadReceiptForegroundVisibilityWithJavaPeer() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+        let host = app.textFields["manualHost"]
+        if !host.waitForExistence(timeout: 5) { selectDestination(app, "Nearby") }
+        XCTAssertTrue(host.waitForExistence(timeout: 8))
+        host.tap(); host.typeText("127.0.0.1")
+        let port = app.textFields["manualPort"]; port.tap(); port.typeText("47831")
+        app.buttons["manualConnect"].tap()
+        let consent = app.buttons["consentOnce"]
+        XCTAssertTrue(consent.waitForExistence(timeout: 15)); consent.tap()
+        let composer = app.descendants(matching: .any).matching(identifier: "composer").firstMatch
+        XCTAssertTrue(composer.waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["Hello from Java"].waitForExistence(timeout: 15))
+        composer.tap(); composer.typeText("Hello from Apple"); app.buttons["sendMessage"].tap()
+        try drivePeer("read-initial-check")
+        selectDestination(app, "Nearby")
+        XCTAssertTrue(host.waitForExistence(timeout: 8))
+        try drivePeer("read-hidden-send")
+        try drivePeer("read-hidden-check")
+        #if os(macOS)
+        app.staticTexts["Java interop peer"].firstMatch.tap()
+        #else
+        selectDestination(app, "Chats")
+        #endif
+        XCTAssertTrue(app.staticTexts["Read receipt hidden probe"].waitForExistence(timeout: 8))
+        try drivePeer("read-visible-check")
+        let evidence = XCTAttachment(screenshot: app.screenshot())
+        evidence.name = "native-read-receipt-real-visibility"
+        evidence.lifetime = .keepAlways; add(evidence)
+        try drivePeer("finish")
+    }
+    private func selectDestination(_ app: XCUIApplication, _ name: String) {
+        if app.tabBars.buttons[name].exists { app.tabBars.buttons[name].tap() }
+        else if app.buttons[name].firstMatch.exists { app.buttons[name].firstMatch.tap() }
+        else { let destination = app.staticTexts[name].firstMatch; XCTAssertTrue(destination.exists, app.debugDescription); destination.tap() }
+    }
+
     func testNativeConnectionConsentAndDurableReceiptsWithJavaPeer() throws {
         continueAfterFailure = false
         let app = XCUIApplication()

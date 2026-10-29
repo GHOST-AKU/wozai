@@ -69,6 +69,24 @@ public final class ReadReceiptStoreTests {
             cb.observedMessages(peerA,List.of(second)).get(3,TimeUnit.SECONDS);check(sb.pendingReads(peerA).isEmpty(),"Disabled observation retained private read");
             cb.setReadReceiptsEnabled(true).get(3,TimeUnit.SECONDS);await(()->ca.canObserveMessages(peerB)&&cb.canObserveMessages(peerA),"Reenable did not renegotiate policy");
             check(sa.messages(peerB).stream().filter(m->m.id().equals(second)).noneMatch(m->m.status().equals("read")),"Reenable backfilled disabled observation");
+            check(ca.send("read history save failure").get(3,TimeUnit.SECONDS),"Failure fixture text rejected");
+            await(()->sb.messages(peerA).size()==3&&sa.messages(peerB).stream().filter(m->m.body().equals("read history save failure")).allMatch(m->m.status().equals("delivered")),"Failure fixture not delivered");
+            String third=sb.messages(peerA).stream().filter(m->m.body().equals("read history save failure")).findFirst().orElseThrow().id();
+            Path message=a.resolve("messages").resolve(peerB).resolve("out-"+third+".properties"),saved=a.resolve("held-receipt.properties");
+            Files.move(message,saved);Files.createDirectory(message);
+            try{
+                cb.observedMessages(peerA,List.of(third)).get(3,TimeUnit.SECONDS);
+                await(()->ea.latest.phase().equals("idle")&&eb.latest.phase().equals("idle"),"Read history failure did not close the affected session");
+                check(sb.pendingReads(peerA).contains(third),"Failed read persistence was falsely acknowledged");
+            }finally{Files.delete(message);Files.move(saved,message);}
+            check(sa.messages(peerB).stream().filter(m->m.id().equals(third)).allMatch(m->m.status().equals("delivered")),"Failed read persistence fabricated a confirmed read");
+            cb.observedMessages(peerA,List.of(second)).get(3,TimeUnit.SECONDS);
+            check(sb.pendingReads(peerA).containsAll(List.of(second,third)),"Enabled offline observation or unconfirmed outbox lost");
+            ca.connect(endpoint,peerB).get(3,TimeUnit.SECONDS);
+            await(()->ea.latest.phase().equals("ready")&&eb.latest.phase().equals("ready"),"Pinned reconnect failed after receipt disk recovery");
+            await(()->sa.messages(peerB).stream().filter(m->List.of(second,third).contains(m.id())).allMatch(m->m.status().equals("read")),"Reconnect did not retry exact durable read IDs");
+            await(()->sb.pendingReads(peerA).isEmpty(),"Recovered read ACK did not retire durable offline outbox");
+
         }
     }
 }

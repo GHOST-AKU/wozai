@@ -7,6 +7,7 @@ permissions:
   contents: read
 jobs:
   apple:
+    if: ${{ !contains(github.event.head_commit.message, '[apple-ui]') }}
     runs-on: macos-latest
     timeout-minutes: 25
     steps:
@@ -49,7 +50,7 @@ jobs:
             build-read-*.log
             build/apple-interop/*.log
   android-build:
-    if: github.repository == 'GHOST-AKU/wozai' && github.ref == 'refs/heads/feat/read-receipts'
+    if: github.repository == 'GHOST-AKU/wozai' && github.ref == 'refs/heads/feat/read-receipts' && !contains(github.event.head_commit.message, '[apple-ui]')
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -140,6 +141,7 @@ jobs:
             build/android-attachment-screenshots/
           if-no-files-found: warn
   windows:
+    if: ${{ !contains(github.event.head_commit.message, '[apple-ui]') }}
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
@@ -156,4 +158,44 @@ jobs:
         with:
           name: windows-read-receipts
           path: desktop/build/receipt-windows-*.png
+          if-no-files-found: warn
+  apple-read-ui:
+    if: contains(github.event.head_commit.message, '[apple-ui]')
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [macos, ipad]
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Compile the production Java UI peer
+        run: bash tools/test-apple-interop.sh --compile-java
+      - name: Select native UI destination
+        id: destination
+        run: |
+          python3 - '${{ matrix.platform }}' <<'PY'
+          import json,os,subprocess,sys
+          if sys.argv[1]=='macos': destination='platform=macOS'
+          else:
+              devices=json.loads(subprocess.check_output(['xcrun','simctl','list','devices','available','--json']))['devices']
+              runtime,template=next((r,d) for r,ds in devices.items() if '.iOS-' in r for d in ds if d['name'].startswith('iPad'))
+              device=subprocess.check_output(['xcrun','simctl','create','Read receipts iPad',template['deviceTypeIdentifier'],runtime],text=True).strip()
+              destination='platform=iOS Simulator,id='+device
+          with open(os.environ['GITHUB_OUTPUT'],'a') as f:f.write('value='+destination+'\n')
+          PY
+      - name: Native focused and hidden conversation read receipts
+        env:
+          WOZAI_APPLE_READ_UI: 'true'
+          WOZAI_APPLE_UI_TEST: NearbyIMUITests/NativeChatTests/testReadReceiptForegroundVisibilityWithJavaPeer
+        run: bash tools/test-apple-ui.sh '${{ steps.destination.outputs.value }}' read-${{ matrix.platform }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: apple-read-ui-${{ matrix.platform }}
+          path: build/apple-ui/
           if-no-files-found: warn

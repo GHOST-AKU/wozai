@@ -10,7 +10,7 @@ import java.util.UUID;
 /** Uses the shipping Java codecs and Noise channel, independently of the Swift implementation. */
 public final class AppleInteropPeer {
     public static void main(String[] args) throws Exception {
-        boolean reads=java.util.Arrays.asList(args).contains("--reads");
+        boolean reads=java.util.Arrays.asList(args).contains("--reads")||java.util.Arrays.asList(args).contains("--read-ui");
         boolean ui = args[0].equals("ui-server");
         boolean initiator = args[0].equals("client");
         if (initiator) {
@@ -42,7 +42,7 @@ public final class AppleInteropPeer {
             channel.write(ProtocolV4.encode(new Frame(Frame.READY, "", "", 0)));
             Frame ready = ProtocolV4.decode(channel.read()); require(ready.type == Frame.READY, "Missing consent READY");
             TextCapability capacity=new TextCapability(channel.connectionGeneration(),time->{try{channel.write(ProtocolV4.encode(new Frame(Frame.PONG,"","",time)));}catch(IOException error){throw new java.io.UncheckedIOException(error);}},()->{});
-            java.util.Set<String> observed=new java.util.LinkedHashSet<>(),ownReads=new java.util.HashSet<>();
+            java.util.Set<String> observed=new java.util.LinkedHashSet<>(),ownReads=java.util.concurrent.ConcurrentHashMap.newKeySet();
             ReadReceiptCapability readCapability=new ReadReceiptCapability(channel.connectionGeneration(),time->{try{channel.write(ProtocolV4.encode(new Frame(Frame.PONG,"","",time)));}catch(IOException error){throw new java.io.UncheckedIOException(error);}},(packet,current)->{try{if(current.getAsBoolean())channel.write(ProtocolV4.encode(new Frame(Frame.READ_RECEIPT,"","",0,0,packet.encode())));return true;}catch(IOException error){throw new java.io.UncheckedIOException(error);}},()->{});
             if(reads){readCapability.configure(true);readCapability.start();}
             if(!ui)capacity.start();
@@ -60,7 +60,7 @@ public final class AppleInteropPeer {
                 fileID, source, channel.connectionGeneration(), true, 3, 0, 0, null, "")));
             channel.write(ProtocolV4.encode(new Frame(Frame.PING, "", "", 0)));
             boolean receivedText = false, receivedACK = false, whitespaceACK = ui, rejectedFile = false, receivedPong = false;
-            for (int records = 0; records < 64 && !(receivedText && receivedACK && whitespaceACK && rejectedFile && receivedPong && longReceived && longAck && (!reads||(ownReads.containsAll(java.util.List.of(textID.toLowerCase(java.util.Locale.ROOT),whitespaceID,longID))&&observed.isEmpty()))); records++) {
+            for (int records = 0; records < 64 && !(receivedText && receivedACK && whitespaceACK && rejectedFile && receivedPong && longReceived && longAck && (!reads||ui||(ownReads.containsAll(java.util.List.of(textID.toLowerCase(java.util.Locale.ROOT),whitespaceID,longID))&&observed.isEmpty()))); records++) {
                 ProtocolV4.Record record = ProtocolV4.decodeRecord(channel.read(),capacity.incoming());
                 if (record.transfer != null) {
                     TransferPacket packet = record.transfer;
@@ -73,7 +73,7 @@ public final class AppleInteropPeer {
                 Frame frame = record.frame; require(frame != null, "Unexpected record family");
                 switch (frame.type) {
                     case Frame.TEXT:
-                        if(reads)observed.add(frame.id.toLowerCase(java.util.Locale.ROOT));
+                        if(reads&&!ui)observed.add(frame.id.toLowerCase(java.util.Locale.ROOT));
                         if(frame.body.equals(longBody)&&!ui){require(!longReceived,"Duplicate long text");longReceived=true;}
                         else{require(!receivedText && frame.body.equals("Hello from Apple" + (ui ? "" : "\n" + safety)), "Text or safety-code mismatch");receivedText=true;}
                         channel.write(ProtocolV4.encode(new Frame(Frame.ACK, frame.id, "", 0)));
@@ -99,15 +99,16 @@ public final class AppleInteropPeer {
                 }
                 if(reads&&readCapability.active()&&!observed.isEmpty())readCapability.send(new java.util.ArrayList<>(observed));
             }
-            if(reads){require(ownReads.containsAll(java.util.List.of(textID.toLowerCase(java.util.Locale.ROOT),whitespaceID,longID))&&observed.isEmpty(),"Incomplete bidirectional read receipts");System.out.println("PASS: Java/Swift negotiated read receipts, both directions, exact UUIDs and durable ACK retirement");}
+            if(reads&&!ui){require(ownReads.containsAll(java.util.List.of(textID.toLowerCase(java.util.Locale.ROOT),whitespaceID,longID))&&observed.isEmpty(),"Incomplete bidirectional read receipts");System.out.println("PASS: Java/Swift negotiated read receipts, both directions, exact UUIDs and durable ACK retirement");}
             require(receivedText && receivedACK && whitespaceACK && rejectedFile && receivedPong && longReceived && longAck, "Incomplete exchange");
-            if (ui) { exerciseReadingPosition(channel); }
+            if (ui) { exerciseReadingPosition(channel,reads?readCapability:null,ownReads,textID.toLowerCase(java.util.Locale.ROOT)); }
             channel.write(ProtocolV4.encode(new Frame(Frame.BYE, "", "", 0)));
         }
     }
 
     /** An out-of-band test driver injects real encrypted messages while the UI is reading history. */
-    private static void exerciseReadingPosition(NoiseRecordChannel channel) throws Exception {
+    private static void exerciseReadingPosition(NoiseRecordChannel channel,ReadReceiptCapability readCapability,java.util.Set<String> ownReads,String initialID) throws Exception {
+        java.util.concurrent.atomic.AtomicReference<String> readProbe=new java.util.concurrent.atomic.AtomicReference<>();
         java.util.concurrent.atomic.AtomicInteger acknowledgements = new java.util.concurrent.atomic.AtomicInteger();
         Path fileRoot = Files.createTempDirectory("wozai-ui-files-");
         byte[] fileBytes = new byte[3 * TransferLimits.BLOCK_BYTES + 17];
@@ -127,6 +128,8 @@ public final class AppleInteropPeer {
                     ProtocolV4.Record record = ProtocolV4.decodeRecord(channel.read());
                     if (record.transfer != null) { files.receive(record.transfer, true); continue; }
                     Frame frame = record.frame;
+                    if(frame.type==Frame.READ_RECEIPT&&readCapability!=null){ReadReceiptPacket packet=ReadReceiptPacket.decode(frame.data);if(readCapability.receive(packet)){if(packet.kind==ReadReceiptPacket.READ){ownReads.addAll(packet.ids);readCapability.acknowledge(packet);}else readCapability.persisted(packet);}continue;}
+                    if(frame.type==Frame.PONG&&readCapability!=null)readCapability.receiveToken(frame.timestamp);
                     if (frame.type == Frame.PING) { channel.write(ProtocolV4.encode(new Frame(Frame.PONG, "", "", 0))); }
                     else {
                         require(frame.type == Frame.ACK || frame.type == Frame.PONG, "Unexpected UI fixture response");
@@ -146,7 +149,17 @@ public final class AppleInteropPeer {
                 try (Socket driver = control.accept()) {
                     driver.setSoTimeout(5_000);
                     String command = new BufferedReader(new InputStreamReader(driver.getInputStream(), java.nio.charset.StandardCharsets.UTF_8)).readLine();
-                    if ("file-offer".equals(command)) {
+                    if("read-initial-check".equals(command)||"read-visible-check".equals(command)){
+                        String id=command.equals("read-initial-check")?initialID:readProbe.get();
+                        long end=System.nanoTime()+java.util.concurrent.TimeUnit.SECONDS.toNanos(5);
+                        while(!ownReads.contains(id)&&System.nanoTime()<end){if(readFailure.get()!=null)throw new IOException("Read UI fixture failed",readFailure.get());Thread.sleep(20);}
+                        require(ownReads.contains(id),"Actually visible native Apple text did not emit read receipt");
+                    }else if("read-hidden-send".equals(command)){
+                        String id=UUID.randomUUID().toString();readProbe.set(id);
+                        channel.write(ProtocolV4.encode(new Frame(Frame.TEXT,id,"Read receipt hidden probe",System.currentTimeMillis())));
+                    }else if("read-hidden-check".equals(command)){
+                        Thread.sleep(650);require(!ownReads.contains(readProbe.get()),"Hidden Apple conversation emitted a read receipt");
+                    }else if ("file-offer".equals(command)) {
                         files.offer(new FileAttachmentSource(fileSource), "UI-attachment.bin", "application/octet-stream").get(5, java.util.concurrent.TimeUnit.SECONDS);
                     } else if ("file-saved".equals(command)) {
                         boolean saved = false;
