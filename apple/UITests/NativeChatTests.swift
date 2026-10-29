@@ -24,10 +24,13 @@ final class NativeChatTests: XCTestCase {
         composer.tap(); composer.typeText("Hello from Apple"); app.buttons["sendMessage"].tap()
         try drivePeer("read-initial-check")
         #if os(iOS)
-        if app.keyboards.firstMatch.exists {
-            app.scrollViews["messageTimeline"].swipeDown()
+        let reopenConversation = UIDevice.current.userInterfaceIdiom == .phone
+        if reopenConversation {
+            let back = app.navigationBars.buttons["BackButton"].firstMatch
+            XCTAssertTrue(back.waitForExistence(timeout: 5), app.debugDescription)
+            back.tap()
             let hidden = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in !app.keyboards.firstMatch.exists }, object: app)
-            XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 8), .completed, "Dismiss the keyboard before tab navigation: " + app.debugDescription)
+            XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 8), .completed, "The native back action must dismiss the conversation keyboard: " + app.debugDescription)
         }
         #endif
         selectDestination(app, "Nearby")
@@ -38,6 +41,11 @@ final class NativeChatTests: XCTestCase {
         app.staticTexts["Java interop peer"].firstMatch.tap()
         #else
         selectDestination(app, "Chats")
+        if reopenConversation {
+            let row = app.staticTexts["Java interop peer"].firstMatch
+            XCTAssertTrue(row.waitForExistence(timeout: 8), app.debugDescription)
+            row.tap()
+        }
         #endif
         XCTAssertTrue(app.staticTexts["Read receipt hidden probe"].waitForExistence(timeout: 8))
         try drivePeer("read-visible-check")
