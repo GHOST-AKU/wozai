@@ -26,6 +26,7 @@ import dev.ghost.nearbyim.i18n.LanguageRegistry;
 import dev.ghost.nearbyim.i18n.UiText;
 import java.util.*;
 import dev.ghost.nearbyim.core.TextLimits;
+import dev.ghost.nearbyim.core.ReadVisibility;
 import dev.ghost.nearbyim.core.AttachmentInfo;
 import dev.ghost.nearbyim.core.AttachmentBatchQueue;
 import dev.ghost.nearbyim.core.IdentityVerification;
@@ -198,11 +199,30 @@ public final class MainActivity extends Activity {
         if (Build.VERSION.SDK_INT >= 33) getOnBackInvokedDispatcher().registerOnBackInvokedCallback(0, this::handleBack);
         render();
     }
+    private boolean receiptResumed;
+    private final ReadVisibility readVisibility=new ReadVisibility();
+    private Switch readReceiptsSwitch;
+    private final Runnable readVisibilityTick=new Runnable(){public void run(){
+        if(!receiptResumed)return;
+        boolean unlocked=!((android.app.KeyguardManager)getSystemService(KEYGUARD_SERVICE)).isKeyguardLocked();
+        boolean eligible=hasWindowFocus()&&unlocked&&controller!=null&&chatPage!=null&&chatPage.isShown()&&!rebuildingMessages&&Objects.equals(renderedPeer,controller.selectedId)&&controller.canObserveMessages(renderedPeer);
+        List<String> visible=new ArrayList<>();
+        if(eligible){android.graphics.Rect viewport=new android.graphics.Rect();if(messageScroll.getGlobalVisibleRect(viewport))for(ChatStore.Message message:controller.messages){
+            if(message.outgoing||message.attachment!=null)continue;View row=bubbles.findViewWithTag(messageKey(message));if(row==null)continue;
+            View body=row.findViewWithTag("messageBody");if(body==null||body.getHeight()==0)continue;int[] location=new int[2];body.getLocationOnScreen(location);
+            if(ReadVisibility.visible(location[1]-viewport.top,body.getHeight(),viewport.height()))visible.add(message.id);
+        }}
+        List<String> ready=readVisibility.update(renderedPeer,visible,eligible,System.nanoTime());
+        if(!ready.isEmpty())controller.observedMessages(renderedPeer,ready);
+        ui.postDelayed(this,250);
+    }};
     protected void onStart() {
         super.onStart();if(foldWindow!=null)foldWindow.start();if(gallery!=null)gallery.listen(galleryListener);if(fileLocations!=null)fileLocations.listen(fileLocationListener); bound = bindService(new Intent(this, ChatService.class), binding, Context.BIND_AUTO_CREATE);
         ui.post(discoverabilityTick);
     }
-    protected void onResume() { super.onResume(); if (root != null) { if(controller!=null)AndroidAvatars.get(this).refresh(controller.localAvatarRoot()); resumePending(); render(); } }
+    protected void onResume() { super.onResume();receiptResumed=true;ui.removeCallbacks(readVisibilityTick);ui.postDelayed(readVisibilityTick,250); if (root != null) { if(controller!=null)AndroidAvatars.get(this).refresh(controller.localAvatarRoot()); resumePending(); render(); } }
+    protected void onPause(){receiptResumed=false;readVisibility.clear();ui.removeCallbacks(readVisibilityTick);super.onPause();}
+    public void onWindowFocusChanged(boolean focused){super.onWindowFocusChanged(focused);if(!focused)readVisibility.clear();}
     protected void onStop() {
         closeEmoji(false);
         saveDraftAndPosition();if(foldWindow!=null)foldWindow.stop(); ui.removeCallbacks(discoverabilityTick);
@@ -427,6 +447,9 @@ public final class MainActivity extends Activity {
         settingsContent.addView(sectionHeading(t("appearanceSection")));
         languageValue = label("", 14, muted); settingsContent.addView(settingsRow(t("language"), languageValue, this::chooseLanguage));
         themeValue = label("", 14, muted); settingsContent.addView(settingsRow(t("theme"), themeValue, this::chooseTheme));
+        readReceiptsSwitch=new Switch(this);readReceiptsSwitch.setText(t("readReceipts"));readReceiptsSwitch.setTextColor(ink);readReceiptsSwitch.setChecked(getSharedPreferences("identity",MODE_PRIVATE).getBoolean("readReceipts",true));readReceiptsSwitch.setPadding(dp(4),dp(12),dp(4),dp(12));readReceiptsSwitch.setMinHeight(dp(48));
+        readReceiptsSwitch.setOnCheckedChangeListener((button,checked)->{readVisibility.clear();if(controller!=null)controller.setReadReceiptsEnabled(checked);});
+        settingsContent.addView(readReceiptsSwitch,new LinearLayout.LayoutParams(-1,-2));TextView receiptHelp=label(t("readReceiptsSummary"),13,muted);receiptHelp.setPadding(dp(4),0,dp(4),dp(12));settingsContent.addView(receiptHelp);
         settingsContent.addView(sectionHeading(t("trustedDevices"))); trustedList = vertical(); settingsContent.addView(trustedList);
         Switch automaticPhotos=new Switch(this);automaticPhotos.setText(t("galleryAutoSave"));automaticPhotos.setChecked(gallery==null||gallery.automatic());automaticPhotos.setPadding(dp(4),dp(12),dp(4),dp(12));automaticPhotos.setOnCheckedChangeListener((view,enabled)->{if(gallery!=null)gallery.automatic(enabled);});settingsContent.addView(automaticPhotos);
         receiveFolderValue=label("",14,muted);settingsContent.addView(settingsRow(t("receiveFolder"),receiveFolderValue,this::chooseReceiveDirectory));
@@ -459,7 +482,7 @@ public final class MainActivity extends Activity {
             if (r - l != or - ol) updateMessageWidths();
             if (detail && followedBottom && b - t < ob - ot) messageScroll.post(() -> messageScroll.scrollTo(0, Math.max(0, bubbles.getHeight() - messageScroll.getHeight())));
         });
-        messageScroll.setOnScrollChangeListener((v, x, y, oldX, oldY) -> { if (!rebuildingMessages && atBottom()) newMessages.setVisibility(View.GONE); });
+        messageScroll.setOnScrollChangeListener((v, x, y, oldX, oldY) -> { if(x!=oldX||y!=oldY)readVisibility.clear(); if (!rebuildingMessages && atBottom()) newMessages.setVisibility(View.GONE); });
         newMessages = button(t("newMessages"), false); newMessages.setVisibility(View.GONE); newMessages.setOnClickListener(v -> { messageScroll.smoothScrollTo(0, bubbles.getHeight()); newMessages.setVisibility(View.GONE); });
         chatPage.addView(newMessages, new LinearLayout.LayoutParams(-1, -2));
         attachmentTray=vertical();attachmentTray.setPadding(dp(8),dp(8),dp(8),dp(8));attachmentTray.setBackground(shape(surface,20));attachmentTray.setVisibility(View.GONE);
@@ -620,6 +643,7 @@ public final class MainActivity extends Activity {
     }
     private void renderSettings() {
         if(ownAvatar!=null)AndroidAvatars.get(this).bind(ownAvatar,controller==null?null:controller.localAvatarRoot());
+        if(readReceiptsSwitch!=null&&controller!=null)readReceiptsSwitch.setChecked(controller.readReceiptsEnabled());
         nickname.setText(controller == null ? t("loading") : controller.nickname);
         String selection = AppLanguage.selection(this);
         languageValue.setText(LanguageRegistry.SYSTEM.equals(selection) ? t("systemLanguage") : LanguageRegistry.resolve(selection, AppLanguage.systemLocale(this)).nativeName);
@@ -869,7 +893,7 @@ public final class MainActivity extends Activity {
         meta.setSingleLine(true);
         if(message.outgoing){
             String state=attachment==null?message.state:attachment.state;
-            meta.setCompoundDrawablesRelativeWithIntrinsicBounds(null,null,new MessageReceiptDrawable(dev.ghost.nearbyim.core.MessageReceipt.of(state),"failed".equals(state)?(isDark()?0xfff2b8b5:0xffb3261e):muted,getResources().getDisplayMetrics().density),null);
+            meta.setCompoundDrawablesRelativeWithIntrinsicBounds(null,null,new MessageReceiptDrawable(dev.ghost.nearbyim.core.MessageReceipt.of(state),"read".equals(state)?accent:"failed".equals(state)?(isDark()?0xfff2b8b5:0xffb3261e):muted,getResources().getDisplayMetrics().density),null);
             meta.setCompoundDrawablePadding(dp(4));
             meta.setContentDescription(t("outgoingMessageMeta",time,attachment==null?AndroidText.messageState(this,state):attachmentState(attachment)));
         }

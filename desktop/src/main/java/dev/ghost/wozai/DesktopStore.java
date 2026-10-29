@@ -104,6 +104,7 @@ public final class DesktopStore implements AutoCloseable {
         Path file = messageFile(peer, id, false);
         // Retries retain the first local receipt time, but must match the wire content.
         long receiptTime = Files.exists(file) ? readMessage(file).time() : System.currentTimeMillis();
+        if(Files.exists(file)){Message prior=readMessage(file);if(prior.attachment()!=null||!prior.body().equals(body)||prior.senderTime()!=senderTime)throw new IOException("Conflicting message ID");return;}
         save(peer, new Message(id, body, receiptTime, false, "received", senderTime));
     }
     private void writeMessage(Path file, Message m) throws IOException {
@@ -116,7 +117,7 @@ public final class DesktopStore implements AutoCloseable {
         Properties v = AtomicFiles.read(file,256*1024);
         try {
             String status = AtomicFiles.required(v, "status"), outgoing = AtomicFiles.required(v, "outgoing");
-            if (!Set.of("received", "pending", "sent", "delivered", "unknown").contains(status) || !Set.of("true", "false").contains(outgoing)) throw new IOException("Invalid message state");
+            if (!Set.of("received", "pending", "sent", "delivered", "read", "read_pending", "read_notified", "unknown").contains(status) || !Set.of("true", "false").contains(outgoing)) throw new IOException("Invalid message state");
             String filename = file.getFileName().toString().replace(".properties", "");
             boolean direction = Boolean.parseBoolean(outgoing);
             if (filename.startsWith("in-") || filename.startsWith("out-")) {
@@ -151,7 +152,24 @@ public final class DesktopStore implements AutoCloseable {
     public synchronized void status(String peer, String id, String status) throws IOException {
         Path file = messageFile(peer, id, true); if (!Files.exists(file)) return;
         Message m = readMessage(file);
-        if (m.outgoing()) writeMessage(file, new Message(m.id(), m.body(), m.time(), true, status, m.senderTime(),m.attachment()));
+        if (m.outgoing()&&!m.status().equals("read")) writeMessage(file, new Message(m.id(), m.body(), m.time(), true, status, m.senderTime(),m.attachment()));
+    }
+    public synchronized void observed(String peer,List<String> ids)throws IOException {
+        for(String id:ids){Path file=messageFile(peer,id,false);if(!Files.exists(file))continue;Message m=readMessage(file);
+            if(!m.outgoing()&&m.attachment()==null&&m.status().equals("received"))writeMessage(file,new Message(m.id(),m.body(),m.time(),false,"read_pending",m.senderTime()));}
+    }
+    public synchronized List<String> pendingReads(String peer)throws IOException {
+        List<String> ids=new ArrayList<>();Path directory=messagesPath(peer);if(!Files.exists(directory))return ids;
+        try(var files=Files.list(directory)){for(Path file:(Iterable<Path>)files.filter(f->f.toString().endsWith(".properties"))::iterator){Message m=readMessage(file);if(!m.outgoing()&&m.attachment()==null&&m.status().equals("read_pending")){ids.add(m.id());if(ids.size()==32)break;}}}return ids;
+    }
+    public synchronized void read(String peer,List<String> ids)throws IOException {
+        for(String id:ids){Path file=messageFile(peer,id,true);if(!Files.exists(file))continue;Message m=readMessage(file);if(m.outgoing()&&m.attachment()==null)status(peer,id,"read");}
+    }
+    public synchronized void readAcknowledged(String peer,List<String> ids)throws IOException {
+        for(String id:ids){Path file=messageFile(peer,id,false);if(!Files.exists(file))continue;Message m=readMessage(file);if(!m.outgoing()&&m.status().equals("read_pending"))writeMessage(file,new Message(m.id(),m.body(),m.time(),false,"read_notified",m.senderTime()));}
+    }
+    public synchronized void clearPendingReads()throws IOException {
+        for(Peer peer:peers()){List<String> ids;while(!(ids=pendingReads(peer.id())).isEmpty())readAcknowledged(peer.id(),ids);}
     }
     public synchronized void unknown(String peer) throws IOException {
         Path directory = messagesPath(peer); if (!Files.exists(directory)) return;

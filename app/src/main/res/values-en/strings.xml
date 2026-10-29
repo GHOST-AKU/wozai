@@ -446,6 +446,9 @@
     <string name="portable_hint" formatted="false">"Portable builds keep data in the data folder beside the app. Legacy data is copied and retained. Identity is protected by the current Windows user; another user or computer cannot automatically unlock it."</string>
     <string name="privacy" formatted="false">"No account or remote server. Chat and file transfers are end-to-end encrypted; local history and attachments are not encrypted. Confirm the device identity in person on the first connection."</string>
     <string name="quit" formatted="false">"Quit"</string>
+    <string name="read" formatted="false">"Read"</string>
+    <string name="read_receipts" formatted="false">"Read receipts"</string>
+    <string name="read_receipts_summary" formatted="false">"When both people enable this, visible messages send read receipts. Turning this off stops sending and receiving new read receipts. Previously confirmed receipts stay in history."</string>
     <string name="ready" formatted="false">"Connected"</string>
     <string name="receive_folder" formatted="false">"Receive folder"</string>
     <string name="receive_folder_choose" formatted="false">"Choose folder"</string>

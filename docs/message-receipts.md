@@ -19,3 +19,5 @@ Enqueue does not mean sent, and a local write does not mean peer persistence. A 
 当前协议没有已读回执，因此不提供高亮“已读”双勾或伪造已读状态。文字连接中断后的 unknown 仍是未确认，不能冒充明确失败；既有附件进度、暂停、取消及重试动作保持原语义。文字遵循系统字号，Android图标按屏幕密度绘制，桌面图标随现有字号比例缩放；两端均适配主题；未改变平板分栏和吸附。
 
 The protocol has no read receipt, so there are no highlighted read checks. An unknown text result after disconnect remains unconfirmed. Existing attachment progress, pause, cancel and retry retain their semantics. Text follows the system font size. Android icons use density-scaled coordinates; desktop icons follow the existing text scale. Both adapt to the theme; tablet splits and snapping are unchanged.
+
+后续真实已读回执的开发设计及兼容边界见 [read-receipts.md](read-receipts.md)；本页前述23978cf客户端仍不含已读。See [read-receipts.md](read-receipts.md) for the subsequent real-read extension; the previously verified23978cf client does not include it.

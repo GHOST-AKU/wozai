@@ -446,6 +446,9 @@
     <string name="portable_hint" formatted="false">"可攜式版本預設將資料儲存在軟體旁的 data 資料夾。舊版資料會複製遷移並保留原件。裝置身分仍由目前 Windows 使用者保護，複製到另一使用者或電腦不會自動解鎖身分。"</string>
     <string name="privacy" formatted="false">"無需帳號或遠端伺服器。聊天與檔案傳輸使用端對端加密，本機記錄和附件不加密。首次連線請當面核對裝置身分。"</string>
     <string name="quit" formatted="false">"結束"</string>
+    <string name="read" formatted="false">"已讀"</string>
+    <string name="read_receipts" formatted="false">"已讀回條"</string>
+    <string name="read_receipts_summary" formatted="false">"雙方開啟後，實際顯示的訊息才傳送已讀回條。關閉後停止傳送及接收新的已讀回條，已確認的歷史狀態保留。"</string>
     <string name="ready" formatted="false">"已連線"</string>
     <string name="receive_folder" formatted="false">"接收資料夾"</string>
     <string name="receive_folder_choose" formatted="false">"選擇資料夾"</string>

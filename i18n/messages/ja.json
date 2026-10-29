@@ -574,5 +574,8 @@
   "messageIncomplete": "入力を完了してから送信してください。",
   "sent": "送信済み",
   "messageSending": "送信中",
-  "messageSendFailed": "送信失敗"
+  "messageSendFailed": "送信失敗",
+  "read": "既読",
+  "readReceipts": "既読通知",
+  "readReceiptsSummary": "双方が有効にすると、実際に表示されたメッセージの既読を通知します。無効にすると新しい既読通知の送受信を停止します。確認済みの履歴は保持されます。"
 }

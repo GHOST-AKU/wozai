@@ -1085,7 +1085,7 @@ dependencies = [
 
 [[package]]
 name = "nearbyim-terminal"
-version = "0.3.3-preview.2"
+version = "0.3.3-preview.3"
 dependencies = [
  "aes-gcm",
  "anyhow",

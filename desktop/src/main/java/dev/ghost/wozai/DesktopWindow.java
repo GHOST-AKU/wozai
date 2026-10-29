@@ -55,6 +55,8 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     private final JTabbedPane tabs = new JTabbedPane();
     private final javax.swing.Timer draftTimer;
     private final javax.swing.Timer localeTimer;
+    private final ReadVisibility readVisibility=new ReadVisibility();
+    private final javax.swing.Timer readVisibilityTimer;
     private final Map<JDialog, List<Runnable>> dialogTranslations = new LinkedHashMap<>();
     record LanguageOption(String tag, String label) { @Override public String toString() { return label; } }
     private final JComboBox<LanguageOption> languages = new JComboBox<>();
@@ -111,6 +113,13 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         draftTimer = new javax.swing.Timer(450, e -> saveDraft()); draftTimer.setRepeats(false);
         tabs.setTabPlacement(JTabbedPane.BOTTOM);
         buildChat(); buildNearby(); buildSettings(dataPath);
+        readVisibilityTimer=new javax.swing.Timer(250,e->{
+            boolean eligible=isFocused()&&isShowing()&&tabs.getSelectedIndex()==0&&selected!=null&&client.canObserveMessages(selected)&&!shuttingDown;
+            List<String> ids=readVisibility.update(selected,eligible?transcript.visibleIncomingText():List.of(),eligible,System.nanoTime());
+            if(!ids.isEmpty())handle(client.observedMessages(selected,ids),"storageFailure");
+        });
+        addWindowFocusListener(new WindowAdapter(){public void windowLostFocus(WindowEvent e){readVisibilityTimer.stop();readVisibility.clear();}public void windowGainedFocus(WindowEvent e){readVisibility.clear();readVisibilityTimer.start();}});
+
         add(tabs, BorderLayout.CENTER);
         feedback.setBackground(AppTheme.tonal); feedback.setForeground(AppTheme.accent); feedback.setFont(feedback.getFont().deriveFont(13f)); feedback.setEditable(false); feedback.setLineWrap(true); feedback.setWrapStyleWord(true); feedback.setMargin(new Insets(8, 16, 8, 16)); feedback.setVisible(false);
         translations.add(() -> feedback.getAccessibleContext().setAccessibleName(strings.text("feedback"))); add(feedback, BorderLayout.SOUTH);
@@ -168,7 +177,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         top.add(actions, BorderLayout.LINE_END); chatTitle.setFont(chatTitle.getFont().deriveFont(Font.BOLD,20f)); chat.add(top, BorderLayout.NORTH);
 
         translations.add(() -> transcript.getAccessibleContext().setAccessibleName(strings.text("messages")));
-        JScrollPane messageScroll = AppTheme.scroll(transcript); chat.add(messageScroll, BorderLayout.CENTER);
+        JScrollPane messageScroll = AppTheme.scroll(transcript);messageScroll.getViewport().addChangeListener(e->readVisibility.clear()); chat.add(messageScroll, BorderLayout.CENTER);
         JPanel input = new JPanel(new BorderLayout(8, 6));
         send.putClientProperty("wozai.round",true);AppTheme.primary(send);send.setIcon(AppTheme.icon("send"));send.setPreferredSize(new Dimension(48,48));
         composer.setLineWrap(true); composer.setWrapStyleWord(true); composer.setMargin(new Insets(8,8,8,8));
@@ -275,6 +284,8 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
         JComboBox<String> themes=new JComboBox<>(); translations.add(() -> { themes.setModel(new DefaultComboBoxModel<>(new String[]{strings.text("lightTheme"),strings.text("darkTheme")})); themes.setSelectedIndex(AppTheme.dark?1:0); });
         content.add(settingRow("theme",themes,null));
         themes.addActionListener(e -> { if(translating)return; boolean dark=themes.getSelectedIndex()==1; if(dark==AppTheme.dark)return; AppTheme.install(dark); SwingUtilities.updateComponentTreeUI(this); styleNavigation(); AppTheme.refreshPrimary(getContentPane()); refreshThemeColors(); if(securityDialog!=null)securityDialog.refreshTheme(); renderedMessages=null; renderMessages(); handle(client.setting("theme",dark?"dark":"light"),"storageFailure"); repaint(); });
+        JCheckBox receipts=new JCheckBox();receipts.setOpaque(false);receipts.setSelected(client.readReceiptsEnabled());translations.add(()->receipts.setText(strings.text("readReceipts")));
+        receipts.addActionListener(e->{readVisibility.clear();receipts.setEnabled(false);client.setReadReceiptsEnabled(receipts.isSelected()).whenComplete((v,error)->SwingUtilities.invokeLater(()->{receipts.setEnabled(true);receipts.setSelected(client.readReceiptsEnabled());if(error!=null)notice("settingsSaveFailed");}));});content.add(receipts);content.add(note("readReceiptsSummary",translations));
         content.add(section("connectionsSection")); content.add(settingAction("trustedDevices",this::manageTrust));
         content.add(settingAction("attachmentQuota",()->{long[] choices={16,32,64,128};String[] labels=new String[choices.length];String current="";for(int i=0;i<choices.length;i++){labels[i]=strings.text("attachmentQuotaGiB",choices[i]);if(client.attachmentQuota()==choices[i]*1024*1024*1024)current=labels[i];}Object result=JOptionPane.showInputDialog(this,strings.text("attachmentQuota"),strings.text("attachmentQuota"),JOptionPane.PLAIN_MESSAGE,null,labels,current);for(int i=0;i<labels.length;i++)if(labels[i].equals(result)){handle(client.attachmentQuota(choices[i]*1024*1024*1024),"attachmentQuotaInUse");break;}}));
         content.add(settingAction("stopAll", () -> { discovery.stop(); discovered.clear(); refreshNearby(); stopBluetoothScan(); handle(client.stopListening(),"error"); handle(client.stopBluetoothListening(),"error"); handle(client.disconnect(),"error"); }));
@@ -682,7 +693,7 @@ final class DesktopWindow extends JFrame implements DesktopClient.Listener {
     }
     private void handle(CompletableFuture<?> future, String errorKey) { future.whenComplete((value, error) -> { if (error != null) notice(errorText(error, errorKey)); }); }
     private void shutdown() {
-        if (shuttingDown) return; saveDraft(); shuttingDown = true;avatarEditorGeneration++;avatars.close();if(avatarDialog!=null)avatarDialog.dispose(); stopBluetoothScan(); draftTimer.stop(); localeTimer.stop(); setEnabled(false);
+        if (shuttingDown) return; saveDraft(); shuttingDown = true;readVisibilityTimer.stop();readVisibility.clear();avatarEditorGeneration++;avatars.close();if(avatarDialog!=null)avatarDialog.dispose(); stopBluetoothScan(); draftTimer.stop(); localeTimer.stop(); setEnabled(false);
         new Thread(() -> {
             attachmentWorker.shutdownNow();bluetoothWorker.shutdownNow(); discovery.close(); client.close(); try { store.close(); } catch (IOException ignored) { }
             SwingUtilities.invokeLater(() -> { for (Window window : getOwnedWindows()) window.dispose(); dispose(); });

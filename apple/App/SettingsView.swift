@@ -29,6 +29,8 @@ struct SettingsView: View {
             }
             ReceiveFolderSettings()
             Section("Privacy") {
+                Toggle("Read receipts", isOn: Binding(get: { model.readReceiptsEnabled }, set: { value in Task { await model.setReadReceiptsEnabled(value) } })).disabled(model.readSettingSaving)
+                Text("Read receipts are exchanged only when both people enable them. Turning this off stops new read receipts; previously confirmed receipts remain.").font(.caption).foregroundStyle(.secondary)
                 Text("No account, cloud chat server, or telemetry.")
                 Text("Messages stay on this device. Transport encryption does not encrypt the local chat database.").foregroundStyle(.secondary)
             }

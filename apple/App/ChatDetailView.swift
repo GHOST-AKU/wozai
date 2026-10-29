@@ -14,6 +14,20 @@ import UIKit
 struct ChatDetailView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.findNearby) private var findNearby
+    @Environment(\.scenePhase) private var scenePhase
+    #if os(macOS)
+    @Environment(\.controlActiveState) private var controlActiveState
+    #endif
+    @State private var readVisible = Set<String>()
+    @State private var readVisibility = ReadVisibility()
+    private var readForeground: Bool {
+        #if os(macOS)
+        scenePhase == .active && controlActiveState == .key && model.readReceiptsEnabled
+        #else
+        scenePhase == .active && model.readReceiptsEnabled
+        #endif
+    }
+
     let contact: Conversation
     @State private var messages: [ChatMessage] = []
     @State private var hasEarlier = false
@@ -65,6 +79,16 @@ struct ChatDetailView: View {
             guard !Task.isCancelled else { return }
             applyPage(loaded)
         }
+        .task(id: contact.id + (readForeground ? ":reads-on" : ":reads-off")) {
+            readVisibility = ReadVisibility()
+            guard readForeground else { return }
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .milliseconds(250)) } catch { return }
+                let ids = readVisibility.update(peer: contact.id, visible: readVisible, foreground: readForeground && !userScrolling && !pendingScroll)
+                if !ids.isEmpty, !(await model.observedMessages(peerID: contact.id, ids: ids)) { readVisibility.retry(ids) }
+            }
+        }
+        .onDisappear { readVisible.removeAll(); readVisibility = ReadVisibility() }
         .task(id: contact.id) {
             await model.loadDraft(peerID: contact.id)
         }
@@ -93,7 +117,16 @@ struct ChatDetailView: View {
                     else if messages.isEmpty {
                         ContentUnavailableView("No messages yet", systemImage: "bubble.left", description: Text("Send a greeting when the devices are connected."))
                     }
-                    ForEach(messages, id: \.rowID) { message in MessageBubble(message: message).id(message.rowID) }
+                    ForEach(messages, id: \.rowID) { message in
+                        MessageBubble(message: message).id(message.rowID)
+                            .onGeometryChange(for: Bool.self) { geometry in
+                                let frame = geometry.frame(in: .scrollView)
+                                let height = geometry.bounds(of: .scrollView)?.height ?? 0
+                                return !message.outgoing && ReadVisibility.visible(top: Double(frame.minY), height: Double(frame.height), viewportHeight: Double(height))
+                            } action: { visible in
+                                if visible { readVisible.insert(message.id) } else { readVisible.remove(message.id) }
+                            }
+                    }
                     AttachmentTimeline(contact: contact)
                     Color.clear.frame(height: 1).id("latest")
                         .onGeometryChange(for: TailObservation.self) { geometry in
@@ -158,6 +191,7 @@ struct ChatDetailView: View {
 
     private func applyPage(_ result: MessagePage) {
         let page = result.messages
+        readVisible.formIntersection(Set(page.filter { !$0.outgoing }.map(\.id)))
         let pageChanged = displayedPage != before
         if loaded, before == nil, !followingLatest, !forceLatest {
             // Keep a bounded, stable page while reading; delivery updates still reach visible rows.
@@ -271,6 +305,7 @@ private struct MessageBubble: View {
         case .pending: return "Sending"
         case .sent: return "Sent"
         case .delivered: return "Delivered"
+        case .read: return "Read"
         case .unconfirmed: return "Unconfirmed"
         }
     }
@@ -278,7 +313,7 @@ private struct MessageBubble: View {
         switch message.status {
         case .pending: return "clock"
         case .sent: return "checkmark"
-        case .delivered: return "checkmark.circle"
+        case .delivered, .read: return "checkmark.circle"
         case .unconfirmed: return "questionmark.circle"
         }
     }
@@ -289,7 +324,7 @@ private struct MessageBubble: View {
                 Text(verbatim: message.body).textSelection(.enabled)
                 HStack(spacing: 8) {
                     Text(time, format: .dateTime.hour().minute())
-                    if message.outgoing { Label(status, systemImage: symbol).accessibilityIdentifier("deliveryStatus") }
+                    if message.outgoing { Label(status, systemImage: symbol).foregroundStyle(message.status == .read ? Color.accentColor : Color.secondary).accessibilityIdentifier("deliveryStatus") }
                 }
                 .font(.caption2)
                 .foregroundStyle(.secondary)

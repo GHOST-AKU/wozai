@@ -789,7 +789,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
         String peer=onMain(()->controller.selectedId),name=onMain(()->controller.selectedName);
         ChatStore store=field(controller,"store");java.util.concurrent.ExecutorService worker=field(controller,"storage");
         java.util.List<ChatStore.Message> fixture=new ArrayList<>();
-        for(String state:java.util.List.of("pending","sent","delivered","unknown","failed"))fixture.add(new ChatStore.Message(UUID.randomUUID().toString(),state.equals("delivered")?String.join("",java.util.Collections.nCopies(6,"长消息的时间和状态应当清楚地排列在文字下方。🙂 ")):"你好，消息到了吗？🙂",state,true,System.currentTimeMillis()+fixture.size()*60000));
+        for(String state:java.util.List.of("pending","sent","delivered","read","unknown","failed"))fixture.add(new ChatStore.Message(UUID.randomUUID().toString(),state.equals("delivered")?String.join("",java.util.Collections.nCopies(6,"长消息的时间和状态应当清楚地排列在文字下方。🙂 ")):"你好，消息到了吗？🙂",state,true,System.currentTimeMillis()+fixture.size()*60000));
         try {
             // Use the real store so asynchronous history refresh cannot replace synthetic rows.
             worker.submit(()->{
@@ -797,6 +797,7 @@ public final class LocalizationInstrumentation extends Instrumentation {
                     store.save(peer,name,new Frame(Frame.TEXT,message.id,message.text,message.time),true);
                     if(message.state.equals("sent"))store.sent(peer,message.id);
                     else if(message.state.equals("delivered")){store.delivered(peer,message.id);store.sent(peer,message.id);}
+                    else if(message.state.equals("read")){store.read(peer,java.util.List.of(message.id));store.delivered(peer,message.id);store.sent(peer,message.id);}
                     else if(!message.state.equals("pending")){
                         android.content.ContentValues values=new android.content.ContentValues();values.put("state",message.state);
                         if(store.getWritableDatabase().update("messages",values,"peer_id=? AND id=? AND outgoing=1",new String[]{peer,message.id})!=1)throw new AssertionError("Receipt fixture row missing");

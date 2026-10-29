@@ -1,0 +1,27 @@
+name: Verify read receipt implementation
+on:
+  push:
+    branches: [feat/read-receipts]
+    paths: ['apple/**', '.github/workflows/read-receipts-verify.yml']
+permissions:
+  contents: read
+jobs:
+  apple:
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Native core and privacy regression
+        run: |
+          python3 tools/version.py --check
+          python3 tools/validate-apple-localizations.py
+          swift test --package-path apple
+      - name: Compile macOS and iOS native views
+        run: |
+          xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM -destination 'platform=macOS' -configuration Debug -derivedDataPath build/read-mac CODE_SIGNING_ALLOWED=NO build > build-read-mac.log 2>&1 || { tail -100 build-read-mac.log; exit 1; }
+          xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM -destination 'generic/platform=iOS' -configuration Debug -derivedDataPath build/read-ios CODE_SIGNING_ALLOWED=NO build > build-read-ios.log 2>&1 || { tail -100 build-read-ios.log; exit 1; }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: read-receipts-apple-compile
+          path: build-read-*.log
