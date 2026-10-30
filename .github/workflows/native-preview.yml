@@ -2,6 +2,10 @@ name: Build unsigned native preview
 on:
   workflow_dispatch:
     inputs:
+      screenshots-only:
+        description: Capture only Apple mobile simulator windows; do not rebuild distribution packages
+        type: boolean
+        default: false
       apple-only:
         description: Rebuild Apple packages only
         type: boolean
@@ -15,15 +19,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Test native core and resources
+        if: ${{ !inputs.screenshots-only }}
         run: |
           python3 tools/version.py --check
           python3 tools/validate-apple-localizations.py
           swift test --package-path apple
       - name: Build Apple applications
+        if: ${{ !inputs.screenshots-only }}
         run: |
           xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM -destination 'platform=macOS' -configuration Release -derivedDataPath build/Mac ONLY_ACTIVE_ARCH=NO 'ARCHS=arm64 x86_64' CODE_SIGNING_ALLOWED=NO build > build-mac.log 2>&1 || { tail -100 build-mac.log; exit 1; }
           xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM -destination 'generic/platform=iOS' -configuration Release -derivedDataPath build/iOS CODE_SIGNING_ALLOWED=NO build > build-ios.log 2>&1 || { tail -100 build-ios.log; exit 1; }
       - name: Package and verify
+        if: ${{ !inputs.screenshots-only }}
         run: |
           version=$(python3 tools/version.py --field version)
           mkdir -p dist build/ipa/Payload
@@ -47,6 +54,8 @@ jobs:
           git rev-parse HEAD > dist/SOURCE_COMMIT.txt
           (cd dist && shasum -a 256 *.zip *.ipa INSTALL.md LICENSE.txt SOURCE_COMMIT.txt macos-signature.txt > SHA256SUMS-apple.txt)
       - name: Capture actual Mac, iPhone and iPad startup windows
+        env:
+          CAPTURE_MOBILE_ONLY: ${{ inputs.screenshots-only }}
         run: python3 tools/capture-apple-candidate.py
       - uses: actions/upload-artifact@v4
         if: always()
@@ -55,12 +64,13 @@ jobs:
           path: build/candidate-screens/*
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
+        if: ${{ !inputs.screenshots-only }}
         with:
           name: apple-native-preview
           path: dist/*
           if-no-files-found: error
   terminal:
-    if: ${{ !inputs.apple-only }}
+    if: ${{ !inputs.apple-only && !inputs.screenshots-only }}
     strategy:
       fail-fast: false
       matrix:
@@ -106,7 +116,7 @@ jobs:
             trap "kill $terminal_pid 2>/dev/null || true" EXIT
             sleep 5
             kill -0 "$terminal_pid"
-            import -window root build/candidate-screens/terminal-linux.png
+            import -window root -screen build/candidate-screens/terminal-linux.png
           '
       - name: Capture Windows terminal process
         if: runner.os == 'Windows'
