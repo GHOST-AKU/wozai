@@ -23,7 +23,7 @@ permissions:
   contents: read
 jobs:
   apple:
-    runs-on: ${{ inputs.screenshots-only && 'macos-15' || 'macos-latest' }}
+    runs-on: macos-latest
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
