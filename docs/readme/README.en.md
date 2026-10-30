@@ -1,6 +1,6 @@
 # Wozai · NearbyIM
 
-[简体中文](../../README.md) | **English** | [日本語](README.ja.md)
+[简体中文](../../README.md) | **English** | [日本語](README.ja.md) | [한국어](README.ko.md)
 
 **Chat without going through a remote server.**
 

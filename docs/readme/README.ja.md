@@ -1,6 +1,6 @@
 # 我在 · NearbyIM
 
-[简体中文](../../README.md) | [English](README.en.md) | **日本語**
+[简体中文](../../README.md) | [English](README.en.md) | **日本語** | [한국어](README.ko.md)
 
 **遠隔の中継設備を通さず、近くの相手と会話を。**
 
