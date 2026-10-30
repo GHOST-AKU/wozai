@@ -23,7 +23,7 @@ Wozai (NearbyIM) is an open-source chat application for nearby communication. St
 - Negotiated text supports 32768 UTF-8 bytes; legacy or unnegotiated sessions retain 8192. Existing tablet split defaults and center snapping are preserved.
 - Fixed Linux AppImage compatibility with Ubuntu 22.04, improved transfer-stage diagnostics and privacy, and refined Apple foreground visibility and input focus handling.
 
-Packages and actual runtime screenshots for this candidate are being prepared; no Release has been published. Simulator/test-session screenshots are not evidence of physical wireless or performance acceptance. Phone screenshots use portrait orientation. Apple signing and installation limitations are described below.
+Candidate packages and actual runtime screenshots are available through the Actions artifacts below; no Release has been published. Simulator/test-session screenshots are not evidence of physical wireless or performance acceptance. Phone screenshots use portrait orientation. Apple signing and installation limitations are described below.
 
 ## Screenshots and candidate downloads
 

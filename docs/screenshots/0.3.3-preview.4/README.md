@@ -74,5 +74,5 @@ Actual packaged executables, isolated profiles, listening disabled. Linux runs t
 - iPad 补采 / screenshot recovery：run [40986573835](https://github.com/GHOST-AKU/wozai/actions/runs/40986573835)，控制提交 `d3bb56ea8229fc8dbd7595e1bfb00525c6220852`，只采集缺失的 iPad 界面，设备 IPA 未重建 / only the missing iPad image is captured; device IPA is not rebuilt.
 - [40986313102](https://github.com/GHOST-AKU/wozai/actions/runs/40986313102) 在 Xcode16.4/SDK18.5 编译失败（`AttachmentViews.swift:129` actor isolation）；当前成功的 Apple 分发包使用 Xcode26.6。该旧工具链失败未修复或隐去，详见 [#31 记录](https://github.com/GHOST-AKU/wozai/issues/31#issuecomment-6512750856) / the older-toolchain failure is retained, not claimed resolved.
 - Windows 补采 / screenshot recovery：run [40984831185](https://github.com/GHOST-AKU/wozai/actions/runs/40984831185)，只下载原包、编译截图驱动并运行，未重建产品 / no product rebuild.
-- 原 Linux Terminal 截图全黑、原 Windows 图像超出显示器、原 Apple 移动模拟器未签名导致钥匙串错误：保留采集失败证据，未作为效果图交付 / initial capture failures are retained as evidence and excluded from this gallery.
+- 原 Linux Terminal 截图全黑、Linux 包启动首帧图为空、原 Windows 图像超出显示器、原 Apple 移动模拟器未签名导致钥匙串错误：保留采集失败证据，未作为效果图交付 / initial capture failures are retained as evidence and excluded from this gallery.
 - 本轮仅版本、文档及构建/截图工具变化；不据打包成功重新宣称无线、点对点或性能验收 / packaging does not establish physical network or performance acceptance.
