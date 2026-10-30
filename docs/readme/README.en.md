@@ -18,6 +18,8 @@ Wozai (NearbyIM) is an open-source chat application for nearby communication. St
 
 ## Changes in 0.3.3
 
+- **New native Apple clients**: built with Swift / SwiftUI for Mac, iPhone and iPad, with encrypted LAN chat, photos/files, history, drafts and identity verification using platform-native navigation and panes.
+- **New TUI / CLI Terminal client**: an independent Rust app for Windows/Linux, without Java or a desktop GUI; use keyboard-driven chat or commands, JSON and scripts for text/file exchange.
 - Native text read receipts are enabled by default and can be disabled at any time. Both peers must have read receipts enabled, and text must actually be visible in the foreground. Read indicators use `#66CCFF`, with a subtle glow in dark mode and flat styling in light mode. Terminal does not implement read receipts.
 - Improved emoji selection, draft persistence, immediate desktop language switching and five-language support (Simplified/Traditional Chinese, English, Japanese and Korean); removed the persistent composer byte counter.
 - Negotiated text supports 32768 UTF-8 bytes; legacy or unnegotiated sessions retain 8192. Existing tablet split defaults and center snapping are preserved.
