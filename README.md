@@ -6,15 +6,15 @@
 
 我在（NearbyIM）是一款面向近距离通信的开源聊天应用。正式版支持 Android、Windows 和 Linux，提供 **局域网** 与 **经典蓝牙** 连接；预览版新增 **macOS、iPhone、iPad 原生客户端**，以及 **Windows/Linux 的 Terminal（TUI/CLI）客户端**，目前主要通过局域网互通。无需注册账号，也不依赖云端聊天服务器。
 
-> 最新正式版：**0.3.2** · Android / Windows / Linux
-> [下载正式版](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.2) · [查看 Issues](https://github.com/GHOST-AKU/wozai/issues)
+> 最新正式版：**0.3.3** · Android / Windows / Linux
+> [下载正式版](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.3) · [查看 Issues](https://github.com/GHOST-AKU/wozai/issues)
 >
-> 最新预发布：**0.3.3-preview.1** · macOS / iPhone / iPad / Windows、Linux Terminal
+> 历史预发布：**0.3.3-preview.1** · macOS / iPhone / iPad / Windows、Linux Terminal
 > [下载预览版](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.3-preview.1) · [安装与签名说明](docs/releases/native-preview-install.md)
 
-**当前开发版本为 `0.3.3-preview.4` / build15**，覆盖 Android、Windows/Linux GUI、Apple 和 Terminal。[0.3.3 更新规划](docs/releases/0.3.3.md) · [范围与验收 #55](https://github.com/GHOST-AKU/wozai/issues/55)。这是源码开发版本，新包尚未发布；上方下载仍指向已发布附件。
+**本次正式发行 `v0.3.3` 直接采用已完成的 `0.3.3-preview.4` / build15 安装包，没有重新编译。** 软件内、文件名和包管理器版本仍保留 preview 标识，原签名、源码与 SHA-256 不变。[下载 0.3.3](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.3) · [发行说明](docs/releases/0.3.3.md)。Apple / Terminal 仍保留各自的预览能力与签名限制。
 
-**0.3.2 正式版已发布**，Android、Windows、Linux 同步更新协议与界面，Linux 提供 AppImage / deb / tar.gz。新增 Noise 端到端加密、最大 10 GiB 的流式附件与持久续传、自动文件选路、Android 接收文件夹及平板/折叠基础适配。完整变化与验收范围见 [0.3.2 发布说明](docs/releases/0.3.2.md)；P2P 稳定性、真实速度/距离恢复、长期内存及正式性能继续在 [#23](https://github.com/GHOST-AKU/wozai/issues/23)、[#9](https://github.com/GHOST-AKU/wozai/issues/9) 跟进。
+**0.3.2 的基础功能**，Android、Windows、Linux 同步更新协议与界面，Linux 提供 AppImage / deb / tar.gz。新增 Noise 端到端加密、最大 10 GiB 的流式附件与持久续传、自动文件选路、Android 接收文件夹及平板/折叠基础适配。完整变化与验收范围见 [0.3.2 发布说明](docs/releases/0.3.2.md)；P2P 稳定性、真实速度/距离恢复、长期内存及正式性能继续在 [#23](https://github.com/GHOST-AKU/wozai/issues/23)、[#9](https://github.com/GHOST-AKU/wozai/issues/9) 跟进。
 
 ## 0.3.3 本轮更新
 
@@ -23,16 +23,16 @@
 - 长文字协商后最多 32768 UTF-8 字节；旧端或未协商仍为 8192。保留现有平板分栏与中线吸附。
 - 修复 Linux AppImage / Ubuntu 22.04 兼容性，补充传输阶段诊断和隐私保护，完善 Apple 前台可见性与输入焦点处理。
 
-本轮候选安装包与实际运行截图已备妥，通过下方 Actions 附件交付，尚未发布 Release。截图中的模拟器与测试会话不代表真机无线或性能验收；手机仅展示竖屏。Apple 的签名与安装限制见下文。
+本轮安装包已作为正式 Release v0.3.3 发布，二进制仍为 preview.4/build15，未重新编译。截图中的模拟器与测试会话不代表真机无线或性能验收；手机仅展示竖屏。Apple 的签名与安装限制见下文。
 
-## 界面与本轮安装包
+## 界面与安装包
 
 <p align="center">
   <img src="docs/screenshots/0.3.3-preview.4/android-portrait.png" width="220" alt="Android portrait startup screen">
   <img src="docs/screenshots/0.3.3-preview.4/iphone-portrait.png" width="220" alt="iPhone portrait startup screen">
 </p>
 
-[各平台真实运行截图与候选安装包下载](docs/screenshots/0.3.3-preview.4/README.md)。Android、iPhone 仅展示竖屏；Apple 签名限制与包的源码、校验值一并列出。候选包通过 Actions 附件交付，尚未发布 Release。
+[各平台真实运行截图与安装包下载](docs/screenshots/0.3.3-preview.4/README.md)。Android、iPhone 仅展示竖屏；Apple 签名限制与包的源码、校验值一并列出。安装包通过正式 Release 下载，Actions 链接仅用于构建来源追溯。
 
 ## 🌱 为什么做「我在」
 
@@ -56,7 +56,7 @@
 
 以下主要描述 Android / Windows / Linux 正式版；Apple 与 Terminal 的预览范围见平台状态。
 
-当前开发源码 `0.3.3-preview.4` 新增[文字已读回执](docs/read-receipts.md)：默认开启，可随时关闭，双方开启才生效，且须消息实际在前台聊天中显示。源码已实现，尚未发布，不代表上方下载包已经包含。
+当前开发源码 `0.3.3-preview.4` 新增[文字已读回执](docs/read-receipts.md)：默认开启，可随时关闭，双方开启才生效，且须消息实际在前台聊天中显示。该功能包含于本次 0.3.3 发行包；旧版 0.3.2 / preview.1 不因此更新。
 
 - **局域网直连**：NSD / mDNS 自动发现，也支持 IP + 端口直连
 - **经典蓝牙通信**：使用安全 RFCOMM，可搜索、配对和重连
@@ -88,7 +88,7 @@ iOS、iPadOS、macOS 提供 **Swift / SwiftUI 原生预览版**，使用 Apple �
 
 ## ⌨️ NearbyIM Terminal（预览版）
 
-**NearbyIM Terminal** 是独立 Rust 终端客户端，主命令为 `nearbyim`（Windows：`nearbyim.exe`），同时提供全屏 TUI 和 CLI，运行不依赖 JRE、GUI 或 Android SDK。[下载 Windows/Linux x64 预览包](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.3-preview.1)，解压后运行 `nearbyim`，或 `nearbyim --help` 查看命令。
+**NearbyIM Terminal** 是独立 Rust 终端客户端，主命令为 `nearbyim`（Windows：`nearbyim.exe`），同时提供全屏 TUI 和 CLI，运行不依赖 JRE、GUI 或 Android SDK。[下载 Windows/Linux x64 预览包](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.3)，解压后运行 `nearbyim`，或 `nearbyim --help` 查看命令。
 
 - 支持 NIM4 身份认可/安全码、LAN 发现/地址直连、文字、历史/草稿、流式文件、队列、暂停/续传及保存回执，也支持头像同步和二维码核验。
 - **默认关闭 LAN 监听**，不自动批准未知身份或接收文件。首次 TUI 启动会引导设置；CLI 接口提供 JSON 和退出码，详见 [Terminal 使用说明](terminal/README.zh-CN.md)。
@@ -146,7 +146,7 @@ NIM 是「我在 / NearbyIM」在设备之间交换消息与附件的应用层�
 
 ## 📦 下载与版本说明
 
-当前正式版为 **0.3.2**。Apple / Terminal 的 **0.3.3-preview.1** 是独立的实验性预发布，功能与设备验收仍在推进：
+当前正式版为 **0.3.3**，使用原 preview.4/build15 二进制，不重新编译。[下载 0.3.3](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.3)。Apple / Terminal 的 **0.3.3-preview.1** 是独立的实验性预发布，功能与设备验收仍在推进：
 
 - [Apple / Terminal 预发布下载](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.3-preview.1)
 - [预览版安装、签名与使用说明](docs/releases/native-preview-install.md)

@@ -6,33 +6,33 @@
 
 **我在(Wozai, NearbyIM)**는 가까운 기기끼리 직접 통신할 수 있도록 만든 오픈 소스 채팅 앱입니다. 정식 버전은 Android, Windows, Linux에서 **LAN(로컬 네트워크)** 및 **클래식 블루투스(Classic Bluetooth)** 연결을 지원합니다. 프리뷰 버전에는 **macOS, iPhone, iPad용 네이티브 클라이언트**와 **Windows/Linux용 Terminal(TUI/CLI) 클라이언트**가 추가되었으며, 현재 주로 LAN을 통해 상호 통신합니다. 계정을 만들거나 클라우드 채팅 서버를 이용할 필요가 없습니다.
 
-> 최신 정식 버전: **0.3.2** · Android / Windows / Linux
-> [정식 버전 다운로드](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.2) · [Issues 보기](https://github.com/GHOST-AKU/wozai/issues)
+> 최신 정식 버전: **0.3.3** · Android / Windows / Linux
+> [정식 버전 다운로드](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.3) · [Issues 보기](https://github.com/GHOST-AKU/wozai/issues)
 >
-> 최신 프리릴리스: **0.3.3-preview.1** · macOS / iPhone / iPad / Windows·Linux Terminal
+> 이전 프리릴리스: **0.3.3-preview.1** · macOS / iPhone / iPad / Windows·Linux Terminal
 > [프리뷰 다운로드](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.3-preview.1) · [설치 및 서명 안내](../releases/native-preview-install.md)
 
-**현재 개발 버전은 Android, Windows/Linux GUI, Apple, Terminal 모두 `0.3.3-preview.4` / build15입니다.** [0.3.3 개발 계획](../releases/0.3.3.md)과 [범위 및 검수 기준 #55](https://github.com/GHOST-AKU/wozai/issues/55)를 참고하세요. 이는 현재 소스 코드의 개발 버전입니다. 후보 설치 파일은 아래 Actions 성과물에서 받을 수 있지만 새 Release는 아직 공개되지 않았습니다. 위 다운로드 링크는 기존 공개 릴리스를 가리킵니다.
+**정식 Release `v0.3.3`은 기존 `0.3.3-preview.4` / build15 설치 파일을 다시 컴파일하지 않고 배포합니다.** 앱 내부, 파일명 및 패키지 관리자 버전은 preview 표시를 유지하며 원래 서명, 소스 커밋 및 SHA-256도 그대로입니다. [0.3.3 다운로드](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.3) · [릴리스 노트](../releases/0.3.3.md). Apple과 Terminal의 프리뷰 기능 및 서명 제한은 유지됩니다.
 
-**0.3.2 정식 버전이 출시되었습니다.** Android, Windows, Linux의 프로토콜과 UI가 함께 업데이트되었으며, Linux에는 AppImage / deb / tar.gz 패키지가 제공됩니다. Noise 종단간 암호화, 최대 10 GiB 파일의 메모리 사용량을 제한한 스트리밍 전송과 영구적인 이어받기, 자동 파일 전송 경로 선택, Android 수신 폴더 설정, 태블릿·폴더블 기기의 기본 레이아웃 대응이 추가되었습니다. 변경 사항과 검수 범위는 [0.3.2 릴리스 노트](../releases/0.3.2.md)를 참고하세요. P2P 안정성, 실제 기기의 전송 속도 및 거리 변화에 따른 연결 복구, 장시간 메모리 사용량, 정식 성능 검증은 [#23](https://github.com/GHOST-AKU/wozai/issues/23)과 [#9](https://github.com/GHOST-AKU/wozai/issues/9)에서 계속 다루고 있습니다.
+**0.3.2의 기본 기능:** Android, Windows, Linux의 프로토콜과 UI가 함께 업데이트되었으며, Linux에는 AppImage / deb / tar.gz 패키지가 제공됩니다. Noise 종단간 암호화, 최대 10 GiB 파일의 메모리 사용량을 제한한 스트리밍 전송과 영구적인 이어받기, 자동 파일 전송 경로 선택, Android 수신 폴더 설정, 태블릿·폴더블 기기의 기본 레이아웃 대응이 추가되었습니다. 변경 사항과 검수 범위는 [0.3.2 릴리스 노트](../releases/0.3.2.md)를 참고하세요. P2P 안정성, 실제 기기의 전송 속도 및 거리 변화에 따른 연결 복구, 장시간 메모리 사용량, 정식 성능 검증은 [#23](https://github.com/GHOST-AKU/wozai/issues/23)과 [#9](https://github.com/GHOST-AKU/wozai/issues/9)에서 계속 다루고 있습니다.
 
-## 이번 0.3.3 후보 버전의 변경 사항
+## 0.3.3 변경 사항
 
 - 네이티브 텍스트 읽음 확인은 기본적으로 켜져 있으며 언제든지 끌 수 있습니다. 양쪽 모두 켜져 있고 텍스트가 전면의 대화 화면에 실제로 표시되어야 읽음으로 확인됩니다. 읽음 표시는 `#66CCFF`이며, 다크 테마에서만 은은하게 빛납니다. 라이트 테마에는 발광 효과가 없고 Terminal은 읽음 확인을 지원하지 않습니다.
 - 이모지 선택기, 초안 저장, 데스크톱 언어 즉시 전환 및 5개 언어 지원(간체·번체 중국어, 영어, 일본어, 한국어)을 개선하고 입력창에 항상 표시되던 바이트 수를 제거했습니다.
 - 지원 여부를 협상한 연결에서는 텍스트를 최대 32768 UTF-8바이트까지 보낼 수 있습니다. 구버전 또는 협상 전 연결은 8192바이트를 유지합니다. 기존 태블릿 분할 비율과 중앙 스냅 동작도 유지합니다.
 - Linux AppImage의 Ubuntu 22.04 호환성을 수정하고 전송 단계 진단과 개인정보 보호, Apple의 전면 표시 판단 및 입력 포커스 처리를 개선했습니다.
 
-후보 설치 파일과 실제 실행 화면은 아래 Actions 성과물에서 제공합니다. Release는 아직 공개하지 않았습니다. 시뮬레이터와 테스트 대화 화면은 실제 기기의 무선 통신이나 성능 검수가 완료되었다는 뜻이 아닙니다. 휴대폰 화면은 세로 방향만 표시하며, Apple의 서명 및 설치 제한은 아래에 설명합니다.
+기존 preview.4/build15 설치 파일을 다시 컴파일하지 않고 정식 Release v0.3.3으로 공개했습니다. 시뮬레이터와 테스트 대화 화면은 실제 기기의 무선 통신이나 성능 검수가 완료되었다는 뜻이 아닙니다. 휴대폰 화면은 세로 방향만 표시하며, Apple의 서명 및 설치 제한은 아래에 설명합니다.
 
-## 실행 화면과 후보 설치 파일
+## 실행 화면과 설치 파일
 
 <p align="center">
   <img src="../screenshots/0.3.3-preview.4/android-portrait.png" width="220" alt="Android 세로 실행 화면">
   <img src="../screenshots/0.3.3-preview.4/iphone-portrait.png" width="220" alt="iPhone 세로 실행 화면">
 </p>
 
-[플랫폼별 실제 실행 화면과 후보 설치 파일 다운로드](../screenshots/0.3.3-preview.4/README.md). Android와 iPhone은 세로 화면만 제공합니다. Apple 서명 제한, 패키지 소스 커밋 및 체크섬도 함께 기록했습니다. Actions 성과물은 공개된 Release와 다르며, 다운로드하려면 GitHub 로그인이 필요하고 보존 기간이 지나면 만료됩니다.
+[플랫폼별 실제 실행 화면과 설치 파일 다운로드](../screenshots/0.3.3-preview.4/README.md). Android와 iPhone은 세로 화면만 제공합니다. Apple 서명 제한, 패키지 소스 커밋 및 체크섬도 함께 기록했습니다. 설치 파일은 정식 Release에서 다운로드할 수 있습니다. Actions 링크는 빌드 출처를 기록하며 로그인 및 보존 기간 제한이 있습니다.
 
 ## 🌱 왜 「我在」를 만들었나요?
 
@@ -56,7 +56,7 @@
 
 다음 내용은 주로 Android / Windows / Linux 정식 버전을 설명합니다. Apple 및 Terminal의 프리뷰 지원 범위는 플랫폼별 상태를 참고하세요.
 
-현재 개발 소스 `0.3.3-preview.4`에는 [텍스트 읽음 확인](../read-receipts.md)이 추가되었습니다. 기본적으로 켜져 있고 언제든지 끌 수 있으며, 양쪽 모두 켜져 있고 메시지가 전면 대화에 실제로 표시되어야 작동합니다. 기존 공개 다운로드에 이 기능이 포함되어 있다는 뜻은 아닙니다.
+현재 개발 소스 `0.3.3-preview.4`에는 [텍스트 읽음 확인](../read-receipts.md)이 추가되었습니다. 기본적으로 켜져 있고 언제든지 끌 수 있으며, 양쪽 모두 켜져 있고 메시지가 전면 대화에 실제로 표시되어야 작동합니다. 이 기능은 이번 0.3.3 배포에 포함되며 이전 0.3.2 / preview.1 파일은 변경되지 않습니다.
 
 - **LAN 직접 연결:** NSD / mDNS 자동 검색과 IP 주소 + 포트 직접 연결
 - **클래식 블루투스 통신:** 보안 RFCOMM을 통한 기기 검색, 페어링, 재연결
@@ -88,7 +88,7 @@ iOS, iPadOS, macOS에는 Apple 시스템 구성 요소를 사용하는 **Swift /
 
 ## ⌨️ NearbyIM Terminal (프리뷰)
 
-**NearbyIM Terminal**은 Rust로 별도 구현한 터미널 클라이언트로, 전체 화면 TUI와 CLI를 모두 제공합니다. 주요 실행 명령은 `nearbyim`(Windows에서는 `nearbyim.exe`)이며 실행 시 JRE, GUI, Android SDK가 필요하지 않습니다. [Windows/Linux x64 프리뷰 패키지 다운로드](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.3-preview.1) 후 압축을 풀고 `nearbyim`을 실행하거나, `nearbyim --help`로 명령을 확인하세요.
+**NearbyIM Terminal**은 Rust로 별도 구현한 터미널 클라이언트로, 전체 화면 TUI와 CLI를 모두 제공합니다. 주요 실행 명령은 `nearbyim`(Windows에서는 `nearbyim.exe`)이며 실행 시 JRE, GUI, Android SDK가 필요하지 않습니다. [Windows/Linux x64 프리뷰 패키지 다운로드](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.3) 후 압축을 풀고 `nearbyim`을 실행하거나, `nearbyim --help`로 명령을 확인하세요.
 
 - NIM4 기기 승인 및 안전 코드, LAN 기기 검색·주소 직접 연결, 텍스트, 기록·초안, 스트리밍 파일 전송, 대기열, 일시 정지·이어받기·저장 확인 응답을 지원합니다. 프로필 이미지 동기화와 QR 확인도 지원합니다.
 - **기본적으로 LAN 수신 대기는 꺼져 있습니다.** 알 수 없는 기기나 수신 파일을 자동 승인하지 않습니다. TUI 첫 실행 시 설정을 안내하며, CLI는 JSON 출력과 종료 코드를 제공합니다. 자세한 내용은 [Terminal 사용 안내(영어)](../../terminal/README.md)를 참고하세요.
@@ -146,7 +146,7 @@ NIM은 「我在 / NearbyIM」가 기기 사이에서 메시지와 첨부 파일
 
 ## 📦 다운로드와 릴리스 정보
 
-현재 정식 버전은 **0.3.2**입니다. Apple / Terminal용 **0.3.3-preview.1**은 기능 구현과 실제 기기 검증을 진행 중인 별도의 실험적 프리릴리스입니다.
+현재 정식 버전은 **0.3.3**입니다. Apple / Terminal용 **0.3.3-preview.1**은 기능 구현과 실제 기기 검증을 진행 중인 별도의 실험적 프리릴리스입니다.
 
 - [Apple / Terminal 프리릴리스 다운로드](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.3-preview.1)
 - [프리뷰 설치·서명·사용 안내](../releases/native-preview-install.md)

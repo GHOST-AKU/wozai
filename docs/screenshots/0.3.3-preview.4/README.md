@@ -1,24 +1,24 @@
 # 0.3.3-preview.4 / build15
 
-本轮候选包与实际运行截图，**未发布 Release**。手机仅竖屏。图中使用空白资料或隔离的示例会话，不包含用户聊天记录，也不代表真实无线/性能验收。
+本轮安装包与实际运行截图，已作为 **Release v0.3.3** 发行。包内版本仍为 preview.4/build15，未重新编译。手机仅竖屏。图中使用空白资料或隔离的示例会话，不包含用户聊天记录，也不代表真实无线/性能验收。
 
-Candidate packages and actual runtime screenshots; **no Release published**. Phones use portrait. Empty profiles or isolated sample conversations contain no user data and do not establish physical wireless/performance acceptance.
+Packages and actual runtime screenshots published in **Release v0.3.3**, reusing preview.4/build15 binaries without recompilation. Phones use portrait. Empty profiles or isolated sample conversations contain no user data and do not establish physical wireless/performance acceptance.
 
 ## 下载 / Downloads
 
-GitHub Actions 附件需要登录 GitHub，下载后先解压附件 ZIP；附件有保留期限，正式 Release 尚未发布。Android 解压后安装 APK，保留原签名；Apple 的安装限制见[安装说明](../../releases/native-preview-install.md)。
+安装包可直接从 [Release v0.3.3](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.3) 下载，无需先解压 Actions 附件。文件名和软件内部仍保留 preview.4；原始签名、源码与哈希不变。历史 Actions 附件有登录及保留期限限制，仅用于来源追溯。Apple 的安装限制见[安装说明](../../releases/native-preview-install.md)。
 
-Sign in to GitHub to download Actions artifacts, then extract their outer ZIP. Artifacts expire; these are not permanent Release links. Android retains the persistent signer. Apple installation/signing limitations are described in the [installation guide](../../releases/native-preview-install.md).
+Download directly from [Release v0.3.3](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.3). Original filenames, internal preview.4 identity, signatures, sources and hashes are unchanged. Historical Actions artifacts require login and expire; they document provenance. See [Apple installation/signing limitations](../../releases/native-preview-install.md).
 
 | 平台 / Platform | 安装包 / Package | 下载 / Download |
 | --- | --- | --- |
-| Android | 原签名 release APK / persistent-signer release APK | [APK artifact](https://github.com/GHOST-AKU/wozai/actions/runs/40983837484/artifacts/12946566444) |
-| Windows x64 GUI | 自带 Java 运行时的便携 ZIP / bundled-runtime portable ZIP | [Windows artifact](https://github.com/GHOST-AKU/wozai/actions/runs/40983870565/artifacts/12946720145) |
-| Linux x64 GUI | AppImage / deb / tar.gz | [Linux artifact](https://github.com/GHOST-AKU/wozai/actions/runs/40983870565/artifacts/12946117958) |
-| macOS Intel + Apple Silicon | 通用 ad-hoc ZIP，无公证 / universal ad-hoc ZIP, not notarized | [Apple artifact](https://github.com/GHOST-AKU/wozai/actions/runs/40983840637/artifacts/12945679779) |
-| iOS / iPadOS | 未签名 IPA，需自行签名 / unsigned IPA, re-signing required | [Apple artifact](https://github.com/GHOST-AKU/wozai/actions/runs/40983840637/artifacts/12945679779) |
-| Windows x64 Terminal | 独立便携 ZIP / standalone portable ZIP | [Terminal Windows artifact](https://github.com/GHOST-AKU/wozai/actions/runs/40983840637/artifacts/12946122723) |
-| Linux x64 Terminal | 独立 tar.gz / standalone tar.gz | [Terminal Linux artifact](https://github.com/GHOST-AKU/wozai/actions/runs/40983840637/artifacts/12946221671) |
+| Android | 原签名 release APK / persistent-signer release APK | [APK](https://github.com/GHOST-AKU/wozai/releases/download/v0.3.3/NearbyIM-0.3.3-preview.4-build15-android.apk) |
+| Windows x64 GUI | 自带 Java 运行时的便携 ZIP / bundled-runtime portable ZIP | [ZIP](https://github.com/GHOST-AKU/wozai/releases/download/v0.3.3/NearbyIM-0.3.3-preview.4-windows-x64.zip) |
+| Linux x64 GUI | AppImage / deb / tar.gz | [AppImage](https://github.com/GHOST-AKU/wozai/releases/download/v0.3.3/NearbyIM-0.3.3-preview.4-linux-x64.AppImage) / [deb](https://github.com/GHOST-AKU/wozai/releases/download/v0.3.3/NearbyIM-0.3.3-preview.4-linux-x64.deb) / [tar.gz](https://github.com/GHOST-AKU/wozai/releases/download/v0.3.3/NearbyIM-0.3.3-preview.4-linux-x64.tar.gz) |
+| macOS Intel + Apple Silicon | 通用 ad-hoc ZIP，无公证 / universal ad-hoc ZIP, not notarized | [Mac ZIP](https://github.com/GHOST-AKU/wozai/releases/download/v0.3.3/NearbyIM-0.3.3-preview.4-macos-universal-adhoc.zip) |
+| iOS / iPadOS | 未签名 IPA，需自行签名 / unsigned IPA, re-signing required | [IPA](https://github.com/GHOST-AKU/wozai/releases/download/v0.3.3/NearbyIM-0.3.3-preview.4-ios-ipados-unsigned.ipa) |
+| Windows x64 Terminal | 独立便携 ZIP / standalone portable ZIP | [ZIP](https://github.com/GHOST-AKU/wozai/releases/download/v0.3.3/nearbyim-terminal-0.3.3-preview.4-windows-x64.zip) |
+| Linux x64 Terminal | 独立 tar.gz / standalone tar.gz | [tar.gz](https://github.com/GHOST-AKU/wozai/releases/download/v0.3.3/nearbyim-terminal-0.3.3-preview.4-linux-x64.tar.gz) |
 
 九个包文件的 [SHA-256](SHA256SUMS-packages.txt)。Android 证书 SHA-256：`47a10fd5a882ab26c9a11fcc61df3b41f7c41017746fc6840cfbe581ca52c1dd`。Windows 无 Authenticode 签名；Mac 无 Developer ID 签名或公证；IPA 不能直接安装。
 
