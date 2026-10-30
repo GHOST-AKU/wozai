@@ -14,6 +14,10 @@ on:
       - '.gitignore'
   workflow_dispatch:
     inputs:
+      screenshot-run-id:
+        description: 'Capture an already built Windows candidate, without rebuilding the app'
+        type: string
+        default: ''
       candidate-only:
         description: 'Package once and capture runtime; reuse recorded unchanged-core checks'
         type: boolean
@@ -45,14 +49,14 @@ jobs:
     permissions:
       contents: read
       actions: read
-    if: ${{ !inputs['candidate-only'] && (inputs['include-linux'] || github.ref_name == 'feat/linux-client') }}
+    if: ${{ !inputs['candidate-only'] && inputs['screenshot-run-id'] == '' && (inputs['include-linux'] || github.ref_name == 'feat/linux-client') }}
     uses: ./.github/workflows/linux.yml
     with:
       performance-baseline: ${{ inputs['performance-baseline'] }}
       release-tag: ${{ inputs['release-tag'] }}
   windows:
     # Native Apple drafts do not need another Windows package; review-ready PRs still run all checks.
-    if: ${{ !inputs['candidate-only'] && (github.event_name != 'pull_request' || github.event.pull_request.head.ref != 'feat/apple-native' || !github.event.pull_request.draft) }}
+    if: ${{ !inputs['candidate-only'] && inputs['screenshot-run-id'] == '' && (github.event_name != 'pull_request' || github.event.pull_request.head.ref != 'feat/apple-native' || !github.event.pull_request.draft) }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -328,4 +332,42 @@ jobs:
             desktop/build/candidate-linux-chat*.png
             desktop/build/SOURCE_COMMIT.txt
             desktop/build/SHA256SUMS.txt
+          if-no-files-found: error
+  candidate-window-capture:
+    if: inputs['screenshot-run-id'] != ''
+    runs-on: windows-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/download-artifact@v4
+        with:
+          name: candidate-windows-x64
+          path: build/candidate-input
+          run-id: ${{ inputs['screenshot-run-id'] }}
+          github-token: ${{ github.token }}
+      - name: Run unchanged packaged runtime inside the actual display
+        shell: pwsh
+        run: |
+          $archive = Get-ChildItem build/candidate-input/NearbyIM-*-windows-x64.zip | Select-Object -First 1
+          Expand-Archive $archive.FullName build/candidate-package
+          New-Item -ItemType Directory -Force build/candidate-capture | Out-Null
+          & "$env:JAVA_HOME/bin/javac.exe" --release 17 -encoding UTF-8 -cp 'build/candidate-package/NearbyIM/app/*' -d build/candidate-capture tools/candidate/CandidateScreenshot.java
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & 'build/candidate-package/NearbyIM/runtime/bin/java.exe' -cp 'build/candidate-package/NearbyIM/app/*;build/candidate-capture' dev.ghost.wozai.CandidateScreenshot build/candidate-capture/windows.png
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Copy-Item build/candidate-input/SOURCE_COMMIT.txt build/candidate-capture/PACKAGE_SOURCE_COMMIT.txt
+          git rev-parse HEAD > build/candidate-capture/CAPTURE_SOURCE_COMMIT.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: candidate-windows-window-screenshot
+          path: |
+            build/candidate-capture/*.png
+            build/candidate-capture/*SOURCE_COMMIT.txt
           if-no-files-found: error
