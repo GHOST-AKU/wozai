@@ -2,6 +2,10 @@ name: Build unsigned native preview
 on:
   workflow_dispatch:
     inputs:
+      upload-existing-release:
+        description: Upload existing verified v0.3.3 packages only, with no build or publication
+        type: boolean
+        default: false
       device-class:
         description: Apple mobile screenshot device class
         type: choice
@@ -23,6 +27,7 @@ permissions:
   contents: read
 jobs:
   apple:
+    if: ${{ !inputs.upload-existing-release }}
     runs-on: macos-latest
     timeout-minutes: 25
     steps:
@@ -81,7 +86,7 @@ jobs:
           path: dist/*
           if-no-files-found: error
   terminal:
-    if: ${{ !inputs.apple-only && !inputs.screenshots-only }}
+    if: ${{ !inputs.apple-only && !inputs.screenshots-only && !inputs.upload-existing-release }}
     strategy:
       fail-fast: false
       matrix:
@@ -165,3 +170,52 @@ jobs:
           name: terminal-preview-${{ runner.os }}
           path: terminal/target/dist/*
           if-no-files-found: error
+  upload-existing-release:
+    if: inputs.upload-existing-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-signed-release
+          path: release-input/android
+          run-id: 40983837484
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: candidate-windows-x64
+          path: release-input/windows
+          run-id: 40983870565
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: candidate-linux-x64
+          path: release-input/linux
+          run-id: 40983870565
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: apple-native-preview
+          path: release-input/apple
+          run-id: 40983840637
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: terminal-preview-Windows
+          path: release-input/terminal-windows
+          run-id: 40983840637
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: terminal-preview-Linux
+          path: release-input/terminal-linux
+          run-id: 40983840637
+          github-token: ${{ github.token }}
+      - name: Verify original package bytes and upload to the existing draft only
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/release-0.3.3/upload.py

@@ -1,0 +1,106 @@
+{
+  "schema": 1,
+  "release_tag": "v0.3.3",
+  "release_commit": "a9ef3f52054f56b5c99f3fa31714f035ba0430d1",
+  "application_version": "0.3.3-preview.4",
+  "build_number": 15,
+  "rebuilt_for_release": false,
+  "binary_bytes_modified": false,
+  "owner_authorized_preview_identity": true,
+  "packages": [
+    {
+      "file": "NearbyIM-0.3.3-preview.4-build15-android.apk",
+      "bytes": 1397013,
+      "sha256": "7a95f1b4c2954e2caf59f7f7153063b4f0466bf652bd2672991b60c605c69d78",
+      "source_commit": "76d83380f80ce1428c6a99bdb0c8ec44cdac9aea",
+      "workflow_run_id": 40983837484,
+      "download_url": "https://github.com/GHOST-AKU/wozai/releases/download/v0.3.3/NearbyIM-0.3.3-preview.4-build15-android.apk",
+      "signing": {
+        "type": "persistent Android release certificate",
+        "certificate_sha256": "47a10fd5a882ab26c9a11fcc61df3b41f7c41017746fc6840cfbe581ca52c1dd",
+        "version_code": 15,
+        "debuggable": false
+      }
+    },
+    {
+      "file": "NearbyIM-0.3.3-preview.4-windows-x64.zip",
+      "bytes": 68758060,
+      "sha256": "4b75d65dc14f99c5eaac593d773fa6263ea6bc65d01697e208e6304be8270c33",
+      "source_commit": "8f9dd65c40abdbb8ed455e07d6b901e3e1bc02d7",
+      "workflow_run_id": 40983870565,
+      "download_url": "https://github.com/GHOST-AKU/wozai/releases/download/v0.3.3/NearbyIM-0.3.3-preview.4-windows-x64.zip",
+      "signing": {
+        "authenticode": false
+      }
+    },
+    {
+      "file": "NearbyIM-0.3.3-preview.4-linux-x64.deb",
+      "bytes": 63292128,
+      "sha256": "4001686ef814f5426069fc6eb5bc36cd9ddee2a5ff289b1d9b61de3bed369eac",
+      "source_commit": "8f9dd65c40abdbb8ed455e07d6b901e3e1bc02d7",
+      "workflow_run_id": 40983870565,
+      "download_url": "https://github.com/GHOST-AKU/wozai/releases/download/v0.3.3/NearbyIM-0.3.3-preview.4-linux-x64.deb"
+    },
+    {
+      "file": "NearbyIM-0.3.3-preview.4-linux-x64.tar.gz",
+      "bytes": 72889643,
+      "sha256": "af662e708219321ac50c6e1fca1003bf31b934ab0a78d769f34d0d219da5f5f8",
+      "source_commit": "8f9dd65c40abdbb8ed455e07d6b901e3e1bc02d7",
+      "workflow_run_id": 40983870565,
+      "download_url": "https://github.com/GHOST-AKU/wozai/releases/download/v0.3.3/NearbyIM-0.3.3-preview.4-linux-x64.tar.gz"
+    },
+    {
+      "file": "NearbyIM-0.3.3-preview.4-linux-x64.AppImage",
+      "bytes": 70613496,
+      "sha256": "7a27f5483b925ee993f95798d170913efd38b6260c262216c5753de3aace3342",
+      "source_commit": "8f9dd65c40abdbb8ed455e07d6b901e3e1bc02d7",
+      "workflow_run_id": 40983870565,
+      "download_url": "https://github.com/GHOST-AKU/wozai/releases/download/v0.3.3/NearbyIM-0.3.3-preview.4-linux-x64.AppImage"
+    },
+    {
+      "file": "NearbyIM-0.3.3-preview.4-macos-universal-adhoc.zip",
+      "bytes": 2769538,
+      "sha256": "139a18fc9eaf21b770c2b4ced96e2a9bde2adc30bbe7ecd42f4f7a9404ff1930",
+      "source_commit": "76d83380f80ce1428c6a99bdb0c8ec44cdac9aea",
+      "workflow_run_id": 40983840637,
+      "download_url": "https://github.com/GHOST-AKU/wozai/releases/download/v0.3.3/NearbyIM-0.3.3-preview.4-macos-universal-adhoc.zip",
+      "signing": {
+        "type": "ad-hoc",
+        "developer_id": false,
+        "notarized": false
+      }
+    },
+    {
+      "file": "NearbyIM-0.3.3-preview.4-ios-ipados-unsigned.ipa",
+      "bytes": 1979586,
+      "sha256": "1682ec808ebf3d1bddb1c0c13c013632b6a0eb8faedb6d8165d0d4c4fa21381b",
+      "source_commit": "76d83380f80ce1428c6a99bdb0c8ec44cdac9aea",
+      "workflow_run_id": 40983840637,
+      "download_url": "https://github.com/GHOST-AKU/wozai/releases/download/v0.3.3/NearbyIM-0.3.3-preview.4-ios-ipados-unsigned.ipa",
+      "signing": {
+        "type": "unsigned",
+        "re_signing_required": true
+      }
+    },
+    {
+      "file": "nearbyim-terminal-0.3.3-preview.4-linux-x64.tar.gz",
+      "bytes": 3320005,
+      "sha256": "d4cfb6ccf72630985e02e93a2cc9290ca95b9f43f5ac3091c48a1ebf08d5d5c1",
+      "source_commit": "76d83380f80ce1428c6a99bdb0c8ec44cdac9aea",
+      "workflow_run_id": 40983840637,
+      "download_url": "https://github.com/GHOST-AKU/wozai/releases/download/v0.3.3/nearbyim-terminal-0.3.3-preview.4-linux-x64.tar.gz"
+    },
+    {
+      "file": "nearbyim-terminal-0.3.3-preview.4-windows-x64.zip",
+      "bytes": 3949495,
+      "sha256": "bdac7664927563b557af48e7a1e2f00a112e305dcc8a0363fe769e7b6170a997",
+      "source_commit": "76d83380f80ce1428c6a99bdb0c8ec44cdac9aea",
+      "workflow_run_id": 40983840637,
+      "download_url": "https://github.com/GHOST-AKU/wozai/releases/download/v0.3.3/nearbyim-terminal-0.3.3-preview.4-windows-x64.zip",
+      "signing": {
+        "authenticode": false
+      }
+    }
+  ],
+  "evidence": "https://github.com/GHOST-AKU/wozai/issues/55#issuecomment-6512927701"
+}
