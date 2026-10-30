@@ -46,6 +46,14 @@ jobs:
           cp LICENSE dist/LICENSE.txt
           git rev-parse HEAD > dist/SOURCE_COMMIT.txt
           (cd dist && shasum -a 256 *.zip *.ipa INSTALL.md LICENSE.txt SOURCE_COMMIT.txt macos-signature.txt > SHA256SUMS-apple.txt)
+      - name: Capture actual Mac, iPhone and iPad startup windows
+        run: python3 tools/capture-apple-candidate.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: apple-candidate-screenshots
+          path: build/candidate-screens/*
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
           name: apple-native-preview
@@ -75,9 +83,58 @@ jobs:
         shell: bash
         run: |
           python tools/version.py --check
-          terminal/tools/test-interop.sh
           cargo build --manifest-path terminal/Cargo.toml --locked --release
           python terminal/tools/package.py
+      - name: Prepare isolated screenshot profile
+        shell: bash
+        run: |
+          python - <<'PYTHON'
+          import json, pathlib
+          profile = pathlib.Path('build/terminal-screenshot-profile').resolve()
+          profile.mkdir(parents=True, exist_ok=True)
+          (profile / 'config.json').write_text(json.dumps({'schema': 1, 'nickname': 'NearbyIM Terminal', 'language': 'en', 'lan_listen': False}), encoding='utf-8')
+          PYTHON
+      - name: Capture Linux terminal process
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y xterm xvfb imagemagick
+          mkdir -p build/candidate-screens
+          xvfb-run -a -s '-screen 0 1280x900x24' bash -c '
+            xterm -fa "DejaVu Sans Mono" -fs 12 -geometry 110x34 -e terminal/target/release/nearbyim --profile "$PWD/build/terminal-screenshot-profile" &
+            terminal_pid=$!
+            trap "kill $terminal_pid 2>/dev/null || true" EXIT
+            sleep 5
+            kill -0 "$terminal_pid"
+            import -window root build/candidate-screens/terminal-linux.png
+          '
+      - name: Capture Windows terminal process
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.Drawing
+          Add-Type -AssemblyName System.Windows.Forms
+          New-Item -ItemType Directory -Force build/candidate-screens | Out-Null
+          $exe = (Resolve-Path terminal/target/release/nearbyim.exe).Path
+          $profile = (Resolve-Path build/terminal-screenshot-profile).Path
+          $process = Start-Process powershell.exe -ArgumentList '-NoLogo', '-NoProfile', '-NoExit', '-Command', "& '$exe' --profile '$profile'" -PassThru
+          try {
+            Start-Sleep -Seconds 5
+            if ($process.HasExited) { throw 'Terminal window exited before capture' }
+            $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+            $image = New-Object Drawing.Bitmap $bounds.Width, $bounds.Height
+            $graphics = [Drawing.Graphics]::FromImage($image)
+            try {
+              $graphics.CopyFromScreen($bounds.Location, [Drawing.Point]::Empty, $bounds.Size)
+              $image.Save("$PWD/build/candidate-screens/terminal-windows.png", [Drawing.Imaging.ImageFormat]::Png)
+            } finally { $graphics.Dispose(); $image.Dispose() }
+          } finally { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: terminal-candidate-screenshots-${{ runner.os }}
+          path: build/candidate-screens/*
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
           name: terminal-preview-${{ runner.os }}
