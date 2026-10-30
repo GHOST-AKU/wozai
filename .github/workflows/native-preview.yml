@@ -2,6 +2,15 @@ name: Build unsigned native preview
 on:
   workflow_dispatch:
     inputs:
+      device-class:
+        description: Apple mobile screenshot device class
+        type: choice
+        options: [both, iphone, ipad]
+        default: both
+      packaging-only:
+        description: Reuse separately recorded unchanged-protocol evidence; skip Terminal interop
+        type: boolean
+        default: false
       screenshots-only:
         description: Capture only Apple mobile simulator windows; do not rebuild distribution packages
         type: boolean
@@ -14,7 +23,7 @@ permissions:
   contents: read
 jobs:
   apple:
-    runs-on: macos-latest
+    runs-on: ${{ inputs.screenshots-only && 'macos-15' || 'macos-latest' }}
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
@@ -54,8 +63,10 @@ jobs:
           git rev-parse HEAD > dist/SOURCE_COMMIT.txt
           (cd dist && shasum -a 256 *.zip *.ipa INSTALL.md LICENSE.txt SOURCE_COMMIT.txt macos-signature.txt > SHA256SUMS-apple.txt)
       - name: Capture actual Mac, iPhone and iPad startup windows
+        timeout-minutes: 12
         env:
           CAPTURE_MOBILE_ONLY: ${{ inputs.screenshots-only }}
+          CAPTURE_DEVICE_CLASS: ${{ inputs.device-class }}
         run: python3 tools/capture-apple-candidate.py
       - uses: actions/upload-artifact@v4
         if: always()
@@ -89,6 +100,10 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Verify Terminal interoperability
+        if: ${{ !inputs.packaging-only }}
+        shell: bash
+        run: terminal/tools/test-interop.sh
       - name: Verify, build and package
         shell: bash
         run: |
