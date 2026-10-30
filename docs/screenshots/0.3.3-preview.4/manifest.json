@@ -1,0 +1,117 @@
+{
+  "version": "0.3.3-preview.4",
+  "build_number": 15,
+  "images": [
+    {
+      "file": "android-portrait.png",
+      "sha256": "f741ff8be7d79793782d017ac970946526c85e4261b1013d55e55b4e4af5f391",
+      "dimensions": [
+        1080,
+        2400
+      ]
+    },
+    {
+      "file": "ipad.png",
+      "sha256": "1d960458083a2d88c594c2ee6c847e541bb1c0cc490ddeff1173400273806cc8",
+      "dimensions": [
+        2064,
+        2752
+      ]
+    },
+    {
+      "file": "iphone-portrait.png",
+      "sha256": "4b1cb32e2abd4ad4829768d386b8d38bddc0b7dd43737bd0d094cf7d31367223",
+      "dimensions": [
+        1206,
+        2622
+      ]
+    },
+    {
+      "file": "linux.png",
+      "sha256": "892f95aedc2deab71c4bd4c1d5bf7587811365718680bd6f546f934d8838c8d1",
+      "dimensions": [
+        1060,
+        730
+      ]
+    },
+    {
+      "file": "macos.png",
+      "sha256": "34023b420f7a9f0f5e580e0ac2003827602b279395feded5a517be61cbdb28a1",
+      "dimensions": [
+        1024,
+        768
+      ]
+    },
+    {
+      "file": "terminal-linux.png",
+      "sha256": "af8ab9fbd5d40ec404642c404c9ecf85a0a6b3aa3b737e4e9ac071540570327d",
+      "dimensions": [
+        1104,
+        684
+      ]
+    },
+    {
+      "file": "terminal-windows.png",
+      "sha256": "bc43552a52cc24a5edfe5effdda25dd9d6ced97e7ac0ad3da4712a9dd7ea057d",
+      "dimensions": [
+        1024,
+        768
+      ]
+    },
+    {
+      "file": "windows.png",
+      "sha256": "0b038ab9d36121238971275e08bcf469b91a047547fae08f11231fab8b201b19",
+      "dimensions": [
+        960,
+        620
+      ]
+    }
+  ],
+  "packages": [
+    {
+      "file": "NearbyIM-0.3.3-preview.4-build15-android.apk",
+      "bytes": 1397013,
+      "sha256": "7a95f1b4c2954e2caf59f7f7153063b4f0466bf652bd2672991b60c605c69d78"
+    },
+    {
+      "file": "NearbyIM-0.3.3-preview.4-windows-x64.zip",
+      "bytes": 68758060,
+      "sha256": "4b75d65dc14f99c5eaac593d773fa6263ea6bc65d01697e208e6304be8270c33"
+    },
+    {
+      "file": "NearbyIM-0.3.3-preview.4-linux-x64.deb",
+      "bytes": 63292128,
+      "sha256": "4001686ef814f5426069fc6eb5bc36cd9ddee2a5ff289b1d9b61de3bed369eac"
+    },
+    {
+      "file": "NearbyIM-0.3.3-preview.4-linux-x64.tar.gz",
+      "bytes": 72889643,
+      "sha256": "af662e708219321ac50c6e1fca1003bf31b934ab0a78d769f34d0d219da5f5f8"
+    },
+    {
+      "file": "NearbyIM-0.3.3-preview.4-linux-x64.AppImage",
+      "bytes": 70613496,
+      "sha256": "7a27f5483b925ee993f95798d170913efd38b6260c262216c5753de3aace3342"
+    },
+    {
+      "file": "NearbyIM-0.3.3-preview.4-macos-universal-adhoc.zip",
+      "bytes": 2769538,
+      "sha256": "139a18fc9eaf21b770c2b4ced96e2a9bde2adc30bbe7ecd42f4f7a9404ff1930"
+    },
+    {
+      "file": "NearbyIM-0.3.3-preview.4-ios-ipados-unsigned.ipa",
+      "bytes": 1979586,
+      "sha256": "1682ec808ebf3d1bddb1c0c13c013632b6a0eb8faedb6d8165d0d4c4fa21381b"
+    },
+    {
+      "file": "nearbyim-terminal-0.3.3-preview.4-linux-x64.tar.gz",
+      "bytes": 3320005,
+      "sha256": "d4cfb6ccf72630985e02e93a2cc9290ca95b9f43f5ac3091c48a1ebf08d5d5c1"
+    },
+    {
+      "file": "nearbyim-terminal-0.3.3-preview.4-windows-x64.zip",
+      "bytes": 3949495,
+      "sha256": "bdac7664927563b557af48e7a1e2f00a112e305dcc8a0363fe769e7b6170a997"
+    }
+  ]
+}

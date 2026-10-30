@@ -2,6 +2,10 @@ name: Build Android with the persistent signing certificate
 on:
   workflow_dispatch:
     inputs:
+      capture-screenshots:
+        description: Capture the signed candidate in a portrait phone emulator
+        type: boolean
+        default: false
       adaptive-checks:
         description: 'Run one API 34 tablet adaptive-window suite in the same candidate job'
         type: boolean
@@ -54,6 +58,38 @@ jobs:
           WOZAI_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.WOZAI_ANDROID_KEYSTORE_PASSWORD }}
           WOZAI_ANDROID_CANDIDATE_ONLY: ${{ inputs['candidate-only'] }}
         run: python3 tools/build-signed-android.py
+      - name: Enable KVM for candidate screenshot
+        if: inputs['candidate-only'] && inputs['capture-screenshots']
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Capture the signed candidate in portrait
+        if: inputs['candidate-only'] && inputs['capture-screenshots']
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          script: |
+            adb install build/signing-upgrade/candidate.apk
+            adb shell settings put system accelerometer_rotation 0
+            adb shell settings put system user_rotation 0
+            adb shell am start -W -n dev.ghost.nearbyim/.MainActivity
+            sleep 3
+            mkdir -p build/candidate-screens
+            adb exec-out screencap -p > build/candidate-screens/android-phone-portrait.png
+            adb shell uiautomator dump /sdcard/candidate.xml
+            adb pull /sdcard/candidate.xml build/candidate-screens/android-hierarchy.xml
+      - uses: actions/upload-artifact@v4
+        if: always() && inputs['candidate-only'] && inputs['capture-screenshots']
+        with:
+          name: android-candidate-screenshots
+          path: build/candidate-screens/*
+          if-no-files-found: error
       - name: Build targeted adaptive UI test APKs
         if: ${{ inputs['adaptive-checks'] }}
         run: ./gradlew --no-daemon -PtestBuildType=preview -PtestInstrumentationRunner=dev.ghost.nearbyim.AdaptiveInstrumentation :app:assemblePreview :app:assemblePreviewAndroidTest

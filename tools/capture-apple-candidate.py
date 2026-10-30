@@ -1,0 +1,57 @@
+#!/usr/bin/env python3
+"""Capture real candidate processes; phone screenshots always use portrait."""
+import json
+import os
+from pathlib import Path
+import subprocess
+import time
+
+
+def run(*args):
+    print('Capture command:', ' '.join(args), flush=True)
+    return subprocess.check_output(args, text=True, timeout=360).strip()
+
+
+output = Path('build/candidate-screens')
+output.mkdir(parents=True, exist_ok=True)
+bundle = 'dev.ghost.wozai.apple'
+if os.environ.get('CAPTURE_MOBILE_ONLY') != 'true':
+    mac = Path('build/Mac/Build/Products/Release/NearbyIM.app').resolve()
+    subprocess.run(['open', str(mac)], check=True)
+    try:
+        time.sleep(12)
+        run('osascript', '-e', 'tell application "NearbyIM" to activate')
+        run('screencapture', '-x', str(output / 'macos.png'))
+    finally:
+        subprocess.run(['osascript', '-e', 'tell application "NearbyIM" to quit'], check=False)
+
+# Build the simulator product once and install the identical app into both device classes.
+print('Building simulator Release app for screenshots', flush=True)
+with (output / 'simulator-build.log').open('w') as log:
+    subprocess.run(['xcodebuild', '-project', 'apple/NearbyIM.xcodeproj', '-scheme', 'NearbyIM',
+                    '-configuration', 'Release', '-destination', 'generic/platform=iOS Simulator',
+                    '-derivedDataPath', 'build/Simulator', 'CODE_SIGNING_ALLOWED=YES', 'CODE_SIGN_IDENTITY=-', 'build'],
+                   stdout=log, stderr=subprocess.STDOUT, check=True, timeout=600)
+app = 'build/Simulator/Build/Products/Release-iphonesimulator/NearbyIM.app'
+devices = json.loads(run('xcrun', 'simctl', 'list', 'devices', 'available', '--json'))['devices']
+available = [d for runtime, group in devices.items() if 'iOS' in runtime for d in group if d.get('isAvailable')]
+requested = os.environ.get('CAPTURE_DEVICE_CLASS', 'both')
+for kind, prefix in [('iphone-portrait', 'iPhone'), ('ipad', 'iPad')]:
+    if requested != 'both' and not kind.startswith(requested):
+        continue
+    device = next(d for d in available if d['name'].startswith(prefix))
+    udid = device['udid']
+    try:
+        subprocess.run(['xcrun', 'simctl', 'boot', udid], check=True, timeout=60)
+        run('xcrun', 'simctl', 'bootstatus', udid, '-b')
+        run('xcrun', 'simctl', 'status_bar', udid, 'override', '--time', '9:41', '--batteryState', 'charged', '--batteryLevel', '100')
+        run('xcrun', 'simctl', 'install', udid, app)
+        run('xcrun', 'simctl', 'launch', udid, bundle)
+        time.sleep(12)
+        run('xcrun', 'simctl', 'io', udid, 'screenshot', str(output / f'{kind}.png'))
+    finally:
+        try:
+            subprocess.run(['xcrun', 'simctl', 'shutdown', udid], check=False, timeout=30)
+        except subprocess.TimeoutExpired:
+            print('Simulator shutdown exceeded 30s; capture is retained', flush=True)
+(output / 'SOURCE_COMMIT.txt').write_text(run('git', 'rev-parse', 'HEAD') + '\n')
