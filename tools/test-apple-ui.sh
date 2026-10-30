@@ -5,7 +5,7 @@ destination="$1"
 label="$2"
 mode="${3:---all}"
 case "$mode" in --all|--prepare-only|--test-only) ;; *) echo 'Expected --all, --prepare-only or --test-only' >&2; exit 2 ;; esac
-derived="apple/UITestBuild-$label"
+derived="apple/UITestBuild-${WOZAI_APPLE_UI_BUILD_LABEL:-$label}"
 if [[ "$destination" == *"platform=iOS Simulator"* ]]; then derived="apple/UITestBuild-ios"; fi
 mkdir -p build/apple-ui
 peer_pid=""
@@ -43,7 +43,9 @@ fi
 if [[ "$mode" == --prepare-only ]]; then prepared=true; exit 0; fi
 port_file="build/apple-ui/$label.port"
 rm -f "$port_file"
-java -cp build/apple-interop/java dev.ghost.nearbyim.core.AppleInteropPeer ui-server "$port_file" > "build/apple-ui/$label-java.log" 2>&1 &
+peer_args=(ui-server "$port_file")
+if [[ ${WOZAI_APPLE_READ_UI:-false} == true ]]; then peer_args+=(--read-ui); fi
+java -cp build/apple-interop/java dev.ghost.nearbyim.core.AppleInteropPeer "${peer_args[@]}" > "build/apple-ui/$label-java.log" 2>&1 &
 peer_pid=$!
 python3 - "$port_file" "$peer_pid" <<'PY'
 import os, pathlib, sys, time
@@ -57,6 +59,7 @@ PY
 xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM -destination "$destination" \
   -configuration Debug -derivedDataPath "$derived" \
   -resultBundlePath "build/apple-ui/$label.xcresult" \
+  -only-testing:"${WOZAI_APPLE_UI_TEST:-NearbyIMUITests/NativeChatTests/testNativeConnectionConsentAndDurableReceiptsWithJavaPeer}" \
   -parallel-testing-enabled NO -test-timeouts-enabled YES \
   -default-test-execution-time-allowance 360 -maximum-test-execution-time-allowance 360 \
   CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- test-without-building | tee "build/apple-ui/$label-xcodebuild.log"

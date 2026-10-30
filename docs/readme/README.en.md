@@ -12,9 +12,27 @@ Wozai (NearbyIM) is an open-source chat application for nearby communication. St
 > Latest prerelease: **0.3.3-preview.1** · macOS / iPhone / iPad / Windows and Linux Terminal
 > [Download preview](https://github.com/GHOST-AKU/wozai/releases/tag/v0.3.3-preview.1) · [Installation and signing](../releases/native-preview-install.md)
 
-**New builds use `0.3.3-preview.2`** across Android, Windows/Linux GUI, Apple and Terminal. See the [0.3.3 release plan](../releases/0.3.3.md) and [scope/acceptance #55](https://github.com/GHOST-AKU/wozai/issues/55). This is the development source version; new packages are not published yet. Download links above still refer to existing releases.
+**The current development version is `0.3.3-preview.4` / build15** across Android, Windows/Linux GUI, Apple and Terminal. See the [0.3.3 release plan](../releases/0.3.3.md) and [scope/acceptance #55](https://github.com/GHOST-AKU/wozai/issues/55). This is the development source version; new packages are not published yet. Download links above still refer to existing releases.
 
 **0.3.2 is now a stable release**, with matching protocol and UI updates for Android, Windows and Linux, including Linux AppImage / deb / tar.gz packages. It adds Noise end-to-end encryption, bounded streaming files up to 10 GiB with durable resume, automatic file routing, an Android receiving folder and adaptive tablet/foldable layouts. See the [0.3.2 release notes](../releases/0.3.2.md) for changes and acceptance scope. P2P reliability, device throughput/distance recovery, long-term memory and formal performance remain tracked in [#23](https://github.com/GHOST-AKU/wozai/issues/23) and [#9](https://github.com/GHOST-AKU/wozai/issues/9).
+
+## Changes in this 0.3.3 candidate
+
+- Native text read receipts are enabled by default and can be disabled at any time. Both peers must have read receipts enabled, and text must actually be visible in the foreground. Read indicators use `#66CCFF`, with a subtle glow in dark mode and flat styling in light mode. Terminal does not implement read receipts.
+- Improved emoji selection, draft persistence, immediate desktop language switching and five-language support (Simplified/Traditional Chinese, English, Japanese and Korean); removed the persistent composer byte counter.
+- Negotiated text supports 32768 UTF-8 bytes; legacy or unnegotiated sessions retain 8192. Existing tablet split defaults and center snapping are preserved.
+- Fixed Linux AppImage compatibility with Ubuntu 22.04, improved transfer-stage diagnostics and privacy, and refined Apple foreground visibility and input focus handling.
+
+Candidate packages and actual runtime screenshots are available through the Actions artifacts below; no Release has been published. Simulator/test-session screenshots are not evidence of physical wireless or performance acceptance. Phone screenshots use portrait orientation. Apple signing and installation limitations are described below.
+
+## Screenshots and candidate downloads
+
+<p align="center">
+  <img src="../screenshots/0.3.3-preview.4/android-portrait.png" width="220" alt="Android portrait startup screen">
+  <img src="../screenshots/0.3.3-preview.4/iphone-portrait.png" width="220" alt="iPhone portrait startup screen">
+</p>
+
+[Actual runtime screenshots and candidate package downloads](../screenshots/0.3.3-preview.4/README.md) for every client. Android and iPhone use portrait only. The gallery includes Apple signing limitations, package sources and checksums. These are Actions artifacts, not a published Release.
 
 ## 🌱 Why Wozai?
 
@@ -37,6 +55,8 @@ NearbyIM currently focuses on **one-to-one communication between directly reacha
 ## ✨ What it can do today
 
 The following primarily describes the stable Android/Windows/Linux clients; Apple and Terminal preview capabilities are listed under platform status.
+
+The `0.3.3-preview.4` development source adds [text read receipts](../read-receipts.md), enabled by default with an opt-out. Both peers must enable them, and the message must actually be displayed in the foreground conversation. This is implemented in source but not published and is not implied to be present in the downloads above.
 
 - **Direct LAN connections**: automatic discovery via NSD / mDNS, with direct IP + port connections also supported
 - **Classic Bluetooth communication**: secure RFCOMM with device discovery, pairing, and reconnection
@@ -72,7 +92,7 @@ Native **Swift / SwiftUI previews for iOS, iPadOS and macOS are available**, usi
 
 - Supports NIM4 identity consent/safety codes, LAN discovery/direct addresses, text/history/drafts, streaming files, queues, pause/resume and durable receipts, plus avatar sync and QR verification.
 - **LAN listening is off by default**; unknown identities and incoming files are not automatically approved. Initial TUI setup guides configuration; CLI commands offer JSON and exit codes. See the [Terminal guide](../../terminal/README.md).
-- The published `0.3.3-preview.1` contains Terminal internal version `0.1.0-dev`; new builds use the shared `0.3.3-preview.2` version. Windows binaries have no Authenticode signature; the existing preview contains no macOS Terminal binary.
+- The published `0.3.3-preview.1` contains Terminal internal version `0.1.0-dev`; new builds use the shared `0.3.3-preview.4` version. Windows binaries have no Authenticode signature; the existing preview contains no macOS Terminal binary.
 - Bluetooth/P2P adapters and complete acceptance remain in development. Terminal/IME/SSH/tmux, physical interoperability and performance scope are tracked in [#38](https://github.com/GHOST-AKU/wozai/issues/38). Existing GUI clients and stable v0.3.2 assets remain separate.
 
 ## 📡 Start chatting

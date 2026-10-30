@@ -20,6 +20,10 @@ public actor NIMChannel {
     private var writer: Task<Void, Error>?
     private var writeSequence: UInt64 = 0
     private var textCapability: TextCapability?
+    private var readCapability: ReadReceiptCapability?
+    private var readEnabled = true
+    var readReceiptsActive: Bool { readCapability?.active == true && !ended }
+
     public var textLimit: Int { textCapability?.outgoing ?? TextLimits.legacy }
     public private(set) var connectionGeneration: String?
 
@@ -66,6 +70,7 @@ public actor NIMChannel {
             guard !ended else { throw WozaiError.closed }
             guard expectedID == nil || expectedID == peer.id, expectedRoot == nil || expectedRoot == peer.root else { throw WozaiError.identityChanged }
             textCapability = TextCapability(generation: connectionGeneration!)
+            readCapability = ReadReceiptCapability(generation: connectionGeneration!, enabled: readEnabled)
             established = true
             return VerifiedPeer(id: peer.id, nickname: peer.nickname, root: peer.root, capabilities: peer.capabilities)
         } catch { close(); throw error }
@@ -152,6 +157,33 @@ public actor NIMChannel {
         return textLimit
     }
 
+    func startReadNegotiation() async throws {
+        if let token = readCapability?.start() { try await send(NIMFrame(type: .pong, timestamp: token)) }
+    }
+    func handleReadToken(_ time: UInt64) async throws {
+        let wasNegotiated = readCapability?.negotiated == true
+        if let response = readCapability?.receiveToken(time) { try await send(NIMFrame(type: .pong, timestamp: response)) }
+        if !wasNegotiated, readCapability?.negotiated == true, let packet = readCapability?.policy { try await sendReadPacket(packet) }
+    }
+    func configureReadReceipts(_ enabled: Bool) async throws {
+        readEnabled = enabled; readCapability?.configure(enabled)
+        if readCapability?.negotiated == true, let packet = readCapability?.policy { try await sendReadPacket(packet) }
+    }
+    private func sendReadPacket(_ packet: ReadReceiptPacket) async throws {
+        // Wait before sealing: dropping an already encrypted queued record would skip a Noise nonce.
+        if let writer { try await writer.value }
+        guard !ended, readCapability?.outgoingCurrent(packet) == true else { return }
+        try await send(packet.frame())
+    }
+    func handleReadPacket(_ packet: ReadReceiptPacket) throws -> Bool { try readCapability?.receive(packet) ?? false }
+    func currentReadPacket(_ packet: ReadReceiptPacket) -> Bool { !ended && readCapability?.current(packet) == true }
+    func sendReadReceipts(_ ids: [String]) async throws {
+        if let packet = readCapability?.send(ids) { try await sendReadPacket(packet) }
+    }
+    func acknowledgeReadReceipt(_ packet: ReadReceiptPacket) async throws {
+        if let ack = readCapability?.acknowledge(packet) { try await sendReadPacket(ack) }
+    }
+    func readReceiptPersisted(_ packet: ReadReceiptPacket) { readCapability?.persisted(packet) }
     public func close() {
         ended = true; established = false; transport = nil
         writer?.cancel(); writer = nil

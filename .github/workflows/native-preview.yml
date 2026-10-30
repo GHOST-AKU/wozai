@@ -2,6 +2,19 @@ name: Build unsigned native preview
 on:
   workflow_dispatch:
     inputs:
+      device-class:
+        description: Apple mobile screenshot device class
+        type: choice
+        options: [both, iphone, ipad]
+        default: both
+      packaging-only:
+        description: Reuse separately recorded unchanged-protocol evidence; skip Terminal interop
+        type: boolean
+        default: false
+      screenshots-only:
+        description: Capture only Apple mobile simulator windows; do not rebuild distribution packages
+        type: boolean
+        default: false
       apple-only:
         description: Rebuild Apple packages only
         type: boolean
@@ -15,15 +28,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Test native core and resources
+        if: ${{ !inputs.screenshots-only }}
         run: |
           python3 tools/version.py --check
           python3 tools/validate-apple-localizations.py
           swift test --package-path apple
       - name: Build Apple applications
+        if: ${{ !inputs.screenshots-only }}
         run: |
           xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM -destination 'platform=macOS' -configuration Release -derivedDataPath build/Mac ONLY_ACTIVE_ARCH=NO 'ARCHS=arm64 x86_64' CODE_SIGNING_ALLOWED=NO build > build-mac.log 2>&1 || { tail -100 build-mac.log; exit 1; }
           xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM -destination 'generic/platform=iOS' -configuration Release -derivedDataPath build/iOS CODE_SIGNING_ALLOWED=NO build > build-ios.log 2>&1 || { tail -100 build-ios.log; exit 1; }
       - name: Package and verify
+        if: ${{ !inputs.screenshots-only }}
         run: |
           version=$(python3 tools/version.py --field version)
           mkdir -p dist build/ipa/Payload
@@ -46,13 +62,26 @@ jobs:
           cp LICENSE dist/LICENSE.txt
           git rev-parse HEAD > dist/SOURCE_COMMIT.txt
           (cd dist && shasum -a 256 *.zip *.ipa INSTALL.md LICENSE.txt SOURCE_COMMIT.txt macos-signature.txt > SHA256SUMS-apple.txt)
+      - name: Capture actual Mac, iPhone and iPad startup windows
+        timeout-minutes: 12
+        env:
+          CAPTURE_MOBILE_ONLY: ${{ inputs.screenshots-only }}
+          CAPTURE_DEVICE_CLASS: ${{ inputs.device-class }}
+        run: python3 tools/capture-apple-candidate.py
       - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: apple-candidate-screenshots
+          path: build/candidate-screens/*
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: ${{ !inputs.screenshots-only }}
         with:
           name: apple-native-preview
           path: dist/*
           if-no-files-found: error
   terminal:
-    if: ${{ !inputs.apple-only }}
+    if: ${{ !inputs.apple-only && !inputs.screenshots-only }}
     strategy:
       fail-fast: false
       matrix:
@@ -71,13 +100,66 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Verify Terminal interoperability
+        if: ${{ !inputs.packaging-only }}
+        shell: bash
+        run: terminal/tools/test-interop.sh
       - name: Verify, build and package
         shell: bash
         run: |
           python tools/version.py --check
-          terminal/tools/test-interop.sh
           cargo build --manifest-path terminal/Cargo.toml --locked --release
           python terminal/tools/package.py
+      - name: Prepare isolated screenshot profile
+        shell: bash
+        run: |
+          python - <<'PYTHON'
+          import json, pathlib
+          profile = pathlib.Path('build/terminal-screenshot-profile').resolve()
+          profile.mkdir(parents=True, exist_ok=True)
+          (profile / 'config.json').write_text(json.dumps({'schema': 1, 'nickname': 'NearbyIM Terminal', 'language': 'en', 'lan_listen': False}), encoding='utf-8')
+          PYTHON
+      - name: Capture Linux terminal process
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y xterm xvfb imagemagick
+          mkdir -p build/candidate-screens
+          xvfb-run -a -s '-screen 0 1280x900x24' bash -c '
+            xterm -fa "DejaVu Sans Mono" -fs 12 -geometry 110x34 -e terminal/target/release/nearbyim --profile "$PWD/build/terminal-screenshot-profile" &
+            terminal_pid=$!
+            trap "kill $terminal_pid 2>/dev/null || true" EXIT
+            sleep 5
+            kill -0 "$terminal_pid"
+            import -window root -screen build/candidate-screens/terminal-linux.png
+          '
+      - name: Capture Windows terminal process
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.Drawing
+          Add-Type -AssemblyName System.Windows.Forms
+          New-Item -ItemType Directory -Force build/candidate-screens | Out-Null
+          $exe = (Resolve-Path terminal/target/release/nearbyim.exe).Path
+          $profile = (Resolve-Path build/terminal-screenshot-profile).Path
+          $process = Start-Process powershell.exe -ArgumentList '-NoLogo', '-NoProfile', '-NoExit', '-Command', "& '$exe' --profile '$profile'" -PassThru
+          try {
+            Start-Sleep -Seconds 5
+            if ($process.HasExited) { throw 'Terminal window exited before capture' }
+            $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+            $image = New-Object Drawing.Bitmap $bounds.Width, $bounds.Height
+            $graphics = [Drawing.Graphics]::FromImage($image)
+            try {
+              $graphics.CopyFromScreen($bounds.Location, [Drawing.Point]::Empty, $bounds.Size)
+              $image.Save("$PWD/build/candidate-screens/terminal-windows.png", [Drawing.Imaging.ImageFormat]::Png)
+            } finally { $graphics.Dispose(); $image.Dispose() }
+          } finally { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: terminal-candidate-screenshots-${{ runner.os }}
+          path: build/candidate-screens/*
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
           name: terminal-preview-${{ runner.os }}

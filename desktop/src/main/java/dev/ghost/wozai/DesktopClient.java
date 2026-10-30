@@ -49,6 +49,7 @@ public final class DesktopClient implements AutoCloseable {
     private static Thread daemon(Runnable r, String name) { Thread t = new Thread(r, name); t.setDaemon(true); return t; }
     public DesktopClient(DesktopStore store, DesktopIdentity.Identity identity, Listener listener) throws IOException {
         this.store = store; this.identity = identity; this.listener = listener;
+        readReceiptsEnabled=Boolean.parseBoolean(store.setting("readReceipts","true"));
         store.invalidateLocalVerifications(identity.signer().publicKey());
         store.nickname();
         long quota=TransferStorageBudget.DEFAULT_QUOTA;try{quota=Long.parseLong(store.setting("attachmentQuota",Long.toString(quota)));}catch(NumberFormatException invalid){}if(quota<0)quota=TransferStorageBudget.DEFAULT_QUOTA;attachmentStorage=new TransferStorageBudget(store.attachmentsRoot(),quota);
@@ -71,6 +72,23 @@ public final class DesktopClient implements AutoCloseable {
             // Stop the wire immediately if the disk/model cannot keep up.
             Session session = current; if (session != null) session.wire.close(UiText.of("busy"));
         }
+    }
+    public boolean canObserveMessages(String peer){Session live=current;return readReceiptsEnabled&&(live==null||live.peer==null||!live.peer.id().equals(peer)||live.wire.readReceiptsActive());}
+    public boolean readReceiptsEnabled(){return readReceiptsEnabled;}
+    private volatile boolean readReceiptsEnabled;
+    private final java.util.concurrent.atomic.AtomicBoolean readPolicyNoticeQueued=new java.util.concurrent.atomic.AtomicBoolean();
+    public CompletableFuture<Void> setReadReceiptsEnabled(boolean enabled){
+        // Disable queued network records before waiting for the model/disk executor.
+        readReceiptsEnabled=false;Session live=current;if(live!=null)live.wire.setReadReceiptsEnabled(false);
+        return submit(()->{if(!enabled)store.clearPendingReads();store.setSetting("readReceipts",Boolean.toString(enabled));readReceiptsEnabled=enabled;if(current!=null)current.wire.setReadReceiptsEnabled(enabled);flushReadReceipts();return null;});
+    }
+    public CompletableFuture<Void> observedMessages(String peer,List<String> ids){
+        List<String> batch=List.copyOf(ids.subList(0,Math.min(32,ids.size())));
+        return submit(()->{if(!readReceiptsEnabled)return null;if(current!=null&&current.peer!=null&&current.peer.id().equals(peer)&&!current.wire.readReceiptsActive())return null;store.observed(peer,batch);flushReadReceipts();return null;});
+    }
+    private void flushReadReceipts(){
+        Session live=current;if(live==null||live.peer==null||!live.wire.readReceiptsActive())return;
+        try{List<String> ids=store.pendingReads(live.peer.id());if(!ids.isEmpty())live.wire.sendReadReceipts(ids);}catch(IOException error){failure();}
     }
     public CompletableFuture<Void> refresh() { return submit(() -> {
         if (listening != null) listening = new Listening(listening.port(), lanEndpoints(listening.port()));
@@ -183,7 +201,7 @@ public final class DesktopClient implements AutoCloseable {
         Session(StreamConnection connection, boolean incoming, String expectedId, String target, long trustVersion) throws IOException {
             this.incoming = incoming; this.expectedId = expectedId; this.target = target; this.trustVersion = trustVersion; this.transport = connection.label().equals("Bluetooth") ? "bluetooth" : "lan";
             String nickname = store.nickname();
-            wire = FramedSession.secure(connection, identity.id(), nickname, identity.signer(),noiseIdentity,!incoming,this,true,true);
+            wire = FramedSession.secure(connection, identity.id(), nickname, identity.signer(),noiseIdentity,!incoming,this,true,true);wire.setReadReceiptsEnabled(readReceiptsEnabled);
         }
         public void onHello(Frame hello) { event(() -> {
             if (current != this) return;
@@ -256,6 +274,13 @@ public final class DesktopClient implements AutoCloseable {
                 for(DesktopStore.Message message:store.messages(peer.id()))if(message.attachment()!=null)files.rememberHistory(message.attachment());files.attachFiles(transfers);files.start();startAvatars();publish();
             } catch (IOException e) { failure(); }
         }); }
+        public void onReadReceiptPolicy(){if(readPolicyNoticeQueued.compareAndSet(false,true))event(()->{readPolicyNoticeQueued.set(false);flushReadReceipts();});}
+        public void onReadReceipt(ReadReceiptPacket packet){event(()->{
+            if(current!=this||peer==null||!wire.currentReadReceipt(packet))return;
+            try{if(packet.kind==ReadReceiptPacket.READ){store.read(peer.id(),packet.ids);wire.acknowledgeReadReceipt(packet);publish();}
+                else{store.readAcknowledged(peer.id(),packet.ids);wire.readReceiptPersisted(packet);}}
+            catch(IOException error){failure();}
+        });}
         public void onTextLimit(int bytes){event(()->{if(current==this)publish();});}
         void startAvatars() {
             if(!wire.avatarsSupported()||authorization.publicKey.equals(identity.signer().publicKey())){pendingAvatars.clear();return;}

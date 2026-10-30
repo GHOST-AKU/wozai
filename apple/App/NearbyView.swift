@@ -6,6 +6,8 @@ struct NearbyView: View {
     @Environment(AppModel.self) private var model
     @State private var host = ""
     @State private var port = ""
+    private enum AddressField: Hashable { case host, port }
+    @FocusState private var addressFocus: AddressField?
 
     var body: some View {
         List {
@@ -39,9 +41,10 @@ struct NearbyView: View {
             Section("Connect by address") {
                 TextField("IP address or .local name", text: $host)
                     .autocorrectionDisabled()
+                    .focused($addressFocus, equals: .host)
                     .accessibilityIdentifier("manualHost")
-                TextField("Port", text: $port).accessibilityIdentifier("manualPort")
-                Button("Connect") { model.connect(host: host, port: port) }
+                TextField("Port", text: $port).focused($addressFocus, equals: .port).accessibilityIdentifier("manualPort")
+                Button("Connect") { addressFocus = nil; model.connect(host: host, port: port) }
                     .disabled(model.busy || host.isEmpty || port.isEmpty)
                     .accessibilityIdentifier("manualConnect")
             }
@@ -50,5 +53,6 @@ struct NearbyView: View {
             }
         }
         .navigationTitle("Nearby")
+        .onDisappear { addressFocus = nil }
     }
 }

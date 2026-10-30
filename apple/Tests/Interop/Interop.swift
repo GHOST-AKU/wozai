@@ -8,6 +8,7 @@ struct Interop {
         let arguments = CommandLine.arguments
         let initiator = arguments[1] == "client"
         let files = arguments.contains("--files")
+        let reads = arguments.contains("--reads")
         let stream: NWByteStream
         let listener: NWListener?
         if initiator {
@@ -42,7 +43,7 @@ struct Interop {
         let identity = DeviceIdentity()
         let source = directory.appendingPathComponent("swift-source.bin")
         if files { try Data((0..<(3 * 1024 * 1024 + 17)).map { UInt8(truncatingIfNeeded: $0 * 31 + 7) }).write(to: source) }
-        let harness = Harness(store: store, identity: identity, fileSource: files ? source : nil)
+        let harness = Harness(store: store, identity: identity, fileSource: files ? source : nil, reads: reads)
         let session = ChatSession(stream: stream, identity: identity, nickname: "Apple interop peer", initiator: initiator, store: store, attachmentDirectory: files ? directory.appendingPathComponent("received") : nil) { event in
             await harness.handle(event)
         }
@@ -50,7 +51,15 @@ struct Interop {
         let timeout = Task {
             do { try await Task.sleep(for: .seconds(25)); await session.stop(reason: "Interop deadline exceeded") } catch {}
         }
+        let observing = Task {
+            guard reads else { return }
+            while !Task.isCancelled {
+                await harness.observeText()
+                do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
+            }
+        }
         await session.run()
+        observing.cancel()
         timeout.cancel()
         try await harness.verify()
         print(files ? "PASS: Swift streaming file interoperability in a real Noise session" : "PASS: Swift ChatSession durable text/ACK, production Java interop, Unicode whitespace nickname/text, safety code")
@@ -61,12 +70,13 @@ private actor Harness {
     let store: ChatStore
     let identity: DeviceIdentity
     let fileSource: URL?
+    let reads: Bool
     var session: ChatSession?
     var peer: VerifiedPeer?
     var longSent = false
     var closedNormally = false
     var failure: String?
-    init(store: ChatStore, identity: DeviceIdentity, fileSource: URL?) { self.store = store; self.identity = identity; self.fileSource = fileSource }
+    init(store: ChatStore, identity: DeviceIdentity, fileSource: URL?, reads: Bool) { self.store = store; self.identity = identity; self.fileSource = fileSource; self.reads = reads }
     func attach(_ session: ChatSession) { self.session = session }
     func handle(_ event: SessionEvent) async {
         do {
@@ -89,6 +99,12 @@ private actor Harness {
             }
         } catch { failure = error.localizedDescription; await session?.stop(reason: failure) }
     }
+    // Explicit synthetic display evidence; native visibility is verified separately.
+    func observeText() async {
+        guard reads, let peer, let session else { return }
+        do { let ids = try await store.messages(peerID: peer.id).filter { !$0.outgoing }.map(\.id); _ = try await session.observedMessages(peerID: peer.id, ids: ids) }
+        catch { failure = error.localizedDescription }
+    }
     func verify() async throws {
         guard closedNormally, failure == nil, let peer else { throw NSError(domain: "Interop", code: 1, userInfo: [NSLocalizedDescriptionKey: failure ?? "Peer did not close normally"]) }
         let messages = try await store.messages(peerID: peer.id)
@@ -102,12 +118,18 @@ private actor Harness {
             print("PASS: Swift production NIM4 file send/receive, block/whole hashes, durable saved receipts")
             return
         }
+        let expectedStatus: MessageStatus = reads ? .read : .delivered
         guard messages.count == 5, longSent,
               messages.filter({ $0.body == String(repeating: "中", count: 10922) + "ab" }).count == 2,
-              messages.filter({ $0.outgoing && $0.status == .delivered }).count == 2, peer.nickname == "\u{00a0}",
+              messages.filter({ $0.outgoing && $0.status == expectedStatus }).count == 2, peer.nickname == "\u{00a0}",
               messages.contains(where: { !$0.outgoing && $0.body == "Hello from Java\n" + code }),
               messages.contains(where: { !$0.outgoing && $0.body == "\u{00a0}\u{2003}" }),
-              messages.contains(where: { $0.outgoing && $0.status == .delivered && $0.body == "Hello from Apple\n" + code }) else { throw WozaiError.protocolViolation }
+              messages.contains(where: { $0.outgoing && $0.status == expectedStatus && $0.body == "Hello from Apple\n" + code }) else { throw WozaiError.protocolViolation }
+        if reads {
+            let pending = try await store.pendingReads(peerID: peer.id)
+            guard pending.isEmpty else { throw WozaiError.protocolViolation }
+            print("PASS: Swift durable read states and acknowledged outbox, uppercase Java ID normalization")
+        }
     }
 }
 

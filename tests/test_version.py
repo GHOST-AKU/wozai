@@ -43,16 +43,20 @@ class VersionTests(unittest.TestCase):
                 target.write_bytes((ROOT / relative).read_bytes())
             config = root / "i18n/config.json"
             data = json.loads(config.read_text(encoding="utf-8"))
-            data.update(appVersion="0.3.3-preview.3", buildNumber=info["build_number"] + 1)
+            major, minor, patch = map(int, info["base_version"].split("."))
+            next_base = f"{major}.{minor}.{patch + 1}"
+            next_version = next_base + "-preview.1"
+            data.update(appVersion=next_version, buildNumber=info["build_number"] + 1)
             config.write_text(json.dumps(data), encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "Version drift"):
                 version.synchronize(root, check=True)
             _, changed = version.synchronize(root)
-            self.assertEqual(len(changed), 4)
+            self.assertEqual(set(changed), {"app/build.gradle.kts", "terminal/Cargo.toml",
+                                            "terminal/Cargo.lock", "apple/NearbyIM.xcodeproj/project.pbxproj"})
             version.synchronize(root, check=True)
             project = (root / "apple/NearbyIM.xcodeproj/project.pbxproj").read_text(encoding="utf-8")
-            self.assertEqual(project.count('WOZAI_VERSION = "0.3.3-preview.3";'), 2)
-            self.assertEqual(project.count('MARKETING_VERSION = 0.3.3;'), 2)
+            self.assertEqual(project.count(f'WOZAI_VERSION = "{next_version}";'), 2)
+            self.assertEqual(project.count(f'MARKETING_VERSION = {next_base};'), 2)
 
 
 if __name__ == "__main__":

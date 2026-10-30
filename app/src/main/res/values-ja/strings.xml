@@ -446,6 +446,9 @@
     <string name="portable_hint" formatted="false">"ポータブル版はアプリと同じ場所の data フォルダーに保存します。旧データはコピーして移行し、元のファイルも保持します。識別情報は現在の Windows ユーザーで保護され、別のユーザーやパソコンでは自動的に解除できません。"</string>
     <string name="privacy" formatted="false">"アカウントやリモートサーバーは不要です。チャットとファイル転送はエンドツーエンドで暗号化されますが、このデバイスの履歴と添付ファイルは暗号化されません。初回の接続時は相手のデバイス識別情報を直接確認してください。"</string>
     <string name="quit" formatted="false">"終了"</string>
+    <string name="read" formatted="false">"既読"</string>
+    <string name="read_receipts" formatted="false">"既読通知"</string>
+    <string name="read_receipts_summary" formatted="false">"双方が有効にすると、実際に表示されたメッセージの既読を通知します。無効にすると新しい既読通知の送受信を停止します。確認済みの履歴は保持されます。"</string>
     <string name="ready" formatted="false">"接続済み"</string>
     <string name="receive_folder" formatted="false">"受信フォルダ"</string>
     <string name="receive_folder_choose" formatted="false">"フォルダを選択"</string>

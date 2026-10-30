@@ -574,5 +574,8 @@
   "messageIncomplete": "这条消息尚未编辑完整，请继续输入。",
   "sent": "已发送",
   "messageSending": "发送中",
-  "messageSendFailed": "发送失败"
+  "messageSendFailed": "发送失败",
+  "read": "已读",
+  "readReceipts": "已读回执",
+  "readReceiptsSummary": "双方开启后，实际显示的消息才发送已读回执。关闭后停止发送和接收新的已读回执，已确认的历史状态保留。"
 }

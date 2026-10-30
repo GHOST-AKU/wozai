@@ -4658,6 +4658,108 @@
           }
         }
       }
+    },
+    "Read": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Read"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已读"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已讀"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "既読"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "읽음"
+          }
+        }
+      }
+    },
+    "Read receipts": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Read receipts"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已读回执"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已讀回條"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "既読通知"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "읽음 확인"
+          }
+        }
+      }
+    },
+    "Read receipts are exchanged only when both people enable them. Turning this off stops new read receipts; previously confirmed receipts remain.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Read receipts are exchanged only when both people enable them. Turning this off stops new read receipts; previously confirmed receipts remain."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "双方开启后才交换已读回执。关闭后停止新的已读回执，已确认的历史状态保留。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "雙方開啟後才交換已讀回條。關閉後停止新的已讀回條，已確認的歷史狀態保留。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "双方が有効にすると既読を通知します。無効にすると新しい既読通知を停止し、確認済みの履歴は保持します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "양쪽 모두 켜야 읽음 확인을 주고받습니다. 끄면 새로운 읽음 확인을 중지하며 이미 확인된 기록은 유지됩니다。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

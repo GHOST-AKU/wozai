@@ -58,3 +58,6 @@ for role in client server; do
   cat "build/apple-interop/swift-files-$role.log" "build/apple-interop/java-files-$role.log"
   rm -r "$case_root"
 done
+
+# Negotiate exact-ID read receipts in both authenticated roles.
+bash tools/test-read-receipt-interop.sh --compiled

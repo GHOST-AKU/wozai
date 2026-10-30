@@ -66,7 +66,7 @@ func hasJavaTrimmedContent(_ value: String) -> Bool {
 }
 
 public struct NIMFrame: Equatable, Sendable {
-    public enum Kind: UInt8, Sendable { case ready = 2, text = 3, ack = 4, bye = 5, ping = 6, pong = 7, attachment = 16 }
+    public enum Kind: UInt8, Sendable { case ready = 2, text = 3, ack = 4, bye = 5, ping = 6, pong = 7, attachment = 16, readReceipt = 20 }
     public let type: Kind
     public let id: String
     public let body: String
@@ -85,6 +85,9 @@ public struct NIMFrame: Equatable, Sendable {
             guard validFrameID(id), hasJavaTrimmedContent(body), body.utf8.count <= textLimit, binary.isEmpty else { throw WozaiError.invalidText }
         case .ack:
             guard validFrameID(id), body.isEmpty, binary.isEmpty else { throw WozaiError.protocolViolation }
+        case .readReceipt:
+            guard id.isEmpty, body.isEmpty, timestamp == 0 else { throw WozaiError.protocolViolation }
+            _ = try ReadReceiptPacket.decode(binary)
         case .attachment:
             guard id.isEmpty, body.isEmpty, timestamp == 0, binary.count <= 40 * 1024 else { throw WozaiError.protocolViolation }
             _ = try AttachmentPacket.decode(binary)
@@ -96,7 +99,7 @@ public struct NIMFrame: Equatable, Sendable {
     public func encoded(textLimit: Int = TextLimits.legacy) throws -> Data {
         try validate(textLimit: textLimit)
         var out = WireWriter(); out.u32(0x4e494d34); out.byte(4); out.byte(type.rawValue); out.u64(timestamp); out.text(id); out.text(body)
-        if type == .attachment { out.u32(UInt32(binary.count)); out.data += binary }
+        if type == .attachment || type == .readReceipt { out.u32(UInt32(binary.count)); out.data += binary }
         guard out.data.count <= 48 * 1024 else { throw WozaiError.protocolViolation }
         return out.data
     }
@@ -107,7 +110,7 @@ public struct NIMFrame: Equatable, Sendable {
         guard try input.u32() == 0x4e494d34, try input.byte() == 4, let type = Kind(rawValue: try input.byte()) else { throw WozaiError.protocolViolation }
         let time = try input.u64(), id = try input.text(maximum: 64), body = try input.text(maximum: type == .text ? textLimit : TextLimits.legacy)
         var binary = Data()
-        if type == .attachment {
+        if type == .attachment || type == .readReceipt {
             let count = try input.u32(); guard count <= 40 * 1024 else { throw WozaiError.protocolViolation }
             binary = try input.bytes(Int(count))
         }
