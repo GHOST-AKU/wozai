@@ -22,6 +22,15 @@
 
 候補版の配布物と実行画面は準備中で、Release は未公開です。携帯電話の画面は縦向きのみ掲載します。シミュレータの画像は実機の無線通信・性能検証を意味しません。
 
+## 実行画面と候補版の入手先
+
+<p align="center">
+  <img src="../screenshots/0.3.3-preview.4/android-portrait.png" width="220" alt="Android portrait startup screen">
+  <img src="../screenshots/0.3.3-preview.4/iphone-portrait.png" width="220" alt="iPhone portrait startup screen">
+</p>
+
+[各環境の実行画面と候補版の入手先](../screenshots/0.3.3-preview.4/README.md)。Android・iPhone は縦向きのみ。Apple の署名制限、ソースとハッシュも記載しています。Actions の成果物であり、Release は未公開です。
+
 ## 🌱 「我在」を作る理由
 
 多くの会話用アプリは、外部への通信回線、利用者登録、中継設備があることを前提にしています。

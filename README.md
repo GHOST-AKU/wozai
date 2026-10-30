@@ -25,6 +25,15 @@
 
 本轮安装包与实际运行截图正在准备，尚未发布 Release。截图中的模拟器与测试会话不代表真机无线或性能验收；手机仅展示竖屏。Apple 的签名与安装限制见下文。
 
+## 界面与本轮安装包
+
+<p align="center">
+  <img src="docs/screenshots/0.3.3-preview.4/android-portrait.png" width="220" alt="Android portrait startup screen">
+  <img src="docs/screenshots/0.3.3-preview.4/iphone-portrait.png" width="220" alt="iPhone portrait startup screen">
+</p>
+
+[各平台真实运行截图与候选安装包下载](docs/screenshots/0.3.3-preview.4/README.md)。Android、iPhone 仅展示竖屏；Apple 签名限制与包的源码、校验值一并列出。候选包通过 Actions 附件交付，尚未发布 Release。
+
 ## 🌱 为什么做「我在」
 
 很多聊天软件默认假设：你有互联网、账号和一台远程服务器。

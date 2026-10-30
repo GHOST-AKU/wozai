@@ -18,12 +18,21 @@ Wozai (NearbyIM) is an open-source chat application for nearby communication. St
 
 ## Changes in this 0.3.3 candidate
 
-- Native text read receipts are enabled by default and can be disabled at any time. Both peers must opt in and text must actually be visible in the foreground. Read indicators use `#66CCFF`, with a subtle glow in dark mode and flat styling in light mode. Terminal does not implement read receipts.
+- Native text read receipts are enabled by default and can be disabled at any time. Both peers must have read receipts enabled, and text must actually be visible in the foreground. Read indicators use `#66CCFF`, with a subtle glow in dark mode and flat styling in light mode. Terminal does not implement read receipts.
 - Improved emoji selection, draft persistence, immediate desktop language switching and five-language support (Simplified/Traditional Chinese, English, Japanese and Korean); removed the persistent composer byte counter.
 - Negotiated text supports 32768 UTF-8 bytes; legacy or unnegotiated sessions retain 8192. Existing tablet split defaults and center snapping are preserved.
 - Fixed Linux AppImage compatibility with Ubuntu 22.04, improved transfer-stage diagnostics and privacy, and refined Apple foreground visibility and input focus handling.
 
 Packages and actual runtime screenshots for this candidate are being prepared; no Release has been published. Simulator/test-session screenshots are not evidence of physical wireless or performance acceptance. Phone screenshots use portrait orientation. Apple signing and installation limitations are described below.
+
+## Screenshots and candidate downloads
+
+<p align="center">
+  <img src="../screenshots/0.3.3-preview.4/android-portrait.png" width="220" alt="Android portrait startup screen">
+  <img src="../screenshots/0.3.3-preview.4/iphone-portrait.png" width="220" alt="iPhone portrait startup screen">
+</p>
+
+[Actual runtime screenshots and candidate package downloads](../screenshots/0.3.3-preview.4/README.md) for every client. Android and iPhone use portrait only. The gallery includes Apple signing limitations, package sources and checksums. These are Actions artifacts, not a published Release.
 
 ## 🌱 Why Wozai?
 
