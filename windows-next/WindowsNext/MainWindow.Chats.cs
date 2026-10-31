@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Windows.System;
+using WoZai.Next.Services;
 
 namespace WoZai.Next;
 
@@ -218,10 +219,10 @@ public sealed partial class MainWindow
     private void UpdateComposer()
     {
         if (_composer is null) return;
-        var bytes = System.Text.Encoding.UTF8.GetByteCount(_composer.Text);
+        var bytes = TextInput.Bytes(_composer.Text);
         var limit = _state.TextLimit > 0 ? _state.TextLimit : 65536;
-        if (_characterCount is not null) _characterCount.Text = bytes > limit * .75 ? $"{bytes:N0} / {limit:N0}" : T("enterToSend");
-        if (_send is not null) _send.IsEnabled = !_sending && _state.CanSend && bytes <= limit && !string.IsNullOrWhiteSpace(_composer.Text);
+        if (_characterCount is not null) _characterCount.Text = bytes < 0 ? T("textIncomplete") : bytes > limit * .75 ? $"{bytes:N0} / {limit:N0}" : T("enterToSend");
+        if (_send is not null) _send.IsEnabled = !_sending && _state.CanSend && TextInput.CanSend(_composer.Text,limit);
     }
 
     private async Task SaveDraftAsync()
@@ -236,6 +237,7 @@ public sealed partial class MainWindow
     {
         if (_composer is null || _sending || !_state.CanSend || string.IsNullOrWhiteSpace(_composer.Text) || string.IsNullOrEmpty(SelectedPeer)) return;
         var text = _composer.Text; var peer = SelectedPeer; var revision = _draftRevision;
+        if(!TextInput.CanSend(text,_state.TextLimit))return;
         _sending = true; _draftTimer.Stop(); UpdateComposer();
         try
         {

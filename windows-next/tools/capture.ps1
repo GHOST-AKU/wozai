@@ -8,7 +8,7 @@ New-Item -ItemType Directory -Force $Output | Out-Null
 $temporaryRoot = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { [IO.Path]::GetTempPath() }
 $captureProfile = Join-Path $temporaryRoot ('wozai-next-capture-' + [Guid]::NewGuid().ToString('N'))
 $classpath = "$root/windows-next/build/bridge/classes;$root/windows-next/build/bridge/tests;$root/windows-next/build/bridge/lib/*"
-& "$env:JAVA_HOME/bin/java.exe" -Djava.awt.headless=true -cp $classpath dev.ghost.wozai.next.BridgeFixtures seed $captureProfile
+& "$env:JAVA_HOME/bin/java.exe" "-Djava.awt.headless=true" -cp $classpath dev.ghost.wozai.next.BridgeFixtures seed $captureProfile
 if ($LASTEXITCODE -ne 0) { throw 'Screenshot fixture creation failed' }
 Add-Type -AssemblyName System.Drawing, System.Windows.Forms, UIAutomationClient, UIAutomationTypes
 Add-Type @'
