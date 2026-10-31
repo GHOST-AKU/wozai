@@ -134,3 +134,11 @@ public sealed class MessagesPage
     public bool HasMore { get; init; }
     public string? NextBefore { get; init; }
 }
+
+public sealed class MessageUpdate
+{
+    public string Id { get; init; } = "";
+    public bool Outgoing { get; init; }
+    public string Status { get; init; } = "";
+    public Attachment? Attachment { get; init; }
+}

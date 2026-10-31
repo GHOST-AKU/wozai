@@ -9,9 +9,15 @@ namespace WoZai.Next;
 
 public sealed partial class MainWindow
 {
+    private TextBox? _connectAddress;
+    private bool _nearbyRefreshPending;
     private void RenderNearby()
     {
         if (_tab != "nearby") return;
+        // Discovery snapshots must not destroy the address editor while the user types.
+        if (_connectAddress?.FocusState is FocusState.Keyboard or FocusState.Pointer or FocusState.Programmatic)
+        { _nearbyRefreshPending = true; return; }
+        _nearbyRefreshPending = false;
         _page.Children.Clear();
         var body = Stack(22); body.MaxWidth = 930; body.HorizontalAlignment = HorizontalAlignment.Stretch; body.Margin = new Thickness(30, 20, 30, 30);
         body.Children.Add(Heading(T("nearby")));
@@ -44,7 +50,9 @@ public sealed partial class MainWindow
         body.Children.Add(Card(radio));
         var direct = Stack(12); direct.Children.Add(Heading(T("directConnect"), 17));
         var address = new TextBox { PlaceholderText = "192.168.1.20:42673 / bt://…", Text = _addressText };
+        _connectAddress = address;
         AutomationProperties.SetAutomationId(address, "ConnectAddress"); address.TextChanged += (_, _) => _addressText = address.Text;
+        address.LostFocus += (_, _) => { if (_nearbyRefreshPending) DispatcherQueue.TryEnqueue(() => RenderNearby()); };
         direct.Children.Add(address);
         direct.Children.Add(Button(T("connect"), () => Run(async () => { if (string.IsNullOrWhiteSpace(address.Text)) return; await ConnectAsync(address.Text.Trim()); }), "\uE774", "ConnectButton"));
         if (_state.Endpoints.Length > 0)

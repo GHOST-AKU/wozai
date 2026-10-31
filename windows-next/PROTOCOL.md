@@ -17,6 +17,8 @@ Verification: `peerId,display,qrPayload,verified,generation` (opaque snapshot to
 Operations (args keys):
 - `snapshot`, `refresh`, `quit`.
 - `select` {peerId}; `draft` {peerId,text}; `send` {peerId,text} returns only after durable save.
+- `messages` {peerId,before?,limit?,query?} returns {messages,hasMore,nextBefore}; searches the complete stored conversation, with at most 20 messages and a 600000-byte message budget per page. `before` is the opaque cursor from the same query.
+- `messageUpdates` {peerId,keys:string[]} returns {id,outgoing,status,attachment}[] for at most 128 loaded message keys (`id:true` for outgoing, `id:false` for incoming), without retransmitting bodies.
 - `listen` {mode:"lan"|"bluetooth",enabled:bool}; `search` {mode}; `stopSearch` {mode}; `connect` {endpoint,expectedId?}; `disconnect`.
 - `approve` {token,remember}; `reject` {token}; `revoke` {peerId}; `clear` {peerId}.
 - `settings` {nickname?,theme?,language?,fontSize?,readReceipts?,quota?}.

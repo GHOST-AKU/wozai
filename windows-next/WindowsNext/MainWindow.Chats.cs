@@ -14,6 +14,9 @@ public sealed partial class MainWindow
     private readonly Dictionary<string,Message> _historyMessages = new();
     private string? _historyPeer, _historyBefore;
     private bool _historyPaged, _historyHasMore;
+    private string _historyQuery = "";
+    private long _historyEpoch;
+    private bool _refreshingHistory, _historyRefreshAgain;
     private void BuildChats()
     {
         _page.ColumnDefinitions.Add(new() { Width = new GridLength(282) });
@@ -209,11 +212,12 @@ public sealed partial class MainWindow
         if(_attachFileButton is not null)_attachFileButton.IsEnabled=_state.CanAttach;
         if(_attachPhotoButton is not null)_attachPhotoButton.IsEnabled=_state.CanAttach;
         if(_reconnectButton is not null)_reconnectButton.Visibility=_state.CanSend?Visibility.Collapsed:Visibility.Visible;
-        _chatSubtitle!.Text = peer.Id == _state.ConnectedPeerId ? "● " + T("connected") + " · " + TransportName(_state.Transport) : T("offlineHistory");
+        _chatSubtitle!.Text = peer.Id == _state.ConnectedPeerId ? T("connected") + " · " + TransportName(_state.Transport) : T("offlineHistory");
         _chatSubtitle.Foreground = peer.Id == _state.ConnectedPeerId ? AccentBrush() : null;
         if (!_draftDirty && !_sending && _composer!.Text != _state.Draft) { _applyingDraft = true; _composer.Text = _state.Draft; _applyingDraft = false; }
         UpdateComposer();
         RenderMessages();
+        Run(RefreshHistoryStatusesAsync);
     }
 
     private void UpdateComposer()
@@ -242,12 +246,24 @@ public sealed partial class MainWindow
         try
         {
             await Call("draft", new { peerId = peer, text });
+            // Navigation may flush a draft while send is pending. Once the submitted
+            // revision is saved, do not enqueue it again behind the send that clears it.
+            if (_composerPeer == peer && _draftRevision == revision) _draftDirty = false;
+            if (_cachedDraftPeer == peer && _cachedDraftRevision == revision) _cachedDraftDirty = false;
             await Call("send", new { peerId = peer, text });
+            if (_cachedDraftPeer == peer && _cachedDraftRevision == revision)
+            {
+                _cachedDraftText = "";
+                // Keep the acknowledged empty draft authoritative until a normal
+                // flush, even if an older snapshot is still queued on the UI thread.
+                _cachedDraftDirty = true;
+            }
             if (_composerPeer == peer && _composer is not null)
             {
                 if (_draftRevision == revision)
                 {
-                    _applyingDraft = true; _composer.Text = ""; _applyingDraft = false; _draftDirty = false;
+                    _applyingDraft = true; _composer.Text = ""; _applyingDraft = false; _draftDirty = true;
+                    _draftTimer.Stop(); _draftTimer.Start();
                 }
                 else { _draftDirty = true; await SaveDraftAsync(); }
             }
@@ -258,17 +274,22 @@ public sealed partial class MainWindow
     private void RenderMessages()
     {
         if (_messageStack is null || _messages is null) return;
-        if (_historyPeer != SelectedPeer) { _historyMessages.Clear(); _historyPeer=SelectedPeer; _historyPaged=false; }
-        foreach(var message in _state.Messages) _historyMessages[message.Id+":"+message.Outgoing]=message;
-        if (!_historyPaged) { _historyHasMore=_state.MessagesHasMore; _historyBefore=_state.MessagesBefore; }
+        if (_historyPeer != SelectedPeer || _historyQuery != _messageQuery)
+        {
+            _historyMessages.Clear(); _historyPeer=SelectedPeer; _historyQuery=_messageQuery; _historyPaged=false;
+            _historyHasMore=false; _historyBefore=null; _historyEpoch++;
+            if (_messageQuery.Length > 0) Run(LoadSearchAsync);
+        }
+        foreach(var message in _state.Messages.Where(MatchesMessageQuery)) _historyMessages[MessageKey(message.Id, message.Outgoing)]=message;
+        if (!_historyPaged && _messageQuery.Length == 0) { _historyHasMore=_state.MessagesHasMore; _historyBefore=_state.MessagesBefore; }
         var history = _historyMessages.Values.OrderBy(m=>m.Time).ToArray();
-        var signature = string.Join("\n", history.Select(m => $"{m.Id}|{m.Body}|{m.Status}|{m.Attachment?.Version}|{m.Attachment?.State}|{m.Attachment?.Transferred}|{m.Attachment?.Path}|{m.Attachment?.RetryState}")) + _messageQuery + _historyBefore;
+        var signature = string.Join("\n", history.Select(m => $"{m.Id}|{m.Body}|{m.Status}|{m.Attachment?.Version}|{m.Attachment?.State}|{m.Attachment?.Transferred}|{m.Attachment?.Path}|{m.Attachment?.RetryState}")) + _messageQuery + _historyBefore + _state.Generation;
         if (signature == _renderedMessages) return;
         _renderedMessages = signature;
         var atBottom = _messages.ScrollableHeight - _messages.VerticalOffset < 90;
         var offset = _messages.VerticalOffset;
         _messageStack.Children.Clear(); _incomingBodies.Clear();
-        var matches = history.Where(m => string.IsNullOrEmpty(_messageQuery) || m.Body.Contains(_messageQuery, StringComparison.CurrentCultureIgnoreCase) || (m.Attachment?.Name.Contains(_messageQuery, StringComparison.CurrentCultureIgnoreCase) ?? false)).ToArray();
+        var matches = history.Where(MatchesMessageQuery).ToArray();
         if (_historyHasMore) _messageStack.Children.Add(Button(T("loadOlder"),()=>Run(LoadOlderAsync),id:"LoadOlder"));
         if (_messageQuery.Length > 0)
         {
@@ -305,15 +326,57 @@ public sealed partial class MainWindow
     private async Task ClearHistoryAsync()
     {
         var peer = SelectedPeer;
-        if (peer is not null && await DialogAsync(T("clearHistory"), Text(T("clearHistoryBody")), T("clear")) == ContentDialogResult.Primary) { await Call("clear", new { peerId = peer }); _historyMessages.Clear(); _historyPaged=false; _renderedMessages=""; await Call("refresh"); }
+        if (peer is not null && await DialogAsync(T("clearHistory"), Text(T("clearHistoryBody")), T("clear")) == ContentDialogResult.Primary) { await Call("clear", new { peerId = peer }); _historyMessages.Clear(); _historyPaged=false; _historyHasMore=false; _historyBefore=null; _historyEpoch++; _renderedMessages=""; await Call("refresh"); }
     }
     private async Task LoadOlderAsync()
     {
-        var peer=SelectedPeer; var before=_historyBefore;if(peer is null||before is null)return;
-        var page=await _bridge.CallAsync<MessagesPage>("messages",new {peerId=peer,before,limit=20});
-        if(peer!=SelectedPeer||page is null)return;
-        foreach(var message in page.Messages)_historyMessages[message.Id+":"+message.Outgoing]=message;
+        var peer=SelectedPeer; var before=_historyBefore; var query=_messageQuery; var epoch=_historyEpoch;if(peer is null||before is null)return;
+        var page=await _bridge.CallAsync<MessagesPage>("messages",new {peerId=peer,before,limit=20,query});
+        if(peer!=SelectedPeer||epoch!=_historyEpoch||query!=_messageQuery||page is null)return;
+        foreach(var message in page.Messages)_historyMessages[MessageKey(message.Id,message.Outgoing)]=message;
         _historyPaged=true;_historyHasMore=page.HasMore;_historyBefore=page.NextBefore;_renderedMessages="";RenderMessages();
+    }
+    private bool MatchesMessageQuery(Message message) => _messageQuery.Length == 0 || message.Body.Contains(_messageQuery, StringComparison.OrdinalIgnoreCase) || (message.Attachment?.Name.Contains(_messageQuery, StringComparison.OrdinalIgnoreCase) ?? false);
+    private static string MessageKey(string id, bool outgoing) => id + ":" + (outgoing ? "true" : "false");
+
+    private async Task LoadSearchAsync()
+    {
+        var peer=SelectedPeer; var query=_messageQuery; var epoch=_historyEpoch;
+        if(peer is null || query.Length==0)return;
+        var page=await _bridge.CallAsync<MessagesPage>("messages",new {peerId=peer,query,limit=20});
+        if(peer!=SelectedPeer||epoch!=_historyEpoch||query!=_messageQuery||page is null)return;
+        foreach(var message in page.Messages)_historyMessages[MessageKey(message.Id,message.Outgoing)]=message;
+        _historyPaged=true;_historyHasMore=page.HasMore;_historyBefore=page.NextBefore;_renderedMessages="";RenderMessages();
+    }
+
+    private async Task RefreshHistoryStatusesAsync()
+    {
+        if(_refreshingHistory) { _historyRefreshAgain=true; return; }
+        if(_historyMessages.Count==0 || SelectedPeer is not {} peer)return;
+        var epoch=_historyEpoch;
+        var newest=_state.Messages.Select(m=>MessageKey(m.Id,m.Outgoing)).ToHashSet();
+        var keys=_historyMessages.Keys.Where(key=>!newest.Contains(key)).ToArray();
+        if(keys.Length==0)return;
+        _refreshingHistory=true;
+        try
+        {
+            foreach(var batch in keys.Chunk(128))
+            {
+                var updates=await _bridge.CallAsync<MessageUpdate[]>("messageUpdates",new {peerId=peer,keys=batch});
+                if(peer!=SelectedPeer||epoch!=_historyEpoch)return;
+                foreach(var update in updates??[])
+                {
+                    var key=MessageKey(update.Id,update.Outgoing);
+                    if(_historyMessages.TryGetValue(key,out var previous))_historyMessages[key]=new Message{Id=previous.Id,Body=previous.Body,Time=previous.Time,Outgoing=previous.Outgoing,Status=update.Status,Attachment=update.Attachment};
+                }
+            }
+            RenderMessages();
+        }
+        finally
+        {
+            _refreshingHistory=false;
+            if(_historyRefreshAgain) { _historyRefreshAgain=false; Run(RefreshHistoryStatusesAsync); }
+        }
     }
     private void ShowEmoji()
     {

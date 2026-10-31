@@ -31,6 +31,7 @@ public sealed partial class MainWindow : Window
     private string? _composerPeer, _cachedDraftPeer;
     private string _cachedDraftText = "";
     private bool _cachedDraftDirty;
+    private long _cachedDraftRevision;
     private string _appearance = "", _peerQuery = "", _messageQuery = "", _addressText = "";
     private TextBox? _composer;
     private Button? _send;
@@ -190,7 +191,7 @@ public sealed partial class MainWindow : Window
 
     private void RenderPage()
     {
-        if (_composer is not null) { _cachedDraftPeer = _composerPeer; _cachedDraftText = _composer.Text; _cachedDraftDirty = _draftDirty; }
+        if (_composer is not null) { _cachedDraftPeer = _composerPeer; _cachedDraftText = _composer.Text; _cachedDraftDirty = _draftDirty; _cachedDraftRevision = _draftRevision; }
         _incomingBodies.Clear();
         ResetDwell();
         _page.Children.Clear();

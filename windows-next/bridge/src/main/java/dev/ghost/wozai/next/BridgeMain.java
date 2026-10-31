@@ -143,7 +143,7 @@ public final class BridgeMain implements AutoCloseable {
                     Object data = operation(op, args);
                     reply(requestId, true, data, null);
                     if (op.equals("quit")) { quit = true; close(); try { System.in.close(); } catch (IOException ignored) { } }
-                    else if (!Set.of("snapshot","messages","avatar","verification","qrImage","readQr","openPath","emoji").contains(op)) changed();
+                    else if (!Set.of("snapshot","messages","messageUpdates","avatar","verification","qrImage","readQr","openPath","emoji").contains(op)) changed();
                 } catch (Throwable failure) {
                     if (failure instanceof InterruptedException) Thread.currentThread().interrupt();
                     reply(requestId, false, null, catalog.error(failure));
@@ -155,7 +155,21 @@ public final class BridgeMain implements AutoCloseable {
     private Object operation(String op, JsonObject args) throws Exception {
         return switch (op) {
             case "snapshot" -> snapshot();
-            case "messages" -> messagePage(requireSelected(args), optional(args, "before"), args.has("limit") ? Math.toIntExact(number(args,"limit")) : 20);
+            case "messages" -> messagePage(requireSelected(args), optional(args, "before"), args.has("limit") ? Math.toIntExact(number(args,"limit")) : 20, optional(args, "query"));
+            case "messageUpdates" -> {
+                String peer = requireSelected(args);
+                JsonArray keys = array(args, "keys");
+                if (keys.size() > 128) throw new IOException("Too many message updates");
+                Set<String> requested = new HashSet<>();
+                for (JsonElement key : keys) requested.add(string(key));
+                List<Object> updates = new ArrayList<>();
+                for (DesktopStore.Message message : await(client.messages(peer))) {
+                    if (requested.contains(message.id() + ":" + message.outgoing())) updates.add(map(
+                            "id", message.id(), "outgoing", message.outgoing(), "status", message.status(),
+                            "attachment", message.attachment() == null ? null : attachmentMap(peer, message.attachment())));
+                }
+                yield updates;
+            }
             case "refresh" -> { await(client.refresh()); yield snapshot(); }
             case "quit" -> null;
             case "select" -> {
@@ -430,7 +444,16 @@ public final class BridgeMain implements AutoCloseable {
     }
 
     private Map<String,Object> messagePage(String peer,String before,int requested) throws Exception {
+        return messagePage(peer, before, requested, null);
+    }
+
+    private Map<String,Object> messagePage(String peer,String before,int requested,String query) throws Exception {
         List<DesktopStore.Message> all=await(client.messages(peer));
+        if (query != null && !query.isEmpty()) {
+            String needle = query.toLowerCase(Locale.ROOT);
+            all = all.stream().filter(message -> message.body().toLowerCase(Locale.ROOT).contains(needle)
+                    || message.attachment() != null && message.attachment().info.name.toLowerCase(Locale.ROOT).contains(needle)).toList();
+        }
         int end=all.size(), limit=Math.max(1,Math.min(20,requested));
         if(before!=null) { boolean found=false; for(int i=0;i<all.size();i++) if((all.get(i).id()+":"+all.get(i).outgoing()).equals(before)){end=i;found=true;break;} if(!found) throw new IOException("History cursor expired"); }
         List<Object> result=new ArrayList<>(); int bytes=0,index=end;

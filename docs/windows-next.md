@@ -8,6 +8,8 @@
 
 便携包解压后运行 `WoZaiNext\WindowsNext.exe`；.NET、Windows App SDK 和 Java 运行时随包携带。默认不监听或搜索，用户在「附近」中明确开启。关闭窗口会关闭自己的内核子进程。
 
+当前为未做 Authenticode 签名的实验便携包。源码版本与构建来源写入包内 `build-info.json`；它不替换现有正式版。
+
 ## 功能验收范围
 
 目标以当前 Windows 桌面版为边界：

@@ -87,6 +87,8 @@ try {
         try { $controls += @{name=$element.Current.Name;id=$element.Current.AutomationId;type=$element.Current.ControlType.ProgrammaticName} } catch { }
     }
     $controls | ConvertTo-Json -Depth 5 | Set-Content "$Output/automation.json" -Encoding UTF8
+    & "$PSScriptRoot/test-native-ui.ps1" -Package $Package -Output $Output -Window $window
+    if (Select-String -Path "$Output/startup.txt" -Pattern 'Unhandled:|Startup failed:' -Quiet) { throw 'Native window reported an unhandled runtime error' }
     @{kind='Actual WinUI 3 window on GitHub Windows runner';fixture='isolated seeded DesktopStore; not physical wireless acceptance';source=(git rev-parse HEAD);profileIsTemporary=$true;app=$exe;utc=[DateTime]::UtcNow.ToString('o')} | ConvertTo-Json | Set-Content "$Output/manifest.json" -Encoding UTF8
 } catch {
     if ($hwnd -ne 0 -and $null -ne $hwnd) { try { Capture 'failure' } catch { } }

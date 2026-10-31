@@ -56,7 +56,7 @@ public final class BridgeFixtures {
         try (DesktopStore store = new DesktopStore(profile)) {
             DesktopIdentity.load(profile.resolve("identity.properties"));
             store.peer(new DesktopStore.Peer(peer, "Long history fixture", DeviceIdentity.generate().publicKey(), ""));
-            for (int i = 0; i < 100; i++) text(store, peer, i + ":" + "\"\\\t".repeat(8000), 1000 + i, i % 2 == 0, i % 2 == 0 ? "delivered" : "received");
+            for (int i = 0; i < 100; i++) text(store, peer, (i == 0 ? "early-only-needle:" : i + ":") + "\"\\\t".repeat(8000), 1000 + i, i % 2 == 0, i % 2 == 0 ? "delivered" : "received");
         }
         return peer;
     }
