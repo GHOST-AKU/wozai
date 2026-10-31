@@ -42,7 +42,7 @@ public sealed partial class MainWindow
                 catch { /* A missing local file keeps its explicit retry/export controls. */ }
             });
         }
-        var controls = new VariableSizedWrapGrid { Orientation = Orientation.Horizontal, MaximumRowsOrColumns = 3 };
+        var controls = Row(5);
         void Action(string label, string action)
         {
             var button = Button(T(label), () => Run(async () =>
