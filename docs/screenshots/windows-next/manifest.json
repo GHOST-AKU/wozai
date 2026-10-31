@@ -1,0 +1,20 @@
+{
+  "kind": "Actual WinUI 3 window on GitHub Windows runner",
+  "source": "97a9cc39d377d9da4ddaf71c604a69b5093422a3",
+  "run": "https://github.com/GHOST-AKU/wozai/actions/runs/41191384984",
+  "fixture": "Isolated seeded DesktopStore. Not physical wireless acceptance.",
+  "capture": "GDI CopyFromScreen of DWM visible window bounds; original unedited PNGs",
+  "sha256": {
+    "conversations.png": "808b02574f615a9510b6481039ed15348dc2c6cbf5dc80a5c2f1e8e2ed1edc03",
+    "dark.png": "22d3758d32d4dc46c368d20ee991429dc07795bce30bdfcfbb3efe855e5d19a8",
+    "nearby.png": "4c57f24ac35ae88c5b9721eafcfb9eb66f76c0e0013bef09284efff2fbfbba45",
+    "settings.png": "ddc9b9a8110fc9ef837fee79804885e70e368de98d9db06a2983d528714f6326"
+  },
+  "packageSha256": "c5835e54ff89ff77d9aea3ec9ef239a9add0fbb87a98b56e3c22099db9bfc1a2",
+  "verification": {
+    "bridgeChecks": 241,
+    "csharpTransportTests": 19,
+    "nativeBluetoothLifecycleTests": 1,
+    "nativeUiAddressConsentEncryptedSendReceiveAndDraftNavigation": "passed"
+  }
+}

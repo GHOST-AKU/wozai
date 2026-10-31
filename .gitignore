@@ -9,6 +9,9 @@ app/build/
 *.p12
 *.pfx
 .signing/
+windows-next/**/bin/
+windows-next/**/obj/
+windows-next/**/TestResults/
 *.apk
 *.aab
 __pycache__/
