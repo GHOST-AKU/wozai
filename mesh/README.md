@@ -7,7 +7,7 @@
 ```sh
 cargo build --manifest-path mesh/Cargo.toml --locked --release
 cargo test --manifest-path mesh/Cargo.toml --locked
-python3 -m unittest discover -s mesh/tests -p 'test_lab.py' -v
+python3 -m unittest discover -s mesh/tests -p 'test_*.py' -v
 python3 -m unittest discover -s mesh/android-probe/tests -v
 ```
 
@@ -54,3 +54,15 @@ Linux 需要 `ip`、`mount`、`unshare`、`sysctl` 及可用的 user/network/mou
 文档： [系统调研](../docs/mesh/research.md)、[移动传输](../docs/mesh/mobile-transports.md)、[ADR](../docs/mesh/adr-001.md)、[协议](../docs/mesh/protocol.md)、[硬件计划/原生探针](../docs/mesh/hardware-validation.md)、[验证与测量](../docs/mesh/validation.md)。
 
 当前实际数据适配只有 TCP。BLE/Wi-Fi Direct/Aware/Classic 与 Apple 数据路径、FFI、后台常驻、可靠 DTN、端到端加密私聊都没有实现。原生探针只观察能力/回调，不能代替真实无线 A–B–C 验收。
+
+
+本轮自审修复、补强验收及同负载性能对照见 [2026-11-01 报告](../docs/mesh/review-2026-11-01.md)。可复现手动 TCP 进程基准（独立 user/net namespace，未使用无线）：
+
+```sh
+python3 mesh/tools/bench.py --binary "$PWD/mesh/target/release/mesh-lab" --output mesh/target/bench.json
+python3 mesh/tools/evidence.py --build-profile release --output mesh/target/source-manifest.json
+```
+
+基准为每种负载三次独立试验，分别比较无消息与保留 28 条缓存后的静默 CPU、5/2048 bytes 消息延迟及主进程 RSS/PSS。它不是吞吐、手机功耗或无线验收。要做前后对照，应对旧版构建和新版二进制使用同一份 bench.py；本轮复用了已保存且摘要匹配的旧 release，没有重新构建旧版。
+
+安全导出工具现在对事件、字段、类型和 token 格式使用白名单，并将原始输出限制为每行 8 KiB、总计 1 MiB；采集控制端在 Linux/POSIX 验证。普通 lab stdout 仍含公开正文/身份路径，分享时只用 diagnostics 或脱敏证据。

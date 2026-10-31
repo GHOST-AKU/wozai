@@ -54,3 +54,10 @@ python3 mesh/tools/android-capture.py --serial DEVICE --mode ble --seconds 15 > 
 ## Apple 后续
 
 优先 Swift 原生 Network.framework + Bonjour/P2P 或受支持设备的 Wi-Fi Aware；CoreBluetooth 为另一个独立 adapter。需逐系统版本测 iOS 前后台暂停、重新发现/连接、权限与 entitlements，并单独验证 Android 互通。MPC session 的使用或平台宣称 P2P 不构成移动跨平台 Mesh 证据。
+
+
+## 2026-11-01 工具审查补充
+
+原生 Java/DEX 源码未变，复用先前编译证据；本轮只改控制机的 Python 采集/验收工具，没有生成或安装 APK。采集输出按当前 probe 的事件/字段/类型白名单校验，拒绝 schema=true、原始 MAC/SSID、未知字段、嵌套值和异常 token；原始 adb stdout 采用 8 KiB 行与 1 MiB 总量硬上限，并在超时/超限后终止、回收本次采集进程。控制端在 Linux/POSIX 验证；不声明 Windows pipe 路径已验证。
+
+每次运行的 token 只用于减少直接标识暴露，不保证不可逆匿名化：公开 session salt 仍可能被用于猜测低熵标识。不要把 token 当作秘密或加密。真实设备与 radio 数据路径状态仍为 hardware validation pending。

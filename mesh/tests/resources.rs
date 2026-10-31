@@ -1,5 +1,5 @@
 use nearby_mesh::{
-    protocol::MAX_FRAME,
+    protocol::{Envelope, Identity, MAX_FRAME, Packet},
     store::Store,
     transport::{Link, MAX_TX_QUEUE, Wire},
 };
@@ -151,4 +151,117 @@ fn complete_frames_before_peer_eof_are_not_discarded() {
     remote.shutdown(std::net::Shutdown::Write).unwrap();
     assert_eq!(link.read().unwrap().len(), 1);
     assert!(link.read().is_err());
+}
+
+fn outgoing_data(body: &str, expires_after: u64) -> (Wire, String) {
+    let identity = Identity::from_seed([23; 32]);
+    let message = Envelope::new(&identity, body, 1000, expires_after, 3).unwrap();
+    let id = message.id.clone();
+    (
+        Wire::Data {
+            packet: Packet {
+                message,
+                route: vec![],
+            },
+        },
+        id,
+    )
+}
+
+#[test]
+fn relay_revocation_reports_unsent_ids_for_retry_on_the_same_connection() {
+    let (mut link, _remote) = pair();
+    let (wire, id) = outgoing_data("relay cancellation", 100);
+    link.queue(&wire, Some(id.clone()), 1100, true).unwrap();
+    assert_eq!(link.pending_ids(), vec![id.clone()]);
+
+    assert!(link.write(1000, false).unwrap().is_empty());
+    assert!(link.pending_ids().is_empty());
+    assert_eq!(link.take_cancelled(), vec![id.clone()]);
+    assert!(link.take_cancelled().is_empty());
+    assert_eq!(link.bytes_tx, 0);
+
+    link.queue(&wire, Some(id.clone()), 1100, true).unwrap();
+    assert_eq!(link.write(1000, true).unwrap(), vec![id]);
+    assert!(link.take_cancelled().is_empty());
+    assert!(link.pending_ids().is_empty());
+}
+
+#[test]
+fn queued_frames_expire_using_the_effective_clock_after_wall_clock_rollback() {
+    use nearby_mesh::core::{Core, Limits};
+    let (mut link, _remote) = pair();
+    let (wire, id) = outgoing_data("expired before rollback", 100);
+    link.queue(&wire, Some(id.clone()), 1100, false).unwrap();
+    let mut core = Core::new(
+        Identity::from_seed([23; 32]).key(),
+        false,
+        Limits::default(),
+    );
+    core.tick(1101);
+    core.tick(900);
+
+    assert!(link.write(core.clock_floor(), false).unwrap().is_empty());
+    assert_eq!(link.take_cancelled(), vec![id]);
+    assert!(link.pending_ids().is_empty());
+    assert_eq!(link.bytes_tx, 0);
+}
+
+#[test]
+fn cancellation_notifications_remain_bounded_until_drained() {
+    let (mut link, _remote) = pair();
+    let (wire, id) = outgoing_data("bounded cancellation", 100);
+    for _ in 0..MAX_TX_QUEUE {
+        link.queue(&wire, Some(id.clone()), 1100, true).unwrap();
+    }
+    assert!(link.write(1000, false).unwrap().is_empty());
+    for _ in 0..MAX_TX_QUEUE {
+        link.queue(&wire, Some(id.clone()), 1100, true).unwrap();
+    }
+    assert!(link.write(1000, false).is_err());
+    assert_eq!(link.pending_ids().len(), MAX_TX_QUEUE);
+    assert_eq!(link.take_cancelled(), vec![id.clone(); MAX_TX_QUEUE]);
+    assert!(link.write(1000, false).unwrap().is_empty());
+    assert_eq!(link.take_cancelled(), vec![id; MAX_TX_QUEUE]);
+}
+
+#[cfg(unix)]
+#[test]
+fn revoking_a_partially_written_frame_requires_closing_the_link() {
+    use std::{io::Read, os::fd::AsRawFd};
+    let (mut link, mut remote) = pair();
+    let send_buffer: libc::c_int = 1024 * 1024;
+    assert_eq!(
+        unsafe {
+            libc::setsockopt(
+                link.stream.as_raw_fd(),
+                libc::SOL_SOCKET,
+                libc::SO_SNDBUF,
+                (&send_buffer as *const libc::c_int).cast(),
+                std::mem::size_of_val(&send_buffer) as libc::socklen_t,
+            )
+        },
+        0
+    );
+    let (wire, id) = outgoing_data(&"\0".repeat(2048), 100);
+    for _ in 0..MAX_TX_QUEUE {
+        link.queue(&wire, Some(id.clone()), 1100, true).unwrap();
+    }
+    let handed = link.write(1000, true).unwrap();
+    assert!(!handed.is_empty());
+    assert_eq!(link.bytes_tx, 65536);
+    assert_eq!(
+        link.write(1000, false).unwrap_err().to_string(),
+        "partial_frame_cancelled"
+    );
+    assert!(!link.pending_ids().is_empty());
+    assert!(link.take_cancelled().is_empty());
+
+    drop(link);
+    remote
+        .set_read_timeout(Some(Duration::from_secs(2)))
+        .unwrap();
+    let mut bytes = Vec::new();
+    remote.read_to_end(&mut bytes).unwrap();
+    assert_eq!(bytes.len(), 65536);
 }

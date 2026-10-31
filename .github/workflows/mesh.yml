@@ -33,7 +33,7 @@ jobs:
         env:
           MESH_BINARY: ${{ github.workspace }}/mesh/target/release/mesh-lab
         run: |
-          python3 -m unittest discover -s mesh/tests -p test_lab.py -v
+          python3 -m unittest discover -s mesh/tests -p 'test_*.py' -v
           python3 -m unittest discover -s mesh/android-probe/tests -v
       - name: Isolated TCP topology; never a wireless acceptance claim
         env:

@@ -74,6 +74,12 @@ fn diagnostic(
         "limits":{"connections":8,"candidates":16,"seen":1024,"pending":64,"tx_per_link":8,"frame_bytes":32768},
         "delivery":"best_effort_no_global_ack","public_plaintext":true,"hardware_validation":"pending"})
 }
+fn send_budget(command: &Value, field: &str, default: u64) -> protocol::Check<u64> {
+    match command.get(field) {
+        None => Ok(default),
+        Some(value) => value.as_u64().ok_or("budget_type"),
+    }
+}
 fn command_rx() -> mpsc::Receiver<Value> {
     let (tx, rx) = mpsc::sync_channel(16);
     thread::spawn(move || {
@@ -106,14 +112,21 @@ fn command_rx() -> mpsc::Receiver<Value> {
     });
     rx
 }
+enum Ingress {
+    None,
+    Message {
+        id: String,
+        body: String,
+        path: Vec<String>,
+    },
+}
 fn process_wire(
     wire: Wire,
     link: &mut Link,
     identity: &Identity,
     core: &mut Core,
-    store: &Store,
     counters: &mut Counters,
-) -> Result<()> {
+) -> Result<Ingress> {
     let key = identity.key();
     match wire {
         Wire::Hello {
@@ -162,9 +175,7 @@ fn process_wire(
             let path = packet.path();
             match core.receive(packet, peer, now()) {
                 Ok(true) => {
-                    store.checkpoint(core)?;
-                    counters.received += 1;
-                    emit(json!({"event":"message","id":id,"body":body,"path":path}));
+                    return Ok(Ingress::Message { id, body, path });
                 }
                 Ok(false) => {
                     counters.duplicates += 1;
@@ -182,7 +193,32 @@ fn process_wire(
             }
         }
     }
-    Ok(())
+    Ok(Ingress::None)
+}
+fn write_link(link: &mut Link, core: &mut Core, wall_time: u64) -> Result<Vec<String>> {
+    let time = core.observe_time(wall_time);
+    link.write(time, core.relay)
+}
+fn prune_duplicate_links(links: &[Link], key: &str, dead: &mut BTreeSet<usize>) {
+    for i in 0..links.len() {
+        if dead.contains(&i) || !links[i].auth_sent {
+            continue;
+        }
+        let Some(peer) = links[i].peer.as_ref() else {
+            continue;
+        };
+        for j in 0..i {
+            if !dead.contains(&j) && links[j].auth_sent && links[j].peer.as_ref() == Some(peer) {
+                let prefer_outbound = key < peer.as_str();
+                if links[i].outbound == prefer_outbound && links[j].outbound != prefer_outbound {
+                    dead.insert(j);
+                } else {
+                    dead.insert(i);
+                    break;
+                }
+            }
+        }
+    }
 }
 fn run(
     state: PathBuf,
@@ -253,12 +289,12 @@ fn run(
                 }
                 "send" => {
                     let text = command.get("text").and_then(Value::as_str).unwrap_or("");
-                    let ttl = command.get("ttl").and_then(Value::as_u64).unwrap_or(600);
-                    let hops = command.get("hops").and_then(Value::as_u64).unwrap_or(3);
-                    let result = if hops > 255 {
-                        Err("hop_bound")
-                    } else {
-                        core.originate(&identity, text, now(), ttl, hops as u8)
+                    let budgets = send_budget(&command, "ttl", 600)
+                        .and_then(|ttl| send_budget(&command, "hops", 3).map(|hops| (ttl, hops)));
+                    let result = match budgets {
+                        Ok((_, hops)) if hops > 255 => Err("hop_bound"),
+                        Ok((ttl, hops)) => core.originate(&identity, text, now(), ttl, hops as u8),
+                        Err(reason) => Err(reason),
                     };
                     match result {
                         Ok(id) => {
@@ -360,16 +396,19 @@ fn run(
             match link.read() {
                 Ok(frames) => {
                     for wire in frames {
-                        if let Err(error) =
-                            process_wire(wire, link, &identity, &mut core, &store, &mut counters)
-                        {
-                            // A disk failure must not turn accepted-but-unpersisted messages into a replay window.
-                            if error.downcast_ref::<io::Error>().is_some() {
-                                return Err(error);
+                        match process_wire(wire, link, &identity, &mut core, &mut counters) {
+                            Ok(Ingress::Message { id, body, path }) => {
+                                // All local durability failures are fatal before display or forwarding.
+                                store.checkpoint(&core)?;
+                                counters.received += 1;
+                                emit(json!({"event":"message","id":id,"body":body,"path":path}));
                             }
-                            counters.rejected += 1;
-                            dead.insert(i);
-                            break;
+                            Ok(Ingress::None) => {}
+                            Err(_) => {
+                                counters.rejected += 1;
+                                dead.insert(i);
+                                break;
+                            }
                         }
                     }
                 }
@@ -386,27 +425,7 @@ fn run(
                 }
             }
         }
-        // Both ends choose the same direction when simultaneous dials create two links.
-        for i in 0..links.len() {
-            if !links[i].auth_sent {
-                continue;
-            }
-            let Some(peer) = links[i].peer.as_ref() else {
-                continue;
-            };
-            for j in 0..i {
-                if !dead.contains(&j) && links[j].auth_sent && links[j].peer.as_ref() == Some(peer)
-                {
-                    let prefer_outbound = key < *peer;
-                    if links[i].outbound == prefer_outbound && links[j].outbound != prefer_outbound
-                    {
-                        dead.insert(j);
-                    } else {
-                        dead.insert(i);
-                    }
-                }
-            }
-        }
+        prune_duplicate_links(&links, &key, &mut dead);
         for (i, link) in links.iter_mut().enumerate() {
             if dead.contains(&i) {
                 continue;
@@ -430,7 +449,14 @@ fn run(
                 }
             }
             counters.peak_tx = counters.peak_tx.max(link.tx.len());
-            match link.write(now(), core.relay) {
+            let written = write_link(link, &mut core, now());
+            let cancelled = link.take_cancelled();
+            if let Some(peer) = link.peer.as_ref() {
+                for id in cancelled {
+                    core.cancel_offer(&id, peer);
+                }
+            }
+            match written {
                 Ok(handed) => {
                     for id in handed {
                         counters.handed += 1;
@@ -446,6 +472,11 @@ fn run(
         }
         for i in dead.into_iter().rev() {
             let link = links.remove(i);
+            if let Some(peer) = link.peer.as_ref() {
+                for id in link.pending_ids() {
+                    core.cancel_offer(&id, peer);
+                }
+            }
             counters.bytes_rx += link.bytes_rx;
             counters.bytes_tx += link.bytes_tx;
         }
@@ -523,5 +554,72 @@ fn main() -> Result<()> {
         }
         "run" => run(state, listen, peers, relay, discover),
         _ => bail!("unknown command"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn link(outbound: bool) -> (Link, TcpStream) {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let client = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (stream, _) = listener.accept().unwrap();
+        let mut link = Link::new(stream, outbound, protocol::nonce()).unwrap();
+        link.authenticated = true;
+        link.auth_sent = true;
+        link.peer = Some("ff".repeat(32));
+        (link, client)
+    }
+    #[test]
+    fn full_tx_queue_observes_fresh_time_and_cannot_revive_after_rollback() {
+        let a = Identity::from_seed([1; 32]);
+        let b = Identity::from_seed([2; 32]);
+        let mut core = Core::new(a.key(), false, Limits::default());
+        let id = core.originate(&a, "expires", 1000, 1, 3).unwrap();
+        let packet = core.next_for(&a, &b.key(), 1000).unwrap();
+        let (mut link, _remote) = link(true);
+        for _ in 0..MAX_TX_QUEUE {
+            link.queue(
+                &Wire::Data {
+                    packet: packet.clone(),
+                },
+                Some(id.clone()),
+                1001,
+                false,
+            )
+            .unwrap();
+        }
+        assert!(write_link(&mut link, &mut core, 1002).unwrap().is_empty());
+        for cancelled in link.take_cancelled() {
+            core.cancel_offer(&cancelled, &b.key());
+        }
+        assert_eq!(core.clock_floor(), 1002);
+        assert!(core.next_for(&a, &b.key(), 1000).is_none());
+    }
+    #[test]
+    fn malformed_optional_send_budgets_do_not_become_defaults() {
+        for value in [
+            json!(-1),
+            json!(1.5),
+            json!(true),
+            json!("30"),
+            Value::Null,
+            json!([]),
+        ] {
+            let command = json!({"ttl":value,"hops":value});
+            assert!(send_budget(&command, "ttl", 600).is_err());
+            assert!(send_budget(&command, "hops", 3).is_err());
+        }
+        assert_eq!(send_budget(&json!({}), "ttl", 600), Ok(600));
+        assert_eq!(send_budget(&json!({"ttl":30}), "ttl", 600), Ok(30));
+    }
+    #[test]
+    fn dead_preferred_link_cannot_remove_healthy_neighbor_connection() {
+        let (healthy, _one) = link(false);
+        let (dead_preferred, _two) = link(true);
+        let links = vec![healthy, dead_preferred];
+        let mut dead = BTreeSet::from([1]);
+        prune_duplicate_links(&links, &"00".repeat(32), &mut dead);
+        assert_eq!(dead, BTreeSet::from([1]));
     }
 }

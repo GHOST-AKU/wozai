@@ -48,6 +48,7 @@ pub struct Link {
     expected: Option<usize>,
     closed: bool,
     pub tx: VecDeque<Outbound>,
+    cancelled: Vec<String>,
     pub born: Instant,
     pub last_rx: Instant,
     pub last_ping: Instant,
@@ -74,6 +75,7 @@ impl Link {
             expected: None,
             closed: false,
             tx: VecDeque::new(),
+            cancelled: Vec::new(),
             born: Instant::now(),
             last_rx: Instant::now(),
             last_ping: Instant::now(),
@@ -180,7 +182,12 @@ impl Link {
                 if front.offset > 0 {
                     bail!("partial_frame_cancelled");
                 }
-                self.tx.pop_front();
+                if self.cancelled.len() >= MAX_TX_QUEUE {
+                    bail!("cancelled_queue_full");
+                }
+                if let Some(id) = self.tx.pop_front().and_then(|frame| frame.id) {
+                    self.cancelled.push(id);
+                }
                 continue;
             }
             let size = (front.bytes.len() - front.offset).min(budget);
@@ -213,6 +220,17 @@ impl Link {
             }
         }
         Ok(handed)
+    }
+    /// Drain after every write, including failures, to release unsent core offers.
+    pub fn take_cancelled(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.cancelled)
+    }
+    /// IDs still owned by this connection must be released when the link is dropped.
+    pub fn pending_ids(&self) -> Vec<String> {
+        self.tx
+            .iter()
+            .filter_map(|frame| frame.id.clone())
+            .collect()
     }
     pub fn timed_out(&self) -> bool {
         ((!self.authenticated || !self.auth_sent) && self.born.elapsed() > Duration::from_secs(3))

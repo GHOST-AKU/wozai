@@ -2,10 +2,10 @@
 import json
 import os
 from pathlib import Path
-import queue
 import socket
 import struct
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -20,24 +20,66 @@ class Node:
         if relay: args += ['--relay']
         if discover: args += ['--discover']
         self.p = subprocess.Popen(args,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,bufsize=1)
-        self.events=[]; self.q=queue.Queue()
+        self.events=[]; self._pending=[]; self._condition=threading.Condition()
+        self._reader_error=None; self._output_closed=False
         def reader():
-            for line in self.p.stdout:
-                event=json.loads(line); self.events.append(event); self.q.put(event)
+            try:
+                for line in self.p.stdout:
+                    event=json.loads(line)
+                    with self._condition:
+                        self._pending.append((len(self.events),event))
+                        self.events.append(event); self._condition.notify_all()
+            except (ValueError,OSError) as error:
+                with self._condition:
+                    self._reader_error=str(error)
+            finally:
+                with self._condition:
+                    self._output_closed=True; self._condition.notify_all()
         self.thread=threading.Thread(target=reader,daemon=True); self.thread.start()
         self.ready=self.wait('ready'); self.address=self.ready['address']; self.key=self.ready['key']
     def command(self,cmd,**kw):
         self.p.stdin.write(json.dumps(dict(cmd=cmd,**kw))+'\n'); self.p.stdin.flush()
-    def wait(self,event,timeout=8,predicate=lambda e:True):
+    def _check_reader(self):
+        if self._reader_error is not None:
+            raise AssertionError(f'invalid node output: {self._reader_error}')
+        if self.p.poll() is not None:
+            raise AssertionError(f'node exited {self.p.returncode}: {self.p.stderr.read()}')
+        if self._output_closed:
+            raise AssertionError('node stdout closed before the expected event')
+    def mark(self):
+        with self._condition: return len(self.events)
+    def snapshot(self):
+        with self._condition: return list(self.events)
+    def wait(self,event,timeout=8,predicate=lambda e:True,after=0):
         end=time.monotonic()+timeout
-        while time.monotonic()<end:
-            try: e=self.q.get(timeout=min(.2,max(.01,end-time.monotonic())))
-            except queue.Empty:
-                if self.p.poll() is not None:
-                    raise AssertionError(f'node exited {self.p.returncode}: {self.p.stderr.read()}')
-                continue
-            if e.get('event')==event and predicate(e): return e
-        raise AssertionError(f'missing {event}: {self.events[-8:]}')
+        with self._condition:
+            while True:
+                for index,(sequence,item) in enumerate(self._pending):
+                    if sequence>=after and item.get('event')==event and predicate(item):
+                        self._pending.pop(index); return item
+                self._check_reader()
+                remaining=end-time.monotonic()
+                if remaining<=0:
+                    raise AssertionError(f'missing {event}: {self.events[-8:]}')
+                self._condition.wait(min(.2,remaining))
+    def assert_absent(self,event,timeout=.2,predicate=lambda e:True,after=0):
+        """Observe the full interval, including matching history, without consuming events."""
+        end=time.monotonic()+timeout
+        with self._condition:
+            cursor=after
+            while True:
+                for item in self.events[cursor:]:
+                    if item.get('event')==event and predicate(item):
+                        raise AssertionError(f'unexpected {event}: {item}')
+                cursor=len(self.events)
+                self._check_reader()
+                remaining=end-time.monotonic()
+                if remaining<=0: return
+                self._condition.wait(min(.2,remaining))
+    def barrier(self,timeout=8):
+        """Read through a fresh status response; this does not acknowledge network delivery."""
+        after=self.mark(); self.command('status')
+        return self.wait('status',timeout=timeout,after=after)
     def close(self):
         if self.p.poll() is None:
             self.command('quit')
@@ -45,6 +87,49 @@ class Node:
             except subprocess.TimeoutExpired: self.p.kill(); self.p.wait()
         self.thread.join(timeout=1)
         self.p.stdin.close(); self.p.stdout.close(); self.p.stderr.close()
+
+class EventWaitTests(unittest.TestCase):
+    """The driver must retain interleaved evidence instead of losing it in wait()."""
+    SCRIPT = '''import json, sys, time
+def emit(event, **fields):
+    print(json.dumps(dict(event=event, **fields)), flush=True)
+emit('ready', address='127.0.0.1:0', key='fixture')
+for line in sys.stdin:
+    command = json.loads(line)['cmd']
+    if command == 'quit': break
+    if command == 'interleave':
+        emit('duplicate', id='replay')
+        emit('status', phase='stale')
+        emit('message', id='payload')
+    if command == 'status': emit('status', phase='fresh')
+    if command == 'delayed':
+        time.sleep(.05)
+        emit('message', id='delayed')
+'''
+    def setUp(self):
+        self.temp=tempfile.TemporaryDirectory()
+        self.node=Node(Path(self.temp.name),prefix=[sys.executable,'-u','-c',self.SCRIPT])
+    def tearDown(self):
+        self.node.close(); self.temp.cleanup()
+    def test_wait_preserves_an_unrelated_earlier_event(self):
+        self.node.command('interleave')
+        self.assertEqual(self.node.wait('message')['id'],'payload')
+        self.assertEqual(self.node.wait('duplicate',timeout=.2)['id'],'replay')
+    def test_timeout_preserves_unmatched_evidence(self):
+        self.node.command('interleave')
+        with self.assertRaisesRegex(AssertionError,'missing absent'):
+            self.node.wait('absent',timeout=.1)
+        self.assertEqual(self.node.wait('message')['id'],'payload')
+        self.assertEqual(self.node.wait('duplicate')['id'],'replay')
+    def test_absence_observes_delayed_events_without_consuming_them(self):
+        self.node.command('delayed')
+        with self.assertRaisesRegex(AssertionError,'unexpected message'):
+            self.node.assert_absent('message',timeout=.5)
+        self.assertEqual(self.node.wait('message')['id'],'delayed')
+    def test_barrier_requires_a_fresh_response_and_preserves_older_status(self):
+        self.node.command('interleave'); self.node.wait('message')
+        self.assertEqual(self.node.barrier()['phase'],'fresh')
+        self.assertEqual(self.node.wait('status')['phase'],'stale')
 
 class RuntimeTests(unittest.TestCase):
     def setUp(self): self.temp=tempfile.TemporaryDirectory(); self.nodes=[]
@@ -58,37 +143,51 @@ class RuntimeTests(unittest.TestCase):
         a.wait('neighbor_up'); c.wait('neighbor_up')
         a.command('send',text='A to C'); mid=a.wait('queued')['id']
         got=c.wait('message'); self.assertEqual(got['id'],mid); self.assertEqual(got['path'],[a.key,b.key,c.key])
-        c.command('send',text='C to A'); a.wait('message')
+        c.command('send',text='C to A'); reverse=c.wait('queued')['id']
+        self.assertEqual(a.wait('message',predicate=lambda e:e['id']==reverse)['path'],[c.key,b.key,a.key])
         b.command('relay',enabled=False); b.wait('relay')
         a.command('send',text='blocked',ttl=1); blocked=a.wait('queued')['id']
+        b.wait('message',predicate=lambda e:e['id']==blocked)
+        c.assert_absent('message',timeout=1.2,predicate=lambda e:e['id']==blocked)
         a.wait('expired',predicate=lambda e:e['id']==blocked)
-        self.assertFalse(any(e.get('event')=='message' and e.get('id')==blocked for e in c.events))
+        c.barrier(); c.assert_absent('message',timeout=0,predicate=lambda e:e['id']==blocked)
         b.command('diagnostics'); diag=b.wait('diagnostics')
         serialized=json.dumps(diag)
         for secret in ['A to C','C to A','blocked',a.key,b.key,c.key]: self.assertNotIn(secret,serialized)
         self.assertLessEqual(diag['pending'],64); self.assertLessEqual(diag['connections'],8)
     def test_reconnect_and_restart_preserve_identity_and_dedupe(self):
         b=self.node('b',relay=True); a=self.node('a',peers=[b.address]); a.wait('neighbor_up')
-        a.command('send',text='before restart'); a.wait('queued'); b.wait('message')
-        key=b.key; address=b.address; b.close(); a.wait('neighbor_down')
-        # The listener port is supplied explicitly to allow candidate reconnect.
-        args=[str(BINARY),'run','--state',str(Path(self.temp.name)/'b'),'--listen',address,'--relay']
-        probe=subprocess.run([str(BINARY),'keygen','--state',str(Path(self.temp.name)/'b')],text=True,capture_output=True,check=True)
-        self.assertEqual(json.loads(probe.stdout)['key'],key)
-        p=subprocess.Popen(args,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
-        try:
-            ready=json.loads(p.stdout.readline()); self.assertEqual(ready['key'],key)
-            a.wait('neighbor_up',timeout=10)
-            p.stdin.write('{"cmd":"status"}\n'); p.stdin.flush()
-            end=time.monotonic()+4
-            while time.monotonic()<end:
-                e=json.loads(p.stdout.readline())
-                self.assertNotEqual(e.get('event'),'message','unexpired replay displayed after restart')
-                if e.get('event')=='status':
-                    self.assertGreaterEqual(e['seen'],1); break
-        finally:
-            p.stdin.write('{"cmd":"quit"}\n'); p.stdin.flush(); p.wait(timeout=3)
-            p.stdin.close();p.stdout.close();p.stderr.close()
+        a.command('send',text='before restart',ttl=30); mid=a.wait('queued')['id']
+        b.wait('message',predicate=lambda e:e['id']==mid)
+        previous=b; key=b.key; address=b.address
+        disconnected=a.mark()
+        b.p.kill(); b.p.wait(timeout=3); b.thread.join(timeout=1)
+        a.wait('neighbor_down',after=disconnected,predicate=lambda e:e['peer']==key)
+        reconnected=a.mark()
+        # A still owns the unexpired packet and must really reoffer it after the crash.
+        b=self.node('b',relay=True,listen=address); self.assertEqual(b.key,key)
+        b.wait('failed_restart',predicate=lambda e:e['count']>=1)
+        a.wait('neighbor_up',timeout=10,after=reconnected,predicate=lambda e:e['peer']==key)
+        b.wait('duplicate',timeout=10,predicate=lambda e:e['id']==mid)
+        b.assert_absent('message',timeout=.2,predicate=lambda e:e['id']==mid)
+        self.assertGreaterEqual(b.barrier()['seen'],1)
+        messages=previous.snapshot()+b.snapshot()
+        self.assertEqual(sum(e.get('event')=='message' and e.get('id')==mid for e in messages),1)
+        a.command('send',text='after restart',ttl=30); fresh=a.wait('queued')['id']
+        b.wait('message',predicate=lambda e:e['id']==fresh)
+    def test_expired_partition_queue_is_not_reoffered_after_reconnect(self):
+        b=self.node('b'); a=self.node('a',peers=[b.address]); a.wait('neighbor_up')
+        key=b.key; address=b.address; disconnected=a.mark(); b.close()
+        a.wait('neighbor_down',after=disconnected,predicate=lambda e:e['peer']==key)
+        a.command('send',text='expires offline',ttl=1); mid=a.wait('queued')['id']
+        a.wait('expired',timeout=3,predicate=lambda e:e['id']==mid)
+        after=a.mark()
+        reconnected=a.mark(); b=self.node('b',listen=address); self.assertEqual(b.key,key)
+        a.wait('neighbor_up',timeout=10,after=reconnected,predicate=lambda e:e['peer']==key)
+        a.command('send',text='live control',ttl=30); live=a.wait('queued')['id']
+        b.wait('message',predicate=lambda e:e['id']==live)
+        b.assert_absent('message',timeout=.2,predicate=lambda e:e['id']==mid)
+        a.barrier(); a.assert_absent('hop_queued',timeout=0,after=after,predicate=lambda e:e['id']==mid)
     def test_malicious_frames_connection_and_control_bounds(self):
         b=self.node('b'); host,port=b.address.rsplit(':',1)
         for wire in [struct.pack('>I',32769),struct.pack('>I',0),struct.pack('>I',2)+b'{}',struct.pack('>I',1)+b'\xff']:
@@ -117,9 +216,15 @@ class RuntimeTests(unittest.TestCase):
         b.wait('neighbor_up'); c.wait('neighbor_up'); c.wait('neighbor_up')
         a.command('send',text='cyclic'); mid=a.wait('queued')['id']
         b.wait('message',predicate=lambda e:e['id']==mid); c.wait('message',predicate=lambda e:e['id']==mid)
-        b.wait('duplicate',predicate=lambda e:e['id']==mid)
+        # Whichever indirect copy arrives second is the duplicate; either relay may observe it.
+        end=time.monotonic()+8
+        while not any(e.get('event')=='duplicate' and e.get('id')==mid for n in [b,c] for e in n.snapshot()):
+            if time.monotonic()>=end:
+                self.fail(f'missing cyclic duplicate: B={b.snapshot()[-8:]}, C={c.snapshot()[-8:]}')
+            time.sleep(.01)
         for n in [a,b,c]:
-            self.assertLessEqual(sum(e.get('event')=='message' and e.get('id')==mid for e in n.events),1)
+            n.barrier()
+            self.assertEqual(sum(e.get('event')=='message' and e.get('id')==mid for e in n.snapshot()),0 if n is a else 1)
     def test_reset_during_connection_setup_does_not_stop_node(self):
         b=self.node('b'); host,port=b.address.rsplit(':',1)
         for _ in range(64):

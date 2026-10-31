@@ -29,6 +29,7 @@ pub struct Core {
     key: String,
     limits: Limits,
     pending: BTreeMap<String, Pending>,
+    expired: Vec<String>,
     origins: BTreeMap<String, usize>,
     window: u64,
     admitted: usize,
@@ -42,6 +43,7 @@ impl Core {
             key,
             limits,
             pending: BTreeMap::new(),
+            expired: Vec::new(),
             origins: BTreeMap::new(),
             window: 0,
             admitted: 0,
@@ -49,8 +51,12 @@ impl Core {
         }
     }
     fn admit(&mut self, packet: Packet, local: bool, now: u64) -> Check<bool> {
-        let now = now.max(self.high_water);
-        self.tick(now);
+        let now = self.observe_time(now);
+        self.refresh(now);
+        // Preserve expiry events for tick without allowing notifications to grow unbounded.
+        let available = self.limits.pending.saturating_sub(self.expired.len());
+        let expired = self.expire_pending(now, available);
+        self.expired.extend(expired);
         let id = &packet.message.id;
         if self.seen.contains_key(id) {
             return Ok(false);
@@ -58,7 +64,7 @@ impl Core {
         if self.seen.len() >= self.limits.seen {
             return Err("seen_full");
         }
-        let keep = local || self.relay;
+        let keep = local || (self.relay && packet.route.len() < packet.message.max_hops as usize);
         if keep && self.pending.len() >= self.limits.pending {
             return Err("queue_full");
         }
@@ -93,7 +99,8 @@ impl Core {
         Ok(true)
     }
     pub fn receive(&mut self, packet: Packet, neighbor: &str, now: u64) -> Check<bool> {
-        packet.validate(&self.key, neighbor, now.max(self.high_water))?;
+        let now = self.observe_time(now);
+        packet.validate(&self.key, neighbor, now)?;
         self.admit(packet, false, now)
     }
     pub fn originate(
@@ -104,10 +111,11 @@ impl Core {
         ttl: u64,
         hops: u8,
     ) -> Check<String> {
+        let now = self.observe_time(now);
         if identity.key() != self.key {
             return Err("local_identity");
         }
-        let message = Envelope::new(identity, body, now.max(self.high_water), ttl, hops)?;
+        let message = Envelope::new(identity, body, now, ttl, hops)?;
         let id = message.id.clone();
         self.admit(
             Packet {
@@ -120,8 +128,9 @@ impl Core {
         Ok(id)
     }
     pub fn next_for(&mut self, identity: &Identity, to: &str, now: u64) -> Option<Packet> {
+        let now = self.observe_time(now);
         for pending in self.pending.values_mut() {
-            if pending.packet.message.expires <= now.max(self.high_water)
+            if pending.packet.message.expires <= now
                 || (!pending.local && !self.relay)
                 || pending.offered.contains(to)
             {
@@ -132,6 +141,11 @@ impl Core {
             {
                 continue;
             }
+            if pending.packet.message.origin == to
+                || pending.packet.route.iter().any(|hop| hop.to == to)
+            {
+                continue;
+            }
             if let Ok(packet) = pending.packet.append(identity, to) {
                 *pending.attempts.entry(to.into()).or_default() += 1;
                 pending.offered.insert(to.into());
@@ -139,6 +153,11 @@ impl Core {
             }
         }
         None
+    }
+    pub fn cancel_offer(&mut self, id: &str, peer: &str) {
+        if let Some(pending) = self.pending.get_mut(id) {
+            pending.offered.remove(peer);
+        }
     }
     pub fn disconnected(&mut self, peer: &str) {
         for pending in self.pending.values_mut() {
@@ -151,24 +170,38 @@ impl Core {
     pub fn pending_len(&self) -> usize {
         self.pending.len()
     }
-    pub fn tick(&mut self, now: u64) -> Vec<String> {
+    /// Observe a trusted host clock sample without consuming expiry notifications.
+    pub fn observe_time(&mut self, now: u64) -> u64 {
         self.high_water = self.high_water.max(now);
-        let now = self.high_water;
+        self.high_water
+    }
+    fn refresh(&mut self, now: u64) {
         self.seen.retain(|_, expires| *expires > now);
-        let expired: Vec<_> = self
-            .pending
-            .iter()
-            .filter(|(_, p)| p.packet.message.expires <= now)
-            .map(|(id, _)| id.clone())
-            .collect();
-        for id in &expired {
-            self.pending.remove(id);
-        }
         if self.window != now / 60 {
             self.window = now / 60;
             self.origins.clear();
             self.admitted = 0;
         }
+    }
+    fn expire_pending(&mut self, now: u64, limit: usize) -> Vec<String> {
+        let expired: Vec<_> = self
+            .pending
+            .iter()
+            .filter(|(_, p)| p.packet.message.expires <= now)
+            .take(limit)
+            .map(|(id, _)| id.clone())
+            .collect();
+        for id in &expired {
+            self.pending.remove(id);
+        }
+        expired
+    }
+    pub fn tick(&mut self, now: u64) -> Vec<String> {
+        let now = self.observe_time(now);
+        self.refresh(now);
+        let mut expired = std::mem::take(&mut self.expired);
+        expired.extend(self.expire_pending(now, self.limits.pending));
+        expired.sort_unstable();
         expired
     }
     pub fn restore_seen(&mut self, seen: BTreeMap<String, u64>, now: u64) -> Check<()> {
@@ -182,7 +215,8 @@ impl Core {
             }
         }
         self.seen = seen;
-        self.tick(now);
+        let now = self.observe_time(now);
+        self.refresh(now);
         Ok(())
     }
 }

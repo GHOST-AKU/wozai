@@ -235,3 +235,139 @@ fn backwards_clock_does_not_revive_expired_message() {
     core.tick(1600);
     assert_eq!(core.receive(p, &a.key(), 1000), Err("expired"));
 }
+
+#[test]
+fn exhausted_received_routes_do_not_block_forward_queue_or_local_messages() {
+    let (a, b, c, _) = ids();
+    let mut core = Core::new(
+        b.key(),
+        true,
+        Limits {
+            pending: 1,
+            ..Limits::default()
+        },
+    );
+    let terminal = message(&a, 1).append(&a, &b.key()).unwrap();
+    assert!(core.receive(terminal.clone(), &a.key(), 1001).unwrap());
+    assert!(!core.receive(terminal, &a.key(), 1001).unwrap());
+    assert!(core.next_for(&b, &c.key(), 1001).is_none());
+    let local = core.originate(&b, "local remains available", 1001, 600, 3);
+    assert!(
+        local.is_ok(),
+        "terminal receipt consumed forwarding capacity: {local:?}"
+    );
+    assert_eq!(core.pending_len(), 1);
+    assert_eq!(core.seen.len(), 2);
+    let forwarded = core.next_for(&b, &c.key(), 1001).unwrap();
+    assert_eq!(forwarded.message.id, local.unwrap());
+    assert!(forwarded.validate(&c.key(), &b.key(), 1001).is_ok());
+}
+
+#[test]
+fn relay_skips_visited_neighbors_and_keeps_valid_successors() {
+    let (a, b, c, d) = ids();
+    let mut core = Core::new(c.key(), true, Limits::default());
+    let received = message(&a, 3)
+        .append(&a, &b.key())
+        .unwrap()
+        .append(&b, &c.key())
+        .unwrap();
+    assert!(core.receive(received, &b.key(), 1001).unwrap());
+    for visited in [&a, &b, &c] {
+        assert!(core.next_for(&c, &visited.key(), 1001).is_none());
+    }
+    let forwarded = core.next_for(&c, &d.key(), 1001).unwrap();
+    assert_eq!(forwarded.path(), vec![a.key(), b.key(), c.key(), d.key()]);
+    assert!(forwarded.validate(&d.key(), &c.key(), 1001).is_ok());
+}
+
+#[test]
+fn rejected_expired_receive_advances_clock_floor() {
+    let (a, b, _, _) = ids();
+    let mut core = Core::new(b.key(), false, Limits::default());
+    let packet = message(&a, 3).append(&a, &b.key()).unwrap();
+    core.tick(1599);
+    assert_eq!(core.receive(packet.clone(), &a.key(), 1600), Err("expired"));
+    assert_eq!(core.receive(packet, &a.key(), 1001), Err("expired"));
+    assert_eq!(core.clock_floor(), 1600);
+}
+
+#[test]
+fn skipped_expired_send_and_rejected_origination_advance_clock_floor() {
+    let (a, b, _, _) = ids();
+    let mut send = Core::new(a.key(), false, Limits::default());
+    send.originate(&a, "expires", 1000, 600, 3).unwrap();
+    send.tick(1599);
+    assert!(send.next_for(&a, &b.key(), 1600).is_none());
+    assert!(send.next_for(&a, &b.key(), 1001).is_none());
+    assert_eq!(send.clock_floor(), 1600);
+
+    let mut origin = Core::new(a.key(), false, Limits::default());
+    origin.originate(&a, "expires", 1000, 600, 3).unwrap();
+    assert_eq!(origin.originate(&a, "", 1600, 600, 3), Err("body_bound"));
+    assert!(origin.next_for(&a, &b.key(), 1001).is_none());
+    assert_eq!(origin.clock_floor(), 1600);
+}
+
+#[test]
+fn admission_preserves_expired_message_for_next_tick() {
+    let (a, _, _, _) = ids();
+    let mut core = Core::new(a.key(), false, Limits::default());
+    let expired = core.originate(&a, "first", 1000, 1, 3).unwrap();
+    core.originate(&a, "second", 1001, 600, 3).unwrap();
+    assert_eq!(core.pending_len(), 1);
+    assert_eq!(core.tick(1001), vec![expired]);
+    assert!(core.tick(1001).is_empty());
+}
+
+#[test]
+fn deferred_expiry_events_are_bounded_and_never_evicted() {
+    let (a, _, _, _) = ids();
+    let mut core = Core::new(
+        a.key(),
+        false,
+        Limits {
+            pending: 1,
+            ..Limits::default()
+        },
+    );
+    let first = core.originate(&a, "first", 1000, 1, 3).unwrap();
+    let second = core.originate(&a, "second", 1001, 1, 3).unwrap();
+    assert_eq!(core.originate(&a, "third", 1002, 600, 3), Err("queue_full"));
+    let mut expected = vec![first, second];
+    expected.sort();
+    assert_eq!(core.tick(1002), expected);
+    assert_eq!(core.pending_len(), 0);
+    assert!(
+        core.originate(&a, "after events drain", 1002, 600, 3)
+            .is_ok()
+    );
+    assert!(core.tick(1002).is_empty());
+}
+
+#[test]
+fn cancelling_one_offer_preserves_other_peers_and_retry_budget() {
+    let (a, b, c, _) = ids();
+    let mut core = Core::new(a.key(), false, Limits::default());
+    let id = core.originate(&a, "bounded retries", 1000, 600, 3).unwrap();
+    assert!(core.next_for(&a, &b.key(), 1001).is_some());
+    assert!(core.next_for(&a, &c.key(), 1001).is_some());
+    for _ in 0..2 {
+        core.cancel_offer(&id, &b.key());
+        assert!(core.next_for(&a, &b.key(), 1001).is_some());
+        assert!(core.next_for(&a, &c.key(), 1001).is_none());
+    }
+    core.cancel_offer(&id, &b.key());
+    assert!(core.next_for(&a, &b.key(), 1001).is_none());
+    assert!(core.next_for(&a, &c.key(), 1001).is_none());
+}
+
+#[test]
+fn restoring_seen_does_not_consume_pending_expiry_events() {
+    let (a, _, _, _) = ids();
+    let mut core = Core::new(a.key(), false, Limits::default());
+    let expired = core.originate(&a, "expires", 1000, 1, 3).unwrap();
+    core.originate(&a, "survives", 1001, 600, 3).unwrap();
+    core.restore_seen(core.seen.clone(), 1001).unwrap();
+    assert_eq!(core.tick(1001), vec![expired]);
+}
