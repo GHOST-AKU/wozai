@@ -77,7 +77,7 @@ public sealed partial class MainWindow
             })); folder.Margin = new Thickness(0, 0, 5, 5); controls.Children.Add(folder);
         }
         panel.Children.Add(controls);
-        if (!string.IsNullOrEmpty(attachment.Route)) panel.Children.Add(Text(attachment.Route, 10, true));
+        if (!string.IsNullOrEmpty(attachment.Route)) panel.Children.Add(Text(string.IsNullOrEmpty(attachment.PathKey) ? TransportName(attachment.Route) : T(attachment.PathKey), 10, true));
         if (!string.IsNullOrEmpty(attachment.Path)) { var location = Text(attachment.Path, 10, true); location.IsTextSelectionEnabled = true; panel.Children.Add(location); }
         return Card(panel, new Thickness(14));
     }

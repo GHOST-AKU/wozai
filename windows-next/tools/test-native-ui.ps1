@@ -1,4 +1,4 @@
-param([string]$Package, [string]$Output, $Window)
+param([string]$Package, [string]$Output, $Window, [IntPtr]$WindowHandle)
 $ErrorActionPreference = 'Stop'
 $temporaryRoot = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { [IO.Path]::GetTempPath() }
 $peerProfile = Join-Path $temporaryRoot ('wozai-next-ui-peer-' + [Guid]::NewGuid().ToString('N'))
@@ -33,7 +33,13 @@ function Invoke-Peer([string]$Operation, $Arguments = @{}) {
     throw "Peer reply missing: $Operation"
 }
 function Find-Native([string]$Id) {
-    $Window.FindFirst([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty,$Id))
+    $deadline=[DateTime]::UtcNow.AddSeconds(10)
+    do {
+        $script:Window=[System.Windows.Automation.AutomationElement]::FromHandle($WindowHandle)
+        $control=$Window.FindFirst([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty,$Id))
+        if($null -eq $control){Start-Sleep -Milliseconds 150}
+    } while($null -eq $control -and [DateTime]::UtcNow -lt $deadline)
+    return $control
 }
 function Invoke-Native([string]$Id) {
     $control=Find-Native $Id

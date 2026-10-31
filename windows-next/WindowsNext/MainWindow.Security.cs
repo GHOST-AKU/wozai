@@ -8,6 +8,15 @@ namespace WoZai.Next;
 
 public sealed partial class MainWindow
 {
+    private Border ProfileAvatar(double size)
+    {
+        var border = InitialAvatar(_state.Nickname, size);
+        Run(async () => {
+            var avatar = await _bridge.CallAsync<Avatar>("avatar");
+            if (!string.IsNullOrEmpty(avatar?.Png)) border.Child = await ImageFromPngAsync(avatar.Png, size);
+        });
+        return border;
+    }
     private async Task ShowSecurityAsync()
     {
         var peer = SelectedPeer;

@@ -88,7 +88,7 @@ public sealed partial class MainWindow
         body.Children.Add(Heading(T("settings")));
         body.Children.Add(Text(T("settingsSummary"), 14, true));
         var identity = Stack(14); identity.Children.Add(Heading(T("myProfile"), 17));
-        var account = Row(16); account.Children.Add(InitialAvatar(_state.Nickname, 58));
+        var account = Row(16); account.Children.Add(ProfileAvatar(58));
         var accountLabels = Stack(5); accountLabels.VerticalAlignment = VerticalAlignment.Center; accountLabels.Children.Add(Text(_state.Nickname, 17)); accountLabels.Children.Add(Text(T("independentIdentity"), 12, true)); account.Children.Add(accountLabels); identity.Children.Add(account);
         identity.Children.Add(Button(T("editAvatar"), () => Run(EditAvatarAsync), "\uE77B", "EditAvatarButton"));
         var nickname = new TextBox { Text = _state.Nickname, MaxLength = 64, MinWidth = 210 };

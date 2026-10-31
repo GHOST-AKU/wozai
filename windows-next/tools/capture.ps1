@@ -21,6 +21,7 @@ public static class NextCaptureNative {
  [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h,int n);
  [DllImport("user32.dll")] public static extern bool MoveWindow(IntPtr h,int x,int y,int w,int z,bool repaint);
  [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
+ [DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(IntPtr h,int attribute,out RECT rect,int size);
 }
 '@
 [NextCaptureNative]::SetProcessDPIAware() | Out-Null
@@ -47,10 +48,15 @@ try {
     $window = [System.Windows.Automation.AutomationElement]::FromHandle($hwnd)
     function Find-Control([string]$id) {
         $condition = [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty, $id)
+        $window = [System.Windows.Automation.AutomationElement]::FromHandle($hwnd)
         $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
     }
     function Click-Control([string]$id) {
-        $control = Find-Control $id
+        $deadline = [DateTime]::UtcNow.AddSeconds(10)
+        do {
+            $control = Find-Control $id
+            if ($null -eq $control) { Start-Sleep -Milliseconds 200 }
+        } while ($null -eq $control -and [DateTime]::UtcNow -lt $deadline)
         if ($null -eq $control) { throw "Missing native UI control: $id" }
         $pattern = $null
         if ($control.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern,[ref]$pattern)) { $pattern.Invoke(); return }
@@ -61,7 +67,7 @@ try {
     function Capture([string]$name) {
         Start-Sleep -Milliseconds 900
         $rect = [NextCaptureNative+RECT]::new()
-        [NextCaptureNative]::GetWindowRect($hwnd,[ref]$rect) | Out-Null
+        if ([NextCaptureNative]::DwmGetWindowAttribute($hwnd,9,[ref]$rect,16) -ne 0) { [NextCaptureNative]::GetWindowRect($hwnd,[ref]$rect) | Out-Null }
         $bitmap = [Drawing.Bitmap]::new($rect.Right-$rect.Left,$rect.Bottom-$rect.Top)
         $graphics = [Drawing.Graphics]::FromImage($bitmap)
         try { $graphics.CopyFromScreen($rect.Left,$rect.Top,0,0,$bitmap.Size); $bitmap.Save("$Output/$name.png",[Drawing.Imaging.ImageFormat]::Png) }
@@ -89,7 +95,7 @@ try {
         try { $controls += @{name=$element.Current.Name;id=$element.Current.AutomationId;type=$element.Current.ControlType.ProgrammaticName} } catch { }
     }
     $controls | ConvertTo-Json -Depth 5 | Set-Content "$Output/automation.json" -Encoding UTF8
-    & "$PSScriptRoot/test-native-ui.ps1" -Package $Package -Output $Output -Window $window
+    & "$PSScriptRoot/test-native-ui.ps1" -Package $Package -Output $Output -Window $window -WindowHandle $hwnd
     if (Select-String -Path "$Output/startup.txt" -Pattern 'Unhandled:|Startup failed:' -Quiet) { throw 'Native window reported an unhandled runtime error' }
     @{kind='Actual WinUI 3 window on GitHub Windows runner';fixture='isolated seeded DesktopStore; not physical wireless acceptance';source=(Get-Content "$Package/build-info.json" -Raw | ConvertFrom-Json).source;captureSource=(git rev-parse HEAD);profileIsTemporary=$true;app=$exe;utc=[DateTime]::UtcNow.ToString('o')} | ConvertTo-Json | Set-Content "$Output/manifest.json" -Encoding UTF8
 } catch {

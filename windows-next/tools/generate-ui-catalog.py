@@ -37,6 +37,7 @@ extra={'copy':['复制','Copy','複製','コピー','복사'],'dataFolder':['本
 extra['diagnostics']=['连接与传输诊断','Connection and transfer diagnostics','連線與傳輸診斷','接続と転送の診断','연결 및 전송 진단']
 extra['privacyStorage']=['隐私与存储','Privacy and storage','隱私與儲存','プライバシーと保存','개인정보 및 저장']
 extra['editAvatar']=['编辑头像','Edit avatar','編輯頭像','アバターを編集','아바타 편집']
+extra['showInFolder']=['在文件夹中显示','Show in folder','在資料夾中顯示','フォルダーで表示','폴더에서 보기']
 for key,values in extra.items():
  for i,l in enumerate(langs):result[l][key]=values[i]
 Path('windows-next/WindowsNext/UiCatalog.json').write_text(json.dumps(result,ensure_ascii=False,separators=(',',':'))+'\n')

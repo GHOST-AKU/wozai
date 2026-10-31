@@ -150,6 +150,7 @@ public sealed partial class MainWindow : Window
         {
             if (!_loaded) return;
             _root.Background = CanvasBrush();
+            UpdateCaptionColors();
             _appearance = "";
             RenderPage();
         };
@@ -172,6 +173,7 @@ public sealed partial class MainWindow : Window
         _appearance = appearance;
         _root.RequestedTheme = state.Theme == "dark" ? ElementTheme.Dark : state.Theme == "light" ? ElementTheme.Light : ElementTheme.Default;
         _root.Background = CanvasBrush();
+        UpdateCaptionColors();
         _root.FlowDirection = state.Rtl ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
         _titleStatus.Text = string.IsNullOrWhiteSpace(state.ConnectedPeerId) ? T("privateLocal") : T("encrypted") + " · " + TransportName(state.Transport);
         foreach (var item in _nav.MenuItems.Concat(_nav.FooterMenuItems).OfType<NavigationViewItem>())
@@ -288,6 +290,15 @@ public sealed partial class MainWindow : Window
     private Brush CardBrush() => new SolidColorBrush(IsDark ? ColorHelper.FromArgb(255, 33, 36, 41) : Colors.White);
     private Brush LineBrush() => new SolidColorBrush(IsDark ? ColorHelper.FromArgb(255, 54, 57, 62) : ColorHelper.FromArgb(255, 231, 233, 237));
     private Brush AccentBrush() => new SolidColorBrush(IsDark ? ColorHelper.FromArgb(255, 111, 193, 230) : ColorHelper.FromArgb(255, 0, 103, 151));
+    private void UpdateCaptionColors()
+    {
+        if (!Microsoft.UI.Windowing.AppWindowTitleBar.IsCustomizationSupported()) return;
+        var bar = AppWindow.TitleBar;
+        bar.ButtonBackgroundColor = Colors.Transparent;
+        bar.ButtonInactiveBackgroundColor = Colors.Transparent;
+        bar.ButtonForegroundColor = IsDark ? Colors.White : Colors.Black;
+        bar.ButtonInactiveForegroundColor = IsDark ? ColorHelper.FromArgb(255, 160, 164, 170) : ColorHelper.FromArgb(255, 110, 114, 120);
+    }
     private bool IsDark => _root.ActualTheme == ElementTheme.Dark;
     private string? SelectedPeer => _state.SelectedPeerId;
     private Peer? SelectedPeerInfo => _state.History.FirstOrDefault(p => p.Id == SelectedPeer);

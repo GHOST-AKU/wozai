@@ -69,7 +69,8 @@ public final class BridgeFixtures {
         AttachmentInfo info = AttachmentInfo.v2(UUID.randomUUID().toString(), name, mime, data.length,
                 AttachmentInfo.hex(MessageDigest.getInstance("SHA-256").digest(data)), time);
         Path source = store.attachmentFile(peer, info, outgoing); Files.createDirectories(source.getParent()); Files.write(source, data);
-        store.attachment(peer, new AttachmentRecord(info, outgoing, outgoing ? "delivered" : "received", data.length).withRoute("lan"));
+        AttachmentRecord record = new AttachmentRecord(info, outgoing, outgoing ? "delivered" : "received", data.length).withRoute("lan");
+        store.save(peer, new DesktopStore.Message(info.id, info.name, time, outgoing, record.state, time, record));
     }
 
     private static byte[] avatar(Color color, String letter) throws IOException {
