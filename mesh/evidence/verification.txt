@@ -1,0 +1,91 @@
+Source commit: 83a9dc5e6e13ea3b19bccc6a93dc3a7d60f7e0ce
+All commands completed successfully; no GitHub Actions run claimed.
+
+fmt/clippy
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.04s
+
+Rust unit/resource tests
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.04s
+     Running unittests src/lib.rs (mesh/target/debug/deps/nearby_mesh-b30acf543c8aea0b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (mesh/target/debug/deps/mesh_lab-ed5f0eb875b02308)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/core.rs (mesh/target/debug/deps/core-809ea5562897bfd6)
+
+running 11 tests
+test backwards_clock_does_not_revive_expired_message ... ok
+test bounded_core_relay_dedupe_expiry_and_reconnect ... ok
+test dedupe_capacity_fails_closed_and_restores_without_body ... ok
+test expiry_future_and_text_bounds ... ok
+test immutable_fields_and_signatures_cannot_be_changed ... ok
+test local_messages_work_without_relay_and_hop_exhaustion_stops_forwarding ... ok
+test queue_and_origin_flood_are_bounded ... ok
+test retry_and_neighbor_churn_cannot_grow_per_message_state ... ok
+test relay_cannot_reset_or_remove_hops ... ok
+test unique_ids_strict_shape_and_frame_bound ... ok
+test valid_bidirectional_signed_routes ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+     Running tests/resources.rs (mesh/target/debug/deps/resources-d2495218a5b0fd37)
+
+running 10 tests
+test checkpoint_retains_core_clock_floor_after_wall_clock_rollback ... ok
+test complete_frames_before_peer_eof_are_not_discarded ... ok
+test discovery_cannot_dial_off_subnet_advertised_addresses ... ok
+test corrupt_or_oversized_durable_dedupe_is_not_silently_discarded ... ok
+test identity_is_stable_and_seed_is_private_on_unix ... ok
+test fragmented_header_and_payload_are_reassembled ... ok
+test ingress_frame_rate_is_bounded ... ok
+test incomplete_handshake_has_a_deadline ... ok
+test oversized_header_is_rejected_before_payload_allocation ... ok
+test tx_queue_is_hard_bounded_even_when_peer_never_reads ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests nearby_mesh
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+Release process tests
+test_cycle_displays_once_and_records_duplicate (test_lab.RuntimeTests.test_cycle_displays_once_and_records_duplicate) ... ok
+test_discovery_worker_rejects_zero_port (test_lab.RuntimeTests.test_discovery_worker_rejects_zero_port) ... ok
+test_invalid_neighbor_signature_cannot_establish_identity (test_lab.RuntimeTests.test_invalid_neighbor_signature_cannot_establish_identity) ... ok
+test_malicious_frames_connection_and_control_bounds (test_lab.RuntimeTests.test_malicious_frames_connection_and_control_bounds) ... ok
+test_process_bidirectional_relay_toggle_and_diagnostics (test_lab.RuntimeTests.test_process_bidirectional_relay_toggle_and_diagnostics) ... ok
+test_reconnect_and_restart_preserve_identity_and_dedupe (test_lab.RuntimeTests.test_reconnect_and_restart_preserve_identity_and_dedupe) ... ok
+test_reset_during_connection_setup_does_not_stop_node (test_lab.RuntimeTests.test_reset_during_connection_setup_does_not_stop_node) ... ok
+test_simultaneous_dials_settle_without_repeated_churn (test_lab.RuntimeTests.test_simultaneous_dials_settle_without_repeated_churn) ... ok
+test_state_lock_prevents_concurrent_identity_use (test_lab.RuntimeTests.test_state_lock_prevents_concurrent_identity_use) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 6.949s
+
+OK
+
+Android capture parser
+test_preserves_permission_failure_without_raw_device_diagnostics (test_capture.CaptureTests.test_preserves_permission_failure_without_raw_device_diagnostics) ... ok
+test_rejects_invalid_or_unversioned_events (test_capture.CaptureTests.test_rejects_invalid_or_unversioned_events) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.001s
+
+OK
+
+Android source/DEX compile
+Note: /workspace/wozai/mesh/android-probe/src/org/nearbymesh/probe/CapabilityProbe.java uses or overrides a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Compiled Java + DEX against Android API 36: /workspace/wozai/mesh/android-probe/build
+
+Formal-client source comparison: git diff --quiet 6d9a50bb3d4d8ee4880cce26e23b9385d75f0e50 83a9dc5 -- app terminal desktop apple third_party i18n build.gradle.kts settings.gradle.kts -> exit 0

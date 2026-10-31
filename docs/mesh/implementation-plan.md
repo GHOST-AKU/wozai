@@ -25,35 +25,42 @@
 
 Files: `docs/mesh/research.md`, `adr-001.md`, `protocol.md`。
 
-- [ ] 检查现有构建与客户端接口、Issue；固定上游源码 SHA、许可证与来源。
-- [ ] 比较 Rust、Kotlin、libp2p 与其他方案，确定协议、安全及资源上限。
-- [ ] 给出逐跳签名/期限/重放/故障的测试接口与验收标准。
+- [x] 检查现有构建与客户端接口、Issue；固定上游源码 SHA、许可证与来源。
+- [x] 比较 Rust、Kotlin、libp2p 与其他方案，确定协议、安全及资源上限。
+- [x] 给出逐跳签名/期限/重放/故障的测试接口与验收标准。
 
 ## Task 2: 独立核心
 
 Files: `mesh/Cargo.toml`, `src/{lib,protocol,core}.rs`, `tests/core.rs`。
 Interfaces: `Envelope::new/validate`, `Packet::append/validate`, `Core::receive/originate/tick`；不做平台 I/O。
 
-- [ ] 先写边界、篡改、跳数删改、去重容量、限流、队列及期限测试并观察失败。
-- [ ] 使用成熟密码库实现规范化签名、append-only hop receipts 与有界泛洪。
-- [ ] 执行 `cargo test --manifest-path mesh/Cargo.toml --test core`，Expected: 全通过。
+- [x] 先写边界、篡改、跳数删改、去重容量、限流、队列及期限测试并观察失败。
+- [x] 使用成熟密码库实现规范化签名、append-only hop receipts 与有界泛洪。
+- [x] 执行 `cargo test --manifest-path mesh/Cargo.toml --test core`，Expected: 全通过。
 
 ## Task 3: mesh-lab 与隔离验收
 
 Files: `src/{main,transport,store,manager}.rs`, `tests/runtime.rs`, `tools/lab.py`。
 Interfaces: CLI `keygen/run`；stdin/stdout NDJSON 控制：send/neighbors/status/relay/diagnostics/quit。
 
-- [ ] 先写独立进程 CLI、重启、坏帧与隔离验收测试，观察缺失功能失败。
-- [ ] 实现身份持久化、双向 challenge 签名握手、有界非阻塞 TCP 与重连。
-- [ ] 使用 network namespaces + veth 构建 A—B—C；无法获得特权时采用隔离 Unix socket 目录替代并准确标注。
-- [ ] 验证双向、relay off、循环、重复、B 重启、分区恢复、过期及资源压力。
-- [ ] 测量实际延迟、RSS、CPU、字节和队列峰值，保留机器信息及原始证据。
+- [x] 先写独立进程 CLI、重启、坏帧与隔离验收测试，观察缺失功能失败。
+- [x] 实现身份持久化、双向 challenge 签名握手、有界非阻塞 TCP 与重连。
+- [x] 使用 network namespaces + veth 构建 A—B—C；无法获得特权时采用隔离 Unix socket 目录替代并准确标注。
+- [x] 验证双向、relay off、循环、重复、B 重启、分区恢复、过期及资源压力。
+- [x] 测量实际延迟、RSS、CPU、字节和队列峰值，保留机器信息及原始证据。
 
 ## Task 4: Android 原生能力探索与交付
 
 Files: `mesh/android-probe/`, `docs/mesh/hardware-validation.md`, `mesh/README.md`, mesh-only CI。
 
-- [ ] 检查 adb/设备，提供无需改动正式客户端的原生探针/实验命令。
-- [ ] 记录 Wi-Fi Direct/Aware/BLE/Classic 及 Apple 限制；给出至少一种替代无线拓扑。
-- [ ] 独立审查安全与连接管理，修复重要问题；执行 fmt/clippy/test 与隔离实验。
+- [x] 检查 adb/设备，提供无需改动正式客户端的原生探针/实验命令。
+- [x] 记录 Wi-Fi Direct/Aware/BLE/Classic 及 Apple 限制；给出至少一种替代无线拓扑。
+- [x] 独立审查安全与连接管理，修复重要问题；执行 fmt/clippy/test 与隔离实验。
 - [ ] 提交分支、推送、创建中英双语 Draft PR，附证据及已知限制，不关闭 #60。
+
+
+## 执行记录
+
+实现与冻结源码：`83a9dc5`。本地验证为 21 Rust + 9 release 独立进程 + 2 probe parser；两次隔离拓扑脚本通过，原始记录及实测方法见 `validation.md`。源码对应的正式客户端/NIM4/Noise 输入未变，无无关客户端构建。
+
+研发判断：使用原生 Instrumentation 探针探索 Android API，未实现 radio 数据 adapter/FFI；没有真机，严格无线 gate 保留 hardware validation pending。正文队列仅内存，不把持久去重当作可靠 DTN。独立审查提前结束，作者修复重要发现并保留回归测试；完整外部审查仍待后续。用户已授权只推送独立研发分支和 Draft PR，不合并或发行。
