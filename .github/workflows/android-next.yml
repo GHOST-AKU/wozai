@@ -1,0 +1,36 @@
+name: Verify 我在next experiment
+on:
+  pull_request:
+    paths:
+      - 'app-next/**'
+      - 'app/src/main/**'
+      - 'third_party/noise-java/**'
+      - 'i18n/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle/**'
+      - '.github/workflows/android-next.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compose-client:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
+      - run: ./gradlew --no-daemon :app-next:testDebugUnitTest :app-next:assembleDebug :app-next:lintDebug
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-next-verification
+          path: |
+            app-next/build/reports/tests/
+            app-next/build/reports/lint-results-debug.*
+            app-next/build/reports/next-screenshots/
+          if-no-files-found: ignore

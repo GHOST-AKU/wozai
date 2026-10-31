@@ -3,6 +3,7 @@
 local.properties
 build/
 app/build/
+app-next/build/
 *.iml
 *.jks
 *.keystore

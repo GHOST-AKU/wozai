@@ -1,0 +1,13 @@
+{
+  "kind": "Robolectric native rendering; not a physical device or emulator",
+  "robolectric": "4.16",
+  "android_sdk": 34,
+  "qualifiers": "zh-rCN-w412dp-h915dp",
+  "communication_service": "unavailable test fixture; no discovery/listening/connections",
+  "main_source_sha256": "7df52d1cac473fc5e4ba1d0cc1cbb04096cd93cef7ed9d2e7dbdda20ac73b29e",
+  "images": {
+    "settings.png": "d1afc8a96ed1ce6c9588448e7eb20adb712d1d94a9e90967f20e2c273d9d7bd4",
+    "nearby.png": "d15f1e75270c8eb7a269ce5088e879c60e8e97d6f263ddabc3463719cff90400",
+    "conversations.png": "8988db472dca71b9fb663336004ed98728d28c6737057ed81530da29ffbfb14c"
+  }
+}

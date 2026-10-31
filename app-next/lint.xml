@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<lint>
+    <!-- Preserve app/lint.xml's two exact upstream exceptions in the generated
+         source view. Both if/throw pairs are independent; keep kernel bytes. -->
+    <issue id="SuspiciousIndentation">
+        <ignore path="build/generated/sharedJava/com/southernstorm/noise/protocol/AESGCMFallbackCipherState.java" />
+        <ignore path="build/generated/sharedJava/com/southernstorm/noise/protocol/AESGCMOnCtrCipherState.java" />
+    </issue>
+</lint>
