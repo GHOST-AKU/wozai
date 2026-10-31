@@ -41,7 +41,7 @@
 
 版本名和 buildNumber 从 `i18n/config.json` 读取，不单独改写发布版本。JVM 测试覆盖选择器会话绑定、发送完成/草稿加载竞态、较新输入保留和 UTF-8/未完成代理字符限制。Robolectric API 34 测试验证 Compose 导航、未命名蓝牙设备及大字号横屏语言选择；它们属于 JVM 环境，不能证明真实 Android 服务绑定、无线互通或真机图形效果。
 
-CI 工作流为 `.github/workflows/android-next.yml`。调试 APK 仅供内部验证；安装交付仍受 `AGENTS.md` 的持久证书规则约束。目前既有签名脚本面向原 applicationId，正式分发 next 前还需给该脚本增加独立包名的严格校验，不能用 debug 签名代替持久签名。
+CI 工作流为 `.github/workflows/android-next.yml`。调试 APK 仅供内部验证；安装交付仍受 `AGENTS.md` 的持久证书规则约束。安装交付通过 `android-next.yml` 的 `signed=true` 手动构建：`tools/build-signed-next.py` 在临时目录内使用仓库持久密钥，`tools/verify-android-signature.py --next` 严格核对固定证书、独立包名、版本、非 debug 属性与源码修订。不能用 debug 签名代替持久签名。
 
 ## 设备验收边界
 
