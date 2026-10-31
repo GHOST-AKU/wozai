@@ -88,7 +88,8 @@ public sealed partial class MainWindow : Window
         _nav.IsPaneToggleButtonVisible = false;
         _nav.IsBackButtonVisible = NavigationViewBackButtonVisible.Collapsed;
         _nav.IsSettingsVisible = false;
-        _nav.IsPaneOpen = false;
+        // WinUI needs the NavigationView's SplitView template before changing pane state.
+        _nav.Loaded += (_, _) => { _nav.ApplyTemplate(); _nav.IsPaneOpen = false; };
         _nav.CompactPaneLength = 68;
         _nav.OpenPaneLength = 68;
         _nav.AlwaysShowHeader = false;
