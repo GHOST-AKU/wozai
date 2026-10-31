@@ -23,6 +23,7 @@ $package = Join-Path $root 'windows-next/build/package/WoZaiNext'
 dotnet publish windows-next/WindowsNext/WindowsNext.csproj -c Release -r win-x64 --self-contained true -p:Platform=x64 -p:Version=$($config.appVersion.Split('-')[0]) -o $package
 Check 'WinUI publish failed'
 $pri = Join-Path $package 'resources.pri'
+Get-ChildItem windows-next/WindowsNext,$package -Recurse -Filter '*.pri' | Select-Object FullName,Length | Format-Table -AutoSize
 if (-not (Test-Path $pri)) { throw 'WinUI resource index was not published; default control styles cannot load' }
 $makePri = Get-ChildItem "${env:ProgramFiles(x86)}/Windows Kits/10/bin/*/x64/makepri.exe" | Sort-Object FullName -Descending | Select-Object -First 1
 if ($null -eq $makePri) { throw 'Windows SDK makepri.exe is required to validate native resources' }

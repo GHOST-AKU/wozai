@@ -72,11 +72,13 @@ try {
     $readyDeadline = [DateTime]::UtcNow.AddSeconds(30)
     do {
         $list = Find-Control 'ConversationList'
-        $items = if ($null -ne $list) { $list.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty,[System.Windows.Automation.ControlType]::ListItem)) } else { @() }
-        if ($items.Count -eq 0) { Start-Sleep -Milliseconds 300 }
-    } while ($items.Count -eq 0 -and [DateTime]::UtcNow -lt $readyDeadline)
-    if ($items.Count -eq 0) { throw 'Seeded conversation did not load through the real bridge' }
-    $items[0].GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+        $seeded = if ($null -ne $list) { $list.FindFirst([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.AndCondition]::new(
+            [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty,[System.Windows.Automation.ControlType]::ListItem),
+            [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::NameProperty,'林间 · 设计'))) } else { $null }
+        if ($null -eq $seeded) { Start-Sleep -Milliseconds 300 }
+    } while ($null -eq $seeded -and [DateTime]::UtcNow -lt $readyDeadline)
+    if ($null -eq $seeded) { throw 'Seeded conversation did not load through the real bridge' }
+    $seeded.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
     Capture 'conversations'
     Click-Control 'NavNearby'; Capture 'nearby'
     Click-Control 'NavSettings'; Capture 'settings'
@@ -89,7 +91,7 @@ try {
     $controls | ConvertTo-Json -Depth 5 | Set-Content "$Output/automation.json" -Encoding UTF8
     & "$PSScriptRoot/test-native-ui.ps1" -Package $Package -Output $Output -Window $window
     if (Select-String -Path "$Output/startup.txt" -Pattern 'Unhandled:|Startup failed:' -Quiet) { throw 'Native window reported an unhandled runtime error' }
-    @{kind='Actual WinUI 3 window on GitHub Windows runner';fixture='isolated seeded DesktopStore; not physical wireless acceptance';source=(git rev-parse HEAD);profileIsTemporary=$true;app=$exe;utc=[DateTime]::UtcNow.ToString('o')} | ConvertTo-Json | Set-Content "$Output/manifest.json" -Encoding UTF8
+    @{kind='Actual WinUI 3 window on GitHub Windows runner';fixture='isolated seeded DesktopStore; not physical wireless acceptance';source=(Get-Content "$Package/build-info.json" -Raw | ConvertFrom-Json).source;captureSource=(git rev-parse HEAD);profileIsTemporary=$true;app=$exe;utc=[DateTime]::UtcNow.ToString('o')} | ConvertTo-Json | Set-Content "$Output/manifest.json" -Encoding UTF8
 } catch {
     if ($hwnd -ne 0 -and $null -ne $hwnd) { try { Capture 'failure' } catch { } }
     if ($app.HasExited) {

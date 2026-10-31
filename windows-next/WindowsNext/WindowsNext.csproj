@@ -16,6 +16,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <!-- PRI generation is required for app-local WinUI control styles, even without MSIX. -->
     <EnableMsixTooling>true</EnableMsixTooling>
+    <ProjectPriFileName>resources.pri</ProjectPriFileName>
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="UiCatalog.json" />

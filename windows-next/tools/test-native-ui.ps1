@@ -96,7 +96,7 @@ try {
         if ($null -eq $incoming) { Start-Sleep -Milliseconds 150 }
     } while ($null -eq $incoming -and [DateTime]::UtcNow -lt $deadline)
     if ($null -eq $incoming) { throw 'Real incoming message was not rendered by the native window' }
-    @{kind='WinUI UI Automation with two real unchanged kernels';source=(git rev-parse HEAD);addressConnect=$true;explicitPeerConsent=$true;encryptedHandshake=$true;nativeSend=$true;durablePeerReceive=$true;nativeReceive=$true;sendDraftNavigation=$true;physicalWireless=$false} | ConvertTo-Json | Set-Content "$Output/ui-smoke.json" -Encoding UTF8
+    @{kind='WinUI UI Automation with two real unchanged kernels';source=(Get-Content "$Package/build-info.json" -Raw | ConvertFrom-Json).source;captureSource=(git rev-parse HEAD);addressConnect=$true;explicitPeerConsent=$true;encryptedHandshake=$true;nativeSend=$true;durablePeerReceive=$true;nativeReceive=$true;sendDraftNavigation=$true;physicalWireless=$false} | ConvertTo-Json | Set-Content "$Output/ui-smoke.json" -Encoding UTF8
     Write-Output 'Native UI smoke passed: address, consent, encrypted send/receive, and send/navigation draft persistence.'
 } finally {
     $peer.StandardInput.Close()
