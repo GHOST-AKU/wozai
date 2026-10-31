@@ -22,6 +22,15 @@ Check 'Bluetooth native checks failed'
 $package = Join-Path $root 'windows-next/build/package/WoZaiNext'
 dotnet publish windows-next/WindowsNext/WindowsNext.csproj -c Release -r win-x64 --self-contained true -p:Platform=x64 -p:Version=$($config.appVersion.Split('-')[0]) -o $package
 Check 'WinUI publish failed'
+$pri = Join-Path $package 'resources.pri'
+if (-not (Test-Path $pri)) { throw 'WinUI resource index was not published; default control styles cannot load' }
+$makePri = Get-ChildItem "${env:ProgramFiles(x86)}/Windows Kits/10/bin/*/x64/makepri.exe" | Sort-Object FullName -Descending | Select-Object -First 1
+if ($null -eq $makePri) { throw 'Windows SDK makepri.exe is required to validate native resources' }
+$priDump = Join-Path $root 'windows-next/build/native-resources.xml'
+& $makePri.FullName dump /if $pri /of $priDump /dt detailed /o
+Check 'WinUI resource index inspection failed'
+if (-not (Select-String -Path $priDump -SimpleMatch 'Microsoft.UI.Xaml/Themes/generic' -Quiet)) { throw 'Published PRI lacks WinUI default styles' }
+Write-Output 'Published PRI contains WinUI default control styles.'
 $kernel = Join-Path $package 'kernel'
 New-Item -ItemType Directory -Force "$kernel/lib" | Out-Null
 Copy-Item windows-next/build/bridge/lib/*.jar "$kernel/lib/"

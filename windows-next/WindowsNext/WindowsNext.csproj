@@ -14,7 +14,8 @@
     <SelfContained>true</SelfContained>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <EnableMsixTooling>false</EnableMsixTooling>
+    <!-- PRI generation is required for app-local WinUI control styles, even without MSIX. -->
+    <EnableMsixTooling>true</EnableMsixTooling>
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="UiCatalog.json" />

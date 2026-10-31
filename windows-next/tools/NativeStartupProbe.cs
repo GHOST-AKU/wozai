@@ -81,7 +81,7 @@ public static class NativeStartupProbe
                     else if(ev.Code==8)
                     {
                         var data=Read(handle,(ulong)ev.StringData.ToInt64(),Math.Min(ev.StringLength, (ushort)16000)*(ev.Unicode!=0?2:1));
-                        log.WriteLine((ev.Unicode!=0?Encoding.Unicode:Encoding.UTF8).GetString(data).TrimEnd('\0'));
+                        log.WriteLine((ev.Unicode!=0?Encoding.Unicode:Encoding.UTF8).GetString(data).Split('\0')[0]);
                     }
                     ContinueDebugEvent(ev.ProcessId,ev.ThreadId,disposition);
                     if(ev.Code==5)break;
