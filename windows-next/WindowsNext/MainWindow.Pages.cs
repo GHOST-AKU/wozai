@@ -124,7 +124,7 @@ public sealed partial class MainWindow
         var path = Text(_state.DataPath, 12, true); path.IsTextSelectionEnabledCompat(); data.Children.Add(path); data.Children.Add(Text(T("dataBody"), 12, true));
         data.Children.Add(Button(T("openFolder"), () => Run(async () => { var folder = await StorageFolder.GetFolderFromPathAsync(_state.DataPath); await Launcher.LaunchFolderAsync(folder); }), "\uE8B7"));
         body.Children.Add(Card(data));
-        var about = Stack(12); about.Children.Add(Heading(T("about"), 17)); about.Children.Add(Text("我在next · " + _state.Version, 14)); about.Children.Add(Text(T("aboutBody"), 12, true));
+        var about = Stack(12); about.Children.Add(Heading(T("about"), 17)); about.Children.Add(Text("我在next · " + _state.Version, 14)); about.Children.Add(Text(T("aboutBody"), 12, true));about.Children.Add(Text(T("privacy"),12,true));
         var links = Row(); links.Children.Add(Button(T("help"), () => Run(async () => { await DialogAsync(T("help"), Text(T("helpBody"))); }))); links.Children.Add(Button(T("diagnostics"), () => Run(ShowDiagnosticsAsync))); about.Children.Add(links); body.Children.Add(Card(about));
         var scroll = new ScrollViewer { Content = body, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalContentAlignment = HorizontalAlignment.Stretch };
         AutomationProperties.SetAutomationId(scroll, "SettingsPage"); _page.Children.Add(scroll);
@@ -156,15 +156,15 @@ public sealed partial class MainWindow
     }
     private async Task ShowTrustAsync()
     {
-        var panel = Stack(16); panel.MinWidth = 350;
-        var trusted = _state.History.Where(p => p.Trusted && p.Id is not null).ToArray();
-        if (trusted.Length == 0) panel.Children.Add(Text(T("noTrusted"), 13, true));
-        foreach (var peer in trusted)
-        {
-            var item = Stack(7); item.Children.Add(Text(peer.Name, 16)); item.Children.Add(Text(peer.Id!, 11, true));
-            item.Children.Add(Button(T("revoke"), () => Run(async () => { await Call("revoke", new { peerId = peer.Id }); ShowNotice(T("revoked")); }))); panel.Children.Add(Card(item, new Thickness(12)));
-        }
-        await DialogAsync(T("trustedDevices"), panel);
+        var panel=Stack(14);panel.MinWidth=350;panel.Children.Add(Text(T("trustHint"),13,true));
+        var list=new ListView{SelectionMode=ListViewSelectionMode.Single,MaxHeight=300};
+        foreach(var peer in _state.History.Where(p=>p.Trusted&&p.Id is not null))list.Items.Add(new ListViewItem{Tag=peer,Content=peer.Name});
+        panel.Children.Add(list);
+        if(await DialogAsync(T("trustedDevices"),panel,T("revoke"))==ContentDialogResult.Primary && list.SelectedItem is ListViewItem item && item.Tag is Peer peerToRevoke)await ConfirmRevokeAsync(peerToRevoke);
+    }
+    private async Task ConfirmRevokeAsync(Peer peer)
+    {
+        if(await DialogAsync(T("revoke")+" · "+peer.Name,Text(T("trustHint")),T("revoke"))==ContentDialogResult.Primary)await Call("revoke",new{peerId=peer.Id});
     }
     private async Task ShowPeerDetailsAsync()
     {
@@ -174,9 +174,10 @@ public sealed partial class MainWindow
         if (!string.IsNullOrEmpty(avatar?.Png)) panel.Children.Add(await ImageFromPngAsync(avatar.Png, 96)); else panel.Children.Add(InitialAvatar(peer.Name, 72));
         panel.Children.Add(Heading(peer.Name, 22)); panel.Children.Add(Text(peer.Trusted ? T("trustedDevice") : T("notRemembered"), 13, true));
         var details = Text(T("identity") + "\n" + peer.Id + "\n\n" + T("address") + "\n" + peer.Endpoint + "\n\n" + T("publicKey") + "\n" + peer.PublicKey, 12); details.IsTextSelectionEnabledCompat(); panel.Children.Add(details);
-        if (peer.Trusted) panel.Children.Add(Command(T("revoke"), "revoke", new { peerId = peer.Id }));
-        if (!string.IsNullOrEmpty(peer.Endpoint) && _state.ConnectedPeerId != peer.Id) panel.Children.Add(Button(T("reconnect"),()=>Run(()=>ConnectAsync(peer.Endpoint,peer.Id))));
-        await DialogAsync(T("deviceDetails"), panel);
+        var canConnect=!string.IsNullOrEmpty(peer.Endpoint)&&_state.ConnectedPeerId!=peer.Id;
+        var result=await DialogAsync(T("deviceDetails"),panel,canConnect?T("reconnect"):null,peer.Trusted?T("revoke"):null);
+        if(result==ContentDialogResult.Primary&&canConnect)await ConnectAsync(peer.Endpoint,peer.Id);
+        else if(result==ContentDialogResult.Secondary&&peer.Trusted)await ConfirmRevokeAsync(peer);
     }
     private async Task ShowDiagnosticsAsync()
     {

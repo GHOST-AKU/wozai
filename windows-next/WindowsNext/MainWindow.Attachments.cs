@@ -21,8 +21,8 @@ public sealed partial class MainWindow
         var state = attachment.State.ToLowerInvariant();
         var complete = state is "delivered" or "received";
         var offered = state is "offered" or "offering" or "waiting" or "pending" or "invited";
-        var failed = state is "failed" or "cancelled" or "canceled" or "rejected" or "interrupted";
-        var paused = state.Contains("paus");
+        var failed = state is "failed" or "cancelled" or "canceled" or "rejected";
+        var paused = state is "paused" or "sourceunavailable" or "interrupted" or "unknown";
         if (!complete && !offered && !failed)
         {
             panel.Children.Add(new ProgressBar { Minimum = 0, Maximum = Math.Max(1, attachment.Size), Value = Math.Min(attachment.Transferred, Math.Max(1, attachment.Size)), Height = 4 });
@@ -55,7 +55,7 @@ public sealed partial class MainWindow
         {
             Action(paused ? "resume" : "pause", paused ? "resume" : "pause"); Action("cancel", "cancel");
         }
-        if (attachment.Outgoing && state == "failed" && attachment.Version == 2)
+        if (attachment.Outgoing && state == "failed" && attachment.Version == 2 && attachment.RetryState is not ("retrying" or "retried" or "ineligible"))
         {
             Action("retry", "retry");
             var reselect = Button(T("reselect"), () => Run(() => ReselectAsync(peer, attachment))); reselect.Margin = new Thickness(0, 0, 5, 5); controls.Children.Add(reselect);

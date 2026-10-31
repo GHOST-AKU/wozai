@@ -35,6 +35,7 @@ for i,l in enumerate(langs):
 # Remaining short aliases with exact shared meaning, explicitly translated in all five locales.
 extra={'copy':['复制','Copy','複製','コピー','복사'],'dataFolder':['本地数据目录','Local data folder','本機資料目錄','ローカルデータ','로컬 데이터 폴더'],'refresh':['刷新','Refresh','重新整理','更新','새로 고침'],'normal':['标准','Normal','標準','標準','보통'],'large':['较大','Large','較大','大','크게'],'largest':['最大','Largest','最大','最大','가장 크게'],'enterToSend':['Enter 发送 · Shift+Enter 换行','Enter to send · Shift+Enter for a new line','Enter 傳送 · Shift+Enter 換行','Enter で送信 · Shift+Enter で改行','Enter 전송 · Shift+Enter 줄 바꿈'],'connectionStatus':['连接状态','Connection status','連線狀態','接続状態','연결 상태'],'publicKey':['设备公钥','Device public key','裝置公鑰','端末の公開鍵','기기 공개 키'],'resetAvatar':['重置头像','Reset avatar','重設頭像','画像をリセット','아바타 초기화'],'choosePhoto':['选择照片','Choose photo','選擇照片','写真を選ぶ','사진 선택'],'avatarCrop':['裁剪头像','Crop avatar','裁剪頭像','画像を切り抜く','아바타 자르기'],'encrypted':['端到端加密','End-to-end encrypted','端對端加密','エンドツーエンド暗号化','종단간 암호화'],'statusIdle':['未连接','Not connected','未連線','未接続','연결되지 않음']}
 extra['diagnostics']=['连接与传输诊断','Connection and transfer diagnostics','連線與傳輸診斷','接続と転送の診断','연결 및 전송 진단']
+extra['privacyStorage']=['隐私与存储','Privacy and storage','隱私與儲存','プライバシーと保存','개인정보 및 저장']
 extra['editAvatar']=['编辑头像','Edit avatar','編輯頭像','アバターを編集','아바타 편집']
 for key,values in extra.items():
  for i,l in enumerate(langs):result[l][key]=values[i]
