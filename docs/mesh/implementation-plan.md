@@ -66,3 +66,5 @@ Files: `mesh/android-probe/`, `docs/mesh/hardware-validation.md`, `mesh/README.m
 研发判断：使用原生 Instrumentation 探针探索 Android API，未实现 radio 数据 adapter/FFI；没有真机，严格无线 gate 保留 hardware validation pending。正文队列仅内存，不把持久去重当作可靠 DTN。独立审查提前结束，作者修复重要发现并保留回归测试；完整外部审查仍待后续。用户已授权只推送独立研发分支和 Draft PR，不合并或发行。
 
 交付：[Draft PR #85](https://github.com/GHOST-AKU/wozai/pull/85)，基线 `6d9a50b`，保留研发分支 `research/nearby-mesh-engine`，未合并/发行。
+
+2026-11-01 自审/性能跟进已实现，见 [审查与实测](review-2026-11-01.md)：36 Rust + 15 进程/驱动 + 9 采集测试，共60项；两种补强拓扑通过。协议签名字节、依赖图与正式客户端未变。

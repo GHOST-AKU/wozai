@@ -1,0 +1,122 @@
+Verified source commit: b886611aed05909c5280ceb924357de88851c206
+Date label: 2026-11-01 (client timezone Asia/Shanghai)
+GitHub CI: not run; no remote pass claimed.
+The release build completed before the commit; source file hashes were checked unchanged after commit. Native Java source/lock graph is unchanged and previous compile evidence is reused; no APK rebuilt or offered.
+
+Static checks
+    Checking nearby-mesh v0.1.0 (/workspace/wozai/mesh)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.36s
+
+Rust tests (debug compilation, full crate)
+   Compiling nearby-mesh v0.1.0 (/workspace/wozai/mesh)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.06s
+     Running unittests src/lib.rs (mesh/target/debug/deps/nearby_mesh-b30acf543c8aea0b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (mesh/target/debug/deps/mesh_lab-ed5f0eb875b02308)
+
+running 3 tests
+test tests::dead_preferred_link_cannot_remove_healthy_neighbor_connection ... ok
+test tests::malformed_optional_send_budgets_do_not_become_defaults ... ok
+test tests::full_tx_queue_observes_fresh_time_and_cannot_revive_after_rollback ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/core.rs (mesh/target/debug/deps/core-809ea5562897bfd6)
+
+running 19 tests
+test backwards_clock_does_not_revive_expired_message ... ok
+test admission_preserves_expired_message_for_next_tick ... ok
+test cancelling_one_offer_preserves_other_peers_and_retry_budget ... ok
+test bounded_core_relay_dedupe_expiry_and_reconnect ... ok
+test deferred_expiry_events_are_bounded_and_never_evicted ... ok
+test dedupe_capacity_fails_closed_and_restores_without_body ... ok
+test expiry_future_and_text_bounds ... ok
+test immutable_fields_and_signatures_cannot_be_changed ... ok
+test local_messages_work_without_relay_and_hop_exhaustion_stops_forwarding ... ok
+test exhausted_received_routes_do_not_block_forward_queue_or_local_messages ... ok
+test rejected_expired_receive_advances_clock_floor ... ok
+test relay_cannot_reset_or_remove_hops ... ok
+test queue_and_origin_flood_are_bounded ... ok
+test restoring_seen_does_not_consume_pending_expiry_events ... ok
+test retry_and_neighbor_churn_cannot_grow_per_message_state ... ok
+test skipped_expired_send_and_rejected_origination_advance_clock_floor ... ok
+test unique_ids_strict_shape_and_frame_bound ... ok
+test relay_skips_visited_neighbors_and_keeps_valid_successors ... ok
+test valid_bidirectional_signed_routes ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s
+
+     Running tests/resources.rs (mesh/target/debug/deps/resources-d2495218a5b0fd37)
+
+running 14 tests
+test checkpoint_retains_core_clock_floor_after_wall_clock_rollback ... ok
+test cancellation_notifications_remain_bounded_until_drained ... ok
+test complete_frames_before_peer_eof_are_not_discarded ... ok
+test discovery_cannot_dial_off_subnet_advertised_addresses ... ok
+test corrupt_or_oversized_durable_dedupe_is_not_silently_discarded ... ok
+test fragmented_header_and_payload_are_reassembled ... ok
+test identity_is_stable_and_seed_is_private_on_unix ... ok
+test incomplete_handshake_has_a_deadline ... ok
+test ingress_frame_rate_is_bounded ... ok
+test oversized_header_is_rejected_before_payload_allocation ... ok
+test relay_revocation_reports_unsent_ids_for_retry_on_the_same_connection ... ok
+test queued_frames_expire_using_the_effective_clock_after_wall_clock_rollback ... ok
+test tx_queue_is_hard_bounded_even_when_peer_never_reads ... ok
+test revoking_a_partially_written_frame_requires_closing_the_link ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests nearby_mesh
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+Release build
+   Compiling nearby-mesh v0.1.0 (/workspace/wozai/mesh)
+    Finished `release` profile [optimized] target(s) in 9.11s
+
+Release real-process + driver tests
+test_absence_observes_delayed_events_without_consuming_them (test_lab.EventWaitTests.test_absence_observes_delayed_events_without_consuming_them) ... ok
+test_barrier_requires_a_fresh_response_and_preserves_older_status (test_lab.EventWaitTests.test_barrier_requires_a_fresh_response_and_preserves_older_status) ... ok
+test_timeout_preserves_unmatched_evidence (test_lab.EventWaitTests.test_timeout_preserves_unmatched_evidence) ... ok
+test_wait_preserves_an_unrelated_earlier_event (test_lab.EventWaitTests.test_wait_preserves_an_unrelated_earlier_event) ... ok
+test_cycle_displays_once_and_records_duplicate (test_lab.RuntimeTests.test_cycle_displays_once_and_records_duplicate) ... ok
+test_discovery_worker_rejects_zero_port (test_lab.RuntimeTests.test_discovery_worker_rejects_zero_port) ... ok
+test_expired_partition_queue_is_not_reoffered_after_reconnect (test_lab.RuntimeTests.test_expired_partition_queue_is_not_reoffered_after_reconnect) ... ok
+test_invalid_neighbor_signature_cannot_establish_identity (test_lab.RuntimeTests.test_invalid_neighbor_signature_cannot_establish_identity) ... ok
+test_malicious_frames_connection_and_control_bounds (test_lab.RuntimeTests.test_malicious_frames_connection_and_control_bounds) ... ok
+test_process_bidirectional_relay_toggle_and_diagnostics (test_lab.RuntimeTests.test_process_bidirectional_relay_toggle_and_diagnostics) ... ok
+test_reconnect_and_restart_preserve_identity_and_dedupe (test_lab.RuntimeTests.test_reconnect_and_restart_preserve_identity_and_dedupe) ... ok
+test_reset_during_connection_setup_does_not_stop_node (test_lab.RuntimeTests.test_reset_during_connection_setup_does_not_stop_node) ... ok
+test_simultaneous_dials_settle_without_repeated_churn (test_lab.RuntimeTests.test_simultaneous_dials_settle_without_repeated_churn) ... ok
+test_state_lock_prevents_concurrent_identity_use (test_lab.RuntimeTests.test_state_lock_prevents_concurrent_identity_use) ... ok
+test_non_io_checkpoint_error_stops_before_display_or_forward (test_persistence.PersistenceFailureTests.test_non_io_checkpoint_error_stops_before_display_or_forward) ... ok
+
+----------------------------------------------------------------------
+Ran 15 tests in 8.952s
+
+OK
+
+Capture/parser bounded fake-executable tests
+test_accepts_current_probe_event_variants (test_capture.CaptureTests.test_accepts_current_probe_event_variants) ... ok
+test_accepts_only_bounded_per_run_tokens (test_capture.CaptureTests.test_accepts_only_bounded_per_run_tokens) ... ok
+test_capture_bounds_timeout_and_reaps_a_local_fake_process (test_capture.CaptureTests.test_capture_bounds_timeout_and_reaps_a_local_fake_process) ... ok
+test_capture_fails_closed_on_oversized_raw_output (test_capture.CaptureTests.test_capture_fails_closed_on_oversized_raw_output) ... ok
+test_capture_preserves_only_valid_events_and_exit_status (test_capture.CaptureTests.test_capture_preserves_only_valid_events_and_exit_status) ... ok
+test_preserves_permission_failure_without_raw_device_diagnostics (test_capture.CaptureTests.test_preserves_permission_failure_without_raw_device_diagnostics) ... ok
+test_rejects_boolean_schema_and_raw_or_unknown_payload_fields (test_capture.CaptureTests.test_rejects_boolean_schema_and_raw_or_unknown_payload_fields) ... ok
+test_rejects_invalid_or_unversioned_events (test_capture.CaptureTests.test_rejects_invalid_or_unversioned_events) ... ok
+test_rejects_unknown_events_and_oversized_structured_lines (test_capture.CaptureTests.test_rejects_unknown_events_and_oversized_structured_lines) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.337s
+
+OK
+
+Unchanged existing clients/protocol: git diff --quiet 542fb05 HEAD -- app terminal desktop apple third_party i18n mesh/src/protocol.rs mesh/Cargo.toml mesh/Cargo.lock -> 0
