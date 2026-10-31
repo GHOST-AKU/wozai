@@ -90,6 +90,13 @@ try {
     @{kind='Actual WinUI 3 window on GitHub Windows runner';fixture='isolated seeded DesktopStore; not physical wireless acceptance';source=(git rev-parse HEAD);profileIsTemporary=$true;app=$exe;utc=[DateTime]::UtcNow.ToString('o')} | ConvertTo-Json | Set-Content "$Output/manifest.json" -Encoding UTF8
 } catch {
     if ($hwnd -ne 0 -and $null -ne $hwnd) { try { Capture 'failure' } catch { } }
+    if ($app.HasExited) {
+        try {
+            Add-Type -Path "$PSScriptRoot/NativeStartupProbe.cs"
+            [NativeStartupProbe]::Run($exe, $Package, "$Output/native-debug.txt")
+            Get-Content "$Output/native-debug.txt" | Select-Object -Last 120 | Write-Output
+        } catch { Write-Output "Native probe failed: $_" }
+    }
     foreach($file in @("$Output/startup.txt","$Output/stderr.txt","$Output/stdout.txt")) { if(Test-Path $file){ Get-Content $file -ErrorAction SilentlyContinue | Select-Object -Last 80 | Write-Output } }
     try { Get-WinEvent -FilterHashtable @{LogName='Application';StartTime=(Get-Date).AddMinutes(-5)} -ErrorAction Stop | Where-Object { $_.Message -match 'WindowsNext' } | Select-Object -First 4 -ExpandProperty Message | Write-Output } catch { }
     throw
