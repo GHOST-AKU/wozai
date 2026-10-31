@@ -83,7 +83,7 @@ public sealed partial class MainWindow
             await encoder.FlushAsync();
             // Transcoding preserves the source codec. Convert the cropped pixels to PNG.
             output.Seek(0); var croppedDecoder=await BitmapDecoder.CreateAsync(output);
-            var pixels=await croppedDecoder.GetPixelDataAsync(BitmapPixelFormat.Bgra8,BitmapAlphaMode.Straight,new BitmapTransform(),ExifOrientationMode.IgnoreExifOrientation,ColorManagementMode.DoNotColorManage);
+            var pixels=await croppedDecoder.GetPixelDataAsync(BitmapPixelFormat.Bgra8,BitmapAlphaMode.Straight,new BitmapTransform(),ExifOrientationMode.RespectExifOrientation,ColorManagementMode.DoNotColorManage);
             using var pngStream=new InMemoryRandomAccessStream(); var pngEncoder=await BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId,pngStream);
             pngEncoder.SetPixelData(BitmapPixelFormat.Bgra8,BitmapAlphaMode.Straight,128,128,96,96,pixels.DetachPixelData());await pngEncoder.FlushAsync();
             pngStream.Seek(0);using var reader=new DataReader(pngStream.GetInputStreamAt(0));await reader.LoadAsync((uint)pngStream.Size);
