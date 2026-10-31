@@ -1,0 +1,104 @@
+Defensive local regression evidence against pre-fix behavior; all fixtures are synthetic. Final green suite is recorded separately.
+
+dead-link-red.log
+   Compiling nearby-mesh v0.1.0 (/workspace/wozai/mesh)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.50s
+     Running unittests src/main.rs (mesh/target/debug/deps/mesh_lab-ed5f0eb875b02308)
+
+running 1 test
+test tests::dead_preferred_link_cannot_remove_healthy_neighbor_connection ... FAILED
+
+failures:
+
+---- tests::dead_preferred_link_cannot_remove_healthy_neighbor_connection stdout ----
+
+thread 'tests::dead_preferred_link_cannot_remove_healthy_neighbor_connection' panicked at src/main.rs:547:9:
+assertion `left == right` failed
+  left: {0, 1}
+ right: {1}
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    tests::dead_preferred_link_cannot_remove_healthy_neighbor_connection
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--bin mesh-lab`
+
+checkpoint-red.log
+test_non_io_checkpoint_error_stops_before_display_or_forward (test_persistence.PersistenceFailureTests.test_non_io_checkpoint_error_stops_before_display_or_forward) ... FAIL
+
+======================================================================
+FAIL: test_non_io_checkpoint_error_stops_before_display_or_forward (test_persistence.PersistenceFailureTests.test_non_io_checkpoint_error_stops_before_display_or_forward)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/wozai/mesh/tests/test_persistence.py", line 20, in test_non_io_checkpoint_error_stops_before_display_or_forward
+    try:code=b.p.wait(timeout=2)
+             ^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/subprocess.py", line 1264, in wait
+    return self._wait(timeout=timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/subprocess.py", line 2045, in _wait
+    raise TimeoutExpired(self.args, timeout)
+subprocess.TimeoutExpired: Command '['/workspace/scratch/mesh-review-2026-11-01/mesh-lab-baseline', 'run', '--state', '/tmp/tmp78q9kz39/b', '--listen', '127.0.0.1:0', '--relay']' timed out after 2 seconds
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/workspace/wozai/mesh/tests/test_persistence.py", line 22, in test_non_io_checkpoint_error_stops_before_display_or_forward
+    self.fail('receiver continued after a local checkpoint failure')
+AssertionError: receiver continued after a local checkpoint failure
+
+----------------------------------------------------------------------
+Ran 1 test in 2.027s
+
+FAILED (failures=1)
+
+control-red.log
+   Compiling nearby-mesh v0.1.0 (/workspace/wozai/mesh)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.76s
+     Running unittests src/main.rs (mesh/target/debug/deps/mesh_lab-ed5f0eb875b02308)
+
+running 1 test
+test tests::malformed_optional_send_budgets_do_not_become_defaults ... FAILED
+
+failures:
+
+---- tests::malformed_optional_send_budgets_do_not_become_defaults stdout ----
+
+thread 'tests::malformed_optional_send_budgets_do_not_become_defaults' panicked at src/main.rs:553:13:
+assertion failed: send_budget(&command, "ttl", 600).is_err()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    tests::malformed_optional_send_budgets_do_not_become_defaults
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--bin mesh-lab`
+
+fresh-tx-red.log
+   Compiling nearby-mesh v0.1.0 (/workspace/wozai/mesh)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.42s
+     Running unittests src/main.rs (mesh/target/debug/deps/mesh_lab-ed5f0eb875b02308)
+
+running 1 test
+test tests::full_tx_queue_observes_fresh_time_and_cannot_revive_after_rollback ... FAILED
+
+failures:
+
+---- tests::full_tx_queue_observes_fresh_time_and_cannot_revive_after_rollback stdout ----
+
+thread 'tests::full_tx_queue_observes_fresh_time_and_cannot_revive_after_rollback' panicked at src/main.rs:580:9:
+assertion failed: write_link(&mut link, &mut core, 1002).unwrap().is_empty()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    tests::full_tx_queue_observes_fresh_time_and_cannot_revive_after_rollback
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--bin mesh-lab`
