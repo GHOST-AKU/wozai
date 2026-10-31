@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="next_app_name" translatable="false">我在next</string>
+    <string name="next_dynamic_color">壁纸配色</string>
+    <string name="next_dynamic_color_hint">使用系统的动态色彩</string>
+    <string name="next_experiment">Android 实验客户端</string>
+    <string name="next_independent_profile">此版本的设备身份、信任和聊天记录独立保存。</string>
+    <style name="NextTheme" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:colorAccent">#496B59</item>
+        <item name="android:windowBackground">#F8FAF7</item>
+        <item name="android:windowSoftInputMode">adjustResize</item>
+    </style>
+</resources>

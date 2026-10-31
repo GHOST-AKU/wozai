@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="next_dynamic_color">Wallpaper colors</string>
+    <string name="next_dynamic_color_hint">Use the system dynamic color palette</string>
+    <string name="next_experiment">Experimental Android client</string>
+    <string name="next_independent_profile">This version stores its own device identity, trust and chat history.</string>
+</resources>

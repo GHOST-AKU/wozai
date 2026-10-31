@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="next_dynamic_color">桌布配色</string>
+    <string name="next_dynamic_color_hint">使用系統動態色彩</string>
+    <string name="next_experiment">Android 實驗用戶端</string>
+    <string name="next_independent_profile">此版本的裝置身分、信任和聊天記錄獨立儲存。</string>
+</resources>

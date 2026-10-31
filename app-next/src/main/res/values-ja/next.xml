@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="next_dynamic_color">壁紙の色</string>
+    <string name="next_dynamic_color_hint">システムのダイナミックカラーを使用</string>
+    <string name="next_experiment">Android 実験版クライアント</string>
+    <string name="next_independent_profile">このバージョンの端末 ID、信頼設定、チャット履歴は個別に保存されます。</string>
+</resources>
