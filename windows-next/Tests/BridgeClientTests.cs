@@ -7,7 +7,7 @@ namespace WoZai.Next.Tests;
 public sealed class BridgeClientTests
 {
     // Stop must close the child owned by this client, while another client stays alive.
-    [Fact(Timeout = 10000)]
+    [Fact(Timeout = 30000)]
     public async Task StartupSnapshotsAndStopOwnsOnlyItsChild()
     {
         await using var first = CreateClient("normal");
@@ -27,7 +27,7 @@ public sealed class BridgeClientTests
         Assert.Null(first.Current);
     }
 
-    [Fact(Timeout = 10000)]
+    [Fact(Timeout = 30000)]
     public async Task EarlyChildExitFailsStartupAndLeavesClientStopped()
     {
         await using var client = CreateClient("startup-eof");
@@ -39,7 +39,7 @@ public sealed class BridgeClientTests
         Assert.NotEmpty(notices);
     }
 
-    [Fact(Timeout = 10000)]
+    [Fact(Timeout = 30000)]
     public async Task ChildCrashFailsCallAndPublishesReadableFailure()
     {
         await using var client = CreateClient("normal");
@@ -51,7 +51,7 @@ public sealed class BridgeClientTests
         Assert.Null(client.Current);
     }
 
-    [Fact(Timeout = 10000)]
+    [Fact(Timeout = 30000)]
     public async Task StopClosesStdinWhenChildIgnoresQuit()
     {
         await using var client = CreateClient("ignore-quit");
@@ -61,7 +61,7 @@ public sealed class BridgeClientTests
         Assert.False(IsAlive(pid));
     }
 
-    [Fact(Timeout = 10000)]
+    [Fact(Timeout = 30000)]
     public async Task StopTerminatesOwnedChildWhenItIgnoresQuitAndEof()
     {
         await using var client = CreateClient("stubborn");
@@ -71,6 +71,8 @@ public sealed class BridgeClientTests
         Assert.False(IsAlive(pid));
     }
 
+    // Windows CI cold-starts a real .NET child; startup is event-driven but must
+    // not inherit the sub-second deadlines used by in-memory timeout tests.
     private static BridgeClient CreateClient(string mode) => new(profile =>
     {
         var configuration = new DirectoryInfo(AppContext.BaseDirectory).Parent!.Name;
@@ -80,7 +82,7 @@ public sealed class BridgeClientTests
         start.ArgumentList.Add(mode);
         start.ArgumentList.Add(profile);
         return start;
-    }, TimeSpan.FromSeconds(2), TimeSpan.FromMilliseconds(500));
+    }, TimeSpan.FromSeconds(10), TimeSpan.FromMilliseconds(500));
 
     private static bool IsAlive(int pid)
     {
