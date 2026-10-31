@@ -11,6 +11,11 @@ on:
       - 'gradle/**'
       - '.github/workflows/android-next.yml'
   workflow_dispatch:
+    inputs:
+      signed:
+        description: Build a persistent-certificate installation APK
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -27,11 +32,19 @@ jobs:
           packages: platform-tools
       - run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
       - run: ./gradlew --no-daemon :app-next:testDebugUnitTest :app-next:assembleDebug :app-next:lintDebug
+        if: ${{ !inputs.signed }}
+      - name: Build verified installation APK
+        if: ${{ inputs.signed }}
+        env:
+          WOZAI_ANDROID_KEYSTORE_BASE64: ${{ secrets.WOZAI_ANDROID_KEYSTORE_BASE64 }}
+          WOZAI_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.WOZAI_ANDROID_KEYSTORE_PASSWORD }}
+        run: python3 tools/build-signed-next.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: android-next-verification
           path: |
+            build/android-next-signed/
             app-next/build/reports/tests/
             app-next/build/reports/lint-results-debug.*
             app-next/build/reports/next-screenshots/
