@@ -8,6 +8,8 @@
 
 便携包解压后运行 `WoZaiNext\WindowsNext.exe`；.NET、Windows App SDK 和 Java 运行时随包携带。默认不监听或搜索，用户在「附近」中明确开启。关闭窗口会关闭自己的内核子进程。
 
+[下载 Windows x64 实验包](https://github.com/GHOST-AKU/wozai/actions/runs/41191384984/artifacts/13038469898)（GitHub Actions 下载需要登录）。取下载内容中的 `WoZai-next-0.3.3-preview.4-windows-x64.zip`，解压后启动上述程序。
+
 当前为未做 Authenticode 签名的实验便携包。源码版本与构建来源写入包内 `build-info.json`；它不替换现有正式版。
 
 ## 功能验收范围
@@ -41,6 +43,10 @@ python3 windows-next/tools/build-bridge.py --test
 ## 截图与设备证据
 
 截图由 Windows runner 实际运行 WinUI 窗口后捕获。界面使用独立临时目录中的验收会话数据；不是真人对话，也不代表物理蓝牙或真实无线性能验收。会话、附近、设置与深色截图、UI Automation 树和来源记录一并保留。
+
+[查看四张原生窗口截图与校验值](screenshots/windows-next/README.md)。对应二进制源码 `97a9cc39d377d9da4ddaf71c604a69b5093422a3`，构建与验收见 [Windows 工作流](https://github.com/GHOST-AKU/wozai/actions/runs/41191384984)：241 次真实内核桥接检查、19 项 C# 传输测试、1 项原生蓝牙库生命周期检查通过；WinUI 发布包及默认样式索引验证通过。
+
+UI Automation 在真实窗口上完成地址连接、对端明确认可、Noise 加密握手、文字发送与持久接收、对端文字在原生窗口显示，并验证发送中切换设置页后草稿不会恢复已发送文字。互通使用同一 Windows runner 上的两个真实内核进程和私有网络接口，不是跨设备无线验收。
 
 仍需设备验收：真实蓝牙配对/权限、跨设备 LAN 网络隔离、锁屏和窗口遮挡时的已读边界、最大附件及断路恢复、长期内存、不同系统版本与缩放比例。既有共享内核问题独立跟踪，不以本轮原生 UI 代码绕过。
 
