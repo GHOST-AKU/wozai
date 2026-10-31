@@ -56,7 +56,7 @@ Files: `mesh/android-probe/`, `docs/mesh/hardware-validation.md`, `mesh/README.m
 - [x] 检查 adb/设备，提供无需改动正式客户端的原生探针/实验命令。
 - [x] 记录 Wi-Fi Direct/Aware/BLE/Classic 及 Apple 限制；给出至少一种替代无线拓扑。
 - [x] 独立审查安全与连接管理，修复重要问题；执行 fmt/clippy/test 与隔离实验。
-- [ ] 提交分支、推送、创建中英双语 Draft PR，附证据及已知限制，不关闭 #60。
+- [x] 提交分支、推送、创建中英双语 Draft PR，附证据及已知限制，不关闭 #60。
 
 
 ## 执行记录
@@ -64,3 +64,5 @@ Files: `mesh/android-probe/`, `docs/mesh/hardware-validation.md`, `mesh/README.m
 实现与冻结源码：`83a9dc5`。本地验证为 21 Rust + 9 release 独立进程 + 2 probe parser；两次隔离拓扑脚本通过，原始记录及实测方法见 `validation.md`。源码对应的正式客户端/NIM4/Noise 输入未变，无无关客户端构建。
 
 研发判断：使用原生 Instrumentation 探针探索 Android API，未实现 radio 数据 adapter/FFI；没有真机，严格无线 gate 保留 hardware validation pending。正文队列仅内存，不把持久去重当作可靠 DTN。独立审查提前结束，作者修复重要发现并保留回归测试；完整外部审查仍待后续。用户已授权只推送独立研发分支和 Draft PR，不合并或发行。
+
+交付：[Draft PR #85](https://github.com/GHOST-AKU/wozai/pull/85)，基线 `6d9a50b`，保留研发分支 `research/nearby-mesh-engine`，未合并/发行。
