@@ -103,6 +103,11 @@ public final class BridgeIntegrationTests {
                 a.fails("send", obj("peerId", bid, "text", "offline"));
                 a.fails("approve", obj("token", "invalid", "remember", true));
                 a.call("settings", obj("language", "en", "theme", "dark", "fontSize", 1, "readReceipts", true));
+                JsonArray emojis=a.call("emoji",obj("category","Smileys & Emotion","query","grinning")).getAsJsonArray();
+                check(!emojis.isEmpty(),"Full Unicode catalog must support localized search");
+                String picked=string(emojis.get(0).getAsJsonObject(),"text");
+                a.call("emojiRecent",obj("text",picked));
+                check(string(a.call("emoji",obj("category","recent","query","")).getAsJsonArray().get(0).getAsJsonObject(),"text").equals(picked),"Emoji recent selections must persist through kernel settings");
                 a.call("draft", obj("peerId", bid, "text", "durable draft"));
                 a.call("select", obj("peerId", bid));
                 check(string(a.snapshot(), "draft").equals("durable draft"), "Draft must round-trip through disk");

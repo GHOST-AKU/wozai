@@ -46,7 +46,7 @@ public sealed partial class MainWindow
         var address = new TextBox { PlaceholderText = "192.168.1.20:42673 / bt://…", Text = _addressText };
         AutomationProperties.SetAutomationId(address, "ConnectAddress"); address.TextChanged += (_, _) => _addressText = address.Text;
         direct.Children.Add(address);
-        direct.Children.Add(Button(T("connect"), () => Run(async () => { if (string.IsNullOrWhiteSpace(address.Text)) return; await Call("connect", new { endpoint = address.Text.Trim() }); }), "\uE774", "ConnectButton"));
+        direct.Children.Add(Button(T("connect"), () => Run(async () => { if (string.IsNullOrWhiteSpace(address.Text)) return; await ConnectAsync(address.Text.Trim()); }), "\uE774", "ConnectButton"));
         if (_state.Endpoints.Length > 0)
         {
             direct.Children.Add(Text(T("myAddresses"), 12, true));
@@ -65,7 +65,7 @@ public sealed partial class MainWindow
             row.ColumnDefinitions.Add(new() { Width = GridLength.Auto }); row.ColumnDefinitions.Add(new() { Width = new GridLength(1, GridUnitType.Star) }); row.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
             row.Children.Add(InitialAvatar(peer.Name, 40));
             var detail = Stack(4); detail.Children.Add(Text(peer.Name, 15)); detail.Children.Add(Text(TransportName(peer.Transport) + " · " + peer.Endpoint, 12, true)); Grid.SetColumn(detail, 1); row.Children.Add(detail);
-            var connect = Button(T("connect"), () => Run(() => Call("connect", new { endpoint = peer.Endpoint, expectedId = peer.Trusted ? peer.Id : null })));
+            var connect = Button(T("connect"), () => Run(() => ConnectAsync(peer.Endpoint,peer.Trusted?peer.Id:null)));
             Grid.SetColumn(connect, 2); row.Children.Add(connect); devices.Children.Add(row);
         }
         body.Children.Add(Card(devices));
@@ -130,11 +130,19 @@ public sealed partial class MainWindow
         AutomationProperties.SetAutomationId(scroll, "SettingsPage"); _page.Children.Add(scroll);
     }
 
-    private Grid SettingRow(string label, UIElement control)
+    private Grid SettingRow(string label, FrameworkElement control)
     {
         var row = new Grid { ColumnSpacing = 18 };
         row.ColumnDefinitions.Add(new() { Width = new GridLength(1, GridUnitType.Star) }); row.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
         var name = Text(label, 14); name.VerticalAlignment = VerticalAlignment.Center; row.Children.Add(name); Grid.SetColumn(control, 1); row.Children.Add(control); AutomationProperties.SetName(control, label); return row;
+    }
+    private async Task ConnectAsync(string endpoint,string? expectedId=null)
+    {
+        if(_state.ConnectedPeerId is not null || _state.Phase=="connecting") {
+            if(await DialogAsync(T("connectionSwitchTitle"),Text(T("connectionSwitchBody")),T("disconnectAndConnect"))!=ContentDialogResult.Primary)return;
+            await Call("disconnect");
+        }
+        await Call("connect",new{endpoint,expectedId});
     }
     private async Task ShowApprovalAsync(Approval approval)
     {
@@ -163,11 +171,11 @@ public sealed partial class MainWindow
         var peer = SelectedPeerInfo; if (peer?.Id is null) return;
         var panel = Stack(15); panel.MinWidth = 360;
         var avatar = await _bridge.CallAsync<Avatar>("avatar", new { peerId = peer.Id });
-        if (!string.IsNullOrEmpty(avatar.Png)) panel.Children.Add(await ImageFromPngAsync(avatar.Png, 96)); else panel.Children.Add(InitialAvatar(peer.Name, 72));
+        if (!string.IsNullOrEmpty(avatar?.Png)) panel.Children.Add(await ImageFromPngAsync(avatar.Png, 96)); else panel.Children.Add(InitialAvatar(peer.Name, 72));
         panel.Children.Add(Heading(peer.Name, 22)); panel.Children.Add(Text(peer.Trusted ? T("trustedDevice") : T("notRemembered"), 13, true));
         var details = Text(T("identity") + "\n" + peer.Id + "\n\n" + T("address") + "\n" + peer.Endpoint + "\n\n" + T("publicKey") + "\n" + peer.PublicKey, 12); details.IsTextSelectionEnabledCompat(); panel.Children.Add(details);
         if (peer.Trusted) panel.Children.Add(Command(T("revoke"), "revoke", new { peerId = peer.Id }));
-        if (!string.IsNullOrEmpty(peer.Endpoint) && _state.ConnectedPeerId != peer.Id) panel.Children.Add(Command(T("reconnect"), "connect", new { endpoint = peer.Endpoint, expectedId = peer.Id }));
+        if (!string.IsNullOrEmpty(peer.Endpoint) && _state.ConnectedPeerId != peer.Id) panel.Children.Add(Button(T("reconnect"),()=>Run(()=>ConnectAsync(peer.Endpoint,peer.Id))));
         await DialogAsync(T("deviceDetails"), panel);
     }
     private async Task ShowDiagnosticsAsync()

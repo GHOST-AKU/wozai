@@ -41,7 +41,9 @@ public sealed partial class MainWindow : Window
     private TextBlock? _chatTitle, _chatSubtitle;
     private TextBlock? _characterCount;
     private StackPanel? _chatActions;
+    private Button? _attachFileButton, _attachPhotoButton, _reconnectButton;
     private string _renderedMessages = "";
+    private string _peerSignature = "";
     private readonly Dictionary<string, TextBlock> _incomingBodies = new();
     private readonly Dictionary<string, ReadProgress> _readProgress = new();
     private readonly HashSet<string> _observed = new();
@@ -116,7 +118,7 @@ public sealed partial class MainWindow : Window
                 var args = Environment.GetCommandLineArgs();
                 for (var i = 1; i + 1 < args.Length; i++) if (args[i] == "--profile") profile = args[++i];
                 await _bridge.StartAsync(profile);
-                ApplyState(_bridge.Current);
+                if (_bridge.Current is {} initial) ApplyState(initial);
                 _readTimer.Start();
             }
             catch (Exception e) { ReportError(e.Message); }
@@ -185,6 +187,7 @@ public sealed partial class MainWindow : Window
         _page.ColumnDefinitions.Clear();
         _page.RowDefinitions.Clear();
         _renderedMessages = "";
+        _peerSignature = "";
         _composer = null;
         _send = null;
         _peers = null;

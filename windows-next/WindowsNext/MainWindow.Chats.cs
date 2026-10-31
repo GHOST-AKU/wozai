@@ -59,6 +59,9 @@ public sealed partial class MainWindow
     private void RenderPeers()
     {
         if (_peers is null) return;
+        var signature="peers|"+SelectedPeer+"|"+_peerQuery+string.Join(";",_state.History.Select(p=>$"{p.Id}|{p.Name}|{p.Preview}|{p.Time}|{p.PublicKey}"));
+        if(signature==_peerSignature)return;
+        _peerSignature=signature;
         _renderingPeers = true;
         try
         {
@@ -70,7 +73,7 @@ public sealed partial class MainWindow
                 var grid = new Grid { ColumnSpacing = 11 };
                 grid.ColumnDefinitions.Add(new() { Width = new GridLength(42) });
                 grid.ColumnDefinitions.Add(new() { Width = new GridLength(1, GridUnitType.Star) });
-                var avatar = InitialAvatar(peer.Name, 40);
+                var avatar = DeviceAvatar(peer, 40);
                 grid.Children.Add(avatar);
                 var content = Stack(5);
                 var first = new Grid();
@@ -100,6 +103,15 @@ public sealed partial class MainWindow
         text.HorizontalAlignment = HorizontalAlignment.Center; text.VerticalAlignment = VerticalAlignment.Center;
         text.Foreground = AccentBrush(); text.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
         return new Border { Width = size, Height = size, CornerRadius = new CornerRadius(size / 2), Background = new SolidColorBrush(IsDark ? ColorHelper.FromArgb(255, 35, 64, 77) : ColorHelper.FromArgb(255, 229, 241, 248)), Child = text };
+    }
+    private Border DeviceAvatar(Peer peer,double size)
+    {
+        var border=InitialAvatar(peer.Name,size);
+        if (!string.IsNullOrEmpty(peer.Id) && !string.IsNullOrEmpty(peer.PublicKey)) Run(async()=>{
+            var avatar=await _bridge.CallAsync<Avatar>("avatar",new {peerId=peer.Id});
+            if(!string.IsNullOrEmpty(avatar?.Png))border.Child=await ImageFromPngAsync(avatar.Png,size);
+        });
+        return border;
     }
 
     private void RenderChat()
@@ -132,17 +144,21 @@ public sealed partial class MainWindow
             header.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
             header.ColumnDefinitions.Add(new() { Width = new GridLength(1, GridUnitType.Star) });
             header.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
-            var avatar = Button(T("deviceDetails"), () => Run(ShowPeerDetailsAsync)); avatar.Content = InitialAvatar(peer.Name, 42); avatar.Padding = new Thickness(0); avatar.Background = null; avatar.BorderThickness = new Thickness(0); header.Children.Add(avatar);
+            var avatar = Button(T("deviceDetails"), () => Run(ShowPeerDetailsAsync)); avatar.Content = DeviceAvatar(peer, 42); avatar.Padding = new Thickness(0); avatar.Background = null; avatar.BorderThickness = new Thickness(0); header.Children.Add(avatar);
             var info = Stack(3);
             _chatTitle = Heading(peer.Name, 19);
             _chatSubtitle = Text("", 12, true);
             info.Children.Add(_chatTitle); info.Children.Add(_chatSubtitle); Grid.SetColumn(info, 1); header.Children.Add(info);
             _chatActions = Row(8); _chatActions.VerticalAlignment = VerticalAlignment.Center;
+            _reconnectButton=Button(T("reconnect"),()=>Run(async()=>{if(string.IsNullOrEmpty(peer.Endpoint)){Navigate("nearby");return;}await ConnectAsync(peer.Endpoint,peer.Id);}),"\uE72C");
+            _chatActions.Children.Add(_reconnectButton);
             var verify = Button(T("security"), () => Run(ShowSecurityAsync), "\uE72E", "SecurityButton");
             _chatActions.Children.Add(verify);
             var more = new Button { Content = new FontIcon { Glyph = "\uE712", FontSize = 18 }, Padding = new Thickness(11) };
             AutomationProperties.SetName(more, T("more"));
             var flyout = new MenuFlyout();
+            flyout.Opening+=(_,_)=>{_modalDepth++;ResetDwell();};
+            flyout.Closed+=(_,_)=>{_modalDepth--;ResetDwell();};
             void Add(string label, Action action) { var i = new MenuFlyoutItem { Text = label }; i.Click += (_, _) => action(); flyout.Items.Add(i); }
             Add(T("searchMessages"), () => Run(SearchMessagesAsync));
             Add(T("deviceDetails"), () => Run(ShowPeerDetailsAsync));
@@ -178,6 +194,7 @@ public sealed partial class MainWindow
             var tools = Row(4);
             var attach = Button(T("attachFiles"), () => Run(() => PickFilesAsync(false)), "\uE723", "AttachButton"); attach.IsEnabled = _state.CanAttach;
             var photo = Button(T("sendPhoto"), () => Run(() => PickFilesAsync(true)), "\uEB9F"); photo.IsEnabled = _state.CanAttach;
+            _attachFileButton=attach;_attachPhotoButton=photo;
             var emoji = Button(T("emoji"), ShowEmoji, "\uE76E");
             tools.Children.Add(attach); tools.Children.Add(photo); tools.Children.Add(emoji);
             _characterCount = Text("", 11, true); _characterCount.VerticalAlignment = VerticalAlignment.Center; _characterCount.Margin = new Thickness(9, 0, 0, 0); tools.Children.Add(_characterCount);
@@ -188,6 +205,9 @@ public sealed partial class MainWindow
             Grid.SetRow(composerFrame, 2); _chatPanel.Children.Add(composerFrame);
         }
         _chatTitle!.Text = peer.Name;
+        if(_attachFileButton is not null)_attachFileButton.IsEnabled=_state.CanAttach;
+        if(_attachPhotoButton is not null)_attachPhotoButton.IsEnabled=_state.CanAttach;
+        if(_reconnectButton is not null)_reconnectButton.Visibility=_state.CanSend?Visibility.Collapsed:Visibility.Visible;
         _chatSubtitle!.Text = peer.Id == _state.ConnectedPeerId ? "● " + T("connected") + " · " + TransportName(_state.Transport) : T("offlineHistory");
         _chatSubtitle.Foreground = peer.Id == _state.ConnectedPeerId ? AccentBrush() : null;
         if (!_draftDirty && !_sending && _composer!.Text != _state.Draft) { _applyingDraft = true; _composer.Text = _state.Draft; _applyingDraft = false; }
@@ -260,7 +280,7 @@ public sealed partial class MainWindow
         foreach (var message in matches)
         {
             var outer = Stack(6); outer.HorizontalAlignment = message.Outgoing ? HorizontalAlignment.Right : HorizontalAlignment.Left; outer.MaxWidth = 570;
-            if (!string.IsNullOrEmpty(message.Body))
+            if (message.Attachment is null && !string.IsNullOrEmpty(message.Body))
             {
                 var body = Text(message.Body, 15); body.IsTextSelectionEnabled = true;
                 var bubble = new Border { Child = body, Padding = new Thickness(16, 12, 16, 12), CornerRadius = new CornerRadius(12), Background = message.Outgoing ? new SolidColorBrush(IsDark ? ColorHelper.FromArgb(255, 28, 67, 86) : ColorHelper.FromArgb(255, 225, 240, 249)) : CardBrush(), BorderBrush = message.Outgoing ? null : LineBrush(), BorderThickness = message.Outgoing ? new Thickness(0) : new Thickness(1) };
@@ -296,11 +316,19 @@ public sealed partial class MainWindow
     private void ShowEmoji()
     {
         if (_composer is null) return;
-        var target = _composer;
-        var view = new GridView { ItemsPanel = (ItemsPanelTemplate)Microsoft.UI.Xaml.Markup.XamlReader.Load("<ItemsPanelTemplate xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'><ItemsWrapGrid Orientation='Horizontal' MaximumRowsOrColumns='6'/></ItemsPanelTemplate>"), SelectionMode = ListViewSelectionMode.None, IsItemClickEnabled = true, MaxWidth = 300 };
-        foreach (var value in new[] { "😀", "😊", "🥰", "😎", "🤔", "😂", "👍", "👏", "🙏", "❤️", "🎉", "✨", "👋", "✅", "☕", "🌸", "🚀", "💬" }) view.Items.Add(value);
-        var flyout = new Flyout { Content = view };
-        view.ItemClick += (_, e) => { var start = target.SelectionStart; target.SelectedText = e.ClickedItem.ToString(); target.SelectionStart = start + e.ClickedItem.ToString()!.Length; flyout.Hide(); target.Focus(FocusState.Programmatic); };
-        flyout.ShowAt(target);
+        var target=_composer; var panel=Stack(10); panel.Width=350;
+        var search=new TextBox{PlaceholderText=T("emojiSearch")};panel.Children.Add(search);
+        var category=new ComboBox{HorizontalAlignment=HorizontalAlignment.Stretch};
+        var categories=new[]{"recent","Smileys & Emotion","People & Body","Animals & Nature","Food & Drink","Travel & Places","Activities","Objects","Symbols","Flags"};
+        category.Items.Add(T("emojiRecent"));for(int i=0;i<9;i++)category.Items.Add(T("emojiCategory"+i));category.SelectedIndex=0;panel.Children.Add(category);
+        var grid=new GridView{SelectionMode=ListViewSelectionMode.None,IsItemClickEnabled=true,MaxHeight=310};
+        grid.ItemsPanel=(ItemsPanelTemplate)Microsoft.UI.Xaml.Markup.XamlReader.Load("<ItemsPanelTemplate xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'><ItemsWrapGrid Orientation='Horizontal'/></ItemsPanelTemplate>");
+        panel.Children.Add(grid);var flyout=new Flyout{Content=panel}; int request=0;
+        async Task Reload(){ int revision=++request;var items=await _bridge.CallAsync<EmojiItem[]>("emoji",new{category=categories[Math.Max(0,category.SelectedIndex)],query=search.Text});if(revision!=request)return;grid.Items.Clear();foreach(var item in items??[]){var tile=new GridViewItem{Tag=item,Content=new TextBlock{Text=item.Text,FontFamily=new FontFamily("Segoe UI Emoji"),FontSize=24},Padding=new Thickness(8)};ToolTipService.SetToolTip(tile,item.Label);AutomationProperties.SetName(tile,item.Label);grid.Items.Add(tile);} }
+        search.TextChanged+=(_,_)=>Run(Reload);category.SelectionChanged+=(_,_)=>Run(Reload);
+        grid.ItemClick+=(_,e)=>{if(e.ClickedItem is not GridViewItem tile||tile.Tag is not EmojiItem item)return;target.SelectedText=item.Text;flyout.Hide();target.Focus(FocusState.Programmatic);Run(()=>Call("emojiRecent",new{text=item.Text}));};
+        flyout.Opening+=(_,_)=>{_modalDepth++;ResetDwell();};flyout.Closed+=(_,_)=>{_modalDepth--;ResetDwell();};
+        flyout.ShowAt(target);Run(Reload);
     }
+    private sealed class EmojiItem{public EmojiItem(){} public string Text{get;init;}="";public string Label{get;init;}="";}
 }

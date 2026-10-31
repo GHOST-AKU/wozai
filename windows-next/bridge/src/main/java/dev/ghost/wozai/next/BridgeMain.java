@@ -28,6 +28,7 @@ public final class BridgeMain implements AutoCloseable {
     private final DesktopIdentity.Identity identity;
     private final DesktopClient client;
     private final BridgeCatalog catalog;
+    private EmojiCatalog emoji;
     private final LanDiscovery discovery = new LanDiscovery();
     private final ThreadPoolExecutor commands = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS,
             new ArrayBlockingQueue<>(128), daemon("next-commands"), new ThreadPoolExecutor.AbortPolicy());
@@ -142,7 +143,7 @@ public final class BridgeMain implements AutoCloseable {
                     Object data = operation(op, args);
                     reply(requestId, true, data, null);
                     if (op.equals("quit")) { quit = true; close(); try { System.in.close(); } catch (IOException ignored) { } }
-                    else changed();
+                    else if (!Set.of("snapshot","messages","avatar","verification","qrImage","readQr","openPath","emoji").contains(op)) changed();
                 } catch (Throwable failure) {
                     if (failure instanceof InterruptedException) Thread.currentThread().interrupt();
                     reply(requestId, false, null, catalog.error(failure));
@@ -185,6 +186,20 @@ public final class BridgeMain implements AutoCloseable {
             case "revoke" -> { await(client.revoke(uuid(required(args, "peerId")))); invalidateToken(); yield null; }
             case "clear" -> { await(client.clear(uuid(required(args, "peerId")))); validatedFiles.clear(); invalidateToken(); yield null; }
             case "settings" -> { settings(args); yield null; }
+            case "emoji", "emojiRecent" -> {
+                if(emoji==null)emoji=new EmojiCatalog(BridgeMain.class.getResourceAsStream("/dev/ghost/wozai/emoji_catalog.gz"));
+                String recent=store.setting("emojiRecent","");
+                if(op.equals("emojiRecent")) {
+                    String text=required(args,"text");
+                    EmojiCatalog.Entry entry=emoji.all().stream().filter(e->e.text.equals(text)).findFirst().orElseThrow(()->new IOException("Unknown emoji"));
+                    await(client.setting("emojiRecent",emoji.remember(recent,entry)));yield null;
+                }
+                String category=optional(args,"category"),query=optional(args,"query");
+                List<Object> result=new ArrayList<>();
+                for(EmojiCatalog.Entry entry:emoji.browse(category==null?"recent":category,query==null?"":query,Locale.forLanguageTag(catalog.effectiveLanguage()),recent))
+                    result.add(map("text",entry.text,"label",entry.label(Locale.forLanguageTag(catalog.effectiveLanguage()))));
+                yield result;
+            }
             case "files" -> {
                 IdentityVerification expected = requireToken(args);
                 JsonArray paths = array(args, "paths");

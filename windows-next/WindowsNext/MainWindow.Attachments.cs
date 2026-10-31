@@ -37,7 +37,7 @@ public sealed partial class MainWindow
                 try
                 {
                     var path = await _bridge.CallAsync<string>("openPath", new { peerId = peer, id = attachment.Id, outgoing = attachment.Outgoing });
-                    preview.Source = await BitmapFromFileAsync(path);
+                    preview.Source = await BitmapFromFileAsync(path ?? throw new InvalidOperationException(T("attachmentUnavailable")));
                 }
                 catch { /* A missing local file keeps its explicit retry/export controls. */ }
             });
@@ -153,8 +153,11 @@ public sealed partial class MainWindow
         var path = await _bridge.CallAsync<string>("openPath", new { peerId = peer, id = attachment.Id, outgoing = attachment.Outgoing });
         if (attachment.Mime.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
         {
-            var image = new Image { Source = await BitmapFromFileAsync(path), Stretch = Microsoft.UI.Xaml.Media.Stretch.Uniform, MaxWidth = 640, MaxHeight = Math.Max(180, _root.ActualHeight - 310) };
-            var panel = Stack(12); panel.Children.Add(image); panel.Children.Add(Text(DisplayName(attachment.Name) + " · " + Size(attachment.Size), 12, true));
+            var image = new Image { Source = await BitmapFromFileAsync(path ?? throw new InvalidOperationException(T("attachmentUnavailable"))), Stretch = Microsoft.UI.Xaml.Media.Stretch.Uniform, MaxWidth = 640, MaxHeight = Math.Max(180, _root.ActualHeight - 310) };
+            var viewer = new ScrollViewer {Content=image,ZoomMode=ZoomMode.Enabled,MinZoomFactor=.25f,MaxZoomFactor=8,Height=Math.Max(180,_root.ActualHeight-350),Width=640,HorizontalScrollBarVisibility=ScrollBarVisibility.Auto};
+            var panel = Stack(12); panel.Children.Add(viewer);
+            var zoom=Row();zoom.Children.Add(Button("−",()=>viewer.ChangeView(null,null,Math.Max(.25f,viewer.ZoomFactor/1.25f))));zoom.Children.Add(Button("+",()=>viewer.ChangeView(null,null,Math.Min(8,viewer.ZoomFactor*1.25f))));panel.Children.Add(zoom);
+            panel.Children.Add(Text(DisplayName(attachment.Name) + " · " + Size(attachment.Size), 12, true));
             if (await DialogAsync(T("viewImage"), panel, T("saveAs")) == ContentDialogResult.Primary) await ExportAttachmentAsync(peer, attachment);
         }
         else
