@@ -1,0 +1,48 @@
+name: Verify independent Nearby Mesh lab
+on:
+  pull_request:
+    branches: [main]
+    paths: ['mesh/**', 'docs/mesh/**', '.github/workflows/mesh.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: mesh-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  mesh:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.88.0
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mesh
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Formatting, static checks and core resource contracts
+        run: |
+          cargo fmt --manifest-path mesh/Cargo.toml --check
+          cargo clippy --manifest-path mesh/Cargo.toml --locked --all-targets -- -D warnings
+          cargo test --manifest-path mesh/Cargo.toml --locked
+          cargo build --manifest-path mesh/Cargo.toml --locked --release
+      - name: Independent process and probe capture tests
+        env:
+          MESH_BINARY: ${{ github.workspace }}/mesh/target/release/mesh-lab
+        run: |
+          python3 -m unittest discover -s mesh/tests -p test_lab.py -v
+          python3 -m unittest discover -s mesh/android-probe/tests -v
+      - name: Isolated TCP topology; never a wireless acceptance claim
+        env:
+          MESH_BINARY: ${{ github.workspace }}/mesh/target/release/mesh-lab
+        run: |
+          python3 mesh/tools/lab.py --output mesh/target/ci-isolated.json
+          python3 mesh/tools/lab.py --discovery --output mesh/target/ci-discovery.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mesh-isolated-tcp-evidence
+          path: mesh/target/ci-*.json
+          if-no-files-found: error
