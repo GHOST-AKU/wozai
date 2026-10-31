@@ -10,6 +10,7 @@ public partial class App : Application
         InitializeComponent();
         UnhandledException += (_, e) =>
         {
+            Console.Error.WriteLine("WinUI unhandled failure: " + e.Exception);
             if (_window is not null)
             {
                 e.Handled = true;
@@ -19,7 +20,7 @@ public partial class App : Application
     }
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
-        _window = new MainWindow();
-        _window.Activate();
+        try { _window = new MainWindow(); _window.Activate(); }
+        catch(Exception error) { Console.Error.WriteLine("WinUI startup failure: " + error); throw; }
     }
 }

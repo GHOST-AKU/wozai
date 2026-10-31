@@ -89,6 +89,8 @@ try {
     @{kind='Actual WinUI 3 window on GitHub Windows runner';fixture='isolated seeded DesktopStore; not physical wireless acceptance';source=(git rev-parse HEAD);profileIsTemporary=$true;app=$exe;utc=[DateTime]::UtcNow.ToString('o')} | ConvertTo-Json | Set-Content "$Output/manifest.json" -Encoding UTF8
 } catch {
     if ($hwnd -ne 0 -and $null -ne $hwnd) { try { Capture 'failure' } catch { } }
+    foreach($file in @("$Output/stderr.txt","$Output/stdout.txt")) { if(Test-Path $file){ Get-Content $file -ErrorAction SilentlyContinue | Select-Object -Last 50 | Write-Output } }
+    try { Get-WinEvent -FilterHashtable @{LogName='Application';StartTime=(Get-Date).AddMinutes(-5)} -ErrorAction Stop | Where-Object { $_.Message -match 'WindowsNext' } | Select-Object -First 4 -ExpandProperty Message | Write-Output } catch { }
     throw
 } finally {
     if (-not $app.HasExited) { $app.CloseMainWindow() | Out-Null; if (-not $app.WaitForExit(8000)) { Stop-Process -Id $app.Id -Force } }
