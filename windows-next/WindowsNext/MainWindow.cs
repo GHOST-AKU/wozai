@@ -63,6 +63,7 @@ public sealed partial class MainWindow : Window
         _root.RowDefinitions.Add(new() { Height = GridLength.Auto });
         _root.RowDefinitions.Add(new() { Height = new GridLength(1, GridUnitType.Star) });
         Content = _root;
+        App.StartupTrace("Window content attached");
 
         var titleBar = new Grid { Padding = new Thickness(22, 0, 150, 0) };
         titleBar.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
@@ -90,8 +91,11 @@ public sealed partial class MainWindow : Window
         _nav.IsSettingsVisible = false;
         // WinUI needs the NavigationView's SplitView template before changing pane state.
         _nav.Loaded += (_, _) => DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => {
-            _nav.ApplyTemplate(); _nav.UpdateLayout(); _nav.IsPaneOpen = false;
+            App.StartupTrace("Navigation loaded; applying template");
+            _nav.ApplyTemplate(); App.StartupTrace("Navigation template applied"); _nav.UpdateLayout(); App.StartupTrace("Navigation layout updated"); _nav.IsPaneOpen = false;
+            App.StartupTrace("Navigation closed");
             if(_nav.SelectedItem is null) _nav.SelectedItem = _nav.MenuItems[0];
+            App.StartupTrace("Navigation selected");
         });
         _nav.CompactPaneLength = 68;
         _nav.OpenPaneLength = 68;
@@ -108,13 +112,16 @@ public sealed partial class MainWindow : Window
         _nav.Content = _page;
         Grid.SetRow(_nav, 2);
         _root.Children.Add(_nav);
+        App.StartupTrace("Navigation attached");
         _draftTimer.Tick += (_, _) => { _draftTimer.Stop(); Run(SaveDraftAsync); };
         _readTimer.Tick += (_, _) => ObserveVisibleBodies();
         _root.Loaded += async (_, _) =>
         {
             if (_loaded) return;
             _loaded = true;
+            App.StartupTrace("Root loaded; rendering page");
             RenderPage();
+            App.StartupTrace("Initial page rendered");
             try
             {
                 string? profile = null;
