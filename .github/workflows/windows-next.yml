@@ -1,0 +1,52 @@
+name: Build and capture WinUI 3 我在next
+on:
+  push:
+    branches: [feat/windows-next]
+    paths:
+      - 'windows-next/**'
+      - '.github/workflows/windows-next.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: windows-next-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  native-client:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Compile, test and package native client
+        shell: pwsh
+        run: ./windows-next/tools/build.ps1 -Test
+      - name: Launch actual WinUI window and capture screenshots
+        shell: pwsh
+        run: ./windows-next/tools/capture.ps1
+      - name: Record screenshot pixels for API retrieval
+        if: always()
+        shell: pwsh
+        run: |
+          Get-ChildItem windows-next/build/screenshots/*.png -ErrorAction SilentlyContinue | ForEach-Object {
+            Write-Output "NEXT_SCREENSHOT_BEGIN:$($_.Name)"
+            $encoded=[Convert]::ToBase64String([IO.File]::ReadAllBytes($_.FullName))
+            for($offset=0;$offset -lt $encoded.Length;$offset+=4096) { Write-Output ('NEXT_SCREENSHOT_DATA:'+$encoded.Substring($offset,[Math]::Min(4096,$encoded.Length-$offset))) }
+            Write-Output 'NEXT_SCREENSHOT_END'
+          }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-next-native
+          compression-level: 0
+          path: |
+            windows-next/build/WoZai-next-*-windows-x64.zip
+            windows-next/build/screenshots/
+            windows-next/Tests/TestResults/
+          if-no-files-found: warn

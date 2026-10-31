@@ -1,0 +1,43 @@
+# 我在next · WinUI 3 桌面实验版
+
+本实验以 Windows 原生 WinUI 3 重建当前桌面客户端的功能，使用独立数据目录 `%LOCALAPPDATA%\WoZaiNext`。原客户端的密钥、信任和记录不会自动导入。Windows 10 19041 及以上、Windows 11，当前目标 Windows x64。
+
+## 架构与安装
+
+窗口、导航、列表、对话框、文件选择器均为 WinUI 3 控件。通信通过私有子进程管道接入原 `DesktopClient`；不新增可被其他应用访问的控制端口。NIM4、Noise、身份、LAN、Windows 蓝牙、附件和记录沿用原 Java 源码。
+
+便携包解压后运行 `WoZaiNext\WindowsNext.exe`；.NET、Windows App SDK 和 Java 运行时随包携带。默认不监听或搜索，用户在「附近」中明确开启。关闭窗口会关闭自己的内核子进程。
+
+## 功能验收范围
+
+目标以当前 Windows 桌面版为边界：
+
+- 会话与聊天：本地会话、搜索、草稿、文字、真实发送/送达/已读状态、滚动与选中文本。
+- 设备：LAN 和 Windows 经典蓝牙的接收、发现、地址连接、取消、断开及记住设备重连；首次设备认可、撤销信任。
+- 附件：照片/多文件选择及预览、接收/拒绝、暂停/续传、重发/替换源文件/批次操作、打开/另存为、实际路径与诊断。
+- 身份与外观：完整安全码、二维码显示/读取/保存及核验、头像编辑/重置、五语、浅色/深色/系统、字号、附件配额、已读策略、隐私和本地目录。
+
+Windows 现有内核不提供手机侧独立 Wi-Fi Direct、群聊、互联网中继或语音。本实验不会以界面按钮宣称新增这些能力。功能完成状态以本次工作流和核验记录为准，不把设计清单当成通过证据。
+
+## 构建和验证
+
+Windows 安装 .NET 8 SDK、JDK 17 和 C++ CMake 工具后执行：
+
+```powershell
+./windows-next/tools/build.ps1 -Test
+./windows-next/tools/capture.ps1
+```
+
+桥接层可在 Linux/macOS 用 JDK 17 与 Python 验证：
+
+```sh
+python3 windows-next/tools/build-bridge.py --test
+```
+
+版本继续读取 `i18n/config.json`。标准输入输出协议见 [协议契约](../windows-next/PROTOCOL.md)。原桌面和通信源码保留不变。
+
+## 截图与设备证据
+
+截图由 Windows runner 实际运行 WinUI 窗口后捕获。界面使用独立临时目录中的验收会话数据；不是真人对话，也不代表物理蓝牙或真实无线性能验收。会话、附近、设置与深色截图、UI Automation 树和来源记录一并保留。
+
+仍需设备验收：真实蓝牙配对/权限、跨设备 LAN 网络隔离、锁屏和窗口遮挡时的已读边界、最大附件及断路恢复、长期内存、不同系统版本与缩放比例。既有共享内核问题独立跟踪，不以本轮原生 UI 代码绕过。
