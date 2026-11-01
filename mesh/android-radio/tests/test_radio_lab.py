@@ -248,6 +248,28 @@ for line in sys.stdin:
         self.assertNotIn('127.0.0.1', json.dumps(evidence))
         self.assertEqual(evidence['hardware_acceptance'], 'pending_operator_topology_and_radio_lifecycle_report')
 
+    def test_late_duplicate_or_expired_relay_off_delivery_fails_after_draining(self):
+        for kind in ('duplicate', 'blocked'):
+            with self.subTest(kind=kind):
+                fixture = LabFixture()
+                original = FixtureProcess.close_core
+                def close_late(child, timeout):
+                    if child.label == 'C':
+                        if kind == 'duplicate':
+                            late = dict(next(e for e in child.events.snapshot() if e['event'] == 'message'))
+                        else:
+                            mid = next(e['id'] for e in fixture.cores['A'].events.snapshot() if e['event'] == 'expired')
+                            late = dict(event='message', id=mid, path=[fixture.keys[x] for x in 'ABC'])
+                        child.events.push(late)
+                    return original(child, timeout)
+                args = self.args('--messages-per-side', '2', '--output', str(Path(self.temp.name) / (kind+'.json')))
+                with patch.object(lab, '_probe_devices', return_value={}), patch.object(lab, 'EventProcess', side_effect=fixture.process), \
+                     patch.object(FixtureProcess, 'close_core', close_late), contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(lab.run(args), 1)
+                evidence = json.loads(Path(args.output).read_text())
+                self.assertEqual(evidence['result'], 'failed')
+                self.assertIn(evidence['failure'], ('duplicate_display', 'expired_relay_off_id_delivered'))
+
     def test_deadline_and_public_evidence_keep_hardware_acceptance_pending(self):
         with self.assertRaises(lab.LabError):
             lab.Deadline(0).remaining(1)

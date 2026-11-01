@@ -621,6 +621,15 @@ def run(args):
                     if counts.get('tx_bytes', 0) <= 0 or counts.get('rx_bytes', 0) <= 0:
                         raise LabError('native_per_link_bytes_missing')
             evidence['checks']['native_each_link_bytes_observed'] = True
+        # Judge the complete drained histories, including events emitted during shutdown.
+        for history in evidence['core_events'].values():
+            displayed = [e.get('id') for e in history if e['event'] == 'message']
+            if len(displayed) != len(set(displayed)):
+                raise LabError('duplicate_display')
+        blocked = evidence['checks'].get('relay_off', {}).get('id')
+        if blocked and any(e['event'] == 'message' and e.get('id') == blocked
+                           for e in evidence['core_events'].get('C', [])):
+            raise LabError('expired_relay_off_id_delivered')
         if any(not check['remote_cleanup_confirmed'] for check in evidence['cleanup'].values()):
             raise LabError('remote_cleanup_unconfirmed')
         if any(not check['stream_integrity_confirmed'] for check in evidence['cleanup'].values()):
