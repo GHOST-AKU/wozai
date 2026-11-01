@@ -4,7 +4,7 @@
 
 ## 代码审查和最小修补
 
-- 新 P2：`Store::load` 把悬空 seen.json 链接及部分元数据错误视为无状态，可能重新展示旧消息。现在只有明确 NotFound 使用空状态；包括 dangling 的符号链接和其他错误都 fail closed。四项 store 回归先观察到失败再修补，保留 fixture；既有 resources 检查继续适用。
+- 新 P2：`Store::load` 把悬空 seen.json 链接及部分元数据错误视为无状态，可能重新展示旧消息。现在只有明确 NotFound 使用空状态；包括 dangling 的符号链接和其他错误都 fail closed。四项 store 回归先观察到失败再修补，保留fixture；既有 resources 检查继续适用。
 - 新 P2：同方向、同身份多地址连接若在双方按不同顺序到达，本地 Vec 顺序可导致互相淘汰。现在保留方向优先，再按公钥顺序规范化握手 challenge 对排序；逆序双端 fixture 和次级 challenge 比较回归均通过，不改线协议。
 - 协议审查未确认来源签名、ID、期限、逻辑跳数或环路预算绕过。新增独立 Python/cryptography 固定向量，避免 encode/validate 共享错误假设；正确长度坏签名与 UTF-8 原文也有覆盖。
 - 新增多身份64来源桶/128全局准入、有效seen满不驱逐、重复发现共享16候选，以及丢弃首次真实Data帧后同ID重连重 offer 的测试；不以TCP handed冒充对端交付。
@@ -22,7 +22,7 @@ Android/Linux/Windows的路径排除仅增加mesh/**、docs/mesh/**、mesh workf
 
 ## 独立 CI
 
-基线382a944没有check-runs/Actions记录。新工作流不在默认分支注册，直接 `gh workflow run mesh.yml --ref research/nearby-mesh-engine` 返回404；因此本轮使用正常PR同步事件首次注册/触发，不能用skip-ci代表成功。
+基线382a944没有check-runs/Actions记录。新工作流不在默认分支注册，直接 `gh workflow run mesh.yml --ref research/nearby-mesh-engine` 返回404；因此本轮使用正常PR同步事件首次注册/触发。注册后最后的证据措辞修订使用skip-ci避免重复客户端打包，再显式dispatch专用workflow验证最终HEAD；不能用skip-ci代表成功。
 
 专用workflow显式checkout请求的PR head SHA，并断言git HEAD相等；运行fmt、clippy、crate tests、release构建、只读许可检查、全部Python进程/控制器案例、两种隔离拓扑，上传实际binary/source快照与拓扑结果。job有15min timeout，权限仅contents:read，checkout不持久化credentials。日志与run链接在PR/Issues记录，只有实际完成结果才能称通过。本PR包含三份旧客户端workflow路径过滤编辑，这些编辑会触发对应客户端流程；若取消源文件未改的重打包，会在PR明确记录原因和状态，绝不写作通过。
 
