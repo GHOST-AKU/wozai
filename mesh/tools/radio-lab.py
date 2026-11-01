@@ -426,7 +426,7 @@ class EventProcess:
         history = self.events.snapshot()
         confirmed = (self.p.returncode == 0 and any(e['event'] == 'run.end' for e in history)
                      and not any(e['event'] in ('cleanup.timeout', 'cleanup.error') for e in history))
-        fatal = any(e['event'] in ('run.error', 'unsupported')
+        fatal = any(e['event'] in ('run.error', 'unsupported', 'terminal_failure')
                     or (e['event'] == 'ble_error' and not e['peer']) for e in history)
         return dict(remote_cleanup_confirmed=confirmed, method='bounded_instrumentation_lifetime_and_run_end',
                     instrumentation_success=self.instrumentation_code == -1 and not fatal,

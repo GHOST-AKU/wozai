@@ -203,6 +203,18 @@ for line in sys.stdin:
             self.assertEqual(cleanup['instrumentation_success'], expected)
             self.assertEqual(child.events.snapshot()[-1]['dropped_events'], 12)
 
+    def test_terminal_aware_failure_cannot_become_instrumentation_success(self):
+        for reason in ('aware_permission_or_registration_failed', 'aware_attach_retry_exhausted'):
+            failure = dict(schema=1, event='terminal_failure', mode='aware', peer='', reason=reason,
+                           elapsed_ms=1, tx_bytes=0, rx_bytes=0, dropped_events=0)
+            end = dict(failure, event='run.end', peer='A', reason='device_acceptance_requires_logs')
+            script = "print('INSTRUMENTATION_STATUS: stream=' + " + repr(json.dumps(failure)) + "); print('INSTRUMENTATION_STATUS: stream=' + " + repr(json.dumps(end)) + "); print('INSTRUMENTATION_CODE: -1')"
+            child = lab.EventProcess([sys.executable, '-u', '-c', script], native=True)
+            self.addCleanup(child.abort)
+            cleanup = child.close_native(2)
+            self.assertTrue(cleanup['remote_cleanup_confirmed'])
+            self.assertFalse(cleanup['instrumentation_success'])
+
     def test_reader_error_cannot_become_successful_cleanup(self):
         script = "import json,sys; print(json.dumps(dict(event='ready')),flush=True); print('PRIVATE malformed',flush=True); sys.stdin.readline()"
         child = lab.EventProcess([sys.executable, '-u', '-c', script])

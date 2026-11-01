@@ -33,6 +33,9 @@ jobs:
           bash mesh/android-radio/test.sh
           python3 -m unittest discover -s mesh/android-radio/tests -p 'test_*.py' -v
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
       - name: Install exact compile SDK inputs
         run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
       - name: Compile native APIs and DEX; no installable APK

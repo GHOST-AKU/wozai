@@ -52,11 +52,11 @@ public final class RadioLab extends Instrumentation implements RadioEvents {
         finish(failed?Activity.RESULT_CANCELED:Activity.RESULT_OK,end);
     }
     @Override public synchronized void emit(String event,String peer,String reason,long tx,long rx){
-        if("unsupported".equals(event)||"run.error".equals(event)||("ble_error".equals(event)&&"".equals(peer))) {
+        if("terminal_failure".equals(event)||"unsupported".equals(event)||"run.error".equals(event)||("ble_error".equals(event)&&"".equals(peer))) {
             failed=true;if(stopSignal!=null)stopSignal.countDown();
         }
         // Reserve a separate bounded allowance so traffic cannot hide final cleanup status.
-        boolean terminal=event.startsWith("run.")||event.startsWith("cleanup.");
+        boolean terminal="terminal_failure".equals(event)||event.startsWith("run.")||event.startsWith("cleanup.");
         if(terminal?terminalEvents++>=8:events++>=2048){droppedEvents++;return;}
         try {
             JSONObject out=new JSONObject();out.put("schema",1);out.put("event",token(event));out.put("peer",token(peer));

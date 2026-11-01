@@ -120,7 +120,7 @@ public final class AwareAdapter implements RadioAdapter {
             receiverRegistered = true;
             attach();
         } catch (RuntimeException error) {
-            emit("failure", "", "aware_permission_or_registration_failed");
+            emit("terminal_failure", "", "aware_permission_or_registration_failed");
         }
     }
 
@@ -137,7 +137,7 @@ public final class AwareAdapter implements RadioAdapter {
     private void attach() {
         if (closed.get() || manager == null || aware != null) return;
         if (++attachAttempts > 3) {
-            emit("failure", "", "aware_attach_retry_exhausted");
+            emit("terminal_failure", "", "aware_attach_retry_exhausted");
             return;
         }
         try {
