@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -67,8 +68,9 @@ fun ChatScreen(state: NextState, host: MainActivity, modifier: Modifier = Modifi
             delay(200)
         }
     }
-    Column(modifier.fillMaxHeight().imePadding()) {
+    Column(modifier.fillMaxHeight().testTag("chat-root")) {
         TopAppBar(
+            modifier = Modifier.testTag("chat-header"),
             title = { Column {
                 Text(state.selectedName, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
                 Text(if (state.encrypted) t("encryptedVia", t(if (host.preferredMode(peer) == 2) "bluetooth" else "lan"))
@@ -89,7 +91,7 @@ fun ChatScreen(state: NextState, host: MainActivity, modifier: Modifier = Modifi
                 }, enabled = state.ready) { Text(t("reconnect")) }
             }
         }
-        Box(Modifier.weight(1f).fillMaxWidth()) {
+        Box(Modifier.weight(1f).fillMaxWidth().testTag("chat-messages")) {
             if (messages.isEmpty()) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 EmptyState(R.drawable.outline_chat_bubble_24, t("noMessageTitle"), t("firstMessageHint"))
             }
@@ -114,7 +116,7 @@ fun ChatScreen(state: NextState, host: MainActivity, modifier: Modifier = Modifi
         if (state.draft.toByteArray(Charsets.UTF_8).size > state.textLimit)
             Text(t("messageTooLong"), Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
                 color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 10.dp), verticalAlignment = Alignment.Bottom) {
+        Row(Modifier.fillMaxWidth().testTag("chat-composer").padding(horizontal = 8.dp, vertical = 10.dp), verticalAlignment = Alignment.Bottom) {
             Box {
                 IconButton(onClick = { attachments = true }, enabled = state.canAttach && state.ready) {
                     AppIcon(R.drawable.outline_add_24, t("attachments"))

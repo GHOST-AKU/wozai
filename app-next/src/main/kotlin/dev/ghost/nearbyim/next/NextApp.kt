@@ -10,12 +10,13 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import dev.ghost.nearbyim.MainActivity
 import dev.ghost.nearbyim.R
 
 @Composable
-fun NextApp(state: NextState, host: MainActivity) {
+fun NextApp(state: NextState, host: MainActivity, contentWindowInsets: WindowInsets = WindowInsets.safeDrawing) {
     var page by rememberSaveable { mutableIntStateOf(0) }
     var detail by rememberSaveable { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
@@ -26,7 +27,7 @@ fun NextApp(state: NextState, host: MainActivity) {
     LaunchedEffect(state.connectedId, state.connected) {
         if (state.connected && state.connectedId != null) { page = 0; detail = true }
     }
-    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+    Surface(Modifier.fillMaxSize().testTag("next-root"), color = MaterialTheme.colorScheme.background) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val wide = maxWidth >= 840.dp && maxHeight >= 480.dp
             val showChat = page == 0 && (detail || wide) && state.selectedId != null
@@ -38,10 +39,11 @@ fun NextApp(state: NextState, host: MainActivity) {
                         NavigationItems(page) { page = it; detail = false }
                     }
                 },
-                contentWindowInsets = WindowInsets.safeDrawing,
+                contentWindowInsets = contentWindowInsets,
                 containerColor = MaterialTheme.colorScheme.background,
             ) { padding ->
-                Row(Modifier.fillMaxSize().padding(padding)) {
+                // Scaffold owns safe drawing (including IME); descendants must not apply it again.
+                Row(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)) {
                     if (wide) NavigationRail(containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                         modifier = Modifier.fillMaxHeight()) {
                         Spacer(Modifier.height(24.dp))

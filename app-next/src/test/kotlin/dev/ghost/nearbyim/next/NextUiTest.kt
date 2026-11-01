@@ -1,6 +1,14 @@
 package dev.ghost.nearbyim.next
 
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.unit.dp
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.graphics.Insets
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.runtime.CompositionLocalProvider
@@ -73,6 +81,60 @@ class NextUiTest {
         compose.onNodeWithText("设置").performClick()
         compose.onNodeWithText("界面语言").performScrollTo().performClick()
         compose.onNodeWithText("한국어").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test fun phoneComposerTracksIme() = assertImeGeometry()
+
+    @Test
+    @Config(qualifiers = "zh-rCN-w1280dp-h700dp")
+    fun tabletComposerTracksImeWithoutChangingPane() = assertImeGeometry()
+
+    @Test
+    @Config(qualifiers = "zh-rCN-w640dp-h480dp")
+    fun shortWindowMultilineComposerTracksIme() = assertImeGeometry(multiline = true, keyboardHeight = 180)
+
+    private fun assertImeGeometry(multiline: Boolean = false, keyboardHeight: Int = 300) {
+        val ime = mutableIntStateOf(0)
+        compose.activity.setContent {
+            NextTheme {
+                NextApp(NextState(ready = true, selectedId = "fixture", selectedName = "IME fixture",
+                    connectedId = "fixture", connected = true, canSend = true,
+                    draft = if (multiline) "one\ntwo\nthree" else "draft"), compose.activity,
+                    contentWindowInsets = WindowInsets(top = 24.dp, bottom = maxOf(24, ime.intValue).dp))
+            }
+        }
+        fun bounds(tag: String) = compose.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
+        var originalLeft = 0f
+        for (height in listOf(0, keyboardHeight, 0, keyboardHeight)) {
+            compose.runOnIdle {
+                ime.intValue = height
+                val density = compose.activity.resources.displayMetrics.density
+                // Exercise the real descendant imePadding with the same synthetic IME.
+                val insets = WindowInsetsCompat.Builder()
+                    .setInsets(WindowInsetsCompat.Type.ime(), Insets.of(0, 0, 0, (height * density).toInt()))
+                    .setVisible(WindowInsetsCompat.Type.ime(), height > 0)
+                    .setInsets(WindowInsetsCompat.Type.statusBars(), Insets.of(0, (24 * density).toInt(), 0, 0))
+                    .setVisible(WindowInsetsCompat.Type.statusBars(), true).build()
+                ViewCompat.dispatchApplyWindowInsets(compose.activity.window.decorView, insets)
+            }
+            compose.waitForIdle()
+            compose.onNode(hasSetTextAction() and hasAnyAncestor(hasTestTag("chat-composer"))).assertTextContains(if (multiline) "one\ntwo\nthree" else "draft")
+            val density = compose.activity.resources.displayMetrics.density
+            val root = bounds("next-root")
+            val chat = bounds("chat-root")
+            val header = bounds("chat-header")
+            val messages = bounds("chat-messages")
+            val composer = bounds("chat-composer")
+            if (height == 0) originalLeft = chat.left
+            assertEquals("pane classification must survive IME", originalLeft, chat.left, 1f)
+            assertEquals("composer must meet the single IME/safe bottom", root.bottom - maxOf(24, height) * density, composer.bottom, 1f)
+            assertEquals("header starts at safe top", 24 * density, header.top, 1f)
+            assertEquals("header must not apply status inset twice", 64 * density, header.height, 1f)
+            assertTrue("messages follow header", messages.top >= header.bottom)
+            assertTrue("message viewport has usable height", messages.height > 0)
+            assertTrue("messages precede composer", messages.bottom <= composer.top)
+            assertTrue("composer remains inside chat", composer.top >= chat.top && composer.bottom <= chat.bottom)
+        }
     }
 
     private fun screenshot(name: String) {
