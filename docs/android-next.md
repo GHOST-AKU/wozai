@@ -82,3 +82,14 @@ CI 工作流为 `.github/workflows/android-next.yml`。调试 APK 仅供内部�
 | 窗口与 IME | 手机/平板横竖屏、分屏、短窗口；附件/Emoji/安全弹窗与键盘交替、反复旋转；沿用 [#94 矩阵](android-next-ime-acceptance.md) | pending |
 
 不以 Robolectric 绘图替代以上证据；不勾选 GitHub Issue 的真机验收项。
+
+
+## #94 / #95 修复包（2026-11-01）
+
+[下载持久签名安装包](https://github.com/GHOST-AKU/wozai/actions/runs/41318359303/artifacts/13088103487)（GitHub 下载需要登录），取其中 `WoZai-next-0.3.3-preview.4-android.apk`。此包仍为 preview.4 / build15，修复源码为 `7b8827d84c4ffa764140b975afa336d3ca8f0c28`；不要仅凭版本名判断是否为本次修复。使用原持久证书，可覆盖同证书的现有 Next，保留其独立数据。
+
+[CI 测试/调试编译/lint 通过](https://github.com/GHOST-AKU/wozai/actions/runs/41318363510)；[release 编译、lint 与持久签名核对通过](https://github.com/GHOST-AKU/wozai/actions/runs/41318359303)。本地最终 22 项测试通过，debug lint 0 错误、55 警告；158 个共享 Java 编译输入逐字节一致。#94 单独提交 `7219727`，#95 随后提交 `51214d6`，独立审查通过。后续仅证据文档变更复用以上构建，不重复打包。
+
+APK SHA-256：`20e4ac297460c1659e7ef9b30f8abca8d8f12048246950cb1fbc112ca393dfd9`。证书 SHA-256：`47a10fd5a882ab26c9a11fcc61df3b41f7c41017746fc6840cfbe581ca52c1dd`。CI 使用 `tools/verify-android-signature.py --next` 核对证书 pin、包名、版本、非 debug 属性与源码；本地另核对了 CI 的签名报告字段，不声称重新执行过本地 APK 验签。
+
+这不是手机或平板的真机通过声明。#94 的 IME 动画/焦点/系统导航和 #95 的视觉、互通、选择器、长时传输验收仍按上面的矩阵 pending，issue 保持开放。
