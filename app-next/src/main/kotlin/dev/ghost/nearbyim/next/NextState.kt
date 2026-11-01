@@ -1,6 +1,7 @@
 package dev.ghost.nearbyim.next
 
 import dev.ghost.nearbyim.ChatStore
+import dev.ghost.nearbyim.core.TransferProgress
 import dev.ghost.nearbyim.core.IdentityVerification
 import dev.ghost.nearbyim.transport.Peer
 
@@ -12,10 +13,13 @@ data class NextState(
     val trusted: List<ChatStore.TrustedDevice> = emptyList(),
     val peers: List<Peer> = emptyList(),
     val messages: List<ChatStore.Message> = emptyList(),
+    val transferMeasurements: Map<String, TransferProgress> = emptyMap(),
     val selectedId: String? = null,
     val selectedName: String = "",
     val connectedId: String? = null,
     val connected: Boolean = false,
+    val connectedEncrypted: Boolean = false,
+    val connectedVerified: Boolean = false,
     val connecting: Boolean = false,
     val status: String = "",
     val error: String = "",
@@ -38,6 +42,7 @@ data class NextState(
     val readReceipts: Boolean = true,
     val encrypted: Boolean = false,
     val verification: IdentityVerification? = null,
+    val identityBusy: Boolean = false,
     val receiveFolder: String = "",
     val revision: Long = 0,
 )

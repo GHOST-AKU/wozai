@@ -4,4 +4,9 @@
     <string name="next_dynamic_color_hint">システムのダイナミックカラーを使用</string>
     <string name="next_experiment">Android 実験版クライアント</string>
     <string name="next_independent_profile">このバージョンの端末 ID、信頼設定、チャット履歴は個別に保存されます。</string>
+    <string name="next_measurement_pending">速度と残り時間：計測待ち</string>
+    <string name="next_speed_only">%1$s/秒 · 残り時間不明</string>
+    <string name="next_recognized">承認済み</string>
+    <string name="next_not_recognized">未承認</string>
+    <string name="next_qr_saved">QR コードを保存しました</string>
 </resources>

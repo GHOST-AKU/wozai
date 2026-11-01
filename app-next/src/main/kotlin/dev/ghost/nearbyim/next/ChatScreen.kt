@@ -26,8 +26,12 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -37,7 +41,7 @@ import dev.ghost.nearbyim.core.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ChatScreen(state: NextState, host: MainActivity, modifier: Modifier = Modifier, showBack: Boolean, onBack: () -> Unit) {
     val peer = state.selectedId ?: return
@@ -45,6 +49,10 @@ fun ChatScreen(state: NextState, host: MainActivity, modifier: Modifier = Modifi
     var confirmVerification by remember { mutableStateOf<IdentityVerification?>(null) }
     var switchConnection by remember { mutableStateOf(false) }
     var attachments by remember { mutableStateOf(false) }
+    var emoji by remember(peer) { mutableStateOf(false) }
+    var editor by remember(peer) { mutableStateOf(TextFieldValue(state.draft, TextRange(state.draft.length))) }
+    // Controller save/load changes replace text; ordinary selection changes stay local.
+    if (editor.text != state.draft) editor = TextFieldValue(state.draft, TextRange(editor.selection.end.coerceAtMost(state.draft.length)))
     val listState = rememberLazyListState()
     val bodyBounds = remember(peer) { mutableStateMapOf<String, Rect>() }
     var viewport by remember(peer) { mutableStateOf(Rect.Zero) }
@@ -73,7 +81,7 @@ fun ChatScreen(state: NextState, host: MainActivity, modifier: Modifier = Modifi
             modifier = Modifier.testTag("chat-header"),
             title = { Column {
                 Text(state.selectedName, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
-                Text(if (state.encrypted) t("encryptedVia", t(if (host.preferredMode(peer) == 2) "bluetooth" else "lan"))
+                Text(if (state.encrypted) t("encryptionActive") + " · " + t(if (state.verification?.verified == true) "identityVerified" else "identityUnverified")
                     else t("localHistoryDisconnected"), style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             } },
@@ -99,7 +107,7 @@ fun ChatScreen(state: NextState, host: MainActivity, modifier: Modifier = Modifi
                 .onGloballyPositioned { viewport = it.boundsInWindow() },
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(messages, key = { "${it.id}:${it.outgoing}" }) { message ->
-                    MessageBubble(message, host, state.canAttach) { bounds ->
+                    MessageBubble(message, host, state.canAttach, state.transferMeasurements["${message.id}:${message.outgoing}"] ?: TransferProgress.UNKNOWN) { bounds ->
                         if (!message.outgoing) {
                             if (bounds == null) bodyBounds.remove(message.id) else bodyBounds[message.id] = bounds
                         }
@@ -128,7 +136,13 @@ fun ChatScreen(state: NextState, host: MainActivity, modifier: Modifier = Modifi
                         onClick = { attachments = false; host.pickAttachments(false) })
                 }
             }
-            OutlinedTextField(state.draft, host::editDraft, modifier = Modifier.weight(1f),
+            IconButton(onClick = { emoji = true }, enabled = state.ready && !state.draftLoading) {
+                AppIcon(R.drawable.outline_emoji_emotions_24, t("emoji"))
+            }
+            OutlinedTextField(editor, { value ->
+                editor = value
+                if (value.text != state.draft) host.editDraft(value.text)
+            }, modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(24.dp), placeholder = { Text(t("androidComposer")) },
                 enabled = state.ready && !state.draftLoading, minLines = 1, maxLines = 5,
                 isError = state.draft.toByteArray(Charsets.UTF_8).size > state.textLimit)
@@ -137,6 +151,13 @@ fun ChatScreen(state: NextState, host: MainActivity, modifier: Modifier = Modifi
                 if (state.saving) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                 else AppIcon(R.drawable.outline_send_24, t("send"))
             }
+        }
+    }
+    if (emoji) EmojiPanel(onDismiss = { emoji = false }) { text ->
+        if (host.state.selectedId == peer && !host.state.draftLoading) {
+            val inserted = insertEmoji(editor, text)
+            host.editDraft(inserted.text)
+            if (host.state.draft == inserted.text) editor = inserted
         }
     }
     if (info) {
@@ -149,11 +170,23 @@ fun ChatScreen(state: NextState, host: MainActivity, modifier: Modifier = Modifi
                     Text(t("verificationExplain"), style = MaterialTheme.typography.bodySmall)
                     SelectionContainer { Text(verification.code.display(), fontFamily = FontFamily.Monospace,
                         style = MaterialTheme.typography.bodySmall) }
+                    VerificationQr(verification)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        TextButton(onClick = { host.scanIdentity(verification) }, enabled = !state.identityBusy) { Text(t("verificationScan")) }
+                        TextButton(onClick = { host.pickIdentityImage(verification) }, enabled = !state.identityBusy) { Text(t("verificationImage")) }
+                        TextButton(onClick = { host.saveIdentityQr(verification) }, enabled = !state.identityBusy) { Text(t("verificationSaveQr")) }
+                    }
+                    if (state.identityBusy) LinearProgressIndicator(Modifier.fillMaxWidth())
                     if (!verification.verified) OutlinedButton(onClick = { confirmVerification = verification; info = false }) {
                         Text(t("verificationMark"))
                     }
                 } else Text(t("verificationConnectFirst"))
+                if (state.notice.isNotEmpty()) Text(state.notice,
+                    Modifier.semantics { liveRegion = LiveRegionMode.Polite }, style = MaterialTheme.typography.bodyMedium)
                 Text(t("verificationLocalOnly"), style = MaterialTheme.typography.bodySmall)
+                TextButton(onClick = { host.copyTransferDiagnostics(verification) }, modifier = Modifier.heightIn(min = 48.dp)) {
+                    Text(t("transferDiagnostics") + " · " + state.selectedName)
+                }
                 if (state.connectedId == peer) TextButton(onClick = { host.disconnect(); info = false }) { Text(t("disconnect")) }
             } },
             confirmButton = { TextButton(onClick = { info = false }) { Text(t("close")) } })
@@ -171,21 +204,23 @@ fun ChatScreen(state: NextState, host: MainActivity, modifier: Modifier = Modifi
 }
 
 @Composable
-private fun MessageBubble(message: ChatStore.Message, host: MainActivity, canAttach: Boolean, bodyPosition: (Rect?) -> Unit) {
+private fun MessageBubble(message: ChatStore.Message, host: MainActivity, canAttach: Boolean, measurement: TransferProgress, bodyPosition: (Rect?) -> Unit) {
     val context = LocalContext.current
     DisposableEffect(message.id) { onDispose { bodyPosition(null) } }
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+    val bubbleCap = minOf(520.dp, maxWidth * .88f)
     Column(Modifier.fillMaxWidth(), horizontalAlignment = if (message.outgoing) Alignment.End else Alignment.Start) {
         Surface(shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp,
             bottomStart = if (message.outgoing) 20.dp else 5.dp, bottomEnd = if (message.outgoing) 5.dp else 20.dp),
             color = if (message.outgoing) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
-            modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth(.88f)) {
+            modifier = Modifier.widthIn(max = bubbleCap).testTag("bubble-${message.id}")) {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 val record = message.attachment
                 if (record == null) SelectionContainer { Text(message.text, style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.onGloballyPositioned {
                         bodyPosition(Rect(it.positionInWindow(), Size(it.size.width.toFloat(), it.size.height.toFloat())))
                     }) }
-                else AttachmentContent(record, host, canAttach)
+                else Column(Modifier.width(bubbleCap)) { AttachmentContent(record, host, canAttach, measurement) }
             }
         }
         Row(Modifier.padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically,
@@ -195,13 +230,14 @@ private fun MessageBubble(message: ChatStore.Message, host: MainActivity, canAtt
             if (message.outgoing && message.attachment == null) ReceiptMark(message.state)
         }
     }
+    }
 }
 
 @Composable
 private fun ReceiptMark(state: String) {
     val receipt = MessageReceipt.of(state)
     val label = t(receipt.textKey())
-    val color = if (receipt == MessageReceipt.READ) Color(0xFF66CCFF) else MaterialTheme.colorScheme.onSurfaceVariant
+    val color = if (receipt == MessageReceipt.READ) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
     Canvas(Modifier.size(20.dp, 16.dp).semantics { contentDescription = label }) {
         val sx = size.width / 20; val sy = size.height / 16
         receipt.draw(object : MessageReceipt.Ink {
@@ -217,7 +253,7 @@ private fun ReceiptMark(state: String) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AttachmentContent(record: AttachmentRecord, host: MainActivity, canAttach: Boolean) {
+private fun AttachmentContent(record: AttachmentRecord, host: MainActivity, canAttach: Boolean, measurement: TransferProgress) {
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
         AppIcon(if (record.info.mime.startsWith("image/")) R.drawable.outline_photo_24 else R.drawable.outline_description_24)
         Column(Modifier.weight(1f)) {
@@ -226,10 +262,10 @@ private fun AttachmentContent(record: AttachmentRecord, host: MainActivity, canA
         }
     }
     Text(t(record.stateKey()), style = MaterialTheme.typography.labelMedium)
+    TransferMeasurements(record, measurement)
     val route = host.attachmentRoute(record)
     if (route.isNotEmpty()) Text(route, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    if (record.active() && record.info.size > 0) LinearProgressIndicator(
-        progress = { (record.transferred.toFloat() / record.info.size).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
+
     FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         if (!record.outgoing && record.state == "offered") {
             TextButton(onClick = { host.attachmentAction(record, "accept") }, enabled = canAttach) { Text(t("attachmentAccept")) }

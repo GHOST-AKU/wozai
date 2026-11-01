@@ -19,6 +19,8 @@ import dev.ghost.nearbyim.core.*
 import dev.ghost.nearbyim.next.*
 import dev.ghost.nearbyim.transport.Peer
 import java.io.Serializable
+import java.util.concurrent.Executors
+import dev.ghost.nearbyim.verification.QrCodes
 
 /** Compose is an observer of the existing service; it never owns a wire session. */
 class MainActivity : ComponentActivity() {
@@ -51,7 +53,34 @@ class MainActivity : ComponentActivity() {
     private var visibleIds = emptyList<String>()
     private val visibility = ReadVisibility()
     private val main = Handler(Looper.getMainLooper())
-    private val observer = Runnable { refresh() }
+    // Coalesce service notifications only. Draft edits and action callbacks stay immediate.
+    private var observerScheduled = false
+    private var lastObservedAt = 0L
+    private val observedRefresh = Runnable {
+        observerScheduled = false
+        lastObservedAt = SystemClock.uptimeMillis()
+        if (bound) refresh()
+    }
+    private val observer = Runnable {
+        val c = controller
+        val saved = c?.savedMessageId != null && c.savedMessageId != handledSave &&
+            shouldHandleSave(draftPeer, c.savedMessagePeer, draftLoading)
+        if (c != null && observerNeedsImmediateRefresh(state, c.selectedId, c.connectedPeerId,
+                c.connected, c.connecting, c.savingMessage, saved)) {
+            main.removeCallbacks(observedRefresh); observerScheduled = false
+            lastObservedAt = SystemClock.uptimeMillis()
+            refresh()
+        } else if (!observerScheduled) {
+            observerScheduled = true
+            main.postDelayed(observedRefresh, (250L - (SystemClock.uptimeMillis() - lastObservedAt)).coerceAtLeast(0L))
+        }
+    }
+    private val identityWorker = Executors.newSingleThreadExecutor()
+    private var identityRequest: IdentityVerification? = null
+    private var identityResult: String? = null
+    private var identityImage: Uri? = null
+    private var identityExport: Uri? = null
+    private var identityWorking = false
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName, binder: IBinder) {
             controller = (binder as ChatService.LocalBinder).service().controller
@@ -61,11 +90,13 @@ class MainActivity : ComponentActivity() {
             controller?.observe(observer)
             resumeAttachmentResult()
             resumeExport()
+            resumeIdentityResult()
             if (pendingStage == "bluetoothResult") finishBluetoothEnable()
             else if (pendingStage == null || pendingStage == "ready") pending?.let { prepare(it) }
         }
         override fun onServiceDisconnected(name: ComponentName) {
             controller = null
+            main.removeCallbacks(observedRefresh); observerScheduled = false
             refresh()
         }
     }
@@ -139,6 +170,22 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private val identityScan = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK) {
+            identityResult = result.data?.getStringExtra("code")
+            if (identityResult == null) { clearIdentityRequest(); showNotice(text("verificationReadFailed")) }
+            else resumeIdentityResult()
+        } else clearIdentityRequest()
+    }
+    private val identityPhoto = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) clearIdentityRequest()
+        else { identityImage = uri; resumeIdentityResult() }
+    }
+    private val identitySave = registerForActivityResult(ActivityResultContracts.CreateDocument("image/png")) { uri ->
+        if (uri == null) clearIdentityRequest()
+        else { identityExport = uri; resumeIdentityResult() }
+    }
+
     override fun attachBaseContext(base: Context) = super.attachBaseContext(AppAppearance.wrap(AppLanguage.wrap(base)))
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -165,6 +212,14 @@ class MainActivity : ComponentActivity() {
         savedInstanceState?.getString("exportRecord")?.let {
             try { exportRecord = AttachmentRecord.decode(it) } catch (_: Exception) { exportPeer = null }
         }
+        savedInstanceState?.getString("identityPeer")?.let { peer ->
+            try { identityRequest = IdentityVerification(peer, savedInstanceState.getString("identityLocal")!!,
+                savedInstanceState.getString("identityRemote")!!, savedInstanceState.getString("identityGeneration")!!, false) }
+            catch (_: Exception) { identityRequest = null }
+        }
+        identityResult = savedInstanceState?.getString("identityResult")
+        identityImage = savedInstanceState?.getString("identityImage")?.let(Uri::parse)
+        identityExport = savedInstanceState?.getString("identityExport")?.let(Uri::parse)
         setContent { NextTheme { NextApp(state, this) } }
     }
 
@@ -180,11 +235,12 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         restoredPeer = state.selectedId; restoredName = state.selectedName
         controller?.unobserve(observer)
+        main.removeCallbacks(observedRefresh); observerScheduled = false
         if (bound) unbindService(connection)
         bound = false; controller = null
         super.onStop()
     }
-    override fun onDestroy() { draftGeneration++; main.removeCallbacksAndMessages(null); super.onDestroy() }
+    override fun onDestroy() { identityWorker.shutdownNow(); draftGeneration++; main.removeCallbacksAndMessages(null); super.onDestroy() }
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString("peer", state.selectedId)
         outState.putString("peerName", state.selectedName)
@@ -202,6 +258,13 @@ class MainActivity : ComponentActivity() {
         outState.putString("exportRecord", exportRecord?.encode())
         outState.putString("exportUri", exportUri?.toString())
         outState.putInt("exportFlags", exportFlags)
+        identityRequest?.let {
+            outState.putString("identityPeer", it.peerId); outState.putString("identityLocal", it.localRoot)
+            outState.putString("identityRemote", it.remoteRoot); outState.putString("identityGeneration", it.generation)
+        }
+        outState.putString("identityResult", identityResult)
+        outState.putString("identityImage", identityImage?.toString())
+        outState.putString("identityExport", identityExport?.toString())
         super.onSaveInstanceState(outState)
     }
 
@@ -221,8 +284,12 @@ class MainActivity : ComponentActivity() {
         state = NextState(
             ready = true, nickname = c.nickname, localId = c.localId,
             conversations = c.conversations.toList(), trusted = c.trustedDevices.toList(), peers = c.peers.values.toList(),
+            transferMeasurements = c.messages.mapNotNull { message -> message.attachment?.let {
+                "${message.id}:${message.outgoing}" to c.transferProgress(c.selectedId, it)
+            } }.toMap(),
             messages = c.messages.toList(), selectedId = c.selectedId, selectedName = c.selectedName ?: "",
             connectedId = c.connectedPeerId, connected = c.connected, connecting = c.connecting,
+            connectedEncrypted = c.endToEndEncrypted(c.connectedPeerId), connectedVerified = c.identityVerified(c.connectedPeerId),
             status = AndroidText.get(this, c.status), error = AndroidText.get(this, c.error),
             lanRunning = c.lanRunning, bluetoothRunning = c.bluetoothRunning,
             lanSearching = c.lanSearching, bluetoothSearching = c.bluetoothSearching,
@@ -231,6 +298,7 @@ class MainActivity : ComponentActivity() {
             canSend = c.canSend(), canAttach = c.canSendAttachment(), saving = c.savingMessage, textLimit = c.textLimit(),
             draft = draft, draftLoading = draftLoading, notice = notice, readReceipts = c.readReceiptsEnabled(),
             encrypted = c.endToEndEncrypted(c.selectedId), verification = c.verification(c.selectedId),
+            identityBusy = identityRequest != null || identityWorking,
             receiveFolder = folderName, revision = ++revision,
         )
         requestFileRoutePermissions()
@@ -250,7 +318,7 @@ class MainActivity : ComponentActivity() {
     }
     fun editDraft(value: String) {
         val peer = draftPeer ?: return
-        if (draftLoading) return
+        if (!draftSelectionCurrent(state.selectedId, draftPeer, controller?.selectedId, draftLoading)) return
         if (TextLimits.draftBytes(value) > TextLimits.DRAFT_BYTES) {
             showNotice(text("draftEditTooLarge", TextLimits.DRAFT_BYTES)); return
         }
@@ -261,6 +329,7 @@ class MainActivity : ComponentActivity() {
     fun retryDraft() { loadDraft(draftPeer); refresh() }
     fun sendText() {
         val c = controller ?: return
+        if (!draftSelectionCurrent(state.selectedId, draftPeer, c.selectedId, draftLoading)) return
         if (canSubmitText(draft, c.textLimit(), c.canSend(), draftLoading)) c.send(draft)
     }
 
@@ -275,10 +344,11 @@ class MainActivity : ComponentActivity() {
     fun preferredMode(peer: String): Int = controller?.sessionMode?.takeIf { state.connectedId == peer }
         ?: controller?.preferredMode(peer) ?: Peer.LAN
     fun attachmentRoute(record: AttachmentRecord): String = controller?.let { c ->
-        c.attachmentRoute(c.selectedId, record).key().takeIf { it.isNotEmpty() }?.let { text(it) }
+        if (c.selectedId != state.selectedId) return@let ""
+        c.attachmentRoute(state.selectedId, record).key().takeIf { it.isNotEmpty() }?.let { text(it) }
     } ?: ""
     fun disconnect() { pending = null; pendingStage = null; controller?.disconnect() }
-    fun select(conversation: ChatStore.Conversation) { controller?.selectConversation(conversation) }
+    fun select(conversation: ChatStore.Conversation) { controller?.selectConversation(conversation); refresh() }
     fun approve(token: String, remember: Boolean) { controller?.approve(token, remember) }
     fun reject(token: String) { controller?.reject(token) }
     fun setNickname(value: String) { controller?.setNickname(value) }
@@ -350,6 +420,7 @@ class MainActivity : ComponentActivity() {
     fun pickAttachments(photos: Boolean) {
         val c = controller ?: return
         val peer = c.selectedId ?: return
+        if (!draftSelectionCurrent(state.selectedId, draftPeer, peer, draftLoading)) return
         val identity = c.attachmentSelectionSession(peer) ?: return
         if (!c.canSendAttachment()) return
         selection = AttachmentSelectionSession(peer, c.attachmentSessionToken(), identity)
@@ -384,6 +455,7 @@ class MainActivity : ComponentActivity() {
     fun attachmentAction(record: AttachmentRecord, action: String) {
         val c = controller ?: return
         val peer = c.selectedId ?: return
+        if (state.selectedId != peer) return
         if (action == "retry") {
             if (c.attachmentRetryState(peer, record.info.id) in listOf(AttachmentBatchQueue.RetryState.RETRYING,
                     AttachmentBatchQueue.RetryState.RETRIED, AttachmentBatchQueue.RetryState.INELIGIBLE)) return
@@ -406,8 +478,9 @@ class MainActivity : ComponentActivity() {
         }
         val c = controller ?: return
         val peer = c.selectedId ?: return
+        if (state.selectedId != peer) return
         c.attachmentPath(peer, record).whenComplete { path, error -> runOnUiThread {
-            if (isDestroyed) return@runOnUiThread
+            if (isDestroyed || controller !== c || c.selectedId != peer || state.selectedId != peer) return@runOnUiThread
             if (error != null) { showNotice(text("attachmentUnavailable")); return@runOnUiThread }
             val uri = Uri.Builder().scheme("content").authority("$packageName.attachments")
                 .appendPath(peer).appendPath(path.fileName.toString()).appendQueryParameter("name", record.info.name)
@@ -423,6 +496,7 @@ class MainActivity : ComponentActivity() {
         } }
     }
     fun saveAttachment(record: AttachmentRecord) {
+        if (state.selectedId == null || state.selectedId != controller?.selectedId) return
         exportPeer = state.selectedId; exportRecord = record
         export.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).setType(record.info.mime)
             .addCategory(Intent.CATEGORY_OPENABLE).putExtra(Intent.EXTRA_TITLE, AttachmentInfo.safeName(record.info.name)))
@@ -438,9 +512,94 @@ class MainActivity : ComponentActivity() {
             runOnUiThread { if (error != null) showNotice(text("attachmentFailed")) }
         }
     }
-    fun verifyIdentity(snapshot: IdentityVerification) {
-        controller?.verifyIdentity(snapshot, null) { success ->
-            showNotice(text(if (success) "verificationDone" else "verificationConnectionChanged"))
+    fun copyTransferDiagnostics(snapshot: IdentityVerification?) {
+        val c = controller
+        if (c == null) { showNotice(text("notConnected")); return }
+        if (snapshot == null || state.selectedId != snapshot.peerId || c.selectedId != snapshot.peerId ||
+            !c.verificationCurrent(snapshot)) { showNotice(text("verificationConnectionChanged")); return }
+        // Preserve the controller's diagnostic schema and privacy rules; do not attribute global values to a file.
+        (getSystemService(CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(
+            ClipData.newPlainText(text("transferDiagnostics"), c.transferDiagnostics()))
+        showNotice(text("diagnosticsCopied"))
+    }
+    fun verifyIdentity(snapshot: IdentityVerification) = verifyIdentityCode(snapshot, null)
+    private fun verifyIdentityCode(snapshot: IdentityVerification, code: String?) {
+        val c = controller
+        if (c == null || c.selectedId != snapshot.peerId || !c.verificationCurrent(snapshot)) {
+            showNotice(text("verificationConnectionChanged")); return
+        }
+        if (code != null && !snapshot.code.matchesQr(code)) { showNotice(text("verificationMismatch")); return }
+        c.verifyIdentity(snapshot, code) { success ->
+            if (!isDestroyed) showNotice(text(if (success) "verificationDone" else "verificationConnectionChanged"))
+        }
+    }
+    private fun beginIdentity(snapshot: IdentityVerification): Boolean {
+        if (identityRequest != null || identityWorking) return false
+        if (controller?.selectedId != snapshot.peerId || controller?.verificationCurrent(snapshot) != true) {
+            showNotice(text("verificationConnectionChanged")); return false
+        }
+        identityRequest = snapshot
+        state = state.copy(identityBusy = true)
+        return true
+    }
+    fun scanIdentity(snapshot: IdentityVerification) {
+        if (beginIdentity(snapshot)) try { identityScan.launch(Intent(this, QrScanActivity::class.java)) }
+        catch (_: ActivityNotFoundException) { clearIdentityRequest(); showNotice(text("verificationReadFailed")) }
+    }
+    fun pickIdentityImage(snapshot: IdentityVerification) {
+        if (beginIdentity(snapshot)) try { identityPhoto.launch(arrayOf("image/*")) }
+        catch (_: ActivityNotFoundException) { clearIdentityRequest(); showNotice(text("verificationReadFailed")) }
+    }
+    fun saveIdentityQr(snapshot: IdentityVerification) {
+        if (beginIdentity(snapshot)) try { identitySave.launch("wozai-safety-code.png") }
+        catch (_: ActivityNotFoundException) { clearIdentityRequest(); showNotice(text("verificationReadFailed")) }
+    }
+    private fun clearIdentityRequest() {
+        identityRequest = null; identityResult = null; identityImage = null; identityExport = null
+        state = state.copy(identityBusy = false)
+    }
+    private fun resumeIdentityResult() {
+        val c = controller ?: return // Pickers may return before service rebind.
+        val expected = identityRequest ?: return
+        if (identityWorking) return
+        if (c.selectedId != expected.peerId || !c.verificationCurrent(expected)) {
+            clearIdentityRequest(); showNotice(text("verificationConnectionChanged")); return
+        }
+        identityResult?.let { code -> clearIdentityRequest(); verifyIdentityCode(expected, code); return }
+        val imageUri = identityImage
+        val saveUri = identityExport
+        if (imageUri == null && saveUri == null) return
+        identityWorking = true
+        identityWorker.execute {
+            var decoded: String? = null
+            var saved = false
+            try {
+                if (imageUri != null) {
+                    val bitmap = PhotoDecoder.decode(contentResolver, imageUri, 1024)
+                    if (bitmap != null) try {
+                        val pixels = IntArray(bitmap.width * bitmap.height)
+                        bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+                        decoded = QrCodes.decode(pixels, bitmap.width, bitmap.height)
+                    } finally { bitmap.recycle() }
+                } else if (saveUri != null) {
+                    val bitmap = identityQrBitmap(expected)
+                    try { contentResolver.openOutputStream(saveUri)?.use { saved = bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) } }
+                    finally { bitmap.recycle() }
+                }
+            } catch (_: Exception) { /* Report unsupported images and provider failures below. */ }
+            runOnUiThread {
+                identityWorking = false
+                if (isDestroyed || !expected.sameIdentity(identityRequest)) return@runOnUiThread
+                if (saveUri != null) {
+                    clearIdentityRequest()
+                    showNotice(if (saved) getString(R.string.next_qr_saved) else text("verificationReadFailed"))
+                } else if (decoded == null) {
+                    clearIdentityRequest(); showNotice(text("verificationReadFailed"))
+                } else {
+                    identityImage = null; identityResult = decoded
+                    resumeIdentityResult() // Recheck current roots and generation after decoding.
+                }
+            }
         }
     }
     fun setTheme(value: String) { AppAppearance.select(this, value); recreate() }

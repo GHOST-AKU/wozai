@@ -9,8 +9,13 @@
         <item name="android:fontFamily">sans</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowActionModeOverlay">true</item>
-        <item name="android:colorAccent">#496B59</item>
-        <item name="android:windowBackground">#F8FAF7</item>
+        <item name="android:colorAccent">#6750A4</item>
+        <item name="android:windowBackground">#FFFBFE</item>
         <item name="android:windowSoftInputMode">adjustResize</item>
     </style>
+    <string name="next_measurement_pending">速度与剩余时间：暂无测量数据</string>
+    <string name="next_speed_only">%1$s/秒 · 剩余时间未知</string>
+    <string name="next_recognized">已认可</string>
+    <string name="next_not_recognized">未认可</string>
+    <string name="next_qr_saved">二维码已保存</string>
 </resources>
