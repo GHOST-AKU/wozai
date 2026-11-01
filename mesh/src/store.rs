@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
     fs::{self, File, OpenOptions},
-    io::{Read, Write},
+    io::{ErrorKind, Read, Write},
     path::{Path, PathBuf},
 };
 
@@ -21,10 +21,17 @@ pub struct Store {
     dir: PathBuf,
     _lock: File,
 }
-fn private_open(path: &Path, create_new: bool) -> Result<File> {
-    if fs::symlink_metadata(path).is_ok_and(|m| m.file_type().is_symlink()) {
-        bail!("state symlink rejected");
+fn state_exists(path: &Path) -> Result<bool> {
+    // Inspect the entry itself: dangling links and metadata errors are not missing state.
+    match fs::symlink_metadata(path) {
+        Ok(metadata) if metadata.file_type().is_symlink() => bail!("state symlink rejected"),
+        Ok(_) => Ok(true),
+        Err(error) if error.kind() == ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(error.into()),
     }
+}
+fn private_open(path: &Path, create_new: bool) -> Result<File> {
+    state_exists(path)?;
     let mut o = OpenOptions::new();
     o.read(true).write(true);
     if create_new {
@@ -41,9 +48,7 @@ fn private_open(path: &Path, create_new: bool) -> Result<File> {
 }
 impl Store {
     pub fn open(dir: &Path) -> Result<Self> {
-        if fs::symlink_metadata(dir).is_ok_and(|m| m.file_type().is_symlink()) {
-            bail!("state directory symlink rejected");
-        }
+        state_exists(dir)?;
         fs::create_dir_all(dir)?;
         #[cfg(unix)]
         {
@@ -60,7 +65,7 @@ impl Store {
     }
     pub fn identity(&self) -> Result<Identity> {
         let path = self.dir.join("identity.seed");
-        if path.exists() {
+        if state_exists(&path)? {
             let f = private_open(&path, false)?;
             let mut bytes = Vec::new();
             f.take(33).read_to_end(&mut bytes)?;
@@ -80,7 +85,7 @@ impl Store {
     }
     pub fn load(&self) -> Result<Snapshot> {
         let path = self.dir.join("seen.json");
-        if !path.exists() {
+        if !state_exists(&path)? {
             return Ok(Snapshot::default());
         }
         let mut bytes = Vec::new();

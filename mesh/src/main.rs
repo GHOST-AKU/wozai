@@ -199,18 +199,33 @@ fn write_link(link: &mut Link, core: &mut Core, wall_time: u64) -> Result<Vec<St
     let time = core.observe_time(wall_time);
     link.write(time, core.relay)
 }
+fn connection_rank(link: &Link, local_first: bool) -> Option<(bool, &str, &str)> {
+    let (_, remote_challenge) = link.hello.as_ref()?;
+    // Key order gives both endpoints the same challenge pair for this stream.
+    let (first, second) = if local_first {
+        (link.challenge.as_str(), remote_challenge.as_str())
+    } else {
+        (remote_challenge.as_str(), link.challenge.as_str())
+    };
+    Some((link.outbound != local_first, first, second))
+}
 fn prune_duplicate_links(links: &[Link], key: &str, dead: &mut BTreeSet<usize>) {
-    for i in 0..links.len() {
-        if dead.contains(&i) || !links[i].auth_sent {
+    for (i, link) in links.iter().enumerate() {
+        if dead.contains(&i) || !link.auth_sent {
             continue;
         }
-        let Some(peer) = links[i].peer.as_ref() else {
+        let Some(peer) = link.peer.as_ref() else {
             continue;
         };
-        for j in 0..i {
-            if !dead.contains(&j) && links[j].auth_sent && links[j].peer.as_ref() == Some(peer) {
-                let prefer_outbound = key < peer.as_str();
-                if links[i].outbound == prefer_outbound && links[j].outbound != prefer_outbound {
+        let Some(rank) = connection_rank(link, key < peer.as_str()) else {
+            continue;
+        };
+        for (j, previous) in links.iter().enumerate().take(i) {
+            if !dead.contains(&j) && previous.auth_sent && previous.peer.as_ref() == Some(peer) {
+                let Some(previous_rank) = connection_rank(previous, key < peer.as_str()) else {
+                    continue;
+                };
+                if rank < previous_rank {
                     dead.insert(j);
                 } else {
                     dead.insert(i);
@@ -568,7 +583,70 @@ mod tests {
         link.authenticated = true;
         link.auth_sent = true;
         link.peer = Some("ff".repeat(32));
+        link.hello = Some(("ff".repeat(32), "ab".repeat(16)));
         (link, client)
+    }
+    #[test]
+    fn duplicate_connections_keep_the_same_stream_at_both_endpoints() {
+        let lower_key = "00".repeat(32);
+        let higher_key = "ff".repeat(32);
+        let connection = |lower_challenge: &str, higher_challenge: &str| {
+            let (mut lower, remote) = link(true);
+            let mut higher = Link::new(remote, false, higher_challenge.into()).unwrap();
+            lower.challenge = lower_challenge.into();
+            lower.hello = Some((higher_key.clone(), higher_challenge.into()));
+            higher.peer = Some(lower_key.clone());
+            higher.hello = Some((lower_key.clone(), lower_challenge.into()));
+            higher.authenticated = true;
+            higher.auth_sent = true;
+            (lower, higher)
+        };
+        for same_lower_challenge in [false, true] {
+            let first_lower_challenge = "10".repeat(16);
+            let second_lower_challenge = if same_lower_challenge {
+                first_lower_challenge.clone()
+            } else {
+                "20".repeat(16)
+            };
+            let first_higher_challenge = "30".repeat(16);
+            let second_higher_challenge = "40".repeat(16);
+            let (lower_first, higher_first) =
+                connection(&first_lower_challenge, &first_higher_challenge);
+            let (lower_second, higher_second) =
+                connection(&second_lower_challenge, &second_higher_challenge);
+            // Dial completion and remote accept order can differ for two addresses.
+            let lower_links = vec![lower_first, lower_second];
+            let higher_links = vec![higher_second, higher_first];
+            let mut lower_dead = BTreeSet::new();
+            let mut higher_dead = BTreeSet::new();
+            prune_duplicate_links(&lower_links, &lower_key, &mut lower_dead);
+            prune_duplicate_links(&higher_links, &higher_key, &mut higher_dead);
+            assert_eq!(lower_dead.len(), 1);
+            assert_eq!(higher_dead.len(), 1);
+            let lower_survivor = lower_links
+                .iter()
+                .enumerate()
+                .find(|(i, _)| !lower_dead.contains(i))
+                .unwrap()
+                .1;
+            let higher_survivor = higher_links
+                .iter()
+                .enumerate()
+                .find(|(i, _)| !higher_dead.contains(i))
+                .unwrap()
+                .1;
+            assert_eq!(
+                (
+                    &lower_survivor.challenge,
+                    &lower_survivor.hello.as_ref().unwrap().1
+                ),
+                (
+                    &higher_survivor.hello.as_ref().unwrap().1,
+                    &higher_survivor.challenge
+                ),
+                "both endpoints must retain the same physical connection"
+            );
+        }
     }
     #[test]
     fn full_tx_queue_observes_fresh_time_and_cannot_revive_after_rollback() {

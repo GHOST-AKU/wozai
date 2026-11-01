@@ -2,7 +2,7 @@
 
 独立、无 GUI 的公共消息 Mesh 预研。**实验协议，公共明文；hardware validation pending。** 不修改/导入 NIM4、Noise、正式客户端身份或私聊信任，不以 NIM5 为目标。
 
-需要 Rust 1.88+、Python3；独立 Cargo 项目，不加入 Android Gradle。模块代码使用仓库 AGPL-3.0-only，依赖原许可与通知见 [THIRD_PARTY](THIRD_PARTY.md)。
+需要 Rust 1.88+、Python 3.11+；独立 Cargo 项目，不加入 Android Gradle。模块代码使用仓库 AGPL-3.0-only，依赖原许可与通知见 [THIRD_PARTY](THIRD_PARTY.md)。
 
 ```sh
 cargo build --manifest-path mesh/Cargo.toml --locked --release
@@ -66,3 +66,5 @@ python3 mesh/tools/evidence.py --build-profile release --output mesh/target/sour
 基准为每种负载三次独立试验，分别比较无消息与保留 28 条缓存后的静默 CPU、5/2048 bytes 消息延迟及主进程 RSS/PSS。它不是吞吐、手机功耗或无线验收。要做前后对照，应对旧版构建和新版二进制使用同一份 bench.py；本轮复用了已保存且摘要匹配的旧 release，没有重新构建旧版。
 
 安全导出工具现在对事件、字段、类型和 token 格式使用白名单，并将原始输出限制为每行 8 KiB、总计 1 MiB；采集控制端在 Linux/POSIX 验证。普通 lab stdout 仍含公开正文/身份路径，分享时只用 diagnostics 或脱敏证据。
+
+当前合并前审查、CI验收条件与专项Issues映射见 [merge-review](../docs/mesh/merge-review.md)；最新HEAD的远端验证结果以PR Checks/Actions链接为准。原先本地60项与性能报告仍保留为历史证据。许可证只读校验：`cargo fetch --manifest-path mesh/Cargo.toml --locked` 后运行 `python3 mesh/tools/licenses.py --check`。

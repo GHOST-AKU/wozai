@@ -51,3 +51,9 @@ TCP 每帧：`u32 big-endian JSON字节长度 || JSON UTF-8`。长度 1–32768�
 入口仍完整验证 envelope/route；已验证缓存可先排除访问过的出口，避免每轮对无法转发的路径重新验签。终点包不占转发队列。撤销未发送的 TX 后释放特定邻居的 offer，但保留最多三次准备次数；部分帧已发送则关闭链接，以保持 framing 一致。
 
 TX 使用发送前新采样并被 Core 保留的单调时间下界。自动清理产生的到期通知有界保留到显式 tick，不能悄悄吞掉。NDJSON 本地 send 的 ttl/hops 缺省时才使用默认值；负数、浮点、字符串、bool、null 等类型返回 budget_type。
+
+## 固定向量与兼容性审查
+
+`mesh/tests/vectors/public-v1.json` 由独立的 Python hashlib/struct + cryptography 50.0.0 Ed25519 实现生成，不调用 Rust codec；固定公开种子、nonce、规范字节、ID、来源签名与两跳签名。`tests/vectors.rs` 消费固定输出并核对 Rust append，一次修改正确长度签名的任意选定字节也必须拒绝。`mesh/tools/protocol-vector.py` 是可选开发生成器，需要外部 cryptography（BSD/Apache-2.0，https://cryptography.io/en/latest/）；不打入二进制，也不是 CI/Rust 测试依赖。
+
+当前 domain/kind 只定义单一公共 UTF-8 消息域，没有独立 lobby 字段、昵称或主题协商；这部分 #88 仍需后续显式兼容性决定。任何改变签名字节、用途或字段语义的扩展必须独立版本化/RFC，不应静默重用本向量或称为 NIM5。固定向量不是完整 fuzz 验证，也不解决首到路径覆盖与 Sybil 公平性。
