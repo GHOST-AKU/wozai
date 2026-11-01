@@ -4,7 +4,7 @@
 
 ## 代码审查和最小修补
 
-- 新 P2：`Store::load` 把悬空 seen.json 链接及部分元数据错误视为无状态，可能重新展示旧消息。现在只有明确 NotFound 使用空状态；包括 dangling 的符号链接和其他错误都 fail closed。四项 store 回归先观察到失败再修补，保留fixture；既有 resources 检查继续适用。
+- 新 P2：`Store::load` 把悬空 seen.json 链接及部分元数据错误视为无状态，可能重新展示旧消息。现在只有明确 NotFound 使用空状态；包括 dangling 的符号链接和其他错误都 fail closed。四项 store 用例中，悬空快照链接和元数据错误两项新增回归先失败后通过，保留fixture；既有 resources 检查继续适用。
 - 新 P2：同方向、同身份多地址连接若在双方按不同顺序到达，本地 Vec 顺序可导致互相淘汰。现在保留方向优先，再按公钥顺序规范化握手 challenge 对排序；逆序双端 fixture 和次级 challenge 比较回归均通过，不改线协议。
 - 协议审查未确认来源签名、ID、期限、逻辑跳数或环路预算绕过。新增独立 Python/cryptography 固定向量，避免 encode/validate 共享错误假设；正确长度坏签名与 UTF-8 原文也有覆盖。
 - 新增多身份64来源桶/128全局准入、有效seen满不驱逐、重复发现共享16候选，以及丢弃首次真实Data帧后同ID重连重 offer 的测试；不以TCP handed冒充对端交付。
