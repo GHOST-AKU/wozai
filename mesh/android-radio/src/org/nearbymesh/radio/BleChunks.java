@@ -1,8 +1,7 @@
 package org.nearbymesh.radio;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
+import java.util.NoSuchElementException;
 
 /** ATT fragmentation of the existing core byte stream, without an extra wire header. */
 final class BleChunks {
@@ -10,16 +9,26 @@ final class BleChunks {
     static final int MAX_MTU = 517;
     static final int MAX_CORE_CHUNK = 4096;
 
-    private BleChunks() {}
+    private final byte[] bytes;
+    private final int payload;
+    private int offset;
 
-    static List<byte[]> split(byte[] bytes, int mtu) {
+    /** The caller owns bytes and keeps it unchanged until all fragments are acknowledged. */
+    BleChunks(byte[] bytes, int mtu) {
         if (bytes == null || bytes.length > MAX_CORE_CHUNK)
             throw new IllegalArgumentException("ble_core_chunk_bound");
-        int payload = payloadSize(mtu);
-        List<byte[]> chunks = new ArrayList<>((bytes.length + payload - 1) / payload);
-        for (int offset = 0; offset < bytes.length; offset += payload)
-            chunks.add(Arrays.copyOfRange(bytes, offset, Math.min(bytes.length, offset + payload)));
-        return chunks;
+        this.bytes = bytes;
+        this.payload = payloadSize(mtu);
+    }
+
+    boolean hasNext() { return offset < bytes.length; }
+
+    byte[] next() {
+        if (!hasNext()) throw new NoSuchElementException("ble_chunks_exhausted");
+        int end = Math.min(bytes.length, offset + payload);
+        byte[] chunk = Arrays.copyOfRange(bytes, offset, end);
+        offset = end;
+        return chunk;
     }
 
     static int payloadSize(int mtu) {

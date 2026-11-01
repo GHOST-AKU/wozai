@@ -353,8 +353,7 @@ public final class AwareAdapter implements RadioAdapter {
         NativeSocket listener = null;
         try {
             listener = NativeSocket.create();
-            Os.bind(listener.fd, Inet6Address.getByAddress(null, new byte[16], 0), 0);
-            int port = ((InetSocketAddress) Os.getsockname(listener.fd)).getPort();
+            int port = listener.reservePort();
             if (!candidate.installListener(listener)) return;
             handler.post(() -> {
                 if (!live(candidate)) return;
@@ -473,14 +472,14 @@ public final class AwareAdapter implements RadioAdapter {
             byte[] buffer = new byte[CoreBridge.MAX_CHUNK];
             while (!candidate.done && !closed.get()) {
                 int count;
-                try { count = Os.read(socket.fd, buffer, 0, buffer.length); }
+                try { count = socket.read(buffer); }
                 catch (ErrnoException error) {
                     if (error.errno == OsConstants.EAGAIN || error.errno == OsConstants.EINTR) continue;
                     throw error;
                 }
                 if (count <= 0) break;
                 candidate.rx.addAndGet(count);
-                if (!bridge.receive(Arrays.copyOf(buffer, count))) break;
+                if (!bridge.receive(buffer, 0, count)) break;
             }
         } catch (Exception error) {
             // Exception messages may contain addresses; emit only a stable metadata reason.
@@ -495,19 +494,18 @@ public final class AwareAdapter implements RadioAdapter {
         NativeSocket listener = candidate.listener;
         if (listener == null || candidate.done) throw new IOException("listener_closed");
         // The reserved wildcard port was never listening before binding it to this NDP.
-        candidate.network.bindSocket(listener.fd);
-        Os.listen(listener.fd, 1);
+        listener.bindAndListen(candidate.network);
         long deadline = SystemClock.elapsedRealtime() + 12_000;
         int rejected = 0;
         while (!candidate.done && SystemClock.elapsedRealtime() < deadline && rejected < 8) {
             NativeSocket accepted;
-            try { accepted = new NativeSocket(Os.accept(listener.fd, null)); }
+            try { accepted = listener.accept(); }
             catch (ErrnoException error) {
                 if (error.errno == OsConstants.EAGAIN || error.errno == OsConstants.EINTR) continue;
                 throw error;
             }
             try {
-                accepted.configure();
+                accepted.configure(false);
                 if (belongsToNdp(candidate, accepted, interfaceId)) {
                     listener.close();
                     return accepted;
@@ -529,8 +527,7 @@ public final class AwareAdapter implements RadioAdapter {
             NativeSocket socket = NativeSocket.create();
             if (!candidate.installSocket(socket)) throw new IOException("candidate_closed");
             try {
-                candidate.network.bindSocket(socket.fd);
-                Os.connect(socket.fd, candidate.peerAddress, candidate.port);
+                socket.connect(candidate.network, candidate.peerAddress, candidate.port);
                 return socket;
             } catch (Exception error) {
                 socket.close();
@@ -543,20 +540,7 @@ public final class AwareAdapter implements RadioAdapter {
     }
 
     private boolean belongsToNdp(Candidate candidate, NativeSocket socket, int interfaceId) throws Exception {
-        InetAddress remote = ((InetSocketAddress) Os.getpeername(socket.fd)).getAddress();
-        InetAddress local = ((InetSocketAddress) Os.getsockname(socket.fd)).getAddress();
-        if (!(remote instanceof Inet6Address) || !(local instanceof Inet6Address)
-                || !remote.isLinkLocalAddress() || !local.isLinkLocalAddress()
-                || !Arrays.equals(remote.getAddress(), candidate.peerAddress.getAddress())) return false;
-        int remoteScope = ((Inet6Address) remote).getScopeId();
-        int localScope = ((Inet6Address) local).getScopeId();
-        if ((remoteScope != 0 && remoteScope != interfaceId)
-                || (localScope != 0 && localScope != interfaceId)) return false;
-        for (LinkAddress address : candidate.properties.getLinkAddresses()) {
-            if (address.getAddress().isLinkLocalAddress()
-                    && Arrays.equals(address.getAddress().getAddress(), local.getAddress())) return true;
-        }
-        return false;
+        return socket.belongsToNdp(candidate.peerAddress, candidate.properties, interfaceId);
     }
 
     private void work(Candidate candidate, Runnable task) {
@@ -683,25 +667,92 @@ public final class AwareAdapter implements RadioAdapter {
 
     /** Public Android OS APIs permit binding the listening descriptor to its supplied Network. */
     private static final class NativeSocket {
-        final FileDescriptor fd;
-        private final AtomicBoolean closed = new AtomicBoolean();
-        NativeSocket(FileDescriptor fd) { this.fd = fd; }
+        private final FileDescriptor fd;
+        private final AwareSocketLifetime lifetime;
+        NativeSocket(FileDescriptor fd) {
+            this.fd = fd;
+            lifetime = new AwareSocketLifetime(() -> {
+                try { Os.shutdown(fd, OsConstants.SHUT_RDWR); } catch (ErrnoException ignored) { }
+            }, () -> {
+                try { Os.close(fd); } catch (ErrnoException ignored) { }
+            });
+        }
         static NativeSocket create() throws Exception {
             NativeSocket value = new NativeSocket(Os.socket(OsConstants.AF_INET6, OsConstants.SOCK_STREAM, 0));
             try {
+                // This descriptor has not been published to a candidate yet.
                 Os.setsockoptInt(value.fd, OsConstants.IPPROTO_IPV6, OsConstants.IPV6_V6ONLY, 1);
-                value.configure();
+                value.configure(false);
                 return value;
             }
             catch (Exception error) { value.close(); throw error; }
         }
-        void configure() throws ErrnoException {
-            Os.setsockoptInt(fd, OsConstants.IPPROTO_TCP, OsConstants.TCP_NODELAY, 1);
-            Os.setsockoptTimeval(fd, OsConstants.SOL_SOCKET, OsConstants.SO_RCVTIMEO,
-                    StructTimeval.fromMillis(1_000));
-            // Linux also applies SO_SNDTIMEO to a blocking connect; no unbounded connect/write.
-            Os.setsockoptTimeval(fd, OsConstants.SOL_SOCKET, OsConstants.SO_SNDTIMEO,
-                    StructTimeval.fromMillis(5_000));
+        private void begin() throws IOException {
+            if (!lifetime.begin()) throw new IOException("radio_socket_closed");
+        }
+        void configure(boolean listener) throws ErrnoException, IOException {
+            begin();
+            try {
+                Os.setsockoptInt(fd, OsConstants.IPPROTO_TCP, OsConstants.TCP_NODELAY, 1);
+                // Only accept needs periodic deadline checks. Shutdown wakes established reads.
+                // Reset this on accepted sockets: Linux inherits the listener's receive timeout.
+                Os.setsockoptTimeval(fd, OsConstants.SOL_SOCKET, OsConstants.SO_RCVTIMEO,
+                        StructTimeval.fromMillis(listener ? 1_000 : 0));
+                // Linux also applies SO_SNDTIMEO to a blocking connect.
+                Os.setsockoptTimeval(fd, OsConstants.SOL_SOCKET, OsConstants.SO_SNDTIMEO,
+                        StructTimeval.fromMillis(5_000));
+            } finally { lifetime.end(); }
+        }
+        int reservePort() throws Exception {
+            configure(true);
+            begin();
+            try {
+                Os.bind(fd, Inet6Address.getByAddress(null, new byte[16], 0), 0);
+                return ((InetSocketAddress) Os.getsockname(fd)).getPort();
+            } finally { lifetime.end(); }
+        }
+        void bindAndListen(Network network) throws Exception {
+            begin();
+            try {
+                network.bindSocket(fd);
+                Os.listen(fd, 1);
+            } finally { lifetime.end(); }
+        }
+        NativeSocket accept() throws Exception {
+            begin();
+            try { return new NativeSocket(Os.accept(fd, null)); }
+            finally { lifetime.end(); }
+        }
+        void connect(Network network, Inet6Address address, int port) throws Exception {
+            begin();
+            try {
+                network.bindSocket(fd);
+                Os.connect(fd, address, port);
+            } finally { lifetime.end(); }
+        }
+        boolean belongsToNdp(Inet6Address peer, LinkProperties properties, int interfaceId) throws Exception {
+            begin();
+            try {
+                InetAddress remote = ((InetSocketAddress) Os.getpeername(fd)).getAddress();
+                InetAddress local = ((InetSocketAddress) Os.getsockname(fd)).getAddress();
+                if (!(remote instanceof Inet6Address) || !(local instanceof Inet6Address)
+                        || !remote.isLinkLocalAddress() || !local.isLinkLocalAddress()
+                        || !Arrays.equals(remote.getAddress(), peer.getAddress())) return false;
+                int remoteScope = ((Inet6Address) remote).getScopeId();
+                int localScope = ((Inet6Address) local).getScopeId();
+                if ((remoteScope != 0 && remoteScope != interfaceId)
+                        || (localScope != 0 && localScope != interfaceId)) return false;
+                for (LinkAddress address : properties.getLinkAddresses()) {
+                    if (address.getAddress().isLinkLocalAddress()
+                            && Arrays.equals(address.getAddress().getAddress(), local.getAddress())) return true;
+                }
+                return false;
+            } finally { lifetime.end(); }
+        }
+        int read(byte[] buffer) throws ErrnoException, IOException {
+            begin();
+            try { return Os.read(fd, buffer, 0, buffer.length); }
+            finally { lifetime.end(); }
         }
         void write(byte[] bytes) throws IOException {
             if (bytes == null || bytes.length == 0 || bytes.length > CoreBridge.MAX_CHUNK) {
@@ -709,17 +760,19 @@ public final class AwareAdapter implements RadioAdapter {
             }
             try {
                 for (int offset = 0; offset < bytes.length;) {
-                    if (closed.get()) throw new IOException("radio_socket_closed");
-                    int count = Os.write(fd, bytes, offset, bytes.length - offset);
+                    int count;
+                    begin();
+                    try { count = Os.write(fd, bytes, offset, bytes.length - offset); }
+                    finally { lifetime.end(); }
                     if (count <= 0) throw new IOException("radio_socket_write_failed");
                     offset += count;
                 }
             } catch (ErrnoException error) { throw new IOException("radio_socket_write_failed", error); }
         }
         void close() {
-            if (!closed.compareAndSet(false, true)) return;
-            try { Os.shutdown(fd, OsConstants.SHUT_RDWR); } catch (ErrnoException ignored) { }
-            try { Os.close(fd); } catch (ErrnoException ignored) { }
+            // Public Os.close does not signal Android's asynchronous-close monitors. Keep the
+            // numeric descriptor owned until native calls that captured it have all returned.
+            lifetime.close();
         }
     }
 }

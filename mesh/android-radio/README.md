@@ -10,6 +10,7 @@ JDK17、Android platform36/build-tools35.0.0（minAPI29）：
 
 ```sh
 JAVA_HOME=/path/to/jdk17 bash mesh/android-radio/test.sh
+JAVA_HOME=/path/to/jdk17 ANDROID_SDK_ROOT=/path/to/sdk bash mesh/android-radio/test-ble-host.sh
 JAVA_HOME=/path/to/jdk17 ANDROID_SDK_ROOT=/path/to/sdk bash mesh/android-radio/build.sh
 python3 -m unittest discover -s mesh/android-radio/tests -p 'test_*.py' -v
 ANDROID_NDK_HOME=/path/to/android-ndk-r27c mesh/tools/build-android-core.sh
@@ -25,7 +26,7 @@ ANDROID_NDK_HOME=/path/to/android-ndk-r27c mesh/tools/build-android-core.sh
 
 - BLE：扫描和广播专用 UUID；按实验label决定central/peripheral角色，B同时承担两角色。MTU23时分20byte片，协商后仍限制ATT512byte；write-with-response与indication确认，最多4邻居/4次连接尝试，有界队列、操作deadline和128个额外callback上限。设备必须支持并发扫描/广播/GATT双角色；没有硬件证据保证所有机型可用。保留Rust握手3s/idle15s期限；慢BLE可能在握手完成前失败，此情况需记录实测后独立决定超时策略。
 - Aware：API29+、FEATURE_WIFI_AWARE与可用资源；publish/subscribe协商，带实验PSK的每邻居NDP，使用系统 Network 和 scopedIPv6/port，socket显式Network绑定，接收端核验NDP本地/对端地址。最多4邻居，NDP20s/尝试40s/启动15sdeadline，有界worker/重试。B双NDP由系统/机型配额决定；unsupported/unavailable必须保留，**不能回退普通Wi-Fi**。
-- CoreBridge：每邻居32KiB ingress队列+最多一个4096byte在写块，egress单4096byte块背压；另有OS socket/GATT缓冲、native对象和Core资源，不能把32KiB当进程RSS。队列溢出关闭连接。取消/退出回收socket、GATT、NDP、发现session；runner最长3600s，不是长期后台服务。
+- CoreBridge：每邻居预留固定32KiB ingress字节环+最多一个4096byte在写块，egress单4096byte块背压；另有OS socket/GATT缓冲、native对象和Core资源，不能把32KiB当进程RSS。按字节准入，已排队小分片可合并写入；队列溢出关闭连接。取消/退出回收socket、GATT、NDP、发现session；runner最长3600s，不是长期后台服务。
 - native诊断限2048普通事件+8生命周期事件，报告dropped_events；bytes是观察到的计数，截断日志不能用来推算全量吞吐。JSON仅label/阶段/状态/bytes，不记录MAC、IP、PSK或正文；Rust普通stdout仍含公共正文/公钥，控制器导出移除body，公开身份/路径仍可关联。
 
 ## 三设备实验：两种模式分开运行
@@ -56,3 +57,5 @@ python3 mesh/tools/radio-lab.py --mode aware --a USB_A --b USB_B --c USB_C --pas
 模块采用仓库AGPL-3.0-only，继续使用锁定Cargo依赖及原许可证；无Bitchat或闭源实现代码复制。BLE依据[Android数据收发](https://developer.android.com/develop/connectivity/bluetooth/ble/transfer-ble-data)、[MTU](https://developer.android.com/reference/android/bluetooth/BluetoothGatt#requestMtu(int))、[indication串行回调](https://developer.android.com/reference/android/bluetooth/BluetoothGattServerCallback#onNotificationSent(android.bluetooth.BluetoothDevice,int))、[权限](https://developer.android.com/develop/connectivity/bluetooth/bt-permissions)。参考Bitchat的[固定源码版本](https://github.com/permissionlesstech/bitchat/blob/04995f68e470a18d1fc99f86fa326c2a87bab4f2/bitchat/Services/BLE/BLEService.swift)，没有照搬其469byte假设。
 
 Aware依据[官方指南](https://developer.android.com/develop/connectivity/wifi/wifi-aware)、[Network绑定](https://developer.android.com/reference/android/net/Network#bindSocket(java.io.FileDescriptor))、[scoped IPv6元数据](https://developer.android.com/reference/android/net/wifi/aware/WifiAwareNetworkInfo#getPeerIpv6Addr())及[AOSP数据路径实现](https://android.googlesource.com/platform/packages/modules/Wifi/+/refs/heads/master/service/java/com/android/server/wifi/aware/WifiAwareDataPathStateManager.java)。API签名通过SDK36编译验证；平台支持和回调实际行为仍需设备复现。
+
+后续质量/性能/体积审查见 [quality review](../../docs/mesh/native-radio-quality-review.md)，包含真实调度缺陷、资源保护和原始测量边界。

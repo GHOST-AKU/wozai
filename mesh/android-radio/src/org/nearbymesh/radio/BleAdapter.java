@@ -460,8 +460,9 @@ public final class BleAdapter implements RadioAdapter {
         try {
             acquired = link.sender.tryAcquire(OP_MS, TimeUnit.MILLISECONDS);
             if (!acquired) throw new IOException("ble_sender_timeout");
-            for (byte[] chunk : BleChunks.split(bytes, link.mtu)) {
-                Operation operation = new Operation(chunk);
+            BleChunks chunks = new BleChunks(bytes, link.mtu);
+            while (chunks.hasNext()) {
+                Operation operation = new Operation(chunks.next());
                 if (!handler.post(() -> guarded(() -> enqueue(link, operation)))) throw new IOException("ble_handler_stopped");
                 if (!operation.done.await(OP_MS, TimeUnit.MILLISECONDS)) {
                     dispatch(() -> failLink(link, "att_ack_timeout"));
@@ -516,6 +517,9 @@ public final class BleAdapter implements RadioAdapter {
         for (Link link : new ArrayList<>(links.values())) {
             if (link.client || !link.subscribed || !link.transportReady) continue;
             Operation operation = next(link);
+            // Expiry can fail this link and reenter pumpServer from failLink.
+            // Preserve the indication that the nested pump already submitted.
+            if (indicating != null) return;
             if (operation == null) continue;
             indicating = link;
             if (!indicate(link.device, operation.bytes)) {
