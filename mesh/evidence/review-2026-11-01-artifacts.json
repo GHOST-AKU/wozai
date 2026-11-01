@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "verified_source_commit": "b886611aed05909c5280ceb924357de88851c206",
+  "baseline_reference_commit": "542fb050531d8fb6abe6fdafe5c43a1097b3bd4f",
+  "baseline_binary_sha256": "358f2a8fa5d419d0d89d1e50a3b9955397e6e774c95cb069b606d0f6578dff39",
+  "release_binary_sha256": "187f6c673724d8928ef6dd12dfd799bc669043b075c5ece0eaa1c96df42fb154",
+  "build_command": "cargo build --manifest-path mesh/Cargo.toml --locked --release",
+  "build_profile": "release",
+  "proof_scope": "build log + unchanged source hashes and measured artifact hashes; not third-party cryptographic attestation",
+  "bench_driver_sha256": "1c69a14346027da1ddf243966a690078fe71e8280ee5ffc13ddf5722403164d6",
+  "artifacts": {
+    "mesh/evidence/review-2026-11-01-baseline.json": "0a343c4577efa74b125d813a26b89117b8bfcf1e90b2a9985605b5347a22fb36",
+    "mesh/evidence/review-2026-11-01-discovery.json": "087a72503f43a40ea06ae4db155a0f3b6f7b90c255861367c01cf9f9a40e0cf8",
+    "mesh/evidence/review-2026-11-01-isolated.json": "42a2a0ede463e84999f74679a5b4083cd4cdda1fc3bf949adae72e7f10ecefdb",
+    "mesh/evidence/review-2026-11-01-optimized.json": "92c436ca8c92a2fdd93d27e87d593ea0d4c5834fed067903f6ea4e13a8640617",
+    "mesh/evidence/review-2026-11-01-regressions.txt": "d7e8b0e3bbfe2e234786bdd5d82e8a0782c22786f8a01f0ff1da42f82d6c6347",
+    "mesh/evidence/review-2026-11-01-source.json": "d6b7902c981b644793b44db6ec56a37bb714b098bf5792df3be411b56dde17a4",
+    "mesh/evidence/review-2026-11-01-verification.txt": "b2589a19de8a8a1a48792b6a239cb7664b6ea52ffb40b503ddf7521b0362eb8b"
+  }
+}
