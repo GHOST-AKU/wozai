@@ -25,7 +25,26 @@ public final class BleAdapterHostTest {
         expiringQueuedPeerCannotStartConcurrentIndications();
         closedIndicationRetainsItsAcknowledgementOwner();
         stalePublicCandidatesDoNotBlockNewNeighbor();
-        System.out.println("BleAdapterHostTest: 3 passed");
+        busyNeighborCannotStarveAnother();
+        System.out.println("BleAdapterHostTest: 4 passed");
+    }
+
+    private static void busyNeighborCannotStarveAnother() throws Exception {
+        try (Fixture fixture = new Fixture()) {
+            Object a = fixture.link("A"), b = fixture.link("B");
+            fixture.queue(a);
+            fixture.pump();
+            Object waiting = fixture.queue(b);
+            for (int i = 0; i < 8; i++) fixture.queue(a);
+            fixture.ack("A");
+            check(fixture.server.indications.equals(Arrays.asList("A", "B")),
+                    "busy A must yield the next acknowledged slot to waiting B: " + fixture.server.indications);
+            check(!done(waiting), "scheduling B must not acknowledge it");
+            fixture.ack("B");
+            check(done(waiting), "B completes only on its own acknowledgement");
+            check(fixture.server.indications.equals(Arrays.asList("A", "B", "A")),
+                    "round robin must resume A without losing queued work");
+        }
     }
 
     private static void stalePublicCandidatesDoNotBlockNewNeighbor() throws Exception {

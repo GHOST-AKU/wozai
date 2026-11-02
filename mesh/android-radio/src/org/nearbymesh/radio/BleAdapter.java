@@ -85,6 +85,7 @@ public final class BleAdapter implements RadioAdapter {
     private boolean scanning, advertising, serviceAdded;
     // Android requires onNotificationSent before sending any next server indication.
     private Link indicating;
+    private String lastIndicatedAddress;
 
     public BleAdapter(Context context, Handler handler, RadioConfig config, RadioEvents events) {
         this.context = context.getApplicationContext();
@@ -531,14 +532,23 @@ public final class BleAdapter implements RadioAdapter {
 
     private void pumpServer() {
         if (indicating != null || server == null) return;
-        for (Link link : new ArrayList<>(links.values())) {
-            if (link.client || !link.subscribed || !link.transportReady) continue;
+        // Rotate after the last submitted peer so a continuously busy neighbor cannot
+        // monopolize the single outstanding server indication. Snapshot tolerates cleanup.
+        ArrayList<Link> candidates = new ArrayList<>(links.values());
+        int start = 0;
+        for (int i = 0; i < candidates.size(); i++) {
+            if (candidates.get(i).address.equals(lastIndicatedAddress)) start = i + 1;
+        }
+        for (int offset = 0; offset < candidates.size(); offset++) {
+            Link link = candidates.get((start + offset) % candidates.size());
+            if (!live(link) || link.client || !link.subscribed || !link.transportReady) continue;
             Operation operation = next(link);
             // Expiry can fail this link and reenter pumpServer from failLink.
             // Preserve the indication that the nested pump already submitted.
             if (indicating != null) return;
             if (operation == null) continue;
             indicating = link;
+            lastIndicatedAddress = link.address;
             if (!indicate(link.device, operation.bytes)) {
                 // Initiation was rejected: no callback is owed for this operation.
                 indicating = null;
