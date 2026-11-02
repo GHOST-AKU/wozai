@@ -47,14 +47,15 @@ jobs:
           python3 -m unittest discover -s tools/tests -p 'test_mesh_android_package.py' -v
       - run: ./gradlew --no-daemon :app-next:testDebugUnitTest :app-next:assembleDebug :app-next:lintDebug
         if: ${{ !inputs.signed }}
+      - name: Test installation build without signing inputs
+        if: ${{ inputs.signed }}
+        run: ./gradlew --no-daemon :app-next:testDebugUnitTest
       - name: Build verified installation APK
         if: ${{ inputs.signed }}
         env:
           WOZAI_ANDROID_KEYSTORE_BASE64: ${{ secrets.WOZAI_ANDROID_KEYSTORE_BASE64 }}
           WOZAI_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.WOZAI_ANDROID_KEYSTORE_PASSWORD }}
-        run: |
-          ./gradlew --no-daemon :app-next:testDebugUnitTest
-          python3 tools/build-signed-next.py
+        run: python3 tools/build-signed-next.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -64,5 +65,6 @@ jobs:
             mesh/target/android-core-build.json
             app-next/build/reports/tests/
             app-next/build/reports/lint-results-debug.*
+            app-next/build/reports/lint-results-release.*
             app-next/build/reports/next-screenshots/
           if-no-files-found: ignore
