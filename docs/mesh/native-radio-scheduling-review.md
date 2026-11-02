@@ -20,16 +20,21 @@ Android doubles. The new regression puts A in flight, queues B and eight more A
 operations. Before the fix the first two submissions are A,A; after the fix they
 are A,B, followed by A after B's own acknowledgement. This is a deterministic
 scheduling improvement, not a measured wireless latency or throughput percentage.
-All four BLE scheduler cases pass, including expiry reentrancy, stale ACK ownership
+All five BLE scheduler cases pass, including expiry reentrancy, stale ACK ownership
 and public candidate expiry. `bash mesh/android-radio/test.sh` also passes all seven
 host programs. Independent Android API/DEX compilation belongs to the radio CI.
 
 ## Remaining bottlenecks and choices
 
-- Connection recovery: BLE has a finite attempt budget; continuous observation does
-  not reset exhaustion. Aware also bounds failures. A future recovery policy needs
-  a time-window budget and jitter, rather than resetting counters on every advert,
-  which would let an abusive peer trigger continuous dialing.
+- Connection recovery: BLE exhaustion now starts a 60–65 second cooldown (bounded
+  per-pair jitter). Only a fresh advertisement after the deadline opens another
+  four-attempt window. Disconnected candidates are retained through cooldown so
+  the ordinary 30-second expiry cannot bypass the budget. No periodic retry task
+  is created for exhausted peers. The host regression verifies silence, rediscovery
+  before/at deadline, and expiry bypass prevention; previously it failed because
+  exhaustion had no recovery deadline. Aware still has a finite failure budget
+  requiring its own recovery/lifecycle analysis. This is not complete Sybil defense:
+  rotating labels or restarting the app can reset per-peer state.
 - BLE setup: missing MTU callbacks can consume the 15-second setup deadline. Starting
   discovery concurrently with an unresolved GATT operation is not a safe shortcut.
 - Core authentication currently expires after three seconds. Low-MTU BLE can spend

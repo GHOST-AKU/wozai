@@ -26,7 +26,32 @@ public final class BleAdapterHostTest {
         closedIndicationRetainsItsAcknowledgementOwner();
         stalePublicCandidatesDoNotBlockNewNeighbor();
         busyNeighborCannotStarveAnother();
-        System.out.println("BleAdapterHostTest: 4 passed");
+        exhaustedPeerRequiresCooldownAndFreshObservation();
+        System.out.println("BleAdapterHostTest: 5 passed");
+    }
+
+    private static void exhaustedPeerRequiresCooldownAndFreshObservation() throws Exception {
+        try (Fixture fixture = new Fixture()) {
+            Object link = fixture.link("A"), peer = get(link, "peer");
+            @SuppressWarnings("unchecked") Map<String,Object> peers = (Map<String,Object>) get(fixture.adapter,"peers");
+            peers.put("A",peer);
+            set(peer,"seen",SystemClock.elapsedRealtime());
+            invoke(fixture.adapter,"failLink",new Class<?>[]{link.getClass(),String.class},link,"test_disconnect");
+            long cooldown = (Long)get(peer,"retryAt") - SystemClock.elapsedRealtime();
+            check(cooldown >= 60000, "exhaustion must create a bounded cooldown");
+            // Silence must not erase the cooldown when ordinary candidate expiry elapses.
+            SystemClock.advanceMillis(40000);
+            observe(fixture.adapter,"A");
+            check(peers.get("A")==peer && (Integer)get(peer,"attempts")==4,
+                    "rediscovery must not bypass cooldown through candidate expiry");
+            SystemClock.advanceMillis(cooldown-40000-1);
+            observe(fixture.adapter,"A");
+            check((Integer)get(peer,"attempts")==4,"advertisements before deadline cannot reset attempts");
+            SystemClock.advanceMillis(1);
+            check((Integer)get(peer,"attempts")==4,"time alone must not start another attempt window");
+            observe(fixture.adapter,"A");
+            check((Integer)get(peer,"attempts")==0,"fresh observation after cooldown must recover exhausted peer");
+        }
     }
 
     private static void busyNeighborCannotStarveAnother() throws Exception {

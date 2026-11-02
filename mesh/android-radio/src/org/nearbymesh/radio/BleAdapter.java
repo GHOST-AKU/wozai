@@ -64,7 +64,7 @@ public final class BleAdapter implements RadioAdapter {
     private static final int MAX_LINKS = 4, MAX_ATTEMPTS = 4, MAX_QUEUED_OPS = 8;
     private static final int MAX_SCAN_BATCH = 32;
     private static final int MAX_QUEUED_BYTES = 4096, MAX_EARLY_BYTES = 8192;
-    private static final long SETUP_MS = 15000, OP_MS = 5000, SEEN_MS = 30000;
+    private static final long SETUP_MS = 15000, OP_MS = 5000, SEEN_MS = 30000, RETRY_COOLDOWN_MS = 60000;
 
     private final Context context;
     private final Handler handler;
@@ -202,7 +202,8 @@ public final class BleAdapter implements RadioAdapter {
         if (!label.matches("[A-Za-z0-9_-]{1,8}") || !config.accepts(label)) return;
         long observedAt = SystemClock.elapsedRealtime();
         // Candidate slots are bounded, but disconnected vanished labels must not pin them forever.
-        peers.values().removeIf(candidate -> candidate.link == null && observedAt - candidate.seen > SEEN_MS);
+        peers.values().removeIf(candidate -> candidate.link == null && observedAt - candidate.seen > SEEN_MS
+                && observedAt >= candidate.retryAt);
         String address = result.getDevice().getAddress();
         Peer peer = peers.get(label);
         if (peer == null) {
@@ -214,7 +215,13 @@ public final class BleAdapter implements RadioAdapter {
         if (peer.link != null && !peer.address.equals(address)) return;
         peer.address = address;
         peer.device = result.getDevice();
-        peer.seen = SystemClock.elapsedRealtime();
+        peer.seen = observedAt;
+        // Exhaustion is a cooldown, not a permanent ban. Require fresh radio evidence
+        // before opening another bounded attempt window; advertisements cannot shorten it.
+        if (peer.link == null && peer.attempts >= MAX_ATTEMPTS && observedAt >= peer.retryAt) {
+            peer.attempts = 0;
+            emit("ble_retry_window", peer.label, "fresh_observation_after_cooldown", 0, 0);
+        }
         maybeConnect(peer);
     }
 
@@ -638,7 +645,12 @@ public final class BleAdapter implements RadioAdapter {
                 link.peer.retryAt = SystemClock.elapsedRealtime() + delay;
                 emit("ble_retry", link.peer.label, "attempt_" + (link.peer.attempts + 1), link.txBytes, link.rxBytes);
                 handler.postDelayed(() -> guarded(() -> maybeConnect(link.peer)), delay);
-            } else if (link.peer.attempts >= MAX_ATTEMPTS) emit("ble_retry_exhausted", link.peer.label, "attempt_bound", link.txBytes, link.rxBytes);
+            } else if (link.peer.attempts >= MAX_ATTEMPTS) {
+                // Retain the candidate through cooldown so ordinary expiry cannot bypass it.
+                long jitter = (Integer.toUnsignedLong((config.label + ":" + link.peer.label).hashCode()) % 5001);
+                link.peer.retryAt = SystemClock.elapsedRealtime() + RETRY_COOLDOWN_MS + jitter;
+                emit("ble_retry_exhausted", link.peer.label, "cooldown_requires_fresh_observation", link.txBytes, link.rxBytes);
+            }
         }
     }
 
