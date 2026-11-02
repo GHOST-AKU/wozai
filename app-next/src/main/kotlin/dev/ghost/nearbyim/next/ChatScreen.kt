@@ -237,17 +237,26 @@ private fun MessageBubble(message: ChatStore.Message, host: MainActivity, canAtt
 private fun ReceiptMark(state: String) {
     val receipt = MessageReceipt.of(state)
     val label = t(receipt.textKey())
-    val color = if (receipt == MessageReceipt.READ) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+    val color = if (receipt == MessageReceipt.READ) Color(0xFF66CCFF) else MaterialTheme.colorScheme.onSurfaceVariant
+    val glow = androidx.compose.foundation.isSystemInDarkTheme() && receipt == MessageReceipt.READ
     Canvas(Modifier.size(20.dp, 16.dp).semantics { contentDescription = label }) {
         val sx = size.width / 20; val sy = size.height / 16
+        fun paintReceipt(width: Float, opacity: Float) {
         receipt.draw(object : MessageReceipt.Ink {
             override fun line(x1: Float, y1: Float, x2: Float, y2: Float) {
-                drawLine(color, Offset(x1*sx, y1*sy), Offset(x2*sx, y2*sy), 1.5.dp.toPx(), StrokeCap.Round)
+                drawLine(color.copy(alpha = opacity), Offset(x1*sx, y1*sy), Offset(x2*sx, y2*sy), width.dp.toPx(), StrokeCap.Round)
             }
             override fun circle(x: Float, y: Float, radius: Float) {
-                drawCircle(color, radius*sx, Offset(x*sx, y*sy), style = Stroke(1.5.dp.toPx()))
+                drawCircle(color.copy(alpha = opacity), radius*sx, Offset(x*sx, y*sy), style = Stroke(width.dp.toPx()))
             }
         })
+        }
+        // Match the original native drawable's subtle dark-mode halo.
+        if (glow) {
+            paintReceipt(4.5f, .08f)
+            paintReceipt(3f, .14f)
+        }
+        paintReceipt(1.5f, 1f)
     }
 }
 
