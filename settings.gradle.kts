@@ -5,3 +5,4 @@ dependencyResolutionManagement {
 }
 rootProject.name = "NearbyIM"
 include(":app")
+include(":app-next")

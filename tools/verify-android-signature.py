@@ -20,9 +20,12 @@ mode.add_argument("--published-baseline", choices=list(pin.get("published_upgrad
 mode.add_argument("--baseline", action="store_true")
 mode.add_argument("--maintenance", action="store_true", help="Verify the fixed 0.3.1/code8 maintenance source")
 mode.add_argument("--wrong-signer", action="store_true")
+parser.add_argument("--next", action="store_true", help="Verify the independent Android Next package")
 parser.add_argument("--source-commit")
 parser.add_argument("--output", type=Path)
 args = parser.parse_args()
+if args.next and (args.test_apk or args.ui_test_apk or args.baseline or args.maintenance or args.published_baseline or args.wrong_signer):
+    parser.error("--next cannot be combined with legacy verification modes")
 sdk = Path(os.environ["ANDROID_HOME"]) / "build-tools/35.0.0"
 signature = subprocess.check_output([str(sdk / "apksigner"), "verify", "--print-certs", str(args.apk)], text=True)
 certificates = re.findall(r"Signer #\d+ certificate SHA-256 digest: (\w+)", signature)
@@ -50,7 +53,10 @@ if not (args.test_apk or args.ui_test_apk):
         version, code = baseline["version_name"], baseline["version_code"]
         if digest != baseline["apk_sha256"]:
             raise SystemExit("Published upgrade baseline APK digest mismatch")
-    if (f"name='{pin['application_id']}'" not in package or f"versionCode='{code}'" not in package
+    if args.next:
+        code = json.loads((root / "i18n/config.json").read_text())["buildNumber"]
+    application_id = pin["application_id"] + (".next" if args.next else "")
+    if (f"name='{application_id}'" not in package or f"versionCode='{code}'" not in package
             or f"versionName='{version}'" not in package or (not args.wrong_signer and "application-debuggable" in badging)):
         raise SystemExit("Wrong APK package/version or debuggable release")
     if args.baseline and digest != pin["baseline_apk_sha256"]:

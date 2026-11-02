@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="next_dynamic_color">Wallpaper colors</string>
+    <string name="next_dynamic_color_hint">Use the system dynamic color palette</string>
+    <string name="next_experiment">Experimental Android client</string>
+    <string name="next_independent_profile">This version stores its own device identity, trust and chat history.</string>
+    <string name="next_measurement_pending">Speed and remaining time: awaiting measurement</string>
+    <string name="next_speed_only">%1$s/s · remaining time unknown</string>
+    <string name="next_recognized">Recognized</string>
+    <string name="next_not_recognized">Not recognized</string>
+    <string name="next_qr_saved">QR code saved</string>
+</resources>

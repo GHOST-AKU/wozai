@@ -3,12 +3,16 @@
 local.properties
 build/
 app/build/
+app-next/build/
 *.iml
 *.jks
 *.keystore
 *.p12
 *.pfx
 .signing/
+windows-next/**/bin/
+windows-next/**/obj/
+windows-next/**/TestResults/
 *.apk
 *.aab
 __pycache__/

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="next_dynamic_color">배경화면 색상</string>
+    <string name="next_dynamic_color_hint">시스템 동적 색상 사용</string>
+    <string name="next_experiment">Android 실험용 클라이언트</string>
+    <string name="next_independent_profile">이 버전의 기기 ID, 신뢰 설정 및 채팅 기록은 별도로 저장됩니다.</string>
+    <string name="next_measurement_pending">속도 및 남은 시간: 측정 대기 중</string>
+    <string name="next_speed_only">%1$s/초 · 남은 시간 알 수 없음</string>
+    <string name="next_recognized">승인됨</string>
+    <string name="next_not_recognized">승인되지 않음</string>
+    <string name="next_qr_saved">QR 코드가 저장되었습니다</string>
+</resources>

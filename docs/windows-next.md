@@ -1,0 +1,57 @@
+# 我在next · WinUI 3 桌面实验版
+
+本实验以 Windows 原生 WinUI 3 重建当前桌面客户端的功能，使用独立数据目录 `%LOCALAPPDATA%\WoZaiNext`。原客户端的密钥、信任和记录不会自动导入。Windows 10 19041 及以上、Windows 11，当前目标 Windows x64。
+
+## 架构与安装
+
+窗口、导航、列表、对话框、文件选择器均为 WinUI 3 控件。通信通过私有子进程管道接入原 `DesktopClient`；不新增可被其他应用访问的控制端口。NIM4、Noise、身份、LAN、Windows 蓝牙、附件和记录沿用原 Java 源码。
+
+便携包解压后运行 `WoZaiNext\WindowsNext.exe`；.NET、Windows App SDK 和 Java 运行时随包携带。默认不监听或搜索，用户在「附近」中明确开启。关闭窗口会关闭自己的内核子进程。
+
+[下载 Windows x64 实验包](https://github.com/GHOST-AKU/wozai/actions/runs/41191384984/artifacts/13038469898)（GitHub Actions 下载需要登录）。取下载内容中的 `WoZai-next-0.3.3-preview.4-windows-x64.zip`，解压后启动上述程序。
+
+当前为未做 Authenticode 签名的实验便携包。源码版本与构建来源写入包内 `build-info.json`；它不替换现有正式版。
+
+## 功能验收范围
+
+目标以当前 Windows 桌面版为边界：
+
+- 会话与聊天：本地会话、搜索、草稿、文字、真实发送/送达/已读状态、滚动与选中文本。
+- 设备：LAN 和 Windows 经典蓝牙的接收、发现、地址连接、取消、断开及记住设备重连；首次设备认可、撤销信任。
+- 附件：照片/多文件选择及预览、接收/拒绝、暂停/续传、重发/替换源文件/批次操作、打开/另存为、实际路径与诊断。
+- 身份与外观：完整安全码、二维码显示/读取/保存及核验、头像编辑/重置、五语、浅色/深色/系统、字号、附件配额、已读策略、隐私和本地目录。
+
+Windows 现有内核不提供手机侧独立 Wi-Fi Direct、群聊、互联网中继或语音。本实验不会以界面按钮宣称新增这些能力。功能完成状态以本次工作流和核验记录为准，不把设计清单当成通过证据。
+
+## 构建和验证
+
+Windows 安装 .NET 8 SDK、JDK 17 和 C++ CMake 工具后执行：
+
+```powershell
+./windows-next/tools/build.ps1 -Test
+./windows-next/tools/capture.ps1
+```
+
+桥接层可在 Linux/macOS 用 JDK 17 与 Python 验证：
+
+```sh
+python3 windows-next/tools/build-bridge.py --test
+```
+
+版本继续读取 `i18n/config.json`。标准输入输出协议见 [协议契约](../windows-next/PROTOCOL.md)。原桌面和通信源码保留不变。
+
+## 截图与设备证据
+
+截图由 Windows runner 实际运行 WinUI 窗口后捕获。界面使用独立临时目录中的验收会话数据；不是真人对话，也不代表物理蓝牙或真实无线性能验收。会话、附近、设置与深色截图、UI Automation 树和来源记录一并保留。
+
+[查看四张原生窗口截图与校验值](screenshots/windows-next/README.md)。对应二进制源码 `97a9cc39d377d9da4ddaf71c604a69b5093422a3`，构建与验收见 [Windows 工作流](https://github.com/GHOST-AKU/wozai/actions/runs/41191384984)：241 次真实内核桥接检查、19 项 C# 传输测试、1 项原生蓝牙库生命周期检查通过；WinUI 发布包及默认样式索引验证通过。
+
+UI Automation 在真实窗口上完成地址连接、对端明确认可、Noise 加密握手、文字发送与持久接收、对端文字在原生窗口显示，并验证发送中切换设置页后草稿不会恢复已发送文字。互通使用同一 Windows runner 上的两个真实内核进程和私有网络接口，不是跨设备无线验收。
+
+仍需设备验收：真实蓝牙配对/权限、跨设备 LAN 网络隔离、锁屏和窗口遮挡时的已读边界、最大附件及断路恢复、长期内存、不同系统版本与缩放比例。既有共享内核问题独立跟踪，不以本轮原生 UI 代码绕过。
+
+## 已知内核边界
+
+文字发送会检查选中设备和当前已认证设备，并串行处理前端命令。现有 `DesktopClient.send(text)` 公共接口没有原子化的“预期设备/会话代次”参数，因此仍需验收底层网络事件与发送入队的极端并发；本实验不通过反射或私改内核宣称消除了该边界。文件与身份核验使用内核已有的 `IdentityVerification` 代次校验接口。
+
+附件接收遵循原内核行为：已授权连接内的 v2 文件会自动开始流式接收，界面按实际状态提供取消、暂停、续传等控制。截图中的文件和送达/已读状态是验收数据；真实流转由独立的双子进程集成测试验证。
