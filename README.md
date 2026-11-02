@@ -166,6 +166,10 @@ Android 覆盖安装并保留聊天数据要求新旧 APK 使用相同签名证�
 
 ## 🛠️ 从源码构建
 
+### 我在next（Android 实验）
+
+新增独立 `:app-next` 客户端：使用 Kotlin / Jetpack Compose 和 Material 3 重构安卓界面，沿用现有通信内核，可与原版并行安装，数据与身份各自独立。[实现范围、构建方式与验收边界](docs/android-next.md)。当前为开发实验，尚未发布安装包。
+
 ### Android
 
 需要 JDK 17、Python 3、Android SDK Platform 36、Build Tools 35.0.0，以及支持 AGP 8.13 的 Android Studio。
