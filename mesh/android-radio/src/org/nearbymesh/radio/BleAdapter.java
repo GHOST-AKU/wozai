@@ -136,6 +136,8 @@ public final class BleAdapter implements RadioAdapter {
                 throw new SecurityException("ble_permission_denied");
     }
 
+    // Permission denial is caught by guarded() or this cleanup method; admission checks run at start.
+    @android.annotation.SuppressLint("MissingPermission")
     private void begin() {
         server = manager.openGattServer(context, serverCallback);
         if (server == null) { failAdapter("gatt_server_unavailable"); return; }
@@ -152,6 +154,8 @@ public final class BleAdapter implements RadioAdapter {
         }), SETUP_MS);
     }
 
+    // Permission denial is caught by guarded() or this cleanup method; admission checks run at start.
+    @android.annotation.SuppressLint("MissingPermission")
     private void startDiscovery() {
         serviceAdded = true;
         ScanFilter filter = new ScanFilter.Builder().setServiceUuid(SERVICE_ID).build();
@@ -195,6 +199,9 @@ public final class BleAdapter implements RadioAdapter {
         if (data == null || data.length < 1 || data.length > 8) return;
         String label = new String(data, StandardCharsets.US_ASCII);
         if (!label.matches("[A-Za-z0-9_-]{1,8}") || !config.accepts(label)) return;
+        long observedAt = SystemClock.elapsedRealtime();
+        // Candidate slots are bounded, but disconnected vanished labels must not pin them forever.
+        peers.values().removeIf(candidate -> candidate.link == null && observedAt - candidate.seen > SEEN_MS);
         String address = result.getDevice().getAddress();
         Peer peer = peers.get(label);
         if (peer == null) {
@@ -210,8 +217,10 @@ public final class BleAdapter implements RadioAdapter {
         maybeConnect(peer);
     }
 
+    // Permission denial is caught by guarded() or this cleanup method; admission checks run at start.
+    @android.annotation.SuppressLint("MissingPermission")
     private void maybeConnect(Peer peer) {
-        if (closed.get() || peer.link != null || links.size() >= MAX_LINKS
+        if (closed.get() || peers.get(peer.label) != peer || peer.link != null || links.size() >= MAX_LINKS
                 || peer.attempts >= MAX_ATTEMPTS || config.label.compareTo(peer.label) >= 0
                 || SystemClock.elapsedRealtime() < peer.retryAt
                 || SystemClock.elapsedRealtime() - peer.seen > SEEN_MS) return;
@@ -232,6 +241,8 @@ public final class BleAdapter implements RadioAdapter {
         }), SETUP_MS);
     }
 
+    // Permission denial is caught by guarded() or this cleanup method; admission checks run at start.
+    @android.annotation.SuppressLint("MissingPermission")
     private BluetoothGattCallback clientCallback(Link link) {
         return new BluetoothGattCallback() {
             @Override public void onConnectionStateChange(BluetoothGatt gatt, int status, int state) {
@@ -297,6 +308,8 @@ public final class BleAdapter implements RadioAdapter {
         };
     }
 
+    // Permission denial is caught by guarded() or this cleanup method; admission checks run at start.
+    @android.annotation.SuppressLint("MissingPermission")
     private void discover(Link link) {
         link.stage = "services";
         if (!link.gatt.discoverServices()) failLink(link, "service_discovery_rejected");
@@ -371,6 +384,8 @@ public final class BleAdapter implements RadioAdapter {
         }
     };
 
+    // Permission denial is caught by guarded() or this cleanup method; admission checks run at start.
+    @android.annotation.SuppressLint("MissingPermission")
     private void serverConnection(BluetoothDevice device, int status, int state) {
         String address = device.getAddress();
         Link current = links.get(address);
@@ -400,6 +415,8 @@ public final class BleAdapter implements RadioAdapter {
         return link != null && !link.client && live(link) ? link : null;
     }
 
+    // Permission denial is caught by guarded() or this cleanup method; admission checks run at start.
+    @android.annotation.SuppressLint("MissingPermission")
     private void respond(BluetoothDevice device, int request, int status, int offset, byte[] value) {
         if (server != null && !server.sendResponse(device, request, status, offset, value)) {
             Link link = serverLink(device);
@@ -544,12 +561,16 @@ public final class BleAdapter implements RadioAdapter {
     }
 
     @SuppressWarnings("deprecation")
+    // Permission denial is caught by guarded() or this cleanup method; admission checks run at start.
+    @android.annotation.SuppressLint("MissingPermission")
     private static boolean writeDescriptor(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, byte[] bytes) {
         if (Build.VERSION.SDK_INT >= 33) return gatt.writeDescriptor(descriptor, bytes) == BluetoothStatusCodes.SUCCESS;
         return descriptor.setValue(bytes) && gatt.writeDescriptor(descriptor);
     }
 
     @SuppressWarnings("deprecation")
+    // Permission denial is caught by guarded() or this cleanup method; admission checks run at start.
+    @android.annotation.SuppressLint("MissingPermission")
     private static boolean writeCharacteristic(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, byte[] bytes) {
         if (Build.VERSION.SDK_INT >= 33) return gatt.writeCharacteristic(characteristic, bytes,
                 BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT) == BluetoothStatusCodes.SUCCESS;
@@ -558,6 +579,8 @@ public final class BleAdapter implements RadioAdapter {
     }
 
     @SuppressWarnings("deprecation")
+    // Permission denial is caught by guarded() or this cleanup method; admission checks run at start.
+    @android.annotation.SuppressLint("MissingPermission")
     private boolean indicate(BluetoothDevice device, byte[] bytes) {
         if (Build.VERSION.SDK_INT >= 33) return server.notifyCharacteristicChanged(device, serverTx, true, bytes) == BluetoothStatusCodes.SUCCESS;
         return serverTx.setValue(bytes) && server.notifyCharacteristicChanged(device, serverTx, true);
@@ -569,6 +592,8 @@ public final class BleAdapter implements RadioAdapter {
         return mtu;
     }
 
+    // Permission denial is caught by guarded() or this cleanup method; admission checks run at start.
+    @android.annotation.SuppressLint("MissingPermission")
     private void failLink(Link link, String reason) {
         if (link.ended) return;
         link.ended = true;
@@ -650,6 +675,8 @@ public final class BleAdapter implements RadioAdapter {
         else handler.post(this::closeOnHandler);
     }
 
+    // Permission denial is caught by guarded() or this cleanup method; admission checks run at start.
+    @android.annotation.SuppressLint("MissingPermission")
     private void closeOnHandler() {
         for (Link link : new ArrayList<>(links.values())) failLink(link, "adapter_closed");
         if (scanner != null && scanning) try { scanner.stopScan(scanCallback); } catch (RuntimeException ignored) { }

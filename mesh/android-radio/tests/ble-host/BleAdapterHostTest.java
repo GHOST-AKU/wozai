@@ -24,7 +24,27 @@ public final class BleAdapterHostTest {
     public static void main(String[] args) throws Exception {
         expiringQueuedPeerCannotStartConcurrentIndications();
         closedIndicationRetainsItsAcknowledgementOwner();
-        System.out.println("BleAdapterHostTest: 2 passed");
+        stalePublicCandidatesDoNotBlockNewNeighbor();
+        System.out.println("BleAdapterHostTest: 3 passed");
+    }
+
+    private static void stalePublicCandidatesDoNotBlockNewNeighbor() throws Exception {
+        Handler handler=new Handler();
+        BleAdapter adapter=new BleAdapter(new Context(),handler,RadioConfig.publicMesh("ble","Z",39770),
+            (event,peer,reason,tx,rx)->{});
+        try {
+            for(String label:new String[]{"A","B","C","D"})observe(adapter,label);
+            @SuppressWarnings("unchecked") Map<String,Object> peers=(Map<String,Object>)get(adapter,"peers");
+            check(peers.size()==4,"public candidate bound must stay four");
+            SystemClock.advanceMillis(30001);
+            observe(adapter,"E");
+            check(peers.size()==1&&peers.containsKey("E"),"vanished public candidates must expire before admitting a new label");
+        }finally{adapter.close();handler.drain();}
+    }
+    private static void observe(BleAdapter adapter,String label)throws Exception {
+        android.bluetooth.le.ScanResult result=new android.bluetooth.le.ScanResult(new BluetoothDevice(label),
+            new android.bluetooth.le.ScanRecord(label.getBytes(java.nio.charset.StandardCharsets.US_ASCII)));
+        invoke(adapter,"observed",new Class<?>[]{android.bluetooth.le.ScanResult.class},result);
     }
 
     private static void expiringQueuedPeerCannotStartConcurrentIndications() throws Exception {

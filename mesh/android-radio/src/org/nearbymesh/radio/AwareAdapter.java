@@ -54,6 +54,8 @@ import java.util.concurrent.atomic.AtomicLong;
  * Each peer has its own NDP request, network-bound TCP socket, and loopback bridge.
  * No ordinary Wi-Fi/LAN or process-default-network fallback is permitted.
  */
+// Every construction site guards API29; NAN NDP endpoints require the API29 public contract.
+@android.annotation.TargetApi(29)
 public final class AwareAdapter implements RadioAdapter {
     private static final String SERVICE = "nearbymesh-radio-lab-v1";
     private static final int MAX_PEERS = 4, REQUEST_MS = 20_000, ATTEMPT_MS = 40_000;
@@ -165,6 +167,8 @@ public final class AwareAdapter implements RadioAdapter {
                                 .setSubscribeType(SubscribeConfig.SUBSCRIBE_TYPE_ACTIVE)
                                 .setTerminateNotificationEnabled(true).build(),
                                 subscribeCallback(generation), handler);
+                    } catch (SecurityException error) {
+                        startupFailed(generation, "aware_permission_denied");
                     } catch (RuntimeException error) {
                         startupFailed(generation, "aware_discovery_start_failed");
                     }

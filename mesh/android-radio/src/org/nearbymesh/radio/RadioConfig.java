@@ -7,11 +7,25 @@ public final class RadioConfig {
     public final String mode,label,passphrase;
     public final Set<String> allowed;
     public final int corePort,seconds;
+    private final boolean publicDiscovery;
     private RadioConfig(String mode,String label,Set<String> allowed,int port,int seconds,String passphrase) {
+        this(mode,label,allowed,port,seconds,passphrase,false);
+    }
+    private RadioConfig(String mode,String label,Set<String> allowed,int port,int seconds,String passphrase,boolean publicDiscovery) {
         this.mode=mode;this.label=label;this.allowed=Collections.unmodifiableSet(allowed);
         this.corePort=port;this.seconds=seconds;this.passphrase=passphrase;
+        this.publicDiscovery=publicDiscovery;
     }
-    public boolean accepts(String remote) {return remote!=null&&!label.equals(remote)&&allowed.contains(remote);}
+    public boolean accepts(String remote) {return remote!=null&&remote.matches("[A-Za-z0-9_-]{1,8}")&&!label.equals(remote)&&(publicDiscovery||allowed.contains(remote));}
+    /** Public labels are discovery hints only; the Rust core authenticates signed pseudonyms. */
+    public static RadioConfig publicMesh(String mode,String label,int corePort) {
+        if(!"ble".equals(mode)&&!"aware".equals(mode))throw new IllegalArgumentException("single_radio_required");
+        if(label==null||!label.matches("[A-Za-z0-9_-]{1,8}"))throw new IllegalArgumentException("label_bound");
+        if(corePort<1024||corePort>65535)throw new IllegalArgumentException("integer_bound");
+        // This public lobby value is neither a membership secret nor end-to-end encryption.
+        return new RadioConfig(mode,label,Collections.emptySet(),corePort,3600,
+                "aware".equals(mode)?"NearbyMesh-public-v1":null,true);
+    }
     public static RadioConfig parse(Map<String,String> values) {
         Set<String> known=new HashSet<>(Arrays.asList("mode","label","neighbors","core_port","seconds","passphrase"));
         if(!known.containsAll(values.keySet()))throw new IllegalArgumentException("unknown_argument");

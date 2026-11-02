@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="mesh_title">附近 · 公共 Mesh</string>
+    <string name="mesh_preview">0.4.0 preview · 無線驗收待完成</string>
+    <string name="mesh_private_devices">私聊裝置</string>
+    <string name="mesh_back_public">返回公共 Mesh</string>
+    <string name="mesh_ble">BLE 藍牙</string>
+    <string name="mesh_aware">Wi-Fi Aware</string>
+    <string name="mesh_start">開啟 Mesh</string>
+    <string name="mesh_stop">停止 Mesh</string>
+    <string name="mesh_relay">允許為其他節點中繼</string>
+    <string name="mesh_relay_hint">中繼可能增加耗電；僅在你明確開啟後轉送。</string>
+    <string name="mesh_public_notice">公共訊息可被附近節點與中繼讀取，不提供端到端加密。加入不等於信任私聊裝置。</string>
+    <string name="mesh_confirm_title">開啟公共 Mesh？</string>
+    <string name="mesh_confirm">同意並開啟</string>
+    <string name="mesh_cancel">取消</string>
+    <string name="mesh_input">公共文字（最多 2048 UTF-8 bytes）</string>
+    <string name="mesh_send">傳送</string>
+    <string name="mesh_empty">暫時沒有公共訊息</string>
+    <string name="mesh_empty_hint">在另一台相容手機開啟相同模式；多跳需要中間節點允許中繼。</string>
+    <string name="mesh_neighbors">直接鄰居：%1$d</string>
+    <string name="mesh_idle">Mesh 未開啟</string>
+    <string name="mesh_starting">正在啟動 Mesh…</string>
+    <string name="mesh_running">正在尋找或連接附近節點</string>
+    <string name="mesh_unknown">未確認</string>
+    <string name="mesh_queued">已排入佇列</string>
+    <string name="mesh_handed">已交鄰居，未確認全網送達</string>
+    <string name="mesh_expired">已過期，未確認送達</string>
+    <string name="mesh_received">已驗證的公共訊息</string>
+    <string name="mesh_own">我</string>
+    <string name="mesh_hops">%1$d 跳</string>
+    <string name="mesh_error">Mesh 狀態：%1$s</string>
+    <string name="mesh_permission">需要藍牙或附近 Wi-Fi 及通知權限，請授權後重試。</string>
+    <string name="mesh_unavailable">此裝置不支援所選 Mesh 模式（需要 Android 10+、arm64 與對應無線能力）。</string>
+    <string name="mesh_enable_bt">請開啟藍牙後重試。</string>
+    <string name="mesh_too_long">文字超過 2048 UTF-8 bytes。</string>
+    <string name="mesh_notification_channel">Mesh 公共組網</string>
+    <string name="mesh_notification_title">我在next · Mesh 已開啟</string>
+    <string name="mesh_notification_text">公共組網正在執行；點擊返回，或使用停止按鈕結束。</string>
+    <string name="mesh_details">查看診斷</string>
+    <string name="mesh_close">關閉</string>
+    <string name="mesh_diagnostics_hint">診斷不含訊息正文；節點公鑰仍可能關聯身分。</string>
+    <string name="mesh_error_generic">未能完成 Mesh 操作，請停止後重試。</string>
+    <string name="mesh_stopped">已停止，未確認送達</string>
+    <string name="mesh_location">Android 10/11 的 BLE 搜尋需要開啟系統位置資訊。</string>
+    <string name="mesh_location_settings">開啟位置設定</string>
+</resources>

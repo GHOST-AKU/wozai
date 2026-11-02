@@ -56,7 +56,7 @@ fun NextApp(state: NextState, host: MainActivity, contentWindowInsets: WindowIns
                             when (page) {
                                 0 -> ConversationScreen(state, host, onSelect = { host.select(it); detail = true },
                                     onNearby = { page = 1 })
-                                1 -> NearbyScreen(state, host)
+                                1 -> MeshNearbyScreen(state, host)
                                 else -> SettingsScreen(state, host)
                             }
                         }
