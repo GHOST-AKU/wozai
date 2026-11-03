@@ -22,6 +22,17 @@ class MeshDiagnosticsTest {
         MeshDiagnostics.record(old, "ble_retry", "stale", 1, 1)
         assertEquals(0, MeshDiagnostics.radio().getInt("events_observed"))
     }
+    @Test fun structuredGattFailuresAndRetriesRemainDiagnosable() {
+        val token = MeshDiagnostics.begin()
+        for (reason in listOf("cccd_write_133", "att_ack_257", "server_connection_19_0", "attempt_4")) {
+            MeshDiagnostics.record(token, "ble_link_down", reason, 0, 0)
+        }
+        val events = MeshDiagnostics.radio().getJSONArray("events")
+        assertEquals("cccd_write_133", events.getJSONObject(0).getString("reason_code"))
+        assertEquals("att_ack_257", events.getJSONObject(1).getString("reason_code"))
+        assertEquals("server_connection_19_0", events.getJSONObject(2).getString("reason_code"))
+        assertEquals("attempt_4", events.getJSONObject(3).getString("reason_code"))
+    }
     @Test fun exportIncludesCapabilitiesButExcludesBodiesAndIdentities() {
         val state = MeshSnapshot(localKey = "secret_identity", neighbors = listOf("peer_identity"),
             messages = listOf(MeshMessage("message_id", "private_payload", "origin_key", 2, false, "received", 123)))

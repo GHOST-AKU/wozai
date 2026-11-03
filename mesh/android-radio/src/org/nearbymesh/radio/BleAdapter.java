@@ -412,13 +412,22 @@ public final class BleAdapter implements RadioAdapter {
         if (state != BluetoothProfile.STATE_CONNECTED || current != null) return;
         Peer peer = null;
         for (Peer candidate : peers.values()) if (address.equals(candidate.address)) { peer = candidate; break; }
+        long connectedAt = SystemClock.elapsedRealtime();
+        // Android scanning may not deliver another advertisement for an already-known
+        // device. Its incoming ACL is fresh presence evidence, never identity trust.
+        if (peer != null && peer.link == null && peer.label.compareTo(config.label) < 0
+                && peer.attempts >= MAX_ATTEMPTS && connectedAt >= peer.retryAt) {
+            peer.attempts = 0;
+            emit("ble_retry_window", peer.label, "incoming_connection_after_cooldown", 0, 0);
+        }
         if (peer == null || peer.link != null || peer.attempts >= MAX_ATTEMPTS || links.size() >= MAX_LINKS
                 || (indicating != null && indicating.ended && indicating.address.equals(address))
-                || peer.label.compareTo(config.label) >= 0 || SystemClock.elapsedRealtime() - peer.seen > SEEN_MS) {
+                || peer.label.compareTo(config.label) >= 0) {
             server.cancelConnection(device);
             emit("ble_connection_rejected", peer == null ? "" : peer.label, "label_role_or_link_bound", 0, 0);
             return;
         }
+        peer.seen = connectedAt;
         Link link = new Link(peer, false);
         attach(link);
         emit("ble_connecting", peer.label, "peripheral", 0, 0);
@@ -643,6 +652,8 @@ public final class BleAdapter implements RadioAdapter {
         } else if (server != null) {
             try { server.cancelConnection(link.device); } catch (RuntimeException ignored) { }
         }
+        // Preserve the failed setup/data phase independently of platform status codes.
+        emit("ble_failed_stage", link.peer.label, link.stage, link.txBytes, link.rxBytes);
         emit("ble_link_down", link.peer.label, reason, link.txBytes, link.rxBytes);
         if (!closed.get()) {
             pumpServer();

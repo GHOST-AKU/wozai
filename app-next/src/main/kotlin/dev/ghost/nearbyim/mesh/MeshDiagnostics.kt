@@ -16,7 +16,7 @@ import java.util.ArrayDeque
 
 /** Bounded, process-local metadata only. Never retain peer labels, payloads or raw exceptions. */
 internal object MeshDiagnostics {
-    private val safeReason = Regex("[a-z_]{1,64}|gatt_connection_-?[0-9]{1,4}_-?[0-9]{1,4}|mtu_[0-9]{2,3}")
+    private val safeReason = Regex("[a-z_]{1,64}|(?:gatt|server)_connection_-?[0-9]{1,4}_-?[0-9]{1,4}|(?:cccd_write|att_ack)_-?[0-9]{1,4}|attempt_[1-4]|mtu_[0-9]{2,3}")
     private val safeEvent = Regex("[a-z_]{1,48}")
     private var generation = 0L
     private var started = 0L

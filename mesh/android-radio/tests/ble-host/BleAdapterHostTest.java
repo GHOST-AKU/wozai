@@ -27,7 +27,27 @@ public final class BleAdapterHostTest {
         stalePublicCandidatesDoNotBlockNewNeighbor();
         busyNeighborCannotStarveAnother();
         exhaustedPeerRequiresCooldownAndFreshObservation();
-        System.out.println("BleAdapterHostTest: 5 passed");
+        incomingConnectionRecoversAfterCooldownWithoutNewScan();
+        System.out.println("BleAdapterHostTest: 6 passed");
+    }
+
+    private static void incomingConnectionRecoversAfterCooldownWithoutNewScan() throws Exception {
+        try (Fixture fixture = new Fixture()) {
+            Object link = fixture.link("A"), peer = get(link,"peer");
+            @SuppressWarnings("unchecked") Map<String,Object> peers = (Map<String,Object>)get(fixture.adapter,"peers");
+            peers.put("A",peer);
+            set(peer,"seen",SystemClock.elapsedRealtime());
+            invoke(fixture.adapter,"failLink",new Class<?>[]{link.getClass(),String.class},link,"test_disconnect");
+            long deadline = (Long)get(peer,"retryAt");
+            Method connect = BleAdapter.class.getDeclaredMethod("serverConnection",BluetoothDevice.class,int.class,int.class);
+            connect.setAccessible(true);
+            connect.invoke(fixture.adapter,new BluetoothDevice("A"),0,2);
+            check(fixture.links().isEmpty(),"incoming connection cannot bypass cooldown");
+            SystemClock.advanceMillis(deadline-SystemClock.elapsedRealtime()+1);
+            connect.invoke(fixture.adapter,new BluetoothDevice("A"),0,2);
+            check(fixture.links().containsKey("A"),"known incoming connection after cooldown must not require another scan callback");
+            check((Integer)get(peer,"attempts")==1,"recovery opens exactly one bounded attempt window");
+        }
     }
 
     private static void exhaustedPeerRequiresCooldownAndFreshObservation() throws Exception {
