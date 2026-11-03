@@ -28,7 +28,34 @@ public final class BleAdapterHostTest {
         busyNeighborCannotStarveAnother();
         exhaustedPeerRequiresCooldownAndFreshObservation();
         incomingConnectionRecoversAfterCooldownWithoutNewScan();
-        System.out.println("BleAdapterHostTest: 6 passed");
+        admittedServerConnectionIsHeldExactlyOnce();
+        System.out.println("BleAdapterHostTest: 7 passed");
+    }
+
+    private static void admittedServerConnectionIsHeldExactlyOnce() throws Exception {
+        try (Fixture fixture = new Fixture()) {
+            Object previous = fixture.link("A"), peer = get(previous,"peer");
+            fixture.links().clear(); set(peer,"link",null); set(peer,"attempts",0);
+            set(peer,"seen",SystemClock.elapsedRealtime());
+            @SuppressWarnings("unchecked") Map<String,Object> peers = (Map<String,Object>)get(fixture.adapter,"peers");
+            peers.put("A",peer);
+            Method connect = BleAdapter.class.getDeclaredMethod("serverConnection",BluetoothDevice.class,int.class,int.class);
+            connect.setAccessible(true);
+            connect.invoke(fixture.adapter,new BluetoothDevice("unknown"),0,2);
+            check(fixture.server.holds.isEmpty(),"unknown connections must not be held");
+            connect.invoke(fixture.adapter,new BluetoothDevice("A"),0,2);
+            check(fixture.server.holds.equals(Arrays.asList("A")),"admitted incoming link must explicitly hold server connection");
+            connect.invoke(fixture.adapter,new BluetoothDevice("A"),0,2);
+            check(fixture.server.holds.size()==1,"hold callback must not recursively acquire connection again");
+            Object admitted = fixture.links().get("A");
+            invoke(fixture.adapter,"failLink",new Class<?>[]{admitted.getClass(),String.class},admitted,"test_close");
+            fixture.server.holdAccepted = false;
+            connect.invoke(fixture.adapter,new BluetoothDevice("A"),0,2);
+            check(fixture.links().isEmpty() && get(peer,"link")==null,
+                    "rejected server hold must release the connection slot");
+            check(fixture.events.stream().anyMatch(e -> e.contains("server_hold_rejected")),
+                    "hold rejection must have an explicit failure reason");
+        }
     }
 
     private static void incomingConnectionRecoversAfterCooldownWithoutNewScan() throws Exception {

@@ -430,6 +430,14 @@ public final class BleAdapter implements RadioAdapter {
         peer.seen = connectedAt;
         Link link = new Link(peer, false);
         attach(link);
+        // An incoming callback is not an application hold in Android's native GATT
+        // stack. Explicitly own the admitted link until failLink cancels it. Direct
+        // mode must not leave a background auto-connect registration after stop.
+        if (!server.connect(device, false)) {
+            failLink(link, "server_hold_rejected");
+            return;
+        }
+        emit("ble_server_hold", peer.label, "direct", 0, 0);
         emit("ble_connecting", peer.label, "peripheral", 0, 0);
     }
 

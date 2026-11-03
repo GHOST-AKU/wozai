@@ -6,6 +6,13 @@ import java.util.List;
 /** Records API submissions without supplying acknowledgements. */
 public final class BluetoothGattServer {
     public final List<String> indications = new ArrayList<>();
+    public final List<String> holds = new ArrayList<>();
+    public boolean holdAccepted = true;
+    public boolean connect(BluetoothDevice device, boolean autoConnect) {
+        if (autoConnect) throw new AssertionError("must not create background reconnect");
+        holds.add(device.getAddress());
+        return holdAccepted;
+    }
     public boolean addService(BluetoothGattService service) { throw new UnsupportedOperationException(); }
     public void cancelConnection(BluetoothDevice device) { }
     public void close() { }

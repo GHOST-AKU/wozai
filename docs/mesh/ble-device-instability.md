@@ -36,3 +36,33 @@ Unknown addresses remain rejected; an incoming request cannot bypass cooldown.
 Six production BLE scheduler/admission fixtures and seven host programs pass.
 Numeric-status diagnostics regression also passes. The five-second initial drop
 cause is still unresolved; preserving its status and failed phase is necessary.
+
+## Preview.3 paired trace and explicit server ownership experiment
+
+Both endpoints now show successful ATT acknowledgements and bidirectional one-hop
+message receipt. Peripheral disconnect is server_connection_0_0 at stage ready;
+central sees gatt_connection_19_0. Cooldown recovery is observed working. Neither
+trace shows an app-level ACK timeout as the recorded first failure.
+
+AOSP distinguishes connection callbacks from application link ownership:
+- gatt_main.cc `gatt_send_conn_cback` notifies all registered apps but adds holds
+  only for apps in the connection-manager set; `gatt_update_app_use_link_flag`
+  disables idle expiry while holds exist and arms expiry when no apps hold it.
+- gatt_api.cc `GATT_Connect` establishes the calling application's hold.
+- Public Android BluetoothGattServer.connect(device,false) is used only after our
+  existing peer/role/cooldown/capacity admission; duplicate callbacks cannot reacquire.
+  Existing cancelConnection/close cleanup releases it; no background autoConnect.
+
+Sources (read full implementations, no copied code):
+https://android.googlesource.com/platform/system/bt/+/915b24bc5ce75c419d41dfec59cb40bc1b568db2/stack/gatt/gatt_main.cc
+https://android.googlesource.com/platform/system/bt/+/915b24bc5ce75c419d41dfec59cb40bc1b568db2/stack/gatt/gatt_api.cc
+https://developer.android.com/reference/android/bluetooth/BluetoothGattServer#connect(android.bluetooth.BluetoothDevice,boolean)
+AOSP is Apache-2.0. Its referenced no-app idle constant is one second, not five;
+this supports an ownership mechanism, not proof of the vendor's exact timing or
+that this alone explains this report. The device fix remains an experiment pending
+paired-phone retest. No idle-timeout constants or authentication deadlines are enlarged.
+
+The production-adapter host regression fails before the hold is added and passes
+with it. It verifies unknown peers are not held, one hold per admitted link,
+recursive/duplicate callback safety and immediate slot release on hold rejection.
+These are API-usage/ownership checks, not simulation of vendor native idle timers.
