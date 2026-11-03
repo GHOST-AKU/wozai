@@ -45,4 +45,7 @@
     <string name="mesh_location">BLE discovery on Android 10/11 requires system Location to be enabled.</string>
     <string name="mesh_location_settings">Location settings</string>
     <string name="mesh_share_diagnostics">Share diagnostic report</string>
+    <string name="mesh_export_diagnostics">Export TXT</string>
+    <string name="mesh_export_saved">Diagnostic report saved</string>
+    <string name="mesh_export_failed">Could not save. Choose a location and retry.</string>
 </resources>

@@ -45,4 +45,7 @@
     <string name="mesh_location">Android 10/11 的 BLE 搜尋需要開啟系統位置資訊。</string>
     <string name="mesh_location_settings">開啟位置設定</string>
     <string name="mesh_share_diagnostics">分享診斷報告</string>
+    <string name="mesh_export_diagnostics">匯出 TXT</string>
+    <string name="mesh_export_saved">診斷報告已儲存</string>
+    <string name="mesh_export_failed">儲存失敗，請重新選擇位置</string>
 </resources>

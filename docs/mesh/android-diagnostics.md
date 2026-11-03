@@ -1,7 +1,10 @@
 # Android Mesh diagnostic report
 
-The Next public Mesh page exposes a snapshot through Diagnostics → Share diagnostic
-report. The user chooses the receiving application in the system share sheet.
+The Next public Mesh page exposes a snapshot through Diagnostics → Export TXT. The system document picker lets the user choose a
+folder/provider and filename; the report is written as UTF-8 text containing JSON.
+Canceling the picker writes nothing. Provider/permission failures show an error;
+saving runs on an IO dispatcher, with no broad storage permission. This UI change
+is for the next APK; the already delivered preview.4 still uses text sharing.
 Nothing is uploaded automatically. The JSON schema is `nearby-mesh-diagnostics-v1`.
 
 Included: application version/package; manufacturer/model/hardware identifier,
@@ -29,7 +32,7 @@ through stop for diagnosis, with its own mode/session/start time in the report.
 
 No background sampler, extra wireless probe, recurring disk write or new permission
 request is added. System properties are read on demand when opening Diagnostics.
-Sharing exports that same frozen snapshot; reopen the dialog for a fresh report.
+Exporting saves that same frozen snapshot; reopen the dialog for a fresh report.
 RSSI, distance, PHY selection, complete hop paths, end-to-end latency, radio power
 and per-peer throughput are not measured by this version and must not be inferred.
 

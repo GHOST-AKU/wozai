@@ -29,6 +29,15 @@ class MeshUiTest {
         compose.onNodeWithText("取消").performClick()
         compose.onNodeWithText("开启 Mesh").assertIsDisplayed()
     }
+    @Test fun diagnosticExportUsesSystemDocumentPickerWithTxtFile() {
+        compose.onNodeWithText("附近").performClick()
+        compose.onNodeWithText("查看诊断").performClick()
+        compose.onNodeWithText("导出 TXT").performClick()
+        val intent = Shadows.shadowOf(compose.activity).nextStartedActivityForResult.intent
+        Assert.assertEquals(android.content.Intent.ACTION_CREATE_DOCUMENT, intent.action)
+        Assert.assertEquals("text/plain", intent.type)
+        Assert.assertTrue(intent.getStringExtra(android.content.Intent.EXTRA_TITLE)!!.endsWith(".txt"))
+    }
     @Test fun privateDeviceControlsRemainAvailable(){
         compose.onNodeWithText("附近").performClick()
         compose.onNodeWithText("私聊设备").performClick()

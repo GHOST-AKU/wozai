@@ -6,6 +6,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.widget.Toast
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -62,6 +66,28 @@ private fun MeshScreen(onPrivate: () -> Unit) {
     var requestedText by rememberSaveable { mutableStateOf<String?>(null) }
     var baselineIds by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
     var pendingStart by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
+    val exportScope = rememberCoroutineScope()
+    var pendingExport by rememberSaveable { mutableStateOf<String?>(null) }
+    var exporting by remember { mutableStateOf(false) }
+    val saveDiagnostics = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
+        val report = pendingExport
+        pendingExport = null
+        if (uri != null && report != null) {
+            exportScope.launch {
+                val saved = withContext(Dispatchers.IO) {
+                    try {
+                        val output = context.contentResolver.openOutputStream(uri, "wt")
+                            ?: throw java.io.IOException("document_unavailable")
+                        output.bufferedWriter(Charsets.UTF_8).use { it.write(report) }
+                        true
+                    } catch (_: java.io.IOException) { false }
+                    catch (_: SecurityException) { false }
+                }
+                exporting = false
+                Toast.makeText(context, if (saved) R.string.mesh_export_saved else R.string.mesh_export_failed, Toast.LENGTH_LONG).show()
+            }
+        } else exporting = false
+    }
     val required = radioPermissions(mode)
     fun begin() {
         val request = pendingStart ?: return
@@ -189,10 +215,9 @@ private fun MeshScreen(onPrivate: () -> Unit) {
     if (diagnostics) AlertDialog(onDismissRequest = { diagnostics = false }, title = { Text(stringResource(R.string.mesh_details)) },
         text = { Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) { Text(stringResource(R.string.mesh_diagnostics_hint)); SelectionContainer { Text(diagnosticReport) } } },
         dismissButton = { TextButton(onClick = {
-            context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-                putExtra(Intent.EXTRA_TEXT, diagnosticReport)
-            }, null))
-        }) { Text(stringResource(R.string.mesh_share_diagnostics)) } },
+            pendingExport = diagnosticReport
+            exporting = true
+            saveDiagnostics.launch("nearby-mesh-${System.currentTimeMillis()}.txt")
+        }, enabled = !exporting && pendingExport == null) { Text(stringResource(R.string.mesh_export_diagnostics)) } },
         confirmButton = { TextButton(onClick = { diagnostics = false }) { Text(stringResource(R.string.mesh_close)) } })
 }

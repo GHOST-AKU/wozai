@@ -45,4 +45,7 @@
     <string name="mesh_location">Android 10/11 の BLE 検索にはシステムの位置情報を有効にする必要があります。</string>
     <string name="mesh_location_settings">位置情報の設定</string>
     <string name="mesh_share_diagnostics">診断レポートを共有</string>
+    <string name="mesh_export_diagnostics">TXT を保存</string>
+    <string name="mesh_export_saved">診断レポートを保存しました</string>
+    <string name="mesh_export_failed">保存できませんでした。保存先を選び直してください。</string>
 </resources>
