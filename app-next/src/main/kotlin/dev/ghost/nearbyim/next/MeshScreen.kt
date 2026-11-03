@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.ghost.nearbyim.MainActivity
 import dev.ghost.nearbyim.R
+import dev.ghost.nearbyim.mesh.MeshDiagnostics
 import dev.ghost.nearbyim.mesh.MeshClient
 
 /** UI observes the independent service; it never owns radio links or NIM4 sessions. */
@@ -54,7 +55,8 @@ private fun MeshScreen(onPrivate: () -> Unit) {
     var relay by rememberSaveable { mutableStateOf(false) }
     var draft by rememberSaveable { mutableStateOf("") }
     var consent by rememberSaveable { mutableStateOf(false) }
-    var diagnostics by rememberSaveable { mutableStateOf(false) }
+    var diagnosticReport by remember { mutableStateOf("") }
+    var diagnostics by remember { mutableStateOf(false) }
     var permissionError by remember { mutableStateOf(false) }
     var bluetoothError by remember { mutableStateOf(false) }
     var requestedText by rememberSaveable { mutableStateOf<String?>(null) }
@@ -170,7 +172,7 @@ private fun MeshScreen(onPrivate: () -> Unit) {
             label = { Text(stringResource(R.string.mesh_input)) }, modifier = Modifier.fillMaxWidth(), maxLines = 4,
             isError = bytes > 2048, supportingText = { Text("$bytes / 2048") })
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = { diagnostics = true }, Modifier.weight(1f)) { Text(stringResource(R.string.mesh_details)) }
+            TextButton(onClick = { diagnosticReport = MeshDiagnostics.report(context, state); diagnostics = true }, Modifier.weight(1f)) { Text(stringResource(R.string.mesh_details)) }
             Button(enabled = state.running && requestedText == null && draft.isNotBlank() && bytes <= 2048,
                 onClick = { baselineIds = ArrayList(state.messages.filter { it.own }.map { it.id }); requestedText = draft; MeshClient.send(context, draft) }) { Text(stringResource(R.string.mesh_send)) }
         }
@@ -185,6 +187,12 @@ private fun MeshScreen(onPrivate: () -> Unit) {
         }) { Text(stringResource(R.string.mesh_confirm)) } },
         dismissButton = { TextButton(onClick = { consent = false }) { Text(stringResource(R.string.mesh_cancel)) } })
     if (diagnostics) AlertDialog(onDismissRequest = { diagnostics = false }, title = { Text(stringResource(R.string.mesh_details)) },
-        text = { Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) { Text(stringResource(R.string.mesh_diagnostics_hint)); SelectionContainer { Text(state.diagnostics.take(4096)) } } },
+        text = { Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) { Text(stringResource(R.string.mesh_diagnostics_hint)); SelectionContainer { Text(diagnosticReport) } } },
+        dismissButton = { TextButton(onClick = {
+            context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, diagnosticReport)
+            }, null))
+        }) { Text(stringResource(R.string.mesh_share_diagnostics)) } },
         confirmButton = { TextButton(onClick = { diagnostics = false }) { Text(stringResource(R.string.mesh_close)) } })
 }

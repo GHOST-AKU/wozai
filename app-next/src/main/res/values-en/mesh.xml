@@ -44,4 +44,5 @@
     <string name="mesh_stopped">Stopped; delivery unconfirmed</string>
     <string name="mesh_location">BLE discovery on Android 10/11 requires system Location to be enabled.</string>
     <string name="mesh_location_settings">Location settings</string>
+    <string name="mesh_share_diagnostics">Share diagnostic report</string>
 </resources>

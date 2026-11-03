@@ -70,7 +70,9 @@ internal class MeshAndroidPlatform(context: Context) : MeshPlatform {
                 catch (_: InterruptedException) { Thread.currentThread().interrupt() }
             }
         }
-        val events = RadioEvents { event, peer, _, _, _ ->
+        val diagnosticSession = MeshDiagnostics.begin(mode)
+        val events = RadioEvents { event, peer, reason, tx, rx ->
+            MeshDiagnostics.record(diagnosticSession, event, reason ?: "", tx, rx)
             // Every adapter callback belongs to this session's radio Handler. Ignore labels
             // and raw reasons: only the core's authenticated keys populate neighbor state.
             val terminal = event == "terminal_failure" || event == "unsupported" || event == "unavailable" ||

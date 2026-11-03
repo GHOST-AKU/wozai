@@ -268,7 +268,10 @@ public final class BleAdapter implements RadioAdapter {
             @Override public void onMtuChanged(BluetoothGatt gatt, int mtu, int status) {
                 dispatch(() -> {
                     if (!live(link) || gatt != link.gatt) return;
-                    if (status == BluetoothGatt.GATT_SUCCESS) link.mtu = validMtu(mtu);
+                    if (status == BluetoothGatt.GATT_SUCCESS) {
+                        link.mtu = validMtu(mtu);
+                        emit("ble_mtu", link.peer.label, "mtu_" + link.mtu, link.txBytes, link.rxBytes);
+                    }
                     if ("mtu".equals(link.stage)) discover(link);
                 });
             }
@@ -335,7 +338,10 @@ public final class BleAdapter implements RadioAdapter {
             dispatch(() -> serverConnection(device, status, state));
         }
         @Override public void onMtuChanged(BluetoothDevice device, int mtu) {
-            dispatch(() -> { Link link = serverLink(device); if (link != null) link.mtu = validMtu(mtu); });
+            dispatch(() -> { Link link = serverLink(device); if (link != null) {
+                link.mtu = validMtu(mtu);
+                emit("ble_mtu", link.peer.label, "mtu_" + link.mtu, link.txBytes, link.rxBytes);
+            } });
         }
         @Override public void onDescriptorWriteRequest(BluetoothDevice device, int request, BluetoothGattDescriptor descriptor,
                 boolean prepared, boolean responseNeeded, int offset, byte[] value) {

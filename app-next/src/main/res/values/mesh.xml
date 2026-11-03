@@ -44,4 +44,5 @@
     <string name="mesh_stopped">已停止，未确认送达</string>
     <string name="mesh_location">Android 10/11 的 BLE 搜索需要开启系统位置信息。</string>
     <string name="mesh_location_settings">打开位置设置</string>
+    <string name="mesh_share_diagnostics">分享诊断报告</string>
 </resources>
