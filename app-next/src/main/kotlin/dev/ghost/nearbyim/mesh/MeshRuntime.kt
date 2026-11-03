@@ -159,6 +159,10 @@ internal class MeshRuntime(
 
     /** A reader may have only one outstanding event; a flooding child cannot grow the actor queue. */
     private fun consume(token: Long, frame: String): Boolean {
+        // Ready starts the radio on the actor. Share the whole-start deadline, including launch,
+        // instead of racing that legitimate startup work against the steady-state event budget.
+        val deadline = if (snapshot.starting) startedNanos + TimeUnit.SECONDS.toNanos(30)
+            else System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
         val processed = CountDownLatch(1)
         if (!enqueue(token) {
             try {
@@ -168,7 +172,9 @@ internal class MeshRuntime(
             } finally { processed.countDown() }
         }) return false
         return try {
-            if (!processed.await(5, TimeUnit.SECONDS)) { end("mesh_core_failed", token, true); false }
+            if (!processed.await((deadline - System.nanoTime()).coerceAtLeast(0), TimeUnit.NANOSECONDS)) {
+                end("mesh_core_failed", token, true); false
+            }
             else generation.accepts(token)
         } catch (_: InterruptedException) { Thread.currentThread().interrupt(); false }
     }

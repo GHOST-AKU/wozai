@@ -35,6 +35,17 @@ class MeshDiagnosticsTest {
         assertEquals("scan_failed_6", events.getJSONObject(4).getString("reason_code"))
         assertEquals("advertise_failed_5", events.getJSONObject(5).getString("reason_code"))
     }
+    @Test fun leAnchorConnectionCodesKeepOnlyBoundedNumericStatusAndState() {
+        val token = MeshDiagnostics.begin()
+        val valid = listOf("le_anchor_connection_19_0", "le_anchor_connection_-133_-1", "le_anchor_connection_9999_9999")
+        val hostile = listOf("le_anchor_connection_19_0 peer=private_key", "le_anchor_connection_private_key_0",
+            "le_anchor_connection_10000_0", "le_anchor_connection_0_-10000", "le_anchor_connection_19_0\nprivate_exception")
+        for (reason in valid + hostile) MeshDiagnostics.record(token, "ble_link_down", reason, 0, 0)
+        val events = MeshDiagnostics.radio().getJSONArray("events")
+        for ((index, reason) in valid.withIndex()) assertEquals(reason, events.getJSONObject(index).getString("reason_code"))
+        for (index in valid.size until events.length()) assertEquals("redacted", events.getJSONObject(index).getString("reason_code"))
+        assertFalse(events.toString().contains("private_"))
+    }
     @Test fun startupHistorySurvivesLaterHeartbeatTraffic() {
         val token = MeshDiagnostics.begin()
         MeshDiagnostics.record(token,"ble_ready","scan_and_advertise",0,0)

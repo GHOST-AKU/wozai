@@ -44,6 +44,8 @@ class MeshRuntimeTest {
         var guard: String? = null
         var launchBlocked: CountDownLatch? = null
         val launching = CountDownLatch(1)
+        var radioBlocked: CountDownLatch? = null
+        val startingRadio = CountDownLatch(1)
         override fun check(mode: String) = guard
         override fun launch(relay: Boolean): Process {
             launching.countDown()
@@ -53,6 +55,8 @@ class MeshRuntimeTest {
         override fun startRadio(mode: String, port: Int, failed: () -> Unit): AutoCloseable {
             assertEquals(39770, port)
             radioFailures.add(failed)
+            startingRadio.countDown()
+            check(radioBlocked?.await(10, TimeUnit.SECONDS) != false)
             return AutoCloseable { closedRadios.incrementAndGet() }
         }
     }
@@ -132,6 +136,88 @@ class MeshRuntimeTest {
             assertFalse(state.get().running)
             assertFalse(state.get().starting)
             assertTrue(platform.radioFailures.isEmpty())
+        } finally { release.countDown(); runtime.close() }
+    }
+
+    @Test fun radioStartupMayExceedSteadyStateEventDeadline() {
+        val platform = Platform()
+        val release = CountDownLatch(1)
+        platform.radioBlocked = release
+        val state = AtomicReference(MeshSnapshot())
+        val runtime = MeshRuntime(platform, MeshSnapshot(), { state.set(it) }, {})
+        try {
+            runtime.start("ble", false)
+            await { platform.processes.size == 1 }
+            platform.processes[0].emit("""{"event":"ready","key":"$key","address":"127.0.0.1:39770","relay":false}""")
+            assertTrue(platform.startingRadio.await(2, TimeUnit.SECONDS))
+            // Keep the valid platform call blocked beyond the old five-second reader deadline.
+            assertFalse(release.await(5500, TimeUnit.MILLISECONDS))
+            assertTrue(state.get().starting)
+            assertEquals("", state.get().error)
+            release.countDown()
+            await { state.get().running }
+            assertEquals(key, state.get().localKey)
+        } finally { release.countDown(); runtime.close() }
+    }
+
+    @Test fun startupReaderUsesRemainingWholeStartBudget() {
+        val platform = Platform()
+        val release = CountDownLatch(1)
+        platform.radioBlocked = release
+        val state = AtomicReference(MeshSnapshot())
+        val failed = CountDownLatch(1)
+        val runtime = MeshRuntime(platform, MeshSnapshot(), {
+            state.set(it)
+            if (it.error.isNotEmpty()) failed.countDown()
+        }, {})
+        try {
+            runtime.start("aware", false)
+            await { platform.processes.size == 1 }
+            // Simulate time already spent launching without a thirty-second wall-clock test
+            // or a production timeout override. Ready must not receive a fresh startup budget.
+            MeshRuntime::class.java.getDeclaredField("startedNanos").apply { isAccessible = true }
+                .setLong(runtime, System.nanoTime() - TimeUnit.SECONDS.toNanos(29))
+            platform.processes[0].emit("""{"event":"ready","key":"$key","address":"127.0.0.1:39770","relay":false}""")
+            assertTrue(platform.startingRadio.await(2, TimeUnit.SECONDS))
+            assertTrue("reader did not enforce the remaining startup budget", failed.await(2, TimeUnit.SECONDS))
+            assertEquals("mesh_core_failed", state.get().error)
+            assertFalse(state.get().starting)
+            release.countDown()
+            await { platform.closedRadios.get() == 1 && platform.processes[0].ended.count == 0L }
+            assertFalse(state.get().running)
+        } finally { release.countDown(); runtime.close() }
+    }
+
+    @Test fun stoppingDuringRadioStartupClosesLateOwnerAndAllowsRestart() {
+        val platform = Platform()
+        val release = CountDownLatch(1)
+        platform.radioBlocked = release
+        val state = AtomicReference(MeshSnapshot())
+        val publications = CopyOnWriteArrayList<MeshSnapshot>()
+        val runtime = MeshRuntime(platform, MeshSnapshot(), { state.set(it); publications.add(it) }, {})
+        try {
+            runtime.start("ble", false)
+            await { platform.processes.size == 1 }
+            platform.processes[0].emit("""{"event":"ready","key":"$key","address":"127.0.0.1:39770","relay":false}""")
+            assertTrue(platform.startingRadio.await(2, TimeUnit.SECONDS))
+            runtime.stop()
+            // Stop publishes synchronously even though actor cleanup still awaits the radio.
+            assertFalse(state.get().starting)
+            assertFalse(state.get().running)
+            assertEquals(1L, platform.processes[0].ended.count)
+            assertEquals(0, platform.closedRadios.get())
+            runtime.start("aware", false)
+            release.countDown()
+            await { platform.processes.size == 2 }
+            assertEquals(1, platform.closedRadios.get())
+            assertEquals(0L, platform.processes[0].ended.count)
+            assertFalse(publications.any { it.running })
+            val nextKey = "b".repeat(64)
+            platform.processes[1].emit("""{"event":"ready","key":"$nextKey","address":"127.0.0.1:39770","relay":false}""")
+            await { state.get().running && state.get().localKey == nextKey }
+            assertEquals(1, platform.closedRadios.get())
+            runtime.stop()
+            await { platform.closedRadios.get() == 2 && platform.processes[1].ended.count == 0L }
         } finally { release.countDown(); runtime.close() }
     }
 
