@@ -29,7 +29,32 @@ public final class BleAdapterHostTest {
         exhaustedPeerRequiresCooldownAndFreshObservation();
         incomingConnectionRecoversAfterCooldownWithoutNewScan();
         admittedServerConnectionIsHeldExactlyOnce();
-        System.out.println("BleAdapterHostTest: 7 passed");
+        indicationBeforeCccdAckIsBufferedButBounded();
+        System.out.println("BleAdapterHostTest: 8 passed");
+    }
+
+    private static void indicationBeforeCccdAckIsBufferedButBounded() throws Exception {
+        try (Fixture fixture = new Fixture()) {
+            Object link = fixture.link("A",true);
+            set(link,"stage","cccd"); set(link,"transportReady",false); set(link,"mtu",517);
+            byte[] hello = new byte[152]; Arrays.fill(hello,(byte)7);
+            boolean accepted = (Boolean)invoke(fixture.adapter,"ingress",new Class<?>[]{link.getClass(),byte[].class},link,hello);
+            check(accepted && !(Boolean)get(link,"ended"),"valid indication arriving before CCCD callback must not disconnect");
+            check(Arrays.equals(((java.io.ByteArrayOutputStream)get(link,"early")).toByteArray(),hello),
+                    "early handshake bytes must retain their order and content");
+            check(!(Boolean)get(link,"coreStarted"),"buffering must not bypass descriptor acknowledgement or core authentication");
+            byte[] fragment = new byte[512];
+            while (((java.io.ByteArrayOutputStream)get(link,"early")).size()+512<=8192)
+                check((Boolean)invoke(fixture.adapter,"ingress",new Class<?>[]{link.getClass(),byte[].class},link,fragment),"bounded fragments should fit");
+            check(!(Boolean)invoke(fixture.adapter,"ingress",new Class<?>[]{link.getClass(),byte[].class},link,fragment),
+                    "early indication flood must still fail closed at the byte budget");
+        }
+        try (Fixture fixture = new Fixture()) {
+            Object link = fixture.link("A",true);
+            set(link,"stage","services"); set(link,"transportReady",false);
+            check(!(Boolean)invoke(fixture.adapter,"ingress",new Class<?>[]{link.getClass(),byte[].class},link,new byte[]{1}),
+                    "bytes before subscription setup must remain invalid");
+        }
     }
 
     private static void admittedServerConnectionIsHeldExactlyOnce() throws Exception {
@@ -43,6 +68,7 @@ public final class BleAdapterHostTest {
             connect.setAccessible(true);
             connect.invoke(fixture.adapter,new BluetoothDevice("unknown"),0,2);
             check(fixture.server.holds.isEmpty(),"unknown connections must not be held");
+            check(fixture.server.cancellations.isEmpty(),"a global callback for an unowned connection must not cancel another app's link");
             check(fixture.events.stream().anyMatch(e -> e.endsWith(":peer_not_discovered")),
                     "startup rejection must distinguish missing discovery from cooldown");
             connect.invoke(fixture.adapter,new BluetoothDevice("A"),0,2);
@@ -194,7 +220,8 @@ public final class BleAdapterHostTest {
                     (event, peer, reason, tx, rx) -> events.add(event + ":" + peer + ":" + reason));
             set(adapter, "server", server);
         }
-        Object link(String label) throws Exception {
+        Object link(String label) throws Exception { return link(label,false); }
+        Object link(String label, boolean client) throws Exception {
             Class<?> peerType = Class.forName("org.nearbymesh.radio.BleAdapter$Peer");
             Constructor<?> peerConstructor = peerType.getDeclaredConstructor(String.class);
             peerConstructor.setAccessible(true);
@@ -204,7 +231,7 @@ public final class BleAdapterHostTest {
             Class<?> linkType = Class.forName("org.nearbymesh.radio.BleAdapter$Link");
             Constructor<?> linkConstructor = linkType.getDeclaredConstructor(peerType, boolean.class);
             linkConstructor.setAccessible(true);
-            Object link = linkConstructor.newInstance(peer, false);
+            Object link = linkConstructor.newInstance(peer, client);
             set(peer, "link", link); set(link, "subscribed", true); set(link, "transportReady", true);
             links().put(label, link);
             return link;

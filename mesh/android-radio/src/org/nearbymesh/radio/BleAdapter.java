@@ -427,7 +427,9 @@ public final class BleAdapter implements RadioAdapter {
                 : indicating != null && indicating.ended && indicating.address.equals(address) ? "previous_indication_pending"
                 : peer.label.compareTo(config.label) >= 0 ? "role_order" : null;
         if (rejection != null) {
-            server.cancelConnection(device);
+            // Android reports shared ACL connections to every registered GATT server.
+            // We have not acquired this connection: do not cancel another app's link.
+            // Without a Link, requests to our service still receive a rejection below.
             emit("ble_connection_rejected", peer == null ? "" : peer.label, rejection, 0, 0);
             return;
         }
@@ -491,7 +493,11 @@ public final class BleAdapter implements RadioAdapter {
     }
 
     private boolean ingress(Link link, byte[] bytes) {
-        if (!live(link) || !link.transportReady || bytes == null || bytes.length == 0
+        // The peripheral can indicate immediately after accepting the CCCD write,
+        // before Android delivers our onDescriptorWrite callback. Buffer only this
+        // subscription phase; openCore still waits for a successful descriptor ACK.
+        boolean subscriptionPending = link.client && "cccd".equals(link.stage);
+        if (!live(link) || (!link.transportReady && !subscriptionPending) || bytes == null || bytes.length == 0
                 || bytes.length > BleChunks.payloadSize(link.mtu)) {
             if (live(link)) failLink(link, "invalid_ingress_or_mtu");
             return false;

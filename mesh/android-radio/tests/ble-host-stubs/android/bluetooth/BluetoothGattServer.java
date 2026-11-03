@@ -14,7 +14,8 @@ public final class BluetoothGattServer {
         return holdAccepted;
     }
     public boolean addService(BluetoothGattService service) { throw new UnsupportedOperationException(); }
-    public void cancelConnection(BluetoothDevice device) { }
+    public final List<String> cancellations = new ArrayList<>();
+    public void cancelConnection(BluetoothDevice device) { cancellations.add(device.getAddress()); }
     public void close() { }
     public boolean sendResponse(BluetoothDevice device, int request, int status, int offset, byte[] value) { return true; }
     public int notifyCharacteristicChanged(BluetoothDevice device, BluetoothGattCharacteristic characteristic,

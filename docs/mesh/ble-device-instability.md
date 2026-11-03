@@ -85,3 +85,36 @@ Regression verifies that1000 later traffic events cannot overwrite startup and
 that a new radio session clears both histories. TXT export should be used before
 stopping a failed first attempt, and again after a successful restart. Neither an
 arbitrary startup delay nor an automatic restart loop is introduced without cause.
+
+## Preview.5 complete startup reports: reproduced CCCD/indication race
+
+Both user TXT reports have session1 and no recent-history eviction (56/53 events).
+They show brief successful authentication/traffic, matching receipt of four public
+messages, repeated drops and then retry cooldown. They do not support a claim that
+no connection was ever established; they do explain an apparently disconnected UI.
+
+The central's third/fourth attempts fail in stage cccd with invalid_ingress_or_mtu
+immediately after MTU517. The peripheral has already sent152 bytes of its handshake.
+Production ingress rejected all bytes until transportReady, which is set only by
+the central's successful onDescriptorWrite. But the server can enable indications
+and send before Android delivers that callback. The host regression reproduces
+this order and fails with the old predicate.
+
+Only central cccd-stage indications now enter the existing8KiB early buffer. No
+Core is started before descriptor success; existing ordered flush, signature checks,
+MTU bounds, setup deadline and early-flood failure remain. The regression checks
+byte ordering, no early Core start, bounded flood rejection and rejection of data
+before subscription setup. This fixes a demonstrated callback-ordering defect,
+not proof that all ready-stage OS disconnects have been eliminated.
+
+A second ownership defect was found: pre-admission global GATT server callbacks
+called cancelConnection even though Mesh had never acquired that connection. AOSP
+notifies registered servers about shared connections, so this could interfere with
+an unrelated holder. Refusal now allocates/holds no Mesh Link and rejects requests
+to our service; it does not cancel the unowned connection. Cleanup of acquired Mesh
+connections is unchanged. Host regression records cancellation calls, fails before
+the fix and verifies no cancellation on an unknown global callback.
+
+Eight production BLE fixtures and seven host programs pass. The two earlier
+ready-stage drops in the reports remain unexplained pending device retest; no
+wireless stability or three-device acceptance is inferred from host tests.
