@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.Semaphore
 import java.util.concurrent.atomic.AtomicBoolean
 import org.nearbymesh.radio.AwareAdapter
-import org.nearbymesh.radio.BleAdapter
+import org.nearbymesh.radio.BleCocAdapter
 import org.nearbymesh.radio.RadioAdapter
 import org.nearbymesh.radio.RadioConfig
 import org.nearbymesh.radio.RadioEvents
@@ -79,13 +79,13 @@ internal class MeshAndroidPlatform(context: Context) : MeshPlatform {
                 (event == "ble_error" && peer.isNullOrEmpty())
             if (terminal && !closed.get() && terminalSent.compareAndSet(false, true)) {
                 if (Looper.myLooper() == handler.looper) failed()
-                else handler.post { if (!closed.get()) failed() }
+                else if (!handler.post { if (!closed.get()) failed() }) failed()
             }
         }
         if (!handler.post {
             try {
                 if (!closed.get()) {
-                    adapter = if (mode == "ble") BleAdapter(context, handler, config, events)
+                    adapter = if (mode == "ble") BleCocAdapter(context, handler, config, events)
                     else AwareAdapter(context, handler, config, events)
                     adapter?.start()
                 }

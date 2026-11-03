@@ -15,7 +15,10 @@ mapfile -t radio_tests < <(find "$radio_dir/tests" -name '*Test.java' -type f ! 
     "$radio_dir/src/org/nearbymesh/radio/BleChunks.java" \
     "$radio_dir/src/org/nearbymesh/radio/CallbackBudget.java" \
     "$radio_dir/src/org/nearbymesh/radio/AwareOffer.java" \
+    "$radio_dir/src/org/nearbymesh/radio/CocProtocol.java" \
+    "$radio_dir/src/org/nearbymesh/radio/CocRuntime.java" \
+    "$radio_dir/src/org/nearbymesh/radio/CocStreams.java" \
     "${radio_tests[@]}"
-for radio_test in RadioConfigTest CoreBridgeTest BytePipeTest AwareSocketLifetimeTest BleChunksTest CallbackBudgetTest AwareOfferTest; do
+for radio_test in RadioConfigTest CoreBridgeTest BytePipeTest AwareSocketLifetimeTest BleChunksTest CallbackBudgetTest AwareOfferTest CocStreamsTest; do
     "$radio_java/bin/java" -cp "$radio_classes" "org.nearbymesh.radio.${radio_test}"
 done

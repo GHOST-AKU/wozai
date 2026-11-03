@@ -39,6 +39,12 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: mesh
+      - name: BLE stream regression and three-process Core integration (no RF claim)
+        run: |
+          bash mesh/android-radio/test.sh
+          bash mesh/android-radio/test-ble-host.sh
+          cargo build --manifest-path mesh/Cargo.toml --release --locked --bin mesh-lab
+          bash mesh/android-radio/test-coc-integration.sh
       - name: Build input-bound Android Mesh core
         run: |
           sdkmanager 'ndk;27.2.12479018'

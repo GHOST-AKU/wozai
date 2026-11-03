@@ -10,9 +10,9 @@ radio_classes="$(mktemp -d "$radio_out/ble.XXXXXX")"
 trap 'rm -rf -- "$radio_classes"' EXIT
 mapfile -t radio_stubs < <(find "$radio_dir/tests/ble-host-stubs" -name '*.java' -type f | sort)
 radio_sources=()
-for radio_name in BleAdapter BleChunks CallbackBudget CoreBridge BytePipe RadioAdapter RadioConfig RadioEvents; do
+for radio_name in BleChunks CallbackBudget CoreBridge BytePipe RadioAdapter RadioConfig RadioEvents; do
     radio_sources+=("$radio_dir/src/org/nearbymesh/radio/$radio_name.java")
 done
 "$radio_java/bin/javac" --release 8 -cp "$radio_sdk/platforms/android-36/android.jar" -d "$radio_classes" \
-    "${radio_stubs[@]}" "${radio_sources[@]}" "$radio_dir/tests/ble-host/BleAdapterHostTest.java"
+    "${radio_stubs[@]}" "$radio_dir/research/gatt/BleAdapter.java" "${radio_sources[@]}" "$radio_dir/tests/ble-host/BleAdapterHostTest.java"
 "$radio_java/bin/java" -cp "$radio_classes:$radio_sdk/platforms/android-36/android.jar" org.nearbymesh.radio.BleAdapterHostTest
