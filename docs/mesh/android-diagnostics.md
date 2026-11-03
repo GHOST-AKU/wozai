@@ -4,7 +4,7 @@ The Next public Mesh page exposes a snapshot through Diagnostics → Export TXT.
 folder/provider and filename; the report is written as UTF-8 text containing JSON.
 Canceling the picker writes nothing. Provider/permission failures show an error;
 saving runs on an IO dispatcher, with no broad storage permission. This UI change
-is for the next APK; the already delivered preview.4 still uses text sharing.
+ships in preview.5; preview.4 uses text sharing.
 Nothing is uploaded automatically. The JSON schema is `nearby-mesh-diagnostics-v1`.
 
 Included: application version/package; manufacturer/model/hardware identifier,
@@ -40,3 +40,6 @@ For a test, save reports from all devices before and after a uniquely identified
 message series; note phone placement, radio mode, relay settings, screen state and
 whether Internet/shared AP were absent. Pair them with screenshots and the existing
 physical-isolation protocol. A diagnostic JSON alone does not satisfy #91.
+
+Preview.5 also retains the first32 radio events in startup_events, separate from
+the latest64 ring, so later heartbeats cannot erase cold-start failures.

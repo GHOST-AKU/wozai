@@ -24,7 +24,7 @@ class MeshDiagnosticsTest {
     }
     @Test fun structuredGattFailuresAndRetriesRemainDiagnosable() {
         val token = MeshDiagnostics.begin()
-        for (reason in listOf("cccd_write_133", "att_ack_257", "server_connection_19_0", "attempt_4")) {
+        for (reason in listOf("cccd_write_133", "att_ack_257", "server_connection_19_0", "attempt_4", "scan_failed_6", "advertise_failed_5")) {
             MeshDiagnostics.record(token, "ble_link_down", reason, 0, 0)
         }
         val events = MeshDiagnostics.radio().getJSONArray("events")
@@ -32,6 +32,18 @@ class MeshDiagnosticsTest {
         assertEquals("att_ack_257", events.getJSONObject(1).getString("reason_code"))
         assertEquals("server_connection_19_0", events.getJSONObject(2).getString("reason_code"))
         assertEquals("attempt_4", events.getJSONObject(3).getString("reason_code"))
+        assertEquals("scan_failed_6", events.getJSONObject(4).getString("reason_code"))
+        assertEquals("advertise_failed_5", events.getJSONObject(5).getString("reason_code"))
+    }
+    @Test fun startupHistorySurvivesLaterHeartbeatTraffic() {
+        val token = MeshDiagnostics.begin()
+        MeshDiagnostics.record(token,"ble_ready","scan_and_advertise",0,0)
+        repeat(1000) { MeshDiagnostics.record(token,"ble_tx","att_ack",it.toLong(),0) }
+        val startup = MeshDiagnostics.radio().getJSONArray("startup_events")
+        assertEquals(32,startup.length())
+        assertEquals("ble_ready",startup.getJSONObject(0).getString("event"))
+        MeshDiagnostics.begin()
+        assertEquals(0,MeshDiagnostics.radio().getJSONArray("startup_events").length())
     }
     @Test fun exportIncludesCapabilitiesButExcludesBodiesAndIdentities() {
         val state = MeshSnapshot(localKey = "secret_identity", neighbors = listOf("peer_identity"),

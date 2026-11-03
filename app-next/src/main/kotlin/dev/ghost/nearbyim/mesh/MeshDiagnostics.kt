@@ -16,19 +16,21 @@ import java.util.ArrayDeque
 
 /** Bounded, process-local metadata only. Never retain peer labels, payloads or raw exceptions. */
 internal object MeshDiagnostics {
-    private val safeReason = Regex("[a-z_]{1,64}|(?:gatt|server)_connection_-?[0-9]{1,4}_-?[0-9]{1,4}|(?:cccd_write|att_ack)_-?[0-9]{1,4}|attempt_[1-4]|mtu_[0-9]{2,3}")
+    private val safeReason = Regex("[a-z_]{1,64}|(?:gatt|server)_connection_-?[0-9]{1,4}_-?[0-9]{1,4}|(?:cccd_write|att_ack|advertise_failed|scan_failed|gatt_add_service)_-?[0-9]{1,4}|attempt_[1-4]|mtu_[0-9]{2,3}")
     private val safeEvent = Regex("[a-z_]{1,48}")
     private var generation = 0L
     private var started = 0L
     private var sessionMode = "none"
     private var total = 0L
     private val events = ArrayDeque<JSONObject>()
+    private val startupEvents = ArrayList<JSONObject>(32)
     @Synchronized fun begin(mode: String = "ble"): Long {
         sessionMode = if (mode == "ble" || mode == "aware") mode else "unknown"
         generation++
         started = SystemClock.elapsedRealtime()
         total = 0
         events.clear()
+        startupEvents.clear()
         return generation
     }
     @Synchronized fun record(token: Long, event: String, reason: String, tx: Long, rx: Long) {
@@ -40,12 +42,14 @@ internal object MeshDiagnostics {
         events.addLast(JSONObject().put("elapsed_ms", SystemClock.elapsedRealtime() - started)
             .put("event", name).put("reason_code", code)
             .put("tx_bytes_reported", tx.coerceAtLeast(0)).put("rx_bytes_reported", rx.coerceAtLeast(0)))
+        if (startupEvents.size < 32) startupEvents.add(events.last)
         while (events.size > 64) events.removeFirst()
     }
     @Synchronized internal fun radio(): JSONObject = JSONObject()
         .put("session", generation).put("mode", sessionMode).put("started_elapsed_ms", started).put("events_observed", total)
         .put("events_dropped_from_history", (total - events.size).coerceAtLeast(0))
         .put("events", JSONArray(events.toList()))
+        .put("startup_events", JSONArray(startupEvents.toList()))
 
     fun report(context: Context, state: MeshSnapshot): String {
         val pm = context.packageManager

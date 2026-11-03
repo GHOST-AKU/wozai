@@ -43,6 +43,8 @@ public final class BleAdapterHostTest {
             connect.setAccessible(true);
             connect.invoke(fixture.adapter,new BluetoothDevice("unknown"),0,2);
             check(fixture.server.holds.isEmpty(),"unknown connections must not be held");
+            check(fixture.events.stream().anyMatch(e -> e.endsWith(":peer_not_discovered")),
+                    "startup rejection must distinguish missing discovery from cooldown");
             connect.invoke(fixture.adapter,new BluetoothDevice("A"),0,2);
             check(fixture.server.holds.equals(Arrays.asList("A")),"admitted incoming link must explicitly hold server connection");
             connect.invoke(fixture.adapter,new BluetoothDevice("A"),0,2);

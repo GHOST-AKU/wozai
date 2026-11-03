@@ -420,11 +420,15 @@ public final class BleAdapter implements RadioAdapter {
             peer.attempts = 0;
             emit("ble_retry_window", peer.label, "incoming_connection_after_cooldown", 0, 0);
         }
-        if (peer == null || peer.link != null || peer.attempts >= MAX_ATTEMPTS || links.size() >= MAX_LINKS
-                || (indicating != null && indicating.ended && indicating.address.equals(address))
-                || peer.label.compareTo(config.label) >= 0) {
+        String rejection = peer == null ? "peer_not_discovered"
+                : peer.link != null ? "peer_already_linked"
+                : peer.attempts >= MAX_ATTEMPTS ? "retry_cooldown"
+                : links.size() >= MAX_LINKS ? "connection_limit"
+                : indicating != null && indicating.ended && indicating.address.equals(address) ? "previous_indication_pending"
+                : peer.label.compareTo(config.label) >= 0 ? "role_order" : null;
+        if (rejection != null) {
             server.cancelConnection(device);
-            emit("ble_connection_rejected", peer == null ? "" : peer.label, "label_role_or_link_bound", 0, 0);
+            emit("ble_connection_rejected", peer == null ? "" : peer.label, rejection, 0, 0);
             return;
         }
         peer.seen = connectedAt;

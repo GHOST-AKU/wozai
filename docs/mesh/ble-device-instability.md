@@ -66,3 +66,22 @@ The production-adapter host regression fails before the hold is added and passes
 with it. It verifies unknown peers are not held, one hold per admitted link,
 recursive/duplicate callback safety and immediate slot release on hold rejection.
 These are API-usage/ownership checks, not simulation of vendor native idle timers.
+
+## Cold-start failure remains separate
+
+User clarified that preview.4 initially fails to connect and requires stopping then
+starting Mesh. Its later paired reports show one neighbor each, five matching
+received message IDs, and only normal heartbeats in retained ~93-second windows.
+Earlier events were evicted: session elapsed time near400s cannot establish a
+400-second uninterrupted connection or successful cold start. No cold-start fix
+is claimed from this evidence.
+
+Reports now retain the first32 events alongside the latest64. Admission refusals
+separate peer_not_discovered, peer_already_linked, retry_cooldown, connection_limit,
+previous_indication_pending and role_order. Numeric scan/advertise/service-registration
+failure codes are retained. The recent-history drop counter still describes the
+latest64 ring; retained startup events are an additional prefix, not disjoint totals.
+Regression verifies that1000 later traffic events cannot overwrite startup and
+that a new radio session clears both histories. TXT export should be used before
+stopping a failed first attempt, and again after a successful restart. Neither an
+arbitrary startup delay nor an automatic restart loop is introduced without cause.
