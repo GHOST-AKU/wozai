@@ -88,7 +88,7 @@ py -3.12 -m unittest discover -s mesh/windows-radio/tests -v
 The radio tests require Bumble. They use real LE credit channels over virtual HCI
 controllers and three real Rust Core processes. They check fragmented prefaces,
 duplex payloads, signed A-B-C/C-B-A, relay-off with expiry, input bounds, write
-stall, EOF and admission limits. The existing Core process suite checks restart,
+stall, EOF, malformed prefaces, cancellation/late owners and admission limits. The existing Core process suite checks restart,
 replay, loops, malicious input and duplicate connections on Windows loopback. It
 does not isolate A/C at the OS/radio level. Physical A/C exclusion and relay-off
 hardware experiment remain separate acceptance gates.

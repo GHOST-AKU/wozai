@@ -167,6 +167,42 @@ class VirtualTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(OSError, 'preface_eof'):
             await stream.exact(1)
 
+    async def test_cancel_connect_releases_late_return_before_next_dial(self):
+        started, cancel = asyncio.Event(), asyncio.Event()
+        class Connection:
+            closed = False
+            async def disconnect(self): self.closed = True
+        connection = Connection()
+        class Device:
+            def on(self, *_): pass
+            async def connect(self, *_args, **_kwargs):
+                started.set()
+                await cancel.wait()
+                return connection
+            async def cancel_connection(self):
+                cancel.set()
+                await asyncio.sleep(0)
+        adapter = Adapter(Device(), '-pc', 1, lambda *_: None)
+        task = asyncio.create_task(adapter.connect('fixture-address'))
+        await started.wait()
+        task.cancel()
+        with self.assertRaises(asyncio.CancelledError):
+            await task
+        self.assertTrue(connection.closed)
+
+    async def test_invalid_preface_and_ready_are_rejected(self):
+        class Channel:
+            def on(self, *_): pass
+            def write(self, _): pass
+            async def drain(self): pass
+        for data in [b'NOPE\x01\x08', b'NMLC\x02\x08', b'NMLC\x01\xff',
+                     b'NMLC\x01\x08different', b'NMLC\x01\x08abcdef12X']:
+            stream = ChannelStream(Channel())
+            stream.receive(data)
+            stream.eof()
+            with self.assertRaises(OSError):
+                await stream.handshake('-pc', 'abcdef12')
+
     async def test_adapter_admission_limits_and_stop_cleanup(self):
         events = []
         adapter = Adapter(self.client, '-pc', 1, lambda *e: events.append(e))

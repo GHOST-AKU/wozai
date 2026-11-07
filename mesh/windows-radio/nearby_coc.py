@@ -173,6 +173,23 @@ class Adapter:
         candidate['attempts'] += 1
         self.tasks[label] = asyncio.create_task(self.session(label, candidate.copy()))
 
+    async def connect(self, address):
+        # Keep Bumble's connection handler alive while cancelling the HCI attempt.
+        # Cancelling Device.connect directly only removes its handler in this release.
+        pending = asyncio.create_task(self.device.connect(address, timeout=10))
+        try:
+            return await asyncio.shield(pending)
+        except BaseException:
+            with suppress(Exception):
+                await asyncio.wait_for(self.device.cancel_connection(), 3)
+            pending.cancel()
+            result = (await asyncio.gather(pending, return_exceptions=True))[0]
+            # The connect completion may race cancellation; release a returned owner.
+            if not isinstance(result, BaseException):
+                with suppress(Exception):
+                    await asyncio.wait_for(result.disconnect(), 3)
+            raise
+
     async def session(self, label, candidate):
         connection = stream = None
         reason = 'channel_closed'
@@ -182,7 +199,7 @@ class Adapter:
                     return
                 self.emit('connecting', 'le_coc', 0, 0)
                 async with asyncio.timeout(15):
-                    connection = await self.device.connect(candidate['address'], timeout=10)
+                    connection = await self.connect(candidate['address'])
                     from bumble.l2cap import LeCreditBasedChannelSpec
                     channel = await connection.create_l2cap_channel(
                         LeCreditBasedChannelSpec(psm=candidate['psm'], mtu=2048, mps=2048, max_credits=8))

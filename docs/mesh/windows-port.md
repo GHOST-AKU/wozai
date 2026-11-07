@@ -76,8 +76,8 @@ must remain separate from NIM4 and production application data.
 
 ## Verification and remaining gates
 
-Local Linux: Rust fmt/Clippy passed;47 Rust tests passed. Six radio tests passed,
-including real Bumble credit channels and three independent Rust processes for
+Local Linux: Rust fmt/Clippy passed;47 Rust tests passed. Eight radio tests passed,
+including cancellation/late-owner and malformed-preface checks, real Bumble credit channels and three independent Rust processes for
 signed bidirectional relay plus relay-off/expiry. These are virtual controllers,
 not USB or RF. Dedicated Windows workflow builds/tests the native executable,
 runs the existing independent-process suite, runs the same virtual CoC tests,
