@@ -41,7 +41,7 @@ internal sealed class MeshClient : IAsyncDisposable
         {
             if ((info.Attributes & FileAttributes.ReparsePoint) != 0) throw new IOException("state_redirect");
             var access = info.GetAccessControl();
-            if (!access.AreAccessRulesProtected || !access.GetOwner(typeof(SecurityIdentifier)).Equals(sid)) throw new IOException("state_not_private");
+            if (!access.AreAccessRulesProtected || !sid.Equals(access.GetOwner(typeof(SecurityIdentifier)))) throw new IOException("state_not_private");
             foreach (FileSystemAccessRule rule in access.GetAccessRules(true, true, typeof(SecurityIdentifier)))
                 if (rule.AccessControlType == AccessControlType.Allow && !rule.IdentityReference.Equals(sid)) throw new IOException("state_not_private");
         }
