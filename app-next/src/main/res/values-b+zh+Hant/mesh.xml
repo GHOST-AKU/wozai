@@ -4,13 +4,13 @@
     <string name="mesh_preview">0.4.0 preview · 無線驗收待完成</string>
     <string name="mesh_private_devices">私聊裝置</string>
     <string name="mesh_back_public">返回公共 Mesh</string>
-    <string name="mesh_ble">BLE 藍牙</string>
+    <string name="mesh_ble">藍牙</string>
     <string name="mesh_aware">Wi-Fi Aware</string>
     <string name="mesh_start">開啟 Mesh</string>
     <string name="mesh_stop">停止 Mesh</string>
     <string name="mesh_relay">允許為其他節點中繼</string>
     <string name="mesh_relay_hint">中繼可能增加耗電；僅在你明確開啟後轉送。</string>
-    <string name="mesh_public_notice">公共訊息可被附近節點與中繼讀取，不提供端到端加密。加入不等於信任私聊裝置。</string>
+    <string name="mesh_public_notice">公共訊息可被附近節點與中繼讀取，不提供端到端加密。加入不等於信任私聊裝置。 首次連線電腦時，請允許系統提示的藍牙可探索。</string>
     <string name="mesh_confirm_title">開啟公共 Mesh？</string>
     <string name="mesh_confirm">同意並開啟</string>
     <string name="mesh_cancel">取消</string>
@@ -48,4 +48,5 @@
     <string name="mesh_export_diagnostics">匯出 TXT</string>
     <string name="mesh_export_saved">診斷報告已儲存</string>
     <string name="mesh_export_failed">儲存失敗，請重新選擇位置</string>
+    <string name="mesh_visible">讓電腦探索</string>
 </resources>

@@ -31,6 +31,11 @@ public final class CocCoreIntegrationTest {
             while(System.nanoTime()<end){for(String line:lines)if(line.contains(part))return line;Thread.sleep(10);}
             return null;
         }
+        String key()throws Exception {
+            String ready=waitLine("\"event\":\"ready\"",5000);
+            Matcher m=Pattern.compile("\"key\":\"([0-9a-f]{64})\"").matcher(ready);
+            CocStreamsTest.check(m.find(),"ready identity");return m.group(1);
+        }
         synchronized void cmd(String text)throws IOException{commands.write(text);commands.newLine();commands.flush();}
         void send(String text)throws IOException{cmd("{\"cmd\":\"send\",\"text\":\""+text+"\"}");}
         long count(String part){return lines.stream().filter(s->s.contains(part)).count();}
@@ -59,9 +64,15 @@ public final class CocCoreIntegrationTest {
                 a.send("coc-forward");CocStreamsTest.check(c.received("coc-forward",5000)!=null,"A-B-C message");
                 c.send("coc-reverse");CocStreamsTest.check(a.received("coc-reverse",5000)!=null,"C-B-A message");
                 b.cmd("{\"cmd\":\"relay\",\"enabled\":false}");CocStreamsTest.check(b.waitLine("\"enabled\":false",2000)!=null,"relay off acknowledged");
-                a.send("coc-relay-off");CocStreamsTest.check(c.received("coc-relay-off",750)==null,"relay-off negative");
+                a.cmd("{\"cmd\":\"send\",\"text\":\"coc-relay-off\",\"ttl\":1}");
+                CocStreamsTest.check(c.received("coc-relay-off",1500)==null,"relay-off negative across full TTL");
+                CocStreamsTest.check(a.waitLine("\"event\":\"expired\"",2000)!=null,"relay-off message really expired");
                 b.cmd("{\"cmd\":\"relay\",\"enabled\":true}");CocStreamsTest.check(b.waitLine("\"enabled\":true",2000)!=null,"relay restored");
                 ab[0].in.close();CocStreamsTest.waitFor(()->sa.size()==0&&sb.size()==1);
+                // Stream release precedes Core's async neighbor cleanup. The production
+                // connection manager backs off; this one-shot fixture must await both owners.
+                CocStreamsTest.check(a.waitLine("\"event\":\"neighbor_down\",\"peer\":\""+b.key()+"\"",5000)!=null,"A observed B disconnect");
+                CocStreamsTest.check(b.waitLine("\"event\":\"neighbor_down\",\"peer\":\""+a.key()+"\"",5000)!=null,"B observed A disconnect");
                 CocStreamsTest.Pipe[] restored=pair();sb.accept(restored[1]);sa.dial("B",()->restored[0]);
                 CocStreamsTest.waitFor(()->a.count("\"event\":\"neighbor_up\"")>=2);
                 a.send("coc-recovered");CocStreamsTest.check(c.received("coc-recovered",5000)!=null,"partition recovery");

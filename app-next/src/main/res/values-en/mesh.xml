@@ -4,13 +4,13 @@
     <string name="mesh_preview">0.4.0 preview · wireless acceptance pending</string>
     <string name="mesh_private_devices">Private devices</string>
     <string name="mesh_back_public">Back to public Mesh</string>
-    <string name="mesh_ble">BLE Bluetooth</string>
+    <string name="mesh_ble">Bluetooth</string>
     <string name="mesh_aware">Wi-Fi Aware</string>
     <string name="mesh_start">Start Mesh</string>
     <string name="mesh_stop">Stop Mesh</string>
     <string name="mesh_relay">Relay for other nodes</string>
     <string name="mesh_relay_hint">Relaying may consume more battery. Forwarding requires your explicit opt-in.</string>
-    <string name="mesh_public_notice">Nearby nodes and relays can read public messages. This is not end-to-end encrypted. Joining does not trust private-chat devices.</string>
+    <string name="mesh_public_notice">Nearby nodes and relays can read public messages. This is not end-to-end encrypted. Joining does not trust private-chat devices. Allow the system Bluetooth visibility prompt to connect a computer.</string>
     <string name="mesh_confirm_title">Start public Mesh?</string>
     <string name="mesh_confirm">Agree and start</string>
     <string name="mesh_cancel">Cancel</string>
@@ -48,4 +48,5 @@
     <string name="mesh_export_diagnostics">Export TXT</string>
     <string name="mesh_export_saved">Diagnostic report saved</string>
     <string name="mesh_export_failed">Could not save. Choose a location and retry.</string>
+    <string name="mesh_visible">Make visible to computers</string>
 </resources>

@@ -25,7 +25,8 @@ public sealed partial class MainWindow : Window
     private readonly DispatcherTimer _readTimer = new() { Interval = TimeSpan.FromMilliseconds(300) };
     private readonly SemaphoreSlim _dialogGate = new(1, 1);
     private readonly nint _hwnd;
-    private string _tab = "chats";
+    private string _tab = "mesh";
+    private string? _startupProfile;
     private bool _loaded, _closed, _active, _renderingPeers, _applyingDraft, _draftDirty, _sending;
     private long _draftRevision;
     private string? _composerPeer, _cachedDraftPeer;
@@ -55,6 +56,12 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         Title = "我在next";
+        var culture = System.Globalization.CultureInfo.CurrentUICulture.Name;
+        var language = culture.StartsWith("zh",StringComparison.OrdinalIgnoreCase) ? (culture.Contains("TW") || culture.Contains("HK") || culture.Contains("Hant") ? "zh-Hant" : "zh-Hans") : culture.StartsWith("ja") ? "ja" : culture.StartsWith("ko") ? "ko" : "en";
+        _state = new ClientState { EffectiveLanguage = language, Theme = "system" };
+        var arguments = Environment.GetCommandLineArgs();
+        for (int i=1;i+1<arguments.Length;i++) if(arguments[i]=="--profile") _startupProfile=arguments[++i];
+        InitializeMesh();
         _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1220, 820));
         SystemBackdrop = new MicaBackdrop();
@@ -102,13 +109,14 @@ public sealed partial class MainWindow : Window
         _nav.OpenPaneLength = 68;
         _nav.AlwaysShowHeader = false;
         _nav.FontFamily = new FontFamily("Segoe UI Variable, Segoe UI");
+        AddNav("mesh", "\uE701", "NavMesh");
         AddNav("chats", "\uE8F2", "NavChats");
         AddNav("nearby", "\uE701", "NavNearby");
         AddNav("settings", "\uE713", "NavSettings", true);
         _nav.SelectionChanged += (_, e) =>
         {
             if (e.SelectedItem is NavigationViewItem item && item.Tag is string tab && tab != _tab)
-                Run(async () => { await SaveDraftAsync(); _tab = tab; RenderPage(); });
+                Run(async () => { await SaveDraftAsync(); _tab = tab; if (tab != "mesh") await StartPrivateAsync(); RenderPage(); });
         };
         _nav.Content = _page;
         Grid.SetRow(_nav, 2);
@@ -123,14 +131,12 @@ public sealed partial class MainWindow : Window
             App.StartupTrace("Root loaded; rendering page");
             RenderPage();
             App.StartupTrace("Initial page rendered");
+            if (_mesh is not null) _ = _mesh.StartAsync();
             try
             {
-                string? profile = null;
-                var args = Environment.GetCommandLineArgs();
-                for (var i = 1; i + 1 < args.Length; i++) if (args[i] == "--profile") profile = args[++i];
-                await _bridge.StartAsync(profile);
-                if (_bridge.Current is {} initial) ApplyState(initial);
-                _readTimer.Start();
+                // Fixture profiles retain their explicit private-kernel startup contract.
+                // Normal public Mesh use does not start the separate Java private-chat runtime.
+                if (_startupProfile is not null) await StartPrivateAsync();
             }
             catch (Exception e) { ReportError(e.Message); }
         };
@@ -141,6 +147,7 @@ public sealed partial class MainWindow : Window
         Closed += async (_, _) =>
         {
             _closed = true;
+            if (_mesh is not null) await _mesh.DisposeAsync();
             _readTimer.Stop();
             _draftTimer.Stop();
             try { await SaveDraftAsync(); } catch { }
@@ -154,6 +161,13 @@ public sealed partial class MainWindow : Window
             _appearance = "";
             RenderPage();
         };
+    }
+
+    private async Task StartPrivateAsync()
+    {
+        await _bridge.StartAsync(_startupProfile);
+        if (_bridge.Current is {} initial) ApplyState(initial);
+        _readTimer.Start();
     }
 
     private void AddNav(string tag, string glyph, string id, bool footer = false)
@@ -207,7 +221,8 @@ public sealed partial class MainWindow : Window
         _messages = null;
         _messageStack = null;
         _chatPanel = null;
-        if (_tab == "settings") RenderSettings();
+        if (_tab == "mesh") RenderMesh();
+        else if (_tab == "settings") RenderSettings();
         else if (_tab == "nearby") RenderNearby();
         else BuildChats();
     }

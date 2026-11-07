@@ -104,3 +104,32 @@ ZXing core 3.5.3（Apache-2.0），仅用于离线二维码生成与读取。桌
 Unicode emoji-test 16.0 and CLDR 47 annotations are used under the Unicode License (see `i18n/emoji/LICENSE.txt` and the license embedded beside each platform catalog). Data sources and hashes: `i18n/emoji/sources.json`. Labels/compact keywords are generated; four localized Sark territory names are documented supplements. No Unicode emoji artwork or font is distributed by this feature.
 
 Unicode 表情目录使用 Unicode 16.0 / CLDR 47 数据及 Unicode 许可，来源和哈希记录在 `i18n/emoji/`。不分发表情字形图片或字体。
+
+
+## Windows Next managed and native UI runtimes
+
+The self-contained Windows Next distribution includes .NET 8, C#/WinRT and the
+WinUI component of Windows App SDK. Their notices are retained under `licenses/`:
+
+- .NET Runtime MIT license and third-party notices: `WindowsNext-DotNet-LICENSE.txt`
+  and `WindowsNext-DotNet-THIRD-PARTY-NOTICES.txt`, from
+  https://github.com/dotnet/runtime/tree/v8.0.22 . Runtime patch versions are supplied
+  by the build's .NET8 SDK; this reference is the applicable .NET8 license text,
+  not a claim that every portable build uses that exact patch binary.
+- C#/WinRT: `WindowsNext-CsWinRT-LICENSE.txt`, from
+  https://github.com/microsoft/CsWinRT/blob/master/LICENSE .
+- Windows App SDK terms: `WindowsNext-AppSDK-LICENSE.txt`. The identical upstream
+  terms were obtained from the NuGet license pages for WinUI1.8.260803003,
+  Foundation1.8.260803002 and InteractiveExperiences1.8.260708001:
+  https://www.nuget.org/packages/Microsoft.WindowsAppSDK.WinUI/1.8.260803003/License
+  https://www.nuget.org/packages/Microsoft.WindowsAppSDK.Foundation/1.8.260803002/License
+  https://www.nuget.org/packages/Microsoft.WindowsAppSDK.InteractiveExperiences/1.8.260708001/License
+- WebView2 SDK loader terms: `WindowsNext-WebView2-LICENSE.txt`, from
+  https://www.nuget.org/packages/Microsoft.Web.WebView2/1.0.3179.45/License .
+
+The bundled JDK retains its `legal/` tree. The Mesh child's app-local VCRUNTIME140
+is copied from that same JDK runtime; its original legal notices remain available.
+Rust Mesh dependency notices are separately retained in `kernel/MESH-THIRD-PARTY.md`
+and `kernel/mesh-licenses/`. No unused AI/ML runtime is bundled by the selected
+WinUI-only package references. Source and packaging revisions are recorded
+separately when a verified binary package is reused to add notices.

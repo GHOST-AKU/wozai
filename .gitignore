@@ -25,3 +25,6 @@ apple/DeviceBuild/
 apple/UITestBuild-*/
 *.xcuserstate
 xcuserdata/
+
+# Kotlin compiler local session cache
+.kotlin/

@@ -19,7 +19,7 @@ class Node:
         for peer in peers: args += ['--peer',peer]
         if relay: args += ['--relay']
         if discover: args += ['--discover']
-        self.p = subprocess.Popen(args,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,bufsize=1)
+        self.p = subprocess.Popen(args,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,encoding='utf-8',bufsize=1)
         self.events=[]; self._pending=[]; self._condition=threading.Condition()
         self._reader_error=None; self._output_closed=False
         def reader():
@@ -229,7 +229,7 @@ class RuntimeTests(unittest.TestCase):
         b=self.node('b'); host,port=b.address.rsplit(':',1)
         for _ in range(64):
             with socket.create_connection((host,int(port))) as sock:
-                sock.setsockopt(socket.SOL_SOCKET,socket.SO_LINGER,struct.pack('ii',1,0))
+                sock.setsockopt(socket.SOL_SOCKET,socket.SO_LINGER,struct.pack('HH' if os.name == 'nt' else 'ii',1,0))
         b.command('status'); self.assertEqual(b.wait('status')['event'],'status')
     def test_invalid_neighbor_signature_cannot_establish_identity(self):
         b=self.node('b')
