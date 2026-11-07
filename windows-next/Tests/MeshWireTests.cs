@@ -9,6 +9,12 @@ using Xunit;
 
 namespace WoZai.Next.Tests;
 
+// The external Core/PowerShell fixtures must not starve unrelated short-deadline
+// pipe tests on small Windows runners. Request concurrency inside each test remains.
+[CollectionDefinition("Mesh process fixtures", DisableParallelization = true)]
+public sealed class MeshProcessCollection { }
+
+[Collection("Mesh process fixtures")]
 public sealed class MeshWireTests
 {
     [Fact]
