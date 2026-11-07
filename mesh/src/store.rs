@@ -24,10 +24,22 @@ pub struct Store {
 fn state_exists(path: &Path) -> Result<bool> {
     // Inspect the entry itself: dangling links and metadata errors are not missing state.
     match fs::symlink_metadata(path) {
-        Ok(metadata) if metadata.file_type().is_symlink() => bail!("state symlink rejected"),
+        Ok(metadata) if is_redirect(&metadata) => bail!("state symlink/reparse point rejected"),
         Ok(_) => Ok(true),
         Err(error) if error.kind() == ErrorKind::NotFound => Ok(false),
         Err(error) => Err(error.into()),
+    }
+}
+fn is_redirect(metadata: &fs::Metadata) -> bool {
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        // Reject junctions and other reparse points as well as symbolic links.
+        metadata.file_attributes() & 0x400 != 0
+    }
+    #[cfg(not(windows))]
+    {
+        metadata.file_type().is_symlink()
     }
 }
 fn private_open(path: &Path, create_new: bool) -> Result<File> {
@@ -115,6 +127,7 @@ impl Store {
         file.set_len(0)?;
         file.write_all(&bytes)?;
         file.sync_all()?;
+        drop(file);
         fs::rename(tmp, self.dir.join("seen.json"))?;
         self.sync_dir()
     }

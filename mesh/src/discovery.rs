@@ -7,7 +7,6 @@ use std::{
     process::{Child, Command, Stdio},
     sync::mpsc::{self, Receiver},
     thread,
-    time::{Duration, Instant},
 };
 
 pub struct Discovery {
@@ -75,7 +74,15 @@ pub fn worker(port: u16) -> Result<()> {
     if port == 0 {
         bail!("discovery_port");
     }
+    #[cfg(not(target_os = "linux"))]
+    bail!("bounded discovery requires Linux");
     #[cfg(target_os = "linux")]
+    linux_worker(port)
+}
+
+#[cfg(target_os = "linux")]
+fn linux_worker(port: u16) -> Result<()> {
+    use std::time::{Duration, Instant};
     {
         // mdns-sd has dynamic caches; the OS limit isolates that upstream allocation surface.
         let limit = libc::rlimit {
@@ -85,10 +92,6 @@ pub fn worker(port: u16) -> Result<()> {
         if unsafe { libc::setrlimit(libc::RLIMIT_AS, &limit) } != 0 {
             bail!("discovery memory limit unavailable");
         }
-    }
-    #[cfg(not(target_os = "linux"))]
-    {
-        bail!("bounded discovery requires Linux");
     }
     let daemon = mdns_sd::ServiceDaemon::new()?;
     let instance = format!("mesh-{}", crate::protocol::nonce());

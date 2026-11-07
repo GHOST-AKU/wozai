@@ -1,0 +1,2 @@
+# Apache-2.0; reviewed upstream LE credit-channel API. See THIRD_PARTY.md.
+bumble==0.0.219
