@@ -32,6 +32,10 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
+      - uses: dtolnay/rust-toolchain@1.88.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mesh
       - name: Compile, test and package native client
         if: github.event_name != 'workflow_dispatch' || inputs.reuse_run_id == ''
         shell: pwsh
@@ -52,7 +56,7 @@ jobs:
           Expand-Archive $zip.FullName -DestinationPath windows-next/build/package
           $package = 'windows-next/build/package/WoZaiNext'
           $source = (Get-Content "$package/build-info.json" -Raw | ConvertFrom-Json).source
-          git diff --exit-code $source HEAD -- app desktop third_party i18n windows-next/WindowsNext windows-next/bridge/src/main windows-next/tools/build.ps1 windows-next/tools/build-bridge.py
+          git diff --exit-code $source HEAD -- mesh/src mesh/Cargo.toml mesh/Cargo.lock app desktop third_party i18n windows-next/WindowsNext windows-next/bridge/src/main windows-next/tools/build.ps1 windows-next/tools/build-bridge.py
           if ($LASTEXITCODE -ne 0) { throw 'Native package sources changed; run a full build instead' }
           New-Item -ItemType Directory -Force windows-next/build/bridge/classes,windows-next/build/bridge/tests,windows-next/build/bridge/lib | Out-Null
           Copy-Item "$package/kernel/lib/*.jar" windows-next/build/bridge/lib/

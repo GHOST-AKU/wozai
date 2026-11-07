@@ -10,7 +10,7 @@
     <string name="mesh_stop">Stop Mesh</string>
     <string name="mesh_relay">Relay for other nodes</string>
     <string name="mesh_relay_hint">Relaying may consume more battery. Forwarding requires your explicit opt-in.</string>
-    <string name="mesh_public_notice">Nearby nodes and relays can read public messages. This is not end-to-end encrypted. Joining does not trust private-chat devices.</string>
+    <string name="mesh_public_notice">Nearby nodes and relays can read public messages. This is not end-to-end encrypted. Joining does not trust private-chat devices. Allow the system Bluetooth visibility prompt to connect a computer.</string>
     <string name="mesh_confirm_title">Start public Mesh?</string>
     <string name="mesh_confirm">Agree and start</string>
     <string name="mesh_cancel">Cancel</string>

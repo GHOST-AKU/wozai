@@ -4,6 +4,9 @@ $root = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 Set-Location $root
 function Check([string]$message) { if ($LASTEXITCODE -ne 0) { throw $message } }
 $config = Get-Content i18n/config.json -Raw -Encoding UTF8 | ConvertFrom-Json
+cargo build --manifest-path mesh/Cargo.toml --locked --release
+Check 'Native Mesh core build failed'
+$env:WOZAI_MESH_CORE = Join-Path $root 'mesh/target/release/mesh-lab.exe'
 if ($Test) {
     python windows-next/tools/build-bridge.py --test
     Check 'Real-kernel bridge tests failed'
@@ -34,6 +37,9 @@ if (-not (Select-String -Path $priDump -SimpleMatch 'Microsoft.UI.Xaml/Themes/ge
 Write-Output 'Published PRI contains WinUI default control styles.'
 $kernel = Join-Path $package 'kernel'
 New-Item -ItemType Directory -Force "$kernel/lib" | Out-Null
+Copy-Item mesh/target/release/mesh-lab.exe "$kernel/mesh-lab.exe"
+Copy-Item mesh/THIRD_PARTY.md "$kernel/MESH-THIRD-PARTY.md"
+Copy-Item mesh/vendor-licenses "$kernel/mesh-licenses" -Recurse -Force
 Copy-Item windows-next/build/bridge/lib/*.jar "$kernel/lib/"
 Copy-Item windows-next/build/native/Release/wozai_bluetooth.dll "$kernel/lib/"
 & "$env:JAVA_HOME/bin/jar.exe" --create --file "$kernel/lib/windows-next-bridge.jar" -C windows-next/build/bridge/classes .
@@ -44,7 +50,7 @@ Check 'Bundled Java runtime failed'
 Copy-Item THIRD_PARTY_NOTICES.md, LICENSE $package
 Copy-Item licenses "$package/licenses" -Recurse -Force
 Copy-Item docs/windows-next.md "$package/README.md"
-@{version=$config.appVersion;buildNumber=$config.buildNumber;source=(git rev-parse HEAD);kernel='unchanged DesktopClient';platform='win-x64';ui='WinUI 3'} | ConvertTo-Json | Set-Content "$package/build-info.json" -Encoding UTF8
+@{version=$config.appVersion;buildNumber=$config.buildNumber;source=(git rev-parse HEAD);kernel='DesktopClient + independent Mesh Core';platform='win-x64';ui='WinUI 3';meshCoreSha256=(Get-FileHash "$kernel/mesh-lab.exe" -Algorithm SHA256).Hash.ToLowerInvariant()} | ConvertTo-Json | Set-Content "$package/build-info.json" -Encoding UTF8
 $zip = Join-Path $root "windows-next/build/WoZai-next-$($config.appVersion)-windows-x64.zip"
 Compress-Archive -Path $package -DestinationPath $zip -Force
 Get-FileHash $zip -Algorithm SHA256 | Format-List

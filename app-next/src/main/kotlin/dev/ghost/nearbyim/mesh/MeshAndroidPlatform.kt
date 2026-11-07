@@ -21,6 +21,7 @@ import java.util.concurrent.Semaphore
 import java.util.concurrent.atomic.AtomicBoolean
 import org.nearbymesh.radio.AwareAdapter
 import org.nearbymesh.radio.BleCocAdapter
+import org.nearbymesh.radio.ClassicMeshAdapter
 import org.nearbymesh.radio.RadioAdapter
 import org.nearbymesh.radio.RadioConfig
 import org.nearbymesh.radio.RadioEvents
@@ -85,7 +86,12 @@ internal class MeshAndroidPlatform(context: Context) : MeshPlatform {
         if (!handler.post {
             try {
                 if (!closed.get()) {
-                    adapter = if (mode == "ble") BleCocAdapter(context, handler, config, events)
+                    adapter = if (mode == "ble") object : RadioAdapter {
+                        private val ble = BleCocAdapter(context, handler, config, events)
+                        private val classic = ClassicMeshAdapter(context, handler, config, events)
+                        override fun start() { ble.start(); classic.start() }
+                        override fun close() { classic.close(); ble.close() }
+                    }
                     else AwareAdapter(context, handler, config, events)
                     adapter?.start()
                 }

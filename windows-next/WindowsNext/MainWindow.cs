@@ -25,7 +25,7 @@ public sealed partial class MainWindow : Window
     private readonly DispatcherTimer _readTimer = new() { Interval = TimeSpan.FromMilliseconds(300) };
     private readonly SemaphoreSlim _dialogGate = new(1, 1);
     private readonly nint _hwnd;
-    private string _tab = "chats";
+    private string _tab = "mesh";
     private bool _loaded, _closed, _active, _renderingPeers, _applyingDraft, _draftDirty, _sending;
     private long _draftRevision;
     private string? _composerPeer, _cachedDraftPeer;
@@ -55,6 +55,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         Title = "我在next";
+        InitializeMesh();
         _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1220, 820));
         SystemBackdrop = new MicaBackdrop();
@@ -102,6 +103,7 @@ public sealed partial class MainWindow : Window
         _nav.OpenPaneLength = 68;
         _nav.AlwaysShowHeader = false;
         _nav.FontFamily = new FontFamily("Segoe UI Variable, Segoe UI");
+        AddNav("mesh", "\uE701", "NavMesh");
         AddNav("chats", "\uE8F2", "NavChats");
         AddNav("nearby", "\uE701", "NavNearby");
         AddNav("settings", "\uE713", "NavSettings", true);
@@ -123,6 +125,7 @@ public sealed partial class MainWindow : Window
             App.StartupTrace("Root loaded; rendering page");
             RenderPage();
             App.StartupTrace("Initial page rendered");
+            if (_mesh is not null) _ = _mesh.StartAsync();
             try
             {
                 string? profile = null;
@@ -141,6 +144,7 @@ public sealed partial class MainWindow : Window
         Closed += async (_, _) =>
         {
             _closed = true;
+            if (_mesh is not null) await _mesh.DisposeAsync();
             _readTimer.Stop();
             _draftTimer.Stop();
             try { await SaveDraftAsync(); } catch { }
@@ -207,7 +211,8 @@ public sealed partial class MainWindow : Window
         _messages = null;
         _messageStack = null;
         _chatPanel = null;
-        if (_tab == "settings") RenderSettings();
+        if (_tab == "mesh") RenderMesh();
+        else if (_tab == "settings") RenderSettings();
         else if (_tab == "nearby") RenderNearby();
         else BuildChats();
     }

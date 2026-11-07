@@ -10,7 +10,7 @@
     <string name="mesh_stop">停止 Mesh</string>
     <string name="mesh_relay">允许为其他节点中继</string>
     <string name="mesh_relay_hint">中继可能增加电量消耗；仅在你明确开启后转发。</string>
-    <string name="mesh_public_notice">公共消息可被附近节点和中继阅读，不提供端到端加密。开启不等于信任私聊设备。</string>
+    <string name="mesh_public_notice">公共消息可被附近节点和中继阅读，不提供端到端加密。开启不等于信任私聊设备。 首次连接电脑时，请允许系统提示的蓝牙可发现。</string>
     <string name="mesh_confirm_title">开启公共 Mesh？</string>
     <string name="mesh_confirm">同意并开启</string>
     <string name="mesh_cancel">取消</string>

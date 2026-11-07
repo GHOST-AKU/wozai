@@ -10,7 +10,7 @@
     <string name="mesh_stop">停止 Mesh</string>
     <string name="mesh_relay">允許為其他節點中繼</string>
     <string name="mesh_relay_hint">中繼可能增加耗電；僅在你明確開啟後轉送。</string>
-    <string name="mesh_public_notice">公共訊息可被附近節點與中繼讀取，不提供端到端加密。加入不等於信任私聊裝置。</string>
+    <string name="mesh_public_notice">公共訊息可被附近節點與中繼讀取，不提供端到端加密。加入不等於信任私聊裝置。 首次連線電腦時，請允許系統提示的藍牙可探索。</string>
     <string name="mesh_confirm_title">開啟公共 Mesh？</string>
     <string name="mesh_confirm">同意並開啟</string>
     <string name="mesh_cancel">取消</string>
