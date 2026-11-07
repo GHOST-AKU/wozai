@@ -48,6 +48,12 @@ Check 'Bridge JAR packaging failed'
 if (Test-Path "$kernel/runtime") { Remove-Item "$kernel/runtime" -Recurse -Force }
 & "$env:JAVA_HOME/bin/jlink.exe" --add-modules java.base,java.desktop,java.logging,java.naming,java.management,java.sql,jdk.crypto.ec,jdk.localedata,jdk.unsupported --strip-debug --no-man-pages --no-header-files --compress=2 --output "$kernel/runtime"
 Check 'Bundled Java runtime failed'
+# The Rust MSVC child imports VCRUNTIME140. App-local placement also works on a
+# clean Windows installation without a separately installed VC redistributable.
+$crt = Join-Path $kernel 'runtime/bin/vcruntime140.dll'
+if (-not (Test-Path $crt)) { throw 'Bundled JDK lacks required app-local CRT' }
+Copy-Item $crt "$kernel/vcruntime140.dll"
+if ((Get-FileHash $crt).Hash -ne (Get-FileHash "$kernel/vcruntime140.dll").Hash) { throw 'CRT copy mismatch' }
 Copy-Item THIRD_PARTY_NOTICES.md, LICENSE $package
 Copy-Item licenses "$package/licenses" -Recurse -Force
 Copy-Item docs/windows-next.md "$package/README.md"

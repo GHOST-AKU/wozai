@@ -66,8 +66,8 @@ public final class ClassicMeshAdapter implements RadioAdapter {
                 capacity.acquire();
                 BluetoothSocket socket;
                 try { socket=server.accept(); }
-                catch (IOException error) { capacity.release(); throw error; }
-                if (closed.get() || epoch!=token) { socket.close(); capacity.release(); break; }
+                catch (IOException | RuntimeException error) { capacity.release(); throw error; }
+                if (closed.get() || epoch!=token) { try { socket.close(); } finally { capacity.release(); } break; }
                 AtomicBoolean released=new AtomicBoolean();
                 streams.accept(new CocStreams.Socket() {
                     public void connect() { }

@@ -27,7 +27,10 @@ https://github.com/microsoft/WindowsAppSDK/issues/6464 and
 https://github.com/microsoft/WindowsAppSDK/issues/6015 . No DLL is deleted after
 publish; the build rejects unexpected ONNX/DirectML payloads and real UI capture
 rechecks the resulting runtime. Jlink uses its supported compression level2,
-retaining all existing Java modules/locales. This is a portable preview, not an installer or signed Windows release.
+retaining all existing Java modules/locales. PE dependency inspection found the
+Rust MSVC child imports VCRUNTIME140.dll; the packager places the already bundled
+JDK's redistributable beside that child, retaining its notices, so a separate VC
+runtime installation is not assumed. This is a portable preview, not an installer or signed Windows release.
 
 ## Transport and boundaries
 
