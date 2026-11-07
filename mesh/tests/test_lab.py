@@ -19,7 +19,7 @@ class Node:
         for peer in peers: args += ['--peer',peer]
         if relay: args += ['--relay']
         if discover: args += ['--discover']
-        self.p = subprocess.Popen(args,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,bufsize=1)
+        self.p = subprocess.Popen(args,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,encoding='utf-8',bufsize=1)
         self.events=[]; self._pending=[]; self._condition=threading.Condition()
         self._reader_error=None; self._output_closed=False
         def reader():

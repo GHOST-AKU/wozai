@@ -122,10 +122,11 @@ class VirtualTests(unittest.IsolatedAsyncioTestCase):
                     adapter.observed(Advertisement(address=device.random_address, data_bytes=response(label.encode())))
                 await asyncio.to_thread(a.wait, 'neighbor_up')
                 await asyncio.to_thread(c.wait, 'neighbor_up')
-                a.command('send', text='virtual CoC A-B-C')
+                a.command('send', text='Windows 蓝牙 Mesh 🌐')
                 mid = (await asyncio.to_thread(a.wait, 'queued'))['id']
                 got = await asyncio.to_thread(c.wait, 'message')
                 self.assertEqual(got['id'], mid)
+                self.assertEqual(got['body'], 'Windows 蓝牙 Mesh 🌐')
                 self.assertEqual(got['path'], [a.key, b.key, c.key])
                 c.command('send', text='virtual CoC C-B-A')
                 reverse = (await asyncio.to_thread(c.wait, 'queued'))['id']
