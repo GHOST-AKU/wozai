@@ -64,6 +64,20 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Capture fixture compilation failed' }
           Copy-Item $zip.FullName windows-next/build/
           Write-Output "Reused native binary source: $source"
+      - name: Refresh notices on source-verified binary reuse
+        if: github.event_name == 'workflow_dispatch' && inputs.reuse_run_id != ''
+        shell: pwsh
+        run: |
+          $package = 'windows-next/build/package/WoZaiNext'
+          Copy-Item THIRD_PARTY_NOTICES.md,LICENSE $package -Force
+          Copy-Item licenses/* "$package/licenses/" -Recurse -Force
+          $info = Get-Content "$package/build-info.json" -Raw | ConvertFrom-Json
+          $info | Add-Member -NotePropertyName noticesSource -NotePropertyValue (git rev-parse HEAD) -Force
+          $info | ConvertTo-Json | Set-Content "$package/build-info.json" -Encoding UTF8
+          $zip = Get-ChildItem windows-next/build -Filter 'WoZai-next-*-windows-x64.zip' | Select-Object -First 1
+          Compress-Archive -Path $package -DestinationPath $zip.FullName -Force
+          Write-Output ("Product ZIP bytes: " + $zip.Length)
+          Get-FileHash $zip.FullName -Algorithm SHA256 | Format-List
       - name: Launch actual WinUI window and capture screenshots
         shell: pwsh
         run: ./windows-next/tools/capture.ps1
