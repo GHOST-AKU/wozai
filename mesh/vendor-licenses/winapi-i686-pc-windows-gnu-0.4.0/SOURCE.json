@@ -1,0 +1,7 @@
+{
+  "reason": "Target support crate archive omits root license texts; upstream project license notices retained from winapi-rs 0.3.9.",
+  "urls": [
+    "https://raw.githubusercontent.com/retep998/winapi-rs/0.3.9/LICENSE-MIT",
+    "https://raw.githubusercontent.com/retep998/winapi-rs/0.3.9/LICENSE-APACHE"
+  ]
+}

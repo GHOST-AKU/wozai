@@ -1,0 +1,224 @@
+{
+  "schema": 1,
+  "validation": "isolated TCP overlay, NOT wireless mesh",
+  "hardware_validation": "pending",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "python": "3.12.14",
+  "binary": "/workspace/wozai/mesh/target/debug/mesh-lab",
+  "topology": {
+    "routes": {
+      "a": "10.77.1.0/30 dev ab proto kernel scope link src 10.77.1.1",
+      "b": "10.77.1.0/30 dev ba proto kernel scope link src 10.77.1.2 \n10.77.2.0/30 dev bc proto kernel scope link src 10.77.2.1",
+      "c": "10.77.2.0/30 dev cb proto kernel scope link src 10.77.2.2"
+    },
+    "kernel_forwarding": "0",
+    "negative_direct_connect": [
+      {
+        "source": "a",
+        "target": "10.77.2.2",
+        "connect_ex": 101
+      },
+      {
+        "source": "c",
+        "target": "10.77.1.1",
+        "connect_ex": 101
+      }
+    ]
+  },
+  "checks": {
+    "bidirectional_paths": [
+      [
+        "A",
+        "B",
+        "C"
+      ],
+      [
+        "C",
+        "B",
+        "A"
+      ],
+      [
+        "A",
+        "B",
+        "C"
+      ],
+      [
+        "C",
+        "B",
+        "A"
+      ],
+      [
+        "A",
+        "B",
+        "C"
+      ],
+      [
+        "C",
+        "B",
+        "A"
+      ],
+      [
+        "A",
+        "B",
+        "C"
+      ],
+      [
+        "C",
+        "B",
+        "A"
+      ],
+      [
+        "A",
+        "B",
+        "C"
+      ],
+      [
+        "C",
+        "B",
+        "A"
+      ],
+      [
+        "A",
+        "B",
+        "C"
+      ],
+      [
+        "C",
+        "B",
+        "A"
+      ]
+    ],
+    "relay_off_blocks": true,
+    "partition_recovery": true,
+    "relay_restart_reconnect": true,
+    "no_duplicate_display": true
+  },
+  "latency_ms": [
+    57.63619899880723,
+    77.44065299993963,
+    77.60056699953566,
+    92.27603799990902,
+    67.96603800103185,
+    127.45973599885474,
+    98.6031370011915,
+    108.03118900003028,
+    105.75318199880712,
+    120.94660900038434,
+    148.54771600039385,
+    155.3069229994435
+  ],
+  "discovery": true,
+  "pids": {
+    "a": 6699,
+    "b": 6694,
+    "c": 6706
+  },
+  "nodes": {
+    "A": {
+      "bytes_rx": 7327,
+      "bytes_tx": 11898,
+      "candidates": 1,
+      "connections": 1,
+      "delivery": "best_effort_no_global_ack",
+      "duplicates": 0,
+      "event": "diagnostics",
+      "handed_to_neighbor_unconfirmed": 16,
+      "hardware_validation": "pending",
+      "limits": {
+        "candidates": 16,
+        "connections": 8,
+        "frame_bytes": 32768,
+        "pending": 64,
+        "seen": 1024,
+        "tx_per_link": 8
+      },
+      "peak_connections": 2,
+      "peak_pending": 7,
+      "peak_tx_frames": 0,
+      "pending": 7,
+      "public_plaintext": true,
+      "received": 7,
+      "rejected": 1,
+      "relay": false,
+      "seen": 14,
+      "proc": {
+        "VmHWM_KiB": 4688,
+        "VmRSS_KiB": 4688,
+        "cpu_seconds": 0.17
+      }
+    },
+    "B": {
+      "bytes_rx": 10356,
+      "bytes_tx": 1547,
+      "candidates": 2,
+      "connections": 2,
+      "delivery": "best_effort_no_global_ack",
+      "duplicates": 13,
+      "event": "diagnostics",
+      "handed_to_neighbor_unconfirmed": 1,
+      "hardware_validation": "pending",
+      "limits": {
+        "candidates": 16,
+        "connections": 8,
+        "frame_bytes": 32768,
+        "pending": 64,
+        "seen": 1024,
+        "tx_per_link": 8
+      },
+      "peak_connections": 2,
+      "peak_pending": 1,
+      "peak_tx_frames": 0,
+      "pending": 1,
+      "public_plaintext": true,
+      "received": 1,
+      "rejected": 0,
+      "relay": true,
+      "seen": 14,
+      "proc": {
+        "VmHWM_KiB": 4604,
+        "VmRSS_KiB": 4604,
+        "cpu_seconds": 0.21
+      }
+    },
+    "C": {
+      "bytes_rx": 7323,
+      "bytes_tx": 9810,
+      "candidates": 1,
+      "connections": 1,
+      "delivery": "best_effort_no_global_ack",
+      "duplicates": 0,
+      "event": "diagnostics",
+      "handed_to_neighbor_unconfirmed": 13,
+      "hardware_validation": "pending",
+      "limits": {
+        "candidates": 16,
+        "connections": 8,
+        "frame_bytes": 32768,
+        "pending": 64,
+        "seen": 1024,
+        "tx_per_link": 8
+      },
+      "peak_connections": 2,
+      "peak_pending": 7,
+      "peak_tx_frames": 0,
+      "pending": 7,
+      "public_plaintext": true,
+      "received": 7,
+      "rejected": 1,
+      "relay": false,
+      "seen": 14,
+      "proc": {
+        "VmHWM_KiB": 4748,
+        "VmRSS_KiB": 4748,
+        "cpu_seconds": 0.18
+      }
+    }
+  },
+  "elapsed_seconds": 3.627214570999058,
+  "latency_summary_ms": {
+    "samples": 12,
+    "min": 57.63619899880723,
+    "median": 102.17815949999931,
+    "max": 155.3069229994435
+  }
+}

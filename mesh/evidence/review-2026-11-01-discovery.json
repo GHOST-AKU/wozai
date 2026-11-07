@@ -1,0 +1,438 @@
+{
+  "schema": 2,
+  "validation": "isolated TCP overlay, NOT wireless mesh",
+  "hardware_validation": "pending",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "python": "3.12.14",
+  "binary": "/workspace/wozai/mesh/target/release/mesh-lab",
+  "binary_sha256": "187f6c673724d8928ef6dd12dfd799bc669043b075c5ece0eaa1c96df42fb154",
+  "binary_bytes": 1864496,
+  "started_at_utc": "2026-10-31T16:40:33.816964+00:00",
+  "driver_sha256": "05a3ffed03f03ba68ed474011a79eb374dbd7465f34630a6893a22905700cdf0",
+  "source_snapshot_commit": "542fb050531d8fb6abe6fdafe5c43a1097b3bd4f",
+  "source_snapshot_dirty": true,
+  "binary_source_binding": "not_attested_by_this_tool",
+  "topology": {
+    "routes": {
+      "a": "10.77.1.0/30 dev ab proto kernel scope link src 10.77.1.1",
+      "b": "10.77.1.0/30 dev ba proto kernel scope link src 10.77.1.2 \n10.77.2.0/30 dev bc proto kernel scope link src 10.77.2.1",
+      "c": "10.77.2.0/30 dev cb proto kernel scope link src 10.77.2.2"
+    },
+    "kernel_forwarding": "0",
+    "listener_controls": [
+      {
+        "source": "b",
+        "target": "10.77.1.1",
+        "connect_ex": 0,
+        "errno": "OK"
+      },
+      {
+        "source": "b",
+        "target": "10.77.2.2",
+        "connect_ex": 0,
+        "errno": "OK"
+      }
+    ],
+    "negative_direct_connect": [
+      {
+        "source": "a",
+        "target": "10.77.2.2",
+        "connect_ex": 101,
+        "errno": "ENETUNREACH"
+      },
+      {
+        "source": "c",
+        "target": "10.77.1.1",
+        "connect_ex": 101,
+        "errno": "ENETUNREACH"
+      }
+    ]
+  },
+  "checks": {
+    "bidirectional_paths": [
+      [
+        "A",
+        "B",
+        "C"
+      ],
+      [
+        "C",
+        "B",
+        "A"
+      ],
+      [
+        "A",
+        "B",
+        "C"
+      ],
+      [
+        "C",
+        "B",
+        "A"
+      ],
+      [
+        "A",
+        "B",
+        "C"
+      ],
+      [
+        "C",
+        "B",
+        "A"
+      ],
+      [
+        "A",
+        "B",
+        "C"
+      ],
+      [
+        "C",
+        "B",
+        "A"
+      ],
+      [
+        "A",
+        "B",
+        "C"
+      ],
+      [
+        "C",
+        "B",
+        "A"
+      ],
+      [
+        "A",
+        "B",
+        "C"
+      ],
+      [
+        "C",
+        "B",
+        "A"
+      ]
+    ],
+    "relay_off_blocks": true,
+    "partition_recovery": true,
+    "relay_restart_reconnect": true,
+    "restart_replay_rejected": true,
+    "no_duplicate_display": true
+  },
+  "latency_ms": [
+    10.504973000934115,
+    9.331764002126874,
+    11.164152001583716,
+    9.347348001028877,
+    11.182895999809261,
+    9.335008999187266,
+    11.161163001816021,
+    9.350431999337161,
+    11.198303996934555,
+    9.311434001574526,
+    11.185665000084555,
+    9.320738001406426
+  ],
+  "discovery": true,
+  "pids": {
+    "a": 19608,
+    "b": 19603,
+    "c": 19615
+  },
+  "relay_before_restart": {
+    "bytes_rx": 11296,
+    "bytes_tx": 18883,
+    "candidates": 2,
+    "connections": 2,
+    "delivery": "best_effort_no_global_ack",
+    "duplicates": 0,
+    "event": "diagnostics",
+    "handed_to_neighbor_unconfirmed": 19,
+    "hardware_validation": "pending",
+    "limits": {
+      "candidates": 16,
+      "connections": 8,
+      "frame_bytes": 32768,
+      "pending": 64,
+      "seen": 1024,
+      "tx_per_link": 8
+    },
+    "peak_connections": 3,
+    "peak_pending": 13,
+    "peak_tx_frames_per_link": 7,
+    "pending": 13,
+    "public_plaintext": true,
+    "received": 14,
+    "rejected": 2,
+    "relay": true,
+    "seen": 13,
+    "proc": {
+      "pid": 19603,
+      "VmHWM_KiB": 2360,
+      "VmRSS_KiB": 2360,
+      "start_time_ticks": 1776123,
+      "cpu_ticks": 0,
+      "clock_ticks_per_second": 100,
+      "cpu_seconds": 0.0,
+      "Pss_KiB": 625,
+      "process_tree": {
+        "method": "sequential_procfs_ppid_point_sample",
+        "sampled_at_monotonic_ns": 17764159221562,
+        "processes": [
+          {
+            "pid": 19603,
+            "VmHWM_KiB": 2360,
+            "VmRSS_KiB": 2360,
+            "start_time_ticks": 1776123,
+            "cpu_ticks": 0,
+            "clock_ticks_per_second": 100,
+            "cpu_seconds": 0.0,
+            "Pss_KiB": 625
+          },
+          {
+            "pid": 19605,
+            "VmHWM_KiB": 3408,
+            "VmRSS_KiB": 3116,
+            "start_time_ticks": 1776123,
+            "cpu_ticks": 2,
+            "clock_ticks_per_second": 100,
+            "cpu_seconds": 0.02,
+            "Pss_KiB": 1242
+          }
+        ],
+        "process_count": 2,
+        "unavailable_pids": [],
+        "RSS_total_KiB": 5476,
+        "PSS_total_KiB": 1867,
+        "cpu_ticks_total": 2
+      }
+    }
+  },
+  "nodes": {
+    "A": {
+      "bytes_rx": 7660,
+      "bytes_tx": 11851,
+      "candidates": 1,
+      "connections": 1,
+      "delivery": "best_effort_no_global_ack",
+      "duplicates": 0,
+      "event": "diagnostics",
+      "handed_to_neighbor_unconfirmed": 15,
+      "hardware_validation": "pending",
+      "limits": {
+        "candidates": 16,
+        "connections": 8,
+        "frame_bytes": 32768,
+        "pending": 64,
+        "seen": 1024,
+        "tx_per_link": 8
+      },
+      "peak_connections": 2,
+      "peak_pending": 7,
+      "peak_tx_frames_per_link": 7,
+      "pending": 7,
+      "public_plaintext": true,
+      "received": 7,
+      "rejected": 4,
+      "relay": false,
+      "seen": 14,
+      "proc": {
+        "pid": 19608,
+        "VmHWM_KiB": 2332,
+        "VmRSS_KiB": 2332,
+        "start_time_ticks": 1776123,
+        "cpu_ticks": 0,
+        "clock_ticks_per_second": 100,
+        "cpu_seconds": 0.0,
+        "Pss_KiB": 604,
+        "process_tree": {
+          "method": "sequential_procfs_ppid_point_sample",
+          "sampled_at_monotonic_ns": 17768580616385,
+          "processes": [
+            {
+              "pid": 19608,
+              "VmHWM_KiB": 2332,
+              "VmRSS_KiB": 2332,
+              "start_time_ticks": 1776123,
+              "cpu_ticks": 0,
+              "clock_ticks_per_second": 100,
+              "cpu_seconds": 0.0,
+              "Pss_KiB": 604
+            },
+            {
+              "pid": 19611,
+              "VmHWM_KiB": 3276,
+              "VmRSS_KiB": 3024,
+              "start_time_ticks": 1776124,
+              "cpu_ticks": 1,
+              "clock_ticks_per_second": 100,
+              "cpu_seconds": 0.01,
+              "Pss_KiB": 1145
+            }
+          ],
+          "process_count": 2,
+          "unavailable_pids": [],
+          "RSS_total_KiB": 5356,
+          "PSS_total_KiB": 1749,
+          "cpu_ticks_total": 1
+        }
+      }
+    },
+    "B": {
+      "bytes_rx": 6525,
+      "bytes_tx": 1880,
+      "candidates": 1,
+      "connections": 2,
+      "delivery": "best_effort_no_global_ack",
+      "duplicates": 7,
+      "event": "diagnostics",
+      "handed_to_neighbor_unconfirmed": 1,
+      "hardware_validation": "pending",
+      "limits": {
+        "candidates": 16,
+        "connections": 8,
+        "frame_bytes": 32768,
+        "pending": 64,
+        "seen": 1024,
+        "tx_per_link": 8
+      },
+      "peak_connections": 2,
+      "peak_pending": 1,
+      "peak_tx_frames_per_link": 2,
+      "pending": 1,
+      "public_plaintext": true,
+      "received": 1,
+      "rejected": 0,
+      "relay": true,
+      "seen": 14,
+      "proc": {
+        "pid": 19638,
+        "VmHWM_KiB": 2272,
+        "VmRSS_KiB": 2272,
+        "start_time_ticks": 1776416,
+        "cpu_ticks": 0,
+        "clock_ticks_per_second": 100,
+        "cpu_seconds": 0.0,
+        "Pss_KiB": 553,
+        "process_tree": {
+          "method": "sequential_procfs_ppid_point_sample",
+          "sampled_at_monotonic_ns": 17768589819517,
+          "processes": [
+            {
+              "pid": 19638,
+              "VmHWM_KiB": 2272,
+              "VmRSS_KiB": 2272,
+              "start_time_ticks": 1776416,
+              "cpu_ticks": 0,
+              "clock_ticks_per_second": 100,
+              "cpu_seconds": 0.0,
+              "Pss_KiB": 553
+            },
+            {
+              "pid": 19640,
+              "VmHWM_KiB": 3188,
+              "VmRSS_KiB": 3032,
+              "start_time_ticks": 1776416,
+              "cpu_ticks": 2,
+              "clock_ticks_per_second": 100,
+              "cpu_seconds": 0.02,
+              "Pss_KiB": 1171
+            }
+          ],
+          "process_count": 2,
+          "unavailable_pids": [],
+          "RSS_total_KiB": 5304,
+          "PSS_total_KiB": 1724,
+          "cpu_ticks_total": 2
+        }
+      }
+    },
+    "C": {
+      "bytes_rx": 7009,
+      "bytes_tx": 1330,
+      "candidates": 1,
+      "connections": 1,
+      "delivery": "best_effort_no_global_ack",
+      "duplicates": 6,
+      "event": "diagnostics",
+      "handed_to_neighbor_unconfirmed": 1,
+      "hardware_validation": "pending",
+      "limits": {
+        "candidates": 16,
+        "connections": 8,
+        "frame_bytes": 32768,
+        "pending": 64,
+        "seen": 1024,
+        "tx_per_link": 8
+      },
+      "peak_connections": 1,
+      "peak_pending": 1,
+      "peak_tx_frames_per_link": 2,
+      "pending": 1,
+      "public_plaintext": true,
+      "received": 1,
+      "rejected": 1,
+      "relay": false,
+      "seen": 14,
+      "proc": {
+        "pid": 19630,
+        "VmHWM_KiB": 2276,
+        "VmRSS_KiB": 2276,
+        "start_time_ticks": 1776354,
+        "cpu_ticks": 0,
+        "clock_ticks_per_second": 100,
+        "cpu_seconds": 0.0,
+        "Pss_KiB": 560,
+        "process_tree": {
+          "method": "sequential_procfs_ppid_point_sample",
+          "sampled_at_monotonic_ns": 17768596684492,
+          "processes": [
+            {
+              "pid": 19630,
+              "VmHWM_KiB": 2276,
+              "VmRSS_KiB": 2276,
+              "start_time_ticks": 1776354,
+              "cpu_ticks": 0,
+              "clock_ticks_per_second": 100,
+              "cpu_seconds": 0.0,
+              "Pss_KiB": 560
+            },
+            {
+              "pid": 19632,
+              "VmHWM_KiB": 2792,
+              "VmRSS_KiB": 2792,
+              "start_time_ticks": 1776354,
+              "cpu_ticks": 0,
+              "clock_ticks_per_second": 100,
+              "cpu_seconds": 0.0,
+              "Pss_KiB": 916
+            }
+          ],
+          "process_count": 2,
+          "unavailable_pids": [],
+          "RSS_total_KiB": 5068,
+          "PSS_total_KiB": 1476,
+          "cpu_ticks_total": 0
+        }
+      }
+    }
+  },
+  "process_generations": {
+    "A": [
+      19608
+    ],
+    "B": [
+      19603,
+      19638
+    ],
+    "C": [
+      19615,
+      19630
+    ]
+  },
+  "elapsed_seconds": 7.365035816997988,
+  "latency_summary_ms": {
+    "samples": 12,
+    "min": 9.311434001574526,
+    "median": 9.927702500135638,
+    "max": 11.198303996934555
+  }
+}

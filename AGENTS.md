@@ -1,5 +1,11 @@
 # Repository working rules
 
+## Subagent usage and token budget
+
+- Default to completing work in the primary agent. Do not start, resume, or delegate work to subagents unless the repository owner explicitly requests or authorizes subagent use for the current task.
+- Task complexity, available concurrency, or a generic skill workflow does not by itself authorize subagent use. Do not repeatedly ask for authorization; continue independently where possible.
+- When subagents are explicitly authorized, keep delegation narrowly scoped and avoid duplicate investigation, repeated reviews, and unnecessary context transfer. Reuse existing findings and verification evidence to conserve tokens.
+
 ## Build and verification resources
 
 - Avoid repeated or unnecessary tests. Prioritize resources for producing usable builds and completing the requested implementation.

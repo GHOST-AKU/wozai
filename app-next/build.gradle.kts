@@ -19,6 +19,24 @@ val sharedJava by tasks.registering(Sync::class) {
     into(layout.buildDirectory.dir("generated/sharedJava"))
 }
 
+val meshJava by tasks.registering(Sync::class) {
+    from(rootProject.file("mesh/android-radio/src")) { exclude("**/RadioLab.java") }
+    into(layout.buildDirectory.dir("generated/meshJava"))
+}
+val meshNative by tasks.registering(Exec::class) {
+    inputs.files(rootProject.fileTree("mesh/src"), rootProject.file("mesh/Cargo.toml"), rootProject.file("mesh/Cargo.lock"), rootProject.file("tools/package-android-mesh.py"))
+    inputs.file(rootProject.file("mesh/target/aarch64-linux-android/release/mesh-lab"))
+    outputs.dir(layout.buildDirectory.dir("generated/meshNative"))
+    commandLine("python3", rootProject.file("tools/package-android-mesh.py"), "--output",
+        layout.buildDirectory.file("generated/meshNative/arm64-v8a/libmesh_core.so").get().asFile)
+}
+val meshNotices by tasks.registering(Sync::class) {
+    from(rootProject.file("mesh/vendor-licenses")) { into("vendor-licenses") }
+    from(rootProject.file("mesh/THIRD_PARTY.md"))
+    from(rootProject.file("LICENSE"))
+    into(layout.buildDirectory.dir("generated/meshAssets/mesh-notices"))
+}
+
 android {
     namespace = "dev.ghost.nearbyim"
     compileSdk = 36
@@ -28,6 +46,7 @@ android {
         targetSdk = 36
         versionCode = (versions["buildNumber"] as Number).toInt()
         versionName = versions["appVersion"] as String
+        ndk { abiFilters += "arm64-v8a" }
     }
     buildFeatures { compose = true }
     compileOptions {
@@ -54,7 +73,15 @@ android {
     sourceSets.getByName("main") {
         java.srcDir(layout.buildDirectory.dir("generated/sharedJava"))
         res.srcDirs(rootProject.file("app/src/main/res"), "src/main/res")
+        java.srcDir(layout.buildDirectory.dir("generated/meshJava"))
+        jniLibs.srcDir(layout.buildDirectory.dir("generated/meshNative"))
+        assets.srcDir(layout.buildDirectory.dir("generated/meshAssets"))
     }
+    packaging { jniLibs {
+        useLegacyPackaging = true
+        // This is an already stripped executable; preserve the bound image byte-for-byte.
+        keepDebugSymbols += "**/libmesh_core.so"
+    } }
     bundle { language { enableSplit = false } }
     testOptions {
         unitTests.isIncludeAndroidResources = true
@@ -63,7 +90,7 @@ android {
 }
 kotlin { jvmToolchain(17) }
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-    dependsOn(sharedJava)
+    dependsOn(sharedJava, meshJava)
 }
 
 dependencies {
@@ -85,5 +112,5 @@ dependencies {
 }
 
 tasks.named("preBuild").configure {
-    dependsOn(":app:checkI18n", ":app:checkAppIcons", ":app:checkQrArtifact")
+    dependsOn(meshJava, meshNative, meshNotices, ":app:checkI18n", ":app:checkAppIcons", ":app:checkQrArtifact")
 }

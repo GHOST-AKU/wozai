@@ -1,0 +1,147 @@
+{
+  "source": "Owner-supplied Android preview.5 diagnostic TXT pair",
+  "validation": "reported physical-device observations, not controller-run hardware acceptance",
+  "hardware_multi_hop": "pending",
+  "clock_policy": "No cross-device latency inferred; clocks are not synchronized",
+  "inputs": [
+    {
+      "file": "nearby-mesh-1793685062004.txt",
+      "sha256": "bdc3560647696c976d4156388c709820042016130de84c69961ac4ea0b1051e8",
+      "model": "M2102J2SC",
+      "sdk": 33,
+      "app_version": "0.4.0-preview.5",
+      "session": 1,
+      "events_observed": 56,
+      "events_dropped": 0,
+      "link_up_to_down_ms": [
+        7187,
+        7675,
+        1362,
+        1636
+      ],
+      "failure_events": [
+        {
+          "elapsed_ms": 45,
+          "event": "ble_connection_rejected",
+          "reason": "peer_not_discovered"
+        },
+        {
+          "elapsed_ms": 8903,
+          "event": "ble_failed_stage",
+          "reason": "ready"
+        },
+        {
+          "elapsed_ms": 8903,
+          "event": "ble_link_down",
+          "reason": "server_connection_0_0"
+        },
+        {
+          "elapsed_ms": 18180,
+          "event": "ble_failed_stage",
+          "reason": "ready"
+        },
+        {
+          "elapsed_ms": 18180,
+          "event": "ble_link_down",
+          "reason": "server_connection_0_0"
+        },
+        {
+          "elapsed_ms": 22267,
+          "event": "ble_failed_stage",
+          "reason": "ready"
+        },
+        {
+          "elapsed_ms": 22267,
+          "event": "ble_link_down",
+          "reason": "server_connection_0_0"
+        },
+        {
+          "elapsed_ms": 27136,
+          "event": "ble_failed_stage",
+          "reason": "ready"
+        },
+        {
+          "elapsed_ms": 27136,
+          "event": "ble_link_down",
+          "reason": "server_connection_0_0"
+        },
+        {
+          "elapsed_ms": 27137,
+          "event": "ble_retry_exhausted",
+          "reason": "cooldown_requires_fresh_observation"
+        }
+      ]
+    },
+    {
+      "file": "nearby-mesh-1793685068417.txt",
+      "sha256": "25239d480bdd9af7d716dcca43f5fd6e260e3862d790ac93e65784727d8bbaa1",
+      "model": "23043RP34C",
+      "sdk": 34,
+      "app_version": "0.4.0-preview.5",
+      "session": 1,
+      "events_observed": 53,
+      "events_dropped": 0,
+      "link_up_to_down_ms": [
+        7083,
+        7661
+      ],
+      "failure_events": [
+        {
+          "elapsed_ms": 63,
+          "event": "ble_connection_rejected",
+          "reason": "peer_not_discovered"
+        },
+        {
+          "elapsed_ms": 10402,
+          "event": "ble_failed_stage",
+          "reason": "ready"
+        },
+        {
+          "elapsed_ms": 10403,
+          "event": "ble_link_down",
+          "reason": "gatt_connection_19_0"
+        },
+        {
+          "elapsed_ms": 19754,
+          "event": "ble_failed_stage",
+          "reason": "ready"
+        },
+        {
+          "elapsed_ms": 19754,
+          "event": "ble_link_down",
+          "reason": "gatt_connection_19_0"
+        },
+        {
+          "elapsed_ms": 22589,
+          "event": "ble_failed_stage",
+          "reason": "cccd"
+        },
+        {
+          "elapsed_ms": 22589,
+          "event": "ble_link_down",
+          "reason": "invalid_ingress_or_mtu"
+        },
+        {
+          "elapsed_ms": 27672,
+          "event": "ble_failed_stage",
+          "reason": "cccd"
+        },
+        {
+          "elapsed_ms": 27672,
+          "event": "ble_link_down",
+          "reason": "invalid_ingress_or_mtu"
+        },
+        {
+          "elapsed_ms": 27672,
+          "event": "ble_retry_exhausted",
+          "reason": "cooldown_requires_fresh_observation"
+        }
+      ]
+    }
+  ],
+  "matched_received_messages_each_direction": [
+    2,
+    2
+  ],
+  "message_ids_omitted": true
+}
