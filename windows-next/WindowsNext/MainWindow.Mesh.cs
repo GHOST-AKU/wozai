@@ -10,6 +10,7 @@ public sealed partial class MainWindow
 {
     private MeshClient? _mesh;
     private StackPanel? _meshMessages;
+    private ScrollViewer? _meshScroll;
     private TextBlock? _meshStatus;
     private TextBox? _meshInput;
     private Button? _meshSend, _meshToggle;
@@ -23,7 +24,11 @@ public sealed partial class MainWindow
     }
     private void RenderMesh()
     {
-        var body = Stack(16); body.Margin = new Thickness(30,20,30,30); body.MaxWidth = 930;
+        var pane = new Grid { Margin = new Thickness(30,20,30,30), MaxWidth = 930 };
+        pane.RowDefinitions.Add(new() { Height = GridLength.Auto });
+        pane.RowDefinitions.Add(new() { Height = new GridLength(1,GridUnitType.Star) });
+        pane.RowDefinitions.Add(new() { Height = GridLength.Auto });
+        var body = Stack(16); pane.Children.Add(body);
         body.Children.Add(Heading(T("mesh")));
         body.Children.Add(Text(T("meshPublic"), 13, true));
         _meshStatus = Text("", 14); body.Children.Add(_meshStatus);
@@ -39,15 +44,17 @@ public sealed partial class MainWindow
         _meshRelay.Toggled += (_, _) => { if (_mesh?.Running == true && _meshRelay.IsOn != _mesh.Relay) Run(() => _mesh.RelayAsync(_meshRelay.IsOn)); };
         controls.Children.Add(_meshRelay); body.Children.Add(controls);
         body.Children.Add(Text(T("meshRelayHint"), 12, true));
-        _meshMessages = Stack(12); body.Children.Add(_meshMessages);
+        _meshMessages = Stack(12);
+        _meshScroll = new ScrollViewer { Content = _meshMessages, Margin = new Thickness(0,16,0,16), VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+        Grid.SetRow(_meshScroll,1); pane.Children.Add(_meshScroll);
+        var footer = Stack(8); Grid.SetRow(footer,2); pane.Children.Add(footer);
         _meshInput = new TextBox { Text = _meshDraft, PlaceholderText = T("meshInput"), AcceptsReturn = true, MaxLength = 4096, MinHeight = 72, MaxHeight = 160, TextWrapping = TextWrapping.Wrap };
         AutomationProperties.SetAutomationId(_meshInput, "MeshInput");
         _meshInput.TextChanged += (_, _) => { _meshDraft = _meshInput.Text; UpdateMeshControls(); };
-        body.Children.Add(_meshInput);
+        footer.Children.Add(_meshInput);
         _meshSend = Button(T("send"), () => Run(SendMeshAsync), id: "MeshSend");
-        body.Children.Add(_meshSend);
-        var scroll = new ScrollViewer { Content = body, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalContentAlignment = HorizontalAlignment.Stretch };
-        AutomationProperties.SetAutomationId(scroll, "MeshPage"); _page.Children.Add(scroll);
+        footer.Children.Add(_meshSend);
+        AutomationProperties.SetAutomationId(pane, "MeshPage"); _page.Children.Add(pane);
         UpdateMesh();
     }
     private async Task SendMeshAsync()
@@ -70,6 +77,7 @@ public sealed partial class MainWindow
         _meshStatus.Text = (_mesh.Error.Length > 0 ? T(_mesh.Error) : T(_mesh.Starting ? "meshStarting" : _mesh.Running ? "meshLooking" : "meshOff")) + " · " + T("meshNeighbors") + ": " + _mesh.Neighbors;
         if (_meshToggle is not null) _meshToggle.Content = T(_mesh.Running || _mesh.Starting ? "meshStop" : "meshStart");
         if (_meshRelay is not null) { _meshRelay.IsEnabled = _mesh.Running; _meshRelay.IsOn = _mesh.Relay; }
+        bool follow = _meshScroll is null || _meshScroll.ScrollableHeight - _meshScroll.VerticalOffset < 32;
         _meshMessages.Children.Clear();
         foreach (var message in _mesh.Messages) {
             var content = Stack(5); content.Children.Add(Text(message.Own ? T("meshMe") : T("meshPeer"),12,true));
@@ -77,6 +85,7 @@ public sealed partial class MainWindow
             content.Children.Add(Text(T(message.State),12,true)); _meshMessages.Children.Add(Card(content));
         }
         if (_mesh.Messages.Count == 0) _meshMessages.Children.Add(Text(T("meshEmpty"),14,true));
+        if (follow && _meshScroll is not null) DispatcherQueue.TryEnqueue(() => { _meshScroll.UpdateLayout(); _meshScroll.ChangeView(null,_meshScroll.ScrollableHeight,null); });
         UpdateMeshControls();
     }
 }

@@ -21,7 +21,13 @@ started only when a private feature is opened. Public Mesh uses the existing Win
 framework and the small native Rust Core; no extra GUI/Python/JVM runtime is added
 for Mesh. The portable app still bundles its existing private-chat runtimes so
 those features work offline. Exact package/Core sizes are measured by CI, not
-estimated. This is a portable preview, not an installer or signed Windows release.
+estimated. WinAppSDK now references the specific WinUI+Runtime component packages,
+not the umbrella which also includes AI/ML. This follows Microsoft's guidance in
+https://github.com/microsoft/WindowsAppSDK/issues/6464 and
+https://github.com/microsoft/WindowsAppSDK/issues/6015 . No DLL is deleted after
+publish; the build rejects unexpected ONNX/DirectML payloads and real UI capture
+rechecks the resulting runtime. Jlink uses its supported compression level2,
+retaining all existing Java modules/locales. This is a portable preview, not an installer or signed Windows release.
 
 ## Transport and boundaries
 

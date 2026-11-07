@@ -25,6 +25,7 @@ Check 'Bluetooth native checks failed'
 $package = Join-Path $root 'windows-next/build/package/WoZaiNext'
 dotnet publish windows-next/WindowsNext/WindowsNext.csproj -c Release -r win-x64 --self-contained true -p:Platform=x64 -p:Version=$($config.appVersion.Split('-')[0]) -o $package
 Check 'WinUI publish failed'
+if ((Test-Path "$package/onnxruntime.dll") -or (Test-Path "$package/DirectML.dll")) { throw 'Unused AI/ML runtime was bundled' }
 $pri = Join-Path $package 'resources.pri'
 Get-ChildItem windows-next/WindowsNext,$package -Recurse -Filter '*.pri' | Select-Object FullName,Length | Format-Table -AutoSize
 if (-not (Test-Path $pri)) { throw 'WinUI resource index was not published; default control styles cannot load' }
@@ -45,7 +46,7 @@ Copy-Item windows-next/build/native/Release/wozai_bluetooth.dll "$kernel/lib/"
 & "$env:JAVA_HOME/bin/jar.exe" --create --file "$kernel/lib/windows-next-bridge.jar" -C windows-next/build/bridge/classes .
 Check 'Bridge JAR packaging failed'
 if (Test-Path "$kernel/runtime") { Remove-Item "$kernel/runtime" -Recurse -Force }
-& "$env:JAVA_HOME/bin/jlink.exe" --add-modules java.base,java.desktop,java.logging,java.naming,java.management,java.sql,jdk.crypto.ec,jdk.localedata,jdk.unsupported --strip-debug --no-man-pages --no-header-files --compress=1 --output "$kernel/runtime"
+& "$env:JAVA_HOME/bin/jlink.exe" --add-modules java.base,java.desktop,java.logging,java.naming,java.management,java.sql,jdk.crypto.ec,jdk.localedata,jdk.unsupported --strip-debug --no-man-pages --no-header-files --compress=2 --output "$kernel/runtime"
 Check 'Bundled Java runtime failed'
 Copy-Item THIRD_PARTY_NOTICES.md, LICENSE $package
 Copy-Item licenses "$package/licenses" -Recurse -Force
@@ -54,3 +55,5 @@ Copy-Item docs/windows-next.md "$package/README.md"
 $zip = Join-Path $root "windows-next/build/WoZai-next-$($config.appVersion)-windows-x64.zip"
 Compress-Archive -Path $package -DestinationPath $zip -Force
 Get-FileHash $zip -Algorithm SHA256 | Format-List
+Write-Output ("Product ZIP bytes: " + (Get-Item $zip).Length)
+Write-Output ("Mesh Core bytes: " + (Get-Item "$kernel/mesh-lab.exe").Length)
