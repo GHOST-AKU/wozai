@@ -162,6 +162,10 @@ private fun MeshScreen(onPrivate: () -> Unit) {
             Switch(checked = if (busy) state.relay else relay, enabled = !state.starting,
                 onCheckedChange = { relay = it; if (state.running) MeshClient.setRelay(context, it) })
         }
+        if (state.running && state.mode == "ble") TextButton(onClick = {
+            try { discoverable.launch(Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300)) }
+            catch (_: Exception) { bluetoothError = true }
+        }) { Text(stringResource(R.string.mesh_visible)) }
         Text(stringResource(R.string.mesh_relay_hint), style = MaterialTheme.typography.labelSmall)
         if (permissionError || bluetoothError || state.error.isNotEmpty()) {
             val error = when {

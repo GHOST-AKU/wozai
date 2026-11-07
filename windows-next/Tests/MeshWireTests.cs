@@ -21,15 +21,16 @@ public sealed class MeshWireTests
         finally { if(!child.HasExited)child.Kill(true); }
     }
     [Theory]
-    [InlineData("NOPE\u0001\babcdef12R")]
-    [InlineData("NMLC\u0002\babcdef12R")]
-    [InlineData("NMLC\u0001\0")]
-    [InlineData("NMLC\u0001\babcdef12X")]
-    [InlineData("NMLC\u0001\b-0000000R")]
-    public async Task MalformedOrWrongRolePrefaceFailsClosed(string wire)
+    [InlineData("NOPE\u0001\babcdef12R", "preface_invalid")]
+    [InlineData("NMLC\u0002\babcdef12R", "preface_invalid")]
+    [InlineData("NMLC\u0001\0", "preface_invalid")]
+    [InlineData("NMLC\u0001\babcdef12X", "ready_invalid")]
+    [InlineData("NMLC\u0001\b-0000000R", "role_or_label")]
+    public async Task MalformedOrWrongRolePrefaceFailsClosed(string wire, string reason)
     {
         using var input=new MemoryStream(Encoding.ASCII.GetBytes(wire)); using var output=new MemoryStream();
-        await Assert.ThrowsAnyAsync<IOException>(()=>MeshWire.HandshakeAsync(input,output,"-aaaaaa",true,CancellationToken.None));
+        var error = await Assert.ThrowsAsync<InvalidDataException>(()=>MeshWire.HandshakeAsync(input,output,"-aaaaaa",true,CancellationToken.None));
+        Assert.Equal(reason,error.Message);
     }
     [Fact]
     public async Task FragmentedAndroidPrefaceLeavesPayloadUntouched()

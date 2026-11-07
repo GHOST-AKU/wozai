@@ -4,7 +4,7 @@
     <string name="mesh_preview">0.4.0 preview · wireless acceptance pending</string>
     <string name="mesh_private_devices">Private devices</string>
     <string name="mesh_back_public">Back to public Mesh</string>
-    <string name="mesh_ble">BLE Bluetooth</string>
+    <string name="mesh_ble">Bluetooth</string>
     <string name="mesh_aware">Wi-Fi Aware</string>
     <string name="mesh_start">Start Mesh</string>
     <string name="mesh_stop">Stop Mesh</string>
@@ -48,4 +48,5 @@
     <string name="mesh_export_diagnostics">Export TXT</string>
     <string name="mesh_export_saved">Diagnostic report saved</string>
     <string name="mesh_export_failed">Could not save. Choose a location and retry.</string>
+    <string name="mesh_visible">Make visible to computers</string>
 </resources>

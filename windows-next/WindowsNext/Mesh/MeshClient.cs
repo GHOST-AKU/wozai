@@ -9,6 +9,7 @@ namespace WoZai.Next.Mesh;
 
 internal sealed class MeshClient : IAsyncDisposable
 {
+    private readonly string? _profile;
     private readonly Action<Action> _dispatch;
     private readonly SemaphoreSlim _commands = new(1, 1), _events = new(128, 128), _lifecycle = new(1, 1);
     private Process? _core;
@@ -18,6 +19,7 @@ internal sealed class MeshClient : IAsyncDisposable
     private Task? _reader, _stderr;
     private TaskCompletionSource<int>? _ready;
     private long _generation;
+    private bool _cleanupIncomplete;
     private readonly HashSet<string> _neighbors = new();
     private readonly List<MeshMessage> _messages = new();
     private readonly Dictionary<string, PendingSend> _requests = new();
@@ -28,11 +30,11 @@ internal sealed class MeshClient : IAsyncDisposable
     public bool Relay { get; private set; }
     public string Error { get; private set; } = "";
     public event Action? Changed;
-    public MeshClient(Action<Action> dispatch) { _dispatch = dispatch; }
+    public MeshClient(Action<Action> dispatch, string? profile = null) { _dispatch = dispatch; _profile = profile; }
 
-    private static string PrivateState()
+    private string PrivateState()
     {
-        var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WoZaiNext", "Mesh");
+        var root = Path.Combine(_profile ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WoZaiNext"), "Mesh");
         var sid = WindowsIdentity.GetCurrent().User ?? throw new IOException("identity_unavailable");
         var info = new DirectoryInfo(root);
         if (info.Exists)
@@ -56,8 +58,10 @@ internal sealed class MeshClient : IAsyncDisposable
     public async Task StartAsync()
     {
         await _lifecycle.WaitAsync();
+        var stage="meshCoreStopped";
         try
         {
+            if (_cleanupIncomplete) { Error="meshCleanupIncomplete"; Changed?.Invoke(); return; }
             if (Running || Starting) return;
             await CleanupAsync();
             var token = ++_generation;
@@ -76,11 +80,12 @@ internal sealed class MeshClient : IAsyncDisposable
             _reader = ReadAsync(_core.StandardOutput, token, _stop.Token);
             _stderr = DrainAsync(_core.StandardError, _stop.Token);
             int port = await _ready.Task.WaitAsync(TimeSpan.FromSeconds(10), _stop.Token);
-            _radio = new BluetoothMesh(port, _dispatch, key => { Error = key; Changed?.Invoke(); });
+            stage="meshUnavailable";
+            _radio = new BluetoothMesh(port, _dispatch, key => { _cleanupIncomplete=true; Error = key; Changed?.Invoke(); });
             await _radio.StartAsync().WaitAsync(TimeSpan.FromSeconds(20), _stop.Token);
             Running = true; Starting = false; Changed?.Invoke();
         }
-        catch (Exception) { await CleanupAsync(); Starting = false; Error = "meshUnavailable"; Changed?.Invoke(); }
+        catch (Exception) { await CleanupAsync(); Starting = false; Error = _cleanupIncomplete ? "meshCleanupIncomplete" : stage; Changed?.Invoke(); }
         finally { _lifecycle.Release(); }
     }
     private async Task ReadAsync(StreamReader reader, long generation, CancellationToken stop)
@@ -154,6 +159,7 @@ internal sealed class MeshClient : IAsyncDisposable
             await core.StandardInput.WriteLineAsync(JsonSerializer.Serialize(command)).WaitAsync(TimeSpan.FromSeconds(3));
             await core.StandardInput.FlushAsync().WaitAsync(TimeSpan.FromSeconds(3));
         }
+        catch { _ = StopAsync("meshCoreStopped"); throw; }
         finally { _commands.Release(); }
     }
     public async Task SendAsync(string text)
@@ -168,7 +174,7 @@ internal sealed class MeshClient : IAsyncDisposable
     {
         _stop?.Cancel(); _radio?.RequestStop();
         await _lifecycle.WaitAsync();
-        try { ++_generation; await CleanupAsync(); Error = error; Changed?.Invoke(); } finally { _lifecycle.Release(); }
+        try { ++_generation; await CleanupAsync(); Error = _cleanupIncomplete ? "meshCleanupIncomplete" : error; Changed?.Invoke(); } finally { _lifecycle.Release(); }
     }
     private void FailRequests() {
         foreach (var request in _requests.Values) request.Accepted.TrySetException(new IOException("send_unconfirmed"));
@@ -181,10 +187,19 @@ internal sealed class MeshClient : IAsyncDisposable
     {
         ++_generation;
         _stop?.Cancel();
-        if (_radio is not null) { await _radio.DisposeAsync(); _radio = null; }
+        if (_radio is not null) { try { await _radio.DisposeAsync(); } catch { _cleanupIncomplete=true; } finally { _radio=null; } }
         if (_core is not null)
         {
-            try { _core.StandardInput.Close(); await _core.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(3)); }
+            try {
+                bool entered = await _commands.WaitAsync(TimeSpan.FromSeconds(1));
+                if (entered) {
+                    try {
+                        await _core.StandardInput.WriteLineAsync("{\"cmd\":\"quit\"}").WaitAsync(TimeSpan.FromSeconds(1));
+                        await _core.StandardInput.FlushAsync().WaitAsync(TimeSpan.FromSeconds(1));
+                    } finally { _commands.Release(); }
+                }
+                _core.StandardInput.Close(); await _core.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(3));
+            }
             catch { try { _core.Kill(true); await _core.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(3)); } catch { } }
             _core.Dispose(); _core = null;
         }

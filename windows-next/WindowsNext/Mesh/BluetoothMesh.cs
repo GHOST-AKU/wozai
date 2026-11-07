@@ -143,10 +143,10 @@ internal sealed class BluetoothMesh : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         _stop.Cancel();
-        if (_watcher?.Status is DeviceWatcherStatus.Started or DeviceWatcherStatus.EnumerationCompleted) _watcher.Stop();
+        try { if (_watcher?.Status is DeviceWatcherStatus.Started or DeviceWatcherStatus.EnumerationCompleted) _watcher.Stop(); } catch (Exception) { }
         try { _provider?.StopAdvertising(); } catch (Exception) { }
         try { _listener?.Dispose(); } catch (Exception) { }
-        foreach (var socket in _sockets.ToArray()) socket.Dispose();
+        foreach (var socket in _sockets.ToArray()) try { socket.Dispose(); } catch (Exception) { }
         try { await Task.WhenAll(_jobs.ToArray()).WaitAsync(TimeSpan.FromSeconds(5)); } catch (Exception) { _notice("meshCleanupIncomplete"); }
         _sockets.Clear(); _candidates.Clear();
     }

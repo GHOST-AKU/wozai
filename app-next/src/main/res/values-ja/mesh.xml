@@ -4,7 +4,7 @@
     <string name="mesh_preview">0.4.0 preview · 無線の実機検証は未完了</string>
     <string name="mesh_private_devices">個別チャットの端末</string>
     <string name="mesh_back_public">公開 Mesh に戻る</string>
-    <string name="mesh_ble">BLE Bluetooth</string>
+    <string name="mesh_ble">Bluetooth</string>
     <string name="mesh_aware">Wi-Fi Aware</string>
     <string name="mesh_start">Mesh を開始</string>
     <string name="mesh_stop">Mesh を停止</string>
@@ -48,4 +48,5 @@
     <string name="mesh_export_diagnostics">TXT を保存</string>
     <string name="mesh_export_saved">診断レポートを保存しました</string>
     <string name="mesh_export_failed">保存できませんでした。保存先を選び直してください。</string>
+    <string name="mesh_visible">パソコンから検出可能にする</string>
 </resources>

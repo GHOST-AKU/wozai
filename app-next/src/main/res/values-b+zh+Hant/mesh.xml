@@ -4,7 +4,7 @@
     <string name="mesh_preview">0.4.0 preview · 無線驗收待完成</string>
     <string name="mesh_private_devices">私聊裝置</string>
     <string name="mesh_back_public">返回公共 Mesh</string>
-    <string name="mesh_ble">BLE 藍牙</string>
+    <string name="mesh_ble">藍牙</string>
     <string name="mesh_aware">Wi-Fi Aware</string>
     <string name="mesh_start">開啟 Mesh</string>
     <string name="mesh_stop">停止 Mesh</string>
@@ -48,4 +48,5 @@
     <string name="mesh_export_diagnostics">匯出 TXT</string>
     <string name="mesh_export_saved">診斷報告已儲存</string>
     <string name="mesh_export_failed">儲存失敗，請重新選擇位置</string>
+    <string name="mesh_visible">讓電腦探索</string>
 </resources>

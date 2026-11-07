@@ -18,7 +18,7 @@ public sealed partial class MainWindow
     private bool _meshSending;
     private void InitializeMesh()
     {
-        _mesh = new MeshClient(action => { if (!DispatcherQueue.TryEnqueue(() => action())) action(); });
+        _mesh = new MeshClient(action => { if (!DispatcherQueue.TryEnqueue(() => action())) action(); }, _startupProfile);
         _mesh.Changed += () => { if (!_closed) UpdateMesh(); };
     }
     private void RenderMesh()
@@ -34,7 +34,7 @@ public sealed partial class MainWindow
         }), id: "MeshStartStop");
         controls.Children.Add(_meshToggle);
         controls.Children.Add(Button(T("bluetoothSettings"), () => Run(async () => { await Launcher.LaunchUriAsync(new Uri("ms-settings:bluetooth")); })));
-        _meshRelay = new ToggleSwitch { Header = T("meshRelay"), OnContent = T("on"), OffContent = T("off") };
+        _meshRelay = new ToggleSwitch { Header = T("meshRelay"), OnContent = T("meshRelayOn"), OffContent = T("meshRelayOff") };
         AutomationProperties.SetAutomationId(_meshRelay, "MeshRelay");
         _meshRelay.Toggled += (_, _) => { if (_mesh?.Running == true && _meshRelay.IsOn != _mesh.Relay) Run(() => _mesh.RelayAsync(_meshRelay.IsOn)); };
         controls.Children.Add(_meshRelay); body.Children.Add(controls);

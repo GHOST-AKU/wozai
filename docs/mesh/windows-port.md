@@ -1,5 +1,8 @@
 # Windows Mesh port: research and first executable lab
 
+The current GUI product path is documented in [Windows client](windows-client.md).
+The USB/Bumble route below is retained as research history and is not the GUI runtime.
+
 Decision date: 2026-11-07. Independent experimental module; no WinUI integration,
 NIM4 change, Android transport change, release or merge. Android preview.6 is the
 compatibility baseline. The owner's later report of stable multi-device Android
