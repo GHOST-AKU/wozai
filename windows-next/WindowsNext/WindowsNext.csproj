@@ -20,7 +20,8 @@
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="UiCatalog.json" />
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260921001" />
+    <!-- Use the self-contained WinUI component. The Runtime package copies the complete framework, including ML. -->
+    <PackageReference Include="Microsoft.WindowsAppSDK.WinUI" Version="1.8.260803003" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.4654" />
     <!-- Its build assets are not transitive through the App SDK component packages. -->
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools.MSIX" Version="1.7.20250829.1" PrivateAssets="all" />

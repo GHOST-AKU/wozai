@@ -74,6 +74,7 @@ try {
         finally { $graphics.Dispose(); $bitmap.Dispose() }
     }
     Start-Sleep -Seconds 1
+    Click-Control 'NavMesh'; Capture 'mesh'
     Click-Control 'NavChats'
     $readyDeadline = [DateTime]::UtcNow.AddSeconds(30)
     do {

@@ -2,6 +2,14 @@
 
 本实验以 Windows 原生 WinUI 3 重建当前桌面客户端的功能，使用独立数据目录 `%LOCALAPPDATA%\WoZaiNext`。原客户端的密钥、信任和记录不会自动导入。Windows 10 19041 及以上、Windows 11，当前目标 Windows x64。
 
+## 0.4.0-preview.7 公共 Mesh
+
+解压后打开 `WoZaiNext/WindowsNext.exe`，默认进入公共 Mesh 并自动启动系统蓝牙发现。无需 Python、命令行或修改蓝牙驱动。安卓需使用配套 preview.7，开启附近蓝牙 Mesh，并允许系统提示的蓝牙可发现；超时可点「让电脑发现」。中继默认关闭，需明确开启。关闭窗口会停止自己的 Mesh 核心。
+
+Windows 使用原生 RFCOMM；安卓保留已有 BLE CoC，增加电脑兼容接收入口。公共消息可被附近节点/中继阅读，不是端到端加密。原生真实无线互通仍为 hardware validation pending；不把回环、虚拟控制器或窗口测试当硬件验收。私聊仍使用原 NIM4/Noise，私聊核心按需启动。
+
+[实现、资源限制与验证边界](mesh/windows-client.md)。以下旧实验包链接保留为历史记录，不代表包含新 Mesh 功能。
+
 ## 架构与安装
 
 窗口、导航、列表、对话框、文件选择器均为 WinUI 3 控件。通信通过私有子进程管道接入原 `DesktopClient`；不新增可被其他应用访问的控制端口。NIM4、Noise、身份、LAN、Windows 蓝牙、附件和记录沿用原 Java 源码。

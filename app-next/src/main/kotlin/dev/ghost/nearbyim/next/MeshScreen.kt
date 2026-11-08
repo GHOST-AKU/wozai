@@ -94,8 +94,16 @@ private fun MeshScreen(onPrivate: () -> Unit) {
         pendingStart = null
         MeshClient.start(context, request.first, request.second)
     }
+    val discoverable = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { begin() }
+    fun discoverAndBegin() {
+        if (pendingStart?.first != "ble") { begin(); return }
+        try {
+            discoverable.launch(Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE)
+                .putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300))
+        } catch (_: Exception) { begin() }
+    }
     val enableBluetooth = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        if (result.resultCode == android.app.Activity.RESULT_OK) begin()
+        if (result.resultCode == android.app.Activity.RESULT_OK) discoverAndBegin()
         else { pendingStart = null; bluetoothError = true }
     }
     fun afterPermissions() {
@@ -106,7 +114,7 @@ private fun MeshScreen(onPrivate: () -> Unit) {
                 if (manager?.adapter?.isEnabled == false) { enableBluetooth.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)); return }
             } catch (_: SecurityException) { permissionError = true; pendingStart = null; return }
         }
-        begin()
+        discoverAndBegin()
     }
     val permissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         val request = pendingStart
@@ -154,6 +162,10 @@ private fun MeshScreen(onPrivate: () -> Unit) {
             Switch(checked = if (busy) state.relay else relay, enabled = !state.starting,
                 onCheckedChange = { relay = it; if (state.running) MeshClient.setRelay(context, it) })
         }
+        if (state.running && state.mode == "ble") TextButton(onClick = {
+            try { discoverable.launch(Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300)) }
+            catch (_: Exception) { bluetoothError = true }
+        }) { Text(stringResource(R.string.mesh_visible)) }
         Text(stringResource(R.string.mesh_relay_hint), style = MaterialTheme.typography.labelSmall)
         if (permissionError || bluetoothError || state.error.isNotEmpty()) {
             val error = when {

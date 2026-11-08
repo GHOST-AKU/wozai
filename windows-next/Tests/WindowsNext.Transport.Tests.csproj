@@ -16,6 +16,8 @@
   <ItemGroup>
     <Compile Remove="Fixture/**/*.cs" />
     <ProjectReference Include="Fixture/BridgeFixture.csproj" ReferenceOutputAssembly="false" />
+    <Compile Include="../WindowsNext/Mesh/CoreJob.cs" Link="CoreJob.cs" />
+    <Compile Include="../WindowsNext/Mesh/MeshWire.cs" Link="MeshWire.cs" />
     <Compile Include="../WindowsNext/Models.cs" Link="Models.cs" />
     <Compile Include="../WindowsNext/Services/**/*.cs" LinkBase="Services" />
   </ItemGroup>

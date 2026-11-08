@@ -77,3 +77,37 @@ fn snapshot_metadata_errors_are_not_treated_as_missing_state() {
     assert!(store.load().is_err());
     assert!(!moved.join("seen.json").exists());
 }
+
+#[test]
+fn repeated_snapshot_replacement_survives_close_and_reopen() {
+    let dir = tempfile::tempdir().unwrap();
+    let seen = std::collections::BTreeMap::from([("a".repeat(64), 1200)]);
+    {
+        let store = Store::open(dir.path()).unwrap();
+        store.save(&seen, 3, 1000).unwrap();
+        store.save(&seen, 0, 1001).unwrap();
+    }
+    let loaded = Store::open(dir.path()).unwrap().load().unwrap();
+    assert_eq!(loaded.seen, seen);
+    assert_eq!(loaded.pending_lost, 0);
+    assert_eq!(loaded.saved_at, 1001);
+}
+
+#[cfg(windows)]
+#[test]
+fn windows_junction_is_rejected_as_state_directory() {
+    let dir = tempfile::tempdir().unwrap();
+    let target = dir.path().join("target");
+    let junction = dir.path().join("junction");
+    std::fs::create_dir(&target).unwrap();
+    let result = std::process::Command::new("cmd")
+        .args(["/C", "mklink", "/J"])
+        .arg(&junction)
+        .arg(&target)
+        .output()
+        .unwrap();
+    assert!(result.status.success(), "junction fixture failed");
+    assert!(Store::open(&junction).is_err());
+    assert!(!target.join("identity.seed").exists());
+    std::fs::remove_dir(junction).unwrap();
+}

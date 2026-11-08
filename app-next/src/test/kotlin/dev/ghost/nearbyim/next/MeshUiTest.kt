@@ -25,7 +25,7 @@ class MeshUiTest {
         compose.onNodeWithText("附近").performClick()
         compose.onNodeWithText("0.4.0 preview · 无线验收待完成").assertIsDisplayed()
         compose.onNodeWithText("开启 Mesh").performClick()
-        compose.onNodeWithText("公共消息可被附近节点和中继阅读，不提供端到端加密。开启不等于信任私聊设备。").assertIsDisplayed()
+        compose.onNodeWithText(compose.activity.getString(dev.ghost.nearbyim.R.string.mesh_public_notice)).assertIsDisplayed()
         compose.onNodeWithText("取消").performClick()
         compose.onNodeWithText("开启 Mesh").assertIsDisplayed()
     }

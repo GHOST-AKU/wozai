@@ -1,5 +1,7 @@
 # BLE stability audit and release gate
 
+> 2026-11-08 更新：Android 多设备与 Windows Mesh/中继已有所有者实机成功反馈；正式无线验收资料仍待补齐。见[实机反馈与 PR 索引](field-validation-2026-11-08.md)。以下早期状态和实验记录保留其原始时间/范围。
+
 Status: LE CoC replacement implemented; final verification and hardware acceptance pending. The previous preview.6 candidate is withheld;
 no further phone test is requested until reviewed fixes and CI converge. User goal:
 first-start automatic connection and automatic fault recovery, without repeated

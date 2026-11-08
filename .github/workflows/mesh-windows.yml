@@ -1,0 +1,80 @@
+name: Verify Windows Mesh port
+on:
+  workflow_dispatch:
+  pull_request:
+    paths: ['mesh/**', 'docs/mesh/windows-port.md', '.github/workflows/mesh-windows.yml']
+permissions:
+  contents: read
+concurrency:
+  group: mesh-windows-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  windows-core-radio:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    env:
+      MESH_VERIFIED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@1.88.0
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mesh
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: mesh/windows-radio/requirements.txt
+      - name: Native Windows Core validation
+        shell: pwsh
+        run: |
+          if ((git rev-parse HEAD) -ne $env:MESH_VERIFIED_SHA) { throw 'Wrong revision' }
+          cargo fmt --manifest-path mesh/Cargo.toml --check
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo clippy --manifest-path mesh/Cargo.toml --locked --all-targets -- -D warnings
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo test --manifest-path mesh/Cargo.toml --locked
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo build --manifest-path mesh/Cargo.toml --locked --release
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Real independent processes on Windows loopback (not RF isolation)
+        shell: pwsh
+        run: |
+          $env:MESH_BINARY = "$pwd/mesh/target/release/mesh-lab.exe"
+          python -m unittest discover -s mesh/tests -p test_lab.py -v
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: LE CoC protocol stack regressions over virtual controllers (not RF)
+        shell: pwsh
+        run: |
+          python -m pip install -r mesh/windows-radio/requirements.txt
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $env:MESH_BINARY = "$pwd/mesh/target/release/mesh-lab.exe"
+          python -m unittest discover -s mesh/windows-radio/tests -v
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python -m pip freeze > mesh/target/windows-python-resolved.txt
+      - name: Private-state launcher and portable lab package
+        shell: pwsh
+        run: |
+          $state = Join-Path $env:RUNNER_TEMP 'nearby-mesh-private-state'
+          '{"cmd":"quit"}' | & ./mesh/windows-radio/run-core.ps1 -Core "$pwd/mesh/target/release/mesh-lab.exe" -State $state
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $acl = Get-Acl (Join-Path $state 'identity.seed')
+          $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+          foreach ($rule in $acl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier])) {
+            if ($rule.AccessControlType -eq 'Allow' -and $rule.IdentityReference.Value -ne $sid) { throw 'Seed ACL leak' }
+          }
+          python mesh/windows-radio/package.py
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-mesh-lab
+          path: |
+            mesh/target/windows-mesh-lab.zip
+            mesh/target/windows-python-resolved.txt
+          if-no-files-found: warn

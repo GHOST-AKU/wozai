@@ -4,13 +4,13 @@
     <string name="mesh_preview">0.4.0 preview · 무선 실기기 검증 대기</string>
     <string name="mesh_private_devices">개인 채팅 기기</string>
     <string name="mesh_back_public">공개 Mesh로 돌아가기</string>
-    <string name="mesh_ble">BLE 블루투스</string>
+    <string name="mesh_ble">블루투스</string>
     <string name="mesh_aware">Wi-Fi Aware</string>
     <string name="mesh_start">Mesh 시작</string>
     <string name="mesh_stop">Mesh 중지</string>
     <string name="mesh_relay">다른 노드의 중계 허용</string>
     <string name="mesh_relay_hint">중계는 배터리를 더 사용합니다. 명시적으로 허용한 경우에만 전달합니다.</string>
-    <string name="mesh_public_notice">공개 메시지는 주변 노드와 중계에서 읽을 수 있습니다. 종단간 암호화가 아니며 참여해도 개인 채팅 기기를 신뢰하지 않습니다.</string>
+    <string name="mesh_public_notice">공개 메시지는 주변 노드와 중계에서 읽을 수 있습니다. 종단간 암호화가 아니며 참여해도 개인 채팅 기기를 신뢰하지 않습니다. 컴퓨터에 연결하려면 시스템의 블루투스 검색 허용 안내를 승인하세요。</string>
     <string name="mesh_confirm_title">공개 Mesh를 시작할까요?</string>
     <string name="mesh_confirm">동의하고 시작</string>
     <string name="mesh_cancel">취소</string>
@@ -48,4 +48,5 @@
     <string name="mesh_export_diagnostics">TXT 내보내기</string>
     <string name="mesh_export_saved">진단 보고서를 저장했습니다</string>
     <string name="mesh_export_failed">저장하지 못했습니다. 위치를 다시 선택하세요.</string>
+    <string name="mesh_visible">컴퓨터에서 검색 허용</string>
 </resources>

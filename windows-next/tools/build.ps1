@@ -4,6 +4,9 @@ $root = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 Set-Location $root
 function Check([string]$message) { if ($LASTEXITCODE -ne 0) { throw $message } }
 $config = Get-Content i18n/config.json -Raw -Encoding UTF8 | ConvertFrom-Json
+cargo build --manifest-path mesh/Cargo.toml --locked --release
+Check 'Native Mesh core build failed'
+$env:WOZAI_MESH_CORE = Join-Path $root 'mesh/target/release/mesh-lab.exe'
 if ($Test) {
     python windows-next/tools/build-bridge.py --test
     Check 'Real-kernel bridge tests failed'
@@ -22,6 +25,7 @@ Check 'Bluetooth native checks failed'
 $package = Join-Path $root 'windows-next/build/package/WoZaiNext'
 dotnet publish windows-next/WindowsNext/WindowsNext.csproj -c Release -r win-x64 --self-contained true -p:Platform=x64 -p:Version=$($config.appVersion.Split('-')[0]) -o $package
 Check 'WinUI publish failed'
+if ((Test-Path "$package/onnxruntime.dll") -or (Test-Path "$package/DirectML.dll")) { throw 'Unused AI/ML runtime was bundled' }
 $pri = Join-Path $package 'resources.pri'
 Get-ChildItem windows-next/WindowsNext,$package -Recurse -Filter '*.pri' | Select-Object FullName,Length | Format-Table -AutoSize
 if (-not (Test-Path $pri)) { throw 'WinUI resource index was not published; default control styles cannot load' }
@@ -34,17 +38,28 @@ if (-not (Select-String -Path $priDump -SimpleMatch 'Microsoft.UI.Xaml/Themes/ge
 Write-Output 'Published PRI contains WinUI default control styles.'
 $kernel = Join-Path $package 'kernel'
 New-Item -ItemType Directory -Force "$kernel/lib" | Out-Null
+Copy-Item mesh/target/release/mesh-lab.exe "$kernel/mesh-lab.exe"
+Copy-Item mesh/THIRD_PARTY.md "$kernel/MESH-THIRD-PARTY.md"
+Copy-Item mesh/vendor-licenses "$kernel/mesh-licenses" -Recurse -Force
 Copy-Item windows-next/build/bridge/lib/*.jar "$kernel/lib/"
 Copy-Item windows-next/build/native/Release/wozai_bluetooth.dll "$kernel/lib/"
 & "$env:JAVA_HOME/bin/jar.exe" --create --file "$kernel/lib/windows-next-bridge.jar" -C windows-next/build/bridge/classes .
 Check 'Bridge JAR packaging failed'
 if (Test-Path "$kernel/runtime") { Remove-Item "$kernel/runtime" -Recurse -Force }
-& "$env:JAVA_HOME/bin/jlink.exe" --add-modules java.base,java.desktop,java.logging,java.naming,java.management,java.sql,jdk.crypto.ec,jdk.localedata,jdk.unsupported --strip-debug --no-man-pages --no-header-files --compress=1 --output "$kernel/runtime"
+& "$env:JAVA_HOME/bin/jlink.exe" --add-modules java.base,java.desktop,java.logging,java.naming,java.management,java.sql,jdk.crypto.ec,jdk.localedata,jdk.unsupported --strip-debug --no-man-pages --no-header-files --compress=2 --output "$kernel/runtime"
 Check 'Bundled Java runtime failed'
+# The Rust MSVC child imports VCRUNTIME140. App-local placement also works on a
+# clean Windows installation without a separately installed VC redistributable.
+$crt = Join-Path $kernel 'runtime/bin/vcruntime140.dll'
+if (-not (Test-Path $crt)) { throw 'Bundled JDK lacks required app-local CRT' }
+Copy-Item $crt "$kernel/vcruntime140.dll"
+if ((Get-FileHash $crt).Hash -ne (Get-FileHash "$kernel/vcruntime140.dll").Hash) { throw 'CRT copy mismatch' }
 Copy-Item THIRD_PARTY_NOTICES.md, LICENSE $package
 Copy-Item licenses "$package/licenses" -Recurse -Force
 Copy-Item docs/windows-next.md "$package/README.md"
-@{version=$config.appVersion;buildNumber=$config.buildNumber;source=(git rev-parse HEAD);kernel='unchanged DesktopClient';platform='win-x64';ui='WinUI 3'} | ConvertTo-Json | Set-Content "$package/build-info.json" -Encoding UTF8
+@{version=$config.appVersion;buildNumber=$config.buildNumber;source=(git rev-parse HEAD);kernel='DesktopClient + independent Mesh Core';platform='win-x64';ui='WinUI 3';meshCoreSha256=(Get-FileHash "$kernel/mesh-lab.exe" -Algorithm SHA256).Hash.ToLowerInvariant()} | ConvertTo-Json | Set-Content "$package/build-info.json" -Encoding UTF8
 $zip = Join-Path $root "windows-next/build/WoZai-next-$($config.appVersion)-windows-x64.zip"
 Compress-Archive -Path $package -DestinationPath $zip -Force
 Get-FileHash $zip -Algorithm SHA256 | Format-List
+Write-Output ("Product ZIP bytes: " + (Get-Item $zip).Length)
+Write-Output ("Mesh Core bytes: " + (Get-Item "$kernel/mesh-lab.exe").Length)
