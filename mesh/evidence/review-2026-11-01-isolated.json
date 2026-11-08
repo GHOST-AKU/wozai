@@ -1,0 +1,398 @@
+{
+  "schema": 2,
+  "validation": "isolated TCP overlay, NOT wireless mesh",
+  "hardware_validation": "pending",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "python": "3.12.14",
+  "binary": "/workspace/wozai/mesh/target/release/mesh-lab",
+  "binary_sha256": "187f6c673724d8928ef6dd12dfd799bc669043b075c5ece0eaa1c96df42fb154",
+  "binary_bytes": 1864496,
+  "started_at_utc": "2026-10-31T16:40:28.974543+00:00",
+  "driver_sha256": "05a3ffed03f03ba68ed474011a79eb374dbd7465f34630a6893a22905700cdf0",
+  "source_snapshot_commit": "542fb050531d8fb6abe6fdafe5c43a1097b3bd4f",
+  "source_snapshot_dirty": true,
+  "binary_source_binding": "not_attested_by_this_tool",
+  "topology": {
+    "routes": {
+      "a": "10.77.1.0/30 dev ab proto kernel scope link src 10.77.1.1",
+      "b": "10.77.1.0/30 dev ba proto kernel scope link src 10.77.1.2 \n10.77.2.0/30 dev bc proto kernel scope link src 10.77.2.1",
+      "c": "10.77.2.0/30 dev cb proto kernel scope link src 10.77.2.2"
+    },
+    "kernel_forwarding": "0",
+    "listener_controls": [
+      {
+        "source": "b",
+        "target": "10.77.1.1",
+        "connect_ex": 0,
+        "errno": "OK"
+      },
+      {
+        "source": "b",
+        "target": "10.77.2.2",
+        "connect_ex": 0,
+        "errno": "OK"
+      }
+    ],
+    "negative_direct_connect": [
+      {
+        "source": "a",
+        "target": "10.77.2.2",
+        "connect_ex": 101,
+        "errno": "ENETUNREACH"
+      },
+      {
+        "source": "c",
+        "target": "10.77.1.1",
+        "connect_ex": 101,
+        "errno": "ENETUNREACH"
+      }
+    ]
+  },
+  "checks": {
+    "bidirectional_paths": [
+      [
+        "A",
+        "B",
+        "C"
+      ],
+      [
+        "C",
+        "B",
+        "A"
+      ],
+      [
+        "A",
+        "B",
+        "C"
+      ],
+      [
+        "C",
+        "B",
+        "A"
+      ],
+      [
+        "A",
+        "B",
+        "C"
+      ],
+      [
+        "C",
+        "B",
+        "A"
+      ],
+      [
+        "A",
+        "B",
+        "C"
+      ],
+      [
+        "C",
+        "B",
+        "A"
+      ],
+      [
+        "A",
+        "B",
+        "C"
+      ],
+      [
+        "C",
+        "B",
+        "A"
+      ],
+      [
+        "A",
+        "B",
+        "C"
+      ],
+      [
+        "C",
+        "B",
+        "A"
+      ]
+    ],
+    "relay_off_blocks": true,
+    "partition_recovery": true,
+    "relay_restart_reconnect": true,
+    "restart_replay_rejected": true,
+    "no_duplicate_display": true
+  },
+  "latency_ms": [
+    8.291144000395434,
+    9.565775999362813,
+    10.974128999805544,
+    9.535679997497937,
+    11.028230001102202,
+    9.609511998860398,
+    10.987738001858816,
+    9.550492002745159,
+    10.95852499929606,
+    9.670993997133337,
+    10.85780300127226,
+    9.636382001190213
+  ],
+  "discovery": false,
+  "pids": {
+    "a": 19544,
+    "b": 19541,
+    "c": 19548
+  },
+  "relay_before_restart": {
+    "bytes_rx": 10668,
+    "bytes_tx": 18255,
+    "candidates": 0,
+    "connections": 2,
+    "delivery": "best_effort_no_global_ack",
+    "duplicates": 0,
+    "event": "diagnostics",
+    "handed_to_neighbor_unconfirmed": 19,
+    "hardware_validation": "pending",
+    "limits": {
+      "candidates": 16,
+      "connections": 8,
+      "frame_bytes": 32768,
+      "pending": 64,
+      "seen": 1024,
+      "tx_per_link": 8
+    },
+    "peak_connections": 2,
+    "peak_pending": 13,
+    "peak_tx_frames_per_link": 7,
+    "pending": 13,
+    "public_plaintext": true,
+    "received": 14,
+    "rejected": 1,
+    "relay": true,
+    "seen": 13,
+    "proc": {
+      "pid": 19541,
+      "VmHWM_KiB": 2180,
+      "VmRSS_KiB": 2180,
+      "start_time_ticks": 1775645,
+      "cpu_ticks": 0,
+      "clock_ticks_per_second": 100,
+      "cpu_seconds": 0.0,
+      "Pss_KiB": 776,
+      "process_tree": {
+        "method": "sequential_procfs_ppid_point_sample",
+        "sampled_at_monotonic_ns": 17758955306949,
+        "processes": [
+          {
+            "pid": 19541,
+            "VmHWM_KiB": 2180,
+            "VmRSS_KiB": 2180,
+            "start_time_ticks": 1775645,
+            "cpu_ticks": 0,
+            "clock_ticks_per_second": 100,
+            "cpu_seconds": 0.0,
+            "Pss_KiB": 776
+          }
+        ],
+        "process_count": 1,
+        "unavailable_pids": [],
+        "RSS_total_KiB": 2180,
+        "PSS_total_KiB": 776,
+        "cpu_ticks_total": 0
+      }
+    }
+  },
+  "nodes": {
+    "A": {
+      "bytes_rx": 7013,
+      "bytes_tx": 11052,
+      "candidates": 1,
+      "connections": 1,
+      "delivery": "best_effort_no_global_ack",
+      "duplicates": 0,
+      "event": "diagnostics",
+      "handed_to_neighbor_unconfirmed": 15,
+      "hardware_validation": "pending",
+      "limits": {
+        "candidates": 16,
+        "connections": 8,
+        "frame_bytes": 32768,
+        "pending": 64,
+        "seen": 1024,
+        "tx_per_link": 8
+      },
+      "peak_connections": 1,
+      "peak_pending": 7,
+      "peak_tx_frames_per_link": 7,
+      "pending": 7,
+      "public_plaintext": true,
+      "received": 7,
+      "rejected": 2,
+      "relay": false,
+      "seen": 14,
+      "proc": {
+        "pid": 19544,
+        "VmHWM_KiB": 2308,
+        "VmRSS_KiB": 2308,
+        "start_time_ticks": 1775645,
+        "cpu_ticks": 1,
+        "clock_ticks_per_second": 100,
+        "cpu_seconds": 0.01,
+        "Pss_KiB": 866,
+        "process_tree": {
+          "method": "sequential_procfs_ppid_point_sample",
+          "sampled_at_monotonic_ns": 17760970221120,
+          "processes": [
+            {
+              "pid": 19544,
+              "VmHWM_KiB": 2308,
+              "VmRSS_KiB": 2308,
+              "start_time_ticks": 1775645,
+              "cpu_ticks": 1,
+              "clock_ticks_per_second": 100,
+              "cpu_seconds": 0.01,
+              "Pss_KiB": 866
+            }
+          ],
+          "process_count": 1,
+          "unavailable_pids": [],
+          "RSS_total_KiB": 2308,
+          "PSS_total_KiB": 866,
+          "cpu_ticks_total": 1
+        }
+      }
+    },
+    "B": {
+      "bytes_rx": 6192,
+      "bytes_tx": 1547,
+      "candidates": 0,
+      "connections": 2,
+      "delivery": "best_effort_no_global_ack",
+      "duplicates": 7,
+      "event": "diagnostics",
+      "handed_to_neighbor_unconfirmed": 1,
+      "hardware_validation": "pending",
+      "limits": {
+        "candidates": 16,
+        "connections": 8,
+        "frame_bytes": 32768,
+        "pending": 64,
+        "seen": 1024,
+        "tx_per_link": 8
+      },
+      "peak_connections": 2,
+      "peak_pending": 1,
+      "peak_tx_frames_per_link": 1,
+      "pending": 1,
+      "public_plaintext": true,
+      "received": 1,
+      "rejected": 0,
+      "relay": true,
+      "seen": 14,
+      "proc": {
+        "pid": 19563,
+        "VmHWM_KiB": 2076,
+        "VmRSS_KiB": 2076,
+        "start_time_ticks": 1775896,
+        "cpu_ticks": 0,
+        "clock_ticks_per_second": 100,
+        "cpu_seconds": 0.0,
+        "Pss_KiB": 709,
+        "process_tree": {
+          "method": "sequential_procfs_ppid_point_sample",
+          "sampled_at_monotonic_ns": 17760976312535,
+          "processes": [
+            {
+              "pid": 19563,
+              "VmHWM_KiB": 2076,
+              "VmRSS_KiB": 2076,
+              "start_time_ticks": 1775896,
+              "cpu_ticks": 0,
+              "clock_ticks_per_second": 100,
+              "cpu_seconds": 0.0,
+              "Pss_KiB": 709
+            }
+          ],
+          "process_count": 1,
+          "unavailable_pids": [],
+          "RSS_total_KiB": 2076,
+          "PSS_total_KiB": 709,
+          "cpu_ticks_total": 0
+        }
+      }
+    },
+    "C": {
+      "bytes_rx": 7009,
+      "bytes_tx": 1330,
+      "candidates": 1,
+      "connections": 1,
+      "delivery": "best_effort_no_global_ack",
+      "duplicates": 6,
+      "event": "diagnostics",
+      "handed_to_neighbor_unconfirmed": 1,
+      "hardware_validation": "pending",
+      "limits": {
+        "candidates": 16,
+        "connections": 8,
+        "frame_bytes": 32768,
+        "pending": 64,
+        "seen": 1024,
+        "tx_per_link": 8
+      },
+      "peak_connections": 1,
+      "peak_pending": 1,
+      "peak_tx_frames_per_link": 2,
+      "pending": 1,
+      "public_plaintext": true,
+      "received": 1,
+      "rejected": 1,
+      "relay": false,
+      "seen": 14,
+      "proc": {
+        "pid": 19557,
+        "VmHWM_KiB": 2248,
+        "VmRSS_KiB": 2248,
+        "start_time_ticks": 1775786,
+        "cpu_ticks": 0,
+        "clock_ticks_per_second": 100,
+        "cpu_seconds": 0.0,
+        "Pss_KiB": 810,
+        "process_tree": {
+          "method": "sequential_procfs_ppid_point_sample",
+          "sampled_at_monotonic_ns": 17760984121176,
+          "processes": [
+            {
+              "pid": 19557,
+              "VmHWM_KiB": 2248,
+              "VmRSS_KiB": 2248,
+              "start_time_ticks": 1775786,
+              "cpu_ticks": 0,
+              "clock_ticks_per_second": 100,
+              "cpu_seconds": 0.0,
+              "Pss_KiB": 810
+            }
+          ],
+          "process_count": 1,
+          "unavailable_pids": [],
+          "RSS_total_KiB": 2248,
+          "PSS_total_KiB": 810,
+          "cpu_ticks_total": 0
+        }
+      }
+    }
+  },
+  "process_generations": {
+    "A": [
+      19544
+    ],
+    "B": [
+      19541,
+      19563
+    ],
+    "C": [
+      19548,
+      19557
+    ]
+  },
+  "elapsed_seconds": 4.537841250999918,
+  "latency_summary_ms": {
+    "samples": 12,
+    "min": 8.291144000395434,
+    "median": 9.653687999161775,
+    "max": 11.028230001102202
+  }
+}

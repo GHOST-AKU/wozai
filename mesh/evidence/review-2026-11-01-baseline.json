@@ -1,0 +1,857 @@
+{
+  "schema": 1,
+  "kind": "loopback TCP process benchmark, not wireless",
+  "hardware_validation": "pending",
+  "binary_sha256": "358f2a8fa5d419d0d89d1e50a3b9955397e6e774c95cb069b606d0f6578dff39",
+  "binary_bytes": 1856304,
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "clock_ticks_per_second": 100,
+  "workload": "three processes; two warmups + 12 samples each direction; each origin 14/min; default relay/cache policies",
+  "trials": [
+    {
+      "body_bytes": 0,
+      "messages_per_origin": 0,
+      "measured_messages": 0,
+      "latency_ms": [],
+      "latency_median_ms": null,
+      "quiet_seconds": 1.5004668760011555,
+      "quiet_cpu_ticks": 0,
+      "quiet_cpu_seconds": 0.0,
+      "before": {
+        "A": {
+          "VmHWM_KiB": 2244,
+          "VmRSS_KiB": 2244,
+          "Pss_KiB": 799,
+          "cpu_ticks": 0
+        },
+        "B": {
+          "VmHWM_KiB": 2108,
+          "VmRSS_KiB": 2108,
+          "Pss_KiB": 706,
+          "cpu_ticks": 0
+        },
+        "C": {
+          "VmHWM_KiB": 2176,
+          "VmRSS_KiB": 2176,
+          "Pss_KiB": 733,
+          "cpu_ticks": 0
+        }
+      },
+      "after": {
+        "A": {
+          "VmHWM_KiB": 2244,
+          "VmRSS_KiB": 2244,
+          "Pss_KiB": 799,
+          "cpu_ticks": 0
+        },
+        "B": {
+          "VmHWM_KiB": 2108,
+          "VmRSS_KiB": 2108,
+          "Pss_KiB": 706,
+          "cpu_ticks": 0
+        },
+        "C": {
+          "VmHWM_KiB": 2176,
+          "VmRSS_KiB": 2176,
+          "Pss_KiB": 733,
+          "cpu_ticks": 0
+        }
+      },
+      "events": {
+        "A": {
+          "ready": 1,
+          "link_authenticated": 1,
+          "neighbor_up": 1
+        },
+        "B": {
+          "ready": 1,
+          "link_authenticated": 2,
+          "neighbor_up": 2
+        },
+        "C": {
+          "ready": 1,
+          "link_authenticated": 1,
+          "neighbor_up": 1
+        }
+      },
+      "trial": 1
+    },
+    {
+      "body_bytes": 0,
+      "messages_per_origin": 0,
+      "measured_messages": 0,
+      "latency_ms": [],
+      "latency_median_ms": null,
+      "quiet_seconds": 1.500491090999276,
+      "quiet_cpu_ticks": 0,
+      "quiet_cpu_seconds": 0.0,
+      "before": {
+        "A": {
+          "VmHWM_KiB": 2240,
+          "VmRSS_KiB": 2240,
+          "Pss_KiB": 806,
+          "cpu_ticks": 0
+        },
+        "B": {
+          "VmHWM_KiB": 2060,
+          "VmRSS_KiB": 2060,
+          "Pss_KiB": 702,
+          "cpu_ticks": 0
+        },
+        "C": {
+          "VmHWM_KiB": 2176,
+          "VmRSS_KiB": 2176,
+          "Pss_KiB": 742,
+          "cpu_ticks": 0
+        }
+      },
+      "after": {
+        "A": {
+          "VmHWM_KiB": 2240,
+          "VmRSS_KiB": 2240,
+          "Pss_KiB": 806,
+          "cpu_ticks": 0
+        },
+        "B": {
+          "VmHWM_KiB": 2060,
+          "VmRSS_KiB": 2060,
+          "Pss_KiB": 702,
+          "cpu_ticks": 0
+        },
+        "C": {
+          "VmHWM_KiB": 2176,
+          "VmRSS_KiB": 2176,
+          "Pss_KiB": 742,
+          "cpu_ticks": 0
+        }
+      },
+      "events": {
+        "A": {
+          "ready": 1,
+          "link_authenticated": 1,
+          "neighbor_up": 1
+        },
+        "B": {
+          "ready": 1,
+          "link_authenticated": 2,
+          "neighbor_up": 2
+        },
+        "C": {
+          "ready": 1,
+          "link_authenticated": 1,
+          "neighbor_up": 1
+        }
+      },
+      "trial": 2
+    },
+    {
+      "body_bytes": 0,
+      "messages_per_origin": 0,
+      "measured_messages": 0,
+      "latency_ms": [],
+      "latency_median_ms": null,
+      "quiet_seconds": 1.5004652889983845,
+      "quiet_cpu_ticks": 0,
+      "quiet_cpu_seconds": 0.0,
+      "before": {
+        "A": {
+          "VmHWM_KiB": 2212,
+          "VmRSS_KiB": 2212,
+          "Pss_KiB": 754,
+          "cpu_ticks": 0
+        },
+        "B": {
+          "VmHWM_KiB": 2120,
+          "VmRSS_KiB": 2120,
+          "Pss_KiB": 738,
+          "cpu_ticks": 0
+        },
+        "C": {
+          "VmHWM_KiB": 2212,
+          "VmRSS_KiB": 2212,
+          "Pss_KiB": 754,
+          "cpu_ticks": 0
+        }
+      },
+      "after": {
+        "A": {
+          "VmHWM_KiB": 2212,
+          "VmRSS_KiB": 2212,
+          "Pss_KiB": 719,
+          "cpu_ticks": 0
+        },
+        "B": {
+          "VmHWM_KiB": 2120,
+          "VmRSS_KiB": 2120,
+          "Pss_KiB": 704,
+          "cpu_ticks": 0
+        },
+        "C": {
+          "VmHWM_KiB": 2212,
+          "VmRSS_KiB": 2212,
+          "Pss_KiB": 719,
+          "cpu_ticks": 0
+        }
+      },
+      "events": {
+        "A": {
+          "ready": 1,
+          "link_authenticated": 1,
+          "neighbor_up": 1
+        },
+        "B": {
+          "ready": 1,
+          "link_authenticated": 2,
+          "neighbor_up": 2
+        },
+        "C": {
+          "ready": 1,
+          "link_authenticated": 1,
+          "neighbor_up": 1
+        }
+      },
+      "trial": 3
+    },
+    {
+      "body_bytes": 5,
+      "messages_per_origin": 14,
+      "measured_messages": 24,
+      "latency_ms": [
+        6.325973,
+        14.164988,
+        11.43341,
+        9.048997,
+        11.424699,
+        9.089428,
+        11.365409,
+        14.147927,
+        6.985828,
+        13.501252,
+        12.075654,
+        13.446419,
+        7.019591,
+        13.474661,
+        12.820472,
+        12.683014,
+        13.37981,
+        12.251377,
+        8.405218,
+        12.085017,
+        13.564837,
+        11.943946,
+        13.673441,
+        11.897194
+      ],
+      "latency_median_ms": 12.0803355,
+      "quiet_seconds": 1.5005530019989237,
+      "quiet_cpu_ticks": 23,
+      "quiet_cpu_seconds": 0.23,
+      "before": {
+        "A": {
+          "VmHWM_KiB": 2340,
+          "VmRSS_KiB": 2340,
+          "Pss_KiB": 825,
+          "cpu_ticks": 0
+        },
+        "B": {
+          "VmHWM_KiB": 2204,
+          "VmRSS_KiB": 2204,
+          "Pss_KiB": 770,
+          "cpu_ticks": 4
+        },
+        "C": {
+          "VmHWM_KiB": 2380,
+          "VmRSS_KiB": 2380,
+          "Pss_KiB": 865,
+          "cpu_ticks": 0
+        }
+      },
+      "after": {
+        "A": {
+          "VmHWM_KiB": 2340,
+          "VmRSS_KiB": 2340,
+          "Pss_KiB": 860,
+          "cpu_ticks": 0
+        },
+        "B": {
+          "VmHWM_KiB": 2204,
+          "VmRSS_KiB": 2204,
+          "Pss_KiB": 804,
+          "cpu_ticks": 27
+        },
+        "C": {
+          "VmHWM_KiB": 2380,
+          "VmRSS_KiB": 2380,
+          "Pss_KiB": 900,
+          "cpu_ticks": 0
+        }
+      },
+      "events": {
+        "A": {
+          "ready": 1,
+          "link_authenticated": 1,
+          "neighbor_up": 1,
+          "queued": 14,
+          "hop_queued": 14,
+          "handed": 14,
+          "message": 14
+        },
+        "B": {
+          "ready": 1,
+          "link_authenticated": 2,
+          "neighbor_up": 2,
+          "message": 28,
+          "hop_queued": 28,
+          "handed": 28
+        },
+        "C": {
+          "ready": 1,
+          "link_authenticated": 1,
+          "neighbor_up": 1,
+          "message": 14,
+          "queued": 14,
+          "hop_queued": 14,
+          "handed": 14
+        }
+      },
+      "trial": 1
+    },
+    {
+      "body_bytes": 5,
+      "messages_per_origin": 14,
+      "measured_messages": 24,
+      "latency_ms": [
+        6.019889,
+        14.422529,
+        11.269513,
+        9.191281,
+        11.238303,
+        9.234367,
+        11.191796,
+        9.260947,
+        11.540811,
+        13.955649,
+        11.54745,
+        8.885954,
+        11.550324,
+        13.948608,
+        11.712758,
+        13.743811,
+        7.313228,
+        13.163762,
+        12.348638,
+        13.151552,
+        13.010992,
+        12.552403,
+        8.099114,
+        12.334957
+      ],
+      "latency_median_ms": 11.548887,
+      "quiet_seconds": 1.500464798999019,
+      "quiet_cpu_ticks": 24,
+      "quiet_cpu_seconds": 0.24,
+      "before": {
+        "A": {
+          "VmHWM_KiB": 2340,
+          "VmRSS_KiB": 2340,
+          "Pss_KiB": 858,
+          "cpu_ticks": 0
+        },
+        "B": {
+          "VmHWM_KiB": 2192,
+          "VmRSS_KiB": 2192,
+          "Pss_KiB": 792,
+          "cpu_ticks": 4
+        },
+        "C": {
+          "VmHWM_KiB": 2384,
+          "VmRSS_KiB": 2384,
+          "Pss_KiB": 902,
+          "cpu_ticks": 0
+        }
+      },
+      "after": {
+        "A": {
+          "VmHWM_KiB": 2340,
+          "VmRSS_KiB": 2340,
+          "Pss_KiB": 858,
+          "cpu_ticks": 0
+        },
+        "B": {
+          "VmHWM_KiB": 2192,
+          "VmRSS_KiB": 2192,
+          "Pss_KiB": 792,
+          "cpu_ticks": 28
+        },
+        "C": {
+          "VmHWM_KiB": 2384,
+          "VmRSS_KiB": 2384,
+          "Pss_KiB": 902,
+          "cpu_ticks": 0
+        }
+      },
+      "events": {
+        "A": {
+          "ready": 1,
+          "link_authenticated": 1,
+          "neighbor_up": 1,
+          "queued": 14,
+          "hop_queued": 14,
+          "handed": 14,
+          "message": 14
+        },
+        "B": {
+          "ready": 1,
+          "link_authenticated": 2,
+          "neighbor_up": 2,
+          "message": 28,
+          "hop_queued": 28,
+          "handed": 28
+        },
+        "C": {
+          "ready": 1,
+          "link_authenticated": 1,
+          "neighbor_up": 1,
+          "message": 14,
+          "queued": 14,
+          "hop_queued": 14,
+          "handed": 14
+        }
+      },
+      "trial": 2
+    },
+    {
+      "body_bytes": 5,
+      "messages_per_origin": 14,
+      "measured_messages": 24,
+      "latency_ms": [
+        5.962344,
+        14.522238,
+        11.429284,
+        9.099845,
+        11.365758,
+        9.111711,
+        11.365991,
+        14.227886,
+        11.363847,
+        9.091842,
+        11.376004,
+        14.212294,
+        11.329134,
+        9.165022,
+        11.310436,
+        14.254305,
+        11.691889,
+        8.827215,
+        11.654843,
+        13.89043,
+        12.147952,
+        13.487286,
+        12.027922,
+        13.553716
+      ],
+      "latency_median_ms": 11.402644,
+      "quiet_seconds": 1.500450063002063,
+      "quiet_cpu_ticks": 24,
+      "quiet_cpu_seconds": 0.24,
+      "before": {
+        "A": {
+          "VmHWM_KiB": 2340,
+          "VmRSS_KiB": 2340,
+          "Pss_KiB": 896,
+          "cpu_ticks": 0
+        },
+        "B": {
+          "VmHWM_KiB": 2200,
+          "VmRSS_KiB": 2200,
+          "Pss_KiB": 800,
+          "cpu_ticks": 3
+        },
+        "C": {
+          "VmHWM_KiB": 2312,
+          "VmRSS_KiB": 2312,
+          "Pss_KiB": 868,
+          "cpu_ticks": 0
+        }
+      },
+      "after": {
+        "A": {
+          "VmHWM_KiB": 2340,
+          "VmRSS_KiB": 2340,
+          "Pss_KiB": 896,
+          "cpu_ticks": 0
+        },
+        "B": {
+          "VmHWM_KiB": 2200,
+          "VmRSS_KiB": 2200,
+          "Pss_KiB": 800,
+          "cpu_ticks": 27
+        },
+        "C": {
+          "VmHWM_KiB": 2312,
+          "VmRSS_KiB": 2312,
+          "Pss_KiB": 868,
+          "cpu_ticks": 0
+        }
+      },
+      "events": {
+        "A": {
+          "ready": 1,
+          "link_authenticated": 1,
+          "neighbor_up": 1,
+          "queued": 14,
+          "hop_queued": 14,
+          "handed": 14,
+          "message": 14
+        },
+        "B": {
+          "ready": 1,
+          "link_authenticated": 2,
+          "neighbor_up": 2,
+          "message": 28,
+          "hop_queued": 28,
+          "handed": 28
+        },
+        "C": {
+          "ready": 1,
+          "link_authenticated": 1,
+          "neighbor_up": 1,
+          "message": 14,
+          "queued": 14,
+          "hop_queued": 14,
+          "handed": 14
+        }
+      },
+      "trial": 3
+    },
+    {
+      "body_bytes": 2048,
+      "messages_per_origin": 14,
+      "measured_messages": 24,
+      "latency_ms": [
+        6.212719,
+        14.250087,
+        11.817736,
+        8.66364,
+        11.801714,
+        8.658202,
+        11.843826,
+        13.738429,
+        7.465398,
+        13.015725,
+        12.575313,
+        13.097657,
+        7.741373,
+        12.720276,
+        12.839064,
+        12.714121,
+        13.407312,
+        12.127061,
+        8.372504,
+        12.093707,
+        13.712639,
+        11.856771,
+        13.738698,
+        11.835578
+      ],
+      "latency_median_ms": 12.110384,
+      "quiet_seconds": 1.5004829909994442,
+      "quiet_cpu_ticks": 23,
+      "quiet_cpu_seconds": 0.23,
+      "before": {
+        "A": {
+          "VmHWM_KiB": 2372,
+          "VmRSS_KiB": 2372,
+          "Pss_KiB": 912,
+          "cpu_ticks": 0
+        },
+        "B": {
+          "VmHWM_KiB": 2264,
+          "VmRSS_KiB": 2264,
+          "Pss_KiB": 864,
+          "cpu_ticks": 4
+        },
+        "C": {
+          "VmHWM_KiB": 2344,
+          "VmRSS_KiB": 2344,
+          "Pss_KiB": 884,
+          "cpu_ticks": 0
+        }
+      },
+      "after": {
+        "A": {
+          "VmHWM_KiB": 2372,
+          "VmRSS_KiB": 2372,
+          "Pss_KiB": 875,
+          "cpu_ticks": 0
+        },
+        "B": {
+          "VmHWM_KiB": 2264,
+          "VmRSS_KiB": 2264,
+          "Pss_KiB": 828,
+          "cpu_ticks": 27
+        },
+        "C": {
+          "VmHWM_KiB": 2344,
+          "VmRSS_KiB": 2344,
+          "Pss_KiB": 847,
+          "cpu_ticks": 0
+        }
+      },
+      "events": {
+        "A": {
+          "ready": 1,
+          "link_authenticated": 1,
+          "neighbor_up": 1,
+          "queued": 14,
+          "hop_queued": 14,
+          "handed": 14,
+          "message": 14
+        },
+        "B": {
+          "ready": 1,
+          "link_authenticated": 2,
+          "neighbor_up": 2,
+          "message": 28,
+          "hop_queued": 28,
+          "handed": 28
+        },
+        "C": {
+          "ready": 1,
+          "link_authenticated": 1,
+          "neighbor_up": 1,
+          "message": 14,
+          "queued": 14,
+          "hop_queued": 14,
+          "handed": 14
+        }
+      },
+      "trial": 1
+    },
+    {
+      "body_bytes": 2048,
+      "messages_per_origin": 14,
+      "measured_messages": 24,
+      "latency_ms": [
+        10.76098,
+        15.138883,
+        10.827861,
+        9.690651,
+        10.790195,
+        9.6837,
+        10.797146,
+        9.701076,
+        11.156744,
+        14.575238,
+        10.991306,
+        9.500877,
+        11.037535,
+        15.204431,
+        10.37401,
+        10.287706,
+        15.375023,
+        11.131271,
+        9.325548,
+        11.507646,
+        15.162153,
+        10.372724,
+        15.376133,
+        10.400606
+      ],
+      "latency_median_ms": 10.8125035,
+      "quiet_seconds": 1.5004936140030622,
+      "quiet_cpu_ticks": 24,
+      "quiet_cpu_seconds": 0.24,
+      "before": {
+        "A": {
+          "VmHWM_KiB": 2292,
+          "VmRSS_KiB": 2292,
+          "Pss_KiB": 824,
+          "cpu_ticks": 0
+        },
+        "B": {
+          "VmHWM_KiB": 2296,
+          "VmRSS_KiB": 2296,
+          "Pss_KiB": 864,
+          "cpu_ticks": 3
+        },
+        "C": {
+          "VmHWM_KiB": 2312,
+          "VmRSS_KiB": 2312,
+          "Pss_KiB": 834,
+          "cpu_ticks": 0
+        }
+      },
+      "after": {
+        "A": {
+          "VmHWM_KiB": 2292,
+          "VmRSS_KiB": 2292,
+          "Pss_KiB": 824,
+          "cpu_ticks": 0
+        },
+        "B": {
+          "VmHWM_KiB": 2296,
+          "VmRSS_KiB": 2296,
+          "Pss_KiB": 864,
+          "cpu_ticks": 27
+        },
+        "C": {
+          "VmHWM_KiB": 2312,
+          "VmRSS_KiB": 2312,
+          "Pss_KiB": 834,
+          "cpu_ticks": 0
+        }
+      },
+      "events": {
+        "A": {
+          "ready": 1,
+          "link_authenticated": 1,
+          "neighbor_up": 1,
+          "queued": 14,
+          "hop_queued": 14,
+          "handed": 14,
+          "message": 14
+        },
+        "B": {
+          "ready": 1,
+          "link_authenticated": 2,
+          "neighbor_up": 2,
+          "message": 28,
+          "hop_queued": 28,
+          "handed": 28
+        },
+        "C": {
+          "ready": 1,
+          "link_authenticated": 1,
+          "neighbor_up": 1,
+          "message": 14,
+          "queued": 14,
+          "hop_queued": 14,
+          "handed": 14
+        }
+      },
+      "trial": 2
+    },
+    {
+      "body_bytes": 2048,
+      "messages_per_origin": 14,
+      "measured_messages": 24,
+      "latency_ms": [
+        11.044256,
+        14.73419,
+        10.802743,
+        9.752649,
+        10.705017,
+        9.779428,
+        10.694061,
+        10.135802,
+        15.433009,
+        10.135282,
+        10.364376,
+        10.100941,
+        15.478817,
+        10.951247,
+        9.520769,
+        11.017095,
+        14.606409,
+        11.233129,
+        14.389343,
+        11.552558,
+        9.064396,
+        11.400419,
+        14.179609,
+        12.010283
+      ],
+      "latency_median_ms": 10.984171,
+      "quiet_seconds": 1.5004979240002285,
+      "quiet_cpu_ticks": 23,
+      "quiet_cpu_seconds": 0.23,
+      "before": {
+        "A": {
+          "VmHWM_KiB": 2448,
+          "VmRSS_KiB": 2448,
+          "Pss_KiB": 929,
+          "cpu_ticks": 0
+        },
+        "B": {
+          "VmHWM_KiB": 2348,
+          "VmRSS_KiB": 2348,
+          "Pss_KiB": 874,
+          "cpu_ticks": 4
+        },
+        "C": {
+          "VmHWM_KiB": 2308,
+          "VmRSS_KiB": 2308,
+          "Pss_KiB": 827,
+          "cpu_ticks": 0
+        }
+      },
+      "after": {
+        "A": {
+          "VmHWM_KiB": 2448,
+          "VmRSS_KiB": 2448,
+          "Pss_KiB": 929,
+          "cpu_ticks": 0
+        },
+        "B": {
+          "VmHWM_KiB": 2348,
+          "VmRSS_KiB": 2348,
+          "Pss_KiB": 874,
+          "cpu_ticks": 27
+        },
+        "C": {
+          "VmHWM_KiB": 2308,
+          "VmRSS_KiB": 2308,
+          "Pss_KiB": 827,
+          "cpu_ticks": 0
+        }
+      },
+      "events": {
+        "A": {
+          "ready": 1,
+          "link_authenticated": 1,
+          "neighbor_up": 1,
+          "queued": 14,
+          "hop_queued": 14,
+          "handed": 14,
+          "message": 14
+        },
+        "B": {
+          "ready": 1,
+          "link_authenticated": 2,
+          "neighbor_up": 2,
+          "message": 28,
+          "hop_queued": 28,
+          "handed": 28
+        },
+        "C": {
+          "ready": 1,
+          "link_authenticated": 1,
+          "neighbor_up": 1,
+          "message": 14,
+          "queued": 14,
+          "hop_queued": 14,
+          "handed": 14
+        }
+      },
+      "trial": 3
+    }
+  ],
+  "summary": {
+    "0": {
+      "quiet_cpu_median_seconds": 0.0,
+      "latency_median_ms": null,
+      "max_parent_HWM_KiB": 2244
+    },
+    "5": {
+      "quiet_cpu_median_seconds": 0.24,
+      "latency_median_ms": 11.548887,
+      "max_parent_HWM_KiB": 2384
+    },
+    "2048": {
+      "quiet_cpu_median_seconds": 0.23,
+      "latency_median_ms": 10.984171,
+      "max_parent_HWM_KiB": 2448
+    }
+  }
+}
