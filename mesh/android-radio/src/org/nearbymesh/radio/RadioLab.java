@@ -30,7 +30,7 @@ public final class RadioLab extends Instrumentation implements RadioEvents {
         handler.post(()->{
             try {
                 Context context=getTargetContext();
-                adapter="ble".equals(config.mode)?new BleAdapter(context,handler,config,this):new AwareAdapter(context,handler,config,this);
+                adapter="ble".equals(config.mode)?new BleCocAdapter(context,handler,config,this):new AwareAdapter(context,handler,config,this);
                 emit("run.start",config.label,"hardware_validation_pending",0,0);
                 adapter.start();
             }catch(Exception error){failed=true;emit("run.error","",error.getClass().getSimpleName(),0,0);stop.countDown();}

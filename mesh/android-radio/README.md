@@ -1,6 +1,6 @@
 # Android BLE / Wi-Fi Aware Mesh radio lab
 
-独立原生无线**数据适配源码**，与 `android-probe` 的能力观察不同。当前有 BLE GATT 和 Wi-Fi Aware NDP 两种互斥模式，均连接既有独立 Rust Core；不做 BLE↔Wi-Fi 混合中继，不修改 NearbyIM/NIM4/Noise，不实现 Bluetooth SIG Mesh 标准。
+独立原生无线**数据适配源码**，与 `android-probe` 的能力观察不同。当前有 BLE LE CoC 和 Wi-Fi Aware NDP 两种互斥模式，均连接既有独立 Rust Core；不做 BLE↔Wi-Fi 混合中继，不修改 NearbyIM/NIM4/Noise，不实现 Bluetooth SIG Mesh 标准。
 
 **hardware validation pending。** 本环境无已连接 Android 设备；Java/API/DEX 编译、主机测试和 Android ELF 构建不能证明实际收发/双邻接。没有提供安装 APK、真机连接、无线吞吐或电量成绩。
 
@@ -24,7 +24,7 @@ ANDROID_NDK_HOME=/path/to/android-ndk-r27c mesh/tools/build-android-core.sh
 
 每台设备一个 `mesh-lab` + 一个 native instrumentation。设备之间每条邻接走 BLE 或独立 Aware NDP；设备内 localhost TCP 仅传递原始 Mesh wire 流，native 不自行签名/路由，不授予 NIM4 信任。B Core 的 `--relay` 决定转发；普通公共消息可被中继阅读。
 
-- BLE：扫描和广播专用 UUID；按实验label决定central/peripheral角色，B同时承担两角色。MTU23时分20byte片，协商后仍限制ATT512byte；write-with-response与indication确认，最多4邻居/4次连接尝试，有界队列、操作deadline和128个额外callback上限。设备必须支持并发扫描/广播/GATT双角色；没有硬件证据保证所有机型可用。保留Rust握手3s/idle15s期限；慢BLE可能在握手完成前失败，此情况需记录实测后独立决定超时策略。
+- BLE：API29+公开 LE CoC socket；广播新 UUID、动态 PSM 与有界实验 label，按 label 确定拨号角色，接收无需先扫描到对端。两端必须同时升级，不兼容旧 GATT preview，不回退 Classic/LAN。最多4个待建或活动邻接，共享4个IO worker；建连/前言15s、单次写5s超时，关闭socket解除阻塞。Core身份验证仍独立执行，实验label和未配对无线链路不提供身份信任或保密性。旧GATT保存在research/gatt，仅供回归研究。硬件多邻接和冷启动验收仍pending。
 - Aware：API29+、FEATURE_WIFI_AWARE与可用资源；publish/subscribe协商，带实验PSK的每邻居NDP，使用系统 Network 和 scopedIPv6/port，socket显式Network绑定，接收端核验NDP本地/对端地址。最多4邻居，NDP20s/尝试40s/启动15sdeadline，有界worker/重试。B双NDP由系统/机型配额决定；unsupported/unavailable必须保留，**不能回退普通Wi-Fi**。
 - CoreBridge：每邻居预留固定32KiB ingress字节环+最多一个4096byte在写块，egress单4096byte块背压；另有OS socket/GATT缓冲、native对象和Core资源，不能把32KiB当进程RSS。按字节准入，已排队小分片可合并写入；队列溢出关闭连接。取消/退出回收socket、GATT、NDP、发现session；runner最长3600s，不是长期后台服务。
 - native诊断限2048普通事件+8生命周期事件，报告dropped_events；bytes是观察到的计数，截断日志不能用来推算全量吞吐。JSON仅label/阶段/状态/bytes，不记录MAC、IP、PSK或正文；Rust普通stdout仍含公共正文/公钥，控制器导出移除body，公开身份/路径仍可关联。
@@ -59,3 +59,5 @@ python3 mesh/tools/radio-lab.py --mode aware --a USB_A --b USB_B --c USB_C --pas
 Aware依据[官方指南](https://developer.android.com/develop/connectivity/wifi/wifi-aware)、[Network绑定](https://developer.android.com/reference/android/net/Network#bindSocket(java.io.FileDescriptor))、[scoped IPv6元数据](https://developer.android.com/reference/android/net/wifi/aware/WifiAwareNetworkInfo#getPeerIpv6Addr())及[AOSP数据路径实现](https://android.googlesource.com/platform/packages/modules/Wifi/+/refs/heads/master/service/java/com/android/server/wifi/aware/WifiAwareDataPathStateManager.java)。API签名通过SDK36编译验证；平台支持和回调实际行为仍需设备复现。
 
 后续质量/性能/体积审查见 [quality review](../../docs/mesh/native-radio-quality-review.md)，包含真实调度缺陷、资源保护和原始测量边界。
+
+LE CoC API sources: [listenUsingInsecureL2capChannel](https://developer.android.com/reference/android/bluetooth/BluetoothAdapter#listenUsingInsecureL2capChannel()), [createInsecureL2capChannel](https://developer.android.com/reference/android/bluetooth/BluetoothDevice#createInsecureL2capChannel(int)). Run `bash mesh/android-radio/test-coc-integration.sh` with a built host `mesh-lab`; it exercises three real Core processes over pipe radio doubles, not RF.

@@ -62,9 +62,9 @@ public final class BleAdapter implements RadioAdapter {
     private static final UUID CCCD = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
     private static final ParcelUuid SERVICE_ID = new ParcelUuid(SERVICE);
     private static final int MAX_LINKS = 4, MAX_ATTEMPTS = 4, MAX_QUEUED_OPS = 8;
-    private static final int MAX_SCAN_BATCH = 32;
+    private static final int MAX_SCAN_BATCH = 32, MAX_SERVER_RECOVERIES = 3;
     private static final int MAX_QUEUED_BYTES = 4096, MAX_EARLY_BYTES = 8192;
-    private static final long SETUP_MS = 15000, OP_MS = 5000, SEEN_MS = 30000;
+    private static final long SETUP_MS = 15000, OP_MS = 5000, SEEN_MS = 30000, RETRY_COOLDOWN_MS = 60000;
 
     private final Context context;
     private final Handler handler;
@@ -80,14 +80,26 @@ public final class BleAdapter implements RadioAdapter {
     private BluetoothAdapter adapter;
     private BluetoothLeScanner scanner;
     private BluetoothLeAdvertiser advertiser;
+    interface ServerFactory { BluetoothGattServer open(BluetoothGattServerCallback callback); }
+    private final ServerFactory serverFactory;
     private BluetoothGattServer server;
+    private volatile long serverEpoch;
+    private int serverRecoveries;
+    private BluetoothGattServerCallback serverCallback = serverCallback(0);
+    private AdvertiseCallback advertiseCallback;
     private BluetoothGattCharacteristic serverTx;
     private boolean scanning, advertising, serviceAdded;
     // Android requires onNotificationSent before sending any next server indication.
     private Link indicating;
+    private String lastIndicatedAddress;
 
     public BleAdapter(Context context, Handler handler, RadioConfig config, RadioEvents events) {
+        this(context, handler, config, events, null);
+    }
+
+    BleAdapter(Context context, Handler handler, RadioConfig config, RadioEvents events, ServerFactory factory) {
         this.context = context.getApplicationContext();
+        this.serverFactory = factory != null ? factory : callback -> manager.openGattServer(this.context, callback);
         this.handler = handler;
         this.config = config;
         this.events = events;
@@ -136,9 +148,13 @@ public final class BleAdapter implements RadioAdapter {
                 throw new SecurityException("ble_permission_denied");
     }
 
+    // Permission denial is caught by guarded() or this cleanup method; admission checks run at start.
+    @android.annotation.SuppressLint("MissingPermission")
     private void begin() {
-        server = manager.openGattServer(context, serverCallback);
-        if (server == null) { failAdapter("gatt_server_unavailable"); return; }
+        final long epoch = ++serverEpoch;
+        serverCallback = serverCallback(epoch);
+        server = serverFactory.open(serverCallback);
+        if (server == null) { recoverServer("gatt_server_unavailable"); return; }
         BluetoothGattService service = new BluetoothGattService(SERVICE, BluetoothGattService.SERVICE_TYPE_PRIMARY);
         service.addCharacteristic(new BluetoothGattCharacteristic(RX,
                 BluetoothGattCharacteristic.PROPERTY_WRITE, BluetoothGattCharacteristic.PERMISSION_WRITE));
@@ -146,18 +162,23 @@ public final class BleAdapter implements RadioAdapter {
         serverTx.addDescriptor(new BluetoothGattDescriptor(CCCD,
                 BluetoothGattDescriptor.PERMISSION_READ | BluetoothGattDescriptor.PERMISSION_WRITE));
         service.addCharacteristic(serverTx);
-        if (!server.addService(service)) { failAdapter("gatt_add_service_rejected"); return; }
+        if (!server.addService(service)) { recoverServer("gatt_add_service_rejected"); return; }
         handler.postDelayed(() -> guarded(() -> {
-            if (!serviceAdded) failAdapter("gatt_add_service_timeout");
+            if (epoch == serverEpoch && !serviceAdded) recoverServer("gatt_add_service_timeout");
         }), SETUP_MS);
     }
 
+    // Permission denial is caught by guarded() or this cleanup method; admission checks run at start.
+    @android.annotation.SuppressLint("MissingPermission")
     private void startDiscovery() {
         serviceAdded = true;
-        ScanFilter filter = new ScanFilter.Builder().setServiceUuid(SERVICE_ID).build();
-        scanner.startScan(Collections.singletonList(filter), new ScanSettings.Builder()
-                .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).setReportDelay(0).build(), scanCallback);
-        scanning = true;
+        if (!scanning) {
+            ScanFilter filter = new ScanFilter.Builder().setServiceUuid(SERVICE_ID).build();
+            scanner.startScan(Collections.singletonList(filter), new ScanSettings.Builder()
+                    .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).setReportDelay(0).build(), scanCallback);
+            scanning = true;
+        }
+        advertiseCallback = advertiseCallback(serverEpoch);
         AdvertiseData primary = new AdvertiseData.Builder().addServiceUuid(SERVICE_ID).build();
         // Legacy advertising and scan response each have a31-byte budget. UUID+label
         // belongs in the response; never include a system device name or MAC in events.
@@ -169,14 +190,17 @@ public final class BleAdapter implements RadioAdapter {
         advertising = true;
     }
 
-    private final AdvertiseCallback advertiseCallback = new AdvertiseCallback() {
+    private AdvertiseCallback advertiseCallback(final long epoch) { return new AdvertiseCallback() {
         @Override public void onStartSuccess(AdvertiseSettings settings) {
-            dispatch(() -> emit("ble_ready", "", "scan_and_advertise", 0, 0));
+            dispatchServer(epoch, () -> {
+                if (serverRecoveries > 0) emit("ble_server_recovered", "", "scan_and_advertise", 0, 0);
+                emit("ble_ready", "", "scan_and_advertise", 0, 0);
+            });
         }
         @Override public void onStartFailure(int error) {
-            dispatch(() -> failAdapter("advertise_failed_" + error));
+            dispatchServer(epoch, () -> recoverServer("advertise_failed_" + error));
         }
-    };
+    }; }
 
     private final ScanCallback scanCallback = new ScanCallback() {
         @Override public void onScanResult(int type, ScanResult result) { dispatch(() -> observed(result)); }
@@ -195,6 +219,10 @@ public final class BleAdapter implements RadioAdapter {
         if (data == null || data.length < 1 || data.length > 8) return;
         String label = new String(data, StandardCharsets.US_ASCII);
         if (!label.matches("[A-Za-z0-9_-]{1,8}") || !config.accepts(label)) return;
+        long observedAt = SystemClock.elapsedRealtime();
+        // Candidate slots are bounded, but disconnected vanished labels must not pin them forever.
+        peers.values().removeIf(candidate -> candidate.link == null && observedAt - candidate.seen > SEEN_MS
+                && observedAt >= candidate.retryAt);
         String address = result.getDevice().getAddress();
         Peer peer = peers.get(label);
         if (peer == null) {
@@ -206,12 +234,20 @@ public final class BleAdapter implements RadioAdapter {
         if (peer.link != null && !peer.address.equals(address)) return;
         peer.address = address;
         peer.device = result.getDevice();
-        peer.seen = SystemClock.elapsedRealtime();
+        peer.seen = observedAt;
+        // Exhaustion is a cooldown, not a permanent ban. Require fresh radio evidence
+        // before opening another bounded attempt window; advertisements cannot shorten it.
+        if (peer.link == null && peer.attempts >= MAX_ATTEMPTS && observedAt >= peer.retryAt) {
+            peer.attempts = 0;
+            emit("ble_retry_window", peer.label, "fresh_observation_after_cooldown", 0, 0);
+        }
         maybeConnect(peer);
     }
 
+    // Permission denial is caught by guarded() or this cleanup method; admission checks run at start.
+    @android.annotation.SuppressLint("MissingPermission")
     private void maybeConnect(Peer peer) {
-        if (closed.get() || peer.link != null || links.size() >= MAX_LINKS
+        if (closed.get() || peers.get(peer.label) != peer || peer.link != null || links.size() >= MAX_LINKS
                 || peer.attempts >= MAX_ATTEMPTS || config.label.compareTo(peer.label) >= 0
                 || SystemClock.elapsedRealtime() < peer.retryAt
                 || SystemClock.elapsedRealtime() - peer.seen > SEEN_MS) return;
@@ -230,8 +266,15 @@ public final class BleAdapter implements RadioAdapter {
         handler.postDelayed(() -> guarded(() -> {
             if (live(link) && !link.transportReady) failLink(link, "gatt_setup_timeout");
         }), SETUP_MS);
+        // Start both deadlines at admission, before connectGatt can spend time
+        // registering the anchor. Core progress must not cancel the anchor deadline.
+        if (!link.client) handler.postDelayed(() -> guarded(() -> {
+            if (live(link) && !link.anchorConnected) failLink(link, "le_anchor_timeout");
+        }), SETUP_MS);
     }
 
+    // Permission denial is caught by guarded() or this cleanup method; admission checks run at start.
+    @android.annotation.SuppressLint("MissingPermission")
     private BluetoothGattCallback clientCallback(Link link) {
         return new BluetoothGattCallback() {
             @Override public void onConnectionStateChange(BluetoothGatt gatt, int status, int state) {
@@ -249,7 +292,10 @@ public final class BleAdapter implements RadioAdapter {
             @Override public void onMtuChanged(BluetoothGatt gatt, int mtu, int status) {
                 dispatch(() -> {
                     if (!live(link) || gatt != link.gatt) return;
-                    if (status == BluetoothGatt.GATT_SUCCESS) link.mtu = validMtu(mtu);
+                    if (status == BluetoothGatt.GATT_SUCCESS) {
+                        link.mtu = validMtu(mtu);
+                        emit("ble_mtu", link.peer.label, "mtu_" + link.mtu, link.txBytes, link.rxBytes);
+                    }
                     if ("mtu".equals(link.stage)) discover(link);
                 });
             }
@@ -297,43 +343,58 @@ public final class BleAdapter implements RadioAdapter {
         };
     }
 
+    // Permission denial is caught by guarded() or this cleanup method; admission checks run at start.
+    @android.annotation.SuppressLint("MissingPermission")
     private void discover(Link link) {
         link.stage = "services";
         if (!link.gatt.discoverServices()) failLink(link, "service_discovery_rejected");
     }
 
-    private final BluetoothGattServerCallback serverCallback = new BluetoothGattServerCallback() {
+    private BluetoothGattServerCallback serverCallback(final long epoch) { return new BluetoothGattServerCallback() {
         @Override public void onServiceAdded(int status, BluetoothGattService service) {
-            dispatch(() -> {
+            dispatchServer(epoch, () -> {
                 if (!SERVICE.equals(service.getUuid()) || serviceAdded) return;
-                if (status != BluetoothGatt.GATT_SUCCESS) failAdapter("gatt_add_service_" + status);
+                if (status != BluetoothGatt.GATT_SUCCESS) recoverServer("gatt_add_service_" + status);
                 else startDiscovery();
             });
         }
         @Override public void onConnectionStateChange(BluetoothDevice device, int status, int state) {
-            dispatch(() -> serverConnection(device, status, state));
+            dispatchServer(epoch, () -> serverConnection(device, status, state));
         }
         @Override public void onMtuChanged(BluetoothDevice device, int mtu) {
-            dispatch(() -> { Link link = serverLink(device); if (link != null) link.mtu = validMtu(mtu); });
+            dispatchServer(epoch, () -> { Link link = serverLink(device); if (link != null) {
+                link.mtu = validMtu(mtu);
+                link.receiveMtuUnknown = false;
+                emit("ble_mtu", link.peer.label, "mtu_" + link.mtu, link.txBytes, link.rxBytes);
+            } });
         }
         @Override public void onDescriptorWriteRequest(BluetoothDevice device, int request, BluetoothGattDescriptor descriptor,
                 boolean prepared, boolean responseNeeded, int offset, byte[] value) {
             byte[] copy = value == null ? null : value.clone();
-            dispatch(() -> {
+            dispatchServer(epoch, () -> {
                 Link link = serverLink(device);
-                boolean valid = link != null && CCCD.equals(descriptor.getUuid())
+                boolean valid = CCCD.equals(descriptor.getUuid()) && descriptor.getCharacteristic() != null
                         && TX.equals(descriptor.getCharacteristic().getUuid()) && !prepared && offset == 0 && responseNeeded;
                 boolean enable = valid && Arrays.equals(copy, BluetoothGattDescriptor.ENABLE_INDICATION_VALUE);
                 boolean disable = valid && Arrays.equals(copy, BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE);
-                boolean accepted = enable || disable;
+                // Another app may keep the ACL alive after our previous anchor closed,
+                // so a service-targeted subscription can arrive without CONNECTED.
+                if (link == null && enable) {
+                    serverConnection(device, BluetoothGatt.GATT_SUCCESS, BluetoothProfile.STATE_CONNECTED);
+                    link = serverLink(device);
+                    // An MTU callback may have preceded admission. Bound RX at the
+                    // absolute fragment limit; keep TX at 23 until a Link MTU arrives.
+                    if (link != null) link.receiveMtuUnknown = true;
+                }
+                boolean accepted = link != null && (enable || disable);
                 if (responseNeeded) respond(device, request, accepted ? BluetoothGatt.GATT_SUCCESS : BluetoothGatt.GATT_REQUEST_NOT_SUPPORTED, 0, null);
                 if (!accepted) { if (link != null) failLink(link, "invalid_cccd_write"); return; }
                 if (disable) { failLink(link, "cccd_disabled"); return; }
-                if (!link.subscribed) { link.subscribed = true; openCore(link); }
+                if (live(link) && !link.subscribed) { link.subscribed = true; link.stage = "first_rx"; }
             });
         }
         @Override public void onDescriptorReadRequest(BluetoothDevice device, int request, int offset, BluetoothGattDescriptor descriptor) {
-            dispatch(() -> {
+            dispatchServer(epoch, () -> {
                 Link link = serverLink(device);
                 boolean valid = link != null && offset == 0 && CCCD.equals(descriptor.getUuid());
                 respond(device, request, valid ? BluetoothGatt.GATT_SUCCESS : BluetoothGatt.GATT_REQUEST_NOT_SUPPORTED, 0,
@@ -343,7 +404,7 @@ public final class BleAdapter implements RadioAdapter {
         @Override public void onCharacteristicWriteRequest(BluetoothDevice device, int request, BluetoothGattCharacteristic characteristic,
                 boolean prepared, boolean responseNeeded, int offset, byte[] value) {
             byte[] copy = value == null ? null : value.clone();
-            dispatch(() -> {
+            dispatchServer(epoch, () -> {
                 Link link = serverLink(device);
                 boolean valid = link != null && RX.equals(characteristic.getUuid()) && !prepared && responseNeeded && offset == 0;
                 boolean accepted = valid && ingress(link, copy);
@@ -352,13 +413,13 @@ public final class BleAdapter implements RadioAdapter {
             });
         }
         @Override public void onCharacteristicReadRequest(BluetoothDevice device, int request, int offset, BluetoothGattCharacteristic characteristic) {
-            dispatch(() -> respond(device, request, BluetoothGatt.GATT_READ_NOT_PERMITTED, 0, null));
+            dispatchServer(epoch, () -> respond(device, request, BluetoothGatt.GATT_READ_NOT_PERMITTED, 0, null));
         }
         @Override public void onExecuteWrite(BluetoothDevice device, int request, boolean execute) {
-            dispatch(() -> respond(device, request, BluetoothGatt.GATT_REQUEST_NOT_SUPPORTED, 0, null));
+            dispatchServer(epoch, () -> respond(device, request, BluetoothGatt.GATT_REQUEST_NOT_SUPPORTED, 0, null));
         }
         @Override public void onNotificationSent(BluetoothDevice device, int status) {
-            dispatch(() -> {
+            dispatchServer(epoch, () -> {
                 // Keep the actual issuing Link, including a closed-link tombstone.
                 // Resolving by current address could acknowledge a reconnected peer's
                 // different operation when this callback belongs to the old link.
@@ -369,30 +430,68 @@ public final class BleAdapter implements RadioAdapter {
                 pumpServer();
             });
         }
-    };
+    }; }
 
+    // Permission denial is caught by guarded() or this cleanup method; admission checks run at start.
+    @android.annotation.SuppressLint("MissingPermission")
     private void serverConnection(BluetoothDevice device, int status, int state) {
+        if (server == null || !serviceAdded) return;
         String address = device.getAddress();
         Link current = links.get(address);
         // Some stacks report the shared ACL connection to both registered GATT roles.
         if (current != null && current.client) return;
         if (state == BluetoothProfile.STATE_DISCONNECTED || status != BluetoothGatt.GATT_SUCCESS) {
-            if (current != null) failLink(current, "server_connection_" + status + "_" + state);
+            // This callback identifies only an address and can refer to BR/EDR on
+            // dual-mode devices. The exact explicit-LE anchor controls liveness.
             return;
         }
         if (state != BluetoothProfile.STATE_CONNECTED || current != null) return;
         Peer peer = null;
         for (Peer candidate : peers.values()) if (address.equals(candidate.address)) { peer = candidate; break; }
-        if (peer == null || peer.link != null || peer.attempts >= MAX_ATTEMPTS || links.size() >= MAX_LINKS
-                || (indicating != null && indicating.ended && indicating.address.equals(address))
-                || peer.label.compareTo(config.label) >= 0 || SystemClock.elapsedRealtime() - peer.seen > SEEN_MS) {
-            server.cancelConnection(device);
-            emit("ble_connection_rejected", peer == null ? "" : peer.label, "label_role_or_link_bound", 0, 0);
+        long connectedAt = SystemClock.elapsedRealtime();
+        // Android scanning may not deliver another advertisement for an already-known
+        // device. Its incoming ACL is fresh presence evidence, never identity trust.
+        if (peer != null && peer.link == null && peer.label.compareTo(config.label) < 0
+                && peer.attempts >= MAX_ATTEMPTS && connectedAt >= peer.retryAt) {
+            peer.attempts = 0;
+            emit("ble_retry_window", peer.label, "incoming_connection_after_cooldown", 0, 0);
+        }
+        String rejection = peer == null ? "peer_not_discovered"
+                : peer.link != null ? "peer_already_linked"
+                : peer.attempts >= MAX_ATTEMPTS ? "retry_cooldown"
+                : links.size() >= MAX_LINKS ? "connection_limit"
+                : indicating != null && indicating.ended && indicating.address.equals(address) ? "previous_indication_pending"
+                : peer.label.compareTo(config.label) >= 0 ? "role_order" : null;
+        if (rejection != null) {
+            // Android reports shared ACL connections to every registered GATT server.
+            // We have not acquired this connection: do not cancel another app's link.
+            // Without a Link, requests to our service still receive a rejection below.
+            emit("ble_connection_rejected", peer == null ? "" : peer.label, rejection, 0, 0);
             return;
         }
+        peer.seen = connectedAt;
         Link link = new Link(peer, false);
         attach(link);
+        // The public server API uses AUTO transport. A separate, data-free client
+        // registration explicitly holds LE using the device observed by our scanner.
+        link.anchor = link.device.connectGatt(context, false, anchorCallback(link),
+                BluetoothDevice.TRANSPORT_LE, BluetoothDevice.PHY_LE_1M_MASK, handler);
+        if (link.anchor == null) { failLink(link, "le_anchor_rejected"); return; }
+        emit("ble_server_hold", peer.label, "explicit_le_anchor", 0, 0);
         emit("ble_connecting", peer.label, "peripheral", 0, 0);
+    }
+
+    private BluetoothGattCallback anchorCallback(Link link) {
+        return new BluetoothGattCallback() {
+            @Override public void onConnectionStateChange(BluetoothGatt gatt, int status, int state) {
+                dispatch(() -> {
+                    if (!live(link) || gatt != link.anchor) return;
+                    if (status != BluetoothGatt.GATT_SUCCESS || state == BluetoothProfile.STATE_DISCONNECTED) {
+                        failLink(link, "le_anchor_connection_" + status + "_" + state);
+                    } else if (state == BluetoothProfile.STATE_CONNECTED) link.anchorConnected = true;
+                });
+            }
+        };
     }
 
     private Link serverLink(BluetoothDevice device) {
@@ -400,6 +499,8 @@ public final class BleAdapter implements RadioAdapter {
         return link != null && !link.client && live(link) ? link : null;
     }
 
+    // Permission denial is caught by guarded() or this cleanup method; admission checks run at start.
+    @android.annotation.SuppressLint("MissingPermission")
     private void respond(BluetoothDevice device, int request, int status, int offset, byte[] value) {
         if (server != null && !server.sendResponse(device, request, status, offset, value)) {
             Link link = serverLink(device);
@@ -439,8 +540,14 @@ public final class BleAdapter implements RadioAdapter {
     }
 
     private boolean ingress(Link link, byte[] bytes) {
-        if (!live(link) || !link.transportReady || bytes == null || bytes.length == 0
-                || bytes.length > BleChunks.payloadSize(link.mtu)) {
+        // The peripheral can indicate immediately after accepting the CCCD write,
+        // before Android delivers our onDescriptorWrite callback. Buffer this
+        // subscription phase; client Core still waits for a descriptor ACK.
+        // A subscribed peripheral buffers its first RX before creating Core.
+        boolean subscriptionPending = link.client ? "cccd".equals(link.stage) : link.subscribed;
+        int receiveMtu = link.receiveMtuUnknown ? BleChunks.MAX_MTU : link.mtu;
+        if (!live(link) || (!link.transportReady && !subscriptionPending) || bytes == null || bytes.length == 0
+                || bytes.length > BleChunks.payloadSize(receiveMtu)) {
             if (live(link)) failLink(link, "invalid_ingress_or_mtu");
             return false;
         }
@@ -450,6 +557,9 @@ public final class BleAdapter implements RadioAdapter {
         } else if (!link.core.receive(bytes)) { failLink(link, "core_ingress_backpressure"); return false; }
         link.rxBytes += bytes.length;
         emit("ble_rx", link.peer.label, "att_bytes", link.txBytes, link.rxBytes);
+        // The central opens Core only after its descriptor ACK and sends Hello.
+        // Start the peripheral's 3s Core auth window only once those bytes arrive.
+        if (!link.client && !link.transportReady) openCore(link);
         return true;
     }
 
@@ -514,14 +624,23 @@ public final class BleAdapter implements RadioAdapter {
 
     private void pumpServer() {
         if (indicating != null || server == null) return;
-        for (Link link : new ArrayList<>(links.values())) {
-            if (link.client || !link.subscribed || !link.transportReady) continue;
+        // Rotate after the last submitted peer so a continuously busy neighbor cannot
+        // monopolize the single outstanding server indication. Snapshot tolerates cleanup.
+        ArrayList<Link> candidates = new ArrayList<>(links.values());
+        int start = 0;
+        for (int i = 0; i < candidates.size(); i++) {
+            if (candidates.get(i).address.equals(lastIndicatedAddress)) start = i + 1;
+        }
+        for (int offset = 0; offset < candidates.size(); offset++) {
+            Link link = candidates.get((start + offset) % candidates.size());
+            if (!live(link) || link.client || !link.subscribed || !link.transportReady) continue;
             Operation operation = next(link);
             // Expiry can fail this link and reenter pumpServer from failLink.
             // Preserve the indication that the nested pump already submitted.
             if (indicating != null) return;
             if (operation == null) continue;
             indicating = link;
+            lastIndicatedAddress = link.address;
             if (!indicate(link.device, operation.bytes)) {
                 // Initiation was rejected: no callback is owed for this operation.
                 indicating = null;
@@ -544,12 +663,16 @@ public final class BleAdapter implements RadioAdapter {
     }
 
     @SuppressWarnings("deprecation")
+    // Permission denial is caught by guarded() or this cleanup method; admission checks run at start.
+    @android.annotation.SuppressLint("MissingPermission")
     private static boolean writeDescriptor(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, byte[] bytes) {
         if (Build.VERSION.SDK_INT >= 33) return gatt.writeDescriptor(descriptor, bytes) == BluetoothStatusCodes.SUCCESS;
         return descriptor.setValue(bytes) && gatt.writeDescriptor(descriptor);
     }
 
     @SuppressWarnings("deprecation")
+    // Permission denial is caught by guarded() or this cleanup method; admission checks run at start.
+    @android.annotation.SuppressLint("MissingPermission")
     private static boolean writeCharacteristic(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, byte[] bytes) {
         if (Build.VERSION.SDK_INT >= 33) return gatt.writeCharacteristic(characteristic, bytes,
                 BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT) == BluetoothStatusCodes.SUCCESS;
@@ -558,6 +681,8 @@ public final class BleAdapter implements RadioAdapter {
     }
 
     @SuppressWarnings("deprecation")
+    // Permission denial is caught by guarded() or this cleanup method; admission checks run at start.
+    @android.annotation.SuppressLint("MissingPermission")
     private boolean indicate(BluetoothDevice device, byte[] bytes) {
         if (Build.VERSION.SDK_INT >= 33) return server.notifyCharacteristicChanged(device, serverTx, true, bytes) == BluetoothStatusCodes.SUCCESS;
         return serverTx.setValue(bytes) && server.notifyCharacteristicChanged(device, serverTx, true);
@@ -569,6 +694,8 @@ public final class BleAdapter implements RadioAdapter {
         return mtu;
     }
 
+    // Permission denial is caught by guarded() or this cleanup method; admission checks run at start.
+    @android.annotation.SuppressLint("MissingPermission")
     private void failLink(Link link, String reason) {
         if (link.ended) return;
         link.ended = true;
@@ -578,7 +705,7 @@ public final class BleAdapter implements RadioAdapter {
             // An accepted indication remains globally in flight until its callback,
             // even if the connection closes. Never reuse its address for an ACK.
             handler.postDelayed(() -> guarded(() -> {
-                if (indicating == link) failAdapter("indication_cancellation_timeout");
+                if (indicating == link) recoverServer("indication_cancellation_timeout");
             }), OP_MS);
         }
         if (link.pending != null) {
@@ -592,9 +719,13 @@ public final class BleAdapter implements RadioAdapter {
         if (link.gatt != null) {
             try { link.gatt.disconnect(); } catch (RuntimeException ignored) { }
             try { link.gatt.close(); } catch (RuntimeException ignored) { }
-        } else if (server != null) {
-            try { server.cancelConnection(link.device); } catch (RuntimeException ignored) { }
         }
+        if (link.anchor != null) {
+            try { link.anchor.disconnect(); } catch (RuntimeException ignored) { }
+            try { link.anchor.close(); } catch (RuntimeException ignored) { }
+        }
+        // Preserve the failed setup/data phase independently of platform status codes.
+        emit("ble_failed_stage", link.peer.label, link.stage, link.txBytes, link.rxBytes);
         emit("ble_link_down", link.peer.label, reason, link.txBytes, link.rxBytes);
         if (!closed.get()) {
             pumpServer();
@@ -603,8 +734,51 @@ public final class BleAdapter implements RadioAdapter {
                 link.peer.retryAt = SystemClock.elapsedRealtime() + delay;
                 emit("ble_retry", link.peer.label, "attempt_" + (link.peer.attempts + 1), link.txBytes, link.rxBytes);
                 handler.postDelayed(() -> guarded(() -> maybeConnect(link.peer)), delay);
-            } else if (link.peer.attempts >= MAX_ATTEMPTS) emit("ble_retry_exhausted", link.peer.label, "attempt_bound", link.txBytes, link.rxBytes);
+            } else if (link.peer.attempts >= MAX_ATTEMPTS) {
+                // Retain the candidate through cooldown so ordinary expiry cannot bypass it.
+                long jitter = (Integer.toUnsignedLong((config.label + ":" + link.peer.label).hashCode()) % 5001);
+                link.peer.retryAt = SystemClock.elapsedRealtime() + RETRY_COOLDOWN_MS + jitter;
+                emit("ble_retry_exhausted", link.peer.label, "cooldown_requires_fresh_observation", link.txBytes, link.rxBytes);
+            }
         }
+    }
+
+    // Retire the entire registration before clearing an unacknowledged indication.
+    // Old native completions belong to the old callback epoch, even at the same MAC.
+    @android.annotation.SuppressLint("MissingPermission")
+    private void recoverServer(String reason) {
+        // A peerless ble_error is terminal to the Android session collector.
+        // Recovery progress must stay observable without closing that session.
+        emit("ble_server_recovering", "", reason, 0, 0);
+        retireServer();
+        for (Link link : new ArrayList<>(links.values()))
+            if (!link.client) failLink(link, "gatt_server_recovery");
+        if (serverRecoveries >= MAX_SERVER_RECOVERIES) { failAdapter("gatt_server_recovery_exhausted"); return; }
+        long delay = 1000L << serverRecoveries++;
+        final long epoch = serverEpoch;
+        emit("ble_server_recovery", "", "attempt_" + serverRecoveries, 0, 0);
+        handler.postDelayed(() -> guarded(() -> { if (epoch == serverEpoch) begin(); }), delay);
+    }
+
+    @android.annotation.SuppressLint("MissingPermission")
+    private void retireServer() {
+        ++serverEpoch;
+        serviceAdded = false;
+        if (advertiser != null && advertising) try { advertiser.stopAdvertising(advertiseCallback); } catch (RuntimeException ignored) { }
+        advertising = false;
+        BluetoothGattServer retired = server;
+        server = null;
+        serverTx = null;
+        indicating = null;
+        lastIndicatedAddress = null;
+        if (retired != null) try { retired.close(); } catch (RuntimeException ignored) { }
+    }
+
+    private void dispatchServer(long epoch, Runnable action) {
+        // Discard retired callbacks before taking queue budget, and check again on
+        // Handler because retirement can occur while a valid callback is queued.
+        if (epoch != serverEpoch) return;
+        dispatch(() -> { if (epoch == serverEpoch) action.run(); });
     }
 
     private void failAdapter(String reason) {
@@ -650,13 +824,14 @@ public final class BleAdapter implements RadioAdapter {
         else handler.post(this::closeOnHandler);
     }
 
+    // Permission denial is caught by guarded() or this cleanup method; admission checks run at start.
+    @android.annotation.SuppressLint("MissingPermission")
     private void closeOnHandler() {
+        retireServer();
         for (Link link : new ArrayList<>(links.values())) failLink(link, "adapter_closed");
         if (scanner != null && scanning) try { scanner.stopScan(scanCallback); } catch (RuntimeException ignored) { }
-        if (advertiser != null && advertising) try { advertiser.stopAdvertising(advertiseCallback); } catch (RuntimeException ignored) { }
-        scanning = false; advertising = false;
-        if (server != null) { try { server.close(); } catch (RuntimeException ignored) { } server = null; }
-        indicating = null;
+        scanning = false;
+        serverRecoveries = 0;
         coreStarts.shutdownNow();
         peers.clear();
         emit("ble_stopped", "", "closed", 0, 0);
@@ -681,12 +856,12 @@ public final class BleAdapter implements RadioAdapter {
         final ByteArrayOutputStream early = new ByteArrayOutputStream();
         final Semaphore sender = new Semaphore(1);
         volatile int mtu = BleChunks.DEFAULT_MTU;
-        BluetoothGatt gatt;
+        BluetoothGatt gatt, anchor;
         BluetoothGattCharacteristic rx, tx;
         CoreBridge core;
         Operation pending;
         String stage = "connecting";
-        boolean subscribed, transportReady, coreStarted, ended;
+        boolean subscribed, transportReady, coreStarted, anchorConnected, receiveMtuUnknown, ended;
         int queuedBytes;
         long txBytes, rxBytes;
         Link(Peer peer, boolean client) {

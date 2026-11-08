@@ -10,6 +10,7 @@
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" android:usesPermissionFlags="neverForLocation" tools:targetApi="33" />
@@ -41,6 +42,7 @@
         <activity android:name=".AvatarActivity" android:exported="false" />
         <activity android:name=".QrScanActivity" android:exported="false" />
         <provider android:name=".AttachmentProvider" android:authorities="${applicationId}.attachments" android:exported="false" android:grantUriPermissions="true" />
+        <service android:name=".mesh.MeshService" android:exported="false" android:foregroundServiceType="connectedDevice" />
         <service android:name=".ChatService" android:exported="false" android:foregroundServiceType="connectedDevice" />
     </application>
 </manifest>

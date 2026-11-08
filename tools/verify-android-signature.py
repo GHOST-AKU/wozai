@@ -61,6 +61,25 @@ if not (args.test_apk or args.ui_test_apk):
         raise SystemExit("Wrong APK package/version or debuggable release")
     if args.baseline and digest != pin["baseline_apk_sha256"]:
         raise SystemExit("Baseline does not match the published 0.3.1 APK")
+    if args.next and version.startswith("0.4."):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("mesh_package", root / "tools/package-android-mesh.py")
+        mesh_package = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mesh_package)
+        with zipfile.ZipFile(args.apk) as archive:
+            core_name = "lib/arm64-v8a/libmesh_core.so"
+            core_bytes = archive.read(core_name)
+            mesh_package.check_elf(core_bytes)
+            if "assets/mesh-notices/THIRD_PARTY.md" not in archive.namelist():
+                raise SystemExit("Mesh dependency notices missing from APK")
+            expected_mesh = json.loads((root / "mesh/target/android-core-build.json").read_text())
+            if hashlib.sha256(core_bytes).hexdigest() != expected_mesh["sha256"]:
+                raise SystemExit("Packaged Mesh core digest mismatch")
+            info["mesh_core_sha256"] = expected_mesh["sha256"]
+            info["mesh_core_bytes"] = len(core_bytes)
+        manifest = subprocess.check_output([str(sdk / "aapt2"), "dump", "xmltree", str(args.apk), "--file", "AndroidManifest.xml"], text=True)
+        if "extractNativeLibs" not in manifest or not re.search(r"extractNativeLibs[^\n]*(?:true|0xffffffff)", manifest):
+            raise SystemExit("Mesh executable requires extracted native libraries")
     if args.source_commit:
         if args.maintenance and args.source_commit != "c0855151a2012954f1b34a88eb9b8ca0b4c8355a":
             raise SystemExit("Maintenance source must match the fixed code8 revision")

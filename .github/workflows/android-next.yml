@@ -5,6 +5,8 @@ on:
       - 'app-next/**'
       - 'app/src/main/**'
       - 'third_party/noise-java/**'
+      - 'mesh/**'
+      - 'tools/package-android-mesh.py'
       - 'i18n/**'
       - 'build.gradle.kts'
       - 'settings.gradle.kts'
@@ -31,8 +33,29 @@ jobs:
         with:
           packages: platform-tools
       - run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
+      - uses: dtolnay/rust-toolchain@1.88.0
+        with:
+          targets: aarch64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mesh
+      - name: BLE stream regression and three-process Core integration (no RF claim)
+        run: |
+          bash mesh/android-radio/test.sh
+          bash mesh/android-radio/test-ble-host.sh
+          cargo build --manifest-path mesh/Cargo.toml --release --locked --bin mesh-lab
+          bash mesh/android-radio/test-coc-integration.sh
+      - name: Build input-bound Android Mesh core
+        run: |
+          sdkmanager 'ndk;27.2.12479018'
+          ANDROID_NDK_HOME="$ANDROID_HOME/ndk/27.2.12479018" bash mesh/tools/build-android-core.sh
+          python3 tools/package-android-mesh.py --record-build
+          python3 -m unittest discover -s tools/tests -p 'test_mesh_android_package.py' -v
       - run: ./gradlew --no-daemon :app-next:testDebugUnitTest :app-next:assembleDebug :app-next:lintDebug
         if: ${{ !inputs.signed }}
+      - name: Test installation build without signing inputs
+        if: ${{ inputs.signed }}
+        run: ./gradlew --no-daemon :app-next:testDebugUnitTest
       - name: Build verified installation APK
         if: ${{ inputs.signed }}
         env:
@@ -45,7 +68,9 @@ jobs:
           name: android-next-verification
           path: |
             build/android-next-signed/
+            mesh/target/android-core-build.json
             app-next/build/reports/tests/
             app-next/build/reports/lint-results-debug.*
+            app-next/build/reports/lint-results-release.*
             app-next/build/reports/next-screenshots/
           if-no-files-found: ignore

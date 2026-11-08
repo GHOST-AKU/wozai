@@ -30,7 +30,8 @@ with tempfile.TemporaryDirectory(prefix="next-signing-", dir=os.environ.get("RUN
     if pin not in certificate.replace(":", "").lower():
         raise SystemExit("Signing certificate does not match persistent pin")
     subprocess.run([str(root / "gradlew"), "--no-daemon", ":app-next:assembleRelease", ":app-next:lintRelease"], cwd=root, env=env, check=True)
-    apk = output / f"WoZai-next-{version}-android.apk"
+    suffix = "android-arm64" if version.startswith("0.4.") else "android"
+    apk = output / f"WoZai-next-{version}-{suffix}.apk"
     shutil.copyfile(root / "app-next/build/outputs/apk/release/app-next-release.apk", apk)
     subprocess.run(["python3", str(root / "tools/verify-android-signature.py"), str(apk), "--next", "--source-commit", source,
         "--output", str(output / "signature.json")], cwd=root, env=env, check=True)
