@@ -53,7 +53,7 @@ Linux 需要 `ip`、`mount`、`unshare`、`sysctl` 及可用的 user/network/mou
 
 文档： [系统调研](../docs/mesh/research.md)、[移动传输](../docs/mesh/mobile-transports.md)、[ADR](../docs/mesh/adr-001.md)、[协议](../docs/mesh/protocol.md)、[硬件计划/原生探针](../docs/mesh/hardware-validation.md)、[验证与测量](../docs/mesh/validation.md)。
 
-当前实际数据适配只有 TCP。BLE/Wi-Fi Direct/Aware/Classic 与 Apple 数据路径、FFI、后台常驻、可靠 DTN、端到端加密私聊都没有实现。原生探针只观察能力/回调，不能代替真实无线 A–B–C 验收。
+Rust CLI自身使用TCP；新分支的 [Android原生BLE/Wi-Fi Aware数据适配](android-radio/README.md) 将每条无线邻接桥接到设备内loopback，尚无真实设备收发证据。Wi-Fi Direct/Classic/Apple数据适配、FFI、后台常驻、可靠DTN与端到端加密私聊未实现；不做混合多跳。原生能力探针与native数据源码/编译均不能代替真实无线A–B–C验收。
 
 
 本轮自审修复、补强验收及同负载性能对照见 [2026-11-01 报告](../docs/mesh/review-2026-11-01.md)。可复现手动 TCP 进程基准（独立 user/net namespace，未使用无线）：
