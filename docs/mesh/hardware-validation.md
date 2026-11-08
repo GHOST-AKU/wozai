@@ -1,5 +1,7 @@
 # 真实无线验收与设备探针
 
+> 2026-11-08 更新：Android 多设备与 Windows Mesh/中继已有所有者实机成功反馈；正式无线验收资料仍待补齐。见[实机反馈与 PR 索引](field-validation-2026-11-08.md)。以下早期状态和实验记录保留其原始时间/范围。
+
 **状态：hardware validation pending。** 本环境 `adb devices -l` 为空，没有三台 Android/Apple 设备、无线电或电池测试环境。已交付独立进程 TCP 实验和原生 Android 能力探针源码；探针不是 Mesh 数据路径适配器。未提供可安装 APK、未绕过签名或系统权限，也没有为编译源代码而重建正式客户端。
 
 新增独立BLE-only / Wi-Fi Aware-only数据适配研发见 [native-radio设计](native-radio-design.md) 和 [运行工具](../../mesh/android-radio/README.md)。源码/编译交付与本页早期能力探针分开；本轮不做混合多跳，所有实际无线gate仍pending。

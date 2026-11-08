@@ -87,7 +87,8 @@ checks remain in the Windows build. The actual Mesh page is captured in WinUI.
 Android runs its existing suite, radio API/DEX compilation and signature verification.
 Final source/run/artifact evidence is recorded in PR99.
 
-Virtual/loopback and GUI tests do not prove Windows controller firmware or real
-Windows-Android RF interoperability. Hardware validation remains pending. The
-owner-reported Android preview.6 multi-device success is retained as that version's
-field feedback; it is not promoted to this new transport's acceptance result.
+Virtual/loopback and GUI tests do not prove RF interoperability. The owner has
+since reported successful Mesh and relay operation after the Windows/Android
+preview.7 delivery. Device roles, isolation, relay-off and per-hop evidence are
+not yet captured; formal hardware acceptance remains pending. See the
+[field report and PR evidence index](field-validation-2026-11-08.md).
