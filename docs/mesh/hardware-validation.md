@@ -2,6 +2,8 @@
 
 **状态：hardware validation pending。** 本环境 `adb devices -l` 为空，没有三台 Android/Apple 设备、无线电或电池测试环境。已交付独立进程 TCP 实验和原生 Android 能力探针源码；探针不是 Mesh 数据路径适配器。未提供可安装 APK、未绕过签名或系统权限，也没有为编译源代码而重建正式客户端。
 
+新增独立BLE-only / Wi-Fi Aware-only数据适配研发见 [native-radio设计](native-radio-design.md) 和 [运行工具](../../mesh/android-radio/README.md)。源码/编译交付与本页早期能力探针分开；本轮不做混合多跳，所有实际无线gate仍pending。
+
 ## 当前证据能说明什么
 
 | 层级 | 本轮交付/证据 | 不能推出的结论 |
@@ -44,8 +46,8 @@ python3 mesh/tools/android-capture.py --serial DEVICE --mode ble --seconds 15 > 
 ## 三台 Android 的逐级实验
 
 1. **登记与离线条件。** 记录 A/B/C 机型、Android/固件/目标 SDK、电池/省电模式、radio 特性、后台策略和应用权限；关闭蜂窝数据和 Internet 出口，设备不连接共享 AP/路由器。控制电脑仅 USB 日志，禁用 adb reverse/forward 或 USB tethering 的数据捷径。记录拓扑和时间。
-2. **证明两个邻接。** 首选 BLE A–B + Wi-Fi Direct/Aware B–C，或在确实支持并发的 B 上采用两个不同自建组。每跳验证两端实际 socket/GATT 数据；P2P request ACK、GO/client flags 和 discovered 列表只作候选证据。若并发失败，保存具体 API reason、接口/Network 变化，再尝试混合载体。若必须轮换组，标记 DTN 实验并先完成可靠存储设计，不能当作本轮持续在线链通过。
-3. **实现 native adapter。** Android `Network`/RFCOMM/GATT 原生连接提供 frames 给 Rust；FFI/进程桥必须有取消、生命周期与有界帧/分片，Mesh 身份独立。`TcpStream` 不能自动替代 Android `Network.bindSocket`，本轮 CLI 没有完成该桥。平台 adapter 独立评审，不接入正式 App 的私聊通道。
+2. **证明两个邻接。** 分别执行BLE-only与Wi-Fi Aware-only：B需同时维持两个GATT邻接或两个独立NDP。具体命令/失败条件见android-radio README。不支持/并发失败保留真实reason和机型，不在本轮改用混合载体凑成功；Wi-Fi Direct多组并发仍需独立研究。
+3. **连接 native adapter。** 本分支新增原生GATT/NDP桥，向设备内loopback Core提供原始字节流，native不重写签名/路由。Android arm64 CLI和Java/DEX构建不等于数据路径实际工作，仍需授权签名包部署与真实radio验证；省略Linux-only --discover。
 4. **排除 A/C 直连。** 使用距离/屏蔽、不同 radio 路径或实验连接允许列表，证明 A/C 无可用直接连接；分别尝试所有已启用传输并保留失败证据。协议 hop trace 不能替代物理拓扑证据；若采用允许列表隔离，要把这个条件明确记入结果。
 5. **双向与反例。** A→B→C、C→B→A 各至少 20 条，包含 1 byte/2048 byte UTF-8、Emoji；每条按完整 ID 匹配各跳 ingress/egress、transport、验证与展示时间。B relay off 后发送新 ID，等待全部 TTL 到期，确认 A/C 不互达；off 前已经写入内核的字节不可撤回，必须用新消息作为负例。
 6. **故障与资源。** B 断电重启、radio off/on、权限撤销、A/C 移动、锁屏/后台 5/30/60 分钟；重复/环路/坏签名/超长帧/慢接收/洪泛。记录 RSS/PSS、CPU、TX/RX、队列/丢弃、唤醒、存储写入和实际失败状态。电池使用外部电量计或可复现系统电量统计，报告采样方法、环境和误差；没有测量就写未测。

@@ -1,0 +1,1109 @@
+{
+  "schema": 1,
+  "baseline_commit": "e98efa8274b1953ce43fb5709b090c620cca9e30",
+  "validation": "pinned host helper / bytecode measurements only; no Android radio execution",
+  "dex_comparison": {
+    "baseline-default": {
+      "path": "/workspace/scratch/radio-size-review/baseline-default/classes.dex",
+      "bytes": 87500,
+      "sha256": "0cab78b4fd03c0f9b76ebb2cb0c1a6ff76a4fdb2922e1608ad4a4d8e740de680",
+      "class_defs": 97,
+      "unique_class_descriptors": 97,
+      "method_ids": 728,
+      "field_ids": 374,
+      "string_ids": 1109,
+      "classes_with_source": 97,
+      "source_names": [
+        "AwareAdapter.java",
+        "AwareOffer.java",
+        "BleAdapter.java",
+        "BleChunks.java",
+        "CallbackBudget.java",
+        "CoreBridge.java",
+        "D8$$SyntheticClass",
+        "RadioAdapter.java",
+        "RadioConfig.java",
+        "RadioEvents.java",
+        "RadioLab.java"
+      ],
+      "map": [
+        {
+          "type": "0x0",
+          "count": 1,
+          "offset": 0,
+          "span_bytes": 112
+        },
+        {
+          "type": "0x1",
+          "count": 1109,
+          "offset": 112,
+          "span_bytes": 4436
+        },
+        {
+          "type": "0x2",
+          "count": 236,
+          "offset": 4548,
+          "span_bytes": 944
+        },
+        {
+          "type": "0x3",
+          "count": 306,
+          "offset": 5492,
+          "span_bytes": 3672
+        },
+        {
+          "type": "0x4",
+          "count": 374,
+          "offset": 9164,
+          "span_bytes": 2992
+        },
+        {
+          "type": "0x5",
+          "count": 728,
+          "offset": 12156,
+          "span_bytes": 5824
+        },
+        {
+          "type": "0x6",
+          "count": 97,
+          "offset": 17980,
+          "span_bytes": 3104
+        },
+        {
+          "type": "0x2001",
+          "count": 422,
+          "offset": 21084,
+          "span_bytes": 31052
+        },
+        {
+          "type": "0x2003",
+          "count": 233,
+          "offset": 52136,
+          "span_bytes": 2920
+        },
+        {
+          "type": "0x1001",
+          "count": 198,
+          "offset": 55056,
+          "span_bytes": 2002
+        },
+        {
+          "type": "0x2002",
+          "count": 1109,
+          "offset": 57058,
+          "span_bytes": 24757
+        },
+        {
+          "type": "0x2004",
+          "count": 38,
+          "offset": 81815,
+          "span_bytes": 440
+        },
+        {
+          "type": "0x2000",
+          "count": 97,
+          "offset": 82255,
+          "span_bytes": 3993
+        },
+        {
+          "type": "0x2005",
+          "count": 5,
+          "offset": 86248,
+          "span_bytes": 72
+        },
+        {
+          "type": "0x1003",
+          "count": 36,
+          "offset": 86320,
+          "span_bytes": 356
+        },
+        {
+          "type": "0x2006",
+          "count": 24,
+          "offset": 86676,
+          "span_bytes": 616
+        },
+        {
+          "type": "0x1000",
+          "count": 1,
+          "offset": 87292,
+          "span_bytes": 208
+        }
+      ],
+      "classes": [
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$$ExternalSyntheticLambda0;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$$ExternalSyntheticLambda10;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$$ExternalSyntheticLambda11;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$$ExternalSyntheticLambda12;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$$ExternalSyntheticLambda13;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$$ExternalSyntheticLambda1;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$$ExternalSyntheticLambda2;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$$ExternalSyntheticLambda3;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$$ExternalSyntheticLambda4;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$$ExternalSyntheticLambda5;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$$ExternalSyntheticLambda6;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$$ExternalSyntheticLambda7;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$$ExternalSyntheticLambda8;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$$ExternalSyntheticLambda9;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$1;",
+          "source": "AwareAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$2;",
+          "source": "AwareAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$3$$ExternalSyntheticLambda0;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$3;",
+          "source": "AwareAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$4;",
+          "source": "AwareAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$5;",
+          "source": "AwareAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$6;",
+          "source": "AwareAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$Candidate;",
+          "source": "AwareAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$Discovered;",
+          "source": "AwareAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$NativeSocket;",
+          "source": "AwareAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareOffer;",
+          "source": "AwareOffer.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda0;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda10;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda11;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda12;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda13;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda14;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda15;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda16;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda17;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda18;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda19;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda1;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda20;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda21;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda22;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda23;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda24;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda25;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda26;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda2;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda3;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda4;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda5;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda6;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda7;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda8;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda9;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$1$$ExternalSyntheticLambda0;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$1$$ExternalSyntheticLambda1;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$1;",
+          "source": "BleAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$2$$ExternalSyntheticLambda0;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$2$$ExternalSyntheticLambda1;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$2$$ExternalSyntheticLambda2;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$2;",
+          "source": "BleAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$3$$ExternalSyntheticLambda0;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$3$$ExternalSyntheticLambda1;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$3$$ExternalSyntheticLambda2;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$3$$ExternalSyntheticLambda3;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$3$$ExternalSyntheticLambda4;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$3$$ExternalSyntheticLambda5;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$3;",
+          "source": "BleAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$4$$ExternalSyntheticLambda0;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$4$$ExternalSyntheticLambda1;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$4$$ExternalSyntheticLambda2;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$4$$ExternalSyntheticLambda3;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$4$$ExternalSyntheticLambda4;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$4$$ExternalSyntheticLambda5;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$4$$ExternalSyntheticLambda6;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$4$$ExternalSyntheticLambda7;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$4$$ExternalSyntheticLambda8;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$4;",
+          "source": "BleAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$5$$ExternalSyntheticLambda0;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$Link;",
+          "source": "BleAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$Operation;",
+          "source": "BleAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$Peer;",
+          "source": "BleAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleChunks;",
+          "source": "BleChunks.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/CallbackBudget;",
+          "source": "CallbackBudget.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/CoreBridge$$ExternalSyntheticLambda0;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/CoreBridge$$ExternalSyntheticLambda1;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/CoreBridge$Sink;",
+          "source": "CoreBridge.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/CoreBridge;",
+          "source": "CoreBridge.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/RadioAdapter;",
+          "source": "RadioAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/RadioConfig;",
+          "source": "RadioConfig.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/RadioEvents;",
+          "source": "RadioEvents.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/RadioLab$$ExternalSyntheticLambda0;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/RadioLab$$ExternalSyntheticLambda1;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/RadioLab$$ExternalSyntheticLambda2;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$7;",
+          "source": "AwareAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter;",
+          "source": "AwareAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$5;",
+          "source": "BleAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter;",
+          "source": "BleAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/RadioLab;",
+          "source": "RadioLab.java"
+        }
+      ]
+    },
+    "baseline-release": {
+      "path": "/workspace/scratch/radio-size-review/baseline-release/classes.dex",
+      "bytes": 86600,
+      "sha256": "ef6ec0dd8c0d9d1de7ba6c44562cb4514355ebaf616482e283ad0a3916129284",
+      "class_defs": 97,
+      "unique_class_descriptors": 97,
+      "method_ids": 729,
+      "field_ids": 374,
+      "string_ids": 1110,
+      "classes_with_source": 97,
+      "source_names": [
+        "AwareAdapter.java",
+        "AwareOffer.java",
+        "BleAdapter.java",
+        "BleChunks.java",
+        "CallbackBudget.java",
+        "CoreBridge.java",
+        "D8$$SyntheticClass",
+        "RadioAdapter.java",
+        "RadioConfig.java",
+        "RadioEvents.java",
+        "RadioLab.java"
+      ],
+      "map": [
+        {
+          "type": "0x0",
+          "count": 1,
+          "offset": 0,
+          "span_bytes": 112
+        },
+        {
+          "type": "0x1",
+          "count": 1110,
+          "offset": 112,
+          "span_bytes": 4440
+        },
+        {
+          "type": "0x2",
+          "count": 236,
+          "offset": 4552,
+          "span_bytes": 944
+        },
+        {
+          "type": "0x3",
+          "count": 306,
+          "offset": 5496,
+          "span_bytes": 3672
+        },
+        {
+          "type": "0x4",
+          "count": 374,
+          "offset": 9168,
+          "span_bytes": 2992
+        },
+        {
+          "type": "0x5",
+          "count": 729,
+          "offset": 12160,
+          "span_bytes": 5832
+        },
+        {
+          "type": "0x6",
+          "count": 97,
+          "offset": 17992,
+          "span_bytes": 3104
+        },
+        {
+          "type": "0x2001",
+          "count": 422,
+          "offset": 21096,
+          "span_bytes": 30516
+        },
+        {
+          "type": "0x2003",
+          "count": 230,
+          "offset": 51612,
+          "span_bytes": 2528
+        },
+        {
+          "type": "0x1001",
+          "count": 198,
+          "offset": 54140,
+          "span_bytes": 2002
+        },
+        {
+          "type": "0x2002",
+          "count": 1110,
+          "offset": 56142,
+          "span_bytes": 24772
+        },
+        {
+          "type": "0x2004",
+          "count": 38,
+          "offset": 80914,
+          "span_bytes": 440
+        },
+        {
+          "type": "0x2000",
+          "count": 97,
+          "offset": 81354,
+          "span_bytes": 3993
+        },
+        {
+          "type": "0x2005",
+          "count": 5,
+          "offset": 85347,
+          "span_bytes": 73
+        },
+        {
+          "type": "0x1003",
+          "count": 36,
+          "offset": 85420,
+          "span_bytes": 356
+        },
+        {
+          "type": "0x2006",
+          "count": 24,
+          "offset": 85776,
+          "span_bytes": 616
+        },
+        {
+          "type": "0x1000",
+          "count": 1,
+          "offset": 86392,
+          "span_bytes": 208
+        }
+      ],
+      "classes": [
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$$ExternalSyntheticLambda0;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$$ExternalSyntheticLambda10;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$$ExternalSyntheticLambda11;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$$ExternalSyntheticLambda12;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$$ExternalSyntheticLambda13;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$$ExternalSyntheticLambda1;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$$ExternalSyntheticLambda2;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$$ExternalSyntheticLambda3;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$$ExternalSyntheticLambda4;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$$ExternalSyntheticLambda5;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$$ExternalSyntheticLambda6;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$$ExternalSyntheticLambda7;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$$ExternalSyntheticLambda8;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$$ExternalSyntheticLambda9;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$1;",
+          "source": "AwareAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$2;",
+          "source": "AwareAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$3$$ExternalSyntheticLambda0;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$3;",
+          "source": "AwareAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$4;",
+          "source": "AwareAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$5;",
+          "source": "AwareAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$6;",
+          "source": "AwareAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$Candidate;",
+          "source": "AwareAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$Discovered;",
+          "source": "AwareAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$NativeSocket;",
+          "source": "AwareAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareOffer;",
+          "source": "AwareOffer.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda0;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda10;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda11;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda12;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda13;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda14;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda15;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda16;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda17;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda18;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda19;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda1;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda20;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda21;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda22;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda23;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda24;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda25;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda26;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda2;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda3;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda4;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda5;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda6;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda7;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda8;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$$ExternalSyntheticLambda9;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$1$$ExternalSyntheticLambda0;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$1$$ExternalSyntheticLambda1;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$1;",
+          "source": "BleAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$2$$ExternalSyntheticLambda0;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$2$$ExternalSyntheticLambda1;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$2$$ExternalSyntheticLambda2;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$2;",
+          "source": "BleAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$3$$ExternalSyntheticLambda0;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$3$$ExternalSyntheticLambda1;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$3$$ExternalSyntheticLambda2;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$3$$ExternalSyntheticLambda3;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$3$$ExternalSyntheticLambda4;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$3$$ExternalSyntheticLambda5;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$3;",
+          "source": "BleAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$4$$ExternalSyntheticLambda0;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$4$$ExternalSyntheticLambda1;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$4$$ExternalSyntheticLambda2;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$4$$ExternalSyntheticLambda3;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$4$$ExternalSyntheticLambda4;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$4$$ExternalSyntheticLambda5;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$4$$ExternalSyntheticLambda6;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$4$$ExternalSyntheticLambda7;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$4$$ExternalSyntheticLambda8;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$4;",
+          "source": "BleAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$5$$ExternalSyntheticLambda0;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$Link;",
+          "source": "BleAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$Operation;",
+          "source": "BleAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$Peer;",
+          "source": "BleAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleChunks;",
+          "source": "BleChunks.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/CallbackBudget;",
+          "source": "CallbackBudget.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/CoreBridge$$ExternalSyntheticLambda0;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/CoreBridge$$ExternalSyntheticLambda1;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/CoreBridge$Sink;",
+          "source": "CoreBridge.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/CoreBridge;",
+          "source": "CoreBridge.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/RadioAdapter;",
+          "source": "RadioAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/RadioConfig;",
+          "source": "RadioConfig.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/RadioEvents;",
+          "source": "RadioEvents.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/RadioLab$$ExternalSyntheticLambda0;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/RadioLab$$ExternalSyntheticLambda1;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/RadioLab$$ExternalSyntheticLambda2;",
+          "source": "D8$$SyntheticClass"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter$7;",
+          "source": "AwareAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/AwareAdapter;",
+          "source": "AwareAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter$5;",
+          "source": "BleAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/BleAdapter;",
+          "source": "BleAdapter.java"
+        },
+        {
+          "descriptor": "Lorg/nearbymesh/radio/RadioLab;",
+          "source": "RadioLab.java"
+        }
+      ]
+    },
+    "jar": {
+      "path": "/workspace/scratch/radio-size-review/baseline-default/radio-classes.jar",
+      "bytes": 61942,
+      "sha256": "b30db948f92ee8b05b9895fbdfc8b436413e5dd08097d42a5427ad6a069f8f37",
+      "entries": 34,
+      "classes": 29,
+      "uncompressed_bytes": 124843,
+      "duplicate_entries": 0
+    },
+    "source_commit": "e98efa8274b1953ce43fb5709b090c620cca9e30",
+    "sources": {
+      "mesh/android-radio/AndroidManifest.xml": "328bbad1a023c2e4d80b7c2474114a0b588d97bb507110c2aff3cfe27bdce3aa",
+      "mesh/android-radio/ANDROID-CORE.md": "3607997f9a7928321494c57c1f6cb901f1511d9670eab7fb542f6d17151f1d16",
+      "mesh/android-radio/build.sh": "cfbf687e217e9ce1ee3d8d37bc843de67aecbced9de1006f01f280686ddc08ab",
+      "mesh/android-radio/test.sh": "b762d420a3f7b04ff31c87e5fb1c6b526a8f6ede3871e872bd67bba0b33b9ad3",
+      "mesh/android-radio/README.md": "9b03c0fa96d770ce961b57317c5cdcb506a181e9d7fff7cd37753412b93f347a",
+      "mesh/android-radio/tests/CoreBridgeTest.java": "dea8939199875ff3ec5009d399d12f4ad829270f19b103316dfad9e8d915b47d",
+      "mesh/android-radio/tests/test_radio_lab.py": "e5e6117f995bb4f5e59815b0b4a5ac9a76ec8e8357dd6426c7845c7b616eb953",
+      "mesh/android-radio/tests/CallbackBudgetTest.java": "0e6bd5491668c209d38b7b3345896bb504dd2ebaa8a4b2e510f81b0032c63180",
+      "mesh/android-radio/tests/RadioConfigTest.java": "26e44e6da1b50604bd963e372853810d8528f968b92bfccc7a7e3d0a42585f91",
+      "mesh/android-radio/tests/BleChunksTest.java": "d969a7b2f0b73accf3e922c2ee095e115814df4e4a9ec649804a01e16c3e5810",
+      "mesh/android-radio/src/org/nearbymesh/radio/BleAdapter.java": "d986acea7359807a678b6d0f4b2f505b164c6dc511d884a9efd92d0e92896dde",
+      "mesh/android-radio/src/org/nearbymesh/radio/RadioConfig.java": "8374dbae78a7305fe765fb330988c87b79b7b2641a10cee73ff317bee6b37cd1",
+      "mesh/android-radio/src/org/nearbymesh/radio/CoreBridge.java": "5db6d26edf71d29fd9cb7a9a7bd33e4ac60f3a5a4b98f098635d015c7024db69",
+      "mesh/android-radio/src/org/nearbymesh/radio/RadioEvents.java": "255bc7e8affde1ccf416e35aebc6b41cd64e8e7ecf58725e88b22eeae2699e25",
+      "mesh/android-radio/src/org/nearbymesh/radio/BleChunks.java": "fa8f7281bfcd8bcf7fcead7e53aad70b936b5953d9523fb2f8c2d6ea4d268bc3",
+      "mesh/android-radio/src/org/nearbymesh/radio/RadioLab.java": "9db41a59f18f85aa8138c8407b0d21ecccbe1635e434a4f0e7c578e9a06d6a39",
+      "mesh/android-radio/src/org/nearbymesh/radio/CallbackBudget.java": "c316cb3ad86fcff6ba790c68fc05cd097c9197b8b7b5ffad1a1227e0ae8aaeae",
+      "mesh/android-radio/src/org/nearbymesh/radio/AwareOffer.java": "35781f868d71fb8fff93e031bc49be95187ee3b8772ba20878ae64bf8fea902a",
+      "mesh/android-radio/src/org/nearbymesh/radio/AwareAdapter.java": "294977ab1ee5d245842f1f0a60aa569cd468844f36ebb997715db4eb2e35d099",
+      "mesh/android-radio/src/org/nearbymesh/radio/RadioAdapter.java": "24e22da78112ffb9079d28e885edd27133c8cb9420bb1dac55f89cb28a14c467",
+      "mesh/android-radio/tests/org/nearbymesh/radio/AwareOfferTest.java": "1bec9ddf9033dc6c2568a2df980ae5a1c9918de5262176b979ce239c527c992c"
+    }
+  },
+  "host_manifest": {
+    "host": {
+      "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+      "cpu_quota": "200000 100000",
+      "memory_limit": "8589934592",
+      "processor": "AMD EPYC 9V45 96-Core Processor"
+    },
+    "files": {
+      "mesh/android-radio/src/org/nearbymesh/radio/BleChunks.java": {
+        "sha256": "fa8f7281bfcd8bcf7fcead7e53aad70b936b5953d9523fb2f8c2d6ea4d268bc3",
+        "baseline_matches": true
+      },
+      "mesh/android-radio/src/org/nearbymesh/radio/CoreBridge.java": {
+        "sha256": "5db6d26edf71d29fd9cb7a9a7bd33e4ac60f3a5a4b98f098635d015c7024db69",
+        "baseline_matches": true
+      },
+      "mesh/android-radio/src/org/nearbymesh/radio/CallbackBudget.java": {
+        "sha256": "c316cb3ad86fcff6ba790c68fc05cd097c9197b8b7b5ffad1a1227e0ae8aaeae",
+        "baseline_matches": true
+      },
+      "HostFragmentMeasure.java": {
+        "sha256": "22113dcabb9940bcf9841334dd537d633526eed94532e83ac82a923e8ab2f306"
+      },
+      "host-fragment.txt": {
+        "sha256": "315561c94c4a75dbbd14b19a2ada6876b66375c071c649ac4ebfe36eb5cce55f"
+      },
+      "baseline-size.json": {
+        "sha256": "6b395a1c0b1bb065460789ebb6bbfc4e690901d0ff71bdcd539ebffedf7f90ff"
+      }
+    }
+  },
+  "host_raw_output": "mtu=23 trial=0 chunks=205 ns_per_4096=1617.5 allocated_bytes_per_4096=9088.0\nmtu=23 trial=1 chunks=205 ns_per_4096=1214.0 allocated_bytes_per_4096=9032.0\nmtu=23 trial=2 chunks=205 ns_per_4096=1179.2 allocated_bytes_per_4096=9032.0\nmtu=23 trial=3 chunks=205 ns_per_4096=1079.2 allocated_bytes_per_4096=9032.0\nmtu=23 trial=4 chunks=205 ns_per_4096=1061.7 allocated_bytes_per_4096=9032.0\nmtu=23 trial=5 chunks=205 ns_per_4096=1037.5 allocated_bytes_per_4096=9032.0\nmtu=23 trial=6 chunks=205 ns_per_4096=1055.2 allocated_bytes_per_4096=9032.0\nmtu=247 trial=0 chunks=17 ns_per_4096=178.8 allocated_bytes_per_4096=4520.0\nmtu=247 trial=1 chunks=17 ns_per_4096=176.4 allocated_bytes_per_4096=4520.0\nmtu=247 trial=2 chunks=17 ns_per_4096=170.9 allocated_bytes_per_4096=4520.0\nmtu=247 trial=3 chunks=17 ns_per_4096=177.1 allocated_bytes_per_4096=4520.0\nmtu=247 trial=4 chunks=17 ns_per_4096=165.8 allocated_bytes_per_4096=4520.0\nmtu=247 trial=5 chunks=17 ns_per_4096=172.6 allocated_bytes_per_4096=4520.0\nmtu=247 trial=6 chunks=17 ns_per_4096=175.6 allocated_bytes_per_4096=4520.0\nmtu=517 trial=0 chunks=8 ns_per_4096=137.2 allocated_bytes_per_4096=4272.0\nmtu=517 trial=1 chunks=8 ns_per_4096=138.7 allocated_bytes_per_4096=4272.0\nmtu=517 trial=2 chunks=8 ns_per_4096=141.7 allocated_bytes_per_4096=4272.0\nmtu=517 trial=3 chunks=8 ns_per_4096=141.4 allocated_bytes_per_4096=4272.0\nmtu=517 trial=4 chunks=8 ns_per_4096=151.4 allocated_bytes_per_4096=4272.0\nmtu=517 trial=5 chunks=8 ns_per_4096=141.3 allocated_bytes_per_4096=4272.0\nmtu=517 trial=6 chunks=8 ns_per_4096=139.8 allocated_bytes_per_4096=4272.0\nbridge_unstarted_queue accepted=8 rejected=1 close_callbacks=1\ncallback_budget admitted=128 overflow_latched=true\n",
+  "host_helper_java": "package org.nearbymesh.radio;\nimport com.sun.management.ThreadMXBean;\nimport java.lang.management.ManagementFactory;\nimport java.util.Arrays;\nimport java.util.List;\npublic final class HostFragmentMeasure {\n private static volatile long blackhole;\n private static final byte[] INPUT = new byte[4096];\n private static long consume(int mtu, int count) {\n  long sum=0;\n  for(int i=0;i<count;i++) {\n   INPUT[i&4095]=(byte)i;\n   List<byte[]> chunks=BleChunks.split(INPUT,mtu);\n   sum+=chunks.size();\n   for(byte[] chunk:chunks) sum+=chunk.length+chunk[0];\n  }\n  blackhole=sum;return sum;\n }\n public static void main(String[] args) {\n  ThreadMXBean bean=(ThreadMXBean)ManagementFactory.getThreadMXBean();\n  if(!bean.isThreadAllocatedMemorySupported())throw new AssertionError(\"allocation counter unavailable\");\n  bean.setThreadAllocatedMemoryEnabled(true);\n  long id=Thread.currentThread().getId();\n  for(int mtu:new int[]{23,247,517}) {\n   consume(mtu,10000);\n   for(int trial=0;trial<7;trial++) {\n    long a=bean.getThreadAllocatedBytes(id),start=System.nanoTime();\n    consume(mtu,20000);\n    long ns=System.nanoTime()-start, allocated=bean.getThreadAllocatedBytes(id)-a;\n    System.out.printf(\"mtu=%d trial=%d chunks=%d ns_per_4096=%.1f allocated_bytes_per_4096=%.1f%n\",mtu,trial,BleChunks.split(INPUT,mtu).size(),ns/20000.0,allocated/20000.0);\n   }\n  }\n  CoreBridge.Sink sink=new CoreBridge.Sink(){public void send(byte[] b){}public void close(){}};\n  int[] closed={0};CoreBridge bridge=new CoreBridge(39770,sink,()->closed[0]++);\n  int accepted=0;for(int i=0;i<9;i++)if(bridge.receive(INPUT))accepted++;\n  if(accepted!=8||closed[0]!=1||bridge.receive(INPUT))throw new AssertionError(\"bridge queue boundary\");\n  System.out.printf(\"bridge_unstarted_queue accepted=%d rejected=1 close_callbacks=%d%n\",accepted,closed[0]);\n  CallbackBudget budget=new CallbackBudget(128);int slots=0;while(budget.acquire())slots++;\n  if(slots!=128||!budget.overflow()||budget.overflow())throw new AssertionError(\"callback boundary\");\n  for(int i=0;i<128;i++)budget.release();if(budget.acquire())throw new AssertionError(\"overflow must remain closed\");\n  System.out.printf(\"callback_budget admitted=%d overflow_latched=true%n\",slots);\n }\n}\n"
+}

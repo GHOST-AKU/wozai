@@ -1,0 +1,65 @@
+name: Verify native Mesh radio sources
+on:
+  pull_request:
+    paths: ['mesh/android-radio/**', 'mesh/tools/radio-lab.py', 'mesh/tools/build-android-core.sh', 'docs/mesh/native-radio*', '.github/workflows/mesh-radio.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: mesh-radio-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  radio:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    env:
+      RADIO_VERIFIED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - run: test "$(git rev-parse HEAD)" = "$RADIO_VERIFIED_SHA"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Host transport boundaries and controller fixtures; no radio hardware claim
+        run: |
+          for script in mesh/android-radio/build.sh mesh/android-radio/test.sh mesh/android-radio/test-ble-host.sh mesh/tools/build-android-core.sh; do
+            bash -n "$script"
+          done
+          bash mesh/android-radio/test.sh
+          python3 -m unittest discover -s mesh/android-radio/tests -p 'test_*.py' -v
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Install exact compile SDK inputs
+        run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
+      - name: Actual BLE scheduler host regressions; framework doubles only
+        run: ANDROID_SDK_ROOT="$ANDROID_HOME" bash mesh/android-radio/test-ble-host.sh
+      - name: Compile native APIs and DEX; no installable APK
+        run: ANDROID_SDK_ROOT="$ANDROID_HOME" bash mesh/android-radio/build.sh
+      - name: Record source and compiled output hashes
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,os,subprocess
+          from pathlib import Path
+          root=Path('mesh/android-radio')
+          files=list((root/'src').rglob('*.java'))+list((root/'tests').rglob('*.java'))+list((root/'tests').glob('test_*.py'))
+          files += [root/'AndroidManifest.xml',root/'build.sh',root/'test.sh',root/'test-ble-host.sh',Path('mesh/tools/radio-lab.py'),Path('mesh/tools/build-android-core.sh'),Path('.github/workflows/mesh-radio.yml')]
+          data={'commit':os.environ['RADIO_VERIFIED_SHA'],'validation':'host fixtures + Android API/DEX compile only','hardware_validation':'pending','source_dirty':bool(subprocess.check_output(['git','status','--porcelain']).strip()),'sources':{str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in files},'outputs':{str(p):{'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),'bytes':p.stat().st_size} for p in (root/'build').glob('*') if p.suffix in ('.dex','.jar')}}
+          (root/'build/ci-source.json').write_text(json.dumps(data,indent=2)+'\n')
+          print(json.dumps({'commit':data['commit'],'source_dirty':data['source_dirty'],'outputs':data['outputs']},indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-radio-compile-evidence
+          path: |
+            mesh/android-radio/build/ci-source.json
+            mesh/android-radio/build/classes.dex
+          if-no-files-found: error
