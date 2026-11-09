@@ -85,7 +85,7 @@ public final class BLEMeshStream: NSObject, MeshByteStream, StreamDelegate, @unc
         guard (1...32772).contains(maximum) else { throw MeshError.bound }
         return try await withTaskCancellationHandler {
             try Task.checkCancellation()
-            try await withCheckedThrowingContinuation { continuation in
+            return try await withCheckedThrowingContinuation { (continuation:CheckedContinuation<Data,Error>) in
                 gate.lock(); let stopped=closing; gate.unlock()
                 if stopped { continuation.resume(throwing:MeshError.closed); return }
                 perform({ [self] in

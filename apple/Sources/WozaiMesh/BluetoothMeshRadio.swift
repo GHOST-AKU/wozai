@@ -32,6 +32,7 @@ public final class BluetoothMeshRadio: NSObject, CBCentralManagerDelegate, CBPer
         init(_ device: CBPeripheral) { self.device=device }
     }
     private struct Session {
+        let channel: CBL2CAPChannel
         let stream: BLEMeshStream
         let task: Task<Void,Never>
         let peer: UUID?
@@ -88,7 +89,9 @@ public final class BluetoothMeshRadio: NSObject, CBCentralManagerDelegate, CBPer
         publishWatchdog=watchdog;queue.asyncAfter(deadline:.now()+20,execute:watchdog)
     }
     public func peripheralManager(_ manager: CBPeripheralManager, didPublishL2CAPChannel value: CBL2CAPPSM, error: Error?) {
-        guard running,manager === peripheral else { manager.unpublishL2CAPChannel(value);return }
+        guard running,manager === peripheral else {
+            if value>0,manager.state == .poweredOn { manager.unpublishL2CAPChannel(value) };return
+        }
         publishing=false;publishWatchdog?.cancel()
         guard error == nil,value>0, let offer=try? MeshCoCProtocol.advertisement(label:label,psm:value) else {
             recoverPublication("ble_publish_failed");return
@@ -219,7 +222,7 @@ public final class BluetoothMeshRadio: NSObject, CBCentralManagerDelegate, CBPer
                 self.notice("ble_stream_closed")
             }
         }
-        sessions[id]=Session(stream:stream,task:task,peer:peer,born:ProcessInfo.processInfo.systemUptime)
+        sessions[id]=Session(channel:channel,stream:stream,task:task,peer:peer,born:ProcessInfo.processInfo.systemUptime)
     }
     public func centralManager(_ manager: CBCentralManager, didDisconnectPeripheral device: CBPeripheral, error: Error?) { disconnected(manager,device) }
     public func centralManager(_ manager: CBCentralManager, didFailToConnect device: CBPeripheral, error: Error?) { disconnected(manager,device) }

@@ -32,6 +32,7 @@ enum MeshCoCProtocol {
         return Data([1,UInt8(label.utf8.count)]) + Data(label.utf8) + Data([UInt8(psm >> 8),UInt8(psm & 255)])
     }
     static func offer(_ bytes: Data) -> Offer? {
+        guard (5...12).contains(bytes.count) else { return nil }
         let b = [UInt8](bytes)
         guard (5...12).contains(b.count), b[0] == 1, (1...8).contains(b[1]), b.count == Int(b[1])+4,
               let label=String(bytes:b[2..<(2+Int(b[1]))],encoding:.ascii), valid(label) else { return nil }
@@ -43,6 +44,7 @@ enum MeshCoCProtocol {
         return Data([78,77,76,67,1,UInt8(label.utf8.count)]) + Data(label.utf8)
     }
     static func labelLength(_ header: Data) throws -> Int {
+        guard header.count == 6 else { throw MeshError.invalidPreface }
         let b=[UInt8](header)
         guard b.count == 6, b[0...4].elementsEqual([78,77,76,67,1]), (1...8).contains(b[5]) else { throw MeshError.invalidPreface }
         return Int(b[5])
