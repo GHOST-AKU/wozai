@@ -5,6 +5,8 @@
 基线：main `f59853eac6d08285090a2be033fe973fbffbdc30`，0.4.0-preview.7/build22。
 本文由主 agent 独立研究、自我评审；未使用 subagent，未运行构建或设备实验。
 
+**范围修订：本方案覆盖 Android（原客户端与 Next）、Windows（Desktop 与 Next）、Linux 桌面、iOS/iPadOS、macOS 原生端，以及 Rust 终端。** 本文规定统一契约；配套的[逐平台设计与跨端验收](2026-11-09-private-chat-platform-designs.md)规定每个平台的代码落点、存储、传输、生命周期和互通边界。两份文档合起来才是完整设计，不能把 Java 实现计划称作所有平台的实施方案。
+
 ## 1. 产品决策
 
 用户希望私聊像公共频道一样，选好对象、输入、发送，不再由双方操作连接按钮。
@@ -26,7 +28,7 @@
 - 私聊经 Mesh 的多跳可靠通道、服务器信箱、公网 NAT 穿透、陌生人无条件自动信任。
 - 承诺强制停止后继续接收、睡眠电脑仍即时接收、零耗电或任意后台永久在线。
 - 自动发送文件、自动下载附件、改变已读隐私设置、自动标记安全码已核验。
-- Apple 无线适配或 Wi-Fi Direct Mesh 研发；后续适配同一应用契约即可。
+- 新物理传输的产品代码与 Wi-Fi Direct Mesh 研发。本轮包含 Apple 等平台的接入设计和能力缺口，不声称已完成新无线适配。
 
 ## 2. 当前代码：哪些已存在，哪些缺失
 
@@ -78,7 +80,7 @@ Briar 源码读取快照 SHA256：ConnectionRegistryImpl `f35f093ddc0eb79b927649
 | B. 持久发送意图 + 自动连接管理 + 有界多会话 | 复用 NIM4，双方不用手动连，状态可解释 | 需要存储迁移、会话所有权重构与针对性回归 | **推荐** |
 | C. Mesh 私聊或 Briar/libp2p 全栈替换 | 可进一步研究多跳/同步 | 新信任/路由/协议边界，跨端成本高；当前不是现成 NIM4 传输 | 独立后续 RFC，不阻塞 B |
 
-语言：Android 接收/权限/界面继续 Kotlin，已有共享 JVM 通信/策略继续 Java；Windows 沿用 WinUI C# + Java bridge。策略尽量是无 Android/UI 依赖的 Java 状态机，让两端复用；平台存储和系统监听原生实现。无需加 Rust FFI、新 GUI 框架、Briar/Tox/libp2p 运行时依赖。Apple 后续原生 Swift 实现同一契约，不因共用规范而强行嵌入 JVM。
+语言：Android 接收/权限/界面继续 Kotlin，已有共享 JVM 通信/策略继续 Java；Windows 沿用 WinUI C# + Java bridge；Linux 复用 Desktop Java 与现有 BlueZ JNI。Apple 原生 Swift、终端 Rust 分别实现同一契约，以共享行为样例验收，而不是共享运行时。策略尽量无 UI 依赖；不加 Rust FFI、新 GUI 框架或 Briar/Tox/libp2p 运行时依赖。跨语言边界和每端设计详见配套文档。
 
 ## 5. 应用架构与职责
 
@@ -95,6 +97,8 @@ PrivateMessagingCoordinator（单线程串行处理事件）
   │         └─ 该会话独享的文件路由、头像同步、读回执
   └─ PlatformReception：权限、监听、网络事件、进程生命周期
 ```
+
+这是逻辑职责图，不要求每端使用相同语言或线程库。Swift 使用 actor、Rust 使用有界事件循环，JVM 共享策略但平台 IO 隔离；Windows C# 不再建立第二份私聊 outbox。数据模型、行为一致性与有效运行条件以配套逐平台设计为准。
 
 UI 选择、连接生命周期、身份授权是三个独立状态；入站消息更新对应聊天及通知，不抢走用户正在看的聊天。所有异步操作携带 localRoot/profile、peer/root、attemptId/sessionGeneration、trustRevision；UI 另带 selection/draftRevision。迟到回调只能影响它所属的任务。
 
@@ -255,6 +259,8 @@ Android 在 SQLite 同一事务中写消息和 outbox，配额计数同步提交
 4. **有界多会话**：active/current 拆成会话表；文件/头像/读回执/安全码全部按会话隔离，Android 与 Windows 两端完成；不靠频繁自动切断模拟并行。
 5. **界面与 IPC**：直接发送、状态文案、草稿 CAS、通知、诊断文件，更新 windows-next/PROTOCOL.md 及 Android 文档。功能开关可回退手动模式，但禁用时队列不能偷偷继续发送。
 6. **代表性完整验证后出 Preview**：针对性回归一次，最终跑相关完整套件；只有版本/产物需要才构建。Android 交付必须原持久证书验签，Windows 原生构建与真实 stream/生命周期验证；不在文档阶段消耗构建资源。
+
+上述工作包适用于全部客户端，不是先交付 Java 两端就结束。Swift 的 SQLite/actor、Rust 的 SQLite/runtime、Linux BlueZ/桌面生命周期，以及各端 UI/CLI 都是独立实施项。全平台共同交付门槛为 NIM4 over LAN 的直接发送；各无线附加能力单独验收，不能用“API 可调用”代替跨设备互通。具体依赖和发布范围见配套文档第10节。
 
 ### 验收矩阵（独立于实现的可观察结果）
 
