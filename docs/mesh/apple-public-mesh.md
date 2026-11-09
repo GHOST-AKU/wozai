@@ -70,6 +70,14 @@ xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM \
 
 CI和精确测试结果记入对应PR；不以早期失败提交、`[skip ci]`或本地结果冒充最新Apple HEAD的通过记录。
 
+本次验证记录：
+
+- [Apple CI 42655311655](https://github.com/GHOST-AKU/wozai/actions/runs/42655311655) 在运行时代码提交 `6e3627d734943befccc656151ff8bc397ba8027d` 成功：62项Swift测试（含7项新Mesh测试）、原生生命周期探针、现有Java/NIM4互通、macOS arm64/x86_64通用Release与iOS arm64设备Release编译。没有执行Apple蓝牙射频验收；设备编译关闭分发签名。
+- [Mesh CI 42654340082](https://github.com/GHOST-AKU/wozai/actions/runs/42654340082) 在 `9e2e59aeeee280cc6868f0b75abc160b01797a7f` 成功：fmt、Clippy、完整Rust Core测试、36项Python测试、9项探针捕获测试，以及两种隔离TCP拓扑。之后Rust/CLI/lock/此工作流输入未改变，复用该证据而非重复构建。
+- 本地C ABI测试、Clippy、独立进程14项、版本和五语言资源检查通过。后续仅资源/文档检查时，不声称又跑了一次上述完整CI。
+- 最后资源检查补齐了蓝牙五语言说明与隐私manifest：单调时间用于重试/期限（35F9.1），私有状态文件metadata访问（C617.1）；不导出系统启动时间，不以此声明通过App Store审核。参考[Apple TN3183](https://developer.apple.com/documentation/technotes/tn3183-adding-required-reason-api-entries-to-your-privacy-manifest)。
+- GitHub证据artifact已生成（Apple `13691787338`、Mesh `13689549840`）；本环境下载Apple artifact遇到403，因此上述核对基于成功workflow的步骤日志，不声称已检查下载归档内部。
+
 ## 真机实验（尚未声称通过）
 
 先Apple↔Android双向公共文字、自动发现/断线恢复，再Apple↔Apple。三设备分别验证Apple为端点和中继：A/C不能直接连接、无互联网/共同AP，B开中继双向到达，关中继新ID在全TTL内不能越过B，再恢复中继发送新ID。记录真实角色、Core路径、系统/蓝牙权限、设备型号、失败/重试与导出诊断。
