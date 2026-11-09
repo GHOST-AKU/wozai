@@ -1,3 +1,5 @@
 "CFBundleDisplayName" = "我在";
 "NSLocalNetworkUsageDescription" = "NearbyIM 透過區域網路尋找附近裝置並交換加密訊息，不使用遠端聊天伺服器。";
 "NSCameraUsageDescription" = "掃描對方裝置的身分 QR 圖碼以比對完整安全碼，相機影像僅在本機處理。";
+
+"NSBluetoothAlwaysUsageDescription" = "我在使用藍牙探索附近公開 Mesh 節點並交換公開訊息。公開訊息不提供端對端加密。";

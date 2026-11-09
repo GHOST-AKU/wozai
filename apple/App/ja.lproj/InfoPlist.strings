@@ -1,3 +1,5 @@
 "CFBundleDisplayName" = "NearbyIM";
 "NSLocalNetworkUsageDescription" = "NearbyIM はローカルネットワーク上のデバイスを検出し、暗号化されたメッセージを交換します。リモートの会話サーバーは使用しません。";
 "NSCameraUsageDescription" = "相手のデバイスの識別用 QR コードを読み取り、セーフティコード全体を比較します。カメラ画像はこのデバイス内でのみ処理されます。";
+
+"NSBluetoothAlwaysUsageDescription" = "NearbyIM は Bluetooth で近くの公開 Mesh ノードを探し、公開メッセージを交換します。公開メッセージはエンドツーエンド暗号化されません。";

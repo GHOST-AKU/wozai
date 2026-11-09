@@ -24,9 +24,18 @@ permissions:
 jobs:
   apple:
     runs-on: macos-latest
-    timeout-minutes: 25
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.88.0
+        if: ${{ !inputs.screenshots-only }}
+      - uses: Swatinem/rust-cache@v2
+        if: ${{ !inputs.screenshots-only }}
+        with:
+          workspaces: mesh
+      - name: Build actual embedded public Mesh Core
+        if: ${{ !inputs.screenshots-only }}
+        run: bash tools/build-apple-mesh.sh
       - name: Test native core and resources
         if: ${{ !inputs.screenshots-only }}
         run: |
