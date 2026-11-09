@@ -83,8 +83,8 @@ public final class BLEMeshStream: NSObject, MeshByteStream, StreamDelegate, @unc
     }
     public func read(maximum: Int) async throws -> Data {
         guard (1...32772).contains(maximum) else { throw MeshError.bound }
-        try Task.checkCancellation()
         return try await withTaskCancellationHandler {
+            try Task.checkCancellation()
             try await withCheckedThrowingContinuation { continuation in
                 gate.lock(); let stopped=closing; gate.unlock()
                 if stopped { continuation.resume(throwing:MeshError.closed); return }
@@ -99,8 +99,8 @@ public final class BLEMeshStream: NSObject, MeshByteStream, StreamDelegate, @unc
     }
     public func write(_ data: Data) async throws {
         guard data.count<=32772 else { throw MeshError.bound }
-        try Task.checkCancellation()
         try await withTaskCancellationHandler {
+            try Task.checkCancellation()
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void,Error>) in
                 gate.lock(); let stopped=closing; gate.unlock()
                 if stopped { continuation.resume(throwing:MeshError.closed); return }

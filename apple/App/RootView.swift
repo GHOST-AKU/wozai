@@ -84,8 +84,8 @@ struct RootView: View {
         } message: { Text(verbatim: model.notice?.message ?? "") }
         .onChange(of: scenePhase) { _, phase in
             #if os(iOS)
-            if phase == .background { mesh.stop();Task { await model.suspend() } }
-            if phase == .active { model.resume() }
+            if phase == .background { mesh.suspend();Task { await model.suspend() } }
+            if phase == .active { mesh.resume();model.resume() }
             #endif
         }
     }

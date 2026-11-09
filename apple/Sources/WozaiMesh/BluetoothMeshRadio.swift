@@ -15,8 +15,9 @@ public final class BluetoothMeshRadio: NSObject, CBCentralManagerDelegate, CBPer
     private var running=false
     private var generation=UUID()
     private var publishing=false
+    private var publicationFailures=0
     private var publishWatchdog: DispatchWorkItem?
-    private enum Phase { case idle, connecting, services, offer, opening, linked, retiring }
+    private enum Phase: Equatable { case idle, connecting, services, offer, opening, linked, retiring }
     private final class Candidate {
         let device: CBPeripheral
         var offer: MeshCoCProtocol.Offer?
@@ -82,10 +83,7 @@ public final class BluetoothMeshRadio: NSObject, CBCentralManagerDelegate, CBPer
         manager.publishL2CAPChannel(withEncryption:false)
         let watchdog=DispatchWorkItem { [weak self] in
             guard let self,self.running,self.generation==token,self.psm==nil else { return }
-            self.notice("ble_publish_timeout")
-            // A fresh manager fences late publication callbacks from this attempt.
-            self.peripheral?.delegate=nil;self.peripheral=nil;self.publishing=false
-            self.peripheral=CBPeripheralManager(delegate:self,queue:self.queue,options:[CBPeripheralManagerOptionShowPowerAlertKey:false])
+            self.recoverPublication("ble_publish_timeout")
         }
         publishWatchdog=watchdog;queue.asyncAfter(deadline:.now()+20,execute:watchdog)
     }
@@ -93,8 +91,7 @@ public final class BluetoothMeshRadio: NSObject, CBCentralManagerDelegate, CBPer
         guard running,manager === peripheral else { manager.unpublishL2CAPChannel(value);return }
         publishing=false;publishWatchdog?.cancel()
         guard error == nil,value>0, let offer=try? MeshCoCProtocol.advertisement(label:label,psm:value) else {
-            notice("ble_publish_failed");let token=generation
-            queue.asyncAfter(deadline:.now()+30) { [weak self] in if let self,self.generation==token { self.publish(manager) } };return
+            recoverPublication("ble_publish_failed");return
         }
         psm=value
         let info=CBMutableCharacteristic(type:characteristic,properties:[.read],value:offer,permissions:[.readable])
@@ -103,12 +100,26 @@ public final class BluetoothMeshRadio: NSObject, CBCentralManagerDelegate, CBPer
     }
     public func peripheralManager(_ manager: CBPeripheralManager, didAdd service: CBService, error: Error?) {
         guard running,manager === peripheral else { return }
-        if error != nil { notice("ble_service_failed");return }
+        if error != nil { recoverPublication("ble_service_failed");return }
         manager.startAdvertising([CBAdvertisementDataServiceUUIDsKey:[self.service],CBAdvertisementDataLocalNameKey:label])
     }
     public func peripheralManagerDidStartAdvertising(_ manager: CBPeripheralManager, error: Error?) {
         guard running,manager === peripheral else { return }
-        notice(error == nil ? "ble_ready" : "ble_advertising_failed")
+        if error == nil { publicationFailures=0;notice("ble_ready") }
+        else { recoverPublication("ble_advertising_failed") }
+    }
+    private func recoverPublication(_ reason:String) {
+        guard running else { return };notice(reason);publishWatchdog?.cancel()
+        let token=generation
+        peripheral?.stopAdvertising();if let psm { peripheral?.unpublishL2CAPChannel(psm) }
+        peripheral?.removeAllServices();peripheral?.delegate=nil;peripheral=nil;psm=nil;publishing=false
+        for (id,session) in sessions where session.peer == nil { session.task.cancel();session.stream.close();sessions.removeValue(forKey:id) }
+        publicationFailures=min(publicationFailures+1,6)
+        let retry=DispatchWorkItem { [weak self] in
+            guard let self,self.running,self.generation==token,self.peripheral==nil else { return }
+            self.peripheral=CBPeripheralManager(delegate:self,queue:self.queue,options:[CBPeripheralManagerOptionShowPowerAlertKey:false])
+        }
+        publishWatchdog=retry;queue.asyncAfter(deadline:.now()+Double(min(60,1 << publicationFailures)),execute:retry)
     }
     public func centralManager(_ manager: CBCentralManager, didDiscover device: CBPeripheral, advertisementData data: [String:Any], rssi RSSI: NSNumber) {
         guard running,manager === central else { return }
@@ -129,7 +140,7 @@ public final class BluetoothMeshRadio: NSObject, CBCentralManagerDelegate, CBPer
         dial(candidate)
     }
     private func dial(_ candidate: Candidate) {
-        let pending=candidates.values.filter { [.connecting,.services,.offer,.opening,.retiring].contains($0.phase) }.count
+        let pending=candidates.values.filter { $0.phase != .idle && $0.phase != .linked }.count
         if candidate.passive,ProcessInfo.processInfo.systemUptime>=candidate.passiveUntil { candidate.passive=false }
         guard running,central?.state == .poweredOn,candidate.phase == .idle,!candidate.passive,
               sessions.count+pending<4,pending<2,ProcessInfo.processInfo.systemUptime>=candidate.retryAt else { return }

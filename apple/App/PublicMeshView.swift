@@ -13,6 +13,7 @@ struct PublicMeshView:View {
     @Environment(PublicMeshModel.self) private var model
     @State private var exporting=false
     @State private var report=MeshReport(text:"")
+    @State private var exportFailed=false
     var body:some View {
         @Bindable var model=model
         VStack(spacing:0) {
@@ -38,9 +39,13 @@ struct PublicMeshView:View {
                 TextField("Public message",text:$model.draft,axis:.vertical).lineLimit(1...4).onSubmit { model.send() }
                 Button("Send") { model.send() }.disabled(!model.canSend)
             }.padding()
+            if model.draft.utf8.count>2048 { Text("Message is too long. Shorten it before sending.").font(.caption).foregroundStyle(.red).padding(.horizontal) }
         }
         .navigationTitle("Public Mesh")
         .toolbar { Button("Export diagnostics") { report=MeshReport(text:model.diagnostics());exporting=true } }
-        .fileExporter(isPresented:$exporting,document:report,contentType:.plainText,defaultFilename:"nearby-mesh-\(Int(Date().timeIntervalSince1970)).txt") { _ in }
+        .fileExporter(isPresented:$exporting,document:report,contentType:.plainText,defaultFilename:"nearby-mesh-\(Int(Date().timeIntervalSince1970)).txt") { result in
+            if case .failure(let error)=result,(error as NSError).code != NSUserCancelledError { exportFailed=true }
+        }
+        .alert("Couldn’t export diagnostics",isPresented:$exportFailed) { Button("OK",role:.cancel) { } }
     }
 }

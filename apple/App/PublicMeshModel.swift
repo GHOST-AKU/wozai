@@ -18,6 +18,7 @@ final class PublicMeshModel {
     var messages:[Message]=[]
     var draft=""
     var failed=false
+    var sendFailed=false
     var radioCode=""
     @ObservationIgnored private var core:EmbeddedMeshCore?
     @ObservationIgnored private var radio:BluetoothMeshRadio?
@@ -25,19 +26,22 @@ final class PublicMeshModel {
     @ObservationIgnored private var cleanup:Task<Void,Never>?
     @ObservationIgnored private var generation=UUID()
     @ObservationIgnored private var pending:[String:String]=[:]
+    @ObservationIgnored private var pendingOrder:[String]=[]
     @ObservationIgnored private var events:[String]=[]
+    @ObservationIgnored private var resumeWanted=false
     var canSend:Bool { running && !draft.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty && draft.utf8.count<=2048 && pending.count<4 }
     var status:String {
         if !EmbeddedMeshCore.available { return String(localized:"Mesh Core is not bundled in this build.") }
         if failed { return String(localized:"Mesh stopped after an error. Diagnostics are available.") }
         if !running { return String(localized:"Mesh is stopped.") }
+        if sendFailed { return String(localized:"Message was not accepted. Your draft is unchanged.") }
         if radioCode == "ble_permission_denied" { return String(localized:"Allow Bluetooth access in Settings.") }
         if radioCode == "ble_unavailable" { return String(localized:"Bluetooth is unavailable or turned off.") }
         return String(localized:"Finding nearby Mesh nodes…")
     }
     func start() {
         guard !running,!starting else { return }
-        starting=true;failed=false;relay=false;let token=UUID();generation=token
+        starting=true;failed=false;sendFailed=false;relay=false;radioCode="";let token=UUID();generation=token
         let previous=cleanup
         reader=Task.detached { [weak self] in
             await previous?.value
@@ -52,7 +56,7 @@ final class PublicMeshModel {
                 let accepted=await self?.adopt(engine,token:token) ?? false
                 guard accepted else { engine.close();return }
                 while !Task.isCancelled {
-                    if let event=try engine.nextEvent() { await self?.apply(event,token:token) }
+                    if let event=try await engine.nextEventAsync() { await self?.apply(event,token:token) }
                 }
             } catch {
                 await self?.failure(token:token)
@@ -65,7 +69,7 @@ final class PublicMeshModel {
     }
     private func apply(_ event:PublicMeshEvent,token:UUID) {
         guard generation==token else { return }
-        events.append(event.event);if events.count>64 { events.removeFirst(events.count-64) }
+        events.append(event.event+(event.reason.map { ":"+$0 } ?? ""));if events.count>64 { events.removeFirst(events.count-64) }
         switch event.event {
         case "ready":
             guard let port=event.loopbackPort else { failure(token:token);return }
@@ -79,6 +83,7 @@ final class PublicMeshModel {
         case "relay": relay=event.enabled ?? false
         case "queued":
             if let request=event.request,let text=pending.removeValue(forKey:request),let id=event.id {
+                pendingOrder.removeAll { $0==request }
                 messages.append(Message(id:id,body:text,own:true,hops:0,state:"queued"))
                 if draft==text { draft="" }
             }
@@ -88,25 +93,30 @@ final class PublicMeshModel {
             }
         case "handed","expired":
             if let index=messages.firstIndex(where:{$0.id==event.id}) { messages[index].state=event.event }
-        case "error": pending=[:];failed=true
+        case "error":
+            if !pendingOrder.isEmpty { pending.removeValue(forKey:pendingOrder.removeFirst()) }
+            sendFailed=true
         default:break
         }
         if messages.count>200 { messages.removeFirst(messages.count-200) }
     }
     private func failure(token:UUID) { guard generation==token else { return };stop();failed=true }
     func stop() {
+        resumeWanted=false
         generation=UUID();radio?.stop();radio=nil
         let engine=core,task=reader;reader=nil;core=nil;task?.cancel()
         let previous=cleanup
         cleanup=Task.detached { await previous?.value;engine?.close();await task?.value }
-        starting=false;running=false;relay=false;neighbors=[];pending=[:]
+        starting=false;running=false;relay=false;neighbors=[];pending=[:];pendingOrder=[]
         for index in messages.indices where messages[index].own && ["queued","handed"].contains(messages[index].state) { messages[index].state="stopped" }
     }
+    func suspend() { let wanted=running || starting;stop();resumeWanted=wanted }
+    func resume() { if resumeWanted { resumeWanted=false;start() } }
     func send() {
         guard canSend,let core else { return }
-        let id=UUID().uuidString;pending[id]=draft
+        let id=UUID().uuidString;pending[id]=draft;pendingOrder.append(id);sendFailed=false
         do { try core.command(["cmd":"send","text":draft,"ttl":600,"hops":4,"request":id]) }
-        catch { pending.removeValue(forKey:id);failed=true }
+        catch { pending.removeValue(forKey:id);pendingOrder.removeAll { $0==id };sendFailed=true }
     }
     func setRelay(_ enabled:Bool) {
         do { try core?.command(["cmd":"relay","enabled":enabled]) } catch { failed=true }

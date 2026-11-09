@@ -23,6 +23,7 @@ public final class EmbeddedMeshCore: @unchecked Sendable {
     public static var available: Bool { wm_available() == 1 }
     private let handle: UInt64
     private let lock=NSLock()
+    private let polling=DispatchQueue(label:"nearby-mesh-events")
     private var stopped=false
     public init(directory: URL) throws {
         guard Self.available else { throw MeshError.unavailable }
@@ -36,6 +37,14 @@ public final class EmbeddedMeshCore: @unchecked Sendable {
         if size == 0 { return nil }
         guard size > 0 else { throw MeshError.coreFailed }
         return try JSONDecoder().decode(PublicMeshEvent.self,from:Data(bytes.prefix(Int(size))))
+    }
+    public func nextEventAsync() async throws -> PublicMeshEvent? {
+        try await withCheckedThrowingContinuation { continuation in
+            polling.async { [self] in
+                do { continuation.resume(returning:try nextEvent()) }
+                catch { continuation.resume(throwing:error) }
+            }
+        }
     }
     public func command(_ value: [String: any Sendable]) throws {
         let bytes=try JSONSerialization.data(withJSONObject:value)
