@@ -4,6 +4,7 @@ import SwiftUI
 @MainActor
 struct NearbyIMApp: App {
     @State private var model = AppModel()
+    @State private var mesh = PublicMeshModel()
     #if os(macOS)
     @NSApplicationDelegateAdaptor(MacAppDelegate.self) private var appDelegate
     #endif
@@ -19,6 +20,7 @@ struct NearbyIMApp: App {
         Settings {
             SettingsView()
                 .environment(model)
+                .environment(mesh)
                 .preferredColorScheme(colorScheme)
                 .frame(minWidth: 420, idealWidth: 480)
         }

@@ -20,6 +20,7 @@ __pycache__/
 # Apple build products and local signing state
 apple/.build/
 apple/.swiftpm/
+apple/MeshCore.xcframework/
 apple/DerivedData/
 apple/DeviceBuild/
 apple/UITestBuild-*/

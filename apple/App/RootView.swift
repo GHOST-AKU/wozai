@@ -28,6 +28,7 @@ extension FocusedValues {
 @MainActor
 struct RootView: View {
     @Environment(AppModel.self) private var model
+    @Environment(PublicMeshModel.self) private var mesh
     @Environment(\.scenePhase) private var scenePhase
     @State private var consentPresented = false
     @State private var presentedFileToken: UUID?
@@ -83,7 +84,7 @@ struct RootView: View {
         } message: { Text(verbatim: model.notice?.message ?? "") }
         .onChange(of: scenePhase) { _, phase in
             #if os(iOS)
-            if phase == .background { Task { await model.suspend() } }
+            if phase == .background { mesh.stop();Task { await model.suspend() } }
             if phase == .active { model.resume() }
             #endif
         }
@@ -91,7 +92,7 @@ struct RootView: View {
 }
 
 #if os(iOS)
-private enum AppTab: String, Hashable { case chats, nearby, settings }
+private enum AppTab: String, Hashable { case chats, nearby, mesh, settings }
 
 @MainActor
 private struct MobileNavigation: View {
@@ -104,6 +105,7 @@ private struct MobileNavigation: View {
                 TabView(selection: $tab) {
                     Tab("Chats", systemImage: "bubble.left.and.bubble.right", value: .chats) { ChatsView { tab = .nearby } }
                     Tab("Nearby", systemImage: "antenna.radiowaves.left.and.right", value: .nearby) { NavigationStack { NearbyView() } }
+                    Tab("Public Mesh", systemImage: "point.3.connected.trianglepath.dotted", value: .mesh) { NavigationStack { PublicMeshView() } }
                     Tab("Settings", systemImage: "gearshape", value: .settings) { NavigationStack { SettingsView() } }
                 }
                 .tabViewStyle(.sidebarAdaptable)
@@ -111,6 +113,7 @@ private struct MobileNavigation: View {
                 TabView(selection: $tab) {
                     ChatsView { tab = .nearby }.tabItem { Label("Chats", systemImage: "bubble.left.and.bubble.right") }.tag(AppTab.chats)
                     NavigationStack { NearbyView() }.tabItem { Label("Nearby", systemImage: "antenna.radiowaves.left.and.right") }.tag(AppTab.nearby)
+                    NavigationStack { PublicMeshView() }.tabItem { Label("Public Mesh", systemImage: "point.3.connected.trianglepath.dotted") }.tag(AppTab.mesh)
                     NavigationStack { SettingsView() }.tabItem { Label("Settings", systemImage: "gearshape") }.tag(AppTab.settings)
                 }
             }
@@ -188,6 +191,7 @@ private struct MacNavigation: View {
             NavigationSplitView {
                 List(selection: Binding<String?>(get: { selection.isEmpty ? nil : selection }, set: { selection = $0 ?? "" })) {
                     Label("Nearby", systemImage: "antenna.radiowaves.left.and.right").tag("nearby").accessibilityIdentifier("nearbyDestination")
+                    Label("Public Mesh", systemImage: "point.3.connected.trianglepath.dotted").tag("mesh")
                     Section("Chats") {
                         ForEach(model.conversations) { contact in
                             ConversationLabel(contact: contact).tag("chat:" + contact.id)
@@ -199,7 +203,8 @@ private struct MacNavigation: View {
             } detail: {
                 if let contact = model.conversations.first(where: { "chat:" + $0.id == selection }) {
                     ChatDetailView(contact: contact).id(contact.id)
-                } else { NearbyView() }
+                } else if selection == "mesh" { PublicMeshView() }
+                else { NearbyView() }
             }
             .navigationSplitViewStyle(.balanced)
         }

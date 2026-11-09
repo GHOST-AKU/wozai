@@ -2,3 +2,5 @@
 "NSLocalNetworkUsageDescription" = "NearbyIM finds nearby devices and exchanges encrypted messages on your local network. No remote chat server is used.";
 
 "NSCameraUsageDescription" = "Scan the other device’s identity QR code to compare the full safety code. Camera images stay on this device.";
+
+"NSBluetoothAlwaysUsageDescription" = "NearbyIM uses Bluetooth to discover nearby public Mesh nodes and exchange public messages. Public messages are not end-to-end encrypted.";

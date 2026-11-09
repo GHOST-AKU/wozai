@@ -2,10 +2,10 @@ name: Verify native Apple clients
 on:
   push:
     branches: [feat/apple-native]
-    paths: ['i18n/config.json', 'tools/version.py', 'apple/**', '.github/workflows/apple.yml', 'tools/test-apple-*.sh', 'tests/apple/**']
+    paths: ['i18n/config.json', 'tools/version.py', 'apple/**', 'mesh/src/**', 'mesh/apple-bridge/**', 'tools/build-apple-mesh.sh', '.github/workflows/apple.yml', 'tools/test-apple-*.sh', 'tests/apple/**']
   pull_request:
     branches: [main]
-    paths: ['i18n/config.json', 'tools/version.py', 'apple/**', '.github/workflows/apple.yml', 'tools/test-apple-*.sh', 'tests/apple/**']
+    paths: ['i18n/config.json', 'tools/version.py', 'apple/**', 'mesh/src/**', 'mesh/apple-bridge/**', 'tools/build-apple-mesh.sh', '.github/workflows/apple.yml', 'tools/test-apple-*.sh', 'tests/apple/**']
   workflow_dispatch:
     inputs:
       validation:
@@ -32,6 +32,13 @@ jobs:
         run: |
           xcodebuild -version
           swift --version
+      - uses: dtolnay/rust-toolchain@1.88.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: mesh
+      - name: Embed the actual public Mesh Core (macOS, iOS device and simulator)
+        if: ${{ inputs.validation != 'macos-ui' && inputs.validation != 'mobile-ui' }}
+        run: bash tools/build-apple-mesh.sh
       - name: Test shared native core
         if: ${{ inputs.validation != 'macos-ui' && inputs.validation != 'mobile-ui' }}
         run: bash tools/test-apple-lifecycle.sh
@@ -113,3 +120,4 @@ jobs:
             build/apple-lifecycle/
             build/apple-interop/*.log
             build/apple-ui/
+            mesh/target/apple-native/build-info.json
