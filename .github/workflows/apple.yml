@@ -9,9 +9,9 @@ on:
   workflow_dispatch:
     inputs:
       validation:
-        description: Full, macOS UI only, core/device builds only, or core plus iOS UI
+        description: Full, UI checks, core/device builds, or native device builds only
         type: choice
-        options: [full, macos-ui, core-builds, core-ios, mobile-ui]
+        options: [full, macos-ui, core-builds, native-builds, core-ios, mobile-ui]
         default: full
 permissions:
   contents: read
@@ -33,17 +33,17 @@ jobs:
           xcodebuild -version
           swift --version
       - name: Test shared native core
-        if: ${{ inputs.validation != 'macos-ui' && inputs.validation != 'mobile-ui' }}
+        if: ${{ inputs.validation != 'macos-ui' && inputs.validation != 'mobile-ui' && inputs.validation != 'native-builds' }}
         run: bash tools/test-apple-lifecycle.sh
       - name: Exchange encrypted records with the production Java implementation
-        if: ${{ inputs.validation != 'macos-ui' && inputs.validation != 'mobile-ui' }}
+        if: ${{ inputs.validation != 'macos-ui' && inputs.validation != 'mobile-ui' && inputs.validation != 'native-builds' }}
         run: bash tools/test-apple-interop.sh
       - uses: actions/setup-dotnet@v4
-        if: ${{ inputs.validation != 'macos-ui' && inputs.validation != 'mobile-ui' }}
+        if: ${{ inputs.validation != 'macos-ui' && inputs.validation != 'mobile-ui' && inputs.validation != 'native-builds' }}
         with:
           dotnet-version: '8.0.x'
       - name: Exchange NIM4 through the production Swift and Windows BLE byte adapters
-        if: ${{ inputs.validation != 'macos-ui' && inputs.validation != 'mobile-ui' }}
+        if: ${{ inputs.validation != 'macos-ui' && inputs.validation != 'mobile-ui' && inputs.validation != 'native-builds' }}
         run: bash tools/test-ble-private-interop.sh
       - name: Build universal native macOS Release and record footprint
         if: ${{ inputs.validation != 'macos-ui' && inputs.validation != 'mobile-ui' }}
@@ -61,11 +61,11 @@ jobs:
         if: ${{ inputs.validation == 'macos-ui' || inputs.validation == 'mobile-ui' }}
         run: bash tools/test-apple-interop.sh --compile-java
       - name: Exercise native macOS consent, chat and receipts
-        if: ${{ inputs.validation != 'core-builds' && inputs.validation != 'core-ios' && inputs.validation != 'mobile-ui' }}
+        if: ${{ inputs.validation != 'core-builds' && inputs.validation != 'core-ios' && inputs.validation != 'mobile-ui' && inputs.validation != 'native-builds' }}
         timeout-minutes: 8
         run: bash tools/test-apple-ui.sh 'platform=macOS' macos
       - name: Verify native macOS read visibility and safety-sheet exclusion
-        if: ${{ inputs.validation != 'core-builds' && inputs.validation != 'core-ios' && inputs.validation != 'mobile-ui' }}
+        if: ${{ inputs.validation != 'core-builds' && inputs.validation != 'core-ios' && inputs.validation != 'mobile-ui' && inputs.validation != 'native-builds' }}
         timeout-minutes: 8
         env:
           WOZAI_APPLE_READ_UI: 'true'
@@ -73,7 +73,7 @@ jobs:
           WOZAI_APPLE_UI_TEST: NearbyIMUITests/NativeChatTests/testReadReceiptForegroundVisibilityWithJavaPeer
         run: bash tools/test-apple-ui.sh 'platform=macOS' macos-read --test-only
       - name: Select available iPhone and iPad simulators
-        if: ${{ inputs.validation != 'macos-ui' && inputs.validation != 'core-builds' }}
+        if: ${{ inputs.validation != 'macos-ui' && inputs.validation != 'core-builds' && inputs.validation != 'native-builds' }}
         id: simulators
         run: |
           python3 - <<'PY'
