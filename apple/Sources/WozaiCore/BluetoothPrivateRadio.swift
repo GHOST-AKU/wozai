@@ -186,7 +186,7 @@ public final class BluetoothPrivateRadio: NSObject, CBCentralManagerDelegate, CB
         stream = result; return result
     }
     private func send(_ value: Data, epoch: UUID) async throws {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             queue.async { [self] in
                 guard generation == epoch, stream != nil, write == nil else { continuation.resume(throwing: WozaiError.closed); return }
                 let operation = UUID(); write = (operation, value, continuation)

@@ -20,6 +20,7 @@ public final class BLEByteStream: ByteStream, @unchecked Sendable {
     private let valueSize: Int
     private let sendValue: @Sendable (Data) async throws -> Void
     private let onClose: @Sendable () -> Void
+    public var isClosed: Bool { lock.withLock { ended } }
 
     public init(valueSize: Int, send: @escaping @Sendable (Data) async throws -> Void,
                 closed: @escaping @Sendable () -> Void) {

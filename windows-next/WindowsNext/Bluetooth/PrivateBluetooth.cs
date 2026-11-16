@@ -22,6 +22,8 @@ internal sealed class PrivateBluetooth : IAsyncDisposable
     private CancellationTokenSource? _link;
     private Task? _job;
     private bool _disposed;
+    private bool _scanStarting;
+    private long _scanEpoch;
     public bool Scanning => _watcher?.Status == BluetoothLEAdvertisementWatcherStatus.Started;
     public bool Busy => _link is not null;
     public BlePeer[] Peers { get { lock (_gate) return _peers.Values.ToArray(); } }
@@ -29,9 +31,12 @@ internal sealed class PrivateBluetooth : IAsyncDisposable
 
     public async Task StartScanAsync()
     {
-        if (_disposed || _watcher is not null) return;
-        var adapter = await BluetoothAdapter.GetDefaultAsync();
-        if (_disposed) return;
+        if (_disposed || _watcher is not null || _scanStarting) return;
+        _scanStarting = true; long epoch = ++_scanEpoch;
+        BluetoothAdapter? adapter;
+        try { adapter = await BluetoothAdapter.GetDefaultAsync(); }
+        finally { _scanStarting = false; }
+        if (_disposed || epoch != _scanEpoch) return;
         if (adapter?.IsLowEnergySupported != true) throw new IOException("bleUnavailable");
         var watcher = new BluetoothLEAdvertisementWatcher { ScanningMode = BluetoothLEScanningMode.Active };
         watcher.AdvertisementFilter.Advertisement.ServiceUuids.Add(BleValueStream.Service);
@@ -50,13 +55,17 @@ internal sealed class PrivateBluetooth : IAsyncDisposable
             }
             if (changed) _changed();
         };
-        watcher.Stopped += (_, _) => _changed();
+        watcher.Stopped += (_, _) => {
+            lock (_gate) if (ReferenceEquals(_watcher, watcher)) _watcher = null;
+            _changed();
+        };
         _watcher = watcher;
         try { watcher.Start(); } catch { _watcher = null; throw; }
         _changed();
     }
     public void StopScan()
     {
+        _scanEpoch++;
         var watcher = _watcher; _watcher = null;
         if (watcher?.Status == BluetoothLEAdvertisementWatcherStatus.Started) watcher.Stop();
         lock (_gate) _peers.Clear(); _changed();

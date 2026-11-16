@@ -77,7 +77,7 @@ final class AppModel {
                 Task { @MainActor in guard let self, self.bluetoothEnabled else { return }; self.bluetoothNearby = peers }
             }, incoming: { [weak self] incoming in
                 Task { @MainActor in
-                    guard let self, self.bluetoothEnabled, self.foreground, !self.busy else { incoming.close(); return }
+                    guard let self, self.bluetoothEnabled, self.foreground, !self.busy, !incoming.isClosed else { incoming.close(); return }
                     self.open(incoming, expectedID: nil, initiator: false)
                 }
             }, status: { [weak self] status in
