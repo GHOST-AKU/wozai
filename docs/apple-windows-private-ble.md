@@ -86,6 +86,9 @@ the OS queue is full; normal NIM4 liveness deadlines remain the fallback.
   discovery, subscribes to indications, retains a GATT session and releases handlers/services
   on cancellation, error or disconnect. Windows shows only advertisement candidates until
   NIM4 authenticates the actual peer. Scan results are capped at 32; stop/start refreshes them.
+  Managed deadlines also work if a native driver ignores cancellation. At most two still-pending
+  native operations retain capacity until actual completion; abandoned device/service results are
+  disposed when they arrive. A stalled driver cannot accumulate unlimited new requests on retry.
 - `desktop/…/NativePrivateLink.java`: a single ephemeral `127.0.0.1` listener, random 256-bit
   one-use capability supplied only over the owning child's JSONL control channel, 15-second
   accept and 3-second authentication deadlines. It is never advertised as a LAN endpoint.

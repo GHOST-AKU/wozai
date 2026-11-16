@@ -17,6 +17,7 @@ internal sealed class PrivateBluetooth : IAsyncDisposable
     private readonly BridgeClient _kernel;
     private readonly Action _changed;
     private readonly object _gate = new();
+    private readonly NativeOperationBudget _operations = new();
     private readonly Dictionary<ulong, BlePeer> _peers = new();
     private BluetoothLEAdvertisementWatcher? _watcher;
     private CancellationTokenSource? _link;
@@ -34,7 +35,8 @@ internal sealed class PrivateBluetooth : IAsyncDisposable
         if (_disposed || _watcher is not null || _scanStarting) return;
         _scanStarting = true; long epoch = ++_scanEpoch;
         BluetoothAdapter? adapter;
-        try { adapter = await BluetoothAdapter.GetDefaultAsync(); }
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        try { adapter = await _operations.Run(() => BluetoothAdapter.GetDefaultAsync().AsTask(), deadline.Token); }
         finally { _scanStarting = false; }
         if (_disposed || epoch != _scanEpoch) return;
         if (adapter?.IsLowEnergySupported != true) throw new IOException("bleUnavailable");
@@ -94,14 +96,15 @@ internal sealed class PrivateBluetooth : IAsyncDisposable
             using var setup = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
             setup.CancelAfter(TimeSpan.FromSeconds(20));
             // Start on the UI thread: Windows may need to present Bluetooth access consent.
-            device = await BluetoothLEDevice.FromBluetoothAddressAsync(address).AsTask(setup.Token);
+            device = await _operations.Run(() => BluetoothLEDevice.FromBluetoothAddressAsync(address).AsTask(), setup.Token, value => value?.Dispose());
             if (device is null) throw new IOException("bleUnavailable");
-            var services = await device.GetGattServicesForUuidAsync(BleValueStream.Service, BluetoothCacheMode.Uncached).AsTask(setup.Token);
+            var services = await _operations.Run(() => device.GetGattServicesForUuidAsync(BleValueStream.Service, BluetoothCacheMode.Uncached).AsTask(),
+                setup.Token, value => { foreach (var unused in value.Services) unused.Dispose(); });
             if (services.Status != GattCommunicationStatus.Success || services.Services.Count != 1)
             { foreach (var unused in services.Services) unused.Dispose(); throw new IOException("bleUnavailable"); }
             service = services.Services[0];
             session = service.Session; session.MaintainConnection = true;
-            var characteristics = await service.GetCharacteristicsAsync(BluetoothCacheMode.Uncached).AsTask(setup.Token);
+            var characteristics = await _operations.Run(() => service.GetCharacteristicsAsync(BluetoothCacheMode.Uncached).AsTask(), setup.Token);
             if (characteristics.Status != GattCommunicationStatus.Success) throw new IOException("bleUnavailable");
             rx = characteristics.Characteristics.SingleOrDefault(c => c.Uuid == BleValueStream.Receive);
             tx = characteristics.Characteristics.SingleOrDefault(c => c.Uuid == BleValueStream.Transmit);
@@ -111,7 +114,7 @@ internal sealed class PrivateBluetooth : IAsyncDisposable
             stream = new BleValueStream(Math.Max(20, service.Session.MaxPduSize - 3), async (value, token) => {
                 using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
                 deadline.CancelAfter(TimeSpan.FromSeconds(10));
-                var result = await transmit.WriteValueWithResultAsync(value.AsBuffer(), GattWriteOption.WriteWithResponse).AsTask(deadline.Token);
+                var result = await _operations.Run(() => transmit.WriteValueWithResultAsync(value.AsBuffer(), GattWriteOption.WriteWithResponse).AsTask(), deadline.Token);
                 if (result.Status != GattCommunicationStatus.Success) throw new IOException("bleLinkFailed");
             }, () => lifetime.Cancel());
             values = (_, e) => {
@@ -121,8 +124,8 @@ internal sealed class PrivateBluetooth : IAsyncDisposable
             tx.ValueChanged += values;
             disconnected = (sender, _) => { if (sender.ConnectionStatus == BluetoothConnectionStatus.Disconnected) lifetime.Cancel(); };
             device.ConnectionStatusChanged += disconnected;
-            var subscribed = await tx.WriteClientCharacteristicConfigurationDescriptorAsync(
-                GattClientCharacteristicConfigurationDescriptorValue.Indicate).AsTask(setup.Token);
+            var subscribed = await _operations.Run(() => tx.WriteClientCharacteristicConfigurationDescriptorAsync(
+                GattClientCharacteristicConfigurationDescriptorValue.Indicate).AsTask(), setup.Token);
             if (subscribed != GattCommunicationStatus.Success) throw new IOException("bleLinkFailed");
             endpoint = await _kernel.CallAsync<NativeBleEndpoint>("connectNativeBLE", cancellationToken: setup.Token);
             if (endpoint is null || endpoint.Port is < 1 or > 65535 || endpoint.Token.Length != 64) throw new IOException("bleLinkFailed");
@@ -145,11 +148,14 @@ internal sealed class PrivateBluetooth : IAsyncDisposable
             if (device is not null && disconnected is not null) device.ConnectionStatusChanged -= disconnected;
             if (tx is not null) {
                 using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-                try { await tx.WriteClientCharacteristicConfigurationDescriptorAsync(GattClientCharacteristicConfigurationDescriptorValue.None).AsTask(deadline.Token); } catch (Exception) { }
+                try { await _operations.Run(() => tx.WriteClientCharacteristicConfigurationDescriptorAsync(GattClientCharacteristicConfigurationDescriptorValue.None).AsTask(), deadline.Token); } catch (Exception) { }
             }
             if (session is not null) { session.MaintainConnection = false; session.Dispose(); }
             service?.Dispose(); device?.Dispose();
-            if (endpoint is not null) try { await _kernel.CallAsync("disconnectNativeBLE", new { token = endpoint.Token }); } catch (Exception) { }
+            if (endpoint is not null) {
+                using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+                try { await _kernel.CallAsync("disconnectNativeBLE", new { token = endpoint.Token }, deadline.Token); } catch (Exception) { }
+            }
             if (ReferenceEquals(_link, lifetime)) { _link = null; _job = null; }
             // Late WinRT completions can still hold this token; do not dispose a live CTS.
             _changed();
