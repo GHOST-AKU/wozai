@@ -38,6 +38,13 @@ jobs:
       - name: Exchange encrypted records with the production Java implementation
         if: ${{ inputs.validation != 'macos-ui' && inputs.validation != 'mobile-ui' }}
         run: bash tools/test-apple-interop.sh
+      - uses: actions/setup-dotnet@v4
+        if: ${{ inputs.validation != 'macos-ui' && inputs.validation != 'mobile-ui' }}
+        with:
+          dotnet-version: '8.0.x'
+      - name: Exchange NIM4 through the production Swift and Windows BLE byte adapters
+        if: ${{ inputs.validation != 'macos-ui' && inputs.validation != 'mobile-ui' }}
+        run: bash tools/test-ble-private-interop.sh
       - name: Build universal native macOS Release and record footprint
         if: ${{ inputs.validation != 'macos-ui' && inputs.validation != 'mobile-ui' }}
         run: |
@@ -113,3 +120,4 @@ jobs:
             build/apple-lifecycle/
             build/apple-interop/*.log
             build/apple-ui/
+            build/ble-private/*.log

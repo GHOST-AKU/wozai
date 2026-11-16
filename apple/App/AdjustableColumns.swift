@@ -132,6 +132,7 @@ struct LocalPathLabel: View {
         case .wifi: return "Wi-Fi · system-selected route"
         case .ethernet: return "Ethernet"
         case .loopback: return "Loopback"
+        case .bluetoothLE: return "Bluetooth LE"
         case .other: return "Local network · system-selected route"
         case .unavailable: return "Route not recorded"
         }

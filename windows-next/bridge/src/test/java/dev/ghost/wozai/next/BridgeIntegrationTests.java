@@ -2,6 +2,7 @@ package dev.ghost.wozai.next;
 
 import com.google.gson.*;
 import java.io.*;
+import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
@@ -94,6 +95,7 @@ public final class BridgeIntegrationTests {
         Path root = Files.createTempDirectory("wozai-next-bridge-test-");
         String aid, bid, generation;
         try {
+            nativeBleCarrier(root.resolve("native-ble"));
             try (Child a = new Child(root.resolve("a")); Child b = new Child(root.resolve("b"))) {
                 JsonObject freshA = a.snapshot(), freshB = b.snapshot();
                 aid = string(freshA, "localId"); bid = string(freshB, "localId");
@@ -217,5 +219,56 @@ public final class BridgeIntegrationTests {
         } finally {
             try (var paths = Files.walk(root)) { for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) Files.deleteIfExists(path); }
         }
+    }
+
+    private static void nativeBleCarrier(Path root) throws Exception {
+        try (Child a = new Child(root.resolve("a")); Child b = new Child(root.resolve("b"))) {
+            String aid = string(a.snapshot(), "localId"), bid = string(b.snapshot(), "localId");
+            JsonObject rejected = a.call("connectNativeBLE", obj()).getAsJsonObject();
+            try (Socket attacker = new Socket("127.0.0.1", rejected.get("port").getAsInt())) {
+                attacker.setSoTimeout(2000); attacker.getOutputStream().write(new byte[32]);
+                check(attacker.getInputStream().read() == -1, "Native IPC must reject wrong capability before NIM4");
+            }
+            a.until(s -> string(s, "phase").equals("idle"));
+            JsonObject canceled = a.call("connectNativeBLE", obj()).getAsJsonObject();
+            a.fails("connectNativeBLE", obj());
+            a.call("disconnectNativeBLE", obj("token", string(canceled, "token")));
+            check(string(a.snapshot(), "phase").equals("idle"), "Pending native accept must be cancellable");
+            b.call("listen", obj("mode", "lan", "enabled", true));
+            JsonObject route = a.call("connectNativeBLE", obj("expectedId", bid)).getAsJsonObject();
+            check(!a.snapshot().toString().contains(string(route, "token")), "Capability must not leak into snapshots");
+            // The production LAN listener intentionally rejects loopback; retain that policy.
+            var peerEndpoint = dev.ghost.nearbyim.core.LocalEndpoint.parse(b.snapshot().getAsJsonArray("endpoints").get(0).getAsString());
+            try (Socket local = new Socket("127.0.0.1", route.get("port").getAsInt());
+                 Socket remote = new Socket(peerEndpoint.address, peerEndpoint.port)) {
+                local.getOutputStream().write(HexFormat.of().parseHex(string(route, "token")));
+                Thread up = pump(local, remote), down = pump(remote, local);
+                JsonObject approval = b.until(s -> !s.get("approval").isJsonNull());
+                check(!ready(a.snapshot()), "BLE carrier must not bypass remote consent");
+                a.fails("send", obj("peerId", bid, "text", "before BLE consent"));
+                b.call("approve", obj("token", approval.getAsJsonObject("approval").get("token"), "remember", false));
+                a.until(BridgeIntegrationTests::ready); b.until(BridgeIntegrationTests::ready);
+                check(string(a.snapshot(), "transport").equals("bluetooth"), "IPC must not be represented as LAN");
+                a.call("disconnectNativeBLE", obj("token", string(canceled, "token")));
+                check(ready(a.snapshot()), "Stale native teardown must not close a replacement session");
+                a.call("send", obj("peerId", bid, "text", "native to NIM4"));
+                b.until(s -> firstMessage(s, "native to NIM4") != null);
+                a.until(s -> firstMessage(s, "native to NIM4") != null && "delivered".equals(string(firstMessage(s, "native to NIM4"), "status")));
+                b.call("send", obj("peerId", aid, "text", "NIM4 to native"));
+                a.until(s -> firstMessage(s, "NIM4 to native") != null);
+                a.call("disconnectNativeBLE", obj("token", string(route, "token")));
+                b.until(s -> string(s, "phase").equals("idle"));
+                up.join(2000); down.join(2000);
+                check(!up.isAlive() && !down.isAlive(), "Native disconnect must release both carrier readers");
+            }
+        }
+    }
+    private static Thread pump(Socket from, Socket to) {
+        Thread thread = new Thread(() -> {
+            try { from.getInputStream().transferTo(to.getOutputStream()); }
+            catch (IOException ignored) { }
+            finally { try { from.close(); to.close(); } catch (IOException ignored) { } }
+        }, "ble-test-carrier");
+        thread.setDaemon(true); thread.start(); return thread;
     }
 }

@@ -147,6 +147,7 @@ public sealed partial class MainWindow : Window
         Closed += async (_, _) =>
         {
             _closed = true;
+            if (_privateBLE is not null) await _privateBLE.DisposeAsync();
             if (_mesh is not null) await _mesh.DisposeAsync();
             _readTimer.Stop();
             _draftTimer.Stop();

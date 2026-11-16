@@ -28,6 +28,7 @@ public sealed partial class MainWindow
         var refresh = Command(T("refresh"), "refresh", glyph: "\uE72C"); refresh.VerticalAlignment = VerticalAlignment.Center; Grid.SetColumn(refresh, 1); top.Children.Add(refresh); connection.Children.Add(top);
         if (_state.ConnectedPeerId is not null) connection.Children.Add(Command(T("disconnect"), "disconnect"));
         body.Children.Add(Card(connection));
+        AddPrivateBluetooth(body);
 
         var radio = Stack(18);
         radio.Children.Add(Heading(T("receiveDiscover"), 17));
@@ -126,7 +127,7 @@ public sealed partial class MainWindow
         quota.SelectionChanged += (_, _) => { if (quota.SelectedIndex >= 0) Run(() => Call("settings", new { quota = quotas[quota.SelectedIndex] * 1024 * 1024 * 1024 })); };
         privacy.Children.Add(SettingRow(T("quota"), quota));
         privacy.Children.Add(Button(T("trustedDevices"), () => Run(ShowTrustAsync), "\uE72E"));
-        privacy.Children.Add(Button(T("stopAll"), () => Run(async () => { await Call("stopSearch", new { mode = "lan" }); await Call("stopSearch", new { mode = "bluetooth" }); await Call("listen", new { mode = "lan", enabled = false }); await Call("listen", new { mode = "bluetooth", enabled = false }); await Call("disconnect"); })));
+        privacy.Children.Add(Button(T("stopAll"), () => Run(async () => { if (_privateBLE is not null) { _privateBLE.StopScan(); await _privateBLE.DisconnectAsync(); } await Call("stopSearch", new { mode = "lan" }); await Call("stopSearch", new { mode = "bluetooth" }); await Call("listen", new { mode = "lan", enabled = false }); await Call("listen", new { mode = "bluetooth", enabled = false }); await Call("disconnect"); })));
         body.Children.Add(Card(privacy));
         var data = Stack(12); data.Children.Add(Heading(T("dataFolder"), 17));
         var path = Text(_state.DataPath, 12, true); path.IsTextSelectionEnabledCompat(); data.Children.Add(path); data.Children.Add(Text(T("dataBody"), 12, true));
