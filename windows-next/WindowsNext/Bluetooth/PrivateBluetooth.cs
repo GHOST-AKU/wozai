@@ -69,7 +69,7 @@ internal sealed class PrivateBluetooth : IAsyncDisposable
     {
         _scanEpoch++;
         var watcher = _watcher; _watcher = null;
-        if (watcher?.Status == BluetoothLEAdvertisementWatcherStatus.Started) watcher.Stop();
+        Release(() => { if (watcher?.Status == BluetoothLEAdvertisementWatcherStatus.Started) watcher.Stop(); });
         lock (_gate) _peers.Clear(); _changed();
     }
     public Task ConnectAsync(ulong address)
@@ -90,7 +90,7 @@ internal sealed class PrivateBluetooth : IAsyncDisposable
         NativeBleEndpoint? endpoint = null;
         TypedEventHandler<GattCharacteristic, GattValueChangedEventArgs>? values = null;
         TypedEventHandler<BluetoothLEDevice, object>? disconnected = null;
-        using var closing = lifetime.Token.Register(() => { stream?.Dispose(); local?.Dispose(); });
+        using var closing = lifetime.Token.Register(() => { Release(() => stream?.Dispose()); Release(() => local?.Dispose()); });
         try
         {
             using var setup = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
@@ -143,15 +143,15 @@ internal sealed class PrivateBluetooth : IAsyncDisposable
         catch (Exception error) { throw new IOException("bleLinkFailed", error); }
         finally
         {
-            lifetime.Cancel(); stream?.Dispose(); local?.Dispose();
-            if (tx is not null && values is not null) tx.ValueChanged -= values;
-            if (device is not null && disconnected is not null) device.ConnectionStatusChanged -= disconnected;
+            Release(lifetime.Cancel); Release(() => stream?.Dispose()); Release(() => local?.Dispose());
+            Release(() => { if (tx is not null && values is not null) tx.ValueChanged -= values; });
+            Release(() => { if (device is not null && disconnected is not null) device.ConnectionStatusChanged -= disconnected; });
             if (tx is not null) {
                 using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(2));
                 try { await _operations.Run(() => tx.WriteClientCharacteristicConfigurationDescriptorAsync(GattClientCharacteristicConfigurationDescriptorValue.None).AsTask(), deadline.Token); } catch (Exception) { }
             }
-            if (session is not null) { session.MaintainConnection = false; session.Dispose(); }
-            service?.Dispose(); device?.Dispose();
+            Release(() => { if (session is not null) session.MaintainConnection = false; });
+            Release(() => session?.Dispose()); Release(() => service?.Dispose()); Release(() => device?.Dispose());
             if (endpoint is not null) {
                 using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(3));
                 try { await _kernel.CallAsync("disconnectNativeBLE", new { token = endpoint.Token }, deadline.Token); } catch (Exception) { }
@@ -166,6 +166,8 @@ internal sealed class PrivateBluetooth : IAsyncDisposable
         var buffer = new byte[4096];
         while (true) { int count = await source.ReadAsync(buffer, token); if (count == 0) return; await destination.WriteAsync(buffer.AsMemory(0, count), token); }
     }
+    // A radio-off COM error during one teardown operation must not strand the remaining owners.
+    private static void Release(Action cleanup) { try { cleanup(); } catch (Exception) { } }
     public async Task DisconnectAsync()
     {
         _link?.Cancel(); if (_job is { } job) try { await job; } catch (Exception) { }
