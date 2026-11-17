@@ -9,7 +9,6 @@ import android.location.LocationManager
 import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
-import android.os.Process as AndroidProcess
 import android.os.Looper
 import android.net.wifi.aware.WifiAwareManager
 import java.io.File
@@ -122,10 +121,9 @@ internal class MeshAndroidPlatform(context: Context) : MeshPlatform {
         @SuppressLint("MissingPermission") // Every mode's permissions are checked below before querying its radio.
         fun guard(context: Context, mode: String): String? {
             if (mode != "ble" && mode != "aware") return "mesh_unsupported_radio"
-            if (Build.VERSION.SDK_INT < 29 || !AndroidProcess.is64Bit() || !Build.SUPPORTED_ABIS.contains("arm64-v8a"))
-                return "mesh_unsupported_platform"
-            val feature = if (mode == "ble") PackageManager.FEATURE_BLUETOOTH_LE else PackageManager.FEATURE_WIFI_AWARE
-            if (!context.packageManager.hasSystemFeature(feature)) return "mesh_unsupported_radio"
+            val capabilities = MeshCapabilities.read(context)
+            if (!capabilities.platformSupported) return "mesh_unsupported_platform"
+            if (!capabilities.supports(mode)) return "mesh_unsupported_radio"
             val permissions = if (mode == "ble") {
                 if (Build.VERSION.SDK_INT >= 31) listOf(Manifest.permission.BLUETOOTH_SCAN,
                     Manifest.permission.BLUETOOTH_ADVERTISE, Manifest.permission.BLUETOOTH_CONNECT)

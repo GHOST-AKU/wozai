@@ -53,7 +53,7 @@ class NextUiTest {
         compose.onNodeWithText("还没有聊天").assertIsDisplayed()
         screenshot("conversations")
         compose.onNodeWithText("附近").performClick()
-        compose.onNodeWithText("开启 Mesh").assertIsDisplayed()
+        compose.onNodeWithText("开启接收").assertIsDisplayed()
         compose.onNodeWithText("私聊设备").performClick()
         compose.onNodeWithText("搜索设备").assertIsDisplayed()
         screenshot("nearby")

@@ -44,6 +44,18 @@ class MeshPolicyTest {
         assertEquals("expired", history.messages.last().state)
     }
 
+    @Test fun stopAndRecreatedRuntimeRetainTimelineButFreshProcessStartsEmpty() {
+        val history = MeshHistory()
+        history.queue("own", "pending", "local", 1)
+        history.receive("incoming", "hello", listOf("sender", "local"), 2)
+        history.stop()
+        val recreated = MeshHistory(history.messages)
+        assertEquals(listOf("pending", "hello"), recreated.messages.map { it.body })
+        assertEquals("stopped_unconfirmed", recreated.messages.first().state)
+        assertEquals("received", recreated.messages.last().state)
+        assertTrue(MeshHistory().messages.isEmpty())
+    }
+
     @Test fun staleGenerationCannotPublishAfterStopOrNewStart() {
         val gate = MeshGeneration()
         val first = gate.next()
