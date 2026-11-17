@@ -1,5 +1,7 @@
 # Nearby Mesh / mesh-lab
 
+> 当前成果与阶段边界：[项目进度](../docs/status.md)、[Mesh 文档导航](../docs/mesh/README.md)、[Android/Windows 实机反馈](../docs/mesh/field-validation-2026-11-08.md)。以下独立实验说明不代替原生客户端后续成果；正式无线 gate 仍按 #91 跟踪。
+
 独立、无 GUI 的公共消息 Mesh 预研。**实验协议，公共明文；hardware validation pending。** 不修改/导入 NIM4、Noise、正式客户端身份或私聊信任，不以 NIM5 为目标。
 
 需要 Rust 1.88+、Python 3.11+；独立 Cargo 项目，不加入 Android Gradle。模块代码使用仓库 AGPL-3.0-only，依赖原许可与通知见 [THIRD_PARTY](THIRD_PARTY.md)。

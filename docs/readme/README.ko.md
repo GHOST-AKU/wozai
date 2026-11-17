@@ -1,5 +1,7 @@
 # 我在 · NearbyIM
 
+> 개발 정보: [날짜별 현황](../status.md) · [문서 안내](../README.md) · [소스 구조](../repository-map.md). 아래 릴리스 설명은 해당 버전 기준이며 main과 미병합 변경은 현황 문서에서 구분합니다.
+
 [简体中文](../../README.md) | [English](README.en.md) | [日本語](README.ja.md) | **한국어**
 
 **원격 서버를 거치지 않고도, 서로 편하게 대화하세요.**

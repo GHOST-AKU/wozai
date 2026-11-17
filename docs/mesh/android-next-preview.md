@@ -1,3 +1,5 @@
+> 阅读范围：0.4.0-preview.1 阶段。以下版本、环境、未实现项和 PR 状态以各节记录时间为准；当前汇总见[项目进度](../status.md)。保留历史证据，不以本页旧状态覆盖后续成果。
+
 # 我在next 0.4.0-preview.1（Android arm64）
 
 基于已合入main的#83（Kotlin/Compose Next）和#84后的基线70303ae，组合#85独立引擎与#93 BLE/Aware原生适配。用户明确要求0.4.0preview，因此将权威版本i18n/config.json设0.4.0-preview.1/build16，同步派生版本；没有重新发布旧版或构建其他平台发行包。
