@@ -3,7 +3,7 @@ import Network
 
 /// Public Network.framework path evidence does not identify AWDL simply by being Wi-Fi.
 public struct LocalPathSnapshot: Equatable, Sendable {
-    public enum Kind: String, Sendable { case unavailable, wifi, ethernet, loopback, other }
+    public enum Kind: String, Sendable { case unavailable, wifi, ethernet, loopback, other, bluetoothLE }
     public let kind: Kind
     public let peerToPeerEnabled: Bool
     public let interfaces: [String]
@@ -12,6 +12,8 @@ public struct LocalPathSnapshot: Equatable, Sendable {
     public var directConfirmed: Bool { false }
     public static let unavailable = LocalPathSnapshot(kind: .unavailable, peerToPeerEnabled: true,
                                                       interfaces: [], expensive: false, constrained: false)
+    public static let bluetoothLE = LocalPathSnapshot(kind: .bluetoothLE, peerToPeerEnabled: false,
+                                                     interfaces: [], expensive: false, constrained: false)
 
     init(path: NWPath?, peerToPeerEnabled: Bool) {
         self.peerToPeerEnabled = peerToPeerEnabled
@@ -31,7 +33,7 @@ public struct LocalPathSnapshot: Equatable, Sendable {
     }
 
     public var diagnostics: String {
-        "apple_network_schema=1\ntransport=local\nfile_transport=\(kind.rawValue)\n" +
+        "apple_network_schema=1\ntransport=\(kind == .bluetoothLE ? "bluetooth_le" : "local")\nfile_transport=\(kind.rawValue)\n" +
         "apple_peer_to_peer_enabled=\(peerToPeerEnabled)\nfile_direct_confirmed=false\n" +
         "file_direct_outcome=\(peerToPeerEnabled ? "system_managed" : "not_requested")\n" +
         "apple_path_interfaces_available=\(interfaces.joined(separator: ","))\n" +

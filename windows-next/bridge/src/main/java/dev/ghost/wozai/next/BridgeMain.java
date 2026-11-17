@@ -190,6 +190,8 @@ public final class BridgeMain implements AutoCloseable {
                 await(client.connect(required(args, "endpoint"), expected)); yield null;
             }
             case "disconnect" -> { await(client.disconnect()); approval = null; invalidateToken(); yield null; }
+            case "connectNativeBLE" -> await(client.connectNativeBLE(optional(args, "expectedId")));
+            case "disconnectNativeBLE" -> { await(client.disconnectNativeBLE(required(args, "token"))); yield null; }
             case "approve", "reject" -> {
                 DesktopClient.Request request = pending(args);
                 if (op.equals("approve")) await(client.approve(request, bool(args, "remember")));

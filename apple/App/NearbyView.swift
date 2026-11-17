@@ -12,6 +12,20 @@ struct NearbyView: View {
     var body: some View {
         List {
             Section {
+                Toggle("Discover and receive over Bluetooth", isOn: Binding(get: { model.bluetoothEnabled }, set: { model.setBluetooth($0) }))
+                if model.bluetoothEnabled {
+                    if model.bluetoothStatus == "permission" { Text("Allow Bluetooth access in Settings.") }
+                    else if model.bluetoothStatus == "unavailable" { Text("Bluetooth is unavailable or turned off.") }
+                    else if model.bluetoothStatus.hasSuffix("failed") { Text("Bluetooth connection failed. Keep both apps open and try again.") }
+                    else if model.bluetoothNearby.isEmpty { Text("Find this iPhone from Windows, or choose a nearby Apple device.") }
+                    ForEach(model.bluetoothNearby) { peer in
+                        Button { model.connect(peer) } label: { Label(peer.name, systemImage: "antenna.radiowaves.left.and.right") }
+                            .disabled(model.busy)
+                    }
+                }
+            } header: { Text("Bluetooth private chat") }
+              footer: { Text("Keep both apps open. Windows connects from its Bluetooth LE device list. New identities still require confirmation.") }
+            Section {
                 Toggle("Discover and receive", isOn: Binding(get: { model.discoveryEnabled }, set: { model.setDiscovery($0) }))
             } footer: { Text("Use the same local network, or keep Wi-Fi and Bluetooth enabled for nearby Apple peer-to-peer discovery. Only enable receiving when you want to be found.") }
             if model.discoveryEnabled {
