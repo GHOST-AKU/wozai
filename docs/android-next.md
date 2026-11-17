@@ -1,3 +1,5 @@
+> 阅读范围：Android Next 初版与 #94/#95 阶段。以下版本、环境、未实现项和 PR 状态以各节记录时间为准；当前汇总见[项目进度](status.md)。保留历史证据，不以本页旧状态覆盖后续成果。
+
 # 我在next · Android 实验客户端
 
 `app-next` 使用 Kotlin、Jetpack Compose 和 Material 3，应用名称为 **我在next**，包名为 `dev.ghost.nearbyim.next`。可以与原「我在」独立安装。设备身份、密钥、信任、聊天记录和草稿分别保存在各自的 Android 沙箱中，不自动导入旧端数据。

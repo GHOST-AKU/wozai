@@ -26,7 +26,14 @@
 
 - Every Android APK offered to the owner for installation must pass `tools/verify-android-signature.py` against the persistent certificate in `tools/android-signing.json`. A temporary debug certificate is not an acceptable delivery substitute. Keep debug/UI fixtures clearly labeled internal; never ask the owner to uninstall or clear data to bypass a certificate mismatch. Keep private signing material inside the existing signing step.
 
-- New development builds use the 0.3.3 preview series, starting at `0.3.3-preview.2`; do not relabel or replace published v0.3.2 or v0.3.3-preview.1 assets.
+- Read the current development version from `i18n/config.json`; do not reset it to a historical preview series. Preserve published release assets and their original version/source metadata.
 - `i18n/config.json` is the release-version and build-number authority for all clients. After changing it, run `python3 tools/version.py --write` and `python3 tools/generate-i18n.py`; verify with `python3 tools/version.py --check`.
 - Synchronize this version change into an older implementation branch before building it. Preserve its actual source revision and feature/acceptance boundaries; sharing a version does not imply sharing every platform feature.
 - Keep Apple/Windows numeric package versions separate from the full preview identifier, and keep Debian previews ordered below the eventual stable release. Publishing and merging remain separate actions.
+
+## Repository and documentation navigation
+
+- Start at `docs/README.md` and `docs/status.md`; check current source, GitHub PRs and Issues before giving progress or next-step advice. Status snapshots have dates and are not automatically authoritative for later commits.
+- Keep historical plans and evidence intact and mark their scope; do not reinterpret old NIM2 or early Mesh notes as current implementation state.
+- Keep existing module paths stable unless a task requires migration. Describe ownership and build boundaries in `docs/repository-map.md`; avoid broad moves that break source reuse, workflows or links.
+- Local machine inventories and cleanup logs belong outside the tracked source tree. Preserve reusable toolchains/caches, signing material, acceptance evidence, user attachments and delivered packages. Remove only individually identified disposable outputs or verified redundant installers; never use broad cleanup commands as a substitute for inspection.

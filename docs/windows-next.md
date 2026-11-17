@@ -1,3 +1,5 @@
+> 阅读范围：Windows Next 初版说明；后续公共 Mesh 已随 #99 合入，相关成果见项目进度。[当前进度](status.md)以注明日期的后续汇总为准，原始实验与证据继续保留。
+
 # 我在next · WinUI 3 桌面实验版
 
 本实验以 Windows 原生 WinUI 3 重建当前桌面客户端的功能，使用独立数据目录 `%LOCALAPPDATA%\WoZaiNext`。原客户端的密钥、信任和记录不会自动导入。Windows 10 19041 及以上、Windows 11，当前目标 Windows x64。

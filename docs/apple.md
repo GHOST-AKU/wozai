@@ -1,3 +1,5 @@
+> 阅读范围：Apple 原生客户端早期预览记录；新增蓝牙功能分别在 #103/#108 Draft，尚未进入 main。[当前进度](status.md)以注明日期的后续汇总为准，原始实验与证据继续保留。
+
 # Apple 原生客户端
 
 `apple/` 是同仓库内的 Swift / SwiftUI 原生实现，面向 iOS、iPadOS 17 及以上和 macOS 14 及以上。它处于开发阶段，**没有随 v0.3.2 提供 Apple 正式安装包**。设计、当前验证结果及真机验收范围见 [Issue #31](https://github.com/GHOST-AKU/wozai/issues/31)。

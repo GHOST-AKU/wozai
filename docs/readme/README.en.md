@@ -1,5 +1,7 @@
 # Wozai · NearbyIM
 
+> Development: [dated status](../status.md) · [documentation index](../README.md) · [repository map](../repository-map.md). Release descriptions below retain their original version scope; main and draft work are tracked separately.
+
 [简体中文](../../README.md) | **English** | [日本語](README.ja.md) | [한국어](README.ko.md)
 
 **Chat without going through a remote server.**
