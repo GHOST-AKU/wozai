@@ -130,8 +130,25 @@ bash tools/test-ble-private-interop.sh
 powershell -File windows-next/tools/build.ps1 -Test
 ```
 
-CI results and exact revisions are recorded in the PR. Until those complete, this document does
-not claim that native builds or the cross-language carrier test passed. No wireless throughput,
+Verified CI evidence:
+
+- [Apple core/interop run 43908000136](https://github.com/GHOST-AKU/wozai/actions/runs/43908000136),
+  revision `0c65f30`: **59 Swift tests**, lifecycle probes, existing Java NIM4 text/file/read-receipt
+  interoperability and the new Java/C#/Swift BLE carrier test passed. The overall run failed later
+  on a SwiftUI Section initializer; that UI error was subsequently fixed. This is step-level evidence,
+  not a claim that this entire run succeeded.
+- [Apple native builds 43909369659](https://github.com/GHOST-AKU/wozai/actions/runs/43909369659),
+  revision `96aa0fd`: **success**, universal macOS Release and unsigned iOS device Release.
+  The explicit `native-builds` mode reuses the source-identical core/interop results above.
+- [Windows 43909684607](https://github.com/GHOST-AKU/wozai/actions/runs/43909684607),
+  runtime revision `f79fbc7`: **success**, real-kernel integration, C# transport tests (including
+  ignored driver cancellation and late-result cleanup), native packaging and WinUI launch/capture.
+  [Windows artifact](https://github.com/GHOST-AKU/wozai/actions/runs/43909684607/artifacts/14246459936)
+  contains the experimental ZIP; a GitHub login may be required and retention is finite.
+
+Source comparisons confirm Apple sources/build configuration are unchanged from `96aa0fd` to
+`f79fbc7`; the core/interop inputs are unchanged from `0c65f30`. Subsequent documentation-only
+changes reuse this evidence and are not represented as fresh full-HEAD test runs. No wireless throughput,
 latency, power, distance or small-MTU file-transfer performance is inferred from these tests.
 Large transfers on small ATT MTUs can hit unchanged NIM4 liveness deadlines and require real
 measurement; no security timeout is relaxed to conceal that limitation.
