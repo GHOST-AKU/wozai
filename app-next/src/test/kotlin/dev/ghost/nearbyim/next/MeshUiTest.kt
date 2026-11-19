@@ -29,6 +29,17 @@ class MeshUiTest {
             org.robolectric.util.ReflectionHelpers.setStaticField(android.os.Build::class.java, "SUPPORTED_ABIS", arrayOf("arm64-v8a"))
         }
     }).around(compose)
+    @Test fun unsentPublicTextSurvivesVisitingSettingsAndPrivateDevices() {
+        compose.onNodeWithText("附近").performClick()
+        compose.onNode(hasSetTextAction()).performTextInput("未发出的公共消息")
+        compose.onNodeWithText("设置").performClick()
+        compose.onNodeWithText("附近").performClick()
+        compose.onNode(hasSetTextAction()).assertTextContains("未发出的公共消息")
+        compose.onNodeWithText("私聊设备").performClick()
+        compose.onNodeWithText("返回公共 Mesh").performClick()
+        compose.onNode(hasSetTextAction()).assertTextContains("未发出的公共消息")
+    }
+
     @Test fun cancelFirstStartDoesNotAskForRadioPermissionsOrStartService() {
         compose.onNodeWithText("附近").performClick()
         compose.onNodeWithText("开启接收").performClick()
@@ -44,7 +55,7 @@ class MeshUiTest {
         compose.onNodeWithText("允许为其他节点中继").assertDoesNotExist()
         compose.onNodeWithContentDescription("聊天选项").performClick()
         compose.onNodeWithText("允许为其他节点中继").assertExists()
-        compose.onNodeWithText(compose.activity.getString(R.string.mesh_history_rule)).assertExists()
+        compose.onNodeWithText("临时历史 · 最多 200 条").assertExists()
     }
     @Test fun firstNoticeExplainsReceivingAndCanBeCanceledWithoutStarting(){
         var confirmed = false
@@ -76,9 +87,11 @@ class MeshUiTest {
             bitmap.recycle()
         }
     }
-    @Test fun historyLinkOpensRetentionRulesDirectly() {
+    @Test fun chatOptionsOpenRetentionRules() {
         compose.onNodeWithText("附近").performClick()
-        compose.onNodeWithText("临时历史 · 最多 200 条").performClick()
+        compose.onNodeWithText("临时历史 · 最多 200 条").assertDoesNotExist()
+        compose.onNodeWithContentDescription("聊天选项").performClick()
+        compose.onNodeWithText("临时历史 · 最多 200 条").performScrollTo().performClick()
         compose.onNodeWithText(compose.activity.getString(R.string.mesh_history_rule)).assertIsDisplayed()
     }
     @Test

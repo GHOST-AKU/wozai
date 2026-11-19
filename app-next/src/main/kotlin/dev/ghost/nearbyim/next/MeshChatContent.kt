@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -19,7 +20,7 @@ internal fun MeshChatContent(
     state: MeshSnapshot, draft: String, sending: Boolean,
     onDraft: (String) -> Unit, onSend: () -> Unit, onToggle: () -> Unit,
     onOptions: () -> Unit, onPrivate: () -> Unit,
-    canStart: Boolean = true, onHistory: () -> Unit = onOptions,
+    canStart: Boolean = true,
 ) {
     val busy = state.running || state.starting
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -42,11 +43,6 @@ internal fun MeshChatContent(
             TextButton(onClick = onToggle, enabled = busy || canStart) {
                 Text(stringResource(if (busy) R.string.mesh_stop else R.string.mesh_start))
             }
-        }
-        TextButton(onClick = onHistory, contentPadding = PaddingValues(0.dp)) {
-            AppIcon(R.drawable.outline_history_24, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(6.dp))
-            Text(stringResource(R.string.mesh_history_short), style = MaterialTheme.typography.labelMedium)
         }
         if (state.messages.isEmpty()) Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -73,13 +69,12 @@ internal fun MeshChatContent(
                                 else -> R.string.mesh_unknown
                             }
                             Text(stringResource(status), style = MaterialTheme.typography.labelSmall)
-                            if (!message.own) Text(stringResource(R.string.mesh_hops, message.hops), style = MaterialTheme.typography.labelSmall)
                         }
                     }
                 }
             }
         }
-        val bytes = draft.toByteArray(Charsets.UTF_8).size
+        val bytes = remember(draft) { draft.toByteArray(Charsets.UTF_8).size }
         OutlinedTextField(value = draft, onValueChange = { if (it.length <= 4096) onDraft(it) },
             label = { Text(stringResource(R.string.mesh_input)) }, modifier = Modifier.fillMaxWidth(), maxLines = 4,
             isError = bytes > 2048,

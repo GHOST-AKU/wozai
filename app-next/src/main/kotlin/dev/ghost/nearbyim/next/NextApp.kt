@@ -19,6 +19,7 @@ import dev.ghost.nearbyim.R
 fun NextApp(state: NextState, host: MainActivity, contentWindowInsets: WindowInsets = WindowInsets.safeDrawing) {
     var page by rememberSaveable { mutableIntStateOf(0) }
     var detail by rememberSaveable { mutableStateOf(false) }
+    val publicComposer = rememberMeshComposer()
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(state.notice, state.error) {
         val message = state.notice.ifEmpty { state.error }
@@ -56,7 +57,7 @@ fun NextApp(state: NextState, host: MainActivity, contentWindowInsets: WindowIns
                             when (page) {
                                 0 -> ConversationScreen(state, host, onSelect = { host.select(it); detail = true },
                                     onNearby = { page = 1 })
-                                1 -> MeshNearbyScreen(state, host)
+                                1 -> MeshNearbyScreen(state, host, publicComposer)
                                 else -> SettingsScreen(state, host)
                             }
                         }

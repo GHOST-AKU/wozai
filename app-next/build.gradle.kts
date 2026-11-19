@@ -48,6 +48,10 @@ android {
         versionName = versions["appVersion"] as String
         ndk { abiFilters += "arm64-v8a" }
     }
+    // Match the app language picker, including both Chinese script resources.
+    androidResources.localeFilters += (versions["languages"] as List<*>).map {
+        (it as Map<*, *>)["androidQualifier"] as String
+    }
     buildFeatures { compose = true }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

@@ -34,14 +34,14 @@ import dev.ghost.nearbyim.mesh.MeshConsent
 
 /** UI observes the independent service; it never owns radio links or NIM4 sessions. */
 @Composable
-fun MeshNearbyScreen(privateState: NextState, host: MainActivity) {
+internal fun MeshNearbyScreen(privateState: NextState, host: MainActivity, composer: MeshComposer) {
     var privateDevices by rememberSaveable { mutableStateOf(false) }
     Column(Modifier.fillMaxSize()) {
         androidx.activity.compose.BackHandler(privateDevices) { privateDevices = false }
         if (privateDevices) {
             TextButton(onClick = { privateDevices = false }) { Text(stringResource(R.string.mesh_back_public)) }
             NearbyScreen(privateState, host)
-        } else MeshScreen(onPrivate = { privateDevices = true })
+        } else MeshScreen(composer, onPrivate = { privateDevices = true })
     }
 }
 
@@ -54,21 +54,18 @@ private fun radioPermissions(mode: String): List<String> = when {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun MeshScreen(onPrivate: () -> Unit) {
+private fun MeshScreen(composer: MeshComposer, onPrivate: () -> Unit) {
     val context = LocalContext.current
     val state by MeshClient.state.collectAsStateWithLifecycle()
     val capabilities = remember(context) { MeshCapabilities.read(context) }
     var mode by rememberSaveable { mutableStateOf(capabilities.defaultMode ?: "ble") }
     var options by rememberSaveable { mutableStateOf(false) }
     var historyRules by rememberSaveable { mutableStateOf(false) }
-    var draft by rememberSaveable { mutableStateOf("") }
     var consent by rememberSaveable { mutableStateOf(false) }
     var diagnosticReport by remember { mutableStateOf("") }
     var diagnostics by remember { mutableStateOf(false) }
     var permissionError by remember { mutableStateOf(false) }
     var bluetoothError by remember { mutableStateOf(false) }
-    var requestedText by rememberSaveable { mutableStateOf<String?>(null) }
-    var baselineIds by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
     var pendingStart by rememberSaveable { mutableStateOf<String?>(null) }
     val exportScope = rememberCoroutineScope()
     var pendingExport by rememberSaveable { mutableStateOf<String?>(null) }
@@ -119,14 +116,14 @@ private fun MeshScreen(onPrivate: () -> Unit) {
         else { permissionError = true; pendingStart = null }
     }
     LaunchedEffect(state.messages) {
-        val pending = requestedText
-        if (pending != null && acceptedMeshSend(baselineIds.toSet(), pending, state.messages)) {
-            if (draft == pending) draft = ""
-            requestedText = null
+        val pending = composer.pending
+        if (pending != null && acceptedMeshSend(composer.baselineIds.toSet(), pending, state.messages)) {
+            if (composer.text == pending) composer.text = ""
+            composer.pending = null
         }
     }
     LaunchedEffect(state.error, state.running, state.starting) {
-        if (state.error.isNotEmpty() || (!state.running && !state.starting)) requestedText = null
+        if (state.error.isNotEmpty() || (!state.running && !state.starting)) composer.pending = null
     }
     val busy = state.running || state.starting
     fun requestStart() {
@@ -163,20 +160,20 @@ private fun MeshScreen(onPrivate: () -> Unit) {
                 context.startActivity(Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS))
             }) { Text(stringResource(R.string.mesh_location_settings)) }
         }
-        MeshChatContent(state, draft, requestedText != null,
-            onDraft = { draft = it },
+        MeshChatContent(state, composer.text, composer.pending != null,
+            onDraft = { composer.text = it },
             onSend = {
-                baselineIds = ArrayList(state.messages.filter { it.own }.map { it.id })
-                requestedText = draft
-                MeshClient.send(context, draft)
+                composer.baselineIds = ArrayList(state.messages.filter { it.own }.map { it.id })
+                composer.pending = composer.text
+                MeshClient.send(context, composer.text)
             },
             onToggle = {
-                if (busy) { pendingStart = null; MeshClient.stop(context); requestedText = null }
+                if (busy) { pendingStart = null; MeshClient.stop(context); composer.pending = null }
                 else if (MeshConsent.acknowledged(context)) requestStart()
                 else consent = true
             },
             onOptions = { options = true }, onPrivate = onPrivate,
-            canStart = capabilities.supports(mode) && pendingStart == null, onHistory = { historyRules = true })
+            canStart = capabilities.supports(mode) && pendingStart == null)
     }
     if (historyRules) AlertDialog(onDismissRequest = { historyRules = false },
         title = { Text(stringResource(R.string.mesh_history_short)) },
@@ -221,7 +218,9 @@ private fun MeshScreen(onPrivate: () -> Unit) {
             Text(stringResource(R.string.mesh_neighbors, state.neighbors.size), style = MaterialTheme.typography.bodySmall)
             Text(stringResource(R.string.mesh_public_notice), style = MaterialTheme.typography.bodySmall)
             Text(stringResource(R.string.mesh_receive_rule), style = MaterialTheme.typography.bodySmall)
-            Text(stringResource(R.string.mesh_history_rule), style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = { options = false; historyRules = true }) {
+                Text(stringResource(R.string.mesh_history_short))
+            }
             TextButton(onClick = { options = false; diagnosticReport = MeshDiagnostics.report(context, state); diagnostics = true }) {
                 Text(stringResource(R.string.mesh_details))
             }
