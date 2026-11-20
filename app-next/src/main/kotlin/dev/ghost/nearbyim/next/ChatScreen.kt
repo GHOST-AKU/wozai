@@ -1,5 +1,6 @@
 package dev.ghost.nearbyim.next
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -20,10 +21,15 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -49,7 +55,11 @@ fun ChatScreen(state: NextState, host: MainActivity, modifier: Modifier = Modifi
     var confirmVerification by remember { mutableStateOf<IdentityVerification?>(null) }
     var switchConnection by remember { mutableStateOf(false) }
     var attachments by remember { mutableStateOf(false) }
-    var emoji by remember(peer) { mutableStateOf(false) }
+    var emoji by rememberSaveable(peer) { mutableStateOf(false) }
+    val composerFocus = remember { FocusRequester() }
+    val focus = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    BackHandler(emoji) { emoji = false }
     var editor by remember(peer) { mutableStateOf(TextFieldValue(state.draft, TextRange(state.draft.length))) }
     // Controller save/load changes replace text; ordinary selection changes stay local.
     if (editor.text != state.draft) editor = TextFieldValue(state.draft, TextRange(editor.selection.end.coerceAtMost(state.draft.length)))
@@ -76,88 +86,103 @@ fun ChatScreen(state: NextState, host: MainActivity, modifier: Modifier = Modifi
             delay(200)
         }
     }
-    Column(modifier.fillMaxHeight().testTag("chat-root")) {
-        TopAppBar(
-            modifier = Modifier.testTag("chat-header"),
-            title = { Column {
-                Text(state.selectedName, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
-                Text(if (state.encrypted) t("encryptionActive") + " · " + t(if (state.verification?.verified == true) "identityVerified" else "identityUnverified")
-                    else t("localHistoryDisconnected"), style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } },
-            navigationIcon = { if (showBack) IconButton(onClick = onBack) { AppIcon(R.drawable.outline_arrow_back_24, t("backToChats")) } },
-            actions = { IconButton(onClick = { info = true }) { AppIcon(R.drawable.outline_more_vert_24, t("deviceInfo")) } },
-        )
-        if (!state.canSend) Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
-            Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                Text(if (state.connecting) state.status else t("draftRetainedHint"), Modifier.weight(1f),
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (state.connecting) TextButton(onClick = host::disconnect) { Text(t("cancel")) }
-                else if (state.trusted.any { it.id == peer }) TextButton(onClick = {
-                    if (state.connected) switchConnection = true else host.reconnect(peer)
-                }, enabled = state.ready) { Text(t("reconnect")) }
+    BoxWithConstraints(modifier.fillMaxHeight().testTag("chat-root")) {
+        val emojiHeight = (maxHeight * .44f).coerceIn(148.dp, 264.dp)
+        Column(Modifier.fillMaxSize()) {
+            TopAppBar(
+                modifier = Modifier.testTag("chat-header"),
+                title = { Column {
+                    Text(state.selectedName, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
+                    Text(if (state.encrypted) t("encryptionActive") + " · " + t(if (state.verification?.verified == true) "identityVerified" else "identityUnverified")
+                        else t("localHistoryDisconnected"), style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } },
+                navigationIcon = { if (showBack) IconButton(onClick = onBack) { AppIcon(R.drawable.outline_arrow_back_24, t("backToChats")) } },
+                actions = { IconButton(onClick = { info = true }) { AppIcon(R.drawable.outline_more_vert_24, t("deviceInfo")) } },
+            )
+            if (!state.canSend) Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
+                Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text(if (state.connecting) state.status else t("draftRetainedHint"), Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (state.connecting) TextButton(onClick = host::disconnect) { Text(t("cancel")) }
+                    else if (state.trusted.any { it.id == peer }) TextButton(onClick = {
+                        if (state.connected) switchConnection = true else host.reconnect(peer)
+                    }, enabled = state.ready) { Text(t("reconnect")) }
+                }
             }
-        }
-        Box(Modifier.weight(1f).fillMaxWidth().testTag("chat-messages")) {
-            if (messages.isEmpty()) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                EmptyState(R.drawable.outline_chat_bubble_24, t("noMessageTitle"), t("firstMessageHint"))
-            }
-            LazyColumn(state = listState, reverseLayout = true, modifier = Modifier.fillMaxSize()
-                .onGloballyPositioned { viewport = it.boundsInWindow() },
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(messages, key = { "${it.id}:${it.outgoing}" }) { message ->
-                    MessageBubble(message, host, state.canAttach, state.transferMeasurements["${message.id}:${message.outgoing}"] ?: TransferProgress.UNKNOWN) { bounds ->
-                        if (!message.outgoing) {
-                            if (bounds == null) bodyBounds.remove(message.id) else bodyBounds[message.id] = bounds
+            Box(Modifier.weight(1f).fillMaxWidth().testTag("chat-messages")) {
+                if (messages.isEmpty()) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    EmptyState(R.drawable.outline_chat_bubble_24, t("noMessageTitle"), t("firstMessageHint"))
+                }
+                LazyColumn(state = listState, reverseLayout = true, modifier = Modifier.fillMaxSize()
+                    .onGloballyPositioned { viewport = it.boundsInWindow() },
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    items(messages, key = { "${it.id}:${it.outgoing}" }) { message ->
+                        MessageBubble(message, host, state.canAttach, state.transferMeasurements["${message.id}:${message.outgoing}"] ?: TransferProgress.UNKNOWN) { bounds ->
+                            if (!message.outgoing) {
+                                if (bounds == null) bodyBounds.remove(message.id) else bodyBounds[message.id] = bounds
+                            }
                         }
                     }
                 }
+                if (listState.firstVisibleItemIndex > 3) SmallFloatingActionButton(
+                    onClick = { scope.launch { listState.animateScrollToItem(0) } },
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+                ) { AppIcon(R.drawable.outline_keyboard_arrow_down_24, t("newMessages")) }
             }
-            if (listState.firstVisibleItemIndex > 3) SmallFloatingActionButton(
-                onClick = { scope.launch { listState.animateScrollToItem(0) } },
-                modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
-            ) { AppIcon(R.drawable.outline_keyboard_arrow_down_24, t("newMessages")) }
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        if (state.draftLoading) TextButton(onClick = host::retryDraft) { Text(t("draftLoadRetry")) }
-        if (state.draft.toByteArray(Charsets.UTF_8).size > state.textLimit)
-            Text(t("messageTooLong"), Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
-                color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-        Row(Modifier.fillMaxWidth().testTag("chat-composer").padding(horizontal = 8.dp, vertical = 10.dp), verticalAlignment = Alignment.Bottom) {
-            Box {
-                IconButton(onClick = { attachments = true }, enabled = state.canAttach && state.ready) {
-                    AppIcon(R.drawable.outline_add_24, t("attachments"))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            if (state.draftLoading) TextButton(onClick = host::retryDraft) { Text(t("draftLoadRetry")) }
+            if (state.draft.toByteArray(Charsets.UTF_8).size > state.textLimit)
+                Text(t("messageTooLong"), Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
+                    color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            Row(Modifier.fillMaxWidth().testTag("chat-composer").padding(horizontal = 8.dp, vertical = 10.dp), verticalAlignment = Alignment.Bottom) {
+                Box {
+                    IconButton(onClick = { attachments = true }, enabled = state.canAttach && state.ready) {
+                        AppIcon(R.drawable.outline_add_24, t("attachments"))
+                    }
+                    DropdownMenu(expanded = attachments, onDismissRequest = { attachments = false }) {
+                        DropdownMenuItem(text = { Text(t("sendPhoto")) }, leadingIcon = { AppIcon(R.drawable.outline_photo_24) },
+                            onClick = { attachments = false; host.pickAttachments(true) })
+                        DropdownMenuItem(text = { Text(t("sendFile")) }, leadingIcon = { AppIcon(R.drawable.outline_attach_file_24) },
+                            onClick = { attachments = false; host.pickAttachments(false) })
+                    }
                 }
-                DropdownMenu(expanded = attachments, onDismissRequest = { attachments = false }) {
-                    DropdownMenuItem(text = { Text(t("sendPhoto")) }, leadingIcon = { AppIcon(R.drawable.outline_photo_24) },
-                        onClick = { attachments = false; host.pickAttachments(true) })
-                    DropdownMenuItem(text = { Text(t("sendFile")) }, leadingIcon = { AppIcon(R.drawable.outline_attach_file_24) },
-                        onClick = { attachments = false; host.pickAttachments(false) })
+                IconButton(onClick = {
+                    emoji = !emoji
+                    if (emoji) {
+                        focus.clearFocus()
+                        keyboard?.hide()
+                    } else {
+                        composerFocus.requestFocus()
+                        keyboard?.show()
+                    }
+                }, enabled = state.ready && !state.draftLoading) {
+                    AppIcon(if (emoji) R.drawable.outline_keyboard_24 else R.drawable.outline_emoji_emotions_24,
+                        t(if (emoji) "emojiKeyboard" else "emoji"))
+                }
+                OutlinedTextField(editor, { value ->
+                    editor = value
+                    if (value.text != state.draft) host.editDraft(value.text)
+                }, modifier = Modifier.weight(1f).focusRequester(composerFocus).onFocusChanged {
+                    if (it.isFocused) emoji = false
+                },
+                    shape = RoundedCornerShape(24.dp), placeholder = { Text(t("androidComposer")) },
+                    enabled = state.ready && !state.draftLoading, minLines = 1, maxLines = 5,
+                    isError = state.draft.toByteArray(Charsets.UTF_8).size > state.textLimit)
+                FilledIconButton(onClick = host::sendText, modifier = Modifier.padding(start = 8.dp, bottom = 4.dp),
+                    enabled = canSubmitText(state.draft, state.textLimit, state.canSend, state.draftLoading)) {
+                    if (state.saving) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                    else AppIcon(R.drawable.outline_send_24, t("send"))
                 }
             }
-            IconButton(onClick = { emoji = true }, enabled = state.ready && !state.draftLoading) {
-                AppIcon(R.drawable.outline_emoji_emotions_24, t("emoji"))
+            if (emoji) EmojiPanel(emojiHeight) { text ->
+                if (host.state.selectedId == peer && !host.state.draftLoading) {
+                    val inserted = insertEmoji(editor, text)
+                    host.editDraft(inserted.text)
+                    if (host.state.draft == inserted.text) editor = inserted
+                }
             }
-            OutlinedTextField(editor, { value ->
-                editor = value
-                if (value.text != state.draft) host.editDraft(value.text)
-            }, modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(24.dp), placeholder = { Text(t("androidComposer")) },
-                enabled = state.ready && !state.draftLoading, minLines = 1, maxLines = 5,
-                isError = state.draft.toByteArray(Charsets.UTF_8).size > state.textLimit)
-            FilledIconButton(onClick = host::sendText, modifier = Modifier.padding(start = 8.dp, bottom = 4.dp),
-                enabled = canSubmitText(state.draft, state.textLimit, state.canSend, state.draftLoading)) {
-                if (state.saving) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                else AppIcon(R.drawable.outline_send_24, t("send"))
-            }
-        }
-    }
-    if (emoji) EmojiPanel(onDismiss = { emoji = false }) { text ->
-        if (host.state.selectedId == peer && !host.state.draftLoading) {
-            val inserted = insertEmoji(editor, text)
-            host.editDraft(inserted.text)
-            if (host.state.draft == inserted.text) editor = inserted
         }
     }
     if (info) {

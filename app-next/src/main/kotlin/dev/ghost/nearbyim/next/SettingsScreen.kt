@@ -1,7 +1,11 @@
 package dev.ghost.nearbyim.next
 
 import android.os.Build
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
@@ -12,7 +16,9 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.ghost.nearbyim.*
@@ -42,11 +48,8 @@ fun SettingsScreen(state: NextState, host: MainActivity) {
             }), R.drawable.outline_lightbulb_24) { dialog = "theme" }
             SettingRow(t("language"), LanguageRegistry.languages().find { it.tag == AppLanguage.selection(host) }?.nativeName
                 ?: t("systemLanguage"), R.drawable.outline_chat_bubble_24) { dialog = "language" }
-            if (Build.VERSION.SDK_INT >= 31) ListItem(
-                headlineContent = { Text(stringResource(R.string.next_dynamic_color)) },
-                supportingContent = { Text(stringResource(R.string.next_dynamic_color_hint)) },
-                trailingContent = { Switch(host.getSharedPreferences("ui", 0).getBoolean("nextDynamicColor", false), host::setDynamicColor) },
-            )
+            SettingRow(stringResource(R.string.next_accent), stringResource(host.accent.label),
+                R.drawable.outline_lightbulb_24) { dialog = "accent" }
             SectionLabel(t("connectionsSection"))
             ListItem(headlineContent = { Text(t("readReceipts")) }, supportingContent = { Text(t("readReceiptsSummary")) },
                 trailingContent = { Switch(state.readReceipts, host::setReadReceipts, enabled = state.ready) })
@@ -79,6 +82,7 @@ fun SettingsScreen(state: NextState, host: MainActivity) {
         "theme" -> ChoiceDialog(t("theme"), listOf("system", "light", "dark").map {
             it to t(when(it) { "dark" -> "darkTheme"; "light" -> "lightTheme"; else -> "systemTheme" })
         }, AppAppearance.selection(host), { dialog = null }) { dialog = null; host.setTheme(it) }
+        "accent" -> AccentDialog(host.accent, { dialog = null }) { host.setAccent(it); dialog = null }
         "language" -> ChoiceDialog(t("language"), listOf("system" to t("systemLanguage")) +
             LanguageRegistry.languages().map { it.tag to it.nativeName }, AppLanguage.selection(host),
             { dialog = null }) { dialog = null; host.setLanguage(it) }
@@ -115,6 +119,26 @@ private fun ChoiceDialog(title: String, choices: List<Pair<String, String>>, sel
                 Row(Modifier.fillMaxWidth().clickable { select(value) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     RadioButton(selected == value, onClick = null)
                     Text(name, Modifier.padding(start = 12.dp))
+                }
+            }
+        }
+    }, confirmButton = { TextButton(onClick = dismiss) { Text(t("cancel")) } })
+}
+
+@Composable
+private fun AccentDialog(selected: NextAccent, dismiss: () -> Unit, select: (NextAccent) -> Unit) {
+    val dark = isSystemInDarkTheme()
+    AlertDialog(onDismissRequest = dismiss, title = { Text(stringResource(R.string.next_accent)) }, text = {
+        Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
+            NextAccent.entries.filter { it != NextAccent.WALLPAPER || Build.VERSION.SDK_INT >= 31 }.forEach { accent ->
+                Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                    .selectable(selected == accent, role = Role.RadioButton, onClick = { select(accent) }),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    RadioButton(selected == accent, onClick = null)
+                    Box(Modifier.size(20.dp).background(
+                        if (accent == NextAccent.WALLPAPER && selected == accent) MaterialTheme.colorScheme.primary
+                        else Color(if (dark) accent.dark else accent.light), CircleShape))
+                    Text(stringResource(accent.label), Modifier.weight(1f))
                 }
             }
         }

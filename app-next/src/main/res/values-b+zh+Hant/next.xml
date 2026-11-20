@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="next_dynamic_color">桌布配色</string>
-    <string name="next_dynamic_color_hint">使用系統動態色彩</string>
     <string name="next_experiment">Android 實驗用戶端</string>
     <string name="next_independent_profile">此版本的裝置身分、信任和聊天記錄獨立儲存。</string>
     <string name="next_measurement_pending">速度與剩餘時間：暫無測量資料</string>
@@ -9,4 +8,9 @@
     <string name="next_recognized">已認可</string>
     <string name="next_not_recognized">未認可</string>
     <string name="next_qr_saved">二維碼已儲存</string>
+    <string name="next_accent">強調色</string>
+    <string name="next_accent_purple">紫色</string>
+    <string name="next_accent_blue">藍色</string>
+    <string name="next_accent_teal">青綠</string>
+    <string name="next_accent_orange">橙色</string>
 </resources>

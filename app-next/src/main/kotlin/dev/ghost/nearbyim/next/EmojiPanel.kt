@@ -1,5 +1,7 @@
 package dev.ghost.nearbyim.next
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -7,13 +9,18 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.ghost.nearbyim.AppLanguage
 import dev.ghost.nearbyim.R
@@ -28,21 +35,31 @@ fun insertEmoji(value: TextFieldValue, text: String): TextFieldValue {
     return TextFieldValue(value.text.replaceRange(start, end, text), TextRange(start + text.length))
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+private val categoryIcons = listOf(
+    R.drawable.outline_history_24, R.drawable.outline_emoji_emotions_24, R.drawable.outline_front_hand_24,
+    R.drawable.outline_pets_24, R.drawable.outline_restaurant_24, R.drawable.outline_directions_car_24,
+    R.drawable.outline_sports_soccer_24, R.drawable.outline_lightbulb_24, R.drawable.outline_tag_24,
+    R.drawable.outline_flag_24,
+)
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun EmojiPanel(onDismiss: () -> Unit, onPick: (String) -> Unit) {
+internal fun EmojiPanel(height: Dp, onPick: (String) -> Unit) {
     val context = LocalContext.current
     val preferences = remember { context.getSharedPreferences("ui", 0) }
     var catalog by remember { mutableStateOf<EmojiCatalog?>(null) }
     var failed by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
+    var searching by remember { mutableStateOf(false) }
     var category by remember { mutableIntStateOf(0) }
     var recent by remember { mutableStateOf(preferences.getString("emojiRecent", "") ?: "") }
-    var variants by remember { mutableStateOf<EmojiCatalog.Entry?>(null) }
+    var variantChoices by remember { mutableStateOf<List<EmojiCatalog.Entry>>(emptyList()) }
+    val searchFocus = remember { FocusRequester() }
+    val locale = AppLanguage.locale(context)
+    val variantsLabel = t("emojiVariants")
     LaunchedEffect(Unit) {
         catalog = withContext(Dispatchers.IO) {
-            try { EmojiCatalog(context.resources.openRawResource(R.raw.emoji_catalog)) }
-            catch (_: Exception) { null }
+            runCatching { context.resources.openRawResource(R.raw.emoji_catalog).use(::EmojiCatalog) }.getOrNull()
         }
         failed = catalog == null
     }
@@ -52,49 +69,80 @@ fun EmojiPanel(onDismiss: () -> Unit, onPick: (String) -> Unit) {
         preferences.edit().putString("emojiRecent", recent).apply()
         onPick(entry.text)
     }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(Modifier.fillMaxWidth().heightIn(max = 420.dp).navigationBarsPadding()) {
-            OutlinedTextField(query, { query = it }, singleLine = true,
-                label = { Text(t("emojiSearch")) }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).testTag("emoji-search"))
-            LazyRow(Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                items(10) { index ->
-                    FilterChip(selected = category == index, onClick = { category = index },
-                        modifier = Modifier.heightIn(min = 48.dp),
-                        label = { Text(t(if (index == 0) "emojiRecent" else "emojiCategory${index - 1}")) })
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
+        Column(Modifier.fillMaxWidth().height(height).testTag("emoji-dock")) {
+            HorizontalDivider()
+            Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (searching) {
+                    OutlinedTextField(query, { query = it }, singleLine = true,
+                        placeholder = { Text(t("emojiSearch")) },
+                        modifier = Modifier.weight(1f).focusRequester(searchFocus).testTag("emoji-search"))
+                    LaunchedEffect(Unit) { searchFocus.requestFocus() }
+                } else Text(t("emoji"), Modifier.weight(1f).padding(start = 12.dp),
+                    style = MaterialTheme.typography.titleSmall)
+                IconButton(onClick = { searching = !searching; query = "" }) {
+                    AppIcon(if (searching) R.drawable.outline_close_24 else R.drawable.outline_search_24,
+                        t(if (searching) "clearSearch" else "emojiSearch"))
                 }
             }
             val data = catalog
-            if (failed) Text(t("emojiLoadFailed"), Modifier.padding(16.dp))
-            else if (data == null) LinearProgressIndicator(Modifier.fillMaxWidth())
-            else {
-                val locale = AppLanguage.locale(context)
-                val entries = remember(data, query, category, recent, locale) {
-                    data.browse(if (category == 0) "recent" else EmojiCatalog.CATEGORIES[category - 1], query, locale, recent)
-                }
-                if (entries.isEmpty()) Text(t("emojiNoResults"), Modifier.padding(16.dp))
-                LazyVerticalGrid(GridCells.Adaptive(56.dp), Modifier.fillMaxWidth().weight(1f, fill = false), contentPadding = PaddingValues(8.dp)) {
-                    items(entries, key = { it.text }) { entry ->
-                        Column {
-                            TextButton(onClick = { pick(entry) }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                                .semantics { contentDescription = entry.label(locale) }) {
-                                Text(entry.text, style = MaterialTheme.typography.headlineSmall)
-                            }
-                            if (data.variants(entry).size > 1) TextButton(onClick = { variants = entry },
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(t("emojiVariants"), maxLines = 2, style = MaterialTheme.typography.labelSmall) }
+            Box(Modifier.fillMaxWidth().weight(1f)) {
+                when {
+                    failed -> Text(t("emojiLoadFailed"), Modifier.padding(horizontal = 16.dp))
+                    data == null -> LinearProgressIndicator(Modifier.fillMaxWidth())
+                    else -> {
+                        val entries = remember(data, query, category, recent, locale) {
+                            val group = if (category == 0) "recent" else EmojiCatalog.CATEGORIES[category - 1]
+                            val choices = data.browse(group, query, locale, recent)
+                            if (category == 0 && query.isBlank()) {
+                                (choices + data.browse(EmojiCatalog.CATEGORIES.first(), "", locale, recent)).distinctBy { it.text }
+                            } else choices
                         }
+                        if (entries.isEmpty()) Text(t("emojiNoResults"), Modifier.padding(horizontal = 16.dp))
+                        key(category) {
+                            LazyVerticalGrid(GridCells.Adaptive(48.dp), Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(horizontal = 4.dp)) {
+                                items(entries, key = { it.text }) { entry ->
+                                    val variants = data.variants(entry)
+                                    val openVariants: (() -> Unit)? = if (variants.size > 1) {
+                                        { variantChoices = variants }
+                                    } else null
+                                    Box(Modifier.height(48.dp).combinedClickable(
+                                        role = Role.Button, onClick = { pick(entry) },
+                                        onLongClickLabel = variantsLabel, onLongClick = openVariants,
+                                    ).semantics { contentDescription = entry.label(locale) }, contentAlignment = Alignment.Center) {
+                                        Text(entry.text, style = MaterialTheme.typography.headlineSmall)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if (!searching) LazyRow(Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 4.dp)) {
+                items(categoryIcons.size) { index ->
+                    IconToggleButton(checked = index == category, onCheckedChange = { category = index },
+                        modifier = Modifier.size(48.dp),
+                        colors = IconButtonDefaults.iconToggleButtonColors(checkedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            checkedContentColor = MaterialTheme.colorScheme.onPrimaryContainer)) {
+                        AppIcon(categoryIcons[index], t(if (index == 0) "emojiRecent" else "emojiCategory${index - 1}"))
                     }
                 }
             }
         }
     }
-    variants?.let { entry ->
-        AlertDialog(onDismissRequest = { variants = null }, title = { Text(t("emojiVariants")) },
-            text = { LazyVerticalGrid(GridCells.Adaptive(56.dp), Modifier.heightIn(max = 240.dp)) {
-                items(catalog!!.variants(entry), key = { it.text }) { choice ->
-                    TextButton(onClick = { pick(choice); variants = null }, modifier = Modifier.heightIn(min = 48.dp)) {
-                        Text(choice.text, modifier = Modifier.semantics { contentDescription = choice.label(AppLanguage.locale(context)) })
+    if (variantChoices.isNotEmpty()) {
+        AlertDialog(onDismissRequest = { variantChoices = emptyList() }, title = { Text(variantsLabel) },
+            text = {
+                LazyVerticalGrid(GridCells.Adaptive(48.dp), Modifier.heightIn(max = 240.dp)) {
+                    items(variantChoices, key = { it.text }) { entry ->
+                        TextButton(onClick = { pick(entry); variantChoices = emptyList() },
+                            modifier = Modifier.heightIn(min = 48.dp)) {
+                            Text(entry.text, Modifier.semantics { contentDescription = entry.label(locale) },
+                                style = MaterialTheme.typography.headlineSmall)
+                        }
                     }
                 }
-            } }, confirmButton = { TextButton(onClick = { variants = null }) { Text(t("close")) } })
+            }, confirmButton = { TextButton(onClick = { variantChoices = emptyList() }) { Text(t("close")) } })
     }
 }

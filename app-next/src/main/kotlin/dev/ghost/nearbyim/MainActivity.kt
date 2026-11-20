@@ -26,6 +26,8 @@ import dev.ghost.nearbyim.verification.QrCodes
 class MainActivity : ComponentActivity() {
     var state by mutableStateOf(NextState())
         private set
+    internal var accent by mutableStateOf(NextAccent.PURPLE)
+        private set
     private var controller: ChatController? = null
     private var bound = false
     private var resumed = false
@@ -220,7 +222,8 @@ class MainActivity : ComponentActivity() {
         identityResult = savedInstanceState?.getString("identityResult")
         identityImage = savedInstanceState?.getString("identityImage")?.let(Uri::parse)
         identityExport = savedInstanceState?.getString("identityExport")?.let(Uri::parse)
-        setContent { NextTheme { NextApp(state, this) } }
+        accent = NextAccent.read(this)
+        setContent { NextTheme(accent) { NextApp(state, this) } }
     }
 
     override fun onStart() {
@@ -604,8 +607,9 @@ class MainActivity : ComponentActivity() {
     }
     fun setTheme(value: String) { AppAppearance.select(this, value); recreate() }
     fun setLanguage(value: String) { AppLanguage.select(this, value); if (Build.VERSION.SDK_INT < 33) recreate() }
-    fun setDynamicColor(value: Boolean) {
-        getSharedPreferences("ui", MODE_PRIVATE).edit().putBoolean("nextDynamicColor", value).apply(); recreate()
+    internal fun setAccent(value: NextAccent) {
+        accent = value
+        getSharedPreferences("ui", MODE_PRIVATE).edit().putString("nextAccent", value.name).apply()
     }
     fun chooseFolder() {
         try { folder.launch(AttachmentLocations.directoryPicker(AttachmentLocations.get(this).directory())) }

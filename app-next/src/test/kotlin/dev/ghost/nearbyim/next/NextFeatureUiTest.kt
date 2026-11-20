@@ -3,7 +3,10 @@ package dev.ghost.nearbyim.next
 import android.content.ComponentName
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import dev.ghost.nearbyim.MainActivity
 import dev.ghost.nearbyim.ChatService
@@ -43,7 +46,12 @@ class NextFeatureUiTest {
     @Test fun emojiEntryIsAvailableWhileOffline() {
         compose.activity.setContent { NextTheme { ChatScreen(NextState(ready = true, selectedId = "fixture", selectedName = "Fixture"), compose.activity, showBack = true, onBack = {}) } }
         compose.onNodeWithContentDescription("表情").assertIsDisplayed().performClick()
-        compose.onNodeWithTag("emoji-search").assertIsDisplayed()
+        val composer = compose.onNodeWithTag("chat-composer").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        val dock = compose.onNodeWithTag("emoji-dock").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertTrue("The dock must fit below the visible composer", dock.top >= composer.bottom && dock.height > 0)
+        compose.onNodeWithTag("emoji-search").assertDoesNotExist()
+        compose.onNodeWithContentDescription("键盘").performClick()
+        compose.onNodeWithTag("emoji-dock").assertDoesNotExist()
     }
     @Test fun shortBubbleShrinksAndLongBubbleStaysWithinViewport() {
         fun message(id: String, body: String): ChatStore.Message {
@@ -93,12 +101,64 @@ class NextFeatureUiTest {
         assertTrue(data.variants(variant).size > 1)
         assertEquals(variant.text, data.recent(data.remember("", variant)).first().text)
         var picked = ""
-        compose.activity.setContent { NextTheme { EmojiPanel(onDismiss = {}, onPick = { picked = it }) } }
+        compose.activity.setContent { NextTheme { EmojiPanel(264.dp, onPick = { picked = it }) } }
+        compose.onNodeWithContentDescription("搜索表情").performClick()
         compose.onNodeWithTag("emoji-search").performTextInput("火箭")
         compose.waitUntil(10000) { compose.onAllNodesWithText("🚀").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("🚀").performClick()
         compose.runOnIdle { assertEquals("🚀", picked) }
         assertTrue(data.recent(context.getSharedPreferences("ui", 0).getString("emojiRecent", "")).any { it.text == "🚀" })
+    }
+
+    @Test fun emojiLongPressOpensVariantsWithoutInsertingTheBase() {
+        var picked = ""
+        // Use the recent section to exercise the gesture without invoking Robolectric's text magnifier.
+        compose.runOnIdle { compose.activity.getSharedPreferences("ui", 0).edit().putString("emojiRecent", "👍").apply() }
+        compose.activity.setContent { NextTheme { EmojiPanel(264.dp, onPick = { picked = it }) } }
+        compose.waitUntil(10000) { compose.onAllNodesWithText("👍").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("👍").performTouchInput { longClick() }
+        compose.onNodeWithText("变体").assertIsDisplayed()
+        compose.runOnIdle { assertEquals("", picked) }
+        compose.onNodeWithText("👍🏽").performClick()
+        compose.runOnIdle { assertEquals("👍🏽", picked) }
+        compose.onNodeWithText("变体").assertDoesNotExist()
+        compose.onNodeWithTag("emoji-dock").assertIsDisplayed()
+    }
+
+    @Test fun accentSettingUpdatesAndPersists() {
+        compose.onNodeWithText("设置").performClick()
+        compose.onNodeWithText("强调色").performClick()
+        compose.onNodeWithText("青绿").performClick()
+        compose.onNodeWithText("青绿").assertIsDisplayed()
+        compose.runOnIdle { assertEquals(NextAccent.TEAL, compose.activity.accent) }
+        compose.activityRule.scenario.recreate()
+        compose.runOnIdle { assertEquals(NextAccent.TEAL, compose.activity.accent) }
+    }
+
+    @Test
+    @Config(qualifiers = "zh-rCN-w1280dp-h700dp")
+    fun dividerDragsAndCanBeCenteredWithAccessibilityAction() {
+        val host = compose.activity
+        compose.activity.setContent { NextTheme {
+            NextApp(NextState(ready = true, selectedId = "fixture", selectedName = "Fixture"), host)
+        } }
+        val divider = compose.onNodeWithTag("pane-divider").assertIsDisplayed()
+        fun chatLeft() = compose.onNodeWithTag("chat-root").fetchSemanticsNode().boundsInRoot.left
+        val original = chatLeft()
+        val density = host.resources.displayMetrics.density
+        divider.performTouchInput {
+            down(center)
+            moveBy(Offset(72 * density, 0f))
+            moveBy(Offset(72 * density, 0f))
+            up()
+        }
+        assertTrue("Dragging must widen the list", chatLeft() > original + 80 * density)
+        val prefs = host.getSharedPreferences("ui", 0)
+        assertTrue(prefs.getFloat("nextPaneSplit", Float.NaN).isFinite())
+        divider.performSemanticsAction(SemanticsActions.OnClick)
+        val root = compose.onNodeWithTag("next-root").fetchSemanticsNode().boundsInRoot
+        assertEquals(root.center.x, chatLeft(), 1f)
+        assertEquals(.5f, prefs.getFloat("nextPaneSplit", Float.NaN), .002f)
     }
 
     @Test fun pendingQrSnapshotSurvivesActivityRecreation() {
