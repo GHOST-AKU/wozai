@@ -53,7 +53,6 @@ fun ChatScreen(state: NextState, host: MainActivity, modifier: Modifier = Modifi
     val peer = state.selectedId ?: return
     var info by rememberSaveable(peer) { mutableStateOf(false) }
     var confirmVerification by remember { mutableStateOf<IdentityVerification?>(null) }
-    var switchConnection by remember { mutableStateOf(false) }
     var attachments by remember { mutableStateOf(false) }
     var emoji by rememberSaveable(peer) { mutableStateOf(false) }
     val composerFocus = remember { FocusRequester() }
@@ -106,15 +105,32 @@ fun ChatScreen(state: NextState, host: MainActivity, modifier: Modifier = Modifi
                 navigationIcon = { if (showBack) IconButton(onClick = onBack) { AppIcon(R.drawable.outline_arrow_back_24, t("backToChats")) } },
                 actions = { IconButton(onClick = { info = true }) { AppIcon(R.drawable.outline_more_vert_24, t("deviceInfo")) } },
             )
-            if (!state.canSend) Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
+            val connectedHere = state.connected && state.connectedId == peer
+            val remembered = state.trusted.firstOrNull { it.id == peer }
+            val offerAuto = remembered != null && !state.lanAutoReception &&
+                (remembered.bluetoothAddress == null || !state.bluetoothAutoReception)
+            if (!connectedHere && !state.canSend) Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
                 Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
                     verticalAlignment = Alignment.CenterVertically) {
-                    Text(if (state.connecting) state.status else t("draftRetainedHint"), Modifier.weight(1f),
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (state.connecting) TextButton(onClick = host::disconnect) { Text(t("cancel")) }
-                    else if (state.trusted.any { it.id == peer }) TextButton(onClick = {
-                        if (state.connected) switchConnection = true else host.reconnect(peer)
-                    }, enabled = state.ready) { Text(t("reconnect")) }
+                    Text(when {
+                        state.sendingAfterConnect -> stringResource(R.string.next_private_queued_draft)
+                        state.connectingSelected -> state.status
+                        state.waitingForIdleSession -> stringResource(R.string.next_private_busy)
+                        state.canConnectOnSend && !state.privateRetryPaused -> stringResource(R.string.next_private_finding)
+                        state.privateRetryPaused && state.status.isNotEmpty() -> state.status
+                        offerAuto -> stringResource(R.string.next_private_reception_hint)
+                        else -> t("draftRetainedHint")
+                    }, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    when {
+                        state.sendingAfterConnect -> TextButton(onClick = host::cancelDeferredSend) { Text(t("cancel")) }
+                        state.connectingSelected -> TextButton(onClick = host::disconnect) { Text(t("cancel")) }
+                        offerAuto -> TextButton(
+                            onClick = { host.start(remembered.mode) }, enabled = state.ready) {
+                            Text(stringResource(R.string.next_private_enable_auto))
+                        }
+                        (!state.canConnectOnSend || state.privateRetryPaused) && remembered != null ->
+                            TextButton(onClick = { host.reconnect(peer) }, enabled = state.ready && state.canSwitchPrivateSession) { Text(t("reconnect")) }
+                    }
                 }
             }
             Box(Modifier.weight(1f).fillMaxWidth().testTag("chat-messages")) {
@@ -189,7 +205,8 @@ fun ChatScreen(state: NextState, host: MainActivity, modifier: Modifier = Modifi
                     enabled = state.ready && !state.draftLoading, minLines = 1, maxLines = 5,
                     isError = state.draft.toByteArray(Charsets.UTF_8).size > state.textLimit)
                 FilledIconButton(onClick = host::sendText, modifier = Modifier.padding(start = 8.dp, bottom = 4.dp),
-                    enabled = canSubmitText(state.draft, state.textLimit, state.canSend, state.draftLoading)) {
+                    enabled = !state.sendingAfterConnect && canSubmitText(state.draft, state.textLimit,
+                        state.canSend || state.canConnectOnSend, state.draftLoading)) {
                     if (state.saving) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                     else AppIcon(R.drawable.outline_send_24, t("send"))
                 }
@@ -240,10 +257,7 @@ fun ChatScreen(state: NextState, host: MainActivity, modifier: Modifier = Modifi
             confirmButton = { TextButton(onClick = { host.verifyIdentity(snapshot); confirmVerification = null }) { Text(t("verificationMark")) } },
             dismissButton = { TextButton(onClick = { confirmVerification = null }) { Text(t("cancel")) } })
     }
-    if (switchConnection) AlertDialog(onDismissRequest = { switchConnection = false }, title = { Text(t("connectionSwitchTitle")) },
-        text = { Text(t("connectionSwitchBody")) },
-        confirmButton = { TextButton(onClick = { host.disconnect(); host.reconnect(peer); switchConnection = false }) { Text(t("disconnectAndConnect")) } },
-        dismissButton = { TextButton(onClick = { switchConnection = false }) { Text(t("cancel")) } })
+
 }
 
 @Composable

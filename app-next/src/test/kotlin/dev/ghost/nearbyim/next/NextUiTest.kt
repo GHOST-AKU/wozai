@@ -100,7 +100,7 @@ class NextUiTest {
         compose.activity.setContent {
             NextTheme {
                 NextApp(NextState(ready = true, selectedId = "fixture", selectedName = "IME fixture",
-                    connectedId = "fixture", connected = true, canSend = true,
+                    connectedId = "fixture", connected = true, openedPrivateChat = "test-opening", canSend = true,
                     draft = if (multiline) "one\ntwo\nthree" else "draft"), compose.activity,
                     contentWindowInsets = WindowInsets(top = 24.dp, bottom = maxOf(24, ime.intValue).dp))
             }

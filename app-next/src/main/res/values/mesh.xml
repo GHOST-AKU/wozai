@@ -21,6 +21,7 @@
     <string name="mesh_neighbors">直接连接：%1$d 台设备</string>
     <string name="mesh_idle">未开启接收</string>
     <string name="mesh_starting">正在启动 Mesh…</string>
+    <string name="mesh_waiting_restore">接收已启用 · 等待无线恢复</string>
     <string name="mesh_running">正在寻找附近设备</string>
     <string name="mesh_unknown">未确认</string>
     <string name="mesh_queued">等待邻居接力 · 未确认送达</string>
@@ -51,7 +52,7 @@
     <string name="mesh_visible">让电脑发现</string>
     <string name="mesh_options">聊天选项</string>
     <string name="mesh_connected">已连接 %1$d 台附近设备</string>
-    <string name="mesh_receive_rule">你主动开启后会自动接收和发送公共消息，无需逐条同意。切换页面仍会运行，可在这里或通知中停止。应用重启后需重新开启，中继每次默认关闭。</string>
+    <string name="mesh_receive_rule">首次开启后，下次打开应用会自动接收并连接使用相同方式的附近设备。切换页面会继续运行。可在这里或通知中停止，并关闭自动开启。每次开启时中继默认关闭。</string>
     <string name="mesh_history_short">临时历史 · 最多 200 条</string>
     <string name="mesh_history_rule">公共历史仅保留在当前应用进程内，最多 200 条，超出后移除最早消息。切页、旋转、停止或重新开启 Mesh 不会清空；进程退出、被系统结束或覆盖升级重启后会消失。消息过期不等于历史删除，历史仍在也不代表还会继续转发。私聊历史不受此规则影响。</string>
     <string name="mesh_public_short">公开消息 · 无端到端加密</string>

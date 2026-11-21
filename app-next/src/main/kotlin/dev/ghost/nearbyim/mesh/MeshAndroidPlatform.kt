@@ -2,8 +2,12 @@ package dev.ghost.nearbyim.mesh
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.location.LocationManager
 import android.os.Build
@@ -11,6 +15,9 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
 import android.net.wifi.aware.WifiAwareManager
+import androidx.core.content.ContextCompat
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.callbackFlow
 import java.io.File
 import java.io.IOException
 import java.security.SecureRandom
@@ -118,6 +125,21 @@ internal class MeshAndroidPlatform(context: Context) : MeshPlatform {
 
     companion object {
         private val coreOwner = Semaphore(1)
+
+        internal fun radioChanges(context: Context) = callbackFlow {
+            val receiver = object : BroadcastReceiver() {
+                // These broadcasts only trigger another check of the actual radio and permissions.
+                override fun onReceive(context: Context, intent: Intent) { trySend(Unit) }
+            }
+            val filter = IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED).apply {
+                addAction(WifiAwareManager.ACTION_WIFI_AWARE_STATE_CHANGED)
+                addAction(LocationManager.MODE_CHANGED_ACTION)
+            }
+            ContextCompat.registerReceiver(context, receiver, filter, ContextCompat.RECEIVER_EXPORTED)
+            trySend(Unit)
+            awaitClose { context.unregisterReceiver(receiver) }
+        }
+
         @SuppressLint("MissingPermission") // Every mode's permissions are checked below before querying its radio.
         fun guard(context: Context, mode: String): String? {
             if (mode != "ble" && mode != "aware") return "mesh_unsupported_radio"

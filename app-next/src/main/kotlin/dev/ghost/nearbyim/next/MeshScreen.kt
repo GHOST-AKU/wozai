@@ -58,7 +58,9 @@ private fun MeshScreen(composer: MeshComposer, onPrivate: () -> Unit) {
     val context = LocalContext.current
     val state by MeshClient.state.collectAsStateWithLifecycle()
     val capabilities = remember(context) { MeshCapabilities.read(context) }
-    var mode by rememberSaveable { mutableStateOf(capabilities.defaultMode ?: "ble") }
+    var mode by rememberSaveable { mutableStateOf(
+        MeshConsent.selectedMode(context)?.takeIf(capabilities::supports) ?: capabilities.defaultMode ?: "ble")
+    }
     var options by rememberSaveable { mutableStateOf(false) }
     var historyRules by rememberSaveable { mutableStateOf(false) }
     var consent by rememberSaveable { mutableStateOf(false) }
@@ -93,6 +95,7 @@ private fun MeshScreen(composer: MeshComposer, onPrivate: () -> Unit) {
     fun begin() {
         val request = pendingStart ?: return
         pendingStart = null
+        MeshConsent.enable(context, request)
         MeshClient.start(context, request, false)
     }
     val discoverable = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { }
@@ -126,6 +129,7 @@ private fun MeshScreen(composer: MeshComposer, onPrivate: () -> Unit) {
         if (state.error.isNotEmpty() || (!state.running && !state.starting)) composer.pending = null
     }
     val busy = state.running || state.starting
+    val automatic = MeshConsent.automaticMode(context) != null
     fun requestStart() {
         permissionError = false
         bluetoothError = false
@@ -168,12 +172,12 @@ private fun MeshScreen(composer: MeshComposer, onPrivate: () -> Unit) {
                 MeshClient.send(context, composer.text)
             },
             onToggle = {
-                if (busy) { pendingStart = null; MeshClient.stop(context); composer.pending = null }
+                if (busy || automatic) { pendingStart = null; MeshClient.stop(context); composer.pending = null }
                 else if (MeshConsent.acknowledged(context)) requestStart()
                 else consent = true
             },
             onOptions = { options = true }, onPrivate = onPrivate,
-            canStart = capabilities.supports(mode) && pendingStart == null)
+            canStart = capabilities.supports(mode) && pendingStart == null, automatic = automatic)
     }
     if (historyRules) AlertDialog(onDismissRequest = { historyRules = false },
         title = { Text(stringResource(R.string.mesh_history_short)) },

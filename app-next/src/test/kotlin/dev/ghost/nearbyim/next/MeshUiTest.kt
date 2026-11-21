@@ -120,6 +120,7 @@ class MeshUiTest {
     @Test fun privateDeviceControlsRemainAvailable(){
         compose.onNodeWithText("附近").performClick()
         compose.onNodeWithText("私聊设备").performClick()
+        compose.onNodeWithText("自动接收私聊").assertIsDisplayed()
         compose.onNodeWithText("搜索设备").assertIsDisplayed()
         compose.onNodeWithText("返回公共 Mesh").performClick()
         compose.onNodeWithText("开启接收").assertIsDisplayed()

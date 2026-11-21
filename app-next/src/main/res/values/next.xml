@@ -23,4 +23,22 @@
     <string name="next_accent_teal">青绿</string>
     <string name="next_accent_orange">橙色</string>
     <string name="next_emoji_default">默认</string>
+    <string name="next_private_request">私聊请求</string>
+    <string name="next_private_request_hint">首次请求由你决定。记住设备后可自动连接，仍可单独核验安全码。</string>
+    <string name="next_private_accept_remember">接受并记住</string>
+    <string name="next_private_reception">自动接收私聊</string>
+    <string name="next_private_enable_auto">开启自动连接</string>
+    <string name="next_private_reception_hint">开启后，打开应用时会恢复本方式的接收。通知中也可停止。</string>
+    <string name="next_private_reception_known">已记住的设备可自动连入，新设备仍需你接受。</string>
+    <string name="next_private_reception_active">私聊自动接收已开启</string>
+    <string name="next_private_reception_starting">正在开启私聊接收…</string>
+    <string name="next_private_reception_waiting">自动接收等待恢复</string>
+    <string name="next_private_restore_failed">暂时无法恢复私聊接收。</string>
+    <string name="next_private_pick_device">发起请求并连通后，本机会记住该设备。</string>
+    <string name="next_private_start_request">发起私聊</string>
+    <string name="next_private_queued_draft">连通后发送 · 草稿仍在本机</string>
+    <string name="next_private_draft_kept">这次未继续发送，文字保留在草稿中。</string>
+    <string name="next_private_busy">另一条私聊正在处理请求、文件或消息，空闲后再连接。</string>
+    <string name="next_private_finding">正在等待设备可连接…</string>
+    <string name="next_private_request_busy">当前私聊有未完成的操作，本次请求尚未发出。</string>
 </resources>

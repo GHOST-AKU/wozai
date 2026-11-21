@@ -21,6 +21,7 @@
     <string name="mesh_neighbors">직접 연결: %1$d대</string>
     <string name="mesh_idle">수신이 꺼져 있습니다</string>
     <string name="mesh_starting">Mesh 시작 중…</string>
+    <string name="mesh_waiting_restore">수신 켜짐 · 무선 연결 복구 대기 중</string>
     <string name="mesh_running">주변 기기를 찾는 중</string>
     <string name="mesh_unknown">미확인</string>
     <string name="mesh_queued">이웃 기기 대기 중 · 전달 미확인</string>
@@ -51,7 +52,7 @@
     <string name="mesh_visible">컴퓨터에서 검색 허용</string>
     <string name="mesh_options">채팅 옵션</string>
     <string name="mesh_connected">주변 기기 %1$d대에 연결됨</string>
-    <string name="mesh_receive_rule">직접 시작하면 메시지별 승인 없이 공개 메시지를 자동 송수신합니다. 페이지를 바꿔도 실행되며 여기나 알림에서 중지할 수 있습니다. 앱 재시작 후에는 다시 시작해야 합니다. 중계는 매번 꺼진 상태로 시작합니다.</string>
+    <string name="mesh_receive_rule">처음 수신을 켜면 다음에 앱을 열 때 같은 방식을 쓰는 주변 기기에 자동 연결됩니다. 화면을 바꿔도 수신은 계속됩니다. 여기나 알림에서 중지하면 자동 수신도 꺼집니다. 중계는 매번 꺼진 상태로 시작합니다.</string>
     <string name="mesh_history_short">임시 기록 · 최대 200개</string>
     <string name="mesh_history_rule">공개 기록은 현재 앱 프로세스에만 최대 200개 보관되며 한도를 넘으면 오래된 메시지부터 제거됩니다. 페이지 전환, 회전, Mesh 중지나 재시작으로 지워지지 않습니다. 프로세스 종료, 시스템에 의한 종료, 덮어쓰기 업데이트 후 재시작 시 사라집니다. 메시지 만료는 표시된 기록 삭제를 뜻하지 않으며, 기록이 있다고 중계가 계속되는 것도 아닙니다. 비공개 채팅 기록에는 적용되지 않습니다.</string>
     <string name="mesh_public_short">공개 메시지 · 종단 간 암호화 없음</string>

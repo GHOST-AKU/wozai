@@ -20,7 +20,7 @@ internal fun MeshChatContent(
     state: MeshSnapshot, draft: String, sending: Boolean,
     onDraft: (String) -> Unit, onSend: () -> Unit, onToggle: () -> Unit,
     onOptions: () -> Unit, onPrivate: () -> Unit,
-    canStart: Boolean = true,
+    canStart: Boolean = true, automatic: Boolean = false,
 ) {
     val busy = state.running || state.starting
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -35,13 +35,14 @@ internal fun MeshChatContent(
                     state.starting -> stringResource(R.string.mesh_starting)
                     state.running && state.neighbors.isNotEmpty() -> stringResource(R.string.mesh_connected, state.neighbors.size)
                     state.running -> stringResource(R.string.mesh_running)
+                    automatic -> stringResource(R.string.mesh_waiting_restore)
                     else -> stringResource(R.string.mesh_idle)
                 }, style = MaterialTheme.typography.bodyMedium)
                 Text(stringResource(if (state.relay) R.string.mesh_relay_on else R.string.mesh_public_short),
                     style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            TextButton(onClick = onToggle, enabled = busy || canStart) {
-                Text(stringResource(if (busy) R.string.mesh_stop else R.string.mesh_start))
+            TextButton(onClick = onToggle, enabled = busy || automatic || canStart) {
+                Text(stringResource(if (busy || automatic) R.string.mesh_stop else R.string.mesh_start))
             }
         }
         if (state.messages.isEmpty()) Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {

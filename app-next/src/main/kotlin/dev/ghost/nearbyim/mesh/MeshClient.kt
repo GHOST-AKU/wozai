@@ -3,9 +3,15 @@ package dev.ghost.nearbyim.mesh
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 
 /** UI-facing commands only. MeshService exclusively owns processes, radios, and workers. */
 object MeshClient {
@@ -36,7 +42,31 @@ object MeshClient {
         }
     }
 
+    internal suspend fun restoreReception(context: Context, radios: Flow<Unit>) {
+        // The caller is the resumed Activity. Runtime reconnection within a running radio stays with the service.
+        val availability = combine(MeshConsent.automaticModes(context), radios) { mode, _ ->
+            mode to mode?.let { MeshAndroidPlatform.guard(context, it) }
+        }.distinctUntilChanged()
+        var retries = 0
+        var lastAvailability: Pair<String?, String?>? = null
+        combine(
+            availability,
+            state.map { it.running to it.starting }.distinctUntilChanged(),
+        ) { available, phase -> available to phase }.collectLatest { (available, phase) ->
+            val (mode, blocked) = available
+            val (running, starting) = phase
+            if (running || available != lastAvailability) retries = 0
+            lastAvailability = available
+            if (mode == null || running || starting || retries >= 4) return@collectLatest
+            if (blocked == null && retries > 0) delay(2_000L shl (retries - 1))
+            if (MeshConsent.automaticMode(context) != mode || state.value.running || state.value.starting) return@collectLatest
+            if (blocked == null) retries++
+            start(context, mode, false)
+        }
+    }
+
     fun stop(context: Context) {
+        MeshConsent.pause(context)
         synchronized(gate) {
             request += 1
             mutableState.value = stopped(mutableState.value)

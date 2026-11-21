@@ -149,7 +149,7 @@ class NextFeatureUiTest {
         val host = compose.activity
         compose.activity.setContent { NextTheme {
             NextApp(NextState(ready = true, selectedId = "peer", selectedName = "Fixture",
-                connected = true, connectedId = "peer",
+                connected = true, connectedId = "peer", openedPrivateChat = "test-opening",
                 conversations = listOf(ChatStore.Conversation("peer", "Fixture", 1L, "Hello", false, ""))), host)
         } }
         compose.onNodeWithContentDescription(host.text("backToChats")).performClick()
@@ -188,6 +188,40 @@ class NextFeatureUiTest {
         val bounds = bar.fetchSemanticsNode().boundsInRoot
         assertEquals(root.fetchSemanticsNode().boundsInRoot.bottom, bounds.bottom, 1f)
         assertEquals(before + inset, bounds.height, 1f)
+    }
+
+    @Test fun aPrivateRequestDoesNotTakeOverOtherPagesAndNeedsAnExplicitChoice() {
+        val host = compose.activity
+        val connection = mutableStateOf(NextState(ready = true))
+        host.setContent { NextTheme { NextApp(connection.value, host) } }
+        compose.onNodeWithText("设置").performClick()
+        compose.runOnIdle {
+            connection.value = connection.value.copy(approvalId = "one", approvalName = "旁边的平板")
+        }
+        compose.onNodeWithTag("private-request").assertIsDisplayed()
+        compose.onNodeWithText("旁边的平板").assertIsDisplayed()
+        compose.onNodeWithText("仅本次").assertIsDisplayed()
+        compose.onNodeWithText("接受并记住").assertIsDisplayed()
+        compose.onNodeWithText("拒绝").assertIsDisplayed()
+        compose.onNodeWithText("外观").assertExists()
+        compose.onNodeWithTag("chat-root").assertDoesNotExist()
+        compose.runOnIdle {
+            connection.value = connection.value.copy(approvalId = null, connected = true,
+                selectedId = "previous", connectedId = "trusted")
+        }
+        compose.onNodeWithTag("private-request").assertDoesNotExist()
+        compose.onNodeWithText("外观").assertExists()
+        compose.onNodeWithTag("chat-root").assertDoesNotExist()
+    }
+
+    @Test fun theRequestActionsDistinguishOneTimeConsentFromRemembering() {
+        val decisions = mutableListOf<Boolean>()
+        compose.activity.setContent { NextTheme {
+            PrivateRequestBanner("附近的设备", {}, decisions::add)
+        } }
+        compose.onNodeWithText("仅本次").performClick()
+        compose.onNodeWithText("接受并记住").performClick()
+        compose.runOnIdle { assertEquals(listOf(false, true), decisions) }
     }
 
     @Test fun accentSettingUpdatesAndPersists() {
