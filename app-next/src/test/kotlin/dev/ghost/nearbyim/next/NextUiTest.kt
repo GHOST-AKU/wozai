@@ -53,7 +53,7 @@ class NextUiTest {
         compose.onNodeWithText("还没有聊天").assertIsDisplayed()
         screenshot("conversations")
         compose.onNodeWithText("附近").performClick()
-        compose.onNodeWithText("开启 Mesh").assertIsDisplayed()
+        compose.onNodeWithText("开启接收").assertIsDisplayed()
         compose.onNodeWithText("私聊设备").performClick()
         compose.onNodeWithText("搜索设备").assertIsDisplayed()
         screenshot("nearby")
@@ -100,7 +100,7 @@ class NextUiTest {
         compose.activity.setContent {
             NextTheme {
                 NextApp(NextState(ready = true, selectedId = "fixture", selectedName = "IME fixture",
-                    connectedId = "fixture", connected = true, canSend = true,
+                    connectedId = "fixture", connected = true, openedPrivateChat = "test-opening", canSend = true,
                     draft = if (multiline) "one\ntwo\nthree" else "draft"), compose.activity,
                     contentWindowInsets = WindowInsets(top = 24.dp, bottom = maxOf(24, ime.intValue).dp))
             }

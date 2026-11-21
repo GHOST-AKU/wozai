@@ -197,13 +197,17 @@ internal class MeshRuntime(
                 val body = pending.accept(event.request)
                 if (body == null) { end("mesh_protocol_error", token, true); return }
                 history.queue(event.id, body, snapshot.localKey, System.currentTimeMillis())
-                next = next.copy(error = "")
+                next = next.copy(error = "", messages = history.messages)
             }
             is MeshEvent.Message -> {
                 if (event.path.last() != snapshot.localKey) { end("mesh_protocol_error", token, true); return }
                 history.receive(event.id, event.body, event.path, System.currentTimeMillis())
+                next = next.copy(messages = history.messages)
             }
-            is MeshEvent.State -> history.transition(event.id, event.state)
+            is MeshEvent.State -> {
+                history.transition(event.id, event.state)
+                next = next.copy(messages = history.messages)
+            }
             is MeshEvent.Neighbor -> {
                 val peers = next.neighbors.toMutableSet()
                 if (event.up) peers.add(event.key) else peers.remove(event.key)
@@ -217,7 +221,7 @@ internal class MeshRuntime(
             MeshEvent.Metadata -> return
             is MeshEvent.Ready -> return
         }
-        publish(token, next.copy(messages = history.messages))
+        publish(token, next)
     }
 
     private fun publish(token: Long, next: MeshSnapshot) {

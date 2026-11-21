@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="next_dynamic_color">壁紙の色</string>
-    <string name="next_dynamic_color_hint">システムのダイナミックカラーを使用</string>
     <string name="next_experiment">Android 実験版クライアント</string>
     <string name="next_independent_profile">このバージョンの端末 ID、信頼設定、チャット履歴は個別に保存されます。</string>
     <string name="next_measurement_pending">速度と残り時間：計測待ち</string>
@@ -9,4 +8,28 @@
     <string name="next_recognized">承認済み</string>
     <string name="next_not_recognized">未承認</string>
     <string name="next_qr_saved">QR コードを保存しました</string>
+    <string name="next_accent">アクセントカラー</string>
+    <string name="next_accent_purple">紫</string>
+    <string name="next_accent_blue">青</string>
+    <string name="next_accent_teal">青緑</string>
+    <string name="next_accent_orange">オレンジ</string>
+    <string name="next_emoji_default">既定</string>
+    <string name="next_private_request">個別チャットのリクエスト</string>
+    <string name="next_private_request_hint">初回の接続は自分で承認します。記憶した端末は自動接続できます。安全コードは別途確認できます。</string>
+    <string name="next_private_accept_remember">承認して記憶</string>
+    <string name="next_private_reception">個別チャットの自動受信</string>
+    <string name="next_private_enable_auto">自動接続を有効にする</string>
+    <string name="next_private_reception_hint">オンにすると、アプリを開いたときにこの方式で受信を再開します。通知から停止することもできます。</string>
+    <string name="next_private_reception_known">記憶済みの端末は自動接続します。新しい端末には承認が必要です。</string>
+    <string name="next_private_reception_active">個別チャットの自動受信はオン</string>
+    <string name="next_private_reception_starting">個別チャットの受信を開始中…</string>
+    <string name="next_private_reception_waiting">自動受信の再開を待機中</string>
+    <string name="next_private_restore_failed">個別チャットの受信を再開できませんでした。</string>
+    <string name="next_private_pick_device">リクエストがつながると、相手の端末を記憶します。</string>
+    <string name="next_private_start_request">チャットをリクエスト</string>
+    <string name="next_private_queued_draft">接続後に送信 · 下書きはこの端末に保存</string>
+    <string name="next_private_draft_kept">送信を中止しました。文章は下書きに残っています。</string>
+    <string name="next_private_busy">別のチャットでリクエスト、ファイル、またはメッセージを処理中です。終了後に接続します。</string>
+    <string name="next_private_finding">端末に接続できるまで待機中…</string>
+    <string name="next_private_request_busy">現在のチャットで処理中の操作があります。今回のリクエストは送信されていません。</string>
 </resources>

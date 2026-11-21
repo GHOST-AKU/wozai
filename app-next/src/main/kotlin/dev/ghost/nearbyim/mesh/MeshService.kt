@@ -16,7 +16,7 @@ import dev.ghost.nearbyim.AppLanguage
 import dev.ghost.nearbyim.MainActivity
 import dev.ghost.nearbyim.R
 
-/** Explicit opt-in only: no binding, boot receiver, sticky restart, or automatic relay restoration. */
+/** Public reception can be restored by the opted-in foreground Activity; relay is separate. */
 class MeshService : Service() {
     private var runtime: MeshRuntime? = null
     private var ownerToken = -1L

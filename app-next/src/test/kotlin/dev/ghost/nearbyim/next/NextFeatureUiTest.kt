@@ -3,8 +3,15 @@ package dev.ghost.nearbyim.next
 import android.content.ComponentName
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.graphics.Insets
 import dev.ghost.nearbyim.MainActivity
 import dev.ghost.nearbyim.ChatService
 import dev.ghost.nearbyim.ChatStore
@@ -43,7 +50,12 @@ class NextFeatureUiTest {
     @Test fun emojiEntryIsAvailableWhileOffline() {
         compose.activity.setContent { NextTheme { ChatScreen(NextState(ready = true, selectedId = "fixture", selectedName = "Fixture"), compose.activity, showBack = true, onBack = {}) } }
         compose.onNodeWithContentDescription("表情").assertIsDisplayed().performClick()
-        compose.onNodeWithTag("emoji-search").assertIsDisplayed()
+        val composer = compose.onNodeWithTag("chat-composer").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        val dock = compose.onNodeWithTag("emoji-dock").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertTrue("The dock must fit below the visible composer", dock.top >= composer.bottom && dock.height > 0)
+        compose.onNodeWithTag("emoji-search").assertDoesNotExist()
+        compose.onNodeWithContentDescription("键盘").performClick()
+        compose.onNodeWithTag("emoji-dock").assertDoesNotExist()
     }
     @Test fun shortBubbleShrinksAndLongBubbleStaysWithinViewport() {
         fun message(id: String, body: String): ChatStore.Message {
@@ -93,12 +105,161 @@ class NextFeatureUiTest {
         assertTrue(data.variants(variant).size > 1)
         assertEquals(variant.text, data.recent(data.remember("", variant)).first().text)
         var picked = ""
-        compose.activity.setContent { NextTheme { EmojiPanel(onDismiss = {}, onPick = { picked = it }) } }
+        compose.activity.setContent { NextTheme { EmojiPanel(264.dp, onPick = { picked = it }) } }
+        compose.onNodeWithContentDescription("搜索表情").performClick()
         compose.onNodeWithTag("emoji-search").performTextInput("火箭")
         compose.waitUntil(10000) { compose.onAllNodesWithText("🚀").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("🚀").performClick()
         compose.runOnIdle { assertEquals("🚀", picked) }
         assertTrue(data.recent(context.getSharedPreferences("ui", 0).getString("emojiRecent", "")).any { it.text == "🚀" })
+    }
+
+    @Test fun emojiLongPressOpensVariantsWithoutInsertingTheBase() {
+        var picked = ""
+        // Use the recent section to exercise the gesture without invoking Robolectric's text magnifier.
+        compose.runOnIdle { compose.activity.getSharedPreferences("ui", 0).edit().putString("emojiRecent", "👍").apply() }
+        compose.activity.setContent { NextTheme { EmojiPanel(264.dp, onPick = { picked = it }) } }
+        compose.waitUntil(10000) { compose.onAllNodesWithText("👍").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("👍").performTouchInput { longClick() }
+        val bubble = compose.onNodeWithTag("emoji-variants").assertIsDisplayed()
+            .assert(hasAnyAncestor(hasTestTag("emoji-dock")))
+        compose.onNodeWithText("拇指向上", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("中等肤色", useUnmergedTree = true).assertIsDisplayed()
+        val dockBounds = compose.onNodeWithTag("emoji-dock").fetchSemanticsNode().boundsInRoot
+        val bubbleBounds = bubble.fetchSemanticsNode().boundsInRoot
+        assertTrue(bubbleBounds.top >= dockBounds.top && bubbleBounds.bottom <= dockBounds.bottom)
+        compose.runOnIdle { assertEquals("", picked) }
+        compose.onNodeWithContentDescription("拇指向上: 中等肤色").performClick()
+        compose.runOnIdle { assertEquals("👍🏽", picked) }
+        compose.onNodeWithTag("emoji-variants").assertDoesNotExist()
+        compose.onNodeWithTag("emoji-dock").assertIsDisplayed()
+    }
+
+    @Test fun emojiWithoutVariantsShowsItsLocalizedNameOnLongPress() {
+        compose.runOnIdle { compose.activity.getSharedPreferences("ui", 0).edit().putString("emojiRecent", "😀").apply() }
+        compose.activity.setContent { NextTheme { EmojiPanel(264.dp, onPick = { error("Long press must not insert") }) } }
+        compose.waitUntil(10000) { compose.onAllNodesWithText("😀").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("😀").performTouchInput { longClick() }
+        compose.onNodeWithText("嘿嘿").assertIsDisplayed()
+        compose.runOnIdle { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.onNodeWithTag("emoji-variants").assertDoesNotExist()
+    }
+
+    @Test fun leavingCompactChatKeepsHistoryWithoutASelectedRow() {
+        val host = compose.activity
+        compose.activity.setContent { NextTheme {
+            NextApp(NextState(ready = true, selectedId = "peer", selectedName = "Fixture",
+                connected = true, connectedId = "peer", openedPrivateChat = "test-opening",
+                conversations = listOf(ChatStore.Conversation("peer", "Fixture", 1L, "Hello", false, ""))), host)
+        } }
+        compose.onNodeWithContentDescription(host.text("backToChats")).performClick()
+        compose.onNodeWithText(host.text("app")).assertIsDisplayed()
+        compose.onNodeWithTag("conversation-peer").assertIsDisplayed()
+            .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.Selected))
+        compose.onNodeWithText(host.text("localHistoryDisconnected")).assertDoesNotExist()
+    }
+
+    @Test fun newChatFabOpensPrivateDevicesAndReturnsToConversationList() {
+        val host = compose.activity
+        compose.activity.setContent { NextTheme {
+            NextApp(NextState(ready = true,
+                conversations = listOf(ChatStore.Conversation("peer", "Fixture", 1L))), host)
+        } }
+        compose.onNode(hasSetTextAction()).performTextInput("Fix")
+        compose.onNodeWithTag("new-chat-fab").assertIsDisplayed().performClick()
+        compose.onNodeWithText(host.getString(R.string.mesh_private_devices)).assertIsDisplayed()
+        compose.onNodeWithText(host.getString(R.string.mesh_title)).assertDoesNotExist()
+        compose.onNodeWithContentDescription(host.text("backToChats")).performClick()
+        compose.onNodeWithTag("conversation-peer").assertIsDisplayed()
+        compose.onNode(hasSetTextAction()).assertTextContains("Fix")
+    }
+
+    @Test fun bottomNavigationFillsTheSystemGestureInset() {
+        val host = compose.activity
+        val root = compose.onNodeWithTag("next-root")
+        val bar = compose.onNodeWithTag("main-navigation")
+        val before = bar.fetchSemanticsNode().boundsInRoot.height
+        val inset = (24 * host.resources.displayMetrics.density).toInt()
+        compose.runOnIdle {
+            ViewCompat.dispatchApplyWindowInsets(host.window.decorView, WindowInsetsCompat.Builder()
+                .setInsets(WindowInsetsCompat.Type.navigationBars(), Insets.of(0, 0, 0, inset))
+                .setVisible(WindowInsetsCompat.Type.navigationBars(), true).build())
+        }
+        val bounds = bar.fetchSemanticsNode().boundsInRoot
+        assertEquals(root.fetchSemanticsNode().boundsInRoot.bottom, bounds.bottom, 1f)
+        assertEquals(before + inset, bounds.height, 1f)
+    }
+
+    @Test fun aPrivateRequestDoesNotTakeOverOtherPagesAndNeedsAnExplicitChoice() {
+        val host = compose.activity
+        val connection = mutableStateOf(NextState(ready = true))
+        host.setContent { NextTheme { NextApp(connection.value, host) } }
+        compose.onNodeWithText("设置").performClick()
+        compose.runOnIdle {
+            connection.value = connection.value.copy(approvalId = "one", approvalName = "旁边的平板")
+        }
+        compose.onNodeWithTag("private-request").assertIsDisplayed()
+        compose.onNodeWithText("旁边的平板").assertIsDisplayed()
+        compose.onNodeWithText("仅本次").assertIsDisplayed()
+        compose.onNodeWithText("接受并记住").assertIsDisplayed()
+        compose.onNodeWithText("拒绝").assertIsDisplayed()
+        compose.onNodeWithText("外观").assertExists()
+        compose.onNodeWithTag("chat-root").assertDoesNotExist()
+        compose.runOnIdle {
+            connection.value = connection.value.copy(approvalId = null, connected = true,
+                selectedId = "previous", connectedId = "trusted")
+        }
+        compose.onNodeWithTag("private-request").assertDoesNotExist()
+        compose.onNodeWithText("外观").assertExists()
+        compose.onNodeWithTag("chat-root").assertDoesNotExist()
+    }
+
+    @Test fun theRequestActionsDistinguishOneTimeConsentFromRemembering() {
+        val decisions = mutableListOf<Boolean>()
+        compose.activity.setContent { NextTheme {
+            PrivateRequestBanner("附近的设备", {}, decisions::add)
+        } }
+        compose.onNodeWithText("仅本次").performClick()
+        compose.onNodeWithText("接受并记住").performClick()
+        compose.runOnIdle { assertEquals(listOf(false, true), decisions) }
+    }
+
+    @Test fun accentSettingUpdatesAndPersists() {
+        compose.onNodeWithText("设置").performClick()
+        compose.onNodeWithText("强调色").performClick()
+        compose.onNodeWithText("青绿").performClick()
+        compose.onNodeWithText("青绿").assertIsDisplayed()
+        compose.runOnIdle { assertEquals(NextAccent.TEAL, compose.activity.accent) }
+        compose.activityRule.scenario.recreate()
+        compose.runOnIdle { assertEquals(NextAccent.TEAL, compose.activity.accent) }
+    }
+
+    @Test
+    @Config(qualifiers = "zh-rCN-w1280dp-h700dp")
+    fun dividerDragsAndCanBeCenteredWithAccessibilityAction() {
+        val host = compose.activity
+        compose.activity.setContent { NextTheme {
+            NextApp(NextState(ready = true, selectedId = "fixture", selectedName = "Fixture",
+                conversations = listOf(ChatStore.Conversation("fixture", "Fixture", 1L))), host)
+        } }
+        compose.onNodeWithTag("conversation-fixture").assertIsSelected()
+        val divider = compose.onNodeWithTag("pane-divider").assertIsDisplayed()
+        fun chatLeft() = compose.onNodeWithTag("chat-root").fetchSemanticsNode().boundsInRoot.left
+        val original = chatLeft()
+        val density = host.resources.displayMetrics.density
+        divider.performTouchInput {
+            down(center)
+            moveBy(Offset(72 * density, 0f))
+            moveBy(Offset(72 * density, 0f))
+            up()
+        }
+        assertTrue("Dragging must widen the list", chatLeft() > original + 80 * density)
+        val prefs = host.getSharedPreferences("ui", 0)
+        assertTrue(prefs.getFloat("nextPaneSplit", Float.NaN).isFinite())
+        divider.performSemanticsAction(SemanticsActions.OnClick)
+        val root = compose.onNodeWithTag("next-root").fetchSemanticsNode().boundsInRoot
+        assertEquals(root.center.x, chatLeft(), 1f)
+        assertEquals(.5f, prefs.getFloat("nextPaneSplit", Float.NaN), .002f)
     }
 
     @Test fun pendingQrSnapshotSurvivesActivityRecreation() {

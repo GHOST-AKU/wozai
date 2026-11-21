@@ -80,6 +80,7 @@ public final class LanTransport {
             nsd.registerService(info, NsdManager.PROTOCOL_DNS_SD, registration);
         } catch (RuntimeException e) { registrationState = "failed"; discoveryError = "register:" + e.getClass().getSimpleName(); listener.onError(Peer.LAN, UiText.of("discoveryFailed"), false); }
     }
+    public boolean discovering() { return discovery != null; }
     public void discover() {
         stopDiscovery(); resolveQueue.clear(); visible.clear(); final int run = epoch.get(), scan = ++searchEpoch;
         discoveryState = "starting";

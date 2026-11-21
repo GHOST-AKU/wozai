@@ -15,8 +15,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -31,16 +29,19 @@ import dev.ghost.nearbyim.MainActivity
 import dev.ghost.nearbyim.R
 import dev.ghost.nearbyim.mesh.MeshDiagnostics
 import dev.ghost.nearbyim.mesh.MeshClient
+import dev.ghost.nearbyim.mesh.MeshCapabilities
+import dev.ghost.nearbyim.mesh.MeshConsent
 
 /** UI observes the independent service; it never owns radio links or NIM4 sessions. */
 @Composable
-fun MeshNearbyScreen(privateState: NextState, host: MainActivity) {
+internal fun MeshNearbyScreen(privateState: NextState, host: MainActivity, composer: MeshComposer) {
     var privateDevices by rememberSaveable { mutableStateOf(false) }
     Column(Modifier.fillMaxSize()) {
+        androidx.activity.compose.BackHandler(privateDevices) { privateDevices = false }
         if (privateDevices) {
             TextButton(onClick = { privateDevices = false }) { Text(stringResource(R.string.mesh_back_public)) }
             NearbyScreen(privateState, host)
-        } else MeshScreen(onPrivate = { privateDevices = true })
+        } else MeshScreen(composer, onPrivate = { privateDevices = true })
     }
 }
 
@@ -51,21 +52,23 @@ private fun radioPermissions(mode: String): List<String> = when {
     else -> listOf(Manifest.permission.ACCESS_FINE_LOCATION)
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun MeshScreen(onPrivate: () -> Unit) {
+private fun MeshScreen(composer: MeshComposer, onPrivate: () -> Unit) {
     val context = LocalContext.current
     val state by MeshClient.state.collectAsStateWithLifecycle()
-    var mode by rememberSaveable { mutableStateOf("ble") }
-    var relay by rememberSaveable { mutableStateOf(false) }
-    var draft by rememberSaveable { mutableStateOf("") }
+    val capabilities = remember(context) { MeshCapabilities.read(context) }
+    var mode by rememberSaveable { mutableStateOf(
+        MeshConsent.selectedMode(context)?.takeIf(capabilities::supports) ?: capabilities.defaultMode ?: "ble")
+    }
+    var options by rememberSaveable { mutableStateOf(false) }
+    var historyRules by rememberSaveable { mutableStateOf(false) }
     var consent by rememberSaveable { mutableStateOf(false) }
     var diagnosticReport by remember { mutableStateOf("") }
     var diagnostics by remember { mutableStateOf(false) }
     var permissionError by remember { mutableStateOf(false) }
     var bluetoothError by remember { mutableStateOf(false) }
-    var requestedText by rememberSaveable { mutableStateOf<String?>(null) }
-    var baselineIds by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
-    var pendingStart by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
+    var pendingStart by rememberSaveable { mutableStateOf<String?>(null) }
     val exportScope = rememberCoroutineScope()
     var pendingExport by rememberSaveable { mutableStateOf<String?>(null) }
     var exporting by remember { mutableStateOf(false) }
@@ -92,138 +95,141 @@ private fun MeshScreen(onPrivate: () -> Unit) {
     fun begin() {
         val request = pendingStart ?: return
         pendingStart = null
-        MeshClient.start(context, request.first, request.second)
+        MeshConsent.enable(context, request)
+        MeshClient.start(context, request, false)
     }
-    val discoverable = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { begin() }
-    fun discoverAndBegin() {
-        if (pendingStart?.first != "ble") { begin(); return }
-        try {
-            discoverable.launch(Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE)
-                .putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300))
-        } catch (_: Exception) { begin() }
-    }
+    val discoverable = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { }
     val enableBluetooth = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        if (result.resultCode == android.app.Activity.RESULT_OK) discoverAndBegin()
+        if (result.resultCode == android.app.Activity.RESULT_OK) begin()
         else { pendingStart = null; bluetoothError = true }
     }
     fun afterPermissions() {
         val request = pendingStart ?: return
-        if (request.first == "ble") {
+        if (request == "ble") {
             try {
                 val manager = context.getSystemService(android.bluetooth.BluetoothManager::class.java)
                 if (manager?.adapter?.isEnabled == false) { enableBluetooth.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)); return }
             } catch (_: SecurityException) { permissionError = true; pendingStart = null; return }
         }
-        discoverAndBegin()
+        begin()
     }
     val permissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         val request = pendingStart
-        if (request != null && radioPermissions(request.first).all { context.checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }) afterPermissions()
+        if (request != null && radioPermissions(request).all { context.checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }) afterPermissions()
         else { permissionError = true; pendingStart = null }
     }
     LaunchedEffect(state.messages) {
-        val pending = requestedText
-        if (pending != null && acceptedMeshSend(baselineIds.toSet(), pending, state.messages)) {
-            if (draft == pending) draft = ""
-            requestedText = null
+        val pending = composer.pending
+        if (pending != null && acceptedMeshSend(composer.baselineIds.toSet(), pending, state.messages)) {
+            if (composer.text == pending) composer.text = ""
+            composer.pending = null
         }
     }
     LaunchedEffect(state.error, state.running, state.starting) {
-        if (state.error.isNotEmpty() || (!state.running && !state.starting)) requestedText = null
+        if (state.error.isNotEmpty() || (!state.running && !state.starting)) composer.pending = null
     }
     val busy = state.running || state.starting
-    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            item { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.mesh_title), Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
-            TextButton(onClick = onPrivate) { Text(stringResource(R.string.mesh_private_devices)) }
+    val automatic = MeshConsent.automaticMode(context) != null
+    fun requestStart() {
+        permissionError = false
+        bluetoothError = false
+        pendingStart = mode
+        val missing = required.filter { context.checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }.toMutableList()
+        if (Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
+            missing.add(Manifest.permission.POST_NOTIFICATIONS)
+        if (missing.isEmpty()) afterPermissions() else permissions.launch(missing.toTypedArray())
+    }
+    Column(Modifier.fillMaxSize()) {
+        val error = when {
+            permissionError || state.error == "mesh_permission_required" -> R.string.mesh_permission
+            bluetoothError -> R.string.mesh_enable_bt
+            state.error == "mesh_location_required" -> R.string.mesh_location
+            state.error == "mesh_unsupported_platform" -> R.string.mesh_platform_unsupported
+            state.error.startsWith("mesh_unsupported") || state.error == "mesh_core_missing" -> R.string.mesh_unavailable
+            state.error == "mesh_send_invalid" -> R.string.mesh_too_long
+            state.error in listOf("mesh_send_rejected", "mesh_command_busy") -> R.string.mesh_send_busy
+            state.error == "mesh_radio_failed" -> R.string.mesh_temporarily_unavailable
+            state.error.isNotEmpty() -> R.string.mesh_error_generic
+            !busy && capabilities.modes.isEmpty() -> if (capabilities.platformSupported) R.string.mesh_unavailable else R.string.mesh_platform_unsupported
+            else -> null
         }
-        Text(stringResource(R.string.mesh_preview), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            listOf("ble" to R.string.mesh_ble, "aware" to R.string.mesh_aware).forEachIndexed { index, (value, text) ->
-                SegmentedButton(selected = (if (busy) state.mode else mode) == value,
-                    onClick = { mode = value; permissionError = false; bluetoothError = false }, enabled = !busy,
-                    shape = SegmentedButtonDefaults.itemShape(index, 2)) { Text(stringResource(text)) }
-            }
-        }
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(stringResource(when { state.starting -> R.string.mesh_starting; state.running -> R.string.mesh_running; else -> R.string.mesh_idle }))
-                Text(stringResource(R.string.mesh_neighbors, state.neighbors.size), style = MaterialTheme.typography.bodySmall)
-            }
-            Button(onClick = {
-                if (busy) { MeshClient.stop(context); requestedText = null }
-                else consent = true
-            }) { Text(stringResource(if (busy) R.string.mesh_stop else R.string.mesh_start)) }
-        }
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.mesh_relay), Modifier.weight(1f))
-            Switch(checked = if (busy) state.relay else relay, enabled = !state.starting,
-                onCheckedChange = { relay = it; if (state.running) MeshClient.setRelay(context, it) })
-        }
-        if (state.running && state.mode == "ble") TextButton(onClick = {
-            try { discoverable.launch(Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300)) }
-            catch (_: Exception) { bluetoothError = true }
-        }) { Text(stringResource(R.string.mesh_visible)) }
-        Text(stringResource(R.string.mesh_relay_hint), style = MaterialTheme.typography.labelSmall)
-        if (permissionError || bluetoothError || state.error.isNotEmpty()) {
-            val error = when {
-                permissionError || state.error == "mesh_permission_required" -> stringResource(R.string.mesh_permission)
-                bluetoothError -> stringResource(R.string.mesh_enable_bt)
-                state.error == "mesh_location_required" -> stringResource(R.string.mesh_location)
-                state.error.startsWith("mesh_unsupported") || state.error == "mesh_core_missing" -> stringResource(R.string.mesh_unavailable)
-                else -> stringResource(R.string.mesh_error_generic)
-            }
-            Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        if (error != null) {
+            Text(stringResource(error), Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall)
+            if (permissionError || state.error == "mesh_permission_required") TextButton(onClick = {
+                context.startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    android.net.Uri.parse("package:" + context.packageName)))
+            }) { Text(stringResource(R.string.mesh_open_settings)) }
             if (state.error == "mesh_location_required") TextButton(onClick = {
                 context.startActivity(Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS))
             }) { Text(stringResource(R.string.mesh_location_settings)) }
         }
-            } }
-            if (state.messages.isEmpty()) item {
-                Box(Modifier.fillMaxWidth().heightIn(min = 120.dp), contentAlignment = Alignment.Center) {
-                    Column { Text(stringResource(R.string.mesh_empty)); Text(stringResource(R.string.mesh_empty_hint), style = MaterialTheme.typography.bodySmall) }
-                }
-            } else {
-            items(state.messages, key = { it.id }) { message ->
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(12.dp)) {
-                        Text(if (message.own) stringResource(R.string.mesh_own) else message.origin.take(12), style = MaterialTheme.typography.labelMedium)
-                        SelectionContainer { Text(message.body) }
-                        val status = when (message.state) {
-                            "queued" -> R.string.mesh_queued
-                            "handed" -> R.string.mesh_handed
-                            "expired" -> R.string.mesh_expired
-                            "received" -> R.string.mesh_received
-                            "stopped_unconfirmed" -> R.string.mesh_stopped
-                            else -> R.string.mesh_unknown
-                        }
-                        Text(stringResource(status) + " · " + stringResource(R.string.mesh_hops, message.hops), style = MaterialTheme.typography.labelSmall)
-                    }
-                }
+        MeshChatContent(state, composer.text, composer.pending != null,
+            onDraft = { composer.text = it },
+            onSend = {
+                composer.baselineIds = ArrayList(state.messages.filter { it.own }.map { it.id })
+                composer.pending = composer.text
+                MeshClient.send(context, composer.text)
+            },
+            onToggle = {
+                if (busy || automatic) { pendingStart = null; MeshClient.stop(context); composer.pending = null }
+                else if (MeshConsent.acknowledged(context)) requestStart()
+                else consent = true
+            },
+            onOptions = { options = true }, onPrivate = onPrivate,
+            canStart = capabilities.supports(mode) && pendingStart == null, automatic = automatic)
+    }
+    if (historyRules) AlertDialog(onDismissRequest = { historyRules = false },
+        title = { Text(stringResource(R.string.mesh_history_short)) },
+        text = { Text(stringResource(R.string.mesh_history_rule), Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) },
+        confirmButton = { TextButton(onClick = { historyRules = false }) { Text(stringResource(R.string.mesh_close)) } })
+    if (consent) MeshConsentDialog(onDismiss = { consent = false }, onConfirm = {
+        consent = false
+        MeshConsent.acknowledge(context)
+        requestStart()
+    })
+    if (options) ModalBottomSheet(onDismissRequest = { options = false }) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(stringResource(R.string.mesh_options), style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.mesh_transport), style = MaterialTheme.typography.titleMedium)
+            if (!capabilities.platformSupported) Text(stringResource(R.string.mesh_platform_unsupported))
+            listOf("ble" to R.string.mesh_ble, "aware" to R.string.mesh_aware).forEach { (value, label) ->
+                if (capabilities.supports(value)) FilterChip(
+                    selected = (if (busy) state.mode else mode) == value,
+                    enabled = !busy && pendingStart == null,
+                    onClick = { mode = value; permissionError = false; bluetoothError = false },
+                    label = { Text(stringResource(label)) })
+                else if (capabilities.platformSupported) Text(stringResource(R.string.mesh_mode_unsupported, stringResource(label)),
+                    style = MaterialTheme.typography.bodySmall)
             }
+            Text(stringResource(if ((if (busy) state.mode else mode) == "ble") R.string.mesh_ble_hint else R.string.mesh_aware_hint),
+                style = MaterialTheme.typography.bodySmall)
+            if (state.running && state.mode == "ble") TextButton(onClick = {
+                try { discoverable.launch(Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE)
+                    .putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300)) }
+                catch (_: RuntimeException) { bluetoothError = true }
+            }) { Text(stringResource(R.string.mesh_visible)) }
+            HorizontalDivider()
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.mesh_relay))
+                    Text(stringResource(R.string.mesh_relay_hint), style = MaterialTheme.typography.bodySmall)
+                }
+                Switch(checked = state.relay, enabled = state.running,
+                    onCheckedChange = { MeshClient.setRelay(context, it) })
             }
-        }
-        val bytes = draft.toByteArray(Charsets.UTF_8).size
-        OutlinedTextField(value = draft, onValueChange = { if (it.length <= 4096) draft = it },
-            label = { Text(stringResource(R.string.mesh_input)) }, modifier = Modifier.fillMaxWidth(), maxLines = 4,
-            isError = bytes > 2048, supportingText = { Text("$bytes / 2048") })
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = { diagnosticReport = MeshDiagnostics.report(context, state); diagnostics = true }, Modifier.weight(1f)) { Text(stringResource(R.string.mesh_details)) }
-            Button(enabled = state.running && requestedText == null && draft.isNotBlank() && bytes <= 2048,
-                onClick = { baselineIds = ArrayList(state.messages.filter { it.own }.map { it.id }); requestedText = draft; MeshClient.send(context, draft) }) { Text(stringResource(R.string.mesh_send)) }
+            Text(stringResource(R.string.mesh_neighbors, state.neighbors.size), style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.mesh_public_notice), style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.mesh_receive_rule), style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = { options = false; historyRules = true }) {
+                Text(stringResource(R.string.mesh_history_short))
+            }
+            TextButton(onClick = { options = false; diagnosticReport = MeshDiagnostics.report(context, state); diagnostics = true }) {
+                Text(stringResource(R.string.mesh_details))
+            }
         }
     }
-    if (consent) AlertDialog(onDismissRequest = { consent = false }, title = { Text(stringResource(R.string.mesh_confirm_title)) },
-        text = { Text(stringResource(R.string.mesh_public_notice)) },
-        confirmButton = { TextButton(onClick = {
-            consent = false; permissionError = false; bluetoothError = false; pendingStart = mode to relay
-            val missing = required.filter { context.checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }.toMutableList()
-            if (Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) missing.add(Manifest.permission.POST_NOTIFICATIONS)
-            if (missing.isEmpty()) afterPermissions() else permissions.launch(missing.toTypedArray())
-        }) { Text(stringResource(R.string.mesh_confirm)) } },
-        dismissButton = { TextButton(onClick = { consent = false }) { Text(stringResource(R.string.mesh_cancel)) } })
     if (diagnostics) AlertDialog(onDismissRequest = { diagnostics = false }, title = { Text(stringResource(R.string.mesh_details)) },
         text = { Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) { Text(stringResource(R.string.mesh_diagnostics_hint)); SelectionContainer { Text(diagnosticReport) } } },
         dismissButton = { TextButton(onClick = {
@@ -232,4 +238,20 @@ private fun MeshScreen(onPrivate: () -> Unit) {
             saveDiagnostics.launch("nearby-mesh-${System.currentTimeMillis()}.txt")
         }, enabled = !exporting && pendingExport == null) { Text(stringResource(R.string.mesh_export_diagnostics)) } },
         confirmButton = { TextButton(onClick = { diagnostics = false }) { Text(stringResource(R.string.mesh_close)) } })
+}
+
+@Composable
+internal fun MeshConsentDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.mesh_confirm_title)) },
+        text = {
+            Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text(stringResource(R.string.mesh_public_notice))
+                Text(stringResource(R.string.mesh_receive_rule))
+                Text(stringResource(R.string.mesh_history_rule))
+            }
+        },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.mesh_confirm)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.mesh_cancel)) } })
 }
