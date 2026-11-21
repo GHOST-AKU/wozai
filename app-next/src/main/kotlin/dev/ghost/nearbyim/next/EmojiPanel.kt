@@ -13,10 +13,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.TextRange
@@ -27,6 +29,7 @@ import dev.ghost.nearbyim.R
 import dev.ghost.nearbyim.core.EmojiCatalog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.util.Locale
 
 /** Replace the selected range without moving the cursor to the end of the draft. */
 fun insertEmoji(value: TextFieldValue, text: String): TextFieldValue {
@@ -53,10 +56,8 @@ internal fun EmojiPanel(height: Dp, onPick: (String) -> Unit) {
     var searching by remember { mutableStateOf(false) }
     var category by remember { mutableIntStateOf(0) }
     var recent by remember { mutableStateOf(preferences.getString("emojiRecent", "") ?: "") }
-    var variantChoices by remember { mutableStateOf<List<EmojiCatalog.Entry>>(emptyList()) }
     val searchFocus = remember { FocusRequester() }
     val locale = AppLanguage.locale(context)
-    val variantsLabel = t("emojiVariants")
     LaunchedEffect(Unit) {
         catalog = withContext(Dispatchers.IO) {
             runCatching { context.resources.openRawResource(R.raw.emoji_catalog).use(::EmojiCatalog) }.getOrNull()
@@ -103,16 +104,7 @@ internal fun EmojiPanel(height: Dp, onPick: (String) -> Unit) {
                             LazyVerticalGrid(GridCells.Adaptive(48.dp), Modifier.fillMaxSize(),
                                 contentPadding = PaddingValues(horizontal = 4.dp)) {
                                 items(entries, key = { it.text }) { entry ->
-                                    val variants = data.variants(entry)
-                                    val openVariants: (() -> Unit)? = if (variants.size > 1) {
-                                        { variantChoices = variants }
-                                    } else null
-                                    Box(Modifier.height(48.dp).combinedClickable(
-                                        role = Role.Button, onClick = { pick(entry) },
-                                        onLongClickLabel = variantsLabel, onLongClick = openVariants,
-                                    ).semantics { contentDescription = entry.label(locale) }, contentAlignment = Alignment.Center) {
-                                        Text(entry.text, style = MaterialTheme.typography.headlineSmall)
-                                    }
+                                    EmojiCell(entry, data.variants(entry), locale, onPick = ::pick)
                                 }
                             }
                         }
@@ -131,18 +123,46 @@ internal fun EmojiPanel(height: Dp, onPick: (String) -> Unit) {
             }
         }
     }
-    if (variantChoices.isNotEmpty()) {
-        AlertDialog(onDismissRequest = { variantChoices = emptyList() }, title = { Text(variantsLabel) },
-            text = {
-                LazyVerticalGrid(GridCells.Adaptive(48.dp), Modifier.heightIn(max = 240.dp)) {
-                    items(variantChoices, key = { it.text }) { entry ->
-                        TextButton(onClick = { pick(entry); variantChoices = emptyList() },
-                            modifier = Modifier.heightIn(min = 48.dp)) {
-                            Text(entry.text, Modifier.semantics { contentDescription = entry.label(locale) },
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun EmojiCell(
+    entry: EmojiCatalog.Entry,
+    variants: List<EmojiCatalog.Entry>,
+    locale: Locale,
+    onPick: (EmojiCatalog.Entry) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val variantsLabel = t("emojiVariants")
+    val columns = minOf(variants.size, 6,
+        ((LocalConfiguration.current.screenWidthDp - 32) / 48).coerceAtLeast(1))
+    Box {
+        Box(Modifier.height(48.dp).fillMaxWidth().combinedClickable(
+            role = Role.Button, onClick = { onPick(entry) }, onLongClickLabel = variantsLabel,
+            onLongClick = if (variants.size > 1) ({ expanded = true }) else null,
+        ).semantics { contentDescription = entry.label(locale) }, contentAlignment = Alignment.Center) {
+            Text(entry.text, style = MaterialTheme.typography.headlineSmall)
+        }
+        if (expanded && columns > 0) DropdownMenu(
+            expanded = true, onDismissRequest = { expanded = false },
+            modifier = Modifier.width((columns * 48).dp).testTag("emoji-variants")
+                .semantics { paneTitle = variantsLabel },
+        ) {
+            variants.chunked(columns).forEach { row ->
+                Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
+                    row.forEach { variant ->
+                        TextButton(
+                            onClick = { expanded = false; onPick(variant) },
+                            modifier = Modifier.size(48.dp),
+                            contentPadding = PaddingValues(0.dp),
+                        ) {
+                            Text(variant.text, Modifier.semantics { contentDescription = variant.label(locale) },
                                 style = MaterialTheme.typography.headlineSmall)
                         }
                     }
                 }
-            }, confirmButton = { TextButton(onClick = { variantChoices = emptyList() }) { Text(t("close")) } })
+            }
+        }
     }
 }

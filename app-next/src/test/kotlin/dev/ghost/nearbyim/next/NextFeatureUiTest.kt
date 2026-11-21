@@ -5,9 +5,13 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.graphics.Insets
 import dev.ghost.nearbyim.MainActivity
 import dev.ghost.nearbyim.ChatService
 import dev.ghost.nearbyim.ChatStore
@@ -117,12 +121,57 @@ class NextFeatureUiTest {
         compose.activity.setContent { NextTheme { EmojiPanel(264.dp, onPick = { picked = it }) } }
         compose.waitUntil(10000) { compose.onAllNodesWithText("👍").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("👍").performTouchInput { longClick() }
-        compose.onNodeWithText("变体").assertIsDisplayed()
+        compose.onNodeWithTag("emoji-variants").assertIsDisplayed()
         compose.runOnIdle { assertEquals("", picked) }
         compose.onNodeWithText("👍🏽").performClick()
         compose.runOnIdle { assertEquals("👍🏽", picked) }
-        compose.onNodeWithText("变体").assertDoesNotExist()
+        compose.onNodeWithTag("emoji-variants").assertDoesNotExist()
         compose.onNodeWithTag("emoji-dock").assertIsDisplayed()
+    }
+
+    @Test fun leavingCompactChatKeepsHistoryWithoutASelectedRow() {
+        val host = compose.activity
+        compose.activity.setContent { NextTheme {
+            NextApp(NextState(ready = true, selectedId = "peer", selectedName = "Fixture",
+                connected = true, connectedId = "peer",
+                conversations = listOf(ChatStore.Conversation("peer", "Fixture", 1L, "Hello", false, ""))), host)
+        } }
+        compose.onNodeWithContentDescription(host.text("backToChats")).performClick()
+        compose.onNodeWithText(host.text("app")).assertIsDisplayed()
+        compose.onNodeWithTag("conversation-peer").assertIsDisplayed()
+            .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.Selected))
+        compose.onNodeWithText(host.text("localHistoryDisconnected")).assertDoesNotExist()
+    }
+
+    @Test fun newChatFabOpensPrivateDevicesAndReturnsToConversationList() {
+        val host = compose.activity
+        compose.activity.setContent { NextTheme {
+            NextApp(NextState(ready = true,
+                conversations = listOf(ChatStore.Conversation("peer", "Fixture", 1L))), host)
+        } }
+        compose.onNode(hasSetTextAction()).performTextInput("Fix")
+        compose.onNodeWithTag("new-chat-fab").assertIsDisplayed().performClick()
+        compose.onNodeWithText(host.getString(R.string.mesh_private_devices)).assertIsDisplayed()
+        compose.onNodeWithText(host.getString(R.string.mesh_title)).assertDoesNotExist()
+        compose.onNodeWithContentDescription(host.text("backToChats")).performClick()
+        compose.onNodeWithTag("conversation-peer").assertIsDisplayed()
+        compose.onNode(hasSetTextAction()).assertTextContains("Fix")
+    }
+
+    @Test fun bottomNavigationFillsTheSystemGestureInset() {
+        val host = compose.activity
+        val root = compose.onNodeWithTag("next-root")
+        val bar = compose.onNodeWithTag("main-navigation")
+        val before = bar.fetchSemanticsNode().boundsInRoot.height
+        val inset = (24 * host.resources.displayMetrics.density).toInt()
+        compose.runOnIdle {
+            ViewCompat.dispatchApplyWindowInsets(host.window.decorView, WindowInsetsCompat.Builder()
+                .setInsets(WindowInsetsCompat.Type.navigationBars(), Insets.of(0, 0, 0, inset))
+                .setVisible(WindowInsetsCompat.Type.navigationBars(), true).build())
+        }
+        val bounds = bar.fetchSemanticsNode().boundsInRoot
+        assertEquals(root.fetchSemanticsNode().boundsInRoot.bottom, bounds.bottom, 1f)
+        assertEquals(before + inset, bounds.height, 1f)
     }
 
     @Test fun accentSettingUpdatesAndPersists() {
@@ -140,8 +189,10 @@ class NextFeatureUiTest {
     fun dividerDragsAndCanBeCenteredWithAccessibilityAction() {
         val host = compose.activity
         compose.activity.setContent { NextTheme {
-            NextApp(NextState(ready = true, selectedId = "fixture", selectedName = "Fixture"), host)
+            NextApp(NextState(ready = true, selectedId = "fixture", selectedName = "Fixture",
+                conversations = listOf(ChatStore.Conversation("fixture", "Fixture", 1L))), host)
         } }
+        compose.onNodeWithTag("conversation-fixture").assertIsSelected()
         val divider = compose.onNodeWithTag("pane-divider").assertIsDisplayed()
         fun chatLeft() = compose.onNodeWithTag("chat-root").fetchSemanticsNode().boundsInRoot.left
         val original = chatLeft()

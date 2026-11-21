@@ -19,7 +19,7 @@ import dev.ghost.nearbyim.transport.Peer
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NearbyScreen(state: NextState, host: MainActivity) {
+fun NearbyScreen(state: NextState, host: MainActivity, showTitle: Boolean = true) {
     var mode by rememberSaveable { mutableIntStateOf(Peer.LAN) }
     var manual by rememberSaveable { mutableStateOf(false) }
     var address by rememberSaveable { mutableStateOf("") }
@@ -31,7 +31,9 @@ fun NearbyScreen(state: NextState, host: MainActivity) {
     val peers = state.peers.filter { it.mode == mode }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 28.dp)) {
         item {
-            Text(t("nearby"), Modifier.padding(24.dp), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.SemiBold)
+            if (showTitle) Text(t("nearby"), Modifier.padding(24.dp), style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.SemiBold)
+            else Spacer(Modifier.height(8.dp))
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
                 listOf(Peer.LAN to "lan", Peer.BLUETOOTH to "bluetooth").forEachIndexed { index, (value, key) ->
                     SegmentedButton(selected = mode == value, onClick = { mode = value },
