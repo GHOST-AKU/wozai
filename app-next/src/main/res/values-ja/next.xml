@@ -13,4 +13,5 @@
     <string name="next_accent_blue">青</string>
     <string name="next_accent_teal">青緑</string>
     <string name="next_accent_orange">オレンジ</string>
+    <string name="next_emoji_default">既定</string>
 </resources>

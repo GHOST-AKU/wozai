@@ -121,12 +121,28 @@ class NextFeatureUiTest {
         compose.activity.setContent { NextTheme { EmojiPanel(264.dp, onPick = { picked = it }) } }
         compose.waitUntil(10000) { compose.onAllNodesWithText("👍").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("👍").performTouchInput { longClick() }
-        compose.onNodeWithTag("emoji-variants").assertIsDisplayed()
+        val bubble = compose.onNodeWithTag("emoji-variants").assertIsDisplayed()
+            .assert(hasAnyAncestor(hasTestTag("emoji-dock")))
+        compose.onNodeWithText("拇指向上", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("中等肤色", useUnmergedTree = true).assertIsDisplayed()
+        val dockBounds = compose.onNodeWithTag("emoji-dock").fetchSemanticsNode().boundsInRoot
+        val bubbleBounds = bubble.fetchSemanticsNode().boundsInRoot
+        assertTrue(bubbleBounds.top >= dockBounds.top && bubbleBounds.bottom <= dockBounds.bottom)
         compose.runOnIdle { assertEquals("", picked) }
-        compose.onNodeWithText("👍🏽").performClick()
+        compose.onNodeWithContentDescription("拇指向上: 中等肤色").performClick()
         compose.runOnIdle { assertEquals("👍🏽", picked) }
         compose.onNodeWithTag("emoji-variants").assertDoesNotExist()
         compose.onNodeWithTag("emoji-dock").assertIsDisplayed()
+    }
+
+    @Test fun emojiWithoutVariantsShowsItsLocalizedNameOnLongPress() {
+        compose.runOnIdle { compose.activity.getSharedPreferences("ui", 0).edit().putString("emojiRecent", "😀").apply() }
+        compose.activity.setContent { NextTheme { EmojiPanel(264.dp, onPick = { error("Long press must not insert") }) } }
+        compose.waitUntil(10000) { compose.onAllNodesWithText("😀").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("😀").performTouchInput { longClick() }
+        compose.onNodeWithText("嘿嘿").assertIsDisplayed()
+        compose.runOnIdle { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.onNodeWithTag("emoji-variants").assertDoesNotExist()
     }
 
     @Test fun leavingCompactChatKeepsHistoryWithoutASelectedRow() {

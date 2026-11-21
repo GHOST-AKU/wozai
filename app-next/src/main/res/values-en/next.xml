@@ -13,4 +13,5 @@
     <string name="next_accent_blue">Blue</string>
     <string name="next_accent_teal">Teal</string>
     <string name="next_accent_orange">Orange</string>
+    <string name="next_emoji_default">Default</string>
 </resources>

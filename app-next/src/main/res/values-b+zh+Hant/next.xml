@@ -13,4 +13,5 @@
     <string name="next_accent_blue">藍色</string>
     <string name="next_accent_teal">青綠</string>
     <string name="next_accent_orange">橙色</string>
+    <string name="next_emoji_default">預設</string>
 </resources>

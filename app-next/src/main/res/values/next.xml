@@ -22,4 +22,5 @@
     <string name="next_accent_blue">蓝色</string>
     <string name="next_accent_teal">青绿</string>
     <string name="next_accent_orange">橙色</string>
+    <string name="next_emoji_default">默认</string>
 </resources>

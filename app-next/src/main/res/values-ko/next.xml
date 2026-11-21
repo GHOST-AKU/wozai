@@ -13,4 +13,5 @@
     <string name="next_accent_blue">파란색</string>
     <string name="next_accent_teal">청록색</string>
     <string name="next_accent_orange">주황색</string>
+    <string name="next_emoji_default">기본</string>
 </resources>
