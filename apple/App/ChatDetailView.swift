@@ -63,16 +63,16 @@ struct ChatDetailView: View {
     private var tooLong: Bool { draft.utf8.count > (connected ? model.textLimit : TextLimits.legacy) }
     private var latestLabel: LocalizedStringKey { hasNewMessages ? "New messages" : "Latest messages" }
     private var refreshKey: String { contact.id + ":" + String(model.revision[contact.id, default: 0]) + ":" + String(before?.sequence ?? 0) + ":" + String(refreshRequest) }
-    private var attachments: [AttachmentRecord] {
+    private var attachments: [(key: String, value: AttachmentRecord)] {
         guard before == nil else { return [] }
-        return Array(model.transfers.values.filter { $0.peerID == contact.id && $0.root == contact.root }
-            .sorted { ($0.info.time, $0.key) < ($1.info.time, $1.key) }.suffix(50))
+        return Array(model.transfers.filter { $0.value.peerID == contact.id && $0.value.root == contact.root }
+            .sorted { ($0.value.info.time, $0.key) < ($1.value.info.time, $1.key) }.suffix(50))
     }
 
     var body: some View {
         timeline
         .safeAreaInset(edge: .bottom, spacing: 0) { composer }
-        .onChange(of: attachments.map(\.key)) { previous, next in
+        .onChange(of: attachments.map { $0.key }) { previous, next in
             guard !Set(next).subtracting(previous).isEmpty, before == nil else { return }
             if followingLatest && !userScrolling { pendingScroll = true; pageRevision &+= 1 }
             else { hasNewMessages = true }
@@ -151,8 +151,8 @@ struct ChatDetailView: View {
                         case .text(let message):
                             MessageBubble(message: message, visibilityChanged: { visible in
                                 if visible { readVisible.insert(message.id) } else { readVisible.remove(message.id) }
-                            })
-                        case .file(let record): AttachmentBubble(record: record)
+                            }).id(message.rowID)
+                        case .file(_, let record): AttachmentBubble(record: record)
                         }
                     }
                     Color.clear.frame(height: 1).id("latest")
@@ -218,9 +218,9 @@ struct ChatDetailView: View {
     private var timelineEntries: [PrivateTimelineEntry] {
         // Preserve local insertion order for text, even when a remote clock is wrong.
         var filesAfterIndex: [Int: [PrivateTimelineEntry]] = [:]
-        for attachment in attachments {
+        for (key, attachment) in attachments {
             let index = messages.lastIndex { $0.timestamp <= attachment.info.time } ?? -1
-            filesAfterIndex[index, default: []].append(.file(attachment))
+            filesAfterIndex[index, default: []].append(.file(key, attachment))
         }
         return filesAfterIndex[-1, default: []] + messages.enumerated().flatMap { index, message in
             [.text(message)] + filesAfterIndex[index, default: []]
@@ -356,12 +356,12 @@ struct ChatDetailView: View {
 }
 
 private enum PrivateTimelineEntry: Identifiable {
-    case text(ChatMessage), file(AttachmentRecord)
+    case text(ChatMessage), file(String, AttachmentRecord)
 
     var id: String {
         switch self {
         case .text(let message): message.rowID
-        case .file(let record): "file-" + record.key
+        case .file(let key, _): "file-" + key
         }
     }
 }

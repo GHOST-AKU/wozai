@@ -49,6 +49,7 @@ public actor ChatSession {
     private var announced = false
     private var ended = false
     private var pending = Set<String>()
+    private var receivingText = 0
     private var readEnabled = true
     private var timer: Task<Void, Never>?
     private var deadlines = SessionDeadlines()
@@ -94,6 +95,8 @@ public actor ChatSession {
                     try await announceReady()
                 case .text:
                     guard isReady else { throw WozaiError.protocolViolation }
+                    receivingText += 1
+                    defer { receivingText -= 1 }
                     _ = try await store.saveIncoming(peerID: authenticated.id, frame: frame)
                     try await channel.send(NIMFrame(type: .ack, id: frame.id))
                     await event(.changed(authenticated.id))
@@ -253,9 +256,12 @@ public actor ChatSession {
         guard pending.count < 32 else { throw WozaiError.busy }
         let id = UUID().uuidString.lowercased()
         let frame = NIMFrame(type: .text, id: id, body: text, timestamp: UInt64(Date().timeIntervalSince1970 * 1000))
-        _ = try frame.encoded(textLimit: await channel.textLimit)
         pending.insert(id)
-        do { try await store.saveOutgoing(peerID: peer.id, frame: frame) }
+        do {
+            _ = try frame.encoded(textLimit: await channel.textLimit)
+            guard !ended else { throw WozaiError.closed }
+            try await store.saveOutgoing(peerID: peer.id, frame: frame)
+        }
         catch { pending.remove(id); throw error }
         guard !ended else {
             try? await store.setOutgoingStatus(peerID: peer.id, id: id, status: .unconfirmed)
@@ -316,7 +322,8 @@ public actor ChatSession {
     }
 
     public func yieldIfIdle() async -> Bool {
-        guard isReady, pending.isEmpty, pendingOffer == nil, attachments?.hasActiveTransfer != true else { return false }
+        guard !Task.isCancelled, isReady, pending.isEmpty, receivingText == 0, pendingOffer == nil,
+              attachments?.hasActiveTransfer != true else { return false }
         await stop()
         return true
     }

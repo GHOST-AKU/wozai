@@ -152,9 +152,10 @@ struct AttachmentBubble: View {
         }
         .task(id: record.state) {
             guard complete, record.info.mime.hasPrefix("image/") else { return }
-            model.accessFile(file)
+            let sourceURL = file
+            model.accessFile(sourceURL)
             image = await Task.detached(priority: .utility) { () -> CGImage? in
-                guard let source = CGImageSourceCreateWithURL(file as CFURL, [kCGImageSourceShouldCache: false] as CFDictionary),
+                guard let source = CGImageSourceCreateWithURL(sourceURL as CFURL, [kCGImageSourceShouldCache: false] as CFDictionary),
                       let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
                       let width = properties[kCGImagePropertyPixelWidth] as? Int,
                       let height = properties[kCGImagePropertyPixelHeight] as? Int,

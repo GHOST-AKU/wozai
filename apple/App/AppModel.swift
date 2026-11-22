@@ -664,7 +664,9 @@ final class AppModel {
 
     func forget(_ contact: Conversation) async {
         clearViewedConversation(peerID: contact.id)
-        if activePeer?.id == contact.id { disconnect() }
+        if activePeer?.id == contact.id || connectingPeerID == contact.id { disconnect() }
+        bluetoothHints.removeValue(forKey: contact.id)
+        UserDefaults.standard.set(bluetoothHints, forKey: "private-bluetooth-hints")
         do { try await store?.forget(peerID: contact.id); await refreshConversations() } catch { show(error) }
     }
 

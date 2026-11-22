@@ -11,6 +11,7 @@ private struct EmojiEntry: Identifiable, Sendable {
 
 private struct EmojiCatalog: Sendable {
     let entries: [EmojiEntry]
+    let representatives: [EmojiEntry]
     let variants: [String: [EmojiEntry]]
 
     static func read(url: URL, language: String) -> Self? {
@@ -36,8 +37,9 @@ private struct EmojiCatalog: Sendable {
             return EmojiEntry(id: String(fields[0]), base: String(fields[3]), name: String(name),
                               group: String(fields[1]), keywords: [fields[4], fields[5], fields[column + 1]].joined(separator: " "))
         }
-        return EmojiCatalog(entries: all.filter { $0.id == $0.base },
-                            variants: Dictionary(grouping: all.filter { $0.id != $0.base }, by: \.base))
+        var seen = Set<String>()
+        let representatives = all.filter { seen.insert($0.base).inserted }
+        return EmojiCatalog(entries: all, representatives: representatives, variants: Dictionary(grouping: all, by: \.base))
     }
 }
 
@@ -65,8 +67,8 @@ struct EmojiPicker: View {
                     || $0.id.contains(search)
             }
         }
-        if let group { return catalog.entries.filter { $0.group == group } }
-        return catalog.entries
+        if let group { return catalog.representatives.filter { $0.group == group } }
+        return catalog.representatives
     }
 
     var body: some View {
@@ -93,7 +95,7 @@ struct EmojiPicker: View {
                                     .contextMenu {
                                         Section {
                                             variantAction(entry)
-                                            ForEach(catalog.variants[entry.id, default: []]) { variantAction($0) }
+                                            ForEach(catalog.variants[entry.base, default: []].filter { $0.id != entry.id }) { variantAction($0) }
                                         } header: { Text(verbatim: entry.name) }
                                     }
                             }

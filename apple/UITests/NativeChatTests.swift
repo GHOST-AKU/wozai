@@ -44,11 +44,11 @@ final class NativeChatTests: XCTestCase {
         try drivePeer("read-hidden-send")
         try drivePeer("read-hidden-check")
         #if os(macOS)
-        app.staticTexts["Java interop peer"].firstMatch.tap()
+        javaConversation(in: app).tap()
         #else
         selectDestination(app, "Chats")
         if reopenConversation {
-            let row = app.staticTexts["Java interop peer"].firstMatch
+            let row = javaConversation(in: app)
             XCTAssertTrue(row.waitForExistence(timeout: 8), app.debugDescription)
             row.tap()
         }
@@ -88,6 +88,11 @@ final class NativeChatTests: XCTestCase {
         if app.tabBars.buttons[name].exists { app.tabBars.buttons[name].tap() }
         else if app.buttons[name].firstMatch.exists { app.buttons[name].firstMatch.tap() }
         else { let destination = app.staticTexts[name].firstMatch; XCTAssertTrue(destination.exists, app.debugDescription); destination.tap() }
+    }
+
+    private func javaConversation(in app: XCUIElement) -> XCUIElement {
+        app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "conversation-")).firstMatch
     }
 
     private func openManualConnection(_ app: XCUIApplication) {
@@ -196,7 +201,7 @@ final class NativeChatTests: XCTestCase {
         app.typeKey("n", modifierFlags: [.command, .shift])
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "composer").firstMatch.waitForExistence(timeout: 5))
         let secondWindow = app.windows.firstMatch
-        secondWindow.staticTexts["Java interop peer"].firstMatch.tap()
+        javaConversation(in: secondWindow).tap()
         let secondComposer = secondWindow.descendants(matching: .any).matching(identifier: "composer").firstMatch
         XCTAssertTrue(secondComposer.waitForExistence(timeout: 5))
         XCTAssertEqual(secondComposer.value as? String, "Shared draft")
@@ -218,7 +223,7 @@ final class NativeChatTests: XCTestCase {
         app.launch()
         let restored = app.descendants(matching: .any).matching(identifier: "composer").firstMatch
         if !restored.waitForExistence(timeout: 5) {
-            app.staticTexts["Java interop peer"].firstMatch.tap()
+            javaConversation(in: app).tap()
         }
         XCTAssertTrue(restored.waitForExistence(timeout: 8))
         XCTAssertEqual(restored.value as? String, "Shared draft updated", "Normal quit lost the conversation draft")

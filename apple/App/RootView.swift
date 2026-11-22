@@ -90,7 +90,7 @@ struct RootView: View {
         .alert("NearbyIM", isPresented: Binding(get: { model.notice != nil }, set: { if !$0 { model.notice = nil } })) {
             Button("OK", role: .cancel) { model.notice = nil }
         } message: { Text(verbatim: model.notice?.message ?? "") }
-        .onChange(of: scenePhase) { _, phase in
+        .onChange(of: scenePhase, initial: true) { _, phase in
             #if os(iOS)
             if phase == .background { mesh.suspend();Task { await model.suspend() } }
             if phase == .active { mesh.resume();model.resume() }
@@ -164,6 +164,7 @@ private struct ChatsView: View {
                     ForEach(model.conversations.filter { search.isEmpty || $0.nickname.localizedCaseInsensitiveContains(search) ||
                         ($0.preview?.localizedCaseInsensitiveContains(search) ?? false) }) { contact in
                         NavigationLink(value: contact.id) { ConversationLabel(contact: contact) }
+                            .accessibilityIdentifier("conversation-" + contact.id)
                     }
                 }
                 .overlay {
@@ -232,6 +233,7 @@ private struct MacNavigation: View {
                     Section("Chats") {
                         ForEach(model.conversations) { contact in
                             ConversationLabel(contact: contact).tag("chat:" + contact.id)
+                                .accessibilityIdentifier("conversation-" + contact.id)
                         }
                     }
                 }
