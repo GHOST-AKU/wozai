@@ -135,6 +135,16 @@ final class NativeChatTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["UI-attachment.bin"].waitForExistence(timeout: 15))
         XCTAssertTrue(app.staticTexts["Saved"].firstMatch.waitForExistence(timeout: 15))
         XCTAssertTrue(app.buttons["Open"].firstMatch.exists)
+        #if os(iOS)
+        try drivePeer("after-file")
+        let afterFile = app.staticTexts["Message after the saved file"]
+        let savedFile = app.staticTexts["UI-attachment.bin"]
+        let timeline = app.scrollViews["messageTimeline"]
+        XCTAssertTrue(afterFile.waitForExistence(timeout: 10))
+        XCTAssertGreaterThan(afterFile.frame.minY, savedFile.frame.minY,
+                             "A new message must appear below the completed file in the same timeline")
+        XCTAssertTrue(waitForVisible(afterFile, in: timeline))
+        #endif
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "native-chat-with-production-java-peer"
         screenshot.lifetime = .keepAlways

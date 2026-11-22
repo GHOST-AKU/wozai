@@ -199,6 +199,10 @@ public final class AppleInteropPeer {
                             }
                         }
                         require(saved, "UI receiver did not return its durable saved receipt");
+                    } else if ("after-file".equals(command)) {
+                        historyCount++;
+                        channel.write(ProtocolV4.encode(new Frame(Frame.TEXT, UUID.randomUUID().toString(),
+                            "Message after the saved file", System.currentTimeMillis())));
                     } else if ("history-200".equals(command) || "history-400".equals(command)) {
                         int target = command.equals("history-200") ? 200 : 400;
                         require(historyCount < target, "History boundary was already passed");
