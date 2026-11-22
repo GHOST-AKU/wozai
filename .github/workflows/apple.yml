@@ -61,6 +61,7 @@ jobs:
       - name: Package and verify the iPhone and iPad candidate
         if: ${{ startsWith(inputs.validation, 'mobile-candidate') }}
         run: |
+          mkdir -p build
           app=apple/DeviceBuild/Build/Products/Release-iphoneos/NearbyIM.app
           lipo "$app/NearbyIM" -verify_arch arm64
           vtool -show-build "$app/NearbyIM" | tee build/apple-device-platform.log
