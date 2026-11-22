@@ -13,6 +13,11 @@ on:
         type: choice
         options: [full, macos-ui, core-builds, core-ios, mobile-ui, mobile-candidate, mobile-candidate-ui]
         default: full
+      device-class:
+        description: Simulator device class for mobile verification
+        type: choice
+        options: [both, iphone, ipad]
+        default: both
 permissions:
   contents: read
 concurrency:
@@ -56,7 +61,7 @@ jobs:
           du -sk "$app" | tee -a build/apple-ui/macos-release-footprint.log
           otool -L "$app/Contents/MacOS/NearbyIM" | tee -a build/apple-ui/macos-release-footprint.log
       - name: Build native iPhone and iPad app for devices without distribution signing
-        if: ${{ inputs.validation != 'macos-ui' }}
+        if: ${{ inputs.validation != 'macos-ui' && inputs.validation != 'mobile-ui' }}
         run: xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM -destination 'generic/platform=iOS' -configuration Release -derivedDataPath apple/DeviceBuild CODE_SIGNING_ALLOWED=NO build
       - name: Package and verify the iPhone and iPad candidate
         if: ${{ startsWith(inputs.validation, 'mobile-candidate') }}
@@ -107,7 +112,7 @@ jobs:
       # Keep simulator migration/SDK compilation outside the UI execution budget.
       - name: Prepare iPhone simulator and native UI test bundle
         id: iphone_prepare
-        if: ${{ !cancelled() && steps.simulators.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.simulators.outcome == 'success' && inputs.device-class != 'ipad' }}
         timeout-minutes: 12
         run: bash tools/test-apple-ui.sh 'platform=iOS Simulator,id=${{ steps.simulators.outputs.iphone }}' iphone --prepare-only
       - name: Exercise native iPhone consent, chat and receipts
@@ -121,7 +126,7 @@ jobs:
           path: build/apple-ui/iphone-*.log
       - name: Prepare iPad simulator and native UI test bundle
         id: ipad_prepare
-        if: ${{ !cancelled() && steps.simulators.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.simulators.outcome == 'success' && inputs.device-class != 'iphone' }}
         timeout-minutes: 12
         run: bash tools/test-apple-ui.sh 'platform=iOS Simulator,id=${{ steps.simulators.outputs.ipad }}' ipad --prepare-only
       - name: Exercise native iPad consent, chat and receipts

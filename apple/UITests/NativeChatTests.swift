@@ -149,9 +149,9 @@ final class NativeChatTests: XCTestCase {
         XCTAssertTrue(app.buttons["Open"].firstMatch.exists)
         #if os(iOS)
         try drivePeer("after-file")
-        let afterFile = app.staticTexts["Message after the saved file"]
-        let savedFile = app.staticTexts["UI-attachment.bin"]
         let timeline = app.scrollViews["messageTimeline"]
+        let afterFile = timeline.staticTexts["Message after the saved file"]
+        let savedFile = timeline.staticTexts["UI-attachment.bin"]
         XCTAssertTrue(afterFile.waitForExistence(timeout: 10))
         XCTAssertGreaterThan(afterFile.frame.minY, savedFile.frame.minY,
                              "A new message must appear below the completed file in the same timeline")
@@ -238,12 +238,12 @@ final class NativeChatTests: XCTestCase {
     private func verifyExactHistoryBoundaries(_ app: XCUIApplication) throws {
         let timeline = app.scrollViews["messageTimeline"]
         try drivePeer("history-200")
-        let boundary200 = app.staticTexts["History boundary 200"]
+        let boundary200 = timeline.staticTexts["History boundary 200"]
         XCTAssertTrue(boundary200.waitForExistence(timeout: 10))
         XCTAssertTrue(waitForVisible(boundary200, in: timeline))
         XCTAssertFalse(app.buttons["Earlier messages"].exists, "Exactly 200 messages must not offer an empty older page")
         try drivePeer("history-400")
-        let boundary400 = app.staticTexts["History boundary 400"]
+        let boundary400 = timeline.staticTexts["History boundary 400"]
         XCTAssertTrue(boundary400.waitForExistence(timeout: 10))
         XCTAssertTrue(waitForVisible(boundary400, in: timeline))
         timeline.hover()
@@ -262,9 +262,9 @@ final class NativeChatTests: XCTestCase {
 
     private func verifyReadingPosition(_ app: XCUIApplication, cycle: Int) throws {
         try drivePeer("populate")
-        let last = app.staticTexts[String(format: "Reading message %02d\nPreserve this reading position when new messages arrive.", (cycle + 1) * 80 - 1)]
-        XCTAssertTrue(last.waitForExistence(timeout: 10), app.debugDescription)
         let timeline = app.scrollViews["messageTimeline"]
+        let last = timeline.staticTexts[String(format: "Reading message %02d\nPreserve this reading position when new messages arrive.", (cycle + 1) * 80 - 1)]
+        XCTAssertTrue(last.waitForExistence(timeout: 10), app.debugDescription)
         XCTAssertTrue(timeline.exists)
         XCTAssertTrue(waitForVisible(last, in: timeline), "The latest message exists but is outside the viewport: " + app.debugDescription)
         XCTAssertFalse(app.buttons["jumpToLatest"].exists, "Following the latest messages must not show a history navigation prompt")
@@ -288,7 +288,7 @@ final class NativeChatTests: XCTestCase {
         try drivePeer("append")
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "identifier == %@ AND label CONTAINS %@", "jumpToLatest", "New messages")).firstMatch.waitForExistence(timeout: 8))
         XCTAssertEqual(anchor.element.frame.minY, originalY, accuracy: 3, "An incoming message moved the reading position")
-        let incoming = app.staticTexts["A new message while reading history \(cycle + 1)"]
+        let incoming = timeline.staticTexts["A new message while reading history \(cycle + 1)"]
         #if os(iOS)
         if cycle == 0 {
             let start = timeline.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.82))
