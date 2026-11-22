@@ -23,6 +23,12 @@ info = plistlib.loads((root / "apple/App/Info.plist").read_bytes())
 assert set(info["CFBundleLocalizations"]) == locales
 for locale in locales:
     text = (root / f"apple/App/{locale}.lproj/InfoPlist.strings").read_text(encoding="utf-8")
-    for key in ["CFBundleDisplayName", "NSLocalNetworkUsageDescription", "NSCameraUsageDescription"]:
+    for key in ["CFBundleDisplayName", "NSLocalNetworkUsageDescription", "NSCameraUsageDescription", "NSBluetoothAlwaysUsageDescription"]:
         assert re.search(r'"' + re.escape(key) + r'"\s*=\s*"[^"\n]+";', text), f"Missing native permission string {locale}: {key}"
+assert info.get("NSBluetoothAlwaysUsageDescription"), "Bluetooth permission usage is missing"
+privacy = plistlib.loads((root / "apple/App/PrivacyInfo.xcprivacy").read_bytes())
+reasons = {v["NSPrivacyAccessedAPIType"]: v["NSPrivacyAccessedAPITypeReasons"] for v in privacy["NSPrivacyAccessedAPITypes"]}
+# Retry deadlines use monotonic elapsed time; Rust inspects only private Mesh state metadata.
+assert "35F9.1" in reasons.get("NSPrivacyAccessedAPICategorySystemBootTime", [])
+assert "C617.1" in reasons.get("NSPrivacyAccessedAPICategoryFileTimestamp", [])
 print(f"PASS: {len(catalog['strings'])} native strings in five languages, UI literal coverage and localized permission descriptions")

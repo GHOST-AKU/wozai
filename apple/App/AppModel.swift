@@ -21,6 +21,11 @@ final class AppModel {
     var nickname = UserDefaults.standard.string(forKey: "nickname") ?? "NearbyIM"
     var conversations: [Conversation] = []
     var nearby: [DiscoveredPeer] = []
+    var bluetoothNearby: [BLEPrivatePeer] = []
+    var bluetoothEnabled = false
+    var bluetoothStatus = "stopped"
+    @ObservationIgnored private var bluetooth: BluetoothPrivateRadio?
+    @ObservationIgnored private var bluetoothConnecting = false
     var addresses: [String] = []
     var discoveryEnabled = false
     var networkError: String?
@@ -49,7 +54,7 @@ final class AppModel {
     @ObservationIgnored private var store: ChatStore?
     @ObservationIgnored private var discovery: LANDiscovery?
     @ObservationIgnored private var session: ChatSession?
-    @ObservationIgnored private var stream: NWByteStream?
+    @ObservationIgnored private var stream: (any ByteStream)?
     @ObservationIgnored private var connectionTask: Task<Void, Never>?
     @ObservationIgnored private var token = UUID()
     private struct DraftWrite { let id: UUID; let task: Task<Void, Never> }
@@ -68,6 +73,16 @@ final class AppModel {
             store = try ChatStore(url: directory.appendingPathComponent("chat.sqlite"))
             readReceiptsEnabled = try await store!.readReceiptsEnabled()
             self.identity = identity
+            bluetooth = BluetoothPrivateRadio(peers: { [weak self] peers in
+                Task { @MainActor in guard let self, self.bluetoothEnabled else { return }; self.bluetoothNearby = peers }
+            }, incoming: { [weak self] incoming in
+                Task { @MainActor in
+                    guard let self, self.bluetoothEnabled, self.foreground, !self.busy, !incoming.isClosed else { incoming.close(); return }
+                    self.open(incoming, expectedID: nil, initiator: false)
+                }
+            }, status: { [weak self] status in
+                Task { @MainActor in self?.bluetoothStatus = status }
+            })
             discovery = LANDiscovery(peers: { [weak self] peers in
                 Task { @MainActor in self?.nearby = peers }
             }, incoming: { [weak self] incoming in
@@ -94,6 +109,30 @@ final class AppModel {
 
     func reconnectDiscovery() { if discoveryEnabled { setDiscovery(true) } }
 
+    func setBluetooth(_ enabled: Bool) {
+        bluetoothEnabled = enabled
+        if enabled && foreground { bluetooth?.start(name: nickname) }
+        else {
+            bluetooth?.stop(); bluetoothNearby = []
+            if stream is BLEByteStream || bluetoothConnecting { disconnect() }
+        }
+    }
+    func connect(_ peer: BLEPrivatePeer) {
+        guard foreground, !busy, let bluetooth else { return }
+        token = UUID(); let attempt = token; connectionState = .connecting; bluetoothConnecting = true
+        connectionTask = Task {
+            do {
+                let connected = try await bluetooth.connect(peer.id)
+                guard token == attempt, foreground, bluetoothEnabled else { connected.close(); return }
+                connectionState = .idle; bluetoothConnecting = false
+                open(connected, expectedID: nil, initiator: true)
+            } catch {
+                guard token == attempt else { return }
+                handle(.closed(String(localized: "Bluetooth connection failed. Keep both apps open and try again.")), generation: attempt)
+            }
+        }
+    }
+
     func connect(_ peer: DiscoveredPeer) { open(NWByteStream(endpoint: peer.endpoint), expectedID: peer.claimedID, initiator: true) }
 
     func connect(host: String, port: String) {
@@ -104,13 +143,13 @@ final class AppModel {
         } catch { show(error) }
     }
 
-    private func open(_ stream: NWByteStream, expectedID: String?, initiator: Bool) {
+    private func open(_ stream: any ByteStream, expectedID: String?, initiator: Bool) {
         guard foreground, !busy, let identity, let store else { stream.close(); return }
         token = UUID()
         let generation = token
         self.stream = stream
-        connectionPath = .unavailable
-        stream.observePath { [weak self] path in
+        connectionPath = stream is BLEByteStream ? .bluetoothLE : .unavailable
+        (stream as? NWByteStream)?.observePath { [weak self] path in
             Task { @MainActor in
                 guard let self, self.token == generation, self.stream != nil else { return }
                 self.connectionPath = path
@@ -119,7 +158,7 @@ final class AppModel {
         connectionState = .connecting
         connectionTask = Task {
             do {
-                try await stream.start()
+                if let network = stream as? NWByteStream { try await network.start() }
                 guard token == generation else { stream.close(); return }
                 let directory = try receiveFolder()
                 let session = ChatSession(stream: stream, identity: identity, nickname: nickname, initiator: initiator,
@@ -155,6 +194,7 @@ final class AppModel {
             if transfers[record.key]?.state != record.state { transferRevision[record.peerID, default: 0] &+= 1 }
             transfers[record.key] = record
         case .closed(let error):
+            bluetoothConnecting = false
             textLimit = TextLimits.legacy
             connectionPath = .unavailable
             session = nil; stream = nil; activePeer = nil; consent = nil; fileConsent.replace(nil); connectionState = .idle
@@ -257,6 +297,7 @@ final class AppModel {
     func dismissConsent() { if connectionState == .awaitingConsent { disconnect() } }
 
     func disconnect() {
+        bluetoothConnecting = false
         token = UUID()
         connectionPath = .unavailable
         let previous = session
@@ -300,11 +341,12 @@ final class AppModel {
             else { try await store.observed(peerID: peerID, ids: ids); return true }
         } catch { notice = Notice(message: error.localizedDescription); return false }
     }
-    func resume() { foreground = true; reconnectDiscovery() }
+    func resume() { foreground = true; reconnectDiscovery(); if bluetoothEnabled { bluetooth?.start(name: nickname) } }
 
     func suspend() async {
         foreground = false
         discovery?.stop()
+        bluetooth?.stop(); bluetoothNearby = []
         disconnect()
         try? await beginDraftFlush().value
     }
