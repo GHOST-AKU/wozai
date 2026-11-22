@@ -9,6 +9,7 @@ struct NearbyIMApp: App {
     @NSApplicationDelegateAdaptor(MacAppDelegate.self) private var appDelegate
     #endif
     @AppStorage("appearance") private var appearance = "system"
+    @AppStorage("accent") private var accent = AppAccent.purple
 
     private var colorScheme: ColorScheme? {
         appearance == "dark" ? .dark : appearance == "light" ? .light : nil
@@ -22,6 +23,8 @@ struct NearbyIMApp: App {
                 .environment(model)
                 .environment(mesh)
                 .preferredColorScheme(colorScheme)
+                .tint(accent.color)
+                .environment(\.wozaiAccent, accent.color)
                 .frame(minWidth: 420, idealWidth: 480)
         }
         #endif
@@ -34,7 +37,10 @@ struct NearbyIMApp: App {
                 .onAppear { appDelegate.model = model }
                 #endif
                 .environment(model)
+                .environment(mesh)
                 .preferredColorScheme(colorScheme)
+                .tint(accent.color)
+                .environment(\.wozaiAccent, accent.color)
         }
         #if os(macOS)
         .defaultSize(width: 940, height: 680)

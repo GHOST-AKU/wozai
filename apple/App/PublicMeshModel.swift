@@ -28,8 +28,9 @@ final class PublicMeshModel {
     @ObservationIgnored private var pending:[String:String]=[:]
     @ObservationIgnored private var pendingOrder:[String]=[]
     @ObservationIgnored private var events:[String]=[]
-    @ObservationIgnored private var resumeWanted=false
-    var canSend:Bool { running && !draft.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty && draft.utf8.count<=2048 && pending.count<4 }
+    var receptionEnabled = UserDefaults.standard.bool(forKey: "public-mesh-reception-v1")
+    var coreAvailable: Bool { EmbeddedMeshCore.available }
+    var canSend:Bool { running && !draft.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty && draft.utf8.count<=2048 && pending.isEmpty }
     var status:String {
         if !EmbeddedMeshCore.available { return String(localized:"Mesh Core is not bundled in this build.") }
         if failed { return String(localized:"Mesh stopped after an error. Diagnostics are available.") }
@@ -39,8 +40,14 @@ final class PublicMeshModel {
         if radioCode == "ble_unavailable" { return String(localized:"Bluetooth is unavailable or turned off.") }
         return String(localized:"Finding nearby Mesh nodes…")
     }
-    func start() {
-        guard !running,!starting else { return }
+    func enableReception() {
+        guard coreAvailable else { return }
+        receptionEnabled = true
+        UserDefaults.standard.set(true, forKey: "public-mesh-reception-v1")
+        start()
+    }
+    private func start() {
+        guard coreAvailable, !running, !starting else { return }
         starting=true;failed=false;sendFailed=false;relay=false;radioCode="";let token=UUID();generation=token
         let previous=cleanup
         reader=Task.detached { [weak self] in
@@ -100,9 +107,13 @@ final class PublicMeshModel {
         }
         if messages.count>200 { messages.removeFirst(messages.count-200) }
     }
-    private func failure(token:UUID) { guard generation==token else { return };stop();failed=true }
+    private func failure(token:UUID) { guard generation==token else { return };endRun();failed=true }
     func stop() {
-        resumeWanted=false
+        receptionEnabled = false
+        UserDefaults.standard.removeObject(forKey: "public-mesh-reception-v1")
+        endRun()
+    }
+    private func endRun() {
         generation=UUID();radio?.stop();radio=nil
         let engine=core,task=reader;reader=nil;core=nil;task?.cancel()
         let previous=cleanup
@@ -110,8 +121,8 @@ final class PublicMeshModel {
         starting=false;running=false;relay=false;neighbors=[];pending=[:];pendingOrder=[]
         for index in messages.indices where messages[index].own && ["queued","handed"].contains(messages[index].state) { messages[index].state="stopped" }
     }
-    func suspend() { let wanted=running || starting;stop();resumeWanted=wanted }
-    func resume() { if resumeWanted { resumeWanted=false;start() } }
+    func suspend() { endRun() }
+    func resume() { if receptionEnabled { start() } }
     func send() {
         guard canSend,let core else { return }
         let id=UUID().uuidString;pending[id]=draft;pendingOrder.append(id);sendFailed=false

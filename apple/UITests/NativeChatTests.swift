@@ -11,7 +11,7 @@ final class NativeChatTests: XCTestCase {
         app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
         let host = app.textFields["manualHost"]
-        if !host.waitForExistence(timeout: 5) { selectDestination(app, "Nearby") }
+        openManualConnection(app)
         XCTAssertTrue(host.waitForExistence(timeout: 8))
         host.tap(); host.typeText("127.0.0.1")
         let port = app.textFields["manualPort"]; port.tap(); port.typeText("47831")
@@ -33,7 +33,7 @@ final class NativeChatTests: XCTestCase {
             XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 8), .completed, "The native back action must dismiss the conversation keyboard: " + app.debugDescription)
         }
         #endif
-        selectDestination(app, "Nearby")
+        openManualConnection(app)
         XCTAssertTrue(host.waitForExistence(timeout: 8), app.debugDescription)
         #if os(iOS)
         if reopenConversation {
@@ -90,21 +90,25 @@ final class NativeChatTests: XCTestCase {
         else { let destination = app.staticTexts[name].firstMatch; XCTAssertTrue(destination.exists, app.debugDescription); destination.tap() }
     }
 
+    private func openManualConnection(_ app: XCUIApplication) {
+        if app.textFields["manualHost"].isHittable { return }
+        selectDestination(app, "Nearby")
+        #if os(iOS)
+        let nearby = app.buttons["privateDevices"]
+        let address = app.buttons["manualAddress"]
+        if nearby.isHittable { nearby.tap() }
+        if address.waitForExistence(timeout: 6) { address.tap() }
+        #endif
+        XCTAssertTrue(app.textFields["manualHost"].waitForExistence(timeout: 8), app.debugDescription)
+    }
+
     func testNativeConnectionConsentAndDurableReceiptsWithJavaPeer() throws {
         continueAfterFailure = false
         let app = XCUIApplication()
         app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
         let host = app.textFields["manualHost"]
-        if !host.waitForExistence(timeout: 8) {
-            if app.tabBars.buttons["Nearby"].exists { app.tabBars.buttons["Nearby"].tap() }
-            else if app.buttons["Nearby"].firstMatch.exists { app.buttons["Nearby"].firstMatch.tap() }
-            else {
-                let destination = app.staticTexts["Nearby"].firstMatch
-                XCTAssertTrue(destination.exists, app.debugDescription)
-                destination.tap()
-            }
-        }
+        openManualConnection(app)
         XCTAssertTrue(host.waitForExistence(timeout: 8))
         host.tap(); host.typeText("127.0.0.1")
         let port = app.textFields["manualPort"]
@@ -269,8 +273,15 @@ final class NativeChatTests: XCTestCase {
         try drivePeer("append")
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "identifier == %@ AND label CONTAINS %@", "jumpToLatest", "New messages")).firstMatch.waitForExistence(timeout: 8))
         XCTAssertEqual(anchor.element.frame.minY, originalY, accuracy: 3, "An incoming message moved the reading position")
-        latest.tap()
         let incoming = app.staticTexts["A new message while reading history \(cycle + 1)"]
+        #if os(iOS)
+        if cycle == 0 {
+            for _ in 0..<6 where latest.exists { timeline.swipeUp(velocity: .fast) }
+            XCTAssertTrue(waitForVisible(incoming, in: timeline), "Swipe must reach newer text after completing a file")
+        } else { latest.tap() }
+        #else
+        latest.tap()
+        #endif
         XCTAssertTrue(incoming.waitForExistence(timeout: 8))
         XCTAssertTrue(waitForVisible(incoming, in: timeline), "Jump to latest did not reveal the new message: " + app.debugDescription)
         XCTAssertFalse(app.buttons["jumpToLatest"].exists, "Jump to latest did not resume following")

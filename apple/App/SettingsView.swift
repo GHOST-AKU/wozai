@@ -1,10 +1,42 @@
 import SwiftUI
 import WozaiCore
 
+enum AppAccent: String, CaseIterable, Identifiable {
+    case system, purple, blue, teal, orange
+    var id: Self { self }
+    var title: LocalizedStringKey {
+        switch self {
+        case .system: return "System"
+        case .purple: return "Purple"
+        case .blue: return "Blue"
+        case .teal: return "Teal"
+        case .orange: return "Orange"
+        }
+    }
+    var color: Color {
+        switch self {
+        case .system: return .accentColor
+        case .purple: return .purple
+        case .blue: return .blue
+        case .teal: return .teal
+        case .orange: return .orange
+        }
+    }
+}
+
+private struct WozaiAccentKey: EnvironmentKey { static let defaultValue = Color.accentColor }
+extension EnvironmentValues {
+    var wozaiAccent: Color {
+        get { self[WozaiAccentKey.self] }
+        set { self[WozaiAccentKey.self] = newValue }
+    }
+}
+
 @MainActor
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @AppStorage("appearance") private var appearance = "system"
+    @AppStorage("accent") private var accent = AppAccent.purple
     @State private var name = ""
 
     var body: some View {
@@ -19,6 +51,13 @@ struct SettingsView: View {
                     Text("System").tag("system")
                     Text("Light").tag("light")
                     Text("Dark").tag("dark")
+                }
+                Picker("Accent color", selection: $accent) {
+                    ForEach(AppAccent.allCases) { swatch in
+                        Label { Text(swatch.title) } icon: {
+                            Image(systemName: "circle.fill").foregroundStyle(swatch.color)
+                        }.tag(swatch)
+                    }
                 }
             }
             if let identity = model.identity {

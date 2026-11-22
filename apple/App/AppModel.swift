@@ -14,6 +14,13 @@ final class ConversationDraft {
 final class AppModel {
     enum ConnectionState: Equatable { case idle, connecting, awaitingConsent, connected }
     struct Notice: Identifiable { let id = UUID(); let message: String }
+    struct ConversationOpening: Equatable { let peerID: String; let generation: UUID }
+    private struct DeferredText: Equatable {
+        let peerID: String
+        let root: Data
+        let body: String
+        let deadline: ContinuousClock.Instant
+    }
 
     var initialized = false
     var startupError: String?
@@ -38,19 +45,33 @@ final class AppModel {
     @ObservationIgnored private var readPolicyRevision: UInt64 = 0
     var activePeer: VerifiedPeer?
     var consent: VerifiedPeer?
+    private(set) var openedConversation: ConversationOpening?
+    private(set) var connectingPeerID: String?
+    private(set) var privateStatus: String?
+    private var deferredText: DeferredText?
     var notice: Notice?
     private var fileConsent = AttachmentConsent()
     var fileOffer: AttachmentInfo? { fileConsent.pending }
     var fileOfferToken: UUID { fileConsent.token }
     var fileOfferPresentation: AttachmentConsent.Prompt? { fileConsent.prompt }
     var transfers: [String: AttachmentRecord] = [:]
-    var transferRevision: [String: UInt64] = [:]
     var revision: [String: UInt64] = [:]
     var receiveFolderName = String(localized: "Documents / Received files")
     @ObservationIgnored private var fileLeases = Set<URL>()
     var busy: Bool { connectionState != .idle }
 
     @ObservationIgnored private var foreground = true
+    @ObservationIgnored private var viewedConversation: Conversation?
+    @ObservationIgnored private var automaticTask: Task<Void, Never>?
+    @ObservationIgnored private var automaticTaskID: UUID?
+    @ObservationIgnored private var deferredExpiry: Task<Void, Never>?
+    @ObservationIgnored private var automaticAttempts = 0
+    @ObservationIgnored private var automaticPaused = false
+    @ObservationIgnored private var automaticAttempt = false
+    @ObservationIgnored private var navigateOnReady = false
+    @ObservationIgnored private var outgoingBluetoothID: UUID?
+    @ObservationIgnored private var fileSubmissionCount = 0
+    @ObservationIgnored private var bluetoothHints = UserDefaults.standard.dictionary(forKey: "private-bluetooth-hints") as? [String: String] ?? [:]
     @ObservationIgnored private var store: ChatStore?
     @ObservationIgnored private var discovery: LANDiscovery?
     @ObservationIgnored private var session: ChatSession?
@@ -74,7 +95,11 @@ final class AppModel {
             readReceiptsEnabled = try await store!.readReceiptsEnabled()
             self.identity = identity
             bluetooth = BluetoothPrivateRadio(peers: { [weak self] peers in
-                Task { @MainActor in guard let self, self.bluetoothEnabled else { return }; self.bluetoothNearby = peers }
+                Task { @MainActor in
+                    guard let self, self.bluetoothEnabled else { return }
+                    self.bluetoothNearby = peers
+                    self.scheduleAutomaticConnection()
+                }
             }, incoming: { [weak self] incoming in
                 Task { @MainActor in
                     guard let self, self.bluetoothEnabled, self.foreground, !self.busy, !incoming.isClosed else { incoming.close(); return }
@@ -84,7 +109,11 @@ final class AppModel {
                 Task { @MainActor in self?.bluetoothStatus = status }
             })
             discovery = LANDiscovery(peers: { [weak self] peers in
-                Task { @MainActor in self?.nearby = peers }
+                Task { @MainActor in
+                    guard let self, self.discoveryEnabled else { return }
+                    self.nearby = peers
+                    self.scheduleAutomaticConnection()
+                }
             }, incoming: { [weak self] incoming in
                 Task { @MainActor in
                     guard let self, self.discoveryEnabled, self.foreground, !self.busy else { incoming.close(); return }
@@ -95,6 +124,8 @@ final class AppModel {
             })
             initialized = true
             startupError = nil
+            setDiscovery(UserDefaults.standard.bool(forKey: "private-lan-reception"))
+            setBluetooth(UserDefaults.standard.bool(forKey: "private-bluetooth-reception"))
             await refreshConversations()
         } catch { startupError = error.localizedDescription }
     }
@@ -102,30 +133,40 @@ final class AppModel {
     func setDiscovery(_ enabled: Bool) {
         guard let identity, let discovery else { return }
         discoveryEnabled = enabled
+        UserDefaults.standard.set(enabled, forKey: "private-lan-reception")
         networkError = nil
         if enabled && foreground { discovery.start(id: identity.id, nickname: nickname) }
         else { discovery.stop(); nearby = []; addresses = [] }
+        if !enabled && automaticAttempt && stream is NWByteStream { disconnect() }
+        scheduleAutomaticConnection()
     }
 
     func reconnectDiscovery() { if discoveryEnabled { setDiscovery(true) } }
 
     func setBluetooth(_ enabled: Bool) {
         bluetoothEnabled = enabled
+        UserDefaults.standard.set(enabled, forKey: "private-bluetooth-reception")
         if enabled && foreground { bluetooth?.start(name: nickname) }
         else {
             bluetooth?.stop(); bluetoothNearby = []
             if stream is BLEByteStream || bluetoothConnecting { disconnect() }
         }
+        scheduleAutomaticConnection()
     }
-    func connect(_ peer: BLEPrivatePeer) {
+    func connect(_ peer: BLEPrivatePeer) { connectBluetooth(peer) }
+
+    private func connectBluetooth(_ peer: BLEPrivatePeer, contact: Conversation? = nil) {
         guard foreground, !busy, let bluetooth else { return }
         token = UUID(); let attempt = token; connectionState = .connecting; bluetoothConnecting = true
+        connectingPeerID = contact?.id
+        automaticAttempt = contact != nil
         connectionTask = Task {
             do {
                 let connected = try await bluetooth.connect(peer.id)
                 guard token == attempt, foreground, bluetoothEnabled else { connected.close(); return }
                 connectionState = .idle; bluetoothConnecting = false
-                open(connected, expectedID: nil, initiator: true)
+                open(connected, expectedID: contact?.id, initiator: true, expectedRoot: contact?.root,
+                     explicitRequest: contact == nil, bluetoothID: peer.id)
             } catch {
                 guard token == attempt else { return }
                 handle(.closed(String(localized: "Bluetooth connection failed. Keep both apps open and try again.")), generation: attempt)
@@ -133,7 +174,9 @@ final class AppModel {
         }
     }
 
-    func connect(_ peer: DiscoveredPeer) { open(NWByteStream(endpoint: peer.endpoint), expectedID: peer.claimedID, initiator: true) }
+    func connect(_ peer: DiscoveredPeer) {
+        open(NWByteStream(endpoint: peer.endpoint), expectedID: peer.claimedID, initiator: true, explicitRequest: true)
+    }
 
     func connect(host: String, port: String) {
         do {
@@ -143,11 +186,16 @@ final class AppModel {
         } catch { show(error) }
     }
 
-    private func open(_ stream: any ByteStream, expectedID: String?, initiator: Bool) {
+    private func open(_ stream: any ByteStream, expectedID: String?, initiator: Bool, expectedRoot: Data? = nil,
+                      explicitRequest: Bool = false, bluetoothID: UUID? = nil) {
         guard foreground, !busy, let identity, let store else { stream.close(); return }
         token = UUID()
         let generation = token
         self.stream = stream
+        connectingPeerID = expectedID
+        automaticAttempt = expectedRoot != nil
+        navigateOnReady = initiator && !automaticAttempt
+        outgoingBluetoothID = bluetoothID
         connectionPath = stream is BLEByteStream ? .bluetoothLE : .unavailable
         (stream as? NWByteStream)?.observePath { [weak self] path in
             Task { @MainActor in
@@ -164,7 +212,7 @@ final class AppModel {
                 let session = ChatSession(stream: stream, identity: identity, nickname: nickname, initiator: initiator,
                     store: store, attachmentDirectory: directory, event: { [weak self] event in await self?.handle(event, generation: generation) })
                 self.session = session
-                await session.run(expectedID: expectedID)
+                await session.run(expectedID: expectedID, expectedRoot: expectedRoot, explicitRequest: explicitRequest)
             } catch {
                 guard token == generation else { return }
                 handle(.closed(error.localizedDescription), generation: generation)
@@ -184,33 +232,60 @@ final class AppModel {
         case .ready(let peer):
             textLimit = TextLimits.legacy
             activePeer = peer; consent = nil; connectionState = .connected
+            if navigateOnReady { openedConversation = ConversationOpening(peerID: peer.id, generation: generation) }
+            if let outgoingBluetoothID {
+                bluetoothHints[peer.id] = outgoingBluetoothID.uuidString
+                UserDefaults.standard.set(bluetoothHints, forKey: "private-bluetooth-hints")
+            }
+            connectingPeerID = nil
+            automaticAttempts = 0
+            privateStatus = nil
             changed(peer.id)
+            if let deferredText { Task { await sendDeferred(deferredText, peer: peer, generation: generation) } }
         case .textLimit(let peer, let limit):
             if activePeer?.id == peer { textLimit = limit }
         case .changed(let peer): changed(peer)
         case .attachmentOffer(let info): fileConsent.replace(info)
         case .transfer(let record):
             if connectionPath.kind != .unavailable { transferPaths[record.key] = connectionPath }
-            if transfers[record.key]?.state != record.state { transferRevision[record.peerID, default: 0] &+= 1 }
             transfers[record.key] = record
+            scheduleAutomaticConnection()
         case .closed(let error):
+            let quiet = automaticAttempt
+            let outgoingRequest = navigateOnReady && connectionState == .connecting
             bluetoothConnecting = false
             textLimit = TextLimits.legacy
             connectionPath = .unavailable
             session = nil; stream = nil; activePeer = nil; consent = nil; fileConsent.replace(nil); connectionState = .idle
-            if let error { notice = Notice(message: error) }
+            connectingPeerID = nil; automaticAttempt = false; outgoingBluetoothID = nil
+            if quiet {
+                if error == WozaiError.identityChanged.localizedDescription || error == nil {
+                    automaticPaused = true
+                    cancelDeferred(keepNotice: true)
+                }
+                privateStatus = error ?? String(localized: "The other device ended the request.")
+            } else if let error { notice = Notice(message: error) }
+            else if outgoingRequest { privateStatus = String(localized: "The other device ended the request.") }
+            scheduleAutomaticConnection()
         }
     }
 
-    func approve(remember: Bool) {
-        guard connectionState == .awaitingConsent, let session else { return }
+    func approve(remember: Bool, generation expected: UUID? = nil) {
+        guard expected == nil || token == expected, connectionState == .awaitingConsent, let session else { return }
         connectionState = .connecting
         consent = nil
+        navigateOnReady = true
         let generation = token
         Task {
             do { try await session.approve(remember: remember) }
             catch { guard token == generation else { return }; await session.stop(reason: error.localizedDescription) }
         }
+    }
+
+    func declineConsent(generation: UUID) {
+        guard generation == token, consent != nil, let session else { return }
+        consent = nil
+        Task { await session.decline() }
     }
 
     func fileError(_ error: Error) { show(error) }
@@ -257,11 +332,15 @@ final class AppModel {
         do { UserDefaults.standard.set(try bookmark(url), forKey: "receive-folder"); receiveFolderName = url.lastPathComponent }
         catch { show(error) }
     }
-    func sendFiles(_ urls: [URL]) {
-        guard connectionState == .connected, let session, urls.count <= 256 else { return }
+    func sendFiles(_ urls: [URL], peerID: String, generation: UUID) {
+        guard token == generation, activePeer?.id == peerID, connectionState == .connected,
+              let session, urls.count <= 256 else { return }
+        fileSubmissionCount += 1
         Task {
+            defer { fileSubmissionCount -= 1; scheduleAutomaticConnection() }
             do {
                 for url in urls {
+                    guard token == generation, activePeer?.id == peerID else { return }
                     accessFile(url)
                     let type = try url.resourceValues(forKeys: [.contentTypeKey]).contentType
                     _ = try await session.sendFile(url, mime: type?.preferredMIMEType ?? "application/octet-stream")
@@ -297,6 +376,9 @@ final class AppModel {
     func dismissConsent() { if connectionState == .awaitingConsent { disconnect() } }
 
     func disconnect() {
+        automaticPaused = true
+        automaticTask?.cancel(); automaticTask = nil; automaticTaskID = nil
+        cancelDeferred(keepNotice: true)
         bluetoothConnecting = false
         token = UUID()
         connectionPath = .unavailable
@@ -304,7 +386,118 @@ final class AppModel {
         connectionTask?.cancel(); connectionTask = nil
         stream?.close(); stream = nil; session = nil
         consent = nil; activePeer = nil; fileConsent.replace(nil); connectionState = .idle
+        connectingPeerID = nil; automaticAttempt = false; outgoingBluetoothID = nil
         Task { await previous?.stop() }
+    }
+
+    func showConversation(_ contact: Conversation) {
+        guard viewedConversation?.id != contact.id || viewedConversation?.root != contact.root ||
+              viewedConversation?.remembered != contact.remembered else { return }
+        viewedConversation = contact
+        automaticAttempts = 0
+        automaticPaused = false
+        privateStatus = nil
+        scheduleAutomaticConnection()
+    }
+
+    func clearViewedConversation(peerID: String? = nil) {
+        guard peerID == nil || viewedConversation?.id == peerID else { return }
+        let previous = viewedConversation?.id
+        viewedConversation = nil
+        automaticTask?.cancel(); automaticTask = nil; automaticTaskID = nil
+        cancelDeferred()
+        if previous != nil, automaticAttempt, connectionState == .connecting, connectingPeerID == previous { disconnect() }
+    }
+
+    func retryAutomaticConnection(_ contact: Conversation) {
+        showConversation(contact)
+        if !hasAutomaticRoute(contact) { setDiscovery(true) }
+        automaticAttempts = 0
+        automaticPaused = false
+        privateStatus = nil
+        scheduleAutomaticConnection()
+    }
+
+    func hasAutomaticRoute(_ contact: Conversation) -> Bool {
+        contact.remembered && (discoveryEnabled || (bluetoothEnabled && bluetoothHints[contact.id] != nil))
+    }
+
+    private enum AutomaticRoute {
+        case lan(DiscoveredPeer), bluetooth(BLEPrivatePeer)
+    }
+
+    private func availableRoutes(_ contact: Conversation) -> [AutomaticRoute] {
+        var routes: [AutomaticRoute] = []
+        if discoveryEnabled, let peer = nearby.first(where: { $0.claimedID == contact.id }) { routes.append(.lan(peer)) }
+        if bluetoothEnabled, let hint = bluetoothHints[contact.id],
+           let peer = bluetoothNearby.first(where: { $0.id.uuidString == hint }) { routes.append(.bluetooth(peer)) }
+        return routes
+    }
+
+    private func scheduleAutomaticConnection() {
+        guard foreground, !automaticPaused, automaticTask == nil, automaticAttempts < 4,
+              let contact = viewedConversation, contact.remembered,
+              activePeer?.id != contact.id, connectionState == .idle || connectionState == .connected,
+              !availableRoutes(contact).isEmpty else { return }
+        let delay = automaticAttempts == 0 ? ((identity?.id ?? "") > contact.id ? 1_200 : 150) :
+            ((1_000 << automaticAttempts) + Int.random(in: 200...700))
+        let attemptID = UUID()
+        automaticTaskID = attemptID
+        automaticTask = Task { [weak self] in
+            do { try await Task.sleep(for: .milliseconds(delay)) } catch { return }
+            guard let self else { return }
+            defer {
+                if self.automaticTaskID == attemptID { self.automaticTask = nil; self.automaticTaskID = nil }
+            }
+            guard self.viewedConversation?.id == contact.id, self.viewedConversation?.root == contact.root,
+                  self.activePeer?.id != contact.id, self.foreground, !self.automaticPaused else { return }
+            let routes = self.availableRoutes(contact)
+            guard !routes.isEmpty else { return }
+            let route = routes[self.automaticAttempts % routes.count]
+            if self.connectionState == .connected {
+                guard self.fileSubmissionCount == 0, let session = self.session,
+                      await session.yieldIfIdle(), !Task.isCancelled, self.automaticTaskID == attemptID,
+                      self.viewedConversation?.id == contact.id else { return }
+            }
+            guard self.connectionState == .idle, !Task.isCancelled else { return }
+            self.automaticAttempts += 1
+            switch route {
+            case .lan(let peer):
+                self.open(NWByteStream(endpoint: peer.endpoint), expectedID: contact.id, initiator: true, expectedRoot: contact.root)
+            case .bluetooth(let peer): self.connectBluetooth(peer, contact: contact)
+            }
+        }
+    }
+
+    func hasDeferredSend(to peerID: String) -> Bool { deferredText?.peerID == peerID }
+
+    func queueText(_ body: String, to contact: Conversation) {
+        guard foreground, viewedConversation?.id == contact.id, hasAutomaticRoute(contact), deferredText == nil,
+              TextLimits.canSend(body, limit: TextLimits.legacy) else { return }
+        let request = DeferredText(peerID: contact.id, root: contact.root, body: body,
+                                   deadline: ContinuousClock.now.advanced(by: .seconds(60)))
+        deferredText = request
+        deferredExpiry = Task { [weak self] in
+            do { try await Task.sleep(until: request.deadline, clock: .continuous) } catch { return }
+            if self?.deferredText == request { self?.cancelDeferred(keepNotice: true) }
+        }
+        if automaticAttempts >= 4 || automaticPaused { retryAutomaticConnection(contact) }
+        else { scheduleAutomaticConnection() }
+    }
+
+    func cancelDeferred(keepNotice: Bool = false) {
+        if deferredText != nil, keepNotice { privateStatus = String(localized: "Message kept in your draft.") }
+        deferredExpiry?.cancel(); deferredExpiry = nil; deferredText = nil
+    }
+
+    private func sendDeferred(_ request: DeferredText, peer: VerifiedPeer, generation: UUID) async {
+        guard deferredText == request, token == generation, foreground, viewedConversation?.id == peer.id,
+              peer.id == request.peerID, peer.root == request.root, request.deadline > .now,
+              draftState(peerID: peer.id).text == request.body else { return }
+        cancelDeferred()
+        if await send(request.body, peerID: peer.id), draftState(peerID: peer.id).text == request.body {
+            saveDraft(peerID: peer.id, text: "")
+        }
     }
 
     func path(for record: AttachmentRecord) -> LocalPathSnapshot {
@@ -341,13 +534,22 @@ final class AppModel {
             else { try await store.observed(peerID: peerID, ids: ids); return true }
         } catch { notice = Notice(message: error.localizedDescription); return false }
     }
-    func resume() { foreground = true; reconnectDiscovery(); if bluetoothEnabled { bluetooth?.start(name: nickname) } }
+    func resume() {
+        foreground = true
+        if !automaticPaused && automaticAttempts >= 4 { automaticAttempts = 0 }
+        reconnectDiscovery()
+        if bluetoothEnabled { bluetooth?.start(name: nickname) }
+        scheduleAutomaticConnection()
+    }
 
     func suspend() async {
         foreground = false
         discovery?.stop()
+        nearby = []; addresses = []
         bluetooth?.stop(); bluetoothNearby = []
+        let wasPaused = automaticPaused
         disconnect()
+        automaticPaused = wasPaused
         try? await beginDraftFlush().value
     }
 
@@ -380,6 +582,7 @@ final class AppModel {
 
     func saveDraft(peerID: String, text: String) {
         guard text.utf8.count <= TextLimits.draft else { notice = Notice(message: String(localized: "That edit exceeds the draft budget. The previous draft is unchanged; send large text as a file.")); return }
+        if deferredText?.peerID == peerID, deferredText?.body != text { cancelDeferred() }
         let state = draftState(peerID: peerID)
         state.text = text
         state.loaded = true
@@ -460,6 +663,7 @@ final class AppModel {
     var verificationGeneration: UUID { token }
 
     func forget(_ contact: Conversation) async {
+        clearViewedConversation(peerID: contact.id)
         if activePeer?.id == contact.id { disconnect() }
         do { try await store?.forget(peerID: contact.id); await refreshConversations() } catch { show(error) }
     }
@@ -470,6 +674,7 @@ final class AppModel {
     }
 
     private func changed(_ id: String) {
+        scheduleAutomaticConnection()
         changedPeers.insert(id)
         guard refreshTask == nil else { return }
         refreshTask = Task {

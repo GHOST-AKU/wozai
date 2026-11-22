@@ -60,7 +60,7 @@ public actor ChatSession {
         self.store = store; self.identity = identity; self.event = event; self.attachmentDirectory = attachmentDirectory
     }
 
-    public func run(expectedID: String? = nil) async {
+    public func run(expectedID: String? = nil, expectedRoot: Data? = nil, explicitRequest: Bool = false) async {
         timer = Task { [weak self] in
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .seconds(5)) } catch { return }
@@ -73,13 +73,16 @@ public actor ChatSession {
             let authenticated = try await channel.establish(expectedID: expectedID)
             guard !ended else { return }
             let pin = try await store.trustedRoot(peerID: authenticated.id)
-            guard pin == nil || pin == authenticated.root else { throw WozaiError.identityChanged }
+            guard pin == nil || pin == authenticated.root,
+                  expectedRoot == nil || (pin == expectedRoot && authenticated.root == expectedRoot) else {
+                throw WozaiError.identityChanged
+            }
             peer = authenticated
             if let directory = attachmentDirectory, let generation = await channel.connectionGeneration {
                 attachments = try AttachmentEngine(peer: authenticated, connection: generation,
                     journal: store.directory.appendingPathComponent("attachments-v2", isDirectory: true), directory: directory)
             }
-            if pin != nil { try await approve(remember: true) } else { await event(.consent(authenticated)) }
+            if pin != nil || explicitRequest { try await approve(remember: true) } else { await event(.consent(authenticated)) }
             while !ended {
                 let frame = try await channel.receive()
                 guard !ended else { return }
@@ -299,5 +302,22 @@ public actor ChatSession {
             await event(.changed(peer.id))
         }
         await event(.closed(closedReason))
+    }
+
+    public func decline() async {
+        guard !ended, peer != nil, !approved else { return }
+        let deadline = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(1)) } catch { return }
+            await self?.stop()
+        }
+        try? await channel.send(NIMFrame(type: .bye))
+        deadline.cancel()
+        await stop()
+    }
+
+    public func yieldIfIdle() async -> Bool {
+        guard isReady, pending.isEmpty, pendingOffer == nil, attachments?.hasActiveTransfer != true else { return false }
+        await stop()
+        return true
     }
 }

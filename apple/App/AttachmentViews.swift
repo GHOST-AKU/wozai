@@ -13,32 +13,49 @@ import UIKit
 @MainActor
 struct AttachmentControls: View {
     @Environment(AppModel.self) private var model
+    let peerID: String
     @State private var choosingFiles = false
+    @State private var choosingPhotos = false
     @State private var photos: [PhotosPickerItem] = []
+    @State private var selectionGeneration: UUID?
 
     var body: some View {
         Menu {
-            Button("Choose files", systemImage: "doc.badge.plus") { choosingFiles = true }
-            PhotosPicker(selection: $photos, maxSelectionCount: 256, matching: .any(of: [.images, .videos]), preferredItemEncoding: .current) {
-                Label("Photos and videos", systemImage: "photo.on.rectangle")
+            Button("Choose files", systemImage: "folder") {
+                selectionGeneration = model.verificationGeneration
+                choosingFiles = true
             }
-        } label: { Label("Attach", systemImage: "plus.circle").labelStyle(.iconOnly) }
-        .disabled(model.connectionState != .connected)
+            Button("Photos and videos", systemImage: "photo.on.rectangle") {
+                selectionGeneration = model.verificationGeneration
+                choosingPhotos = true
+            }
+        } label: {
+            Label("Attach", systemImage: "plus.circle").labelStyle(.iconOnly).font(.title3)
+                .frame(width: 44, height: 44).contentShape(Rectangle())
+        }
+        .disabled(model.connectionState != .connected || model.activePeer?.id != peerID)
         .fileImporter(isPresented: $choosingFiles, allowedContentTypes: [.item], allowsMultipleSelection: true) { result in
+            guard let generation = selectionGeneration else { return }
+            selectionGeneration = nil
             switch result {
-            case .success(let urls): model.sendFiles(urls)
-            case .failure(let error): model.fileError(error)
+            case .success(let urls): model.sendFiles(urls, peerID: peerID, generation: generation)
+            case .failure(let error) where (error as NSError).code != NSUserCancelledError: model.fileError(error)
+            default: break
             }
         }
+        .photosPicker(isPresented: $choosingPhotos, selection: $photos, maxSelectionCount: 256,
+                      matching: .any(of: [.images, .videos]), preferredItemEncoding: .current)
         .onChange(of: photos) { _, selected in
-            guard !selected.isEmpty else { return }
+            guard !selected.isEmpty, let generation = selectionGeneration else { return }
+            photos = []
+            selectionGeneration = nil
             Task {
                 do {
                     var urls: [URL] = []
                     for photo in selected {
                         if let imported = try await photo.loadTransferable(type: ImportedMedia.self) { urls.append(imported.url) }
                     }
-                    model.sendFiles(urls); photos = []
+                    model.sendFiles(urls, peerID: peerID, generation: generation)
                 } catch { model.fileError(error) }
             }
         }
@@ -61,24 +78,12 @@ private struct ImportedMedia: Transferable {
 }
 
 @MainActor
-struct AttachmentTimeline: View {
-    @Environment(AppModel.self) private var model
-    let contact: Conversation
-    var body: some View {
-        ForEach(Array(model.transfers.values.filter { $0.peerID == contact.id && $0.root == contact.root }
-            .sorted { $0.info.time < $1.info.time }.suffix(50)), id: \.key) { record in
-            AttachmentBubble(record: record)
-        }
-        .task(id: contact.id) { await model.loadTransfers(contact) }
-    }
-}
-
-@MainActor
-private struct AttachmentBubble: View {
+struct AttachmentBubble: View {
     @Environment(AppModel.self) private var model
     let record: AttachmentRecord
     @State private var preview: URL?
     @State private var image: CGImage?
+    @State private var details = false
     private var complete: Bool { ["received", "saved"].contains(record.state) }
     private var file: URL { record.outgoing ? record.path : record.destination }
     private var status: String {
@@ -94,34 +99,57 @@ private struct AttachmentBubble: View {
         }
     }
     var body: some View {
+        HStack {
+            if record.outgoing { Spacer(minLength: 40) }
+            card
+            if !record.outgoing { Spacer(minLength: 40) }
+        }
+    }
+
+    private var card: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let image { Image(decorative: image, scale: 1).resizable().scaledToFit().frame(maxWidth: 320, maxHeight: 240) }
             Label { Text(verbatim: record.info.name).lineLimit(2) } icon: { Image(systemName: record.info.mime.hasPrefix("image/") ? "photo" : "doc") }
-            Text(status).font(.caption)
-            if !complete {
+            Text(status).font(.caption).foregroundStyle(.secondary)
+            if !complete && !["canceled", "failed"].contains(record.state) {
                 ProgressView(value: Double(record.offset), total: Double(max(1, record.info.size)))
                 Text("\(ByteCountFormatter.string(fromByteCount: Int64(record.offset), countStyle: .file)) / \(ByteCountFormatter.string(fromByteCount: Int64(record.info.size), countStyle: .file))").font(.caption.monospacedDigit())
             }
-            LocalPathLabel(path: model.path(for: record))
             HStack {
                 if complete {
                     Button("Open") { model.accessFile(file); preview = file }
-                    ShareLink(item: file) { Label("Share", systemImage: "square.and.arrow.up") }
                     #if os(macOS)
                     Button("Show in Finder") { model.accessFile(file); NSWorkspace.shared.activateFileViewerSelecting([file]) }
                     #endif
-                } else if model.connectionState == .connected {
+                } else if model.connectionState == .connected, model.activePeer?.id == record.peerID,
+                          model.activePeer?.root == record.root {
                     if record.state == "paused" { Button("Resume") { model.fileControl(record.id, resume: true) } }
                     else if !["canceled", "failed"].contains(record.state) {
                         Button("Pause") { model.fileControl(record.id) }.disabled(record.state == "offered")
                     }
                     if !["canceled", "failed"].contains(record.state) { Button("Cancel", role: .destructive) { model.fileControl(record.id, cancel: true) } }
                 }
+                Menu {
+                    Button("Transfer details", systemImage: "info.circle") { details = true }
+                    if complete { ShareLink(item: file) { Label("Share", systemImage: "square.and.arrow.up") } }
+                } label: { Label("File options", systemImage: "ellipsis.circle").labelStyle(.iconOnly) }
             }.buttonStyle(.borderless)
         }
         .padding(12).background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
         .frame(maxWidth: 420, alignment: .leading)
         .quickLookPreview($preview)
+        .sheet(isPresented: $details) {
+            NavigationStack {
+                Form {
+                    LabeledContent("File") { Text(verbatim: record.info.name) }
+                    LabeledContent("Status", value: status)
+                    LabeledContent("Size", value: ByteCountFormatter.string(fromByteCount: Int64(record.info.size), countStyle: .file))
+                    LocalPathLabel(path: model.path(for: record))
+                }
+                .navigationTitle("Transfer details")
+                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { details = false } } }
+            }
+        }
         .task(id: record.state) {
             guard complete, record.info.mime.hasPrefix("image/") else { return }
             model.accessFile(file)
