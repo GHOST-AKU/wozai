@@ -141,7 +141,7 @@ final class NativeChatTests: XCTestCase {
         #else
         let receive = app.buttons["Receive"].firstMatch
         #endif
-        XCTAssertTrue(receive.waitForExistence(timeout: 15), "A file must require explicit receive permission")
+        XCTAssertTrue(receive.waitForExistence(timeout: 15), "A file must require explicit receive permission. " + app.debugDescription)
         receive.tap()
         try drivePeer("file-saved")
         XCTAssertTrue(app.staticTexts["UI-attachment.bin"].waitForExistence(timeout: 15))

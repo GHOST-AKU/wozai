@@ -30,8 +30,10 @@ struct RootView: View {
     @Environment(AppModel.self) private var model
     @Environment(PublicMeshModel.self) private var mesh
     @Environment(\.scenePhase) private var scenePhase
+    #if os(macOS)
     @State private var consentPresented = false
     @State private var presentedFileToken: UUID?
+    #endif
 
     var body: some View {
         @Bindable var model = model
@@ -58,7 +60,6 @@ struct RootView: View {
                 .presentationDetents([.medium, .large])
                 .onAppear { consentPresented = true }
         }
-        #endif
         .sheet(item: Binding(get: { consentPresented ? nil : model.fileOfferPresentation }, set: { _ in
             // Reject an interactive dismissal after the native transition, never before a button action.
         }), onDismiss: {
@@ -77,10 +78,9 @@ struct RootView: View {
             .padding(24)
             .presentationDetents([.medium])
             .onAppear { presentedFileToken = prompt.id }
-            #if os(macOS)
             .frame(minWidth: 360, minHeight: 220)
-            #endif
         }
+        #endif
         .alert("NearbyIM", isPresented: Binding(get: { model.notice != nil }, set: { if !$0 { model.notice = nil } })) {
             Button("OK", role: .cancel) { model.notice = nil }
         } message: { Text(verbatim: model.notice?.message ?? "") }
@@ -294,6 +294,8 @@ struct PrivateRequestInset: ViewModifier {
         content.safeAreaInset(edge: .top, spacing: 0) {
             if enabled, let peer = model.consent {
                 PrivateRequestBanner(peer: peer, generation: model.verificationGeneration)
+            } else if enabled, let file = model.fileOfferPresentation {
+                FileRequestBanner(prompt: file)
             }
         }
     }
@@ -334,6 +336,33 @@ private struct PrivateRequestBanner: View {
         Button { model.approve(remember: true, generation: generation) } label: {
             Text("Accept and remember").frame(minHeight: 32)
         }.buttonStyle(.borderedProminent)
+    }
+}
+
+@MainActor
+private struct FileRequestBanner: View {
+    @Environment(AppModel.self) private var model
+    let prompt: AttachmentConsent.Prompt
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Label("Receive file?", systemImage: "doc.badge.arrow.down").font(.subheadline.weight(.semibold))
+            Text(verbatim: prompt.info.name).font(.headline).lineLimit(2)
+            Text(ByteCountFormatter.string(fromByteCount: Int64(prompt.info.size), countStyle: .file))
+                .font(.caption).foregroundStyle(.secondary)
+            HStack(spacing: 12) {
+                Button(role: .cancel) { model.decideFile(false, expected: prompt.id) } label: {
+                    Text("Reject").frame(minHeight: 44).contentShape(Rectangle())
+                }
+                Button { model.decideFile(true, expected: prompt.id) } label: {
+                    Text("Receive").frame(minHeight: 32)
+                }.buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(.horizontal, 16).padding(.vertical, 8)
+        .frame(maxWidth: 700, alignment: .leading)
+        .frame(maxWidth: .infinity)
+        .background(.regularMaterial)
     }
 }
 #endif
