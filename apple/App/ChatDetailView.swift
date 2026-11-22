@@ -79,6 +79,7 @@ struct ChatDetailView: View {
         }
         .navigationTitle(contact.nickname)
         #if os(iOS)
+        .modifier(PrivateRequestInset())
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .toolbar {

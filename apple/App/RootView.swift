@@ -58,12 +58,6 @@ struct RootView: View {
                 .presentationDetents([.medium, .large])
                 .onAppear { consentPresented = true }
         }
-        #else
-        .safeAreaInset(edge: .top, spacing: 0) {
-            if let peer = model.consent {
-                PrivateRequestBanner(peer: peer, generation: model.verificationGeneration)
-            }
-        }
         #endif
         .sheet(item: Binding(get: { consentPresented ? nil : model.fileOfferPresentation }, set: { _ in
             // Reject an interactive dismissal after the native transition, never before a button action.
@@ -179,6 +173,7 @@ private struct ChatsView: View {
                         }
                     }
                 }
+                .modifier(PrivateRequestInset(enabled: sizeClass == .compact))
                 .navigationTitle("NearbyIM")
                 .searchable(text: $search, prompt: "Search conversations")
                 // The primary column can have compact traits even inside a regular-width iPad window.
@@ -187,7 +182,10 @@ private struct ChatsView: View {
             } detail: {
                 if let contact = model.conversations.first(where: { $0.id == selection }) {
                     ChatDetailView(contact: contact).id(contact.id)
-                } else { ContentUnavailableView("Choose a conversation", systemImage: "bubble.left.and.bubble.right") }
+                } else {
+                    ContentUnavailableView("Choose a conversation", systemImage: "bubble.left.and.bubble.right")
+                        .modifier(PrivateRequestInset(enabled: sizeClass != .compact))
+                }
             }
             .navigationSplitViewStyle(.balanced)
             .onChange(of: geometry.size.width) { _, _ in
@@ -288,6 +286,20 @@ struct ConversationLabel: View {
 
 #if os(iOS)
 @MainActor
+struct PrivateRequestInset: ViewModifier {
+    @Environment(AppModel.self) private var model
+    var enabled = true
+
+    func body(content: Content) -> some View {
+        content.safeAreaInset(edge: .top, spacing: 0) {
+            if enabled, let peer = model.consent {
+                PrivateRequestBanner(peer: peer, generation: model.verificationGeneration)
+            }
+        }
+    }
+}
+
+@MainActor
 private struct PrivateRequestBanner: View {
     @Environment(AppModel.self) private var model
     let peer: VerifiedPeer
@@ -297,6 +309,7 @@ private struct PrivateRequestBanner: View {
         VStack(alignment: .leading, spacing: 5) {
             Label("Private chat request", systemImage: "person.crop.circle.badge.questionmark")
                 .font(.subheadline.weight(.semibold))
+                .accessibilityIdentifier("privateRequest")
             Text(verbatim: peer.nickname).font(.headline).lineLimit(1)
             Text("Accept this connection only if you recognize the device. A name is not proof of identity.")
                 .font(.caption).foregroundStyle(.secondary)
@@ -309,13 +322,18 @@ private struct PrivateRequestBanner: View {
         .frame(maxWidth: 700, alignment: .leading)
         .frame(maxWidth: .infinity)
         .background(.regularMaterial)
-        .accessibilityIdentifier("privateRequest")
     }
 
     @ViewBuilder private var actions: some View {
-        Button("Decline", role: .cancel) { model.declineConsent(generation: generation) }
-        Button("Accept once") { model.approve(remember: false, generation: generation) }.accessibilityIdentifier("consentOnce")
-        Button("Accept and remember") { model.approve(remember: true, generation: generation) }.buttonStyle(.borderedProminent)
+        Button(role: .cancel) { model.declineConsent(generation: generation) } label: {
+            Text("Decline").frame(minHeight: 44).contentShape(Rectangle())
+        }
+        Button { model.approve(remember: false, generation: generation) } label: {
+            Text("Accept once").frame(minHeight: 44).contentShape(Rectangle())
+        }.accessibilityIdentifier("consentOnce")
+        Button { model.approve(remember: true, generation: generation) } label: {
+            Text("Accept and remember").frame(minHeight: 32)
+        }.buttonStyle(.borderedProminent)
     }
 }
 #endif

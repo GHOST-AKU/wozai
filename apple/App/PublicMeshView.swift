@@ -71,6 +71,7 @@ struct PublicMeshView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) { composer }
         .navigationTitle("Public chat")
         #if os(iOS)
+        .modifier(PrivateRequestInset())
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .toolbar {

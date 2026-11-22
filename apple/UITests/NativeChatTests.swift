@@ -123,7 +123,10 @@ final class NativeChatTests: XCTestCase {
         port.typeText(configured)
         app.buttons["manualConnect"].tap()
         let consent = app.buttons["consentOnce"]
-        XCTAssertTrue(consent.waitForExistence(timeout: 15))
+        XCTAssertTrue(consent.waitForExistence(timeout: 15), app.debugDescription)
+        #if os(iOS)
+        XCTAssertTrue(consent.isHittable, "The first request must stay actionable below the native navigation bar")
+        #endif
         consent.tap()
         let composer = app.descendants(matching: .any).matching(identifier: "composer").firstMatch
         XCTAssertTrue(composer.waitForExistence(timeout: 15), "Approved connection did not reveal its conversation: " + app.debugDescription)

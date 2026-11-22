@@ -83,6 +83,9 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
+        #if os(iOS)
+        .modifier(PrivateRequestInset())
+        #endif
         .navigationTitle("Settings")
         .onAppear { name = model.nickname }
     }

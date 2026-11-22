@@ -57,15 +57,19 @@ struct NearbyView: View {
             }
         }
         #if os(iOS)
+        .modifier(PrivateRequestInset())
         .navigationTitle("Private devices")
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(isPresented: $showingAddress) {
             Form { ManualConnectionFields() }
+                .modifier(PrivateRequestInset())
                 .navigationTitle("Connect by address")
                 .navigationBarTitleDisplayMode(.inline)
         }
         .navigationDestination(isPresented: $showingNetworkDetails) {
-            List { networkDetails }.navigationTitle("Network details")
+            List { networkDetails }
+                .modifier(PrivateRequestInset())
+                .navigationTitle("Network details")
         }
         #else
         .navigationTitle("Nearby")
