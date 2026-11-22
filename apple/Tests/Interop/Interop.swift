@@ -37,6 +37,25 @@ struct Interop {
         }
         defer { listener?.cancel(); stream.close() }
         try await stream.start()
+        // Only the ATT delivery is substituted. The production BLE byte adapter and NIM4 run unchanged.
+        let carrier: any ByteStream
+        var values: Task<Void, Never>?
+        if arguments.contains("--ble-values") {
+            let ble = BLEByteStream(valueSize: 185, send: { value in
+                try await stream.write(Data([UInt8(value.count >> 8), UInt8(value.count & 255)]) + value)
+            }, closed: {})
+            carrier = ble
+            values = Task {
+                do {
+                    while !Task.isCancelled {
+                        let prefix = try await stream.readExactly(2)
+                        let count = Int(prefix[0]) * 256 + Int(prefix[1])
+                        guard (1...512).contains(count), ble.receive(try await stream.readExactly(count)) else { throw WozaiError.protocolViolation }
+                    }
+                } catch { ble.receive(Data([1])) }
+            }
+        } else { carrier = stream }
+        defer { values?.cancel(); carrier.close() }
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
         let store = try ChatStore(url: directory.appendingPathComponent("chat.sqlite"))
@@ -44,7 +63,7 @@ struct Interop {
         let source = directory.appendingPathComponent("swift-source.bin")
         if files { try Data((0..<(3 * 1024 * 1024 + 17)).map { UInt8(truncatingIfNeeded: $0 * 31 + 7) }).write(to: source) }
         let harness = Harness(store: store, identity: identity, fileSource: files ? source : nil, reads: reads)
-        let session = ChatSession(stream: stream, identity: identity, nickname: "Apple interop peer", initiator: initiator, store: store, attachmentDirectory: files ? directory.appendingPathComponent("received") : nil) { event in
+        let session = ChatSession(stream: carrier, identity: identity, nickname: "Apple interop peer", initiator: initiator, store: store, attachmentDirectory: files ? directory.appendingPathComponent("received") : nil) { event in
             await harness.handle(event)
         }
         await harness.attach(session)

@@ -40,6 +40,7 @@ public final class DesktopClient implements AutoCloseable {
     private volatile Socket connecting;
     private volatile DesktopBluetooth.Connection connectingBluetooth;
     private volatile DesktopBluetooth.Server bluetoothServer;
+    private volatile NativePrivateLink nativeLink;
     private String connectingPeer;
     private long generation;
     private volatile Session current;
@@ -186,6 +187,7 @@ public final class DesktopClient implements AutoCloseable {
         final long token = ++generation;
         final boolean incoming;
         final String expectedId, target, transport;
+        String nativeCarrierToken;
         final long trustVersion;
         final FramedSession wire;
         DesktopStore.Peer peer;
@@ -559,6 +561,8 @@ public final class DesktopClient implements AutoCloseable {
     public CompletableFuture<Void> clear(String id) { return submit(() -> {if(current!=null&&current.peer!=null&&current.peer.id().equals(id))disconnectNow();attachmentsStopped.handle((value,failure)->null).get(5,TimeUnit.SECONDS);store.clear(id); publish(); return null; }); }
     public CompletableFuture<Void> disconnect() { return submit(() -> { disconnectNow(); publish(); return null; }); }
     private void disconnectNow() {
+        NativePrivateLink nativePrevious = nativeLink; nativeLink = null;
+        if (nativePrevious != null) nativePrevious.close();
         ++generation; closeSocket(connecting); connecting = null; closeConnection(connectingBluetooth); connectingBluetooth=null; connectingPeer = null;
         Session previous = current; current = null; phase = "idle";
         transferProgress.clear();
@@ -603,6 +607,35 @@ public final class DesktopClient implements AutoCloseable {
         },"wozai-bluetooth-connect").start(); return null;
     }); }
     // All byte transports enter the same signed identity, consent and receipt pipeline.
+    public record NativeEndpoint(int port, String token) { }
+    public CompletableFuture<NativeEndpoint> connectNativeBLE(String expectedId) { return submit(() -> {
+        String expected = expectedId == null ? null : DesktopStore.uuid(expectedId);
+        if (current != null || phase.equals("connecting")) throw new LocalizedIOException(UiText.of("busy"));
+        NativePrivateLink opened = new NativePrivateLink(); nativeLink = opened;
+        long attempt = ++generation, trustVersion = policy.version();
+        connectingPeer = expected; phase = "connecting"; publish();
+        daemon(() -> {
+            try {
+                StreamConnection connection = opened.accept();
+                try { model.execute(() -> {
+                    if (closed || nativeLink != opened || generation != attempt) { closeConnection(connection); return; }
+                    nativeLink = null; connectingPeer = null;
+                    attach(connection, false, expected, "", trustVersion);
+                    if (current != null) current.nativeCarrierToken = opened.token();
+                }); } catch (RejectedExecutionException error) { closeConnection(connection); }
+            } catch (IOException error) { event(() -> {
+                if (nativeLink == opened && generation == attempt) {
+                    nativeLink = null; connectingPeer = null; phase = "idle"; publish(); listener.notice(UiText.of("connectFailed"));
+                }
+            }); } finally { opened.close(); }
+        }, "wozai-native-ble").start();
+        return new NativeEndpoint(opened.port(), opened.token());
+    }); }
+    public CompletableFuture<Void> disconnectNativeBLE(String owner) { return submit(() -> {
+        if (owner != null && (nativeLink != null && owner.equals(nativeLink.token()) ||
+                current != null && owner.equals(current.nativeCarrierToken))) { disconnectNow(); publish(); }
+        return null;
+    }); }
     CompletableFuture<Void> acceptConnection(StreamConnection connection,String route) { return submit(() -> {
         if(current!=null||phase.equals("connecting"))closeConnection(connection); else attach(connection,true,null,route,policy.version()); return null;
     }); }

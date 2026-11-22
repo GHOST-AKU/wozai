@@ -23,6 +23,6 @@ info = plistlib.loads((root / "apple/App/Info.plist").read_bytes())
 assert set(info["CFBundleLocalizations"]) == locales
 for locale in locales:
     text = (root / f"apple/App/{locale}.lproj/InfoPlist.strings").read_text(encoding="utf-8")
-    for key in ["CFBundleDisplayName", "NSLocalNetworkUsageDescription", "NSCameraUsageDescription"]:
+    for key in ["CFBundleDisplayName", "NSLocalNetworkUsageDescription", "NSCameraUsageDescription", "NSBluetoothAlwaysUsageDescription"]:
         assert re.search(r'"' + re.escape(key) + r'"\s*=\s*"[^"\n]+";', text), f"Missing native permission string {locale}: {key}"
 print(f"PASS: {len(catalog['strings'])} native strings in five languages, UI literal coverage and localized permission descriptions")
