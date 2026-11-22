@@ -41,7 +41,7 @@ xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM -destination "$des
   CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- build-for-testing > "build/apple-ui/$label-build.log" 2>&1
 fi
 if [[ "$mode" == --prepare-only ]]; then prepared=true; exit 0; fi
-if [[ -n "$simulator_id" ]]; then
+if [[ -n "$simulator_id" && ${WOZAI_APPLE_UI_TRACE:-false} == true ]]; then
   xcrun simctl spawn "$simulator_id" log stream --style compact --level debug \
     --predicate 'subsystem == "dev.ghost.wozai.apple" AND category == "Timeline"' > "build/apple-ui/$label-timeline.log" 2>&1 &
   timeline_log_pid=$!

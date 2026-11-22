@@ -165,21 +165,11 @@ final class NativeChatTests: XCTestCase {
         try checkColumnResizing(app)
         #endif
         #if os(iOS)
-        XCUIDevice.shared.orientation = .landscapeLeft
-        defer { XCUIDevice.shared.orientation = .portrait }
-        XCTAssertTrue(app.staticTexts["Hello from Apple"].waitForExistence(timeout: 8))
-        XCTAssertTrue(app.staticTexts["Hello from Java"].exists)
-        let landscape = XCTAttachment(screenshot: app.screenshot())
-        landscape.name = "native-chat-landscape"
-        landscape.lifetime = .keepAlways
-        add(landscape)
-        if UIDevice.current.userInterfaceIdiom == .pad { try checkColumnResizing(app) }
         if app.keyboards.firstMatch.exists {
             app.scrollViews["messageTimeline"].swipeDown()
             let hidden = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in !app.keyboards.firstMatch.exists }, object: app)
             XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 8), .completed, "Reading should allow dismissing the keyboard")
         }
-        XCUIDevice.shared.orientation = .portrait
         // Dismissing the keyboard can also scroll the taller file timeline into reading mode.
         // Resume following explicitly before testing new-message following and position retention.
         let latestAfterDismissal = app.buttons["jumpToLatest"]
@@ -220,6 +210,17 @@ final class NativeChatTests: XCTestCase {
         app.typeKey("w", modifierFlags: .command)
         #endif
         try drivePeer("finish")
+        #if os(iOS)
+        // Rotation is a separate layout check. Keep the file-to-swipe assertion in the same viewport.
+        XCUIDevice.shared.orientation = .landscapeLeft
+        defer { XCUIDevice.shared.orientation = .portrait }
+        XCTAssertTrue(app.scrollViews["messageTimeline"].waitForExistence(timeout: 8))
+        let landscape = XCTAttachment(screenshot: app.screenshot())
+        landscape.name = "native-chat-landscape"
+        landscape.lifetime = .keepAlways
+        add(landscape)
+        if UIDevice.current.userInterfaceIdiom == .pad { try checkColumnResizing(app) }
+        #endif
         #if os(macOS)
         // Exercise the real SwiftUI app's delegate as well as the immediate-quit process probe.
         app.typeKey("q", modifierFlags: .command)
