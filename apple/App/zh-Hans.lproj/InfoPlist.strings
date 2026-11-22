@@ -2,3 +2,5 @@
 "NSLocalNetworkUsageDescription" = "我在通过局域网发现附近设备并交换加密消息，不经过远程聊天服务器。";
 
 "NSCameraUsageDescription" = "扫描对方设备的身份二维码，核对完整安全码。相机图像仅在本机处理。";
+
+"NSBluetoothAlwaysUsageDescription" = "我在使用蓝牙发现附近公共 Mesh 节点并交换公共消息。公共消息不提供端到端加密。";

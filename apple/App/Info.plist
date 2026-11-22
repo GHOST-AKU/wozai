@@ -36,6 +36,8 @@
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>NearbyIM finds nearby devices and exchanges encrypted messages on your local network. No remote chat server is used.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>NearbyIM uses Bluetooth to discover nearby public Mesh nodes and exchange public messages. Public messages are not end-to-end encrypted.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
