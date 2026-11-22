@@ -41,6 +41,11 @@ xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM -destination "$des
   CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- build-for-testing > "build/apple-ui/$label-build.log" 2>&1
 fi
 if [[ "$mode" == --prepare-only ]]; then prepared=true; exit 0; fi
+if [[ -n "$simulator_id" ]]; then
+  xcrun simctl spawn "$simulator_id" log stream --style compact --level debug \
+    --predicate 'subsystem == "dev.ghost.wozai.apple" AND category == "Timeline"' > "build/apple-ui/$label-timeline.log" 2>&1 &
+  timeline_log_pid=$!
+fi
 port_file="build/apple-ui/$label.port"
 rm -f "$port_file"
 peer_args=(ui-server "$port_file")

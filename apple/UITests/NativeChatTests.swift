@@ -179,6 +179,7 @@ final class NativeChatTests: XCTestCase {
             let hidden = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in !app.keyboards.firstMatch.exists }, object: app)
             XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 8), .completed, "Reading should allow dismissing the keyboard")
         }
+        XCUIDevice.shared.orientation = .portrait
         // Dismissing the keyboard can also scroll the taller file timeline into reading mode.
         // Resume following explicitly before testing new-message following and position retention.
         let latestAfterDismissal = app.buttons["jumpToLatest"]
@@ -271,8 +272,14 @@ final class NativeChatTests: XCTestCase {
         timeline.hover()
         timeline.scroll(byDeltaX: 0, deltaY: 900)
         #else
-        timeline.swipeDown()
-        timeline.swipeDown()
+        if cycle == 0 {
+            let start = timeline.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.36))
+            let end = timeline.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.72))
+            start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0)
+        } else {
+            timeline.swipeDown()
+            timeline.swipeDown()
+        }
         #endif
         let latest = app.buttons["jumpToLatest"]
         XCTAssertTrue(latest.waitForExistence(timeout: 5), "Reading older messages needs an explicit way back: " + app.debugDescription)
@@ -284,8 +291,10 @@ final class NativeChatTests: XCTestCase {
         let incoming = app.staticTexts["A new message while reading history \(cycle + 1)"]
         #if os(iOS)
         if cycle == 0 {
-            for _ in 0..<6 where latest.exists { timeline.swipeUp(velocity: .fast) }
-            XCTAssertTrue(waitForVisible(incoming, in: timeline), "Swipe must reach newer text after completing a file")
+            let start = timeline.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.82))
+            let end = timeline.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.18))
+            start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0)
+            XCTAssertTrue(waitForVisible(incoming, in: timeline), "Swipe must reach newer text after completing a file. " + app.debugDescription)
         } else { latest.tap() }
         #else
         latest.tap()

@@ -16,7 +16,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: apple-${{ github.event.pull_request.head.ref || github.ref_name }}-${{ inputs.validation || 'full' }}
+  group: apple-${{ github.event.pull_request.head.ref || github.ref_name }}-${{ inputs.validation || 'full' }}-${{ github.event_name == 'workflow_dispatch' && github.sha || 'continuous' }}
   cancel-in-progress: true
 jobs:
   native:

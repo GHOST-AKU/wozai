@@ -49,6 +49,7 @@ struct ChatDetailView: View {
     @State private var displayedPage: MessageCursor?
     @State private var followingLatest = true
     @State private var hasNewMessages = false
+    @State private var needsLatestRefresh = false
     @State private var forceLatest = false
     @State private var refreshRequest = 0
     @State private var pageRevision = 0
@@ -231,7 +232,10 @@ struct ChatDetailView: View {
     private func updateFollowing() {
         guard loaded, before == nil, !pendingScroll, !userScrolling else { return }
         followingLatest = latestVisible
-        if latestVisible && hasNewMessages { showLatest() }
+        if latestVisible && hasNewMessages {
+            if needsLatestRefresh { showLatest() }
+            else { hasNewMessages = false }
+        }
     }
 
     private func applyPage(_ result: MessagePage) {
@@ -245,12 +249,13 @@ struct ChatDetailView: View {
             hasNewMessages = hasNewMessages || !newer.isEmpty
             messages = messages.map { updates[$0.rowID] ?? $0 }
             if messages.count + newer.count <= 400 { messages.append(contentsOf: newer) }
+            else { needsLatestRefresh = true }
         } else {
             let tailChanged = !loaded || pageChanged || forceLatest || messages.last?.rowID != page.last?.rowID
             messages = page
             hasEarlier = result.hasEarlier
             if before == nil {
-                followingLatest = true; hasNewMessages = false; forceLatest = false
+                followingLatest = true; hasNewMessages = false; needsLatestRefresh = false; forceLatest = false
                 if tailChanged { pendingScroll = true; pageRevision &+= 1 }
             } else if pageChanged {
                 pendingScroll = true; pageRevision &+= 1
