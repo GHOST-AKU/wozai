@@ -81,6 +81,7 @@ private struct ImportedMedia: Transferable {
 struct AttachmentBubble: View {
     @Environment(AppModel.self) private var model
     let record: AttachmentRecord
+    var previewWillAppear: () -> Void = {}
     @State private var preview: URL?
     @State private var image: CGImage?
     @State private var details = false
@@ -180,7 +181,10 @@ struct AttachmentBubble: View {
                 return CGImageSourceCreateThumbnailAtIndex(source, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true,
                     kCGImageSourceCreateThumbnailWithTransform: true, kCGImageSourceThumbnailMaxPixelSize: 1024] as CFDictionary)
             }.value
-            if !Task.isCancelled { image = thumbnail }
+            if !Task.isCancelled, let thumbnail {
+                previewWillAppear()
+                image = thumbnail
+            }
         }
     }
 }

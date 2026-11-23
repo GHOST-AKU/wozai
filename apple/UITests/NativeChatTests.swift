@@ -157,6 +157,12 @@ final class NativeChatTests: XCTestCase {
         XCTAssertGreaterThan(afterFile.frame.minY, savedFile.frame.minY,
                              "A new message must appear below the completed file in the same timeline")
         XCTAssertTrue(waitForVisible(afterFile, in: timeline))
+        try drivePeer("image-offer")
+        XCTAssertTrue(receive.waitForExistence(timeout: 15))
+        receive.tap()
+        try drivePeer("file-saved")
+        let imagePreview = timeline.buttons["imageAttachmentPreview"]
+        XCTAssertTrue(imagePreview.waitForExistence(timeout: 12), "A saved PNG must show a tappable preview even with a generic MIME type")
         #endif
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "native-chat-with-production-java-peer"

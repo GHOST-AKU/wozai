@@ -118,6 +118,7 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         #if os(iOS)
+        .modifier(SettingsScrollEdge())
         .modifier(PrivateRequestInset())
         .navigationBarTitleDisplayMode(.inline)
         #endif
@@ -125,3 +126,16 @@ struct SettingsView: View {
         .onAppear { name = model.nickname }
     }
 }
+
+#if os(iOS)
+private struct SettingsScrollEdge: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26, *) {
+            // Let UIKit draw the scroll boundary under the floating system tab bar.
+            content.scrollEdgeEffectStyle(.hard, for: .bottom)
+        } else {
+            content
+        }
+    }
+}
+#endif

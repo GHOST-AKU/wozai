@@ -157,7 +157,13 @@ struct ChatDetailView: View {
                             MessageBubble(message: message, visibilityChanged: { visible in
                                 if visible { readVisible.insert(message.id) } else { readVisible.remove(message.id) }
                             }).id(message.rowID)
-                        case .file(_, let record): AttachmentBubble(record: record)
+                        case .file(_, let record):
+                            AttachmentBubble(record: record) {
+                                if followingLatest && !userScrolling {
+                                    pendingScroll = true
+                                    pageRevision &+= 1
+                                }
+                            }
                         }
                     }
                     Color.clear.frame(height: 1).id("latest")

@@ -187,6 +187,14 @@ public final class AppleInteropPeer {
                         Thread.sleep(650);require(!ownReads.contains(readProbe.get()),"Hidden Apple conversation emitted a read receipt");
                     }else if ("file-offer".equals(command)) {
                         files.offer(new FileAttachmentSource(fileSource), "UI-attachment.bin", "application/octet-stream").get(5, java.util.concurrent.TimeUnit.SECONDS);
+                    } else if ("image-offer".equals(command)) {
+                        Path image = fileRoot.resolve("UI-image.png");
+                        byte[] png = java.util.Base64.getDecoder().decode(
+                            "iVBORw0KGgoAAAANSUhEUgAAADAAAAAgCAIAAADbtmxLAAAANklEQVR4nO3OMQ0AMAgAMLyhZLwYQu5MEK4mFdConBXRb4eQkJCQkJCQkJCQkJCQkJCQ0GXoA+nrG1ur46niAAAAAElFTkSuQmCC");
+                        Files.write(image, png);
+                        // A provider may return a generic MIME type for an image.
+                        files.offer(new FileAttachmentSource(image), "UI-image.png", "application/octet-stream")
+                            .get(5, java.util.concurrent.TimeUnit.SECONDS);
                     } else if ("file-saved".equals(command)) {
                         boolean saved = false;
                         long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(15);
