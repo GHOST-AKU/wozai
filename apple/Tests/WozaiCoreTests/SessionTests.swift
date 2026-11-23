@@ -16,11 +16,44 @@ final class SessionTests: XCTestCase {
         await fixture.outgoing.holdNextWrite()
         let sending = Task { try await fixture.session.sendText("Disconnect during write") }
         await fixture.outgoing.waitForHeldWrite()
+        let yielded = await fixture.session.yieldIfIdle()
+        XCTAssertFalse(yielded, "An unconfirmed message must prevent automatic handoff")
         await fixture.session.stop()
         await fixture.outgoing.finishHeldWrite()
         _ = try? await sending.value
         let rows = try await fixture.store.messages(peerID: fixture.remoteIdentity.id)
         XCTAssertEqual(rows.first?.status, .unconfirmed)
+        await fixture.remote.close()
+        await running.value
+    }
+
+    func testAutomaticConnectionRequiresTheDurablePinEvenWhenTheRemoteProofMatches() async throws {
+        let fixture = try SessionFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.directory) }
+        let running = Task {
+            await fixture.session.run(expectedID: fixture.remoteIdentity.id, expectedRoot: fixture.remoteIdentity.root)
+        }
+        _ = try await fixture.remote.establish()
+        guard case .closed(let reason) = await fixture.events.next() else {
+            await fixture.session.stop()
+            return XCTFail("An automatic connection with no durable pin must close without requesting consent")
+        }
+        XCTAssertEqual(reason, WozaiError.identityChanged.localizedDescription)
+        await fixture.remote.close()
+        await running.value
+    }
+
+    func testDecliningUsesAuthenticatedByeWithoutRememberingThePeer() async throws {
+        let fixture = try SessionFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.directory) }
+        let running = Task { await fixture.session.run() }
+        _ = try await fixture.remote.establish()
+        guard case .consent = await fixture.events.next() else { return XCTFail("Expected consent before READY") }
+        await fixture.session.decline()
+        let bye = try await fixture.remote.receive()
+        XCTAssertEqual(bye.type, .bye)
+        let pin = try await fixture.store.trustedRoot(peerID: fixture.remoteIdentity.id)
+        XCTAssertNil(pin)
         await fixture.remote.close()
         await running.value
     }

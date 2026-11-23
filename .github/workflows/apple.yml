@@ -11,17 +11,34 @@ on:
       validation:
         description: Full, macOS UI only, core/device builds only, or core plus iOS UI
         type: choice
-        options: [full, macos-ui, core-builds, core-ios, mobile-ui]
+        options: [full, macos-ui, core-builds, core-ios, mobile-ui, mobile-candidate, mobile-candidate-ui]
         default: full
+      device-class:
+        description: Simulator device class for mobile verification
+        type: choice
+        options: [both, iphone, ipad]
+        default: both
+      screen:
+        description: Exercise the standalone Settings regression instead of the Java chat fixture
+        type: choice
+        options: [chat, settings]
+        default: chat
+      runner:
+        description: Hosted toolchain image
+        type: choice
+        options: [macos-latest, macos-26-intel]
+        default: macos-latest
 permissions:
   contents: read
 concurrency:
-  group: apple-${{ github.event.pull_request.head.ref || github.ref_name }}-${{ inputs.validation || 'full' }}
+  group: apple-${{ github.event.pull_request.head.ref || github.ref_name }}-${{ inputs.validation || 'full' }}-${{ github.event_name == 'workflow_dispatch' && github.sha || 'continuous' }}
   cancel-in-progress: true
 jobs:
   native:
-    runs-on: macos-latest
+    runs-on: ${{ inputs.runner || 'macos-latest' }}
     timeout-minutes: 60
+    env:
+      WOZAI_APPLE_STANDALONE_UI: ${{ inputs.screen == 'settings' }}
     steps:
       - uses: actions/checkout@v4
       - name: Check shared preview version
@@ -32,14 +49,22 @@ jobs:
         run: |
           xcodebuild -version
           swift --version
+      - uses: dtolnay/rust-toolchain@1.88.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            mesh/apple-bridge -> ../target/apple-native
+          cache-on-failure: true
+      - name: Embed the public Mesh Core
+        run: bash tools/build-apple-mesh.sh
       - name: Test shared native core
-        if: ${{ inputs.validation != 'macos-ui' && inputs.validation != 'mobile-ui' }}
+        if: ${{ inputs.validation != 'macos-ui' && inputs.validation != 'mobile-ui' && inputs.validation != 'mobile-candidate-ui' }}
         run: bash tools/test-apple-lifecycle.sh
       - name: Exchange encrypted records with the production Java implementation
-        if: ${{ inputs.validation != 'macos-ui' && inputs.validation != 'mobile-ui' }}
+        if: ${{ inputs.validation != 'macos-ui' && inputs.validation != 'mobile-ui' && inputs.validation != 'mobile-candidate-ui' }}
         run: bash tools/test-apple-interop.sh
       - name: Build universal native macOS Release and record footprint
-        if: ${{ inputs.validation != 'macos-ui' && inputs.validation != 'mobile-ui' }}
+        if: ${{ inputs.validation != 'macos-ui' && inputs.validation != 'mobile-ui' && !startsWith(inputs.validation, 'mobile-candidate') }}
         run: |
           mkdir -p build/apple-ui
           xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM -destination 'platform=macOS' -configuration Release -derivedDataPath apple/DerivedData ONLY_ACTIVE_ARCH=NO 'ARCHS=arm64 x86_64' CODE_SIGNING_ALLOWED=NO build
@@ -48,17 +73,34 @@ jobs:
           du -sk "$app" | tee -a build/apple-ui/macos-release-footprint.log
           otool -L "$app/Contents/MacOS/NearbyIM" | tee -a build/apple-ui/macos-release-footprint.log
       - name: Build native iPhone and iPad app for devices without distribution signing
-        if: ${{ inputs.validation != 'macos-ui' }}
+        if: ${{ inputs.validation != 'macos-ui' && inputs.validation != 'mobile-ui' }}
         run: xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM -destination 'generic/platform=iOS' -configuration Release -derivedDataPath apple/DeviceBuild CODE_SIGNING_ALLOWED=NO build
+      - name: Package and verify the iPhone and iPad candidate
+        if: ${{ startsWith(inputs.validation, 'mobile-candidate') }}
+        run: |
+          mkdir -p build
+          app=apple/DeviceBuild/Build/Products/Release-iphoneos/NearbyIM.app
+          lipo "$app/NearbyIM" -verify_arch arm64
+          vtool -show-build "$app/NearbyIM" | tee build/apple-device-platform.log
+          grep -Eq '^[[:space:]]*platform IOS$' build/apple-device-platform.log
+          test ! -e "$app/embedded.mobileprovision"
+          if codesign --verify "$app" 2>/dev/null; then echo 'Unexpected iOS signature'; exit 1; fi
+          python3 tools/package-apple-mobile.py "$app"
+      - uses: actions/upload-artifact@v4
+        if: ${{ startsWith(inputs.validation, 'mobile-candidate') }}
+        with:
+          name: apple-mobile-candidate
+          path: build/apple-mobile-candidate/
+          if-no-files-found: error
       - name: Compile the independent Java peer for a focused UI run
-        if: ${{ inputs.validation == 'macos-ui' || inputs.validation == 'mobile-ui' }}
+        if: ${{ inputs.screen != 'settings' && (inputs.validation == 'macos-ui' || inputs.validation == 'mobile-ui' || inputs.validation == 'mobile-candidate-ui') }}
         run: bash tools/test-apple-interop.sh --compile-java
       - name: Exercise native macOS consent, chat and receipts
-        if: ${{ inputs.validation != 'core-builds' && inputs.validation != 'core-ios' && inputs.validation != 'mobile-ui' }}
+        if: ${{ inputs.validation != 'core-builds' && inputs.validation != 'core-ios' && inputs.validation != 'mobile-ui' && !startsWith(inputs.validation, 'mobile-candidate') }}
         timeout-minutes: 8
         run: bash tools/test-apple-ui.sh 'platform=macOS' macos
       - name: Verify native macOS read visibility and safety-sheet exclusion
-        if: ${{ inputs.validation != 'core-builds' && inputs.validation != 'core-ios' && inputs.validation != 'mobile-ui' }}
+        if: ${{ inputs.validation != 'core-builds' && inputs.validation != 'core-ios' && inputs.validation != 'mobile-ui' && !startsWith(inputs.validation, 'mobile-candidate') }}
         timeout-minutes: 8
         env:
           WOZAI_APPLE_READ_UI: 'true'
@@ -82,24 +124,34 @@ jobs:
       # Keep simulator migration/SDK compilation outside the UI execution budget.
       - name: Prepare iPhone simulator and native UI test bundle
         id: iphone_prepare
-        if: ${{ !cancelled() && steps.simulators.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.simulators.outcome == 'success' && inputs.device-class != 'ipad' }}
         timeout-minutes: 12
         run: bash tools/test-apple-ui.sh 'platform=iOS Simulator,id=${{ steps.simulators.outputs.iphone }}' iphone --prepare-only
       - name: Exercise native iPhone consent, chat and receipts
         if: ${{ !cancelled() && steps.iphone_prepare.outcome == 'success' }}
         timeout-minutes: 12
         run: bash tools/test-apple-ui.sh 'platform=iOS Simulator,id=${{ steps.simulators.outputs.iphone }}' iphone --test-only
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() && steps.iphone_prepare.outcome == 'success' }}
+        with:
+          name: apple-iphone-ui-log
+          path: build/apple-ui/iphone-*.log
       - name: Prepare iPad simulator and native UI test bundle
         id: ipad_prepare
-        if: ${{ !cancelled() && steps.simulators.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.simulators.outcome == 'success' && inputs.device-class != 'iphone' }}
         timeout-minutes: 12
         run: bash tools/test-apple-ui.sh 'platform=iOS Simulator,id=${{ steps.simulators.outputs.ipad }}' ipad --prepare-only
       - name: Exercise native iPad consent, chat and receipts
         if: ${{ !cancelled() && steps.ipad_prepare.outcome == 'success' }}
         timeout-minutes: 12
         run: bash tools/test-apple-ui.sh 'platform=iOS Simulator,id=${{ steps.simulators.outputs.ipad }}' ipad --test-only
-      - name: Verify native iPad read visibility and safety-sheet exclusion
+      - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() && steps.ipad_prepare.outcome == 'success' }}
+        with:
+          name: apple-ipad-ui-log
+          path: build/apple-ui/ipad-*.log
+      - name: Verify native iPad read visibility and safety-sheet exclusion
+        if: ${{ !cancelled() && steps.ipad_prepare.outcome == 'success' && inputs.screen != 'settings' }}
         timeout-minutes: 8
         env:
           WOZAI_APPLE_READ_UI: 'true'

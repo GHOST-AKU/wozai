@@ -41,13 +41,22 @@ xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM -destination "$des
   CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- build-for-testing > "build/apple-ui/$label-build.log" 2>&1
 fi
 if [[ "$mode" == --prepare-only ]]; then prepared=true; exit 0; fi
-port_file="build/apple-ui/$label.port"
-rm -f "$port_file"
-peer_args=(ui-server "$port_file")
-if [[ ${WOZAI_APPLE_READ_UI:-false} == true ]]; then peer_args+=(--read-ui); fi
-java -cp build/apple-interop/java dev.ghost.nearbyim.core.AppleInteropPeer "${peer_args[@]}" > "build/apple-ui/$label-java.log" 2>&1 &
-peer_pid=$!
-python3 - "$port_file" "$peer_pid" <<'PY'
+if [[ -n "$simulator_id" && ${WOZAI_APPLE_UI_TRACE:-false} == true ]]; then
+  xcrun simctl spawn "$simulator_id" log stream --style compact --level debug \
+    --predicate 'subsystem == "dev.ghost.wozai.apple" AND category == "Timeline"' > "build/apple-ui/$label-timeline.log" 2>&1 &
+  timeline_log_pid=$!
+fi
+test_name="${WOZAI_APPLE_UI_TEST:-NearbyIMUITests/NativeChatTests/testNativeConnectionConsentAndDurableReceiptsWithJavaPeer}"
+if [[ ${WOZAI_APPLE_STANDALONE_UI:-false} == true ]]; then
+  test_name="NearbyIMUITests/NativeChatTests/testSettingsBottomActionOpensNativeDetails"
+else
+  port_file="build/apple-ui/$label.port"
+  rm -f "$port_file"
+  peer_args=(ui-server "$port_file")
+  if [[ ${WOZAI_APPLE_READ_UI:-false} == true ]]; then peer_args+=(--read-ui); fi
+  java -cp build/apple-interop/java dev.ghost.nearbyim.core.AppleInteropPeer "${peer_args[@]}" > "build/apple-ui/$label-java.log" 2>&1 &
+  peer_pid=$!
+  python3 - "$port_file" "$peer_pid" <<'PY'
 import os, pathlib, sys, time
 path = pathlib.Path(sys.argv[1])
 for attempt in range(100):
@@ -56,11 +65,12 @@ for attempt in range(100):
     time.sleep(0.1)
 else: raise SystemExit('The independent Java UI peer did not start')
 PY
+fi
 xcodebuild -project apple/NearbyIM.xcodeproj -scheme NearbyIM -destination "$destination" \
   -configuration Debug -derivedDataPath "$derived" \
   -resultBundlePath "build/apple-ui/$label.xcresult" \
-  -only-testing:"${WOZAI_APPLE_UI_TEST:-NearbyIMUITests/NativeChatTests/testNativeConnectionConsentAndDurableReceiptsWithJavaPeer}" \
+  -only-testing:"$test_name" \
   -parallel-testing-enabled NO -test-timeouts-enabled YES \
   -default-test-execution-time-allowance 360 -maximum-test-execution-time-allowance 360 \
   CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- test-without-building | tee "build/apple-ui/$label-xcodebuild.log"
-wait "$peer_pid"
+if [[ -n "$peer_pid" ]]; then wait "$peer_pid"; fi

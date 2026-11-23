@@ -167,7 +167,9 @@ public final class AppleInteropPeer {
         receipts.setDaemon(true);
         receipts.start();
         try {
-            control.setSoTimeout(90_000);
+            // XCTest can spend over a minute retrying a system toolbar query.
+            // Keep the independent control socket alive during those UI transitions.
+            control.setSoTimeout(180_000);
             // A skewed peer clock must not hide subsequent normal-time messages from the latest page.
             long timestamp = System.currentTimeMillis() + java.util.concurrent.TimeUnit.DAYS.toMillis(3650);
             int fixtureIndex = 0, appended = 0, historyCount = 2;
@@ -187,6 +189,14 @@ public final class AppleInteropPeer {
                         Thread.sleep(650);require(!ownReads.contains(readProbe.get()),"Hidden Apple conversation emitted a read receipt");
                     }else if ("file-offer".equals(command)) {
                         files.offer(new FileAttachmentSource(fileSource), "UI-attachment.bin", "application/octet-stream").get(5, java.util.concurrent.TimeUnit.SECONDS);
+                    } else if ("image-offer".equals(command)) {
+                        Path image = fileRoot.resolve("UI-image.png");
+                        byte[] png = java.util.Base64.getDecoder().decode(
+                            "iVBORw0KGgoAAAANSUhEUgAAADAAAAAgCAIAAADbtmxLAAAANklEQVR4nO3OMQ0AMAgAMLyhZLwYQu5MEK4mFdConBXRb4eQkJCQkJCQkJCQkJCQkJCQ0GXoA+nrG1ur46niAAAAAElFTkSuQmCC");
+                        Files.write(image, png);
+                        // A provider may return a generic MIME type for an image.
+                        files.offer(new FileAttachmentSource(image), "UI-image.png", "application/octet-stream")
+                            .get(5, java.util.concurrent.TimeUnit.SECONDS);
                     } else if ("file-saved".equals(command)) {
                         boolean saved = false;
                         long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(15);
@@ -199,6 +209,10 @@ public final class AppleInteropPeer {
                             }
                         }
                         require(saved, "UI receiver did not return its durable saved receipt");
+                    } else if ("after-file".equals(command)) {
+                        historyCount++;
+                        channel.write(ProtocolV4.encode(new Frame(Frame.TEXT, UUID.randomUUID().toString(),
+                            "Message after the saved file", System.currentTimeMillis())));
                     } else if ("history-200".equals(command) || "history-400".equals(command)) {
                         int target = command.equals("history-200") ? 200 : 400;
                         require(historyCount < target, "History boundary was already passed");

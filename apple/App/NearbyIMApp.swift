@@ -4,10 +4,12 @@ import SwiftUI
 @MainActor
 struct NearbyIMApp: App {
     @State private var model = AppModel()
+    @State private var mesh = PublicMeshModel()
     #if os(macOS)
     @NSApplicationDelegateAdaptor(MacAppDelegate.self) private var appDelegate
     #endif
     @AppStorage("appearance") private var appearance = "system"
+    @AppStorage("accent") private var accent = AppAccent.purple
 
     private var colorScheme: ColorScheme? {
         appearance == "dark" ? .dark : appearance == "light" ? .light : nil
@@ -17,9 +19,11 @@ struct NearbyIMApp: App {
         mainWindow
         #if os(macOS)
         Settings {
-            SettingsView()
+            NavigationStack { SettingsView() }
                 .environment(model)
+                .environment(mesh)
                 .preferredColorScheme(colorScheme)
+                .modifier(AccentTint(accent: accent))
                 .frame(minWidth: 420, idealWidth: 480)
         }
         #endif
@@ -32,7 +36,9 @@ struct NearbyIMApp: App {
                 .onAppear { appDelegate.model = model }
                 #endif
                 .environment(model)
+                .environment(mesh)
                 .preferredColorScheme(colorScheme)
+                .modifier(AccentTint(accent: accent))
         }
         #if os(macOS)
         .defaultSize(width: 940, height: 680)
@@ -41,6 +47,15 @@ struct NearbyIMApp: App {
             NearbyCommands()
         }
         #endif
+    }
+}
+
+private struct AccentTint: ViewModifier {
+    @Environment(\.colorScheme) private var scheme
+    let accent: AppAccent
+
+    func body(content: Content) -> some View {
+        content.tint(accent.color(scheme)).environment(\.wozaiAccent, accent.color(scheme))
     }
 }
 

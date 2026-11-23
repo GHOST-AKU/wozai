@@ -33,6 +33,7 @@ public struct Conversation: Identifiable, Equatable, Sendable {
     public let remembered: Bool
     public let verified: Bool
     public let lastActivity: UInt64
+    public let preview: String?
 }
 
 /// SQLite FULL commits precede incoming ACKs; no full-history snapshots are rewritten.
@@ -89,11 +90,16 @@ public actor ChatStore {
     }
 
     public func conversations(localRoot: Data) throws -> [Conversation] {
-        try database.rows("SELECT * FROM contacts ORDER BY activity DESC LIMIT 500").map { row in
+        try database.rows("""
+            SELECT contacts.*, (SELECT substr(body, 1, 160) FROM messages
+                WHERE peer = contacts.id ORDER BY rowid DESC LIMIT 1) AS preview
+            FROM contacts ORDER BY activity DESC LIMIT 500
+            """).map { row in
             Conversation(id: row["id"]!.text, nickname: row["nickname"]!.text, root: row["root"]!.blob,
                          remembered: row["trusted"]!.integer == 1,
                          verified: row["verified"]!.integer == 1 && row["local_root"]!.blob == localRoot,
-                         lastActivity: UInt64(max(0, row["activity"]!.integer)))
+                         lastActivity: UInt64(max(0, row["activity"]!.integer)),
+                         preview: row["preview"]?.text)
         }
     }
 

@@ -63,6 +63,10 @@ public final class AttachmentEngine {
         let n = min(UInt64(AttachmentInfo.chunkBytes), task.record.info.size - task.sent, AttachmentInfo.blockBytes - task.sent % AttachmentInfo.blockBytes)
         return task.sent + n <= task.credit + task.window
     }
+    var hasActiveTransfer: Bool {
+        incoming != nil || outgoing != nil || queuedCount > 0 ||
+            (reserved.map { !["paused", "failed", "canceled"].contains($0.state) } ?? false)
+    }
     public func drainNotices() -> [AttachmentRecord] { let result = notices; notices.removeAll(keepingCapacity: true); return result }
     private func key(_ record: AttachmentRecord) -> String {
         Data(SHA256.hash(data: peer.root + Data("\(peer.id):\(record.outgoing):\(record.id):\(record.source)".utf8))).hexString

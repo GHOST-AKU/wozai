@@ -11,7 +11,7 @@ final class NativeChatTests: XCTestCase {
         app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
         let host = app.textFields["manualHost"]
-        if !host.waitForExistence(timeout: 5) { selectDestination(app, "Nearby") }
+        openManualConnection(app)
         XCTAssertTrue(host.waitForExistence(timeout: 8))
         host.tap(); host.typeText("127.0.0.1")
         let port = app.textFields["manualPort"]; port.tap(); port.typeText("47831")
@@ -33,7 +33,7 @@ final class NativeChatTests: XCTestCase {
             XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 8), .completed, "The native back action must dismiss the conversation keyboard: " + app.debugDescription)
         }
         #endif
-        selectDestination(app, "Nearby")
+        openManualConnection(app)
         XCTAssertTrue(host.waitForExistence(timeout: 8), app.debugDescription)
         #if os(iOS)
         if reopenConversation {
@@ -44,18 +44,22 @@ final class NativeChatTests: XCTestCase {
         try drivePeer("read-hidden-send")
         try drivePeer("read-hidden-check")
         #if os(macOS)
-        app.staticTexts["Java interop peer"].firstMatch.tap()
+        javaConversation(in: app).tap()
         #else
         selectDestination(app, "Chats")
         if reopenConversation {
-            let row = app.staticTexts["Java interop peer"].firstMatch
+            let row = javaConversation(in: app)
             XCTAssertTrue(row.waitForExistence(timeout: 8), app.debugDescription)
             row.tap()
         }
         #endif
         XCTAssertTrue(app.staticTexts["Read receipt hidden probe"].waitForExistence(timeout: 8))
         try drivePeer("read-visible-check")
+        #if os(iOS)
+        let actions = app.navigationBars.buttons["conversationActions"].firstMatch
+        #else
         let actions = app.descendants(matching: .any).matching(identifier: "conversationActions").firstMatch
+        #endif
         XCTAssertTrue(actions.waitForExistence(timeout: 5)); actions.tap()
         #if os(macOS)
         app.menuItems["Safety code"].tap()
@@ -90,21 +94,30 @@ final class NativeChatTests: XCTestCase {
         else { let destination = app.staticTexts[name].firstMatch; XCTAssertTrue(destination.exists, app.debugDescription); destination.tap() }
     }
 
+    private func javaConversation(in app: XCUIElement) -> XCUIElement {
+        app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "conversation-")).firstMatch
+    }
+
+    private func openManualConnection(_ app: XCUIApplication) {
+        if app.textFields["manualHost"].isHittable { return }
+        selectDestination(app, "Nearby")
+        #if os(iOS)
+        let nearby = app.buttons["privateDevices"]
+        let address = app.buttons["manualAddress"]
+        if nearby.isHittable { nearby.tap() }
+        if address.waitForExistence(timeout: 6) { address.tap() }
+        #endif
+        XCTAssertTrue(app.textFields["manualHost"].waitForExistence(timeout: 8), app.debugDescription)
+    }
+
     func testNativeConnectionConsentAndDurableReceiptsWithJavaPeer() throws {
         continueAfterFailure = false
         let app = XCUIApplication()
         app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
         let host = app.textFields["manualHost"]
-        if !host.waitForExistence(timeout: 8) {
-            if app.tabBars.buttons["Nearby"].exists { app.tabBars.buttons["Nearby"].tap() }
-            else if app.buttons["Nearby"].firstMatch.exists { app.buttons["Nearby"].firstMatch.tap() }
-            else {
-                let destination = app.staticTexts["Nearby"].firstMatch
-                XCTAssertTrue(destination.exists, app.debugDescription)
-                destination.tap()
-            }
-        }
+        openManualConnection(app)
         XCTAssertTrue(host.waitForExistence(timeout: 8))
         host.tap(); host.typeText("127.0.0.1")
         let port = app.textFields["manualPort"]
@@ -114,14 +127,18 @@ final class NativeChatTests: XCTestCase {
         port.typeText(configured)
         app.buttons["manualConnect"].tap()
         let consent = app.buttons["consentOnce"]
-        XCTAssertTrue(consent.waitForExistence(timeout: 15))
+        XCTAssertTrue(consent.waitForExistence(timeout: 15), app.debugDescription)
+        #if os(iOS)
+        XCTAssertTrue(consent.isHittable, "The first request must stay actionable below the native navigation bar")
+        #endif
         consent.tap()
         let composer = app.descendants(matching: .any).matching(identifier: "composer").firstMatch
         XCTAssertTrue(composer.waitForExistence(timeout: 15), "Approved connection did not reveal its conversation: " + app.debugDescription)
         XCTAssertTrue(app.staticTexts["Hello from Java"].waitForExistence(timeout: 15), app.debugDescription)
         composer.tap(); composer.typeText("Hello from Apple")
         app.buttons["sendMessage"].tap()
-        XCTAssertTrue(app.staticTexts["Delivered"].waitForExistence(timeout: 15) || app.descendants(matching: .any).matching(NSPredicate(format: "identifier == %@ AND label CONTAINS %@", "deliveryStatus", "Delivered")).firstMatch.waitForExistence(timeout: 5))
+        let savedReceipt = "Saved on other device"
+        XCTAssertTrue(app.staticTexts[savedReceipt].waitForExistence(timeout: 15) || app.descendants(matching: .any).matching(NSPredicate(format: "identifier == %@ AND label CONTAINS %@", "deliveryStatus", savedReceipt)).firstMatch.waitForExistence(timeout: 5))
         try drivePeer("file-offer")
         #if os(macOS)
         // The same native action also appears in Touch Bar; target the window's consent sheet.
@@ -129,42 +146,34 @@ final class NativeChatTests: XCTestCase {
         #else
         let receive = app.buttons["Receive"].firstMatch
         #endif
-        XCTAssertTrue(receive.waitForExistence(timeout: 15), "A file must require explicit receive permission")
+        XCTAssertTrue(receive.waitForExistence(timeout: 15), "A file must require explicit receive permission. " + app.debugDescription)
         receive.tap()
         try drivePeer("file-saved")
         XCTAssertTrue(app.staticTexts["UI-attachment.bin"].waitForExistence(timeout: 15))
         XCTAssertTrue(app.staticTexts["Saved"].firstMatch.waitForExistence(timeout: 15))
         XCTAssertTrue(app.buttons["Open"].firstMatch.exists)
+        #if os(iOS)
+        try drivePeer("after-file")
+        let timeline = app.scrollViews["messageTimeline"]
+        let afterFile = timeline.staticTexts["Message after the saved file"]
+        let savedFile = timeline.staticTexts["UI-attachment.bin"]
+        XCTAssertTrue(afterFile.waitForExistence(timeout: 10))
+        XCTAssertGreaterThan(afterFile.frame.minY, savedFile.frame.minY,
+                             "A new message must appear below the completed file in the same timeline")
+        XCTAssertTrue(waitForVisible(afterFile, in: timeline))
+        try drivePeer("image-offer")
+        XCTAssertTrue(receive.waitForExistence(timeout: 15))
+        receive.tap()
+        try drivePeer("file-saved")
+        let imagePreview = timeline.buttons["imageAttachmentPreview"]
+        XCTAssertTrue(imagePreview.waitForExistence(timeout: 12), "A saved PNG must show a tappable preview even with a generic MIME type")
+        #endif
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "native-chat-with-production-java-peer"
         screenshot.lifetime = .keepAlways
         add(screenshot)
         #if os(macOS)
         try checkColumnResizing(app)
-        #endif
-        #if os(iOS)
-        XCUIDevice.shared.orientation = .landscapeLeft
-        defer { XCUIDevice.shared.orientation = .portrait }
-        XCTAssertTrue(app.staticTexts["Hello from Apple"].waitForExistence(timeout: 8))
-        XCTAssertTrue(app.staticTexts["Hello from Java"].exists)
-        let landscape = XCTAttachment(screenshot: app.screenshot())
-        landscape.name = "native-chat-landscape"
-        landscape.lifetime = .keepAlways
-        add(landscape)
-        if UIDevice.current.userInterfaceIdiom == .pad { try checkColumnResizing(app) }
-        if app.keyboards.firstMatch.exists {
-            app.scrollViews["messageTimeline"].swipeDown()
-            let hidden = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in !app.keyboards.firstMatch.exists }, object: app)
-            XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 8), .completed, "Reading should allow dismissing the keyboard")
-        }
-        // Dismissing the keyboard can also scroll the taller file timeline into reading mode.
-        // Resume following explicitly before testing new-message following and position retention.
-        let latestAfterDismissal = app.buttons["jumpToLatest"]
-        if latestAfterDismissal.exists {
-            latestAfterDismissal.tap()
-            let following = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in !latestAfterDismissal.exists }, object: app)
-            XCTAssertEqual(XCTWaiter.wait(for: [following], timeout: 8), .completed)
-        }
         #endif
         #if os(macOS)
         try verifyExactHistoryBoundaries(app)
@@ -182,7 +191,7 @@ final class NativeChatTests: XCTestCase {
         app.typeKey("n", modifierFlags: [.command, .shift])
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "composer").firstMatch.waitForExistence(timeout: 5))
         let secondWindow = app.windows.firstMatch
-        secondWindow.staticTexts["Java interop peer"].firstMatch.tap()
+        javaConversation(in: secondWindow).tap()
         let secondComposer = secondWindow.descendants(matching: .any).matching(identifier: "composer").firstMatch
         XCTAssertTrue(secondComposer.waitForExistence(timeout: 5))
         XCTAssertEqual(secondComposer.value as? String, "Shared draft")
@@ -197,6 +206,17 @@ final class NativeChatTests: XCTestCase {
         app.typeKey("w", modifierFlags: .command)
         #endif
         try drivePeer("finish")
+        #if os(iOS)
+        // Rotation is a separate layout check. Keep the file-to-swipe assertion in the same viewport.
+        XCUIDevice.shared.orientation = .landscapeLeft
+        defer { XCUIDevice.shared.orientation = .portrait }
+        XCTAssertTrue(app.scrollViews["messageTimeline"].waitForExistence(timeout: 8))
+        let landscape = XCTAttachment(screenshot: app.screenshot())
+        landscape.name = "native-chat-landscape"
+        landscape.lifetime = .keepAlways
+        add(landscape)
+        if UIDevice.current.userInterfaceIdiom == .pad { try checkColumnResizing(app) }
+        #endif
         #if os(macOS)
         // Exercise the real SwiftUI app's delegate as well as the immediate-quit process probe.
         app.typeKey("q", modifierFlags: .command)
@@ -204,23 +224,45 @@ final class NativeChatTests: XCTestCase {
         app.launch()
         let restored = app.descendants(matching: .any).matching(identifier: "composer").firstMatch
         if !restored.waitForExistence(timeout: 5) {
-            app.staticTexts["Java interop peer"].firstMatch.tap()
+            javaConversation(in: app).tap()
         }
         XCTAssertTrue(restored.waitForExistence(timeout: 8))
         XCTAssertEqual(restored.value as? String, "Shared draft updated", "Normal quit lost the conversation draft")
         #endif
     }
 
+    #if os(iOS)
+    func testSettingsBottomActionOpensNativeDetails() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US",
+                               "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        app.launch()
+        selectDestination(app, "Settings")
+        let about = app.buttons["settingsAbout"]
+        let settings = app.collectionViews.firstMatch
+        XCTAssertTrue(settings.waitForExistence(timeout: 8), app.debugDescription)
+        for _ in 0..<8 where !about.isHittable { settings.swipeUp() }
+        XCTAssertTrue(about.isHittable, "The final Settings action must be reachable above the tab bar")
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "native-settings-bottom-accessibility-text"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        about.tap()
+        XCTAssertTrue(app.navigationBars["About"].waitForExistence(timeout: 8), app.debugDescription)
+    }
+    #endif
+
     #if os(macOS)
     private func verifyExactHistoryBoundaries(_ app: XCUIApplication) throws {
         let timeline = app.scrollViews["messageTimeline"]
         try drivePeer("history-200")
-        let boundary200 = app.staticTexts["History boundary 200"]
+        let boundary200 = timeline.staticTexts["History boundary 200"]
         XCTAssertTrue(boundary200.waitForExistence(timeout: 10))
         XCTAssertTrue(waitForVisible(boundary200, in: timeline))
         XCTAssertFalse(app.buttons["Earlier messages"].exists, "Exactly 200 messages must not offer an empty older page")
         try drivePeer("history-400")
-        let boundary400 = app.staticTexts["History boundary 400"]
+        let boundary400 = timeline.staticTexts["History boundary 400"]
         XCTAssertTrue(boundary400.waitForExistence(timeout: 10))
         XCTAssertTrue(waitForVisible(boundary400, in: timeline))
         timeline.hover()
@@ -239,18 +281,33 @@ final class NativeChatTests: XCTestCase {
 
     private func verifyReadingPosition(_ app: XCUIApplication, cycle: Int) throws {
         try drivePeer("populate")
-        let last = app.staticTexts[String(format: "Reading message %02d\nPreserve this reading position when new messages arrive.", (cycle + 1) * 80 - 1)]
-        XCTAssertTrue(last.waitForExistence(timeout: 10), app.debugDescription)
         let timeline = app.scrollViews["messageTimeline"]
+        let last = timeline.staticTexts[String(format: "Reading message %02d\nPreserve this reading position when new messages arrive.", (cycle + 1) * 80 - 1)]
+        XCTAssertTrue(last.waitForExistence(timeout: 10), app.debugDescription)
         XCTAssertTrue(timeline.exists)
         XCTAssertTrue(waitForVisible(last, in: timeline), "The latest message exists but is outside the viewport: " + app.debugDescription)
         XCTAssertFalse(app.buttons["jumpToLatest"].exists, "Following the latest messages must not show a history navigation prompt")
+        #if os(iOS)
+        let hadKeyboard = app.keyboards.firstMatch.isHittable
+        #endif
         #if os(macOS)
         timeline.hover()
         timeline.scroll(byDeltaX: 0, deltaY: 900)
         #else
-        timeline.swipeDown()
-        timeline.swipeDown()
+        if cycle == 0 {
+            let start = timeline.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.36))
+            let end = timeline.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.72))
+            start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0)
+        } else {
+            timeline.swipeDown()
+            timeline.swipeDown()
+        }
+        #endif
+        #if os(iOS)
+        if hadKeyboard {
+            let hidden = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in !app.keyboards.firstMatch.isHittable }, object: app)
+            XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 8), .completed, "Scrolling the timeline must dismiss its keyboard")
+        }
         #endif
         let latest = app.buttons["jumpToLatest"]
         XCTAssertTrue(latest.waitForExistence(timeout: 5), "Reading older messages needs an explicit way back: " + app.debugDescription)
@@ -259,8 +316,17 @@ final class NativeChatTests: XCTestCase {
         try drivePeer("append")
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "identifier == %@ AND label CONTAINS %@", "jumpToLatest", "New messages")).firstMatch.waitForExistence(timeout: 8))
         XCTAssertEqual(anchor.element.frame.minY, originalY, accuracy: 3, "An incoming message moved the reading position")
+        let incoming = timeline.staticTexts["A new message while reading history \(cycle + 1)"]
+        #if os(iOS)
+        if cycle == 0 {
+            let start = timeline.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.82))
+            let end = timeline.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.18))
+            start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0)
+            XCTAssertTrue(waitForVisible(incoming, in: timeline), "Swipe must reach newer text after completing a file. " + app.debugDescription)
+        } else { latest.tap() }
+        #else
         latest.tap()
-        let incoming = app.staticTexts["A new message while reading history \(cycle + 1)"]
+        #endif
         XCTAssertTrue(incoming.waitForExistence(timeout: 8))
         XCTAssertTrue(waitForVisible(incoming, in: timeline), "Jump to latest did not reveal the new message: " + app.debugDescription)
         XCTAssertFalse(app.buttons["jumpToLatest"].exists, "Jump to latest did not resume following")
