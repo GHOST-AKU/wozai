@@ -212,24 +212,6 @@ final class NativeChatTests: XCTestCase {
         landscape.lifetime = .keepAlways
         add(landscape)
         if UIDevice.current.userInterfaceIdiom == .pad { try checkColumnResizing(app) }
-        XCUIDevice.shared.orientation = .portrait
-        if UIDevice.current.userInterfaceIdiom == .phone {
-            let back = app.navigationBars.buttons["BackButton"].firstMatch
-            XCTAssertTrue(back.waitForExistence(timeout: 8))
-            back.tap()
-        }
-        selectDestination(app, "Settings")
-        let about = app.descendants(matching: .any).matching(identifier: "settingsAbout").firstMatch
-        // Scroll to the last action, then verify that native navigation can activate it.
-        let settings = app.collectionViews.firstMatch
-        for _ in 0..<5 where !about.isHittable { settings.swipeUp() }
-        XCTAssertTrue(about.isHittable, "The final Settings action must be reachable above the tab bar")
-        let settingsScreenshot = XCTAttachment(screenshot: app.screenshot())
-        settingsScreenshot.name = "native-settings-bottom"
-        settingsScreenshot.lifetime = .keepAlways
-        add(settingsScreenshot)
-        about.tap()
-        XCTAssertTrue(app.staticTexts["Source code"].waitForExistence(timeout: 8))
         #endif
         #if os(macOS)
         // Exercise the real SwiftUI app's delegate as well as the immediate-quit process probe.
@@ -244,6 +226,28 @@ final class NativeChatTests: XCTestCase {
         XCTAssertEqual(restored.value as? String, "Shared draft updated", "Normal quit lost the conversation draft")
         #endif
     }
+
+    #if os(iOS)
+    func testSettingsBottomActionOpensNativeDetails() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US",
+                               "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        app.launch()
+        selectDestination(app, "Settings")
+        let about = app.buttons["settingsAbout"]
+        let settings = app.collectionViews.firstMatch
+        XCTAssertTrue(settings.waitForExistence(timeout: 8), app.debugDescription)
+        for _ in 0..<8 where !about.isHittable { settings.swipeUp() }
+        XCTAssertTrue(about.isHittable, "The final Settings action must be reachable above the tab bar")
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "native-settings-bottom-accessibility-text"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        about.tap()
+        XCTAssertTrue(app.navigationBars["About"].waitForExistence(timeout: 8), app.debugDescription)
+    }
+    #endif
 
     #if os(macOS)
     private func verifyExactHistoryBoundaries(_ app: XCUIApplication) throws {

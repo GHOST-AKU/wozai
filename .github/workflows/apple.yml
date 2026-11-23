@@ -18,6 +18,11 @@ on:
         type: choice
         options: [both, iphone, ipad]
         default: both
+      screen:
+        description: Exercise the standalone Settings regression instead of the Java chat fixture
+        type: choice
+        options: [chat, settings]
+        default: chat
 permissions:
   contents: read
 concurrency:
@@ -27,6 +32,8 @@ jobs:
   native:
     runs-on: macos-latest
     timeout-minutes: 60
+    env:
+      WOZAI_APPLE_STANDALONE_UI: ${{ inputs.screen == 'settings' }}
     steps:
       - uses: actions/checkout@v4
       - name: Check shared preview version
@@ -81,7 +88,7 @@ jobs:
           path: build/apple-mobile-candidate/
           if-no-files-found: error
       - name: Compile the independent Java peer for a focused UI run
-        if: ${{ inputs.validation == 'macos-ui' || inputs.validation == 'mobile-ui' || inputs.validation == 'mobile-candidate-ui' }}
+        if: ${{ inputs.screen != 'settings' && (inputs.validation == 'macos-ui' || inputs.validation == 'mobile-ui' || inputs.validation == 'mobile-candidate-ui') }}
         run: bash tools/test-apple-interop.sh --compile-java
       - name: Exercise native macOS consent, chat and receipts
         if: ${{ inputs.validation != 'core-builds' && inputs.validation != 'core-ios' && inputs.validation != 'mobile-ui' && !startsWith(inputs.validation, 'mobile-candidate') }}
@@ -139,7 +146,7 @@ jobs:
           name: apple-ipad-ui-log
           path: build/apple-ui/ipad-*.log
       - name: Verify native iPad read visibility and safety-sheet exclusion
-        if: ${{ !cancelled() && steps.ipad_prepare.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.ipad_prepare.outcome == 'success' && inputs.screen != 'settings' }}
         timeout-minutes: 8
         env:
           WOZAI_APPLE_READ_UI: 'true'
