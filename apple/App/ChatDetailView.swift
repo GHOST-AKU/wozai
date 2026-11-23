@@ -55,11 +55,14 @@ struct ChatDetailView: View {
     @State private var pageRevision = 0
     @State private var pendingScroll = false
     @State private var userScrolling = false
+    @State private var scrollInteraction = 0
     @State private var latestVisible = true
     @State private var observedViewport = CGSize.zero
     @FocusState private var composerFocused: Bool
     private var connected: Bool { model.connectionState == .connected && model.activePeer?.id == contact.id }
     private var queued: Bool { model.hasDeferredSend(to: contact.id) }
+    private var canReconnect: Bool { model.hasAutomaticRoute(contact) }
+    private var sendLabel: LocalizedStringKey { connected ? "Send" : "Send when connected" }
     private var limit: Int { connected ? model.textLimit : TextLimits.legacy }
     private var tooLong: Bool { draft.utf8.count > (connected ? model.textLimit : TextLimits.legacy) }
     private var latestLabel: LocalizedStringKey { hasNewMessages ? "New messages" : "Latest messages" }
@@ -192,10 +195,12 @@ struct ChatDetailView: View {
                 .frame(maxWidth: .infinity)
             }
             .accessibilityIdentifier("messageTimeline")
-            .scrollDismissesKeyboard(.interactively)
+            .contentShape(Rectangle())
+            .scrollDismissesKeyboard(.immediately)
             .scrollBounceBehavior(.always, axes: .vertical)
             .modifier(UserScrollObserver(began: {
                 readVisibility = ReadVisibility()
+                if !userScrolling { scrollInteraction &+= 1 }
                 userScrolling = true; pendingScroll = false; forceLatest = false; followingLatest = false
             }, ended: {
                 readVisibility = ReadVisibility()
@@ -275,25 +280,25 @@ struct ChatDetailView: View {
     private var composer: some View {
         VStack(alignment: .leading, spacing: 6) {
             if queued {
-                HStack {
-                    Text("Will send when connected").foregroundStyle(.secondary)
+                HStack(alignment: .firstTextBaseline) {
+                    Label("Waiting to send · Still on this device", systemImage: "clock")
+                        .foregroundStyle(.secondary)
                     Spacer(minLength: 8)
                     Button("Cancel") { model.cancelDeferred(keepNotice: true) }
                 }.font(.footnote)
             } else if !connected {
-                HStack {
+                HStack(alignment: .firstTextBaseline) {
                     Group {
-                        if model.connectingPeerID == contact.id { Text("Connecting…") }
+                        if model.connectingPeerID == contact.id { Label("Connecting…", systemImage: "arrow.triangle.2.circlepath") }
                         else if let state = model.privateStatus { Text(verbatim: state) }
-                        else if model.hasAutomaticRoute(contact) { Text("Waiting for this device") }
-                        else { Text("Not connected") }
+                        else { Label("Not connected · Draft stays here", systemImage: "wifi.slash") }
                     }.foregroundStyle(.secondary)
                     Spacer(minLength: 8)
                     #if os(iOS)
                     if model.connectingPeerID == contact.id {
                         Button("Cancel") { model.disconnect() }
                     } else if contact.remembered {
-                        if model.hasAutomaticRoute(contact) {
+                        if canReconnect {
                             Button("Reconnect") { model.retryAutomaticConnection(contact) }
                         } else {
                             Button("Enable auto-connect") { model.retryAutomaticConnection(contact) }
@@ -330,13 +335,15 @@ struct ChatDetailView: View {
                 .buttonStyle(.borderless).disabled(!draftLoaded)
                 .accessibilityIdentifier("emojiPicker")
                 Button { Task { await send() } } label: {
-                    Label("Send", systemImage: "arrow.up.circle.fill").labelStyle(.iconOnly).font(.system(size: 30))
+                    Label(sendLabel, systemImage: connected ? "arrow.up.circle.fill" : "clock.arrow.circlepath")
+                        .labelStyle(.iconOnly).font(.system(size: 30))
                         .frame(width: 44, height: 44).contentShape(Rectangle())
                 }
                 .buttonStyle(.borderless)
                 .keyboardShortcut(.return, modifiers: .command)
-                .help("Send message")
-                .disabled((!connected && !model.hasAutomaticRoute(contact)) || !draftLoaded || queued || sending || !TextLimits.canSend(draft, limit: limit))
+                .help(sendLabel)
+                .accessibilityHint(connected ? Text("Send to this device.") : Text("Tries for up to one minute. Otherwise the text stays in your draft."))
+                .disabled((!connected && !canReconnect) || !draftLoaded || queued || sending || !TextLimits.canSend(draft, limit: limit))
                 .accessibilityIdentifier("sendMessage")
             }
         }
@@ -350,12 +357,12 @@ struct ChatDetailView: View {
         guard !sending else { return }
         let snapshot = draft
         if !connected { model.queueText(snapshot, to: contact); return }
+        let interaction = scrollInteraction
         sending = true
         let saved = await model.send(snapshot, peerID: contact.id)
         if saved {
             if draft == snapshot { draft = "" }
-            showLatest()
-            composerFocused = true
+            if interaction == scrollInteraction && !userScrolling { showLatest() }
         }
         sending = false
     }
@@ -410,7 +417,7 @@ private struct MessageBubble: View {
         switch message.status {
         case .pending: return "Sending"
         case .sent: return "Sent"
-        case .delivered: return "Delivered"
+        case .delivered: return "Saved on other device"
         case .read: return "Read"
         case .unconfirmed: return "Unconfirmed"
         }

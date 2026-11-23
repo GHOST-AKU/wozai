@@ -6,21 +6,25 @@ enum AppAccent: String, CaseIterable, Identifiable {
     var id: Self { self }
     var title: LocalizedStringKey {
         switch self {
-        case .system: return "System"
+        case .system: return "System accent"
         case .purple: return "Purple"
         case .blue: return "Blue"
         case .teal: return "Teal"
         case .orange: return "Orange"
         }
     }
-    var color: Color {
+    // Preset tint roles match Android Next. System accent follows the native platform.
+    func color(_ scheme: ColorScheme) -> Color {
+        let rgb: UInt32
         switch self {
         case .system: return .accentColor
-        case .purple: return .purple
-        case .blue: return .blue
-        case .teal: return .teal
-        case .orange: return .orange
+        case .purple: rgb = scheme == .dark ? 0xD8BFFF : 0x624398
+        case .blue: rgb = scheme == .dark ? 0xAAC9FF : 0x185BAA
+        case .teal: rgb = scheme == .dark ? 0x85D6C8 : 0x006B61
+        case .orange: rgb = scheme == .dark ? 0xFFB783 : 0x984500
         }
+        return Color(red: Double((rgb >> 16) & 255) / 255, green: Double((rgb >> 8) & 255) / 255,
+                     blue: Double(rgb & 255) / 255)
     }
 }
 
@@ -35,6 +39,7 @@ extension EnvironmentValues {
 @MainActor
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.colorScheme) private var colorScheme
     @AppStorage("appearance") private var appearance = "system"
     @AppStorage("accent") private var accent = AppAccent.purple
     @State private var name = ""
@@ -55,36 +60,66 @@ struct SettingsView: View {
                 Picker("Accent color", selection: $accent) {
                     ForEach(AppAccent.allCases) { swatch in
                         Label { Text(swatch.title) } icon: {
-                            Image(systemName: "circle.fill").foregroundStyle(swatch.color)
+                            Image(systemName: "circle.fill").foregroundStyle(swatch.color(colorScheme))
                         }.tag(swatch)
                     }
                 }
             }
+            ReceiveFolderSettings()
+            Section {
+                Toggle("Read receipts", isOn: Binding(get: { model.readReceiptsEnabled }, set: { value in Task { await model.setReadReceiptsEnabled(value) } })).disabled(model.readSettingSaving)
+                NavigationLink("Privacy and security") {
+                    Form {
+                        Section("Read receipts") {
+                            Text("Read receipts are exchanged only when both people enable them. Turning this off stops new read receipts; previously confirmed receipts remain.")
+                        }
+                        Section("Privacy") {
+                            Text("No account, cloud chat server, or telemetry.")
+                            Text("Messages stay on this device. Transport encryption does not encrypt the local chat database.")
+                        }
+                    }
+                    .navigationTitle("Privacy and security")
+                }
+            } header: {
+                Text("Privacy")
+            } footer: {
+                Text("Read receipts require both devices to opt in.")
+            }
             if let identity = model.identity {
-                Section("Device identity") {
-                    Text(verbatim: identity.fingerprint).font(.caption.monospaced()).textSelection(.enabled)
-                    Text("The signing identity stays in this device’s Keychain. Remembering a peer does not automatically verify its owner.").font(.caption).foregroundStyle(.secondary)
+                Section {
+                    NavigationLink {
+                        Form {
+                            Section("Device identity") {
+                                let fingerprint = identity.fingerprint
+                                Text(verbatim: fingerprint).font(.callout.monospaced()).textSelection(.enabled)
+                                ShareLink(item: fingerprint) { Label("Share device fingerprint", systemImage: "square.and.arrow.up") }
+                                Text("The signing identity stays in this device’s Keychain. Remembering a peer does not automatically verify its owner.")
+                                    .font(.footnote).foregroundStyle(.secondary)
+                            }
+                        }
+                        .navigationTitle("Device identity")
+                    } label: {
+                        LabeledContent("Device identity") { Text(String(identity.fingerprint.prefix(12))).font(.caption.monospaced()) }
+                    }
                 }
             }
-            ReceiveFolderSettings()
-            Section("Privacy") {
-                Toggle("Read receipts", isOn: Binding(get: { model.readReceiptsEnabled }, set: { value in Task { await model.setReadReceiptsEnabled(value) } })).disabled(model.readSettingSaving)
-                Text("Read receipts are exchanged only when both people enable them. Turning this off stops new read receipts; previously confirmed receipts remain.").font(.caption).foregroundStyle(.secondary)
-                Text("No account, cloud chat server, or telemetry.")
-                Text("Messages stay on this device. Transport encryption does not encrypt the local chat database.").foregroundStyle(.secondary)
-            }
             Section("About") {
-                ShareLink(item: model.networkDiagnostics) { Label("Share connection diagnostics", systemImage: "square.and.arrow.up") }
-                LabeledContent("NearbyIM", value: Bundle.main.object(forInfoDictionaryKey: "WOZAI_VERSION") as? String
-                               ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—")
-                Text("Apple development build").foregroundStyle(.secondary)
-                Link("Source code", destination: URL(string: "https://github.com/GHOST-AKU/wozai")!)
-                Link("License", destination: URL(string: "https://github.com/GHOST-AKU/wozai/blob/main/LICENSE")!)
+                NavigationLink {
+                    Form {
+                        LabeledContent("NearbyIM", value: Bundle.main.object(forInfoDictionaryKey: "WOZAI_VERSION") as? String
+                                       ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—")
+                        Link("Source code", destination: URL(string: "https://github.com/GHOST-AKU/wozai")!)
+                        Link("License", destination: URL(string: "https://github.com/GHOST-AKU/wozai/blob/main/LICENSE")!)
+                        ShareLink(item: model.networkDiagnostics) { Label("Share connection diagnostics", systemImage: "square.and.arrow.up") }
+                    }.navigationTitle("About")
+                } label: { Label("About", systemImage: "info.circle") }
+                .accessibilityIdentifier("settingsAbout")
             }
         }
         .formStyle(.grouped)
         #if os(iOS)
         .modifier(PrivateRequestInset())
+        .navigationBarTitleDisplayMode(.inline)
         #endif
         .navigationTitle("Settings")
         .onAppear { name = model.nickname }

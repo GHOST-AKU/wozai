@@ -26,21 +26,9 @@ struct PublicMeshView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    if !model.neighbors.isEmpty {
-                        Label("Nearby devices connected", systemImage: "dot.radiowaves.left.and.right")
-                    } else if model.starting {
-                        Text("Starting reception…")
-                    } else {
-                        Text(verbatim: model.status)
-                    }
-                    Text(model.relay ? "Public relay enabled" : "Public messages")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-                .font(.subheadline)
-                Spacer(minLength: 8)
-                receptionButton
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) { networkStatus; Spacer(minLength: 8); receptionButton }
+                VStack(alignment: .leading, spacing: 8) { networkStatus; receptionButton }
             }
             .frame(maxWidth: 760)
             .padding(.horizontal, 16).padding(.vertical, 8)
@@ -69,7 +57,7 @@ struct PublicMeshView: View {
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) { composer }
-        .navigationTitle("Public chat")
+        .navigationTitle("Nearby")
         #if os(iOS)
         .modifier(PrivateRequestInset())
         .navigationBarTitleDisplayMode(.inline)
@@ -82,14 +70,14 @@ struct PublicMeshView: View {
                 }
             }
             ToolbarItem(placement: .secondaryAction) {
-                Button("Public chat options", systemImage: "ellipsis.circle") { options = true }
+                Button("Nearby options", systemImage: "ellipsis.circle") { options = true }
             }
         }
         .confirmationDialog("Start public reception?", isPresented: $consent, titleVisibility: .visible) {
             Button("Start reception") { model.enableReception() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Nearby devices can read these messages. Reception resumes when you reopen the app. The latest 200 messages stay only until the app quits.")
+            Text("Nearby devices and relays can read these messages. Public messages are not end-to-end encrypted. Reception resumes when you reopen the app. The latest 200 messages stay only until the app quits.")
         }
         .sheet(isPresented: $options) {
             NavigationStack {
@@ -101,6 +89,9 @@ struct PublicMeshView: View {
                     Section("Temporary history") {
                         Text("The latest 200 public messages are kept in this app session. Stopping reception preserves them until the app quits.")
                     }
+                    Section("Public messages") {
+                        Text("Nearby devices and relays can read your messages. A device passing on a message does not confirm who received it.")
+                    }
                     Section {
                         LabeledContent("Transport", value: "Bluetooth")
                         LabeledContent("Direct Mesh neighbors", value: String(model.neighbors.count))
@@ -111,7 +102,7 @@ struct PublicMeshView: View {
                         }
                     }
                 }
-                .navigationTitle("Public chat options")
+                .navigationTitle("Nearby options")
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { options = false } } }
             }
             #if os(macOS)
@@ -127,9 +118,24 @@ struct PublicMeshView: View {
         }
     }
 
+    private var networkStatus: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if model.starting {
+                ProgressView("Starting reception…")
+            } else if model.neighbors.isEmpty || model.sendFailed {
+                Text(verbatim: model.status)
+            } else {
+                Label("Direct connections: \(model.neighbors.count)", systemImage: "dot.radiowaves.left.and.right")
+            }
+            Text("Public messages · No end-to-end encryption")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+        .font(.subheadline)
+    }
+
     @ViewBuilder private var receptionButton: some View {
         if model.receptionEnabled {
-            Button("Stop reception") { model.stop() }
+            Button("Stop public reception") { model.stop() }
         } else {
             Button("Start reception") { consent = true }
                 .buttonStyle(.bordered).disabled(!model.coreAvailable)
@@ -150,6 +156,7 @@ struct PublicMeshView: View {
                     .frame(minHeight: 44)
                     .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 22))
                     .overlay { RoundedRectangle(cornerRadius: 22).strokeBorder(.quaternary) }
+                    .accessibilityHint(model.running ? Text("Composes a public message") : Text("Start public reception before sending."))
                 Button { model.send() } label: {
                     Label("Send", systemImage: "arrow.up.circle.fill").labelStyle(.iconOnly).font(.system(size: 30))
                         .frame(width: 44, height: 44).contentShape(Rectangle())
@@ -168,9 +175,14 @@ struct PublicMeshView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(verbatim: message.body).textSelection(.enabled)
                 if message.own {
-                    Text(message.state == "handed" ? "Handed to a neighbor; delivery unconfirmed"
-                         : message.state == "queued" ? "Waiting for a neighbor" : "Expired or stopped; delivery unconfirmed")
-                        .font(.caption).foregroundStyle(.secondary)
+                    Group {
+                        switch message.state {
+                        case "handed": Text("Passed to a nearby device · Delivery unconfirmed")
+                        case "queued": Text("Waiting for a nearby device")
+                        case "stopped": Text("Reception stopped · Delivery unconfirmed")
+                        default: Text("Expired · Delivery unconfirmed")
+                        }
+                    }.font(.caption).foregroundStyle(.secondary)
                 }
             }
             .padding(.horizontal, 12).padding(.vertical, 8)

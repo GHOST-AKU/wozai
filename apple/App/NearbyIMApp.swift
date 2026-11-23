@@ -19,12 +19,11 @@ struct NearbyIMApp: App {
         mainWindow
         #if os(macOS)
         Settings {
-            SettingsView()
+            NavigationStack { SettingsView() }
                 .environment(model)
                 .environment(mesh)
                 .preferredColorScheme(colorScheme)
-                .tint(accent.color)
-                .environment(\.wozaiAccent, accent.color)
+                .modifier(AccentTint(accent: accent))
                 .frame(minWidth: 420, idealWidth: 480)
         }
         #endif
@@ -39,8 +38,7 @@ struct NearbyIMApp: App {
                 .environment(model)
                 .environment(mesh)
                 .preferredColorScheme(colorScheme)
-                .tint(accent.color)
-                .environment(\.wozaiAccent, accent.color)
+                .modifier(AccentTint(accent: accent))
         }
         #if os(macOS)
         .defaultSize(width: 940, height: 680)
@@ -49,6 +47,15 @@ struct NearbyIMApp: App {
             NearbyCommands()
         }
         #endif
+    }
+}
+
+private struct AccentTint: ViewModifier {
+    @Environment(\.colorScheme) private var scheme
+    let accent: AppAccent
+
+    func body(content: Content) -> some View {
+        content.tint(accent.color(scheme)).environment(\.wozaiAccent, accent.color(scheme))
     }
 }
 

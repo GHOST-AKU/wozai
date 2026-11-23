@@ -86,12 +86,16 @@ struct AttachmentBubble: View {
     @State private var details = false
     private var complete: Bool { ["received", "saved"].contains(record.state) }
     private var file: URL { record.outgoing ? record.path : record.destination }
+    private var isImage: Bool {
+        record.info.mime.hasPrefix("image/") || UTType(filenameExtension: file.pathExtension)?.conforms(to: .image) == true
+    }
+    private var size: String { ByteCountFormatter.string(fromByteCount: Int64(record.info.size), countStyle: .file) }
     private var status: String {
         switch record.state {
         case "queued": return String(localized: "Queued")
         case "offered": return String(localized: "Waiting for acceptance")
         case "paused": return String(localized: "Paused")
-        case "saved", "received": return String(localized: "Saved")
+        case "saved", "received": return record.outgoing ? String(localized: "Saved on other device") : String(localized: "Saved")
         case "canceled": return String(localized: "Canceled")
         case "failed": return String(localized: "Failed")
         case "awaiting_saved": return String(localized: "Waiting for saved receipt")
@@ -108,16 +112,28 @@ struct AttachmentBubble: View {
 
     private var card: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if let image { Image(decorative: image, scale: 1).resizable().scaledToFit().frame(maxWidth: 320, maxHeight: 240) }
-            Label { Text(verbatim: record.info.name).lineLimit(2) } icon: { Image(systemName: record.info.mime.hasPrefix("image/") ? "photo" : "doc") }
-            Text(status).font(.caption).foregroundStyle(.secondary)
+            if let image {
+                Button { model.accessFile(file); preview = file } label: {
+                    Image(decorative: image, scale: 1).resizable().scaledToFit().frame(maxWidth: 320, maxHeight: 240)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                }.buttonStyle(.plain)
+                    .accessibilityLabel(Text(verbatim: record.info.name))
+                    .accessibilityHint("Open original image")
+                    .accessibilityIdentifier("imageAttachmentPreview")
+            } else {
+                Label { Text(verbatim: record.info.name).lineLimit(2) } icon: { Image(systemName: isImage ? "photo" : "doc") }
+            }
+            ViewThatFits(in: .horizontal) {
+                HStack { Text(status); Text(size) }
+                VStack(alignment: .leading) { Text(status); Text(size) }
+            }.font(.caption).foregroundStyle(.secondary)
             if !complete && !["canceled", "failed"].contains(record.state) {
                 ProgressView(value: Double(record.offset), total: Double(max(1, record.info.size)))
                 Text("\(ByteCountFormatter.string(fromByteCount: Int64(record.offset), countStyle: .file)) / \(ByteCountFormatter.string(fromByteCount: Int64(record.info.size), countStyle: .file))").font(.caption.monospacedDigit())
             }
             HStack {
                 if complete {
-                    Button("Open") { model.accessFile(file); preview = file }
+                    if image == nil { Button("Open") { model.accessFile(file); preview = file } }
                     #if os(macOS)
                     Button("Show in Finder") { model.accessFile(file); NSWorkspace.shared.activateFileViewerSelecting([file]) }
                     #endif
@@ -143,18 +159,19 @@ struct AttachmentBubble: View {
                 Form {
                     LabeledContent("File") { Text(verbatim: record.info.name) }
                     LabeledContent("Status", value: status)
-                    LabeledContent("Size", value: ByteCountFormatter.string(fromByteCount: Int64(record.info.size), countStyle: .file))
+                    LabeledContent("Size", value: size)
                     LocalPathLabel(path: model.path(for: record))
                 }
                 .navigationTitle("Transfer details")
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { details = false } } }
             }
         }
-        .task(id: record.state) {
-            guard complete, record.info.mime.hasPrefix("image/") else { return }
+        .task(id: complete ? file : nil) {
+            image = nil
+            guard complete, isImage else { return }
             let sourceURL = file
             model.accessFile(sourceURL)
-            image = await Task.detached(priority: .utility) { () -> CGImage? in
+            let thumbnail = await Task.detached(priority: .utility) { () -> CGImage? in
                 guard let source = CGImageSourceCreateWithURL(sourceURL as CFURL, [kCGImageSourceShouldCache: false] as CFDictionary),
                       let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
                       let width = properties[kCGImagePropertyPixelWidth] as? Int,
@@ -163,6 +180,7 @@ struct AttachmentBubble: View {
                 return CGImageSourceCreateThumbnailAtIndex(source, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true,
                     kCGImageSourceCreateThumbnailWithTransform: true, kCGImageSourceThumbnailMaxPixelSize: 1024] as CFDictionary)
             }.value
+            if !Task.isCancelled { image = thumbnail }
         }
     }
 }

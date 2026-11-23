@@ -1,5 +1,8 @@
 import SwiftUI
 import WozaiCore
+#if os(iOS)
+import UIKit
+#endif
 
 @MainActor
 struct NearbyView: View {
@@ -72,7 +75,7 @@ struct NearbyView: View {
                 .navigationTitle("Network details")
         }
         #else
-        .navigationTitle("Nearby")
+        .navigationTitle("Private devices")
         #endif
     }
 
@@ -108,24 +111,33 @@ struct NearbyView: View {
         Section {
             Toggle("Discover and receive over Bluetooth", isOn: Binding(get: { model.bluetoothEnabled }, set: { model.setBluetooth($0) }))
         } footer: {
-            Text("Keep both apps open. Windows connects from its Bluetooth LE device list. New identities still require confirmation.")
+            Text("Keep both apps open. Choose an Apple device below. To use Windows, select this device in WoZai’s Bluetooth LE list on Windows.")
         }
     }
 
     @ViewBuilder private var bluetoothResults: some View {
         if model.bluetoothEnabled {
             Section {
-                if model.bluetoothStatus == "permission" { Text("Allow Bluetooth access in Settings.") }
+                if model.bluetoothStatus == "permission" {
+                    Label("Allow Bluetooth access in Settings.", systemImage: "exclamationmark.circle")
+                    #if os(iOS)
+                    Link("Open Settings", destination: URL(string: UIApplication.openSettingsURLString)!)
+                    #endif
+                }
                 else if model.bluetoothStatus == "unavailable" { Text("Bluetooth is unavailable or turned off.") }
                 else if model.bluetoothStatus.hasSuffix("failed") { Text("Bluetooth connection failed. Keep both apps open and try again.") }
-                else if model.bluetoothNearby.isEmpty { Text("Find this iPhone from Windows, or choose a nearby Apple device.").foregroundStyle(.secondary) }
+                else if model.bluetoothNearby.isEmpty {
+                    Label("Looking for Apple devices…", systemImage: "antenna.radiowaves.left.and.right")
+                    Text("If nothing appears, open WoZai on the other Apple device and turn on Bluetooth reception there.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
                 ForEach(model.bluetoothNearby) { peer in
                     Button { model.connect(peer) } label: {
                         Label(peer.name, systemImage: "antenna.radiowaves.left.and.right")
                     }.disabled(model.busy)
                 }
             } header: { Text("Nearby devices") } footer: {
-                if !model.bluetoothNearby.isEmpty { Text("Choose a device to start a private chat. Your device remembers it after connecting.") }
+                Text("A new device asks for permission before chatting. Use the safety code in the conversation to verify its identity.")
             }
         }
     }

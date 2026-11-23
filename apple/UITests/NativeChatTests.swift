@@ -133,7 +133,8 @@ final class NativeChatTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Hello from Java"].waitForExistence(timeout: 15), app.debugDescription)
         composer.tap(); composer.typeText("Hello from Apple")
         app.buttons["sendMessage"].tap()
-        XCTAssertTrue(app.staticTexts["Delivered"].waitForExistence(timeout: 15) || app.descendants(matching: .any).matching(NSPredicate(format: "identifier == %@ AND label CONTAINS %@", "deliveryStatus", "Delivered")).firstMatch.waitForExistence(timeout: 5))
+        let savedReceipt = "Saved on other device"
+        XCTAssertTrue(app.staticTexts[savedReceipt].waitForExistence(timeout: 15) || app.descendants(matching: .any).matching(NSPredicate(format: "identifier == %@ AND label CONTAINS %@", "deliveryStatus", savedReceipt)).firstMatch.waitForExistence(timeout: 5))
         try drivePeer("file-offer")
         #if os(macOS)
         // The same native action also appears in Touch Bar; target the window's consent sheet.
@@ -163,21 +164,6 @@ final class NativeChatTests: XCTestCase {
         add(screenshot)
         #if os(macOS)
         try checkColumnResizing(app)
-        #endif
-        #if os(iOS)
-        if app.keyboards.firstMatch.exists {
-            app.scrollViews["messageTimeline"].swipeDown()
-            let hidden = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in !app.keyboards.firstMatch.exists }, object: app)
-            XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 8), .completed, "Reading should allow dismissing the keyboard")
-        }
-        // Dismissing the keyboard can also scroll the taller file timeline into reading mode.
-        // Resume following explicitly before testing new-message following and position retention.
-        let latestAfterDismissal = app.buttons["jumpToLatest"]
-        if latestAfterDismissal.exists {
-            latestAfterDismissal.tap()
-            let following = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in !latestAfterDismissal.exists }, object: app)
-            XCTAssertEqual(XCTWaiter.wait(for: [following], timeout: 8), .completed)
-        }
         #endif
         #if os(macOS)
         try verifyExactHistoryBoundaries(app)
@@ -220,6 +206,24 @@ final class NativeChatTests: XCTestCase {
         landscape.lifetime = .keepAlways
         add(landscape)
         if UIDevice.current.userInterfaceIdiom == .pad { try checkColumnResizing(app) }
+        XCUIDevice.shared.orientation = .portrait
+        if UIDevice.current.userInterfaceIdiom == .phone {
+            let back = app.navigationBars.buttons["BackButton"].firstMatch
+            XCTAssertTrue(back.waitForExistence(timeout: 8))
+            back.tap()
+        }
+        selectDestination(app, "Settings")
+        let about = app.descendants(matching: .any).matching(identifier: "settingsAbout").firstMatch
+        // Scroll to the last action, then verify that native navigation can activate it.
+        let settings = app.collectionViews.firstMatch
+        for _ in 0..<5 where !about.isHittable { settings.swipeUp() }
+        XCTAssertTrue(about.isHittable, "The final Settings action must be reachable above the tab bar")
+        let settingsScreenshot = XCTAttachment(screenshot: app.screenshot())
+        settingsScreenshot.name = "native-settings-bottom"
+        settingsScreenshot.lifetime = .keepAlways
+        add(settingsScreenshot)
+        about.tap()
+        XCTAssertTrue(app.staticTexts["Source code"].waitForExistence(timeout: 8))
         #endif
         #if os(macOS)
         // Exercise the real SwiftUI app's delegate as well as the immediate-quit process probe.
@@ -269,6 +273,9 @@ final class NativeChatTests: XCTestCase {
         XCTAssertTrue(timeline.exists)
         XCTAssertTrue(waitForVisible(last, in: timeline), "The latest message exists but is outside the viewport: " + app.debugDescription)
         XCTAssertFalse(app.buttons["jumpToLatest"].exists, "Following the latest messages must not show a history navigation prompt")
+        #if os(iOS)
+        let hadKeyboard = app.keyboards.firstMatch.isHittable
+        #endif
         #if os(macOS)
         timeline.hover()
         timeline.scroll(byDeltaX: 0, deltaY: 900)
@@ -280,6 +287,12 @@ final class NativeChatTests: XCTestCase {
         } else {
             timeline.swipeDown()
             timeline.swipeDown()
+        }
+        #endif
+        #if os(iOS)
+        if hadKeyboard {
+            let hidden = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in !app.keyboards.firstMatch.isHittable }, object: app)
+            XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 8), .completed, "Scrolling the timeline must dismiss its keyboard")
         }
         #endif
         let latest = app.buttons["jumpToLatest"]

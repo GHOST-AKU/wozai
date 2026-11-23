@@ -25,7 +25,7 @@ final class PublicMeshModel {
     @ObservationIgnored private var reader:Task<Void,Never>?
     @ObservationIgnored private var cleanup:Task<Void,Never>?
     @ObservationIgnored private var generation=UUID()
-    @ObservationIgnored private var pending:[String:String]=[:]
+    private var pending:[String:String]=[:]
     @ObservationIgnored private var pendingOrder:[String]=[]
     @ObservationIgnored private var events:[String]=[]
     var receptionEnabled = UserDefaults.standard.bool(forKey: "public-mesh-reception-v1")
@@ -34,11 +34,11 @@ final class PublicMeshModel {
     var status:String {
         if !EmbeddedMeshCore.available { return String(localized:"Mesh Core is not bundled in this build.") }
         if failed { return String(localized:"Mesh stopped after an error. Diagnostics are available.") }
-        if !running { return String(localized:"Mesh is stopped.") }
+        if !running { return String(localized:"Public reception is off") }
         if sendFailed { return String(localized:"Message was not accepted. Your draft is unchanged.") }
         if radioCode == "ble_permission_denied" { return String(localized:"Allow Bluetooth access in Settings.") }
         if radioCode == "ble_unavailable" { return String(localized:"Bluetooth is unavailable or turned off.") }
-        return String(localized:"Finding nearby Mesh nodes…")
+        return String(localized:"Looking for nearby devices…")
     }
     func enableReception() {
         guard coreAvailable else { return }
@@ -137,7 +137,7 @@ final class PublicMeshModel {
             "cpu_cores":ProcessInfo.processInfo.processorCount,"physical_memory_bytes":ProcessInfo.processInfo.physicalMemory,
             "core_bundled":EmbeddedMeshCore.available,"running":running,"starting":starting,"relay":relay,
             "authenticated_neighbors":neighbors.count,"messages":messages.count,"pending_controls":pending.count,
-            "radio_status":radioCode,"events":events,"hardware_validation":"pending",
+            "radio_status":radioCode,"events":events,
             "notes":"Public plaintext. No bodies, keys, labels, addresses or stable device identifiers. Local stream tests do not prove RF or background availability."]
         return (try? JSONSerialization.data(withJSONObject:value,options:[.prettyPrinted,.sortedKeys])).flatMap { String(data:$0,encoding:.utf8) } ?? "{}"
     }

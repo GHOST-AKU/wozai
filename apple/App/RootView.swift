@@ -157,7 +157,10 @@ private struct ChatsView: View {
                 List(selection: Binding<String?>(get: { selection.isEmpty ? nil : selection }, set: { selection = $0 ?? "" })) {
                     ForEach(model.conversations.filter { search.isEmpty || $0.nickname.localizedCaseInsensitiveContains(search) ||
                         ($0.preview?.localizedCaseInsensitiveContains(search) ?? false) }) { contact in
-                        NavigationLink(value: contact.id) { ConversationLabel(contact: contact) }
+                        NavigationLink(value: contact.id) {
+                            ConversationLabel(contact: contact,
+                                              connected: model.connectionState == .connected && model.activePeer?.id == contact.id)
+                        }
                             .accessibilityIdentifier("conversation-" + contact.id)
                     }
                 }
@@ -182,6 +185,7 @@ private struct ChatsView: View {
             } detail: {
                 if let contact = model.conversations.first(where: { $0.id == selection }) {
                     ChatDetailView(contact: contact).id(contact.id)
+                        .toolbar(sizeClass == .compact ? .hidden : .automatic, for: .tabBar)
                 } else {
                     ContentUnavailableView("Choose a conversation", systemImage: "bubble.left.and.bubble.right")
                         .modifier(PrivateRequestInset(enabled: sizeClass != .compact))
@@ -226,8 +230,8 @@ private struct MacNavigation: View {
         GeometryReader { geometry in
             NavigationSplitView {
                 List(selection: Binding<String?>(get: { selection.isEmpty ? nil : selection }, set: { selection = $0 ?? "" })) {
-                    Label("Nearby", systemImage: "antenna.radiowaves.left.and.right").tag("nearby").accessibilityIdentifier("nearbyDestination")
-                    Label("Public Mesh", systemImage: "point.3.connected.trianglepath.dotted").tag("mesh")
+                    Label("Private devices", systemImage: "person.2").tag("nearby").accessibilityIdentifier("nearbyDestination")
+                    Label("Nearby", systemImage: "antenna.radiowaves.left.and.right").tag("mesh")
                     Section("Chats") {
                         ForEach(model.conversations) { contact in
                             ConversationLabel(contact: contact).tag("chat:" + contact.id)
@@ -262,25 +266,59 @@ private struct MacNavigation: View {
 @MainActor
 struct ConversationLabel: View {
     @Environment(\.wozaiAccent) private var accent
+    @Environment(\.dynamicTypeSize) private var typeSize
     let contact: Conversation
+    var connected = false
     var body: some View {
-        HStack(spacing: 12) {
+        ViewThatFits(in: .horizontal) {
+            if !typeSize.isAccessibilitySize {
+                HStack(alignment: .top, spacing: 12) {
+                    avatar
+                    summary.frame(maxWidth: .infinity, alignment: .leading)
+                    date
+                }
+            }
+            HStack(alignment: .top, spacing: 12) {
+                avatar
+                VStack(alignment: .leading, spacing: 4) {
+                    summary
+                    date
+                }
+            }
+        }
+        .padding(.vertical, 5)
+        .accessibilityElement(children: .combine)
+    }
+    private var avatar: some View {
             Image(systemName: "person.crop.circle.fill").font(.system(size: 36))
                 .symbolRenderingMode(.hierarchical).foregroundStyle(accent).accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(verbatim: contact.nickname).font(.headline).lineLimit(1)
-                Group {
-                    if let preview = contact.preview, !preview.isEmpty { Text(verbatim: preview) }
-                    else { Text("No messages yet") }
-                }.font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+    }
+    private var summary: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(verbatim: contact.nickname).font(.headline).lineLimit(typeSize.isAccessibilitySize ? 2 : 1)
+                .layoutPriority(1)
+            Group {
+                if let preview = contact.preview, !preview.isEmpty { Text(verbatim: preview) }
+                else { Text("No messages yet") }
+            }.font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+            if connected {
+                Label("Connected", systemImage: "circle.fill").font(.caption).foregroundStyle(.secondary)
             }
-            Spacer(minLength: 8)
-            if contact.lastActivity > 0 {
-                Text(Date(timeIntervalSince1970: Double(contact.lastActivity) / 1000), style: .date)
-                    .font(.caption).foregroundStyle(.secondary).lineLimit(1)
-            }
-        }.padding(.vertical, 4)
-        .accessibilityElement(children: .combine)
+        }
+    }
+    @ViewBuilder private var date: some View {
+        if contact.lastActivity > 0 {
+            let value = Date(timeIntervalSince1970: Double(contact.lastActivity) / 1000)
+            let calendar = Calendar.current
+            let format: Date.FormatStyle = calendar.isDateInToday(value) ? .dateTime.hour().minute()
+                : calendar.isDate(value, equalTo: .now, toGranularity: .year) ? .dateTime.month(.abbreviated).day()
+                : .dateTime.year(.defaultDigits).month(.twoDigits).day(.twoDigits)
+            Text(value, format: format)
+                .font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: true, vertical: false)
+                .accessibilityLabel(Text(value, format: .dateTime.year().month(.wide).day().hour().minute()))
+                .accessibilityIdentifier("conversationDate")
+        }
     }
 }
 
