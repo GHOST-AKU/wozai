@@ -167,7 +167,9 @@ public final class AppleInteropPeer {
         receipts.setDaemon(true);
         receipts.start();
         try {
-            control.setSoTimeout(90_000);
+            // XCTest can spend over a minute retrying a system toolbar query.
+            // Keep the independent control socket alive during those UI transitions.
+            control.setSoTimeout(180_000);
             // A skewed peer clock must not hide subsequent normal-time messages from the latest page.
             long timestamp = System.currentTimeMillis() + java.util.concurrent.TimeUnit.DAYS.toMillis(3650);
             int fixtureIndex = 0, appended = 0, historyCount = 2;
