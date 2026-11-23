@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="mesh_title">公開チャット</string>
+    <string name="mesh_title">近く</string>
     <string name="mesh_preview">Bluetooth 公開チャット · Wi-Fi Aware は独立した実験機能</string>
     <string name="mesh_private_devices">個別チャットの端末</string>
-    <string name="mesh_back_public">公開 Mesh に戻る</string>
+    <string name="mesh_back_public">近くに戻る</string>
     <string name="mesh_ble">Bluetooth</string>
     <string name="mesh_aware">Wi-Fi Aware</string>
     <string name="mesh_start">受信を開始</string>

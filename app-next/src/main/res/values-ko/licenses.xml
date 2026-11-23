@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="next_licenses">오픈 소스 라이선스</string>
+    <string name="next_mesh_licenses">Mesh 종속성 및 라이선스</string>
+    <string name="next_license_unavailable">라이선스를 읽을 수 없습니다</string>
+</resources>

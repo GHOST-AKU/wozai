@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="mesh_title">Public chat</string>
+    <string name="mesh_title">Nearby</string>
     <string name="mesh_preview">Bluetooth public chat · Wi-Fi Aware is a separate experiment</string>
     <string name="mesh_private_devices">Private devices</string>
-    <string name="mesh_back_public">Back to public Mesh</string>
+    <string name="mesh_back_public">Back to Nearby</string>
     <string name="mesh_ble">Bluetooth</string>
     <string name="mesh_aware">Wi-Fi Aware</string>
     <string name="mesh_start">Start receiving</string>

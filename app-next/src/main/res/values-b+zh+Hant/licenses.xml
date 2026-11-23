@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="next_licenses">開源授權條款</string>
+    <string name="next_mesh_licenses">Mesh 相依套件與授權</string>
+    <string name="next_license_unavailable">無法讀取此授權條款</string>
+</resources>

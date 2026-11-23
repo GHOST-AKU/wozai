@@ -70,11 +70,15 @@ fun SettingsScreen(state: NextState, host: MainActivity) {
         item {
             SectionLabel(t("appSection"))
             SettingRow("我在next", LanguageRegistry.VERSION, R.drawable.ic_app) { dialog = "about" }
+            SettingRow(stringResource(R.string.next_licenses), "AGPL-3.0-only", R.drawable.outline_description_24) {
+                dialog = "licenses"
+            }
             Text(t("privacy"), Modifier.padding(24.dp), style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
     when (dialog) {
+        "licenses" -> OpenSourceLicenses { dialog = null }
         "nickname" -> AlertDialog(onDismissRequest = { dialog = null }, title = { Text(t("yourNickname")) },
             text = { OutlinedTextField(nickname, { nickname = it }, singleLine = true, label = { Text(t("nickname")) }) },
             confirmButton = { TextButton(onClick = { host.setNickname(nickname); dialog = null }, enabled = state.ready) { Text(t("save")) } },

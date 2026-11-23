@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="mesh_title">公共聊天</string>
+    <string name="mesh_title">附近</string>
     <string name="mesh_preview">蓝牙公共聊天 · Wi-Fi Aware 为独立实验方式</string>
     <string name="mesh_private_devices">私聊设备</string>
-    <string name="mesh_back_public">返回公共 Mesh</string>
+    <string name="mesh_back_public">返回附近</string>
     <string name="mesh_ble">蓝牙</string>
     <string name="mesh_aware">Wi-Fi Aware</string>
     <string name="mesh_start">开启接收</string>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="next_licenses">オープンソースライセンス</string>
+    <string name="next_mesh_licenses">Mesh の依存関係とライセンス</string>
+    <string name="next_license_unavailable">ライセンスを読み込めませんでした</string>
+</resources>

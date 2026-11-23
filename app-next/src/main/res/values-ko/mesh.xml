@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="mesh_title">공개 채팅</string>
+    <string name="mesh_title">주변</string>
     <string name="mesh_preview">블루투스 공개 채팅 · Wi-Fi Aware는 별도 실험 기능</string>
     <string name="mesh_private_devices">개인 채팅 기기</string>
-    <string name="mesh_back_public">공개 Mesh로 돌아가기</string>
+    <string name="mesh_back_public">주변으로 돌아가기</string>
     <string name="mesh_ble">블루투스</string>
     <string name="mesh_aware">Wi-Fi Aware</string>
     <string name="mesh_start">수신 시작</string>
