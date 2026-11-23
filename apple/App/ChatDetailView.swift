@@ -57,7 +57,6 @@ struct ChatDetailView: View {
     @State private var userScrolling = false
     @State private var scrollInteraction = 0
     @State private var latestVisible = true
-    @State private var observedViewport = CGSize.zero
     @FocusState private var composerFocused: Bool
     private var connected: Bool { model.connectionState == .connected && model.activePeer?.id == contact.id }
     private var queued: Bool { model.hasDeferredSend(to: contact.id) }
@@ -177,11 +176,11 @@ struct ChatDetailView: View {
                             return TailObservation(visible: height > 0 && frame.minY >= 0 && frame.maxY <= height + 24, revision: revision, viewport: viewport)
                         } action: { observation in
                             guard observation.revision == pageRevision else { return }
-                            let resized = observedViewport != observation.viewport
-                            observedViewport = observation.viewport
                             latestVisible = observation.visible
                             guard loaded, observation.viewport.height > 0 else { return }
-                            if resized && followingLatest && before == nil && !userScrolling { pendingScroll = true }
+                            // File prompts, thumbnails and keyboard layout can displace the tail.
+                            // Detach only when the reader actually scrolls away.
+                            if followingLatest && before == nil && !userScrolling && !observation.visible { pendingScroll = true }
                             if pendingScroll && !userScrolling {
                                 if before != nil {
                                     pendingScroll = false
@@ -401,7 +400,7 @@ private struct UserScrollObserver: ViewModifier {
     func body(content: Content) -> some View {
         if #available(iOS 18, macOS 15, *) {
             content.onScrollPhaseChange { _, phase in
-                if phase == .tracking || phase == .interacting { began() }
+                if phase == .interacting { began() }
                 else if phase == .idle { ended() }
             }
         } else {
