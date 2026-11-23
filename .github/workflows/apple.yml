@@ -23,6 +23,11 @@ on:
         type: choice
         options: [chat, settings]
         default: chat
+      runner:
+        description: Hosted toolchain image
+        type: choice
+        options: [macos-latest, macos-26-intel]
+        default: macos-latest
 permissions:
   contents: read
 concurrency:
@@ -30,7 +35,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   native:
-    runs-on: macos-latest
+    runs-on: ${{ inputs.runner || 'macos-latest' }}
     timeout-minutes: 60
     env:
       WOZAI_APPLE_STANDALONE_UI: ${{ inputs.screen == 'settings' }}
