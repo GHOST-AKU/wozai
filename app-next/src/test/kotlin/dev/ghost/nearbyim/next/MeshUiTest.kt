@@ -36,7 +36,7 @@ class MeshUiTest {
         compose.onNodeWithText("附近").performClick()
         compose.onNode(hasSetTextAction()).assertTextContains("未发出的公共消息")
         compose.onNodeWithText("私聊设备").performClick()
-        compose.onNodeWithText("返回公共 Mesh").performClick()
+        compose.onNodeWithText("返回附近").performClick()
         compose.onNode(hasSetTextAction()).assertTextContains("未发出的公共消息")
     }
 
@@ -51,7 +51,7 @@ class MeshUiTest {
     }
     @Test fun nearbyKeepsTransportAndRelayControlsInsideOptions(){
         compose.onNodeWithText("附近").performClick()
-        compose.onNodeWithText("公共聊天").assertIsDisplayed()
+        compose.onNodeWithTag("nearby-title").assertIsDisplayed().assertTextEquals("附近")
         compose.onNodeWithText("允许为其他节点中继").assertDoesNotExist()
         compose.onNodeWithContentDescription("聊天选项").performClick()
         compose.onNodeWithText("允许为其他节点中继").assertExists()
@@ -122,7 +122,7 @@ class MeshUiTest {
         compose.onNodeWithText("私聊设备").performClick()
         compose.onNodeWithText("自动接收私聊").assertIsDisplayed()
         compose.onNodeWithText("搜索设备").assertIsDisplayed()
-        compose.onNodeWithText("返回公共 Mesh").performClick()
+        compose.onNodeWithText("返回附近").performClick()
         compose.onNodeWithText("开启接收").assertIsDisplayed()
     }
 }

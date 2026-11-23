@@ -47,6 +47,21 @@ class NextFeatureUiTest {
         }
     }).around(compose)
 
+    @Test fun projectLicenseCanBeReadFromSettingsWithoutOpeningABrowser() {
+        val host = compose.activity
+        host.setContent { NextTheme { SettingsScreen(NextState(ready = true), host) } }
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("开源许可证"))
+        compose.onNodeWithText("开源许可证").assertIsDisplayed().performClick()
+        compose.onNodeWithText("WoZai · AGPL-3.0-only").assertIsDisplayed().performClick()
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithText("GNU AFFERO GENERAL PUBLIC LICENSE", substring = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("GNU AFFERO GENERAL PUBLIC LICENSE", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("返回").performClick()
+        compose.onNodeWithText("ZXing · Apache-2.0").assertIsDisplayed()
+    }
+
     @Test fun emojiEntryIsAvailableWhileOffline() {
         compose.activity.setContent { NextTheme { ChatScreen(NextState(ready = true, selectedId = "fixture", selectedName = "Fixture"), compose.activity, showBack = true, onBack = {}) } }
         compose.onNodeWithContentDescription("表情").assertIsDisplayed().performClick()
@@ -168,7 +183,7 @@ class NextFeatureUiTest {
         compose.onNode(hasSetTextAction()).performTextInput("Fix")
         compose.onNodeWithTag("new-chat-fab").assertIsDisplayed().performClick()
         compose.onNodeWithText(host.getString(R.string.mesh_private_devices)).assertIsDisplayed()
-        compose.onNodeWithText(host.getString(R.string.mesh_title)).assertDoesNotExist()
+        compose.onNodeWithTag("nearby-title").assertDoesNotExist()
         compose.onNodeWithContentDescription(host.text("backToChats")).performClick()
         compose.onNodeWithTag("conversation-peer").assertIsDisplayed()
         compose.onNode(hasSetTextAction()).assertTextContains("Fix")

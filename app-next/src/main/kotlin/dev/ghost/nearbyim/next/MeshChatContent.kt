@@ -1,5 +1,7 @@
 package dev.ghost.nearbyim.next
 
+import androidx.compose.ui.platform.testTag
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -25,7 +27,8 @@ internal fun MeshChatContent(
     val busy = state.running || state.starting
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.mesh_title), Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.mesh_title), Modifier.weight(1f).testTag("nearby-title"),
+                style = MaterialTheme.typography.titleLarge)
             TextButton(onClick = onPrivate) { Text(stringResource(R.string.mesh_private_devices)) }
             IconButton(onClick = onOptions) { AppIcon(R.drawable.outline_more_vert_24, stringResource(R.string.mesh_options)) }
         }
