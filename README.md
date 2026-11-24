@@ -1,5 +1,7 @@
 # 我在 · NearbyIM
 
+[![XERJ Corpus Hub](https://img.shields.io/badge/XERJ%20Corpus%20Hub-Featured-5865F2)](https://hub.xerj.org/contributors/GHOST-AKU)
+
 > 开发入口：[当前进度](docs/status.md) · [文档导航](docs/README.md) · [源码结构](docs/repository-map.md)。下文发行说明以其版本为准；main 的 0.4.0 Mesh 开发与未合并 PR 分别见进度页。
 
 **简体中文** | [English](docs/readme/README.en.md) | [日本語](docs/readme/README.ja.md) | [한국어](docs/readme/README.ko.md)
