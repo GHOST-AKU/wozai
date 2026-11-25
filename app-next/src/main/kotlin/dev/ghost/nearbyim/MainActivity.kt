@@ -6,6 +6,7 @@ import android.bluetooth.BluetoothAdapter
 import android.content.*
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.graphics.Bitmap
 import android.net.Uri
 import android.os.*
 import android.provider.Settings
@@ -62,6 +63,7 @@ class MainActivity : ComponentActivity() {
     private var selection: AttachmentSelectionSession? = null
     private var selectionUris: ArrayList<Uri>? = null
     private var selectionConfirmed = false
+    private val attachmentThumbnails = lazy { SelectionThumbnails(contentResolver, 512) }
     private var retryRecordId: String? = null
     private var routePermissionPending = false
     private var pickAfterRoute: Boolean? = null
@@ -146,13 +148,21 @@ class MainActivity : ComponentActivity() {
     private val discoverableResult = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         if (it.resultCode <= 0) showNotice(text("bluetoothEnableCanceled"))
     }
-    private val documents = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
-        if (uris.isEmpty()) { clearAttachmentSelection(); return@registerForActivityResult }
-        if (uris.size > AttachmentBatchQueue.MAX_PENDING) {
+    private val attachmentPicker = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val selectedCount = result.data?.clipData?.itemCount ?: 0
+        if (result.resultCode == RESULT_OK && selectedCount > AttachmentBatchQueue.MAX_PENDING) {
             clearAttachmentSelection()
             showNotice(text("attachmentBatchLimit", AttachmentBatchQueue.MAX_PENDING))
             return@registerForActivityResult
         }
+        val uris = try {
+            if (result.resultCode == RESULT_OK) AttachmentSelection.from(result.data) else emptyList()
+        } catch (_: IllegalArgumentException) {
+            clearAttachmentSelection()
+            showNotice(text("attachmentFailed"))
+            return@registerForActivityResult
+        }
+        if (uris.isEmpty()) { clearAttachmentSelection(); return@registerForActivityResult }
         uris.forEach { uri ->
             try { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
             catch (_: SecurityException) { /* Some providers offer a temporary grant only. */ }
@@ -295,7 +305,13 @@ class MainActivity : ComponentActivity() {
         bound = false; controller = null
         super.onStop()
     }
-    override fun onDestroy() { identityWorker.shutdownNow(); draftGeneration++; main.removeCallbacksAndMessages(null); super.onDestroy() }
+    override fun onDestroy() {
+        if (attachmentThumbnails.isInitialized()) attachmentThumbnails.value.close()
+        identityWorker.shutdownNow()
+        draftGeneration++
+        main.removeCallbacksAndMessages(null)
+        super.onDestroy()
+    }
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString("peer", state.selectedId)
         outState.putString("peerName", state.selectedName)
@@ -693,7 +709,7 @@ class MainActivity : ComponentActivity() {
             return
         }
         try {
-            documents.launch(arrayOf(if (photos) "image/*" else "*/*"))
+            attachmentPicker.launch(if (photos) AttachmentSelection.photosIntent(this) else AttachmentSelection.filesIntent())
         } catch (_: ActivityNotFoundException) {
             clearAttachmentSelection()
             showNotice(text("attachmentFailed"))
@@ -729,7 +745,8 @@ class MainActivity : ComponentActivity() {
             else if (uris.size == 1) c.retryAttachmentWithSelection(captured.peer, captured.token, captured.identity, retry, uris.single())
             else showNotice(text("attachmentRetrySelectAgain"))
         } else {
-            attachmentPreview.launch(Intent(this, AttachmentSelectionActivity::class.java)
+            attachmentPreview.launch(AttachmentSelection.result(uris)
+                .setClass(this, AttachmentSelectionActivity::class.java)
                 .putParcelableArrayListExtra(AttachmentSelection.URIS, uris))
         }
     }
@@ -758,8 +775,31 @@ class MainActivity : ComponentActivity() {
         }
         else c.attachmentAction(peer, record.info.id, record.outgoing, action)
     }
+    private fun attachmentUri(peer: String, name: String): Uri = Uri.Builder()
+        .scheme("content").authority("$packageName.attachments").appendPath(peer).appendPath(name).build()
+
+    internal fun bindAttachmentThumbnail(peer: String, record: AttachmentRecord, receive: (Bitmap?) -> Unit): AutoCloseable {
+        val c = controller ?: return AutoCloseable {}
+        if (c.selectedId != peer) return AutoCloseable {}
+        var canceled = false
+        var subscription: AutoCloseable? = null
+        val pathLookup = c.attachmentPath(peer, record)
+        pathLookup.whenComplete { path, error -> runOnUiThread {
+            if (canceled || isDestroyed || controller !== c || c.selectedId != peer) return@runOnUiThread
+            if (error != null || path == null) receive(null)
+            else subscription = attachmentThumbnails.value.bind(attachmentUri(peer, path.fileName.toString())) {
+                if (!canceled && !isDestroyed && controller === c && c.selectedId == peer) receive(it)
+            }
+        } }
+        return AutoCloseable {
+            canceled = true
+            pathLookup.cancel(false)
+            subscription?.close()
+        }
+    }
+
     fun openAttachment(record: AttachmentRecord) {
-        if (!record.info.mime.startsWith("image/") && !record.info.canOpenExternally()) {
+        if (!record.info.isPreviewablePhoto() && !record.info.canOpenExternally()) {
             saveAttachment(record); return
         }
         val c = controller ?: return
@@ -768,11 +808,10 @@ class MainActivity : ComponentActivity() {
         c.attachmentPath(peer, record).whenComplete { path, error -> runOnUiThread {
             if (isDestroyed || controller !== c || c.selectedId != peer || state.selectedId != peer) return@runOnUiThread
             if (error != null) { showNotice(text("attachmentUnavailable")); return@runOnUiThread }
-            val uri = Uri.Builder().scheme("content").authority("$packageName.attachments")
-                .appendPath(peer).appendPath(path.fileName.toString()).appendQueryParameter("name", record.info.name)
+            val uri = attachmentUri(peer, path.fileName.toString()).buildUpon().appendQueryParameter("name", record.info.name)
                 .appendQueryParameter("mime", record.info.mime).build()
             try {
-                val intent = if (record.info.mime.startsWith("image/")) Intent(this, PhotoActivity::class.java)
+                val intent = if (record.info.isPreviewablePhoto()) Intent(this, PhotoActivity::class.java)
                     .setData(uri).putExtra("peer", peer).putExtra("record", record.encode())
                 else Intent(Intent.ACTION_VIEW).setDataAndType(uri, record.info.mime).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 intent.clipData = ClipData.newRawUri(AttachmentInfo.displayName(record.info.name), uri)

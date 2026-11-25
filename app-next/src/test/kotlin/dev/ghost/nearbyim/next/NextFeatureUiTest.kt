@@ -1,6 +1,8 @@
 package dev.ghost.nearbyim.next
 
 import android.content.ComponentName
+import android.graphics.Bitmap
+import android.net.Uri
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Offset
@@ -13,6 +15,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.graphics.Insets
 import dev.ghost.nearbyim.MainActivity
+import dev.ghost.nearbyim.PhotoDecoder
 import dev.ghost.nearbyim.ChatService
 import dev.ghost.nearbyim.ChatStore
 import dev.ghost.nearbyim.R
@@ -109,6 +112,43 @@ class NextFeatureUiTest {
         compose.runOnIdle { measurement.value = TransferProgress(125, 6) }
         compose.onAllNodesWithText("125", substring = true).assertCountEquals(1)
         compose.onNodeWithText(compose.activity.getString(R.string.next_measurement_pending)).assertDoesNotExist()
+    }
+
+    @Test fun deliveredImageKeepsExportInTheOverflowMenu() {
+        val host = compose.activity
+        val info = AttachmentInfo.v2("01234567-1234-1234-1234-0123456789ab", "photo.jpg", "image/jpeg", 6697, null, 0)
+        val record = AttachmentRecord(info, true, "delivered", 6697)
+        val constructor = ChatStore.Message::class.java.getDeclaredConstructor(String::class.java, String::class.java,
+            String::class.java, Boolean::class.javaPrimitiveType, Long::class.javaPrimitiveType, AttachmentRecord::class.java)
+        constructor.isAccessible = true
+        val message = constructor.newInstance("photo", "", "delivered", true, 0L, record)
+        host.setContent { NextTheme {
+            ChatScreen(NextState(ready = true, selectedId = "fixture", selectedName = "Fixture", messages = listOf(message)),
+                host, showBack = true, onBack = {})
+        } }
+        compose.onNodeWithText(host.text("attachmentOpen")).assertIsDisplayed()
+        compose.onNodeWithText(host.text("attachmentSaveAs")).assertDoesNotExist()
+        compose.onNodeWithContentDescription(host.text("more")).performClick()
+        compose.onNodeWithText(host.text("attachmentSaveAs")).assertIsDisplayed()
+    }
+
+    @Test fun decodedImageThumbnailOpensOnTap() {
+        val host = compose.activity
+        val source = Bitmap.createBitmap(64, 32, Bitmap.Config.ARGB_8888)
+        source.eraseColor(android.graphics.Color.BLUE)
+        val png = java.io.File.createTempFile("attachment", ".png", host.cacheDir)
+        try {
+            png.outputStream().use { source.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            val bitmap = PhotoDecoder.decode(host.contentResolver, Uri.fromFile(png), 512)
+            assertEquals(android.graphics.Color.BLUE, bitmap.getPixel(0, 0))
+            var opened = false
+            host.setContent { NextTheme { AttachmentPhotoPreview(bitmap, "photo.png") { opened = true } } }
+            compose.onNodeWithContentDescription(host.text("attachmentPhotoPreview", "photo.png")).assertIsDisplayed().performClick()
+            compose.runOnIdle { assertTrue(opened) }
+        } finally {
+            png.delete()
+            source.recycle()
+        }
     }
 
     @Test fun fullCatalogSupportsLocalizedSearchAndRecentVariantPersistence() {

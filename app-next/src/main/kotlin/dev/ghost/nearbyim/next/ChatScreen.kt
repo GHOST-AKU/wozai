@@ -1,7 +1,10 @@
 package dev.ghost.nearbyim.next
 
+import android.graphics.Bitmap
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
@@ -15,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
@@ -26,7 +30,9 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -158,7 +164,7 @@ fun ChatScreen(
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     items(messages, key = { it.timelineKey }) { message ->
                         val key = message.timelineKey
-                        MessageBubble(message, host, state.canAttach, state.transferMeasurements[key] ?: TransferProgress.UNKNOWN) { bounds ->
+                        MessageBubble(message, host, peer, state.ready, state.canAttach, state.transferMeasurements[key] ?: TransferProgress.UNKNOWN) { bounds ->
                             if (!message.outgoing) {
                                 if (bounds == null) bodyBounds.remove(key) else bodyBounds[key] = bounds
                             }
@@ -278,7 +284,7 @@ fun ChatScreen(
 }
 
 @Composable
-private fun MessageBubble(message: ChatStore.Message, host: MainActivity, canAttach: Boolean, measurement: TransferProgress, bodyPosition: (Rect?) -> Unit) {
+private fun MessageBubble(message: ChatStore.Message, host: MainActivity, peer: String, ready: Boolean, canAttach: Boolean, measurement: TransferProgress, bodyPosition: (Rect?) -> Unit) {
     val context = LocalContext.current
     DisposableEffect(message.id) { onDispose { bodyPosition(null) } }
     BoxWithConstraints(Modifier.fillMaxWidth()) {
@@ -294,7 +300,9 @@ private fun MessageBubble(message: ChatStore.Message, host: MainActivity, canAtt
                     modifier = Modifier.onGloballyPositioned {
                         bodyPosition(Rect(it.positionInWindow(), Size(it.size.width.toFloat(), it.size.height.toFloat())))
                     }) }
-                else Column(Modifier.width(bubbleCap)) { AttachmentContent(record, host, canAttach, measurement) }
+                else Column(Modifier.width(bubbleCap), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    AttachmentContent(record, host, peer, ready, canAttach, measurement)
+                }
             }
         }
         Row(Modifier.padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically,
@@ -336,26 +344,46 @@ private fun ReceiptMark(state: String) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AttachmentContent(record: AttachmentRecord, host: MainActivity, canAttach: Boolean, measurement: TransferProgress) {
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-        AppIcon(if (record.info.mime.startsWith("image/")) R.drawable.outline_photo_24 else R.drawable.outline_description_24)
-        Column(Modifier.weight(1f)) {
-            Text(AttachmentInfo.displayName(record.info.name), style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Text(android.text.format.Formatter.formatShortFileSize(LocalContext.current, record.info.size), style = MaterialTheme.typography.bodySmall)
+private fun AttachmentContent(record: AttachmentRecord, host: MainActivity, peer: String, ready: Boolean, canAttach: Boolean, measurement: TransferProgress) {
+    val finished = record.state == "received" || record.state == "delivered"
+    val photo = record.info.isPreviewablePhoto()
+    var thumbnail by remember(peer, record.info.id, record.outgoing, finished, ready) { mutableStateOf<Bitmap?>(null) }
+    if (photo && finished && ready) {
+        DisposableEffect(host, peer, record.info.id, record.outgoing) {
+            val subscription = host.bindAttachmentThumbnail(peer, record) { thumbnail = it }
+            onDispose { subscription.close() }
+        }
+    }
+    val image = thumbnail
+    if (image != null) {
+        AttachmentPhotoPreview(image, record.info.name) { host.openAttachment(record) }
+    } else {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            AppIcon(if (photo) R.drawable.outline_photo_24 else R.drawable.outline_description_24)
+            Column(Modifier.weight(1f)) {
+                Text(AttachmentInfo.displayName(record.info.name), style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(android.text.format.Formatter.formatShortFileSize(LocalContext.current, record.info.size), style = MaterialTheme.typography.bodySmall)
+            }
         }
     }
     Text(t(record.stateKey()), style = MaterialTheme.typography.labelMedium)
-    TransferMeasurements(record, measurement)
+    if (!finished) TransferMeasurements(record, measurement)
     val route = host.attachmentRoute(record)
     if (route.isNotEmpty()) Text(route, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+    if (finished) {
+        if (photo || record.info.canOpenExternally()) {
+            CompletedAttachmentActions(record, host, hasThumbnail = image != null)
+        } else {
+            TextButton(onClick = { host.saveAttachment(record) }) { Text(t("attachmentSaveAs")) }
+        }
+        return
+    }
 
     FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         if (!record.outgoing && record.state == "offered") {
             TextButton(onClick = { host.attachmentAction(record, "accept") }, enabled = canAttach) { Text(t("attachmentAccept")) }
             TextButton(onClick = { host.attachmentAction(record, "reject") }, enabled = canAttach) { Text(t("attachmentReject")) }
-        } else if (record.state in listOf("received", "delivered")) {
-            TextButton(onClick = { host.openAttachment(record) }) { Text(t("attachmentOpen")) }
-            TextButton(onClick = { host.saveAttachment(record) }) { Text(t("attachmentSaveAs")) }
         } else if (record.resumable()) {
             TextButton(onClick = { host.attachmentAction(record, "resume") }, enabled = canAttach) { Text(t("attachmentResume")) }
         } else if (record.info.version == 2 && record.state == "failed" && record.outgoing) {
@@ -364,5 +392,35 @@ private fun AttachmentContent(record: AttachmentRecord, host: MainActivity, canA
             TextButton(onClick = { host.attachmentAction(record, "pause") }, enabled = canAttach) { Text(t("attachmentPause")) }
         }
         if (record.active() || record.resumable()) TextButton(onClick = { host.attachmentAction(record, "cancel") }, enabled = canAttach) { Text(t("cancel")) }
+    }
+}
+
+@Composable
+internal fun AttachmentPhotoPreview(bitmap: Bitmap, name: String, onOpen: () -> Unit) {
+    val image = remember(bitmap) { bitmap.asImageBitmap() }
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val height = (maxWidth * (bitmap.height.toFloat() / bitmap.width)).coerceIn(96.dp, 240.dp)
+        Image(bitmap = image, contentDescription = t("attachmentPhotoPreview", AttachmentInfo.displayName(name)),
+            contentScale = ContentScale.Fit, modifier = Modifier.fillMaxWidth().height(height)
+                .clip(RoundedCornerShape(12.dp)).clickable(onClickLabel = t("attachmentOpen"), onClick = onOpen))
+    }
+}
+
+@Composable
+private fun CompletedAttachmentActions(record: AttachmentRecord, host: MainActivity, hasThumbnail: Boolean) {
+    var expanded by remember(record.info.id) { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+        if (!hasThumbnail) TextButton(onClick = { host.openAttachment(record) }) { Text(t("attachmentOpen")) }
+        Box {
+            IconButton(onClick = { expanded = true }) {
+                AppIcon(R.drawable.outline_more_vert_24, t("more"))
+            }
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                DropdownMenuItem(text = { Text(t("attachmentSaveAs")) }, onClick = {
+                    expanded = false
+                    host.saveAttachment(record)
+                })
+            }
+        }
     }
 }

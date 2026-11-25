@@ -66,6 +66,12 @@ public final class AttachmentInfo {
     }
     /** Prevent remote direction controls from disguising a filename's extension. */
     public static String displayName(String value){return value.replaceAll("[\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]","");}
+    /** Hints select the internal decoder, which verifies that the bytes are an image. */
+    public boolean isPreviewablePhoto() {
+        return mime.startsWith("image/") || (mime.equals("application/octet-stream")
+                && name.toLowerCase(Locale.ROOT).matches(".*\\.(jpe?g|png|webp|gif|bmp|heif|heic|avif)$"));
+    }
+
     /** External apps may interpret executable or unknown extensions as launch requests. */
     public boolean canOpenExternally(){
         String filename=safeName(name).toLowerCase(Locale.ROOT);int dot=filename.lastIndexOf('.');
