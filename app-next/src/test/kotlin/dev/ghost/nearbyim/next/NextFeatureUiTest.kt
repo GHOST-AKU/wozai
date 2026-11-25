@@ -116,7 +116,7 @@ class NextFeatureUiTest {
 
     @Test fun deliveredImageKeepsExportInTheOverflowMenu() {
         val host = compose.activity
-        val info = AttachmentInfo.v2("01234567-1234-1234-1234-0123456789ab", "photo.jpg", "image/jpeg", 6697, null, 0)
+        val info = AttachmentInfo.v2("01234567-1234-1234-1234-0123456789ab", "photo.jpg", "image/jpeg", 6697, "0".repeat(64), 0)
         val record = AttachmentRecord(info, true, "delivered", 6697)
         val constructor = ChatStore.Message::class.java.getDeclaredConstructor(String::class.java, String::class.java,
             String::class.java, Boolean::class.javaPrimitiveType, Long::class.javaPrimitiveType, AttachmentRecord::class.java)
