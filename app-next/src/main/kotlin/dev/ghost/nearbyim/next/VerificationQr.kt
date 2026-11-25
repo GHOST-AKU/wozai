@@ -2,10 +2,13 @@ package dev.ghost.nearbyim.next
 
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import dev.ghost.nearbyim.core.IdentityVerification
 import dev.ghost.nearbyim.verification.QrCodes
@@ -23,5 +26,8 @@ fun VerificationQr(snapshot: IdentityVerification) {
     val bitmap by produceState<Bitmap?>(null, snapshot.code.qrPayload()) {
         value = withContext(Dispatchers.Default) { identityQrBitmap(snapshot) }
     }
-    bitmap?.let { image -> Image(image.asImageBitmap(), t("verificationQrImage"), Modifier.fillMaxWidth().heightIn(max = 240.dp).aspectRatio(1f)) }
+    Box(Modifier.widthIn(max = 224.dp).fillMaxWidth().aspectRatio(1f).background(Color.White),
+        contentAlignment = Alignment.Center) {
+        bitmap?.let { image -> Image(image.asImageBitmap(), t("verificationQrImage"), Modifier.matchParentSize()) }
+    }
 }

@@ -32,4 +32,14 @@
     <string name="next_private_busy">다른 채팅에서 요청, 파일 또는 메시지를 처리 중입니다. 끝나면 연결합니다.</string>
     <string name="next_private_finding">기기에 연결할 수 있을 때까지 대기 중…</string>
     <string name="next_private_request_busy">현재 채팅에서 처리 중인 작업이 있습니다. 이번 요청은 아직 보내지 않았습니다.</string>
+    <string name="next_message_actions">메시지 작업</string>
+    <string name="next_copy_message">메시지 복사</string>
+    <string name="next_select_message_text">텍스트 선택</string>
+    <string name="next_copy_filename">파일 이름 복사</string>
+    <string name="next_private_notifications">비공개 채팅 알림</string>
+    <string name="next_nearby_notifications">주변 메시지 알림</string>
+    <string name="next_notification_settings_hint">시스템 설정에서 소리 및 표시 설정</string>
+    <string name="next_private_notification_body">새 비공개 채팅 메시지</string>
+    <string name="next_nearby_notification_body">주변에 새 메시지가 있습니다</string>
+    <string name="next_safety_code">안전 코드</string>
 </resources>

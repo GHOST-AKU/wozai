@@ -32,4 +32,14 @@
     <string name="next_private_busy">另一個私聊正在處理請求、檔案或訊息，閒置後再連線。</string>
     <string name="next_private_finding">正在等待裝置可連線…</string>
     <string name="next_private_request_busy">目前的私聊有未完成的操作，本次請求尚未送出。</string>
+    <string name="next_message_actions">訊息操作</string>
+    <string name="next_copy_message">複製訊息</string>
+    <string name="next_select_message_text">選取文字</string>
+    <string name="next_copy_filename">複製檔案名稱</string>
+    <string name="next_private_notifications">私人聊天通知</string>
+    <string name="next_nearby_notifications">附近訊息通知</string>
+    <string name="next_notification_settings_hint">在系統中設定聲音和顯示方式</string>
+    <string name="next_private_notification_body">收到一則私人聊天訊息</string>
+    <string name="next_nearby_notification_body">附近有新訊息</string>
+    <string name="next_safety_code">安全碼</string>
 </resources>

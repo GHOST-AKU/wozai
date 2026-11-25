@@ -4,15 +4,13 @@ import android.graphics.Bitmap
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -28,6 +26,7 @@ import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -38,13 +37,10 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.ghost.nearbyim.*
@@ -63,10 +59,9 @@ fun ChatScreen(
     onBack: () -> Unit,
     meshDeviceCount: Int? = null,
     onOpenPrivateDevices: (() -> Unit)? = null,
+    onVerifyIdentity: () -> Unit = {},
 ) {
     val peer = state.selectedId ?: return
-    var info by rememberSaveable(peer) { mutableStateOf(false) }
-    var confirmVerification by remember { mutableStateOf<IdentityVerification?>(null) }
     var attachments by remember { mutableStateOf(false) }
     var emoji by rememberSaveable(peer) { mutableStateOf(false) }
     val composerFocus = remember { FocusRequester() }
@@ -97,7 +92,7 @@ fun ChatScreen(
                 val key = item.key as? String ?: return@mapNotNull null
                 val message = messagesByKey[key] ?: return@mapNotNull null
                 val bounds = bodyBounds[key] ?: return@mapNotNull null
-                if (message.outgoing || message.attachment != null || !ReadVisibility.visible(
+                if (message.outgoing || !ReadVisibility.visible(
                         (bounds.top - viewport.top).toDouble(), bounds.height.toDouble(), viewport.height.toDouble())) null else message.id
             }
         }.collect { host.visibleMessages(peer, it) }
@@ -124,7 +119,12 @@ fun ChatScreen(
                     if (onOpenPrivateDevices != null) {
                         NetworkStatusButton(state, meshDeviceCount, onOpenPrivateDevices, peerId = peer)
                     }
-                    IconButton(onClick = { info = true }) { AppIcon(R.drawable.outline_more_vert_24, t("deviceInfo")) }
+                    IconButton(onClick = {
+                        focus.clearFocus()
+                        keyboard?.hide()
+                        emoji = false
+                        onVerifyIdentity()
+                    }) { AppIcon(R.drawable.outline_lock_24, t("verificationTitle")) }
                 },
             )
             val connectedHere = state.connected && state.connectedId == peer
@@ -243,83 +243,69 @@ fun ChatScreen(
             }
         }
     }
-    if (info) {
-        val verification = state.verification
-        AlertDialog(onDismissRequest = { info = false }, title = { Text(state.selectedName) },
-            text = { Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text(t(if (verification?.verified == true) "identityVerified" else "identityUnverified"),
-                    color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleSmall)
-                if (verification != null) {
-                    Text(t("verificationExplain"), style = MaterialTheme.typography.bodySmall)
-                    SelectionContainer { Text(verification.code.display(), fontFamily = FontFamily.Monospace,
-                        style = MaterialTheme.typography.bodySmall) }
-                    VerificationQr(verification)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        TextButton(onClick = { host.scanIdentity(verification) }, enabled = !state.identityBusy) { Text(t("verificationScan")) }
-                        TextButton(onClick = { host.pickIdentityImage(verification) }, enabled = !state.identityBusy) { Text(t("verificationImage")) }
-                        TextButton(onClick = { host.saveIdentityQr(verification) }, enabled = !state.identityBusy) { Text(t("verificationSaveQr")) }
-                    }
-                    if (state.identityBusy) LinearProgressIndicator(Modifier.fillMaxWidth())
-                    if (!verification.verified) OutlinedButton(onClick = { confirmVerification = verification; info = false }) {
-                        Text(t("verificationMark"))
-                    }
-                } else Text(t("verificationConnectFirst"))
-                if (state.notice.isNotEmpty()) Text(state.notice,
-                    Modifier.semantics { liveRegion = LiveRegionMode.Polite }, style = MaterialTheme.typography.bodyMedium)
-                Text(t("verificationLocalOnly"), style = MaterialTheme.typography.bodySmall)
-                TextButton(onClick = { host.copyTransferDiagnostics(verification) }, modifier = Modifier.heightIn(min = 48.dp)) {
-                    Text(t("transferDiagnostics") + " · " + state.selectedName)
-                }
-                if (state.connectedId == peer) TextButton(onClick = { host.disconnect(); info = false }) { Text(t("disconnect")) }
-            } },
-            confirmButton = { TextButton(onClick = { info = false }) { Text(t("close")) } })
-    }
-    confirmVerification?.let { snapshot ->
-        AlertDialog(onDismissRequest = { confirmVerification = null }, title = { Text(t("verificationTitle")) },
-            text = { Text(t("verificationConfirm")) },
-            confirmButton = { TextButton(onClick = { host.verifyIdentity(snapshot); confirmVerification = null }) { Text(t("verificationMark")) } },
-            dismissButton = { TextButton(onClick = { confirmVerification = null }) { Text(t("cancel")) } })
-    }
-
 }
 
 @Composable
 private fun MessageBubble(message: ChatStore.Message, host: MainActivity, peer: String, ready: Boolean, canAttach: Boolean, measurement: TransferProgress, bodyPosition: (Rect?) -> Unit) {
     val context = LocalContext.current
-    DisposableEffect(message.id) { onDispose { bodyPosition(null) } }
+    val record = message.attachment
+    val finished = record?.state == "received" || record?.state == "delivered"
+    val timestamp = AndroidText.date(context, message.time, "jm")
+    var thumbnail by remember(peer, message.timelineKey, finished, ready) { mutableStateOf<Bitmap?>(null) }
+    if (record != null && record.info.isPreviewablePhoto() && finished && ready) {
+        DisposableEffect(host, peer, message.timelineKey) {
+            val subscription = host.bindAttachmentThumbnail(peer, record) { thumbnail = it }
+            onDispose { subscription.close() }
+        }
+    }
+    DisposableEffect(message.timelineKey, thumbnail != null) { onDispose { bodyPosition(null) } }
+    val trackBody = Modifier.onGloballyPositioned { coordinates ->
+        bodyPosition(Rect(coordinates.positionInWindow(), Size(coordinates.size.width.toFloat(), coordinates.size.height.toFloat())))
+    }
+    val image = thumbnail
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-    val bubbleCap = minOf(520.dp, maxWidth * .88f)
-    Column(Modifier.fillMaxWidth(), horizontalAlignment = if (message.outgoing) Alignment.End else Alignment.Start) {
-        Surface(shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp,
-            bottomStart = if (message.outgoing) 20.dp else 5.dp, bottomEnd = if (message.outgoing) 5.dp else 20.dp),
-            color = if (message.outgoing) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
-            modifier = Modifier.widthIn(max = bubbleCap).testTag("bubble-${message.id}")) {
-            Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                val record = message.attachment
-                if (record == null) SelectionContainer { Text(message.text, style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.onGloballyPositioned {
-                        bodyPosition(Rect(it.positionInWindow(), Size(it.size.width.toFloat(), it.size.height.toFloat())))
-                    }) }
-                else Column(Modifier.width(bubbleCap), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    AttachmentContent(record, host, peer, ready, canAttach, measurement)
+        val bubbleCap = minOf(520.dp, maxWidth * .88f)
+        val alignment = if (message.outgoing) Alignment.End else Alignment.Start
+        val bubble = Modifier.widthIn(max = bubbleCap).testTag("bubble-${message.id}")
+        Column(Modifier.fillMaxWidth(), horizontalAlignment = alignment) {
+            if (image != null && record != null) {
+                var photoMenu by remember { mutableStateOf(false) }
+                Box(bubble) {
+                    AttachmentPhotoPreview(image, record.info.name, trackBody, timestamp,
+                        message.state.takeIf { message.outgoing }, onLongPress = { photoMenu = true }) {
+                        host.openAttachment(record)
+                    }
+                    AttachmentActionsMenu(photoMenu, { photoMenu = false }, record, host, includeOpen = true)
+                }
+            } else {
+                Surface(
+                    shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp,
+                        bottomStart = if (message.outgoing) 20.dp else 5.dp, bottomEnd = if (message.outgoing) 5.dp else 20.dp),
+                    color = if (message.outgoing) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+                    modifier = bubble,
+                ) {
+                    if (record == null) TextMessageBody(message.text, trackBody.padding(horizontal = 16.dp, vertical = 12.dp))
+                    else Column(Modifier.width(bubbleCap).padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        AttachmentContent(record, host, canAttach, measurement)
+                    }
+                }
+                Row(Modifier.padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(timestamp, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (message.outgoing && record == null) ReceiptMark(message.state)
+                    if (message.outgoing && record?.info?.isPreviewablePhoto() == true && finished) ReceiptMark(message.state)
                 }
             }
         }
-        Row(Modifier.padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(AndroidText.date(context, message.time, "jm"), style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (message.outgoing && message.attachment == null) ReceiptMark(message.state)
-        }
-    }
     }
 }
 
 @Composable
-private fun ReceiptMark(state: String) {
+private fun ReceiptMark(state: String, onPhoto: Boolean = false) {
     val receipt = MessageReceipt.of(state)
     val label = t(receipt.textKey())
-    val color = if (receipt == MessageReceipt.READ) Color(0xFF66CCFF) else MaterialTheme.colorScheme.onSurfaceVariant
+    val color = if (receipt == MessageReceipt.READ) Color(0xFF66CCFF) else if (onPhoto) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
     val glow = androidx.compose.foundation.isSystemInDarkTheme() && receipt == MessageReceipt.READ
     Canvas(Modifier.size(20.dp, 16.dp).semantics { contentDescription = label }) {
         val sx = size.width / 20; val sy = size.height / 16
@@ -344,27 +330,22 @@ private fun ReceiptMark(state: String) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AttachmentContent(record: AttachmentRecord, host: MainActivity, peer: String, ready: Boolean, canAttach: Boolean, measurement: TransferProgress) {
+private fun AttachmentContent(record: AttachmentRecord, host: MainActivity, canAttach: Boolean, measurement: TransferProgress) {
     val finished = record.state == "received" || record.state == "delivered"
     val photo = record.info.isPreviewablePhoto()
-    var thumbnail by remember(peer, record.info.id, record.outgoing, finished, ready) { mutableStateOf<Bitmap?>(null) }
-    if (photo && finished && ready) {
-        DisposableEffect(host, peer, record.info.id, record.outgoing) {
-            val subscription = host.bindAttachmentThumbnail(peer, record) { thumbnail = it }
-            onDispose { subscription.close() }
-        }
-    }
-    val image = thumbnail
-    if (image != null) {
-        AttachmentPhotoPreview(image, record.info.name) { host.openAttachment(record) }
-    } else {
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+    var expanded by remember(record.info.id) { mutableStateOf(false) }
+    val openMenu = remember { { expanded = true } }
+    val actionLabel = stringResource(R.string.next_message_actions)
+    Box {
+        Row(Modifier.messageLongPress(actionLabel, openMenu),
+            horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
             AppIcon(if (photo) R.drawable.outline_photo_24 else R.drawable.outline_description_24)
             Column(Modifier.weight(1f)) {
                 Text(AttachmentInfo.displayName(record.info.name), style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(android.text.format.Formatter.formatShortFileSize(LocalContext.current, record.info.size), style = MaterialTheme.typography.bodySmall)
             }
         }
+        if (!finished) AttachmentActionsMenu(expanded, { expanded = false }, record, host)
     }
     Text(t(record.stateKey()), style = MaterialTheme.typography.labelMedium)
     if (!finished) TransferMeasurements(record, measurement)
@@ -373,9 +354,18 @@ private fun AttachmentContent(record: AttachmentRecord, host: MainActivity, peer
 
     if (finished) {
         if (photo || record.info.canOpenExternally()) {
-            CompletedAttachmentActions(record, host, hasThumbnail = image != null)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = { host.openAttachment(record) }) { Text(t("attachmentOpen")) }
+                Box {
+                    IconButton(onClick = openMenu) { AppIcon(R.drawable.outline_more_vert_24, t("more")) }
+                    AttachmentActionsMenu(expanded, { expanded = false }, record, host)
+                }
+            }
         } else {
-            TextButton(onClick = { host.saveAttachment(record) }) { Text(t("attachmentSaveAs")) }
+            Box {
+                TextButton(onClick = { host.saveAttachment(record) }) { Text(t("attachmentSaveAs")) }
+                AttachmentActionsMenu(expanded, { expanded = false }, record, host)
+            }
         }
         return
     }
@@ -396,31 +386,60 @@ private fun AttachmentContent(record: AttachmentRecord, host: MainActivity, peer
 }
 
 @Composable
-internal fun AttachmentPhotoPreview(bitmap: Bitmap, name: String, onOpen: () -> Unit) {
+internal fun AttachmentPhotoPreview(
+    bitmap: Bitmap,
+    name: String,
+    modifier: Modifier = Modifier,
+    timestamp: String? = null,
+    receipt: String? = null,
+    onLongPress: (() -> Unit)? = null,
+    onOpen: () -> Unit,
+) {
     val image = remember(bitmap) { bitmap.asImageBitmap() }
-    BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val height = (maxWidth * (bitmap.height.toFloat() / bitmap.width)).coerceIn(96.dp, 240.dp)
-        Image(bitmap = image, contentDescription = t("attachmentPhotoPreview", AttachmentInfo.displayName(name)),
-            contentScale = ContentScale.Fit, modifier = Modifier.fillMaxWidth().height(height)
-                .clip(RoundedCornerShape(12.dp)).clickable(onClickLabel = t("attachmentOpen"), onClick = onOpen))
+    BoxWithConstraints {
+        val ratio = (bitmap.width.toFloat() / bitmap.height).coerceIn(.38f, 3f)
+        val width = minOf(maxWidth, 344.dp, 360.dp * ratio)
+        Box(modifier.size(width, width / ratio).clip(RoundedCornerShape(16.dp))
+            .combinedClickable(onClickLabel = t("attachmentOpen"),
+                onLongClickLabel = stringResource(R.string.next_message_actions), onClick = onOpen,
+                onLongClick = onLongPress)) {
+            Image(bitmap = image, contentDescription = t("attachmentPhotoPreview", AttachmentInfo.displayName(name)),
+                contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
+            if (timestamp != null) {
+                Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(42.dp)
+                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = .8f)))))
+                Row(Modifier.align(Alignment.BottomEnd).padding(horizontal = 8.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(timestamp, style = MaterialTheme.typography.labelSmall, color = Color.White)
+                    if (receipt != null) ReceiptMark(receipt, onPhoto = true)
+                }
+            }
+        }
     }
 }
 
 @Composable
-private fun CompletedAttachmentActions(record: AttachmentRecord, host: MainActivity, hasThumbnail: Boolean) {
-    var expanded by remember(record.info.id) { mutableStateOf(false) }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-        if (!hasThumbnail) TextButton(onClick = { host.openAttachment(record) }) { Text(t("attachmentOpen")) }
-        Box {
-            IconButton(onClick = { expanded = true }) {
-                AppIcon(R.drawable.outline_more_vert_24, t("more"))
-            }
-            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                DropdownMenuItem(text = { Text(t("attachmentSaveAs")) }, onClick = {
-                    expanded = false
-                    host.saveAttachment(record)
-                })
-            }
-        }
+private fun AttachmentActionsMenu(expanded: Boolean, onDismiss: () -> Unit, record: AttachmentRecord,
+                                  host: MainActivity, includeOpen: Boolean = false) {
+    val complete = record.state == "received" || record.state == "delivered"
+    val context = LocalContext.current
+    val name = AttachmentInfo.displayName(record.info.name)
+    val label = stringResource(R.string.next_copy_filename)
+    val route = host.attachmentRoute(record)
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        if (route.isNotEmpty()) Text(route, Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+        if (includeOpen) DropdownMenuItem(text = { Text(t("attachmentOpen")) }, onClick = {
+            onDismiss()
+            host.openAttachment(record)
+        })
+        DropdownMenuItem(text = { Text(label) }, onClick = {
+            onDismiss()
+        copySensitiveText(context, label, name)
+        })
+        if (complete) DropdownMenuItem(text = { Text(t("attachmentSaveAs")) }, onClick = {
+            onDismiss()
+            host.saveAttachment(record)
+        })
     }
 }

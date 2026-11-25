@@ -142,8 +142,17 @@ class NextFeatureUiTest {
             val bitmap = PhotoDecoder.decode(host.contentResolver, Uri.fromFile(png), 512)
             assertEquals(android.graphics.Color.BLUE, bitmap.getPixel(0, 0))
             var opened = false
-            host.setContent { NextTheme { AttachmentPhotoPreview(bitmap, "photo.png") { opened = true } } }
-            compose.onNodeWithContentDescription(host.text("attachmentPhotoPreview", "photo.png")).assertIsDisplayed().performClick()
+            var held = false
+            host.setContent { NextTheme {
+                AttachmentPhotoPreview(bitmap, "photo.png", timestamp = "10:37", receipt = "read", onLongPress = { held = true }) { opened = true }
+            } }
+            val photo = compose.onNodeWithContentDescription(host.text("attachmentPhotoPreview", "photo.png")).assertIsDisplayed()
+            val bounds = photo.fetchSemanticsNode().boundsInRoot
+            assertEquals(2f, bounds.width / bounds.height, .02f)
+            compose.onNodeWithContentDescription(host.text("read"), useUnmergedTree = true).assertIsDisplayed()
+            photo.performTouchInput { longClick() }
+            compose.runOnIdle { assertTrue(held && !opened) }
+            photo.performClick()
             compose.runOnIdle { assertTrue(opened) }
         } finally {
             png.delete()
@@ -345,19 +354,57 @@ class NextFeatureUiTest {
     }
 
     @Test fun existingTransferDiagnosticsEntryIsDiscoverable() {
-        compose.activity.setContent { NextTheme { ChatScreen(NextState(ready = true, selectedId = "fixture", selectedName = "Fixture"),
-            compose.activity, showBack = true, onBack = {}) } }
-        compose.onNodeWithContentDescription(compose.activity.text("deviceInfo")).performClick()
-        compose.onNodeWithText(compose.activity.text("transferDiagnostics"), substring = true).performScrollTo().assertIsDisplayed().performClick()
+        val host = compose.activity
+        host.setContent { NextTheme { NextApp(NextState(ready = true, selectedId = "fixture", selectedName = "Fixture",
+            openedPrivateChat = "fixture-chat"), host) } }
+        compose.onNodeWithContentDescription(host.text("verificationTitle")).performClick()
+        compose.onNodeWithContentDescription(host.text("more")).performClick()
+        compose.onNodeWithText(host.text("transferDiagnostics")).assertIsDisplayed().performClick()
         // The service is deliberately unavailable: copying must fail clearly, never fabricate diagnostics.
         compose.runOnIdle { assertEquals(compose.activity.text("notConnected"), compose.activity.state.notice) }
     }
 
-    @Test fun verificationResultRemainsVisibleInsideDeviceInfoDialog() {
-        compose.activity.setContent { NextTheme { ChatScreen(NextState(ready = true, selectedId = "fixture", selectedName = "Fixture",
-            notice = "QR verification result"), compose.activity, showBack = true, onBack = {}) } }
-        compose.onNodeWithContentDescription(compose.activity.text("deviceInfo")).performClick()
-        compose.onNodeWithText("QR verification result").performScrollTo().assertIsDisplayed()
+    @Test fun verificationUsesAFullPageAndShowsResultsOnPhone() {
+        checkVerificationLayout(wide = false)
+    }
+
+    @Test
+    @Config(qualifiers = "zh-rCN-w1280dp-h800dp")
+    fun verificationUsesTwoColumnsOnTablet() {
+        checkVerificationLayout(wide = true)
+    }
+
+    private fun checkVerificationLayout(wide: Boolean) {
+        val host = compose.activity
+        val snapshot = IdentityVerification("fixture", DeviceIdentity.generate().publicKey(), DeviceIdentity.generate().publicKey(),
+            "generation-one", false)
+        val state = mutableStateOf(NextState(ready = true, selectedId = "fixture", selectedName = "Fixture",
+            verification = snapshot, encrypted = true, openedPrivateChat = "fixture-chat"))
+        host.setContent { NextTheme { NextApp(state.value, host) } }
+        compose.onNodeWithContentDescription(host.text("verificationTitle")).performClick()
+        compose.onNodeWithTag("verification-page").assertIsDisplayed()
+        compose.onNodeWithTag("chat-root").assertDoesNotExist()
+        if (wide) {
+            compose.onNodeWithTag("verification-columns").assertIsDisplayed()
+            val scan = compose.onNodeWithTag("verification-scan").fetchSemanticsNode().boundsInRoot
+            val code = compose.onNodeWithTag("verification-code").fetchSemanticsNode().boundsInRoot
+            assertTrue(scan.right < code.left)
+        } else compose.onNodeWithTag("verification-columns").assertDoesNotExist()
+        compose.runOnIdle { state.value = state.value.copy(notice = "QR verification result") }
+        compose.onNodeWithText("QR verification result").assertIsDisplayed()
+        compose.onNodeWithContentDescription(host.text("backToChats")).performClick()
+        compose.onNodeWithTag("chat-root").assertIsDisplayed()
+    }
+
+    @Test fun longPressAllowsCopyingTheExactMessageText() {
+        val host = compose.activity
+        host.setContent { NextTheme { TextMessageBody("Exact text 👋") } }
+        compose.onNodeWithText("Exact text 👋").performTouchInput { longClick() }
+        compose.onNodeWithText(host.getString(R.string.next_copy_message)).assertIsDisplayed().performClick()
+        compose.runOnIdle {
+            val clipboard = host.getSystemService(android.content.ClipboardManager::class.java)
+            assertEquals("Exact text 👋", clipboard.primaryClip?.getItemAt(0)?.text?.toString())
+        }
     }
 
 }

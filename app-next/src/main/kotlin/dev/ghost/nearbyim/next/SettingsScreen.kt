@@ -50,6 +50,10 @@ fun SettingsScreen(state: NextState, host: MainActivity) {
             SettingRow(stringResource(R.string.next_accent), stringResource(host.accent.label),
                 R.drawable.outline_lightbulb_24) { dialog = "accent" }
             SectionLabel(t("connectionsSection"))
+            SettingRow(stringResource(R.string.next_private_notifications), stringResource(R.string.next_notification_settings_hint),
+                R.drawable.outline_chat_bubble_24) { host.openNotificationSettings(MessageNotifications.PRIVATE_CHANNEL) }
+            SettingRow(stringResource(R.string.next_nearby_notifications), stringResource(R.string.next_notification_settings_hint),
+                R.drawable.outline_wifi_tethering_24) { host.openNotificationSettings(MessageNotifications.NEARBY_CHANNEL) }
             ListItem(headlineContent = { Text(t("readReceipts")) }, supportingContent = { Text(t("readReceiptsSummary")) },
                 trailingContent = { Switch(state.readReceipts, host::setReadReceipts, enabled = state.ready) })
             SettingRow(t("receiveFolder"), state.receiveFolder, R.drawable.outline_file_download_24) { dialog = "folder" }

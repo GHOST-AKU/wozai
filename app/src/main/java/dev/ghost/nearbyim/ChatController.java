@@ -17,7 +17,10 @@ import java.util.concurrent.*;
 
 /** Mutable UI state stays on main; all database work runs on one ordered executor. */
 public final class ChatController implements TransportListener {
-    public interface Hooks { void onChanged(); }
+    public interface Hooks {
+        void onChanged();
+        default void onIncomingMessage(String peer, String name) {}
+    }
     public final String localId;
     public String nickname;
     public UiText lanInfo = UiText.of("notStarted"), bluetoothInfo = UiText.of("notStarted"), status = UiText.of("initialStatus"), error = UiText.EMPTY;
@@ -480,7 +483,12 @@ public final class ChatController implements TransportListener {
             public void onText(Frame frame) { main.post(() -> {
                 if (active != reference[0] || remoteHello == null || !reference[0].isReady()) return;
                 String id = remoteHello.id, name = remoteHello.body;
-                db(() -> store.save(id, name, frame, false), () -> { reference[0].acknowledge(frame.id); refresh(); });
+                boolean[] inserted = new boolean[1];
+                db(() -> inserted[0] = store.save(id, name, frame, false), () -> {
+                    reference[0].acknowledge(frame.id);
+                    if (inserted[0]) hooks.onIncomingMessage(id, name);
+                    refresh();
+                });
             }); }
             public void onReadReceiptPolicy(){if(readPolicyNoticeQueued.compareAndSet(false,true))main.post(()->{readPolicyNoticeQueued.set(false);flushReadReceipts();});}
             public void onReadReceipt(ReadReceiptPacket packet){main.post(()->{
@@ -611,11 +619,16 @@ public final class ChatController implements TransportListener {
                     },new AttachmentTransferV2.Listener(){
                         public void changed(AttachmentRecord original)throws IOException {
                             AttachmentRecord record=decorateFileRoute(original);
-                            try{storage.submit(()->store.attachment(hello.id,hello.body,record)).get(10,TimeUnit.SECONDS);}
+                            boolean newlyReceived;
+                            try{newlyReceived=storage.submit(()->store.attachment(hello.id,hello.body,record)).get(10,TimeUnit.SECONDS);}
                             catch(Exception failure){throw new IOException("Attachment metadata save failed",failure);}
                             if(!record.outgoing&&record.state.equals("received")&&record.info.mime.startsWith("image/"))try{GalleryPublisher.get(applicationContext).export(hello.id,record,AttachmentTransfer.file(directory,record.info,false),false);}catch(IOException exportFailure){main.post(()->{if(!destroyed)fail(UiText.of("gallerySaveFailed"));});}
                             if(!record.outgoing&&record.state.equals("received"))try{AttachmentLocations.get(applicationContext).saveReceived(hello.id,record,false);}catch(IOException exportFailure){main.post(()->{if(!destroyed)fail(UiText.of("receiveFolderFailed"));});}
-                            main.post(()->{if(!destroyed)refresh();});
+                            main.post(()->{
+                                if(destroyed)return;
+                                if(newlyReceived)hooks.onIncomingMessage(hello.id,hello.body);
+                                refresh();
+                            });
                         }
                         public void progress(AttachmentRecord original,TransferProgress progress){
                             if(active!=wire)return;AttachmentRecord record;try{record=decorateFileRoute(original);}catch(IOException invalid){return;}String key=hello.id+":"+record.info.id+":"+record.outgoing;
@@ -748,7 +761,8 @@ public final class ChatController implements TransportListener {
         for(ChatStore.Message message:history){AttachmentRecord previous=message.attachment;Feedback value=previous==null?null:transferProgress.get(peer+":"+previous.info.id+":"+previous.outgoing);
             if(value!=null&&previous.mayReplace(value.record())){AttachmentRecord record=value.record();
                 if(record.route.isEmpty()&&!previous.route.isEmpty())try{record=record.withRoute(previous.route);}catch(IOException invalid){values.add(message);continue;}
-                String state=record.outgoing?(record.state.equals("delivered")?ChatStore.DELIVERED:record.active()?ChatStore.PENDING:ChatStore.UNKNOWN):message.state;
+                String state = !record.outgoing || "read".equals(message.state) ? message.state
+                        : record.state.equals("delivered") ? ChatStore.DELIVERED : record.active() ? ChatStore.PENDING : ChatStore.UNKNOWN;
                 values.add(new ChatStore.Message(message.id,message.text,state,message.outgoing,message.time,record));
             }else values.add(message);
         }return values;

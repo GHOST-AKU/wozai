@@ -43,6 +43,10 @@ class MainActivity : ComponentActivity() {
     private var controller: ChatController? = null
     private var bound = false
     private var resumed = false
+    internal var notificationDestination by mutableStateOf<String?>(null)
+        private set
+    private var viewingDestination: String? = null
+    private val notificationOwner = System.identityHashCode(this)
     private val autoLink = PrivateAutoLink()
     private var observedPrivatePeer: String? = null
     private var observedPrivateStatus = ""
@@ -108,6 +112,7 @@ class MainActivity : ComponentActivity() {
         override fun onServiceConnected(name: ComponentName, binder: IBinder) {
             val service = (binder as ChatService.LocalBinder).service()
             service.usePrivateRequestActions()
+            service.onIncomingMessages { peer, name -> MessageNotifications.post(service, peer, name) }
             controller = service.controller
             val peer = restoredPeer
             if (controller?.selectedId == null && peer != null)
@@ -230,6 +235,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        notificationDestination = savedInstanceState?.getString("notificationDestination")
+            ?: if (savedInstanceState == null) MessageNotifications.destination(intent) else null
+        MessageNotifications.registerChannels(this)
         // The Compose navigation surface extends into the system navigation inset.
         enableEdgeToEdge(navigationBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT))
         if (Build.VERSION.SDK_INT >= 29) window.isNavigationBarContrastEnforced = false
@@ -284,6 +292,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         resumed = true
+        syncNotificationVisibility()
         autoLink.resume(SystemClock.uptimeMillis())
         restorePrivateReception()
         refresh()
@@ -291,6 +300,7 @@ class MainActivity : ComponentActivity() {
     }
     override fun onPause() {
         resumed = false
+        syncNotificationVisibility()
         visibility.clear()
         main.removeCallbacks(readTick)
         main.removeCallbacks(privateWork)
@@ -313,6 +323,7 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
     }
     override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString("notificationDestination", notificationDestination)
         outState.putString("peer", state.selectedId)
         outState.putString("peerName", state.selectedName)
         outState.putString("handledSave", handledSave)
@@ -341,6 +352,33 @@ class MainActivity : ComponentActivity() {
         outState.putString("identityImage", identityImage?.toString())
         outState.putString("identityExport", identityExport?.toString())
         super.onSaveInstanceState(outState)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        notificationDestination = MessageNotifications.destination(intent)
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        syncNotificationVisibility()
+    }
+
+    internal fun showNotificationDestination(destination: String?) {
+        viewingDestination = destination
+        syncNotificationVisibility()
+    }
+
+    private fun syncNotificationVisibility() {
+        MessageNotifications.visible(this, notificationOwner, viewingDestination.takeIf { resumed && hasWindowFocus() })
+    }
+
+    internal fun consumeNotificationDestination() { notificationDestination = null }
+
+    internal fun openNotificationSettings(channel: String) {
+        try { startActivity(MessageNotifications.settings(this, channel)) }
+        catch (_: ActivityNotFoundException) { openAppSettings() }
     }
 
     private fun refresh() {
@@ -861,6 +899,14 @@ class MainActivity : ComponentActivity() {
         showNotice(text("diagnosticsCopied"))
     }
     fun verifyIdentity(snapshot: IdentityVerification) = verifyIdentityCode(snapshot, null)
+    internal fun copyIdentityCode(snapshot: IdentityVerification) {
+        if (controller?.verificationCurrent(snapshot) != true || controller?.selectedId != snapshot.peerId) {
+            showNotice(text("verificationConnectionChanged"))
+            return
+        }
+        copySensitiveText(this, text("verificationTitle"), snapshot.code.display())
+        showNotice(text("verificationCopyDone"))
+    }
     private fun verifyIdentityCode(snapshot: IdentityVerification, code: String?) {
         val c = controller
         if (c == null || c.selectedId != snapshot.peerId || !c.verificationCurrent(snapshot)) {

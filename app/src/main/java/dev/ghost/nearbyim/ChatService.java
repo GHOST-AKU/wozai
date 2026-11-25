@@ -17,6 +17,7 @@ public final class ChatService extends Service {
     private static final String DECLINE_PRIVATE = "dev.ghost.nearbyim.DECLINE_PRIVATE";
     private final LocalBinder binder = new LocalBinder();
     public ChatController controller;
+    private java.util.function.BiConsumer<String,String> incomingMessages;
     private boolean foreground, actionableRequests;
     private final Handler notificationHandler=new Handler(Looper.getMainLooper());
     private final Runnable notificationRefresh=this::syncNotification;
@@ -32,7 +33,12 @@ public final class ChatService extends Service {
         super.onCreate(); updateChannel();
         preferences = getSharedPreferences(AppLanguage.PREFERENCES, MODE_PRIVATE);
         preferences.registerOnSharedPreferenceChangeListener(languageChanged);
-        controller = new ChatController(this, this::syncNotification);
+        controller = new ChatController(this, new ChatController.Hooks() {
+            public void onChanged() { syncNotification(); }
+            public void onIncomingMessage(String peer, String name) {
+                if (incomingMessages != null) incomingMessages.accept(peer, name);
+            }
+        });
     }
     private void updateChannel() {
         NotificationChannel channel = new NotificationChannel(CHANNEL, AndroidText.get(this, "notificationChannel"), NotificationManager.IMPORTANCE_LOW);
@@ -43,6 +49,7 @@ public final class ChatService extends Service {
     public void onConfigurationChanged(Configuration configuration) { super.onConfigurationChanged(configuration); refreshLanguage(); }
     public IBinder onBind(Intent intent) { return binder; }
     public void usePrivateRequestActions() { actionableRequests = true; syncNotification(); }
+    public void onIncomingMessages(java.util.function.BiConsumer<String,String> listener) { incomingMessages = listener; }
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null && STOP.equals(intent.getAction())) {
             if (actionableRequests) PrivateReception.pauseAll(this);

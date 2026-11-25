@@ -22,6 +22,7 @@ internal class MeshRuntime(
     initial: MeshSnapshot,
     private val update: (MeshSnapshot) -> Unit,
     private val terminal: () -> Unit,
+    private val received: () -> Unit = {},
 ) : AutoCloseable {
     private val generation = MeshGeneration()
     private val control = ThreadPoolExecutor(1, 1, 0, TimeUnit.MILLISECONDS,
@@ -201,7 +202,7 @@ internal class MeshRuntime(
             }
             is MeshEvent.Message -> {
                 if (event.path.last() != snapshot.localKey) { end("mesh_protocol_error", token, true); return }
-                history.receive(event.id, event.body, event.path, System.currentTimeMillis())
+                if (history.receive(event.id, event.body, event.path, System.currentTimeMillis())) received()
                 next = next.copy(messages = history.messages)
             }
             is MeshEvent.State -> {

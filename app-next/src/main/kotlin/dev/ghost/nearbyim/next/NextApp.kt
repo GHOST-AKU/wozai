@@ -28,6 +28,7 @@ fun NextApp(state: NextState, host: MainActivity, contentWindowInsets: WindowIns
     var page by rememberSaveable { mutableIntStateOf(0) }
     var detail by rememberSaveable { mutableStateOf(false) }
     var showPrivateDevices by rememberSaveable { mutableStateOf(false) }
+    var verificationPeer by rememberSaveable { mutableStateOf<String?>(null) }
     var handledPrivateOpening by rememberSaveable { mutableStateOf<String?>(null) }
     val conversations = rememberSaveableStateHolder()
     val publicComposer = rememberMeshComposer()
@@ -39,17 +40,31 @@ fun NextApp(state: NextState, host: MainActivity, contentWindowInsets: WindowIns
     val density = LocalDensity.current
     val direction = LocalLayoutDirection.current
     val snackbar = remember { SnackbarHostState() }
-    LaunchedEffect(state.notice, state.error) {
+    val showVerification = verificationPeer != null && verificationPeer == state.selectedId
+    LaunchedEffect(state.notice, state.error, showVerification) {
         val message = state.notice.ifEmpty { state.error }
-        if (message.isNotEmpty()) { snackbar.showSnackbar(message); host.clearNotice() }
+        if (!showVerification && message.isNotEmpty()) { snackbar.showSnackbar(message); host.clearNotice() }
     }
     LaunchedEffect(state.openedPrivateChat) {
         val event = state.openedPrivateChat
         if (event != null && handledPrivateOpening != event) {
             handledPrivateOpening = event
             showPrivateDevices = false
+            verificationPeer = null
             page = 0
             detail = true
+        }
+    }
+    val destination = host.notificationDestination
+    val notifiedChat = state.conversations.firstOrNull { it.id == destination }
+    LaunchedEffect(destination, notifiedChat) {
+        if (destination == MessageNotifications.NEARBY || notifiedChat != null) {
+            showPrivateDevices = false
+            verificationPeer = null
+            page = if (notifiedChat != null) 0 else 1
+            detail = notifiedChat != null
+            notifiedChat?.let(host::select)
+            host.consumeNotificationDestination()
         }
     }
     Surface(Modifier.fillMaxSize().testTag("next-root"), color = MaterialTheme.colorScheme.background) {
@@ -69,13 +84,16 @@ fun NextApp(state: NextState, host: MainActivity, contentWindowInsets: WindowIns
             val showChat = !showPrivateDevices && page == 0 && (detail || wide) && state.selectedId != null
             val visibleChat = state.selectedId.takeIf { showChat }
             LaunchedEffect(visibleChat) { host.showPrivateConversation(visibleChat) }
+            val notificationView = if (showVerification) null
+                else visibleChat ?: MessageNotifications.NEARBY.takeIf { page == 1 && !showPrivateDevices }
+            LaunchedEffect(notificationView) { host.showNotificationDestination(notificationView) }
             BackHandler(detail || showPrivateDevices) {
                 if (showPrivateDevices) showPrivateDevices = false else detail = false
             }
             Scaffold(
                 snackbarHost = { SnackbarHost(snackbar) },
                 bottomBar = {
-                    if (!wide && !showChat && !showPrivateDevices) NavigationBar(
+                    if (!wide && !showChat && !showPrivateDevices && !showVerification) NavigationBar(
                         modifier = Modifier.testTag("main-navigation"),
                         containerColor = MaterialTheme.colorScheme.surfaceContainer,
                         windowInsets = WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom),
@@ -93,7 +111,12 @@ fun NextApp(state: NextState, host: MainActivity, contentWindowInsets: WindowIns
                             { remember -> host.approve(token, remember) })
                     }
                     Box(Modifier.weight(1f).fillMaxWidth()) {
-                        if (showPrivateDevices) Column(Modifier.fillMaxSize()) {
+                        if (showVerification) {
+                            VerificationScreen(state, host, Modifier) {
+                                verificationPeer = null
+                                host.clearNotice()
+                            }
+                        } else if (showPrivateDevices) Column(Modifier.fillMaxSize()) {
                             TopAppBar(title = { Text(stringResource(R.string.mesh_private_devices)) },
                                 navigationIcon = {
                                     IconButton(onClick = { showPrivateDevices = false }) {
@@ -127,12 +150,13 @@ fun NextApp(state: NextState, host: MainActivity, contentWindowInsets: WindowIns
                                 }
                             }
                             if (showChat) ChatScreen(state, host, Modifier.weight(1f), showBack = !wide, onBack = { detail = false },
-                                meshDeviceCount = meshDeviceCount, onOpenPrivateDevices = openPrivateDevices)
+                                meshDeviceCount = meshDeviceCount, onOpenPrivateDevices = openPrivateDevices,
+                                onVerifyIdentity = { verificationPeer = state.selectedId })
                             else if (wide && page == 0) Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
                                 EmptyState(R.drawable.outline_chat_bubble_24, t("chats"), t("emptyChat"))
                             }
                         }
-                        if (wide && page == 0 && !showPrivateDevices) PaneDivider(widths, position,
+                        if (wide && page == 0 && !showPrivateDevices && !showVerification) PaneDivider(widths, position,
                             onMove = { split = widths.fraction(it) },
                             onCommit = {
                                 split = widths.fraction(it)

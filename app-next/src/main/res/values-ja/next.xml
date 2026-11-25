@@ -32,4 +32,14 @@
     <string name="next_private_busy">別のチャットでリクエスト、ファイル、またはメッセージを処理中です。終了後に接続します。</string>
     <string name="next_private_finding">端末に接続できるまで待機中…</string>
     <string name="next_private_request_busy">現在のチャットで処理中の操作があります。今回のリクエストは送信されていません。</string>
+    <string name="next_message_actions">メッセージ操作</string>
+    <string name="next_copy_message">メッセージをコピー</string>
+    <string name="next_select_message_text">テキストを選択</string>
+    <string name="next_copy_filename">ファイル名をコピー</string>
+    <string name="next_private_notifications">プライベートチャットの通知</string>
+    <string name="next_nearby_notifications">近くのメッセージの通知</string>
+    <string name="next_notification_settings_hint">システム設定で音と表示を変更</string>
+    <string name="next_private_notification_body">プライベートチャットに新着メッセージ</string>
+    <string name="next_nearby_notification_body">近くに新着メッセージ</string>
+    <string name="next_safety_code">安全コード</string>
 </resources>

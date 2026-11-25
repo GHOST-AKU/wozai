@@ -3,7 +3,6 @@ package dev.ghost.nearbyim.next
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -82,7 +81,7 @@ internal fun MeshChatContent(
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
-                                SelectionContainer { Text(message.body) }
+                                TextMessageBody(message.body)
                                 val status = when (message.state) {
                                     "queued" -> R.string.mesh_queued
                                     "handed" -> R.string.mesh_handed

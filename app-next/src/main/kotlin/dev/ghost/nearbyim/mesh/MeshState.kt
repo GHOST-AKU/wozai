@@ -77,14 +77,14 @@ internal class MeshHistory(initial: List<MeshMessage> = emptyList()) {
     fun queue(id: String, body: String, origin: String, time: Long, request: String? = null) =
         append(MeshMessage(id, body, origin, 0, true, "queued", time, request))
 
-    fun receive(id: String, body: String, path: List<String>, time: Long) {
+    fun receive(id: String, body: String, path: List<String>, time: Long): Boolean =
         append(MeshMessage(id, body, path.first(), path.size - 1, false, "received", time))
-    }
 
-    private fun append(message: MeshMessage) {
-        if (entries.containsKey(message.id)) return
+    private fun append(message: MeshMessage): Boolean {
+        if (entries.containsKey(message.id)) return false
         entries[message.id] = MeshText.decodeNickname(message)
         while (entries.size > 200) entries.remove(entries.keys.first())
+        return true
     }
 
     fun transition(id: String, state: String) {

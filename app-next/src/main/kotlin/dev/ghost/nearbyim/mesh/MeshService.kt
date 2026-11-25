@@ -15,12 +15,21 @@ import android.os.Looper
 import dev.ghost.nearbyim.AppLanguage
 import dev.ghost.nearbyim.MainActivity
 import dev.ghost.nearbyim.R
+import dev.ghost.nearbyim.next.MessageNotifications
+import java.util.concurrent.atomic.AtomicBoolean
 
 /** Public reception can be restored by the opted-in foreground Activity; relay is separate. */
 class MeshService : Service() {
     private var runtime: MeshRuntime? = null
     private var ownerToken = -1L
     private val main = Handler(Looper.getMainLooper())
+    private val alertQueued = AtomicBoolean()
+    private fun received() {
+        if (alertQueued.compareAndSet(false, true)) main.postDelayed({
+            alertQueued.set(false)
+            if (MeshClient.isCurrent(ownerToken)) MessageNotifications.post(this, MessageNotifications.NEARBY)
+        }, 500)
+    }
 
     override fun attachBaseContext(base: Context) = super.attachBaseContext(AppLanguage.wrap(base))
     override fun onBind(intent: Intent?): IBinder? = null
@@ -41,7 +50,7 @@ class MeshService : Service() {
                 }
                 ownerToken = token
                 val active = runtime ?: MeshRuntime(MeshAndroidPlatform(this), MeshClient.state.value,
-                    {}, {}).also { runtime = it }
+                    {}, {}, ::received).also { runtime = it }
                 // Reuse one actor so teardown completes before another core opens mesh-v1.
                 active.start(mode, relay, { next -> MeshClient.publish(token, next) }, {
                         main.post {
