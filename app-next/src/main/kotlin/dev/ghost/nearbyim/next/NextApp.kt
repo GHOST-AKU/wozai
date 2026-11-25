@@ -32,7 +32,7 @@ fun NextApp(state: NextState, host: MainActivity, contentWindowInsets: WindowIns
     val conversations = rememberSaveableStateHolder()
     val publicComposer = rememberMeshComposer()
     val meshDeviceCount by remember { MeshClient.state.map { it.directDeviceCount }.distinctUntilChanged() }
-        .collectAsStateWithLifecycle(initialValue = MeshClient.state.value.directDeviceCount)
+        .collectAsStateWithLifecycle(initialValue = null)
     val openPrivateDevices = { showPrivateDevices = true }
     val preferences = remember(host) { host.getSharedPreferences("ui", 0) }
     var split by remember { mutableFloatStateOf(preferences.getFloat("nextPaneSplit", Float.NaN)) }
