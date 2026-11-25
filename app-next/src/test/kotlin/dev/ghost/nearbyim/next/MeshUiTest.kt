@@ -2,6 +2,8 @@ package dev.ghost.nearbyim.next
 
 import android.content.ComponentName
 import androidx.activity.compose.setContent
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.semantics.SemanticsProperties
 import dev.ghost.nearbyim.R
 import dev.ghost.nearbyim.mesh.MeshSnapshot
 import dev.ghost.nearbyim.mesh.MeshMessage
@@ -35,9 +37,21 @@ class MeshUiTest {
         compose.onNodeWithText("设置").performClick()
         compose.onNodeWithText("附近").performClick()
         compose.onNode(hasSetTextAction()).assertTextContains("未发出的公共消息")
-        compose.onNodeWithText("私聊设备").performClick()
-        compose.onNodeWithText("返回附近").performClick()
+        compose.onNodeWithTag("network-status").performClick()
+        compose.onNodeWithContentDescription("返回附近").performClick()
         compose.onNode(hasSetTextAction()).assertTextContains("未发出的公共消息")
+    }
+    @Test fun publicTimelineDisplaysNicknameOrFallsBackToOrigin() {
+        compose.activity.setContent { NextTheme {
+            MeshChatContent(MeshSnapshot(running = true, messages = listOf(
+                MeshMessage("legacy", "旧版消息", "123456789abcdef0", 1, false, "received", 0),
+                MeshMessage("named", "发送正文", "abcdef0123456789", 2, false, "received", 1, nickname = "小林 🐈"),
+            )), "", false, {}, {}, {}, {}, {})
+        } }
+        compose.onNodeWithText("小林 🐈").assertIsDisplayed()
+        compose.onNodeWithText("发送正文").assertIsDisplayed()
+        compose.onNodeWithText("123456789abc").assertIsDisplayed()
+        compose.onNodeWithText("abcdef012345").assertDoesNotExist()
     }
 
     @Test fun cancelFirstStartDoesNotAskForRadioPermissionsOrStartService() {
@@ -119,10 +133,30 @@ class MeshUiTest {
     }
     @Test fun privateDeviceControlsRemainAvailable(){
         compose.onNodeWithText("附近").performClick()
-        compose.onNodeWithText("私聊设备").performClick()
+        compose.onNodeWithTag("network-status").performClick()
         compose.onNodeWithText("自动接收私聊").assertIsDisplayed()
         compose.onNodeWithText("搜索设备").assertIsDisplayed()
-        compose.onNodeWithText("返回附近").performClick()
+        compose.onNodeWithContentDescription("返回附近").performClick()
         compose.onNodeWithText("开启接收").assertIsDisplayed()
+    }
+
+    @Test fun meshBadgeReportsZeroOnlyWhenActiveAndFollowsLiveNeighbors() {
+        val mesh = mutableStateOf(MeshSnapshot())
+        val host = compose.activity
+        host.setContent { NextTheme {
+            MeshChatContent(mesh.value, "", false, {}, {}, {}, {}, {})
+        } }
+        val network = compose.onNodeWithTag("network-status")
+        fun description(count: Int?) = SemanticsMatcher.expectValue(
+            SemanticsProperties.StateDescription,
+            host.text("idle") + (count?.let { " · " + host.getString(R.string.mesh_neighbors, it) } ?: ""),
+        )
+        network.assert(description(null))
+        compose.runOnIdle { mesh.value = MeshSnapshot(running = true) }
+        network.assert(description(0))
+        compose.runOnIdle { mesh.value = mesh.value.copy(neighbors = listOf("one", "two")) }
+        network.assert(description(2))
+        compose.runOnIdle { mesh.value = MeshSnapshot() }
+        network.assert(description(null))
     }
 }

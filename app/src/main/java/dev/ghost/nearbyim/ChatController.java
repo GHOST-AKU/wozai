@@ -710,7 +710,10 @@ public final class ChatController implements TransportListener {
         FramedSession wire=active;
         boolean ready=connected&&Objects.equals(peer,connectedPeerId)&&wire!=null&&wire.isReady()&&wire.attachmentsSupported();
         AutomaticFileRoutes routes=fileRoutes;
-        if(routes!=null&&Objects.equals(peer,connectedPeerId)&&(record.active()||record.resumable())&&routes.activityPath()!=null)return routes.activityPath();
+        if (routes != null && Objects.equals(peer, connectedPeerId) && (record.active() || record.resumable())) {
+            TransferPath activity = routes.activityPath();
+            if (activity != null) return activity;
+        }
         if(ready&&routes!=null&&record.outgoing&&record.route.isEmpty()&&(record.state.equals("queued")||record.state.equals("preparing")))return routes.pendingPath();
         return TransferPath.forAttachment(record.route,ready,record);
     }

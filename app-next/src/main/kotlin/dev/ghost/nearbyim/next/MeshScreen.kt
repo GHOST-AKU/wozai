@@ -25,25 +25,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import dev.ghost.nearbyim.MainActivity
 import dev.ghost.nearbyim.R
 import dev.ghost.nearbyim.mesh.MeshDiagnostics
 import dev.ghost.nearbyim.mesh.MeshClient
 import dev.ghost.nearbyim.mesh.MeshCapabilities
 import dev.ghost.nearbyim.mesh.MeshConsent
-
-/** UI observes the independent service; it never owns radio links or NIM4 sessions. */
-@Composable
-internal fun MeshNearbyScreen(privateState: NextState, host: MainActivity, composer: MeshComposer) {
-    var privateDevices by rememberSaveable { mutableStateOf(false) }
-    Column(Modifier.fillMaxSize()) {
-        androidx.activity.compose.BackHandler(privateDevices) { privateDevices = false }
-        if (privateDevices) {
-            TextButton(onClick = { privateDevices = false }) { Text(stringResource(R.string.mesh_back_public)) }
-            NearbyScreen(privateState, host)
-        } else MeshScreen(composer, onPrivate = { privateDevices = true })
-    }
-}
+import dev.ghost.nearbyim.mesh.MeshText
 
 private fun radioPermissions(mode: String): List<String> = when {
     mode == "ble" && Build.VERSION.SDK_INT >= 31 -> listOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_ADVERTISE)
@@ -54,9 +41,10 @@ private fun radioPermissions(mode: String): List<String> = when {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun MeshScreen(composer: MeshComposer, onPrivate: () -> Unit) {
+internal fun MeshNearbyScreen(privateState: NextState, composer: MeshComposer, onPrivate: () -> Unit) {
     val context = LocalContext.current
     val state by MeshClient.state.collectAsStateWithLifecycle()
+    val nickname = privateState.nickname
     val capabilities = remember(context) { MeshCapabilities.read(context) }
     var mode by rememberSaveable { mutableStateOf(
         MeshConsent.selectedMode(context)?.takeIf(capabilities::supports) ?: capabilities.defaultMode ?: "ble")
@@ -118,16 +106,6 @@ private fun MeshScreen(composer: MeshComposer, onPrivate: () -> Unit) {
         if (request != null && radioPermissions(request).all { context.checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }) afterPermissions()
         else { permissionError = true; pendingStart = null }
     }
-    LaunchedEffect(state.messages) {
-        val pending = composer.pending
-        if (pending != null && acceptedMeshSend(composer.baselineIds.toSet(), pending, state.messages)) {
-            if (composer.text == pending) composer.text = ""
-            composer.pending = null
-        }
-    }
-    LaunchedEffect(state.error, state.running, state.starting) {
-        if (state.error.isNotEmpty() || (!state.running && !state.starting)) composer.pending = null
-    }
     val busy = state.running || state.starting
     val automatic = MeshConsent.automaticMode(context) != null
     fun requestStart() {
@@ -167,17 +145,19 @@ private fun MeshScreen(composer: MeshComposer, onPrivate: () -> Unit) {
         MeshChatContent(state, composer.text, composer.pending != null,
             onDraft = { composer.text = it },
             onSend = {
-                composer.baselineIds = ArrayList(state.messages.filter { it.own }.map { it.id })
-                composer.pending = composer.text
-                MeshClient.send(context, composer.text)
+                if (composer.pending == null) {
+                    val body = composer.text
+                    MeshClient.send(context, body, nickname)?.let { composer.pending = MeshSubmission(it, body) }
+                }
             },
             onToggle = {
-                if (busy || automatic) { pendingStart = null; MeshClient.stop(context); composer.pending = null }
+                if (busy || automatic) { pendingStart = null; MeshClient.stop(context) }
                 else if (MeshConsent.acknowledged(context)) requestStart()
                 else consent = true
             },
             onOptions = { options = true }, onPrivate = onPrivate,
-            canStart = capabilities.supports(mode) && pendingStart == null, automatic = automatic)
+            canStart = capabilities.supports(mode) && pendingStart == null, automatic = automatic,
+            bodyLimit = MeshText.bodyLimit(nickname), privateState = privateState)
     }
     if (historyRules) AlertDialog(onDismissRequest = { historyRules = false },
         title = { Text(stringResource(R.string.mesh_history_short)) },

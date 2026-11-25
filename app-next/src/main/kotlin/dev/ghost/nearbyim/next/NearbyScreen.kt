@@ -11,7 +11,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.ghost.nearbyim.MainActivity
 import dev.ghost.nearbyim.R
@@ -39,8 +38,7 @@ fun NearbyScreen(state: NextState, host: MainActivity, showTitle: Boolean = true
     }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 28.dp)) {
         item {
-            if (showTitle) Text(t("nearby"), Modifier.padding(24.dp), style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.SemiBold)
+            if (showTitle) MainPageTitle(stringResource(R.string.mesh_private_devices))
             else Spacer(Modifier.height(8.dp))
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
                 listOf(Peer.LAN to "lan", Peer.BLUETOOTH to "bluetooth").forEachIndexed { index, (value, key) ->

@@ -36,7 +36,6 @@ internal class MeshRuntime(
     @Volatile private var snapshot = initial
     @Volatile private var closed = false
     private var session: Session? = null
-    private var requestSequence = 0L
     private var startedNanos = 0L
     private var publication = update
     private var termination = terminal
@@ -71,7 +70,8 @@ internal class MeshRuntime(
         activeGeneration = token
         tickPending.set(false)
         publish(token, snapshot.copy(running = false, starting = true, mode = mode, relay = relay,
-            localKey = "", neighbors = emptyList(), error = "", notice = "mesh_hardware_pending", diagnostics = ""))
+            localKey = "", neighbors = emptyList(), error = "", notice = "mesh_hardware_pending", diagnostics = "",
+            rejectedRequest = null))
         enqueue(token) {
             cleanup()
             if (!generation.accepts(token)) return@enqueue
@@ -91,22 +91,22 @@ internal class MeshRuntime(
         }
     }
 
-    fun send(text: String) {
+    fun send(text: String, request: String) {
         val token = synchronized(this) { activeGeneration }
         if (!MeshText.valid(text)) {
-            enqueue(token) { publish(token, snapshot.copy(error = "mesh_send_invalid")) }
+            enqueue(token) { publish(token, snapshot.copy(error = "mesh_send_invalid", rejectedRequest = request)) }
             return
         }
         enqueue(token) {
             val current = session
             if (!snapshot.running || current == null) return@enqueue
-            val request = "s${++requestSequence}"
             if (!pending.add(request, text)) {
-                publish(token, snapshot.copy(error = "mesh_command_busy")); return@enqueue
+                publish(token, snapshot.copy(error = "mesh_command_busy", rejectedRequest = request))
+                return@enqueue
             }
             if (!current.pipe.offer(MeshProtocol.send(text, request))) {
                 pending.remove(request)
-                publish(token, snapshot.copy(error = "mesh_command_busy"))
+                publish(token, snapshot.copy(error = "mesh_command_busy", rejectedRequest = request))
             } else publish(token, snapshot.copy(error = ""))
         }
     }
@@ -196,7 +196,7 @@ internal class MeshRuntime(
             is MeshEvent.Queued -> {
                 val body = pending.accept(event.request)
                 if (body == null) { end("mesh_protocol_error", token, true); return }
-                history.queue(event.id, body, snapshot.localKey, System.currentTimeMillis())
+                history.queue(event.id, body, snapshot.localKey, System.currentTimeMillis(), event.request)
                 next = next.copy(error = "", messages = history.messages)
             }
             is MeshEvent.Message -> {
@@ -216,7 +216,8 @@ internal class MeshRuntime(
             }
             is MeshEvent.Neighbors -> next = next.copy(neighbors = event.peers.sorted())
             is MeshEvent.Relay -> next = next.copy(relay = event.enabled)
-            MeshEvent.Rejected -> { pending.reject(); next = next.copy(error = "mesh_send_rejected") }
+            MeshEvent.Rejected -> next = next.copy(error = "mesh_send_rejected",
+                rejectedRequest = pending.reject() ?: next.rejectedRequest)
             MeshEvent.RestartLost -> next = next.copy(notice = "mesh_restart_lost")
             MeshEvent.Metadata -> return
             is MeshEvent.Ready -> return

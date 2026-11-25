@@ -22,25 +22,26 @@ import dev.ghost.nearbyim.ChatStore
 import dev.ghost.nearbyim.MainActivity
 import dev.ghost.nearbyim.R
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ConversationScreen(
     state: NextState,
     host: MainActivity,
     currentPane: String?,
     onSelect: (ChatStore.Conversation) -> Unit,
-    onNewChat: () -> Unit,
+    meshDeviceCount: Int?,
+    onOpenPrivateDevices: () -> Unit,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     val focus = LocalFocusManager.current
     val conversations = remember(state.conversations, query) {
         state.conversations.filter { it.name.contains(query, true) || it.preview.contains(query, true) }
     }
-    val showFab = state.conversations.isNotEmpty() && !WindowInsets.isImeVisible
     Column(Modifier.fillMaxSize()) {
-        TopAppBar(title = { Text(t("app"), fontWeight = FontWeight.SemiBold) },
-            windowInsets = WindowInsets(0), colors = TopAppBarDefaults.topAppBarColors(
-                titleContentColor = MaterialTheme.colorScheme.primary))
+        Row(Modifier.fillMaxWidth().padding(end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            MainPageTitle(t("app"), Modifier.weight(1f).align(Alignment.Top))
+            NetworkStatusButton(state, meshDeviceCount, onOpenPrivateDevices)
+        }
         DockedSearchBar(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             inputField = {
@@ -66,10 +67,9 @@ internal fun ConversationScreen(
                 EmptyState(R.drawable.outline_chat_bubble_24,
                     t(if (query.isEmpty()) "noChatsTitle" else "noSearchResultsTitle"),
                     t(if (query.isEmpty()) "noChatsBody" else "noSearchResultsBody"),
-                    Modifier.align(Alignment.Center),
-                    action = { if (query.isEmpty() && !showFab) Button(onClick = onNewChat) { Text(t("newChat")) } })
+                    Modifier.align(Alignment.Center))
             } else {
-                LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = if (showFab) 88.dp else 16.dp)) {
+                LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
                     items(conversations, key = { it.id }) { conversation ->
                         ConversationRow(conversation, host, currentPane,
                             connected = state.connected && state.connectedId == conversation.id,
@@ -77,13 +77,6 @@ internal fun ConversationScreen(
                     }
                 }
             }
-            if (showFab) ExtendedFloatingActionButton(
-                text = { Text(t("newChat")) },
-                icon = { AppIcon(R.drawable.outline_add_24) },
-                onClick = onNewChat,
-                containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp).testTag("new-chat-fab"),
-            )
         }
     }
 }

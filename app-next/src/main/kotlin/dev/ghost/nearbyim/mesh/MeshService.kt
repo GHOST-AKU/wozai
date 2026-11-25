@@ -60,8 +60,9 @@ class MeshService : Service() {
             SEND, SET_RELAY -> {
                 val token = intent.getLongExtra(TOKEN, -1)
                 if (ownerToken == token && MeshClient.isCurrent(token)) {
-                    if (intent.action == SEND) runtime?.send(intent.getStringExtra(TEXT) ?: "")
-                    else runtime?.setRelay(intent.getBooleanExtra(RELAY, false))
+                    if (intent.action == SEND) {
+                        intent.getStringExtra(SEND_REQUEST)?.let { runtime?.send(intent.getStringExtra(TEXT).orEmpty(), it) }
+                    } else runtime?.setRelay(intent.getBooleanExtra(RELAY, false))
                 }
                 if (runtime == null) stopSelf(startId)
             }
@@ -105,6 +106,7 @@ class MeshService : Service() {
         internal const val MODE = "mesh_mode"
         internal const val RELAY = "mesh_relay"
         internal const val TEXT = "mesh_text"
+        internal const val SEND_REQUEST = "mesh_send_request"
         private const val CHANNEL = "nearby-mesh-public-v1"
         private const val NOTIFICATION = 41
     }

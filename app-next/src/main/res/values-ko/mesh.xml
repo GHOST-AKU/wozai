@@ -10,7 +10,7 @@
     <string name="mesh_stop">수신 중지</string>
     <string name="mesh_relay">다른 노드의 중계 허용</string>
     <string name="mesh_relay_hint">중계는 배터리를 더 사용합니다. 명시적으로 허용한 경우에만 전달합니다.</string>
-    <string name="mesh_public_notice">이 채팅은 공개됩니다. 주변 참여자와 중계 기기가 메시지를 읽을 수 있으며 종단 간 암호화는 제공하지 않습니다. 공개 연결은 상대를 신뢰하는 비공개 연락처로 등록하지 않습니다.</string>
+    <string name="mesh_public_notice">이 채팅은 공개됩니다. 주변 참여자와 중계 기기가 메시지를 읽을 수 있으며 종단 간 암호화는 제공하지 않습니다. 공개 연결은 상대를 신뢰하는 비공개 연락처로 등록하지 않습니다. 닉네임도 메시지와 함께 공개됩니다.</string>
     <string name="mesh_confirm_title">참여하기 전에</string>
     <string name="mesh_confirm">이해하고 시작</string>
     <string name="mesh_cancel">취소</string>
@@ -18,7 +18,7 @@
     <string name="mesh_send">보내기</string>
     <string name="mesh_empty">공개 메시지가 아직 없습니다</string>
     <string name="mesh_empty_hint">수신을 시작하면 같은 전송 방식을 사용하는 주변 기기에 자동 연결됩니다.</string>
-    <string name="mesh_neighbors">직접 연결: %1$d대</string>
+    <string name="mesh_neighbors">Mesh 직접 연결: %1$d대</string>
     <string name="mesh_idle">수신이 꺼져 있습니다</string>
     <string name="mesh_starting">Mesh 시작 중…</string>
     <string name="mesh_waiting_restore">수신 켜짐 · 무선 연결 복구 대기 중</string>
@@ -34,7 +34,7 @@
     <string name="mesh_permission">시스템 설정에서 주변 기기(이전 시스템은 위치) 및 알림 권한을 허용한 뒤 다시 시작하세요.</string>
     <string name="mesh_unavailable">이 모드에는 Android 10 이상, arm64 및 해당 무선 기능이 필요합니다.</string>
     <string name="mesh_enable_bt">블루투스가 꺼져 있습니다. 송수신하려면 켜세요.</string>
-    <string name="mesh_too_long">텍스트가 UTF-8 2048바이트를 초과했습니다.</string>
+    <string name="mesh_too_long">본문이 UTF-8 %1$d바이트를 초과했습니다.</string>
     <string name="mesh_notification_channel">공개 Mesh 네트워크</string>
     <string name="mesh_notification_title">我在next · Mesh 실행 중</string>
     <string name="mesh_notification_text">공개 네트워크가 실행 중입니다. 눌러 돌아가거나 중지 버튼으로 종료하세요.</string>

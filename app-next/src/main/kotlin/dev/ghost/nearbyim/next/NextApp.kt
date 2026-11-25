@@ -15,18 +15,25 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.ghost.nearbyim.MainActivity
 import dev.ghost.nearbyim.R
+import dev.ghost.nearbyim.mesh.MeshClient
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NextApp(state: NextState, host: MainActivity, contentWindowInsets: WindowInsets = WindowInsets.safeDrawing) {
     var page by rememberSaveable { mutableIntStateOf(0) }
     var detail by rememberSaveable { mutableStateOf(false) }
-    var newChat by rememberSaveable { mutableStateOf(false) }
+    var showPrivateDevices by rememberSaveable { mutableStateOf(false) }
     var handledPrivateOpening by rememberSaveable { mutableStateOf<String?>(null) }
     val conversations = rememberSaveableStateHolder()
     val publicComposer = rememberMeshComposer()
+    val meshDeviceCount by remember { MeshClient.state.map { it.directDeviceCount }.distinctUntilChanged() }
+        .collectAsStateWithLifecycle(initialValue = MeshClient.state.value.directDeviceCount)
+    val openPrivateDevices = { showPrivateDevices = true }
     val preferences = remember(host) { host.getSharedPreferences("ui", 0) }
     var split by remember { mutableFloatStateOf(preferences.getFloat("nextPaneSplit", Float.NaN)) }
     val density = LocalDensity.current
@@ -40,7 +47,7 @@ fun NextApp(state: NextState, host: MainActivity, contentWindowInsets: WindowIns
         val event = state.openedPrivateChat
         if (event != null && handledPrivateOpening != event) {
             handledPrivateOpening = event
-            newChat = false
+            showPrivateDevices = false
             page = 0
             detail = true
         }
@@ -59,16 +66,16 @@ fun NextApp(state: NextState, host: MainActivity, contentWindowInsets: WindowIns
             val listWidth = with(density) {
                 ((if (widths.rtl) widthPx - position else position) - widths.railWidth).toDp()
             }
-            val showChat = !newChat && page == 0 && (detail || wide) && state.selectedId != null
+            val showChat = !showPrivateDevices && page == 0 && (detail || wide) && state.selectedId != null
             val visibleChat = state.selectedId.takeIf { showChat }
             LaunchedEffect(visibleChat) { host.showPrivateConversation(visibleChat) }
-            BackHandler(detail || newChat) {
-                if (newChat) newChat = false else detail = false
+            BackHandler(detail || showPrivateDevices) {
+                if (showPrivateDevices) showPrivateDevices = false else detail = false
             }
             Scaffold(
                 snackbarHost = { SnackbarHost(snackbar) },
                 bottomBar = {
-                    if (!wide && !showChat && !newChat) NavigationBar(
+                    if (!wide && !showChat && !showPrivateDevices) NavigationBar(
                         modifier = Modifier.testTag("main-navigation"),
                         containerColor = MaterialTheme.colorScheme.surfaceContainer,
                         windowInsets = WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom),
@@ -86,13 +93,19 @@ fun NextApp(state: NextState, host: MainActivity, contentWindowInsets: WindowIns
                             { remember -> host.approve(token, remember) })
                     }
                     Box(Modifier.weight(1f).fillMaxWidth()) {
-                        if (newChat) Column(Modifier.fillMaxSize()) {
+                        if (showPrivateDevices) Column(Modifier.fillMaxSize()) {
                             TopAppBar(title = { Text(stringResource(R.string.mesh_private_devices)) },
                                 navigationIcon = {
-                                    IconButton(onClick = { newChat = false }) {
-                                        AppIcon(R.drawable.outline_arrow_back_24, t("backToChats"))
+                                    IconButton(onClick = { showPrivateDevices = false }) {
+                                        AppIcon(R.drawable.outline_arrow_back_24,
+                                            if (page == 1) stringResource(R.string.mesh_back_public) else t("backToChats"))
                                     }
                                 }, windowInsets = WindowInsets(0))
+                            meshDeviceCount?.let {
+                                Text(stringResource(R.string.mesh_neighbors, it),
+                                    Modifier.padding(start = 24.dp, end = 24.dp, bottom = 8.dp),
+                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                             NearbyScreen(state, host, showTitle = false)
                         } else Row(Modifier.fillMaxSize()) {
                             if (wide) NavigationRail(containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -105,19 +118,21 @@ fun NextApp(state: NextState, host: MainActivity, contentWindowInsets: WindowIns
                                     when (page) {
                                         0 -> conversations.SaveableStateProvider("conversations") {
                                             ConversationScreen(state, host, currentPane = state.selectedId.takeIf { wide && showChat },
-                                                onSelect = { host.select(it); detail = true }, onNewChat = { newChat = true })
+                                                onSelect = { host.select(it); detail = true },
+                                                meshDeviceCount = meshDeviceCount, onOpenPrivateDevices = openPrivateDevices)
                                         }
-                                        1 -> MeshNearbyScreen(state, host, publicComposer)
+                                        1 -> MeshNearbyScreen(state, publicComposer, onPrivate = openPrivateDevices)
                                         else -> SettingsScreen(state, host)
                                     }
                                 }
                             }
-                            if (showChat) ChatScreen(state, host, Modifier.weight(1f), showBack = !wide, onBack = { detail = false })
+                            if (showChat) ChatScreen(state, host, Modifier.weight(1f), showBack = !wide, onBack = { detail = false },
+                                meshDeviceCount = meshDeviceCount, onOpenPrivateDevices = openPrivateDevices)
                             else if (wide && page == 0) Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
                                 EmptyState(R.drawable.outline_chat_bubble_24, t("chats"), t("emptyChat"))
                             }
                         }
-                        if (wide && page == 0 && !newChat) PaneDivider(widths, position,
+                        if (wide && page == 0 && !showPrivateDevices) PaneDivider(widths, position,
                             onMove = { split = widths.fraction(it) },
                             onCommit = {
                                 split = widths.fraction(it)
@@ -150,21 +165,24 @@ internal fun PrivateRequestBanner(name: String, reject: () -> Unit, accept: (Boo
     }
 }
 
-private val navIcons = listOf(R.drawable.outline_chat_bubble_24, R.drawable.outline_wifi_tethering_24, R.drawable.outline_settings_24)
-private val navKeys = listOf("chats", "nearby", "settings")
+private val navItems = listOf(
+    "chats" to R.drawable.outline_chat_bubble_24,
+    "nearby" to R.drawable.outline_wifi_tethering_24,
+    "settings" to R.drawable.outline_settings_24,
+)
 
 @Composable
 private fun RowScope.NavigationItems(page: Int, select: (Int) -> Unit) {
     val scheme = MaterialTheme.colorScheme
     val colors = NavigationBarItemDefaults.colors(
         selectedIconColor = scheme.onPrimaryContainer,
-        selectedTextColor = scheme.primary,
+        selectedTextColor = scheme.onSurface,
         indicatorColor = scheme.primaryContainer,
     )
-    navKeys.forEachIndexed { index, key ->
+    navItems.forEachIndexed { index, (key, icon) ->
         val selected = page == index
         NavigationBarItem(selected = selected, onClick = { select(index) },
-            colors = colors, icon = { AppIcon(navIcons[index]) }, label = { NavigationLabel(key, selected) })
+            colors = colors, icon = { AppIcon(icon) }, label = { NavigationLabel(key, selected) })
     }
 }
 
@@ -173,13 +191,13 @@ private fun RailItems(page: Int, select: (Int) -> Unit) {
     val scheme = MaterialTheme.colorScheme
     val colors = NavigationRailItemDefaults.colors(
         selectedIconColor = scheme.onPrimaryContainer,
-        selectedTextColor = scheme.primary,
+        selectedTextColor = scheme.onSurface,
         indicatorColor = scheme.primaryContainer,
     )
-    navKeys.forEachIndexed { index, key ->
+    navItems.forEachIndexed { index, (key, icon) ->
         val selected = page == index
         NavigationRailItem(selected = selected, onClick = { select(index) },
-            colors = colors, icon = { AppIcon(navIcons[index]) }, label = { NavigationLabel(key, selected) })
+            colors = colors, icon = { AppIcon(icon) }, label = { NavigationLabel(key, selected) })
     }
 }
 

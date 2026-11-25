@@ -77,15 +77,23 @@ class MeshRuntimeTest {
             val process = platform.processes[0]
             process.emit("""{"event":"ready","key":"$key","address":"127.0.0.1:39770","relay":false}""")
             await { state.get().running }
-            runtime.send("public text")
+            runtime.send(MeshText.withNickname("public text", "小林 🐈"), "s1")
             await { process.commands.toString().contains("\"request\":\"s1\"") }
+            assertTrue(process.commands.toString(Charsets.UTF_8.name()).contains("[WoZai Mesh] 小林 🐈"))
             assertTrue(state.get().messages.isEmpty())
             val id = "b".repeat(64)
             process.emit("""{"event":"queued","id":"$id","state":"pending","request":"s1"}""")
             await { state.get().messages.size == 1 }
             assertEquals("public text", state.get().messages.single().body)
+            assertEquals("小林 🐈", state.get().messages.single().nickname)
             assertEquals(id, state.get().messages.single().id)
+            assertEquals("s1", state.get().messages.single().sendRequest)
             assertEquals("queued", state.get().messages.single().state)
+            runtime.send("another message", "s2")
+            await { process.commands.toString().contains("\"request\":\"s2\"") }
+            process.emit("""{"event":"error"}""")
+            await { state.get().rejectedRequest == "s2" }
+            assertEquals("s1", state.get().messages.single().sendRequest)
             val caller = Thread.currentThread().name
             runtime.stop()
             await { process.ended.count == 0L && platform.closedRadios.get() == 1 }

@@ -10,7 +10,7 @@
     <string name="mesh_stop">受信を停止</string>
     <string name="mesh_relay">他のノードの中継を許可</string>
     <string name="mesh_relay_hint">中継は電池を消費します。明示的に許可した場合のみ転送します。</string>
-    <string name="mesh_public_notice">このチャットは公開です。近くの参加者と中継端末はメッセージを読めます。エンドツーエンド暗号化はありません。公開接続で相手が信頼済みの個別連絡先になることはありません。</string>
+    <string name="mesh_public_notice">このチャットは公開です。近くの参加者と中継端末はメッセージを読めます。エンドツーエンド暗号化はありません。公開接続で相手が信頼済みの個別連絡先になることはありません。 ニックネームもメッセージと一緒に公開されます。</string>
     <string name="mesh_confirm_title">参加する前に</string>
     <string name="mesh_confirm">理解して開始</string>
     <string name="mesh_cancel">キャンセル</string>
@@ -18,7 +18,7 @@
     <string name="mesh_send">送信</string>
     <string name="mesh_empty">公開メッセージはまだありません</string>
     <string name="mesh_empty_hint">受信を開始すると、同じ通信方式を使う近くの端末に自動接続します。</string>
-    <string name="mesh_neighbors">直接接続：%1$d 台</string>
+    <string name="mesh_neighbors">Mesh の直接接続：%1$d 台</string>
     <string name="mesh_idle">受信はオフです</string>
     <string name="mesh_starting">Mesh を起動中…</string>
     <string name="mesh_waiting_restore">受信はオン · 無線の復帰を待機中</string>
@@ -34,7 +34,7 @@
     <string name="mesh_permission">システム設定で付近のデバイス（旧 OS では位置情報）と通知を許可してから、もう一度開始してください。</string>
     <string name="mesh_unavailable">このモードには Android 10 以降、arm64 と対応する無線機能が必要です。</string>
     <string name="mesh_enable_bt">Bluetooth がオフです。送受信するにはオンにしてください。</string>
-    <string name="mesh_too_long">テキストが UTF-8 の 2048 バイトを超えています。</string>
+    <string name="mesh_too_long">本文が UTF-8 の上限（%1$d バイト）を超えています。</string>
     <string name="mesh_notification_channel">公開 Mesh ネットワーク</string>
     <string name="mesh_notification_title">我在next · Mesh 実行中</string>
     <string name="mesh_notification_text">公開ネットワークが実行中です。タップで戻るか、停止ボタンで終了できます。</string>

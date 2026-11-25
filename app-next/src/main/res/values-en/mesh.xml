@@ -10,7 +10,7 @@
     <string name="mesh_stop">Stop receiving</string>
     <string name="mesh_relay">Relay for other nodes</string>
     <string name="mesh_relay_hint">Relaying may consume more battery. Forwarding requires your explicit opt-in.</string>
-    <string name="mesh_public_notice">This chat is public. Nearby participants and relays can read messages; there is no end-to-end encryption. Public connections do not make anyone a trusted private contact.</string>
+    <string name="mesh_public_notice">This chat is public. Nearby participants and relays can read messages; there is no end-to-end encryption. Public connections do not make anyone a trusted private contact. Your nickname is shared with your message.</string>
     <string name="mesh_confirm_title">Before you join</string>
     <string name="mesh_confirm">Understand and start</string>
     <string name="mesh_cancel">Cancel</string>
@@ -18,7 +18,7 @@
     <string name="mesh_send">Send</string>
     <string name="mesh_empty">No public messages yet</string>
     <string name="mesh_empty_hint">Start receiving to automatically connect with nearby devices using the same transport.</string>
-    <string name="mesh_neighbors">Direct connections: %1$d</string>
+    <string name="mesh_neighbors">Direct Mesh connections: %1$d</string>
     <string name="mesh_idle">Receiving is off</string>
     <string name="mesh_starting">Starting Mesh…</string>
     <string name="mesh_waiting_restore">Reception enabled · Waiting for the radio</string>
@@ -34,7 +34,7 @@
     <string name="mesh_permission">Allow nearby devices (location on older systems) and notifications in system settings, then start again.</string>
     <string name="mesh_unavailable">This mode requires Android 10+, arm64 and the corresponding radio capability.</string>
     <string name="mesh_enable_bt">Bluetooth is off. Enable it to send and receive.</string>
-    <string name="mesh_too_long">Text exceeds 2048 UTF-8 bytes.</string>
+    <string name="mesh_too_long">The message exceeds %1$d UTF-8 bytes.</string>
     <string name="mesh_notification_channel">Public Mesh networking</string>
     <string name="mesh_notification_title">WoZai next · Mesh active</string>
     <string name="mesh_notification_text">Public networking is running. Tap to return, or stop it from this notification.</string>

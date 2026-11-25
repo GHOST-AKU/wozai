@@ -19,7 +19,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.ghost.nearbyim.*
 import dev.ghost.nearbyim.R
@@ -32,7 +31,7 @@ fun SettingsScreen(state: NextState, host: MainActivity) {
     var revoke by remember { mutableStateOf<ChatStore.TrustedDevice?>(null) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 32.dp)) {
         item {
-            Text(t("settings"), Modifier.padding(24.dp), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.SemiBold)
+            MainPageTitle(t("settings"))
             Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                 DeviceAvatar(host.avatarRoot(null), state.nickname, Modifier.clickable(onClick = host::openAvatar), large = true)

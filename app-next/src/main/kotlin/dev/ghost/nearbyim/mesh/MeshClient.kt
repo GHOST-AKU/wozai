@@ -2,6 +2,7 @@ package dev.ghost.nearbyim.mesh
 
 import android.content.Context
 import android.content.Intent
+import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -19,6 +20,7 @@ object MeshClient {
     val state: StateFlow<MeshSnapshot> = mutableState.asStateFlow()
     private val gate = Any()
     private var request = 0L
+    private var sendSequence = SystemClock.elapsedRealtimeNanos() / 1_000
 
     fun start(context: Context, mode: String, relay: Boolean) {
         val token = synchronized(gate) {
@@ -30,7 +32,7 @@ object MeshClient {
             }
             request += 1
             mutableState.value = mutableState.value.copy(starting = true, mode = mode, relay = relay,
-                localKey = "", neighbors = emptyList(), error = "", notice = "mesh_hardware_pending")
+                localKey = "", neighbors = emptyList(), error = "", notice = "mesh_hardware_pending", rejectedRequest = null)
             request
         }
         try {
@@ -74,31 +76,38 @@ object MeshClient {
         context.stopService(Intent(context, MeshService::class.java))
     }
 
-    fun send(context: Context, text: String) {
-        if (!MeshText.valid(text)) {
+    fun send(context: Context, text: String, nickname: String): String? {
+        val body = MeshText.withNickname(text, nickname)
+        if (text.isBlank() || !MeshText.validBody(body)) {
             synchronized(gate) { mutableState.value = mutableState.value.copy(error = "mesh_send_invalid") }
-            return
+            return null
         }
-        command(context, MeshService.SEND) { putExtra(MeshService.TEXT, text) }
+        val sendRequest = synchronized(gate) { "s${++sendSequence}" }
+        return if (command(context, MeshService.SEND) {
+            putExtra(MeshService.TEXT, body)
+            putExtra(MeshService.SEND_REQUEST, sendRequest)
+        }) sendRequest else null
     }
 
     fun setRelay(context: Context, enabled: Boolean) {
         command(context, MeshService.SET_RELAY) { putExtra(MeshService.RELAY, enabled) }
     }
 
-    private fun command(context: Context, action: String, extras: Intent.() -> Unit) {
+    private fun command(context: Context, action: String, extras: Intent.() -> Unit): Boolean {
         val token = synchronized(gate) {
-            if (!mutableState.value.running) return
+            if (!mutableState.value.running) return false
             request
         }
-        try {
+        val started = try {
             context.startService(Intent(context, MeshService::class.java).setAction(action)
-                .putExtra(MeshService.TOKEN, token).apply(extras))
+                .putExtra(MeshService.TOKEN, token).apply(extras)) != null
         } catch (_: RuntimeException) {
-            synchronized(gate) {
-                if (token == request) mutableState.value = mutableState.value.copy(error = "mesh_service_unavailable")
-            }
+            false
         }
+        if (!started) synchronized(gate) {
+            if (token == request) mutableState.value = mutableState.value.copy(error = "mesh_service_unavailable")
+        }
+        return started
     }
 
     internal fun isCurrent(token: Long): Boolean = synchronized(gate) { token == request }

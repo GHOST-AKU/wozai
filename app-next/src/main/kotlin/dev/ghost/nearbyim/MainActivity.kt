@@ -122,6 +122,7 @@ class MainActivity : ComponentActivity() {
         override fun onServiceDisconnected(name: ComponentName) {
             controller = null
             queuedText = null
+            visibility.clear()
             main.removeCallbacks(privateWork)
             main.removeCallbacks(observedRefresh); observerScheduled = false
             refresh()
@@ -146,9 +147,10 @@ class MainActivity : ComponentActivity() {
         if (it.resultCode <= 0) showNotice(text("bluetoothEnableCanceled"))
     }
     private val documents = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
-        if (uris.isEmpty()) { selection = null; return@registerForActivityResult }
+        if (uris.isEmpty()) { clearAttachmentSelection(); return@registerForActivityResult }
         if (uris.size > AttachmentBatchQueue.MAX_PENDING) {
-            selection = null; showNotice(text("attachmentBatchLimit", AttachmentBatchQueue.MAX_PENDING))
+            clearAttachmentSelection()
+            showNotice(text("attachmentBatchLimit", AttachmentBatchQueue.MAX_PENDING))
             return@registerForActivityResult
         }
         uris.forEach { uri ->
@@ -164,7 +166,7 @@ class MainActivity : ComponentActivity() {
         resumeAttachmentPicker()
     }
     private val retryDocument = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri == null) { selection = null; retryRecordId = null }
+        if (uri == null) clearAttachmentSelection()
         else {
             try { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
             catch (_: SecurityException) { /* The engine can use a temporary read grant. */ }
@@ -175,8 +177,8 @@ class MainActivity : ComponentActivity() {
     private val attachmentPreview = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK && selection != null) {
             try { selectionUris = ArrayList(AttachmentSelection.from(result.data)); selectionConfirmed = true; resumeAttachmentResult() }
-            catch (_: IllegalArgumentException) { selection = null; selectionUris = null; showNotice(text("attachmentFailed")) }
-        } else { selection = null; selectionUris = null }
+            catch (_: IllegalArgumentException) { clearAttachmentSelection(); showNotice(text("attachmentFailed")) }
+        } else clearAttachmentSelection()
     }
     private val export = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val peer = exportPeer
@@ -185,7 +187,7 @@ class MainActivity : ComponentActivity() {
         if (result.resultCode == RESULT_OK && peer != null && record != null && uri != null) {
             exportUri = uri; exportFlags = result.data?.flags ?: 0
             resumeExport()
-        } else { exportPeer = null; exportRecord = null; exportUri = null }
+        } else clearAttachmentExport()
     }
     private val folder = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val uri = result.data?.data
@@ -328,7 +330,7 @@ class MainActivity : ComponentActivity() {
     private fun refresh() {
         val c = controller
         if (c == null) {
-            state = state.copy(ready = false, canSend = false, canAttach = false, canConnectOnSend = false, sendingAfterConnect = false)
+            state = state.withoutService()
             return
         }
         if (draftPeer != c.selectedId) loadDraft(c.selectedId)
@@ -345,14 +347,14 @@ class MainActivity : ComponentActivity() {
         val connectingHere = selected != null && c.connecting && c.connectionPeer() == selected
         val reconnectPossible = selected != null && c.rememberedRoot(selected) != null && automaticModes(c, selected).isNotEmpty()
         state = NextState(
-            ready = true, nickname = c.nickname, localId = c.localId,
+            ready = true, nickname = c.nickname,
             conversations = c.conversations.toList(), trusted = c.trustedDevices.toList(), peers = c.peers.values.toList(),
             transferMeasurements = c.messages.mapNotNull { message -> message.attachment?.let {
-                "${message.id}:${message.outgoing}" to c.transferProgress(c.selectedId, it)
+                message.timelineKey to c.transferProgress(c.selectedId, it)
             } }.toMap(),
             messages = c.messages.toList(), selectedId = c.selectedId, selectedName = c.selectedName ?: "",
             connectedId = c.connectedPeerId, connected = c.connected, connecting = c.connecting,
-            connectedEncrypted = c.endToEndEncrypted(c.connectedPeerId), connectedVerified = c.identityVerified(c.connectedPeerId),
+            connectedMode = c.sessionMode.takeIf { c.connected && c.connectedPeerId != null },
             status = AndroidText.get(this, c.status), error = AndroidText.get(this, c.error),
             lanRunning = c.lanRunning, bluetoothRunning = c.bluetoothRunning,
             lanSearching = c.lanSearching, bluetoothSearching = c.bluetoothSearching,
@@ -566,8 +568,6 @@ class MainActivity : ComponentActivity() {
         val id = peer.peerId ?: c.trustedDevices.firstOrNull { peer.bluetoothAddress != null && it.bluetoothAddress == peer.bluetoothAddress }?.id
         return id != null && id == c.connectedPeerId
     }
-    fun preferredMode(peer: String): Int = controller?.sessionMode?.takeIf { state.connectedId == peer }
-        ?: controller?.preferredMode(peer) ?: Peer.LAN
     fun attachmentRoute(record: AttachmentRecord): String = controller?.let { c ->
         if (c.selectedId != state.selectedId) return@let ""
         c.attachmentRoute(state.selectedId, record).key().takeIf { it.isNotEmpty() }?.let { text(it) }
@@ -583,7 +583,11 @@ class MainActivity : ComponentActivity() {
     fun select(conversation: ChatStore.Conversation) { controller?.selectConversation(conversation); refresh() }
     fun approve(token: String, remember: Boolean) { controller?.acceptPrivateRequest(token, remember) }
     fun reject(token: String) { controller?.reject(token) }
-    fun setNickname(value: String) { controller?.setNickname(value) }
+    fun setNickname(value: String) {
+        val c = controller ?: return
+        c.setNickname(value)
+        refresh()
+    }
     fun setReadReceipts(value: Boolean) { controller?.setReadReceiptsEnabled(value) }
     fun revokeTrust(peer: String) { controller?.revokeTrust(peer) }
 
@@ -683,8 +687,24 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun launchAttachmentPicker(photos: Boolean) {
-        if (!selectionCurrent()) { selection = null; showNotice(text("notConnected")); return }
-        documents.launch(arrayOf(if (photos) "image/*" else "*/*"))
+        if (!selectionCurrent()) {
+            clearAttachmentSelection()
+            showNotice(text("notConnected"))
+            return
+        }
+        try {
+            documents.launch(arrayOf(if (photos) "image/*" else "*/*"))
+        } catch (_: ActivityNotFoundException) {
+            clearAttachmentSelection()
+            showNotice(text("attachmentFailed"))
+        }
+    }
+
+    private fun clearAttachmentSelection() {
+        selection = null
+        selectionUris = null
+        selectionConfirmed = false
+        retryRecordId = null
     }
 
     private fun selectionCurrent(): Boolean {
@@ -698,12 +718,13 @@ class MainActivity : ComponentActivity() {
         val captured = selection
         selectionUris = null
         if (captured == null || !selectionCurrent()) {
-            selection = null; showNotice(text("notConnected")); return
+            clearAttachmentSelection()
+            showNotice(text("notConnected"))
+            return
         }
         if (selectionConfirmed) {
-            selection = null
             val retry = retryRecordId
-            retryRecordId = null
+            clearAttachmentSelection()
             if (retry == null) c.sendAttachments(captured.peer, captured.token, uris)
             else if (uris.size == 1) c.retryAttachmentWithSelection(captured.peer, captured.token, captured.identity, retry, uris.single())
             else showNotice(text("attachmentRetrySelectAgain"))
@@ -726,7 +747,12 @@ class MainActivity : ComponentActivity() {
                     controller === c && c.attachmentSelectionSession(peer) == identity && c.attachmentSessionToken() == token) {
                     selection = AttachmentSelectionSession(peer, token, identity)
                     retryRecordId = record.info.id
-                    retryDocument.launch(arrayOf(record.info.mime))
+                    try {
+                        retryDocument.launch(arrayOf(record.info.mime))
+                    } catch (_: ActivityNotFoundException) {
+                        clearAttachmentSelection()
+                        showNotice(text("attachmentFailed"))
+                    }
                 }
             } }
         }
@@ -758,16 +784,29 @@ class MainActivity : ComponentActivity() {
     fun saveAttachment(record: AttachmentRecord) {
         if (state.selectedId == null || state.selectedId != controller?.selectedId) return
         exportPeer = state.selectedId; exportRecord = record
-        export.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).setType(record.info.mime)
-            .addCategory(Intent.CATEGORY_OPENABLE).putExtra(Intent.EXTRA_TITLE, AttachmentInfo.safeName(record.info.name)))
+        try {
+            export.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).setType(record.info.mime)
+                .addCategory(Intent.CATEGORY_OPENABLE).putExtra(Intent.EXTRA_TITLE, AttachmentInfo.safeName(record.info.name)))
+        } catch (_: ActivityNotFoundException) {
+            clearAttachmentExport()
+            showNotice(text("attachmentFailed"))
+        }
     }
+
+    private fun clearAttachmentExport() {
+        exportPeer = null
+        exportRecord = null
+        exportUri = null
+        exportFlags = 0
+    }
+
     private fun resumeExport() {
         val c = controller ?: return
         val peer = exportPeer ?: return
         val record = exportRecord ?: return
         val uri = exportUri ?: return
         val flags = exportFlags
-        exportPeer = null; exportRecord = null; exportUri = null
+        clearAttachmentExport()
         c.exportAttachment(peer, record, uri, flags).whenComplete { _, error ->
             runOnUiThread { if (error != null) showNotice(text("attachmentFailed")) }
         }

@@ -44,12 +44,20 @@ import androidx.compose.ui.unit.dp
 import dev.ghost.nearbyim.*
 import dev.ghost.nearbyim.R
 import dev.ghost.nearbyim.core.*
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun ChatScreen(state: NextState, host: MainActivity, modifier: Modifier = Modifier, showBack: Boolean, onBack: () -> Unit) {
+fun ChatScreen(
+    state: NextState,
+    host: MainActivity,
+    modifier: Modifier = Modifier,
+    showBack: Boolean,
+    onBack: () -> Unit,
+    meshDeviceCount: Int? = null,
+    onOpenPrivateDevices: (() -> Unit)? = null,
+) {
     val peer = state.selectedId ?: return
     var info by rememberSaveable(peer) { mutableStateOf(false) }
     var confirmVerification by remember { mutableStateOf<IdentityVerification?>(null) }
@@ -67,23 +75,26 @@ fun ChatScreen(state: NextState, host: MainActivity, modifier: Modifier = Modifi
     var viewport by remember(peer) { mutableStateOf(Rect.Zero) }
     val scope = rememberCoroutineScope()
     val messages = remember(state.messages) { state.messages.asReversed() }
+    val messagesByKey = remember(messages) { messages.associateBy { it.timelineKey } }
     LaunchedEffect(peer) { listState.scrollToItem(0) }
     LaunchedEffect(messages.firstOrNull()?.id) {
         if (listState.firstVisibleItemIndex < 2) listState.animateScrollToItem(0)
     }
     DisposableEffect(peer) { onDispose { host.visibleMessages(null, emptyList()) } }
-    LaunchedEffect(peer, messages) {
-        while (true) {
-            val layout = listState.layoutInfo
-            val visible = layout.visibleItemsInfo.mapNotNull { item ->
-                val message = messages.getOrNull(item.index) ?: return@mapNotNull null
-                val bounds = bodyBounds[message.id] ?: return@mapNotNull null
+    LaunchedEffect(peer, state.ready, messagesByKey) {
+        if (!state.ready) {
+            host.visibleMessages(null, emptyList())
+            return@LaunchedEffect
+        }
+        snapshotFlow {
+            listState.layoutInfo.visibleItemsInfo.mapNotNull { item ->
+                val key = item.key as? String ?: return@mapNotNull null
+                val message = messagesByKey[key] ?: return@mapNotNull null
+                val bounds = bodyBounds[key] ?: return@mapNotNull null
                 if (message.outgoing || message.attachment != null || !ReadVisibility.visible(
                         (bounds.top - viewport.top).toDouble(), bounds.height.toDouble(), viewport.height.toDouble())) null else message.id
             }
-            host.visibleMessages(peer, visible)
-            delay(200)
-        }
+        }.collect { host.visibleMessages(peer, it) }
     }
     BoxWithConstraints(modifier.fillMaxHeight().testTag("chat-root")) {
         val emojiHeight = (maxHeight * .44f).coerceIn(148.dp, 264.dp)
@@ -103,7 +114,12 @@ fun ChatScreen(state: NextState, host: MainActivity, modifier: Modifier = Modifi
                     }
                 },
                 navigationIcon = { if (showBack) IconButton(onClick = onBack) { AppIcon(R.drawable.outline_arrow_back_24, t("backToChats")) } },
-                actions = { IconButton(onClick = { info = true }) { AppIcon(R.drawable.outline_more_vert_24, t("deviceInfo")) } },
+                actions = {
+                    if (onOpenPrivateDevices != null) {
+                        NetworkStatusButton(state, meshDeviceCount, onOpenPrivateDevices, peerId = peer)
+                    }
+                    IconButton(onClick = { info = true }) { AppIcon(R.drawable.outline_more_vert_24, t("deviceInfo")) }
+                },
             )
             val connectedHere = state.connected && state.connectedId == peer
             val remembered = state.trusted.firstOrNull { it.id == peer }
@@ -140,10 +156,11 @@ fun ChatScreen(state: NextState, host: MainActivity, modifier: Modifier = Modifi
                 LazyColumn(state = listState, reverseLayout = true, modifier = Modifier.fillMaxSize()
                     .onGloballyPositioned { viewport = it.boundsInWindow() },
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(messages, key = { "${it.id}:${it.outgoing}" }) { message ->
-                        MessageBubble(message, host, state.canAttach, state.transferMeasurements["${message.id}:${message.outgoing}"] ?: TransferProgress.UNKNOWN) { bounds ->
+                    items(messages, key = { it.timelineKey }) { message ->
+                        val key = message.timelineKey
+                        MessageBubble(message, host, state.canAttach, state.transferMeasurements[key] ?: TransferProgress.UNKNOWN) { bounds ->
                             if (!message.outgoing) {
-                                if (bounds == null) bodyBounds.remove(message.id) else bodyBounds[message.id] = bounds
+                                if (bounds == null) bodyBounds.remove(key) else bodyBounds[key] = bounds
                             }
                         }
                     }

@@ -17,6 +17,7 @@ import dev.ghost.nearbyim.ChatService
 import dev.ghost.nearbyim.ChatStore
 import dev.ghost.nearbyim.R
 import dev.ghost.nearbyim.core.*
+import dev.ghost.nearbyim.transport.Peer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -174,14 +175,17 @@ class NextFeatureUiTest {
         compose.onNodeWithText(host.text("localHistoryDisconnected")).assertDoesNotExist()
     }
 
-    @Test fun newChatFabOpensPrivateDevicesAndReturnsToConversationList() {
+    @Test fun networkIconOpensPrivateDevicesAndPreservesConversationSearch() {
         val host = compose.activity
         compose.activity.setContent { NextTheme {
-            NextApp(NextState(ready = true,
+            NextApp(NextState(ready = true, connected = true, connectedMode = Peer.BLUETOOTH, connectedId = "peer",
                 conversations = listOf(ChatStore.Conversation("peer", "Fixture", 1L))), host)
         } }
         compose.onNode(hasSetTextAction()).performTextInput("Fix")
-        compose.onNodeWithTag("new-chat-fab").assertIsDisplayed().performClick()
+        compose.onNodeWithTag("network-status").assertIsDisplayed()
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription,
+                host.text("bluetooth") + " " + host.text("connectedIndicator")))
+            .performClick()
         compose.onNodeWithText(host.getString(R.string.mesh_private_devices)).assertIsDisplayed()
         compose.onNodeWithTag("nearby-title").assertDoesNotExist()
         compose.onNodeWithContentDescription(host.text("backToChats")).performClick()

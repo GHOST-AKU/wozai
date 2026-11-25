@@ -1,10 +1,13 @@
 package dev.ghost.nearbyim.next
 
+import android.content.res.AssetManager
+import android.content.res.Resources
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
@@ -20,85 +23,110 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.ghost.nearbyim.R
+import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.io.IOException
-import android.content.res.AssetManager
 
 private const val MESH_LICENSES = "mesh-notices/vendor-licenses"
+private const val UNICODE_LICENSE = "unicode-license"
 
-private val licenseDocuments = listOf(
-    "WoZai · AGPL-3.0-only" to "mesh-notices/LICENSE",
-    "AndroidX, Compose, Material 3 & Kotlin · Apache-2.0" to "open-source/Apache-2.0.txt",
-    "Google Material Icons · Apache-2.0" to "open-source/material-icons-LICENSE.txt",
-    "ZXing · Apache-2.0" to "open-source/zxing-Apache-2.0.txt",
-    "Noise Java · MIT" to "open-source/noise-java-MIT.txt",
-    "Unicode / CLDR · Unicode License" to ""
+private data class LicenseDocument(val title: String, val path: String)
+
+private val projectLicenses = listOf(
+    LicenseDocument("WoZai · AGPL-3.0-only", "mesh-notices/LICENSE"),
+    LicenseDocument("AndroidX, Compose, Material 3 & Kotlin · Apache-2.0", "open-source/Apache-2.0.txt"),
+    LicenseDocument("Google Material Icons · Apache-2.0", "open-source/material-icons-LICENSE.txt"),
+    LicenseDocument("ZXing · Apache-2.0", "open-source/zxing-Apache-2.0.txt"),
+    LicenseDocument("Noise Java · MIT", "open-source/noise-java-MIT.txt"),
+    LicenseDocument("Unicode / CLDR · Unicode License", UNICODE_LICENSE),
 )
 
 @Composable
 internal fun OpenSourceLicenses(dismiss: () -> Unit) {
-    val context = LocalContext.current
-    var selected by rememberSaveable { mutableStateOf<String?>(null) }
-    val back = {
+    val assets = LocalContext.current.assets
+    var selectedPath by rememberSaveable { mutableStateOf<String?>(null) }
+    var browsingMesh by rememberSaveable { mutableStateOf(false) }
+    val projectScroll = rememberLazyListState()
+    val meshScroll = rememberLazyListState()
+    val back: () -> Unit = {
         when {
-            selected == null -> dismiss()
-            selected?.startsWith("mesh-notices/") == true && selected != "mesh-notices/LICENSE" -> {
-                selected = if (selected == MESH_LICENSES) null else MESH_LICENSES
-            }
-            else -> selected = null
+            selectedPath != null -> selectedPath = null
+            browsingMesh -> browsingMesh = false
+            else -> dismiss()
         }
     }
     val meshTitle = stringResource(R.string.next_mesh_licenses)
-    val needsMeshNotices = selected?.startsWith("mesh-notices/") == true && selected != "mesh-notices/LICENSE"
-    val meshNotices by produceState<List<Pair<String, String>>>(emptyList(), needsMeshNotices) {
-        if (needsMeshNotices) value = withContext(Dispatchers.IO) { meshLicenses(context.assets) }
+    val meshDocuments by produceState<List<LicenseDocument>?>(null, browsingMesh, assets) {
+        if (browsingMesh) value = withContext(Dispatchers.IO) { meshLicenses(assets) }
     }
-    val browsingMesh = selected == MESH_LICENSES
-    val documents = if (browsingMesh) meshNotices
-                    else licenseDocuments + (meshTitle to MESH_LICENSES)
-    val document = (licenseDocuments + meshNotices).firstOrNull { it.second == selected }
+    val documents = if (browsingMesh) meshDocuments else projectLicenses
+    val document = documents?.firstOrNull { it.path == selectedPath }
     AlertDialog(
         onDismissRequest = back,
-        title = { Text(document?.first ?: if (browsingMesh) meshTitle else stringResource(R.string.next_licenses)) },
+        title = { Text(document?.title ?: if (browsingMesh) meshTitle else stringResource(R.string.next_licenses)) },
         text = {
-            if (document == null) {
-                LazyColumn(Modifier.heightIn(max = 420.dp)) {
-                    items(documents, key = { it.second }) { (title, path) ->
-                        ListItem(headlineContent = { Text(title) }, modifier = Modifier.clickable { selected = path })
+            when {
+                documents == null -> CircularProgressIndicator()
+                document != null -> key(document.path) { LicenseBody(document) }
+                selectedPath != null -> Text(stringResource(R.string.next_license_unavailable))
+                else -> LazyColumn(
+                    modifier = Modifier.heightIn(max = 420.dp),
+                    state = if (browsingMesh) meshScroll else projectScroll,
+                ) {
+                    items(documents, key = { it.path }) { license ->
+                        ListItem(
+                            headlineContent = { Text(license.title) },
+                            modifier = Modifier.clickable { selectedPath = license.path },
+                        )
                     }
-                }
-            } else {
-                key(document.second) {
-                    val content by produceState<String?>(null) {
-                        value = withContext(Dispatchers.IO) {
-                            try {
-                                val source = if (document.second.isEmpty()) context.resources.openRawResource(R.raw.emoji_license)
-                                             else context.assets.open(document.second)
-                                source.bufferedReader().use { it.readText() }
-                            } catch (_: IOException) { "" }
-                        }
-                    }
-                    val body = content
-                    SelectionContainer {
-                        Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
-                            if (body == null) CircularProgressIndicator()
-                            else Text(body.ifEmpty { stringResource(R.string.next_license_unavailable) })
-                        }
+                    if (!browsingMesh) item {
+                        ListItem(
+                            headlineContent = { Text(meshTitle) },
+                            modifier = Modifier.clickable { browsingMesh = true },
+                        )
                     }
                 }
             }
         },
-        confirmButton = { TextButton(onClick = back) { Text(t(if (selected == null) "close" else "back")) } }
+        confirmButton = {
+            TextButton(onClick = back) { Text(t(if (selectedPath != null || browsingMesh) "back" else "close")) }
+        },
     )
 }
 
-private fun meshLicenses(assets: AssetManager): List<Pair<String, String>> {
-    val notices = listOf("Mesh · THIRD_PARTY" to "mesh-notices/THIRD_PARTY.md")
+@Composable
+private fun LicenseBody(document: LicenseDocument) {
+    val context = LocalContext.current
+    val content by produceState<String?>(null, context) {
+        value = withContext(Dispatchers.IO) {
+            try {
+                val source = if (document.path == UNICODE_LICENSE) context.resources.openRawResource(R.raw.emoji_license)
+                    else context.assets.open(document.path)
+                source.bufferedReader().use { it.readText() }
+            } catch (_: IOException) {
+                ""
+            } catch (_: Resources.NotFoundException) {
+                ""
+            }
+        }
+    }
+    val body = content
+    SelectionContainer {
+        Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
+            if (body == null) CircularProgressIndicator()
+            else Text(body.ifEmpty { stringResource(R.string.next_license_unavailable) })
+        }
+    }
+}
+
+private fun meshLicenses(assets: AssetManager): List<LicenseDocument> {
+    val notices = listOf(LicenseDocument("Mesh · THIRD_PARTY", "mesh-notices/THIRD_PARTY.md"))
     return try {
         notices + assets.list(MESH_LICENSES).orEmpty().flatMap { crate ->
             val directory = "$MESH_LICENSES/$crate"
-            assets.list(directory).orEmpty().map { name -> "$crate · $name" to "$directory/$name" }
+            assets.list(directory).orEmpty().map { name -> LicenseDocument("$crate · $name", "$directory/$name") }
         }
-    } catch (_: IOException) { notices }
+    } catch (_: IOException) {
+        notices
+    }
 }

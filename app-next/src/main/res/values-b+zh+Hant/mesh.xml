@@ -10,7 +10,7 @@
     <string name="mesh_stop">停止接收</string>
     <string name="mesh_relay">允許為其他節點中繼</string>
     <string name="mesh_relay_hint">中繼可能增加耗電；僅在你明確開啟後轉送。</string>
-    <string name="mesh_public_notice">這裡是公開聊天。附近參與者和中繼可閱讀訊息，不提供端對端加密。公開連線不會將對方設為可信任的私聊聯絡人。</string>
+    <string name="mesh_public_notice">這裡是公開聊天。附近參與者和中繼可閱讀訊息，不提供端對端加密。公開連線不會將對方設為可信任的私聊聯絡人。 暱稱和訊息都會公開傳播。</string>
     <string name="mesh_confirm_title">先瞭解公開聊天</string>
     <string name="mesh_confirm">瞭解並開啟</string>
     <string name="mesh_cancel">取消</string>
@@ -18,7 +18,7 @@
     <string name="mesh_send">傳送</string>
     <string name="mesh_empty">暫時沒有公共訊息</string>
     <string name="mesh_empty_hint">開啟接收後，使用相同傳輸方式的附近裝置會自動連線。</string>
-    <string name="mesh_neighbors">直接連線：%1$d 台裝置</string>
+    <string name="mesh_neighbors">Mesh 直連裝置：%1$d 台</string>
     <string name="mesh_idle">未開啟接收</string>
     <string name="mesh_starting">正在啟動 Mesh…</string>
     <string name="mesh_waiting_restore">接收已啟用 · 等待無線恢復</string>
@@ -34,7 +34,7 @@
     <string name="mesh_permission">請在系統設定中允許附近裝置（舊系統為位置）與通知權限，再重新開啟。</string>
     <string name="mesh_unavailable">此裝置不支援所選 Mesh 模式（需要 Android 10+、arm64 與對應無線能力）。</string>
     <string name="mesh_enable_bt">藍牙未開啟；開啟後才能接收與傳送。</string>
-    <string name="mesh_too_long">文字超過 2048 UTF-8 bytes。</string>
+    <string name="mesh_too_long">正文超過 %1$d 個 UTF-8 位元組。</string>
     <string name="mesh_notification_channel">Mesh 公共組網</string>
     <string name="mesh_notification_title">我在next · Mesh 已開啟</string>
     <string name="mesh_notification_text">公共組網正在執行；點擊返回，或使用停止按鈕結束。</string>
