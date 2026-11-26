@@ -53,10 +53,11 @@ class NextUiTest {
         compose.onNodeWithText("还没有聊天").assertIsDisplayed()
         screenshot("conversations")
         compose.onNodeWithText("附近").performClick()
-        compose.onNodeWithText("开启 Mesh").assertIsDisplayed()
-        compose.onNodeWithText("私聊设备").performClick()
+        compose.onNodeWithText("开启接收").assertIsDisplayed()
+        compose.onNodeWithTag("network-status").performClick()
         compose.onNodeWithText("搜索设备").assertIsDisplayed()
         screenshot("nearby")
+        compose.onNodeWithContentDescription("返回附近").performClick()
         compose.onNodeWithText("设置").performClick()
         compose.onNodeWithText("主题").assertIsDisplayed()
         screenshot("settings")
@@ -87,6 +88,31 @@ class NextUiTest {
 
     @Test fun phoneComposerTracksIme() = assertImeGeometry()
 
+    @Test fun nearbyComposerTracksImeInsteadOfTheBottomNavigation() {
+        val ime = mutableIntStateOf(0)
+        compose.activity.setContent {
+            NextTheme { NextApp(NextState(), compose.activity,
+                contentWindowInsets = WindowInsets(top = 24.dp, bottom = maxOf(24, ime.intValue).dp)) }
+        }
+        compose.onNodeWithText("附近").performClick()
+        fun input() = compose.onNode(hasSetTextAction()).fetchSemanticsNode().boundsInRoot
+        val before = input()
+        val density = compose.activity.resources.displayMetrics.density
+        fun setKeyboard(height: Int) = compose.runOnIdle {
+            ime.intValue = height
+            ViewCompat.dispatchApplyWindowInsets(compose.activity.window.decorView, WindowInsetsCompat.Builder()
+                .setInsets(WindowInsetsCompat.Type.ime(), Insets.of(0, 0, 0, (height * density).toInt()))
+                .setVisible(WindowInsetsCompat.Type.ime(), height > 0).build())
+        }
+        setKeyboard(300)
+        compose.waitForIdle()
+        val after = input()
+        assertTrue("Keyboard must lift the Nearby composer", before.bottom - after.bottom >= 190 * density)
+        compose.onNodeWithTag("main-navigation").assertDoesNotExist()
+        setKeyboard(0)
+        compose.onNodeWithTag("main-navigation").assertIsDisplayed()
+    }
+
     @Test
     @Config(qualifiers = "zh-rCN-w1280dp-h700dp")
     fun tabletComposerTracksImeWithoutChangingPane() = assertImeGeometry()
@@ -100,7 +126,7 @@ class NextUiTest {
         compose.activity.setContent {
             NextTheme {
                 NextApp(NextState(ready = true, selectedId = "fixture", selectedName = "IME fixture",
-                    connectedId = "fixture", connected = true, canSend = true,
+                    connectedId = "fixture", connected = true, openedPrivateChat = "test-opening", canSend = true,
                     draft = if (multiline) "one\ntwo\nthree" else "draft"), compose.activity,
                     contentWindowInsets = WindowInsets(top = 24.dp, bottom = maxOf(24, ime.intValue).dp))
             }

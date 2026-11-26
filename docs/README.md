@@ -8,7 +8,7 @@
 | 源码职责、共享核心、构建边界 | [仓库结构](repository-map.md) |
 | 开发环境与本地清理 | [开发环境](development.md)、[协作规则](../AGENTS.md) |
 | 正式版用户功能与下载 | [主 README](../README.md)、[0.3.3 发行说明](releases/0.3.3.md) |
-| Android Next | [客户端说明与对等审计](android-next.md)、[IME 验收](android-next-ime-acceptance.md) |
+| Android Next | [公共聊天体验](android-next-public-chat.md)、[客户端说明与对等审计](android-next.md)、[IME 验收](android-next-ime-acceptance.md) |
 | Windows Next | [客户端说明](windows-next.md)、[本机 IPC 契约](../windows-next/PROTOCOL.md) |
 | Apple / Linux / Desktop | [Apple](apple.md)、[Linux](linux.md)、[Windows](windows.md) |
 | 终端客户端 | [中文说明](../terminal/README.zh-CN.md)、[架构](../terminal/docs/architecture.md) |

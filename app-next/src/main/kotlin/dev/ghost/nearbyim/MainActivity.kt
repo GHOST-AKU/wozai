@@ -5,30 +5,53 @@ import android.app.KeyguardManager
 import android.bluetooth.BluetoothAdapter
 import android.content.*
 import android.content.pm.PackageManager
+import android.graphics.Color
+import android.graphics.Bitmap
 import android.net.Uri
 import android.os.*
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import dev.ghost.nearbyim.core.*
 import dev.ghost.nearbyim.next.*
+import dev.ghost.nearbyim.mesh.MeshAndroidPlatform
+import dev.ghost.nearbyim.mesh.MeshClient
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.shareIn
+import kotlinx.coroutines.launch
 import dev.ghost.nearbyim.transport.Peer
 import java.io.Serializable
 import java.util.concurrent.Executors
+import kotlin.random.Random
 import dev.ghost.nearbyim.verification.QrCodes
 
 /** Compose is an observer of the existing service; it never owns a wire session. */
 class MainActivity : ComponentActivity() {
     var state by mutableStateOf(NextState())
         private set
+    internal var accent by mutableStateOf(NextAccent.PURPLE)
+        private set
     private var controller: ChatController? = null
     private var bound = false
     private var resumed = false
+    internal var notificationDestination by mutableStateOf<String?>(null)
+        private set
+    private var viewingDestination: String? = null
+    private val notificationOwner = System.identityHashCode(this)
+    private val autoLink = PrivateAutoLink()
+    private var observedPrivatePeer: String? = null
+    private var observedPrivateStatus = ""
+    private var queuedText: ConnectAndSend? = null
+    private val privateWork = Runnable { advancePrivateConnection() }
     private var restoredPeer: String? = null
     private var restoredName: String? = null
     private var draftPeer: String? = null
@@ -40,11 +63,14 @@ class MainActivity : ComponentActivity() {
     private var revision = 0L
     private var pending: Action? = null
     private var pendingStage: String? = null
+    private var pickerSearchMode: Int? = null
     private var selection: AttachmentSelectionSession? = null
     private var selectionUris: ArrayList<Uri>? = null
     private var selectionConfirmed = false
+    private val attachmentThumbnails = lazy { SelectionThumbnails(contentResolver, 512) }
     private var retryRecordId: String? = null
     private var routePermissionPending = false
+    private var pickAfterRoute: Boolean? = null
     private var exportPeer: String? = null
     private var exportRecord: AttachmentRecord? = null
     private var exportUri: Uri? = null
@@ -65,8 +91,9 @@ class MainActivity : ComponentActivity() {
         val c = controller
         val saved = c?.savedMessageId != null && c.savedMessageId != handledSave &&
             shouldHandleSave(draftPeer, c.savedMessagePeer, draftLoading)
-        if (c != null && observerNeedsImmediateRefresh(state, c.selectedId, c.connectedPeerId,
-                c.connected, c.connecting, c.savingMessage, saved)) {
+        if (c != null && (c.approvalId != state.approvalId || c.openedPrivateChat != state.openedPrivateChat ||
+                observerNeedsImmediateRefresh(state, c.selectedId, c.connectedPeerId,
+                    c.connected, c.connecting, c.savingMessage, saved))) {
             main.removeCallbacks(observedRefresh); observerScheduled = false
             lastObservedAt = SystemClock.uptimeMillis()
             refresh()
@@ -83,19 +110,31 @@ class MainActivity : ComponentActivity() {
     private var identityWorking = false
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName, binder: IBinder) {
-            controller = (binder as ChatService.LocalBinder).service().controller
+            val service = (binder as ChatService.LocalBinder).service()
+            service.usePrivateRequestActions()
+            service.onIncomingMessages { message ->
+                val author = message.name().ifBlank { AndroidText.get(service, "unnamedDevice") }
+                val preview = if (message.attachment()) service.getString(R.string.next_notification_file, message.body()) else message.body()
+                MessageNotifications.post(service, message.peer(), author, preview, message.id(), generation = message.generation())
+            }
+            controller = service.controller
             val peer = restoredPeer
             if (controller?.selectedId == null && peer != null)
                 controller?.selectConversation(ChatStore.Conversation(peer, restoredName ?: "", 0))
             controller?.observe(observer)
+            resumeAttachmentPicker()
             resumeAttachmentResult()
             resumeExport()
             resumeIdentityResult()
             if (pendingStage == "bluetoothResult") finishBluetoothEnable()
             else if (pendingStage == null || pendingStage == "ready") pending?.let { prepare(it) }
+            restorePrivateReception()
         }
         override fun onServiceDisconnected(name: ComponentName) {
             controller = null
+            queuedText = null
+            visibility.clear()
+            main.removeCallbacks(privateWork)
             main.removeCallbacks(observedRefresh); observerScheduled = false
             refresh()
         }
@@ -118,12 +157,21 @@ class MainActivity : ComponentActivity() {
     private val discoverableResult = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         if (it.resultCode <= 0) showNotice(text("bluetoothEnableCanceled"))
     }
-    private val documents = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
-        if (uris.isEmpty()) { selection = null; return@registerForActivityResult }
-        if (uris.size > AttachmentBatchQueue.MAX_PENDING) {
-            selection = null; showNotice(text("attachmentBatchLimit", AttachmentBatchQueue.MAX_PENDING))
+    private val attachmentPicker = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val selectedCount = result.data?.clipData?.itemCount ?: 0
+        if (result.resultCode == RESULT_OK && selectedCount > AttachmentBatchQueue.MAX_PENDING) {
+            clearAttachmentSelection()
+            showNotice(text("attachmentBatchLimit", AttachmentBatchQueue.MAX_PENDING))
             return@registerForActivityResult
         }
+        val uris = try {
+            if (result.resultCode == RESULT_OK) AttachmentSelection.from(result.data) else emptyList()
+        } catch (_: IllegalArgumentException) {
+            clearAttachmentSelection()
+            showNotice(text("attachmentFailed"))
+            return@registerForActivityResult
+        }
+        if (uris.isEmpty()) { clearAttachmentSelection(); return@registerForActivityResult }
         uris.forEach { uri ->
             try { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
             catch (_: SecurityException) { /* Some providers offer a temporary grant only. */ }
@@ -134,9 +182,10 @@ class MainActivity : ComponentActivity() {
     }
     private val routePermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         routePermissionPending = false
+        resumeAttachmentPicker()
     }
     private val retryDocument = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri == null) { selection = null; retryRecordId = null }
+        if (uri == null) clearAttachmentSelection()
         else {
             try { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
             catch (_: SecurityException) { /* The engine can use a temporary read grant. */ }
@@ -147,8 +196,8 @@ class MainActivity : ComponentActivity() {
     private val attachmentPreview = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK && selection != null) {
             try { selectionUris = ArrayList(AttachmentSelection.from(result.data)); selectionConfirmed = true; resumeAttachmentResult() }
-            catch (_: IllegalArgumentException) { selection = null; selectionUris = null; showNotice(text("attachmentFailed")) }
-        } else { selection = null; selectionUris = null }
+            catch (_: IllegalArgumentException) { clearAttachmentSelection(); showNotice(text("attachmentFailed")) }
+        } else clearAttachmentSelection()
     }
     private val export = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val peer = exportPeer
@@ -157,7 +206,7 @@ class MainActivity : ComponentActivity() {
         if (result.resultCode == RESULT_OK && peer != null && record != null && uri != null) {
             exportUri = uri; exportFlags = result.data?.flags ?: 0
             resumeExport()
-        } else { exportPeer = null; exportRecord = null; exportUri = null }
+        } else clearAttachmentExport()
     }
     private val folder = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val uri = result.data?.data
@@ -190,7 +239,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        notificationDestination = savedInstanceState?.getString("notificationDestination")
+            ?: if (savedInstanceState == null) MessageNotifications.destination(intent) else null
+        MessageNotifications.registerChannels(this)
+        // The Compose navigation surface extends into the system navigation inset.
+        enableEdgeToEdge(navigationBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT))
+        if (Build.VERSION.SDK_INT >= 29) window.isNavigationBarContrastEnforced = false
         restoredPeer = savedInstanceState?.getString("peer")
         restoredName = savedInstanceState?.getString("peerName")
         handledSave = savedInstanceState?.getString("handledSave")
@@ -204,6 +258,10 @@ class MainActivity : ComponentActivity() {
         @Suppress("DEPRECATION")
         val savedUris = savedInstanceState?.getParcelableArrayList<Uri>("selectionUris")
         selectionUris = savedUris
+        if (savedInstanceState?.containsKey("pickAfterRoute") == true) {
+            pickAfterRoute = savedInstanceState.getBoolean("pickAfterRoute")
+            routePermissionPending = savedInstanceState.getBoolean("routePermissionPending")
+        }
         selectionConfirmed = savedInstanceState?.getBoolean("selectionConfirmed") ?: false
         retryRecordId = savedInstanceState?.getString("retryRecordId")
         exportPeer = savedInstanceState?.getString("exportPeer")
@@ -220,28 +278,62 @@ class MainActivity : ComponentActivity() {
         identityResult = savedInstanceState?.getString("identityResult")
         identityImage = savedInstanceState?.getString("identityImage")?.let(Uri::parse)
         identityExport = savedInstanceState?.getString("identityExport")?.let(Uri::parse)
-        setContent { NextTheme { NextApp(state, this) } }
+        accent = NextAccent.read(this)
+        setContent { NextTheme(accent) { NextApp(state, this) } }
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                val radios = MeshAndroidPlatform.radioChanges(this@MainActivity).shareIn(this, SharingStarted.Eagerly, replay = 1)
+                launch {
+                    radios.collect {
+                        autoLink.resume(SystemClock.uptimeMillis())
+                        restorePrivateReception()
+                        refresh()
+                    }
+                }
+                MeshClient.restoreReception(this@MainActivity, radios)
+            }
+        }
     }
 
     override fun onStart() {
         super.onStart()
         bound = bindService(Intent(this, ChatService::class.java), connection, BIND_AUTO_CREATE)
     }
-    override fun onResume() { super.onResume(); resumed = true; main.post(readTick); requestFileRoutePermissions() }
+    override fun onResume() {
+        super.onResume()
+        resumed = true
+        syncNotificationVisibility()
+        autoLink.resume(SystemClock.uptimeMillis())
+        restorePrivateReception()
+        refresh()
+        main.post(readTick)
+    }
     override fun onPause() {
-        resumed = false; visibility.clear(); main.removeCallbacks(readTick)
+        resumed = false
+        syncNotificationVisibility()
+        visibility.clear()
+        main.removeCallbacks(readTick)
+        main.removeCallbacks(privateWork)
         super.onPause()
     }
     override fun onStop() {
         restoredPeer = state.selectedId; restoredName = state.selectedName
+        queuedText = null
         controller?.unobserve(observer)
         main.removeCallbacks(observedRefresh); observerScheduled = false
         if (bound) unbindService(connection)
         bound = false; controller = null
         super.onStop()
     }
-    override fun onDestroy() { identityWorker.shutdownNow(); draftGeneration++; main.removeCallbacksAndMessages(null); super.onDestroy() }
+    override fun onDestroy() {
+        if (attachmentThumbnails.isInitialized()) attachmentThumbnails.value.close()
+        identityWorker.shutdownNow()
+        draftGeneration++
+        main.removeCallbacksAndMessages(null)
+        super.onDestroy()
+    }
     override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString("notificationDestination", notificationDestination)
         outState.putString("peer", state.selectedId)
         outState.putString("peerName", state.selectedName)
         outState.putString("handledSave", handledSave)
@@ -250,6 +342,10 @@ class MainActivity : ComponentActivity() {
         selection?.let {
             outState.putString("selectionPeer", it.peer); outState.putLong("selectionToken", it.token)
             outState.putString("selectionIdentity", it.identity)
+        }
+        pickAfterRoute?.let {
+            outState.putBoolean("pickAfterRoute", it)
+            outState.putBoolean("routePermissionPending", routePermissionPending)
         }
         outState.putParcelableArrayList("selectionUris", selectionUris)
         outState.putBoolean("selectionConfirmed", selectionConfirmed)
@@ -268,9 +364,39 @@ class MainActivity : ComponentActivity() {
         super.onSaveInstanceState(outState)
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        notificationDestination = MessageNotifications.destination(intent)
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        syncNotificationVisibility()
+    }
+
+    internal fun showNotificationDestination(destination: String?) {
+        viewingDestination = destination
+        syncNotificationVisibility()
+    }
+
+    private fun syncNotificationVisibility() {
+        MessageNotifications.visible(this, notificationOwner, viewingDestination.takeIf { resumed && hasWindowFocus() })
+    }
+
+    internal fun consumeNotificationDestination() { notificationDestination = null }
+
+    internal fun openNotificationSettings(channel: String) {
+        try { startActivity(MessageNotifications.settings(this, channel)) }
+        catch (_: ActivityNotFoundException) { openAppSettings() }
+    }
+
     private fun refresh() {
         val c = controller
-        if (c == null) { state = state.copy(ready = false, canSend = false, canAttach = false); return }
+        if (c == null) {
+            state = state.withoutService()
+            return
+        }
         if (draftPeer != c.selectedId) loadDraft(c.selectedId)
         if (c.savedMessageId != null && c.savedMessageId != handledSave && shouldHandleSave(draftPeer, c.savedMessagePeer, draftLoading)) {
             handledSave = c.savedMessageId
@@ -281,27 +407,42 @@ class MainActivity : ComponentActivity() {
         }
         val folderName = try { AttachmentLocations.get(this).directory()?.name() ?: text("receiveFolderPrivate") }
             catch (_: Exception) { text("receiveFolderPrivate") }
+        val selected = c.selectedId
+        val connectingHere = selected != null && c.connecting && c.connectionPeer() == selected
+        val reconnectPossible = selected != null && c.rememberedRoot(selected) != null && automaticModes(c, selected).isNotEmpty()
         state = NextState(
-            ready = true, nickname = c.nickname, localId = c.localId,
+            ready = true, nickname = c.nickname,
             conversations = c.conversations.toList(), trusted = c.trustedDevices.toList(), peers = c.peers.values.toList(),
             transferMeasurements = c.messages.mapNotNull { message -> message.attachment?.let {
-                "${message.id}:${message.outgoing}" to c.transferProgress(c.selectedId, it)
+                message.timelineKey to c.transferProgress(c.selectedId, it)
             } }.toMap(),
             messages = c.messages.toList(), selectedId = c.selectedId, selectedName = c.selectedName ?: "",
             connectedId = c.connectedPeerId, connected = c.connected, connecting = c.connecting,
-            connectedEncrypted = c.endToEndEncrypted(c.connectedPeerId), connectedVerified = c.identityVerified(c.connectedPeerId),
+            connectedMode = c.sessionMode.takeIf { c.connected && c.connectedPeerId != null },
             status = AndroidText.get(this, c.status), error = AndroidText.get(this, c.error),
             lanRunning = c.lanRunning, bluetoothRunning = c.bluetoothRunning,
             lanSearching = c.lanSearching, bluetoothSearching = c.bluetoothSearching,
             lanInfo = AndroidText.get(this, c.lanInfo), bluetoothInfo = AndroidText.get(this, c.bluetoothInfo),
             bluetoothAvailable = c.bluetoothAvailable(), approvalId = c.approvalId, approvalName = c.approvalName ?: "",
-            canSend = c.canSend(), canAttach = c.canSendAttachment(), saving = c.savingMessage, textLimit = c.textLimit(),
+            canSend = c.canSend(), canAttach = c.canSendAttachment(), saving = c.savingMessage,
+            textLimit = if (c.connectedPeerId == selected) c.textLimit() else TextLimits.LEGACY_BYTES,
+            openedPrivateChat = c.openedPrivateChat, connectingSelected = connectingHere,
+            lanAutoReception = PrivateReception.enabled(this, Peer.LAN),
+            bluetoothAutoReception = PrivateReception.enabled(this, Peer.BLUETOOTH),
+            lanListening = c.lanListening, bluetoothListening = c.bluetoothListening,
+            canConnectOnSend = selected != null && selected == autoLink.peer && !c.savingMessage &&
+                (reconnectPossible || connectingHere && c.privateProof(selected) != null),
+            sendingAfterConnect = queuedText?.peer != null && queuedText?.peer == selected,
+            waitingForIdleSession = reconnectPossible && !connectingHere && c.hasSession() &&
+                c.connectedPeerId != selected && !c.canYieldPrivateSession(),
+            canSwitchPrivateSession = !c.hasSession() && !c.connecting || c.canYieldPrivateSession(),
+            privateRetryPaused = autoLink.paused || autoLink.exhausted,
             draft = draft, draftLoading = draftLoading, notice = notice, readReceipts = c.readReceiptsEnabled(),
             encrypted = c.endToEndEncrypted(c.selectedId), verification = c.verification(c.selectedId),
             identityBusy = identityRequest != null || identityWorking,
             receiveFolder = folderName, revision = ++revision,
         )
-        requestFileRoutePermissions()
+        schedulePrivateWork(c)
     }
 
     private fun loadDraft(peer: String?) {
@@ -322,6 +463,7 @@ class MainActivity : ComponentActivity() {
         if (TextLimits.draftBytes(value) > TextLimits.DRAFT_BYTES) {
             showNotice(text("draftEditTooLarge", TextLimits.DRAFT_BYTES)); return
         }
+        if (queuedText?.body != value) queuedText = null
         draft = value
         AndroidDrafts.get(this).save(peer, value) { error -> if (error != null) showNotice(text("draftSaveFailed")) }
         refresh()
@@ -329,29 +471,193 @@ class MainActivity : ComponentActivity() {
     fun retryDraft() { loadDraft(draftPeer); refresh() }
     fun sendText() {
         val c = controller ?: return
-        if (!draftSelectionCurrent(state.selectedId, draftPeer, c.selectedId, draftLoading)) return
-        if (canSubmitText(draft, c.textLimit(), c.canSend(), draftLoading)) c.send(draft)
+        val peer = c.selectedId ?: return
+        if (!draftSelectionCurrent(state.selectedId, draftPeer, peer, draftLoading) || queuedText != null) return
+        if (canSubmitText(draft, c.textLimit(), c.canSend(), draftLoading)) {
+            c.send(draft)
+            return
+        }
+        if (!resumed || autoLink.peer != peer || !state.canConnectOnSend ||
+            !TextLimits.canSend(draft, TextLimits.LEGACY_BYTES)) return
+        val savedRoot = c.rememberedRoot(peer)
+        val proof = c.privateProof(peer)
+        val root = savedRoot ?: proof?.root() ?: return
+        val now = SystemClock.uptimeMillis()
+        queuedText = ConnectAndSend(peer, root, proof?.generation().takeIf { savedRoot == null }, draft, now + 60_000)
+        if (!c.connecting) autoLink.requestNow(now)
+        refresh()
     }
 
-    fun start(mode: Int) = prepare(Action("start", mode))
-    fun stop(mode: Int) { controller?.stop(mode) }
-    fun search(mode: Int) = prepare(Action("search", mode))
-    fun stopSearch(mode: Int) { controller?.stopSearch(mode) }
+    internal fun showPrivateConversation(peer: String?) {
+        val old = autoLink.peer
+        if (old == peer) return
+        autoLink.select(peer, controller?.localId.orEmpty(), SystemClock.uptimeMillis())
+        observedPrivatePeer = null
+        observedPrivateStatus = ""
+        if (queuedText?.peer != peer) queuedText = null
+        if (old != null) controller?.cancelAutomaticReconnect(old)
+        refresh()
+    }
+
+    internal fun cancelDeferredSend() {
+        queuedText = null
+        refresh()
+    }
+
+    private fun automaticModes(c: ChatController, peer: String): List<Int> {
+        val preferred = c.preferredMode(peer)
+        val first = if (hasLiveLanEndpoint(c, peer)) Peer.LAN else preferred
+        return listOf(first, if (first == Peer.LAN) Peer.BLUETOOTH else Peer.LAN).filter { mode ->
+            PrivateReception.enabled(this, mode) && c.listening(mode) &&
+                (mode == Peer.LAN || c.trustedDevices.any { it.id == peer && it.bluetoothAddress != null })
+        }
+    }
+
+    private fun hasLiveLanEndpoint(c: ChatController, peer: String): Boolean =
+        c.searching(Peer.LAN) && c.peers.values.any { it.mode == Peer.LAN && it.peerId == peer }
+
+    private fun stillPending(c: ChatController, request: ConnectAndSend, now: Long): Boolean =
+        request.stillPending(autoLink.peer.takeIf { it == c.selectedId && it == draftPeer && !draftLoading },
+            draft, c.rememberedRoot(request.peer), c.privateProof(request.peer)?.generation(), now)
+
+    private fun schedulePrivateWork(c: ChatController) {
+        main.removeCallbacks(privateWork)
+        val peer = autoLink.peer ?: return
+        if (!resumed || c.selectedId != peer) return
+        val now = SystemClock.uptimeMillis()
+        val modes = automaticModes(c, peer)
+        autoLink.observeRoutes(modes.toSet(), hasLiveLanEndpoint(c, peer), now)
+        val here = c.connectionPeer() == peer
+        val ready = here && c.connected
+        autoLink.observeReady(ready, now)
+        if (here && (c.connecting || ready)) {
+            observedPrivatePeer = peer
+            observedPrivateStatus = c.status.key
+        } else if (observedPrivatePeer == peer && !c.connecting) {
+            // Older receivers can reject by closing while we wait for their approval.
+            if (stopsAutomaticReconnect(c.status.key, c.error.key) ||
+                (c.status.key == "disconnected" && observedPrivateStatus == "waitingPeerConsent")) autoLink.pause()
+            observedPrivatePeer = null
+            observedPrivateStatus = ""
+        }
+
+        val request = queuedText
+        var whenToRun = request?.let {
+            if (!stillPending(c, it, now) || autoLink.paused || c.canSend()) now else it.expiresAt
+        } ?: Long.MAX_VALUE
+        if (!ready && !autoLink.paused && !autoLink.exhausted && pending == null &&
+            modes.any { c.canReconnectAutomatically(peer, it) }) {
+            whenToRun = minOf(whenToRun, maxOf(now, autoLink.nextAttempt))
+        }
+        if (whenToRun != Long.MAX_VALUE) main.postAtTime(privateWork, whenToRun)
+    }
+
+    private fun advancePrivateConnection() {
+        val c = controller ?: return
+        val peer = autoLink.peer ?: return
+        if (!resumed || c.selectedId != peer) return
+        val now = SystemClock.uptimeMillis()
+        val request = queuedText
+        if (request != null) {
+            if (!stillPending(c, request, now) || autoLink.paused) {
+                queuedText = null
+                if (draft == request.body && draftPeer == request.peer)
+                    showNotice(getString(R.string.next_private_draft_kept))
+                refresh()
+            } else if (c.canSend()) {
+                queuedText = null
+                val proof = c.privateProof(peer)
+                if (request.matches(proof?.root(), proof?.generation()) && TextLimits.canSend(request.body, c.textLimit()))
+                    c.send(request.body)
+                else showNotice(getString(R.string.next_private_draft_kept))
+                refresh()
+                return
+            }
+        }
+        if (!autoLink.paused && !autoLink.exhausted && pending == null && now >= autoLink.nextAttempt) {
+            val candidates = automaticModes(c, peer).filter { c.canReconnectAutomatically(peer, it) }
+            if (candidates.isNotEmpty()) {
+                val mode = candidates[autoLink.attempts % candidates.size]
+                autoLink.attempted(now, Random.nextLong(250, 1_001))
+                c.reconnectAutomatically(peer, mode)
+            }
+        }
+        refresh()
+    }
+
+    private fun restorePrivateReception() {
+        val c = controller ?: return
+        if (!resumed) return
+        for (mode in listOf(Peer.LAN, Peer.BLUETOOTH)) {
+            if (!PrivateReception.enabled(this, mode) || c.running(mode) || pending?.mode == mode) continue
+            if (mode == Peer.BLUETOOTH && (!c.bluetoothAvailable() || !c.bluetoothEnabled() ||
+                    required(Action("start", mode)).any { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED })) continue
+            try { ensureListening(c, mode) }
+            catch (_: RuntimeException) { showNotice(getString(R.string.next_private_restore_failed)) }
+        }
+    }
+
+    private fun ensureListening(c: ChatController, mode: Int) {
+        if (c.running(mode)) return
+        startForegroundService(Intent(this, ChatService::class.java).setAction(ChatService.START))
+        c.start(mode)
+    }
+
+    fun start(mode: Int) = prepare(Action("autoReceive", mode))
+    fun stop(mode: Int) {
+        PrivateReception.setEnabled(this, mode, false)
+        queuedText = null
+        if (pending?.mode == mode) { pending = null; pendingStage = null }
+        controller?.stop(mode)
+        refresh()
+    }
+    fun search(mode: Int) { if (pickerSearchMode == mode) pickerSearchMode = null; prepare(Action("search", mode)) }
+    fun stopSearch(mode: Int) { if (pickerSearchMode == mode) pickerSearchMode = null; controller?.stopSearch(mode) }
+    internal fun discoverPrivateDevices(mode: Int): Boolean {
+        val c = controller ?: return false
+        if (!resumed || !c.listening(mode) || c.searching(mode) || c.connecting ||
+            required(Action("search", mode)).any { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }) return false
+        pickerSearchMode = mode
+        c.search(mode)
+        return true
+    }
+    internal fun stopPrivatePickerSearch(mode: Int) { if (pickerSearchMode == mode) stopSearch(mode) }
     fun discoverable() = prepare(Action("discoverable", Peer.BLUETOOTH))
     fun connect(peer: Peer, remember: Boolean) = prepare(Action("peer", peer.mode, peer = peer, remember = remember))
     fun connectAddress(address: String, remember: Boolean) = prepare(Action("address", address = address, remember = remember))
-    fun reconnect(peer: String) = prepare(Action("reconnect", controller?.preferredMode(peer) ?: Peer.LAN, id = peer))
-    fun preferredMode(peer: String): Int = controller?.sessionMode?.takeIf { state.connectedId == peer }
-        ?: controller?.preferredMode(peer) ?: Peer.LAN
+    fun reconnect(peer: String) {
+        val c = controller ?: return
+        if (autoLink.peer == peer && automaticModes(c, peer).isNotEmpty()) {
+            autoLink.reset(SystemClock.uptimeMillis())
+            refresh()
+        } else prepare(Action("reconnect", c.preferredMode(peer), id = peer))
+    }
+    internal fun isCurrentPrivateDevice(peer: Peer): Boolean {
+        val c = controller ?: return false
+        if (!c.connected) return false
+        val id = peer.peerId ?: c.trustedDevices.firstOrNull { peer.bluetoothAddress != null && it.bluetoothAddress == peer.bluetoothAddress }?.id
+        return id != null && id == c.connectedPeerId
+    }
     fun attachmentRoute(record: AttachmentRecord): String = controller?.let { c ->
         if (c.selectedId != state.selectedId) return@let ""
         c.attachmentRoute(state.selectedId, record).key().takeIf { it.isNotEmpty() }?.let { text(it) }
     } ?: ""
-    fun disconnect() { pending = null; pendingStage = null; controller?.disconnect() }
+    fun disconnect() {
+        pending = null
+        pendingStage = null
+        queuedText = null
+        autoLink.pause()
+        controller?.disconnectPrivately()
+        refresh()
+    }
     fun select(conversation: ChatStore.Conversation) { controller?.selectConversation(conversation); refresh() }
-    fun approve(token: String, remember: Boolean) { controller?.approve(token, remember) }
+    fun approve(token: String, remember: Boolean) { controller?.acceptPrivateRequest(token, remember) }
     fun reject(token: String) { controller?.reject(token) }
-    fun setNickname(value: String) { controller?.setNickname(value) }
+    fun setNickname(value: String) {
+        val c = controller ?: return
+        c.setNickname(value)
+        refresh()
+    }
     fun setReadReceipts(value: Boolean) { controller?.setReadReceiptsEnabled(value) }
     fun revokeTrust(peer: String) { controller?.revokeTrust(peer) }
 
@@ -359,10 +665,10 @@ class MainActivity : ComponentActivity() {
         action.mode != Peer.BLUETOOTH -> emptyList()
         Build.VERSION.SDK_INT >= 31 -> buildList {
             add(Manifest.permission.BLUETOOTH_CONNECT)
-            if (action.kind == "search" || action.kind == "peer") add(Manifest.permission.BLUETOOTH_SCAN)
+            if (action.kind in listOf("search", "peer", "autoReceive")) add(Manifest.permission.BLUETOOTH_SCAN)
             if (action.kind == "discoverable") add(Manifest.permission.BLUETOOTH_ADVERTISE)
         }
-        action.kind == "search" -> listOf(Manifest.permission.ACCESS_FINE_LOCATION)
+        action.kind in listOf("search", "autoReceive") -> listOf(Manifest.permission.ACCESS_FINE_LOCATION)
         else -> emptyList()
     }
 
@@ -402,14 +708,29 @@ class MainActivity : ComponentActivity() {
         val c = controller ?: return
         pending = null; pendingStage = null
         try {
-            if (!c.running(action.mode)) {
-                startForegroundService(Intent(this, ChatService::class.java).setAction(ChatService.START))
-                c.start(action.mode)
+            if (action.kind in listOf("peer", "address", "reconnect") && c.hasSession()) {
+                if (action.peer?.let(::isCurrentPrivateDevice) == true) {
+                    c.requestPrivateChat(action.peer, action.remember)
+                    return
+                }
+                if (!c.canYieldPrivateSession()) {
+                    showNotice(getString(R.string.next_private_request_busy))
+                    return
+                }
+                c.disconnectPrivately()
             }
+            ensureListening(c, action.mode)
             when (action.kind) {
+                "autoReceive" -> {
+                    if (c.running(action.mode)) {
+                        PrivateReception.setEnabled(this, action.mode, true)
+                        autoLink.reset(SystemClock.uptimeMillis())
+                        refresh()
+                    }
+                }
                 "search" -> c.search(action.mode)
-                "peer" -> action.peer?.let { c.connect(it, action.remember) }
-                "address" -> c.connectAddress(action.address, action.remember)
+                "peer" -> action.peer?.let { c.requestPrivateChat(it, action.remember) }
+                "address" -> c.requestPrivateAddress(action.address, action.remember)
                 "reconnect" -> c.reconnect(action.id)
                 "discoverable" -> discoverableResult.launch(Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE)
                     .putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 120))
@@ -420,13 +741,42 @@ class MainActivity : ComponentActivity() {
     fun pickAttachments(photos: Boolean) {
         val c = controller ?: return
         val peer = c.selectedId ?: return
-        if (!draftSelectionCurrent(state.selectedId, draftPeer, peer, draftLoading)) return
+        if (!draftSelectionCurrent(state.selectedId, draftPeer, peer, draftLoading) || routePermissionPending) return
         val identity = c.attachmentSelectionSession(peer) ?: return
         if (!c.canSendAttachment()) return
         selection = AttachmentSelectionSession(peer, c.attachmentSessionToken(), identity)
         retryRecordId = null
-        documents.launch(arrayOf(if (photos) "image/*" else "*/*"))
+        if (!requestFileRoutePermissions(photos)) launchAttachmentPicker(photos)
     }
+
+    private fun resumeAttachmentPicker() {
+        val photos = pickAfterRoute ?: return
+        if (controller == null || routePermissionPending) return
+        pickAfterRoute = null
+        launchAttachmentPicker(photos)
+    }
+
+    private fun launchAttachmentPicker(photos: Boolean) {
+        if (!selectionCurrent()) {
+            clearAttachmentSelection()
+            showNotice(text("notConnected"))
+            return
+        }
+        try {
+            attachmentPicker.launch(if (photos) AttachmentSelection.photosIntent(this) else AttachmentSelection.filesIntent())
+        } catch (_: ActivityNotFoundException) {
+            clearAttachmentSelection()
+            showNotice(text("attachmentFailed"))
+        }
+    }
+
+    private fun clearAttachmentSelection() {
+        selection = null
+        selectionUris = null
+        selectionConfirmed = false
+        retryRecordId = null
+    }
+
     private fun selectionCurrent(): Boolean {
         val c = controller ?: return false
         return selection?.accepts(c.selectedId, c.attachmentSessionToken(),
@@ -438,17 +788,19 @@ class MainActivity : ComponentActivity() {
         val captured = selection
         selectionUris = null
         if (captured == null || !selectionCurrent()) {
-            selection = null; showNotice(text("notConnected")); return
+            clearAttachmentSelection()
+            showNotice(text("notConnected"))
+            return
         }
         if (selectionConfirmed) {
-            selection = null
             val retry = retryRecordId
-            retryRecordId = null
+            clearAttachmentSelection()
             if (retry == null) c.sendAttachments(captured.peer, captured.token, uris)
             else if (uris.size == 1) c.retryAttachmentWithSelection(captured.peer, captured.token, captured.identity, retry, uris.single())
             else showNotice(text("attachmentRetrySelectAgain"))
         } else {
-            attachmentPreview.launch(Intent(this, AttachmentSelectionActivity::class.java)
+            attachmentPreview.launch(AttachmentSelection.result(uris)
+                .setClass(this, AttachmentSelectionActivity::class.java)
                 .putParcelableArrayListExtra(AttachmentSelection.URIS, uris))
         }
     }
@@ -466,14 +818,42 @@ class MainActivity : ComponentActivity() {
                     controller === c && c.attachmentSelectionSession(peer) == identity && c.attachmentSessionToken() == token) {
                     selection = AttachmentSelectionSession(peer, token, identity)
                     retryRecordId = record.info.id
-                    retryDocument.launch(arrayOf(record.info.mime))
+                    try {
+                        retryDocument.launch(arrayOf(record.info.mime))
+                    } catch (_: ActivityNotFoundException) {
+                        clearAttachmentSelection()
+                        showNotice(text("attachmentFailed"))
+                    }
                 }
             } }
         }
         else c.attachmentAction(peer, record.info.id, record.outgoing, action)
     }
+    private fun attachmentUri(peer: String, name: String): Uri = Uri.Builder()
+        .scheme("content").authority("$packageName.attachments").appendPath(peer).appendPath(name).build()
+
+    internal fun bindAttachmentThumbnail(peer: String, record: AttachmentRecord, receive: (Bitmap?) -> Unit): AutoCloseable {
+        val c = controller ?: return AutoCloseable {}
+        if (c.selectedId != peer) return AutoCloseable {}
+        var canceled = false
+        var subscription: AutoCloseable? = null
+        val pathLookup = c.attachmentPath(peer, record)
+        pathLookup.whenComplete { path, error -> runOnUiThread {
+            if (canceled || isDestroyed || controller !== c || c.selectedId != peer) return@runOnUiThread
+            if (error != null || path == null) receive(null)
+            else subscription = attachmentThumbnails.value.bind(attachmentUri(peer, path.fileName.toString())) {
+                if (!canceled && !isDestroyed && controller === c && c.selectedId == peer) receive(it)
+            }
+        } }
+        return AutoCloseable {
+            canceled = true
+            pathLookup.cancel(false)
+            subscription?.close()
+        }
+    }
+
     fun openAttachment(record: AttachmentRecord) {
-        if (!record.info.mime.startsWith("image/") && !record.info.canOpenExternally()) {
+        if (!record.info.isPreviewablePhoto() && !record.info.canOpenExternally()) {
             saveAttachment(record); return
         }
         val c = controller ?: return
@@ -482,11 +862,10 @@ class MainActivity : ComponentActivity() {
         c.attachmentPath(peer, record).whenComplete { path, error -> runOnUiThread {
             if (isDestroyed || controller !== c || c.selectedId != peer || state.selectedId != peer) return@runOnUiThread
             if (error != null) { showNotice(text("attachmentUnavailable")); return@runOnUiThread }
-            val uri = Uri.Builder().scheme("content").authority("$packageName.attachments")
-                .appendPath(peer).appendPath(path.fileName.toString()).appendQueryParameter("name", record.info.name)
+            val uri = attachmentUri(peer, path.fileName.toString()).buildUpon().appendQueryParameter("name", record.info.name)
                 .appendQueryParameter("mime", record.info.mime).build()
             try {
-                val intent = if (record.info.mime.startsWith("image/")) Intent(this, PhotoActivity::class.java)
+                val intent = if (record.info.isPreviewablePhoto()) Intent(this, PhotoActivity::class.java)
                     .setData(uri).putExtra("peer", peer).putExtra("record", record.encode())
                 else Intent(Intent.ACTION_VIEW).setDataAndType(uri, record.info.mime).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 intent.clipData = ClipData.newRawUri(AttachmentInfo.displayName(record.info.name), uri)
@@ -498,16 +877,29 @@ class MainActivity : ComponentActivity() {
     fun saveAttachment(record: AttachmentRecord) {
         if (state.selectedId == null || state.selectedId != controller?.selectedId) return
         exportPeer = state.selectedId; exportRecord = record
-        export.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).setType(record.info.mime)
-            .addCategory(Intent.CATEGORY_OPENABLE).putExtra(Intent.EXTRA_TITLE, AttachmentInfo.safeName(record.info.name)))
+        try {
+            export.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).setType(record.info.mime)
+                .addCategory(Intent.CATEGORY_OPENABLE).putExtra(Intent.EXTRA_TITLE, AttachmentInfo.safeName(record.info.name)))
+        } catch (_: ActivityNotFoundException) {
+            clearAttachmentExport()
+            showNotice(text("attachmentFailed"))
+        }
     }
+
+    private fun clearAttachmentExport() {
+        exportPeer = null
+        exportRecord = null
+        exportUri = null
+        exportFlags = 0
+    }
+
     private fun resumeExport() {
         val c = controller ?: return
         val peer = exportPeer ?: return
         val record = exportRecord ?: return
         val uri = exportUri ?: return
         val flags = exportFlags
-        exportPeer = null; exportRecord = null; exportUri = null
+        clearAttachmentExport()
         c.exportAttachment(peer, record, uri, flags).whenComplete { _, error ->
             runOnUiThread { if (error != null) showNotice(text("attachmentFailed")) }
         }
@@ -523,6 +915,14 @@ class MainActivity : ComponentActivity() {
         showNotice(text("diagnosticsCopied"))
     }
     fun verifyIdentity(snapshot: IdentityVerification) = verifyIdentityCode(snapshot, null)
+    internal fun copyIdentityCode(snapshot: IdentityVerification) {
+        if (controller?.verificationCurrent(snapshot) != true || controller?.selectedId != snapshot.peerId) {
+            showNotice(text("verificationConnectionChanged"))
+            return
+        }
+        copySensitiveText(this, text("verificationTitle"), snapshot.code.display())
+        showNotice(text("verificationCopyDone"))
+    }
     private fun verifyIdentityCode(snapshot: IdentityVerification, code: String?) {
         val c = controller
         if (c == null || c.selectedId != snapshot.peerId || !c.verificationCurrent(snapshot)) {
@@ -604,8 +1004,9 @@ class MainActivity : ComponentActivity() {
     }
     fun setTheme(value: String) { AppAppearance.select(this, value); recreate() }
     fun setLanguage(value: String) { AppLanguage.select(this, value); if (Build.VERSION.SDK_INT < 33) recreate() }
-    fun setDynamicColor(value: Boolean) {
-        getSharedPreferences("ui", MODE_PRIVATE).edit().putBoolean("nextDynamicColor", value).apply(); recreate()
+    internal fun setAccent(value: NextAccent) {
+        accent = value
+        getSharedPreferences("ui", MODE_PRIVATE).edit().putString("nextAccent", value.name).apply()
     }
     fun chooseFolder() {
         try { folder.launch(AttachmentLocations.directoryPicker(AttachmentLocations.get(this).directory())) }
@@ -619,11 +1020,11 @@ class MainActivity : ComponentActivity() {
     fun clearNotice() { notice = ""; state = state.copy(notice = "") }
     private fun showNotice(value: String) { if (!isDestroyed) { notice = value; state = state.copy(notice = value) } }
 
-    private fun requestFileRoutePermissions() {
-        val c = controller ?: return
-        if (!resumed || !c.canSendAttachment() || !c.directAvailable() || pending != null || routePermissionPending) return
+    private fun requestFileRoutePermissions(photos: Boolean): Boolean {
+        val c = controller ?: return false
+        if (!resumed || !c.canSendAttachment() || !c.directAvailable() || pending != null || routePermissionPending) return false
         val prefs = getSharedPreferences("ui", MODE_PRIVATE)
-        if (prefs.getBoolean("fileRoutePermissionsAsked", false)) return
+        if (prefs.getBoolean("fileRoutePermissionsAsked", false)) return false
         val required = when {
             Build.VERSION.SDK_INT >= 33 -> listOf(Manifest.permission.NEARBY_WIFI_DEVICES)
             Build.VERSION.SDK_INT >= 31 -> listOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION)
@@ -631,7 +1032,17 @@ class MainActivity : ComponentActivity() {
         }
         val missing = required.filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
         prefs.edit().putBoolean("fileRoutePermissionsAsked", true).apply()
-        if (missing.isNotEmpty()) { routePermissionPending = true; routePermissions.launch(required.toTypedArray()) }
+        if (missing.isEmpty()) return false
+        routePermissionPending = true
+        pickAfterRoute = photos
+        return try {
+            routePermissions.launch(required.toTypedArray())
+            true
+        } catch (_: RuntimeException) {
+            routePermissionPending = false
+            pickAfterRoute = null
+            false
+        }
     }
 
     fun visibleMessages(peer: String?, ids: List<String>) { visiblePeer = peer; visibleIds = ids }

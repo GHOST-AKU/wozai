@@ -226,6 +226,24 @@ public final class FramedSession {
             AvatarWrite write=writes.next();if(write.revision==packet.revision&&write.id.equals(packet.transferId)&&write.hash.equals(packet.avatarHash)){write.plaintext=null;writes.remove();}
         }}
     }
+    /** Used before an automatic handoff to avoid discarding an unconfirmed write. */
+    public boolean hasOutstandingText() {
+        synchronized (awaitingReceipts) { if (!awaitingReceipts.isEmpty()) return true; }
+        synchronized (receiving) { return unpersisted != 0; }
+    }
+
+    /** BYE is already a NIM record. Bound the write even if the other device stops reading. */
+    public void finish(UiText reason) {
+        if (!greeted || closed.get()) { close(reason); return; }
+        try {
+            timer.schedule(() -> close(reason), 1, TimeUnit.SECONDS);
+            if (!enqueue(() -> {
+                try { writeFrame(new Frame(Frame.BYE, "", "", System.currentTimeMillis())); }
+                finally { close(reason); }
+            })) close(reason);
+        } catch (RejectedExecutionException stopped) { close(reason); }
+    }
+
     public boolean send(Frame frame) {
         if (fileLane || !isReady() || frame.type != Frame.TEXT) return false;
         try{Protocol.validate(frame,textLimit());}catch(IOException invalid){return false;}

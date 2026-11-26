@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="next_licenses">Open-source licenses</string>
+    <string name="next_mesh_licenses">Mesh dependencies and licenses</string>
+    <string name="next_license_unavailable">Could not read this license</string>
+</resources>

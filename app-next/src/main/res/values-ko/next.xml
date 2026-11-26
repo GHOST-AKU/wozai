@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="next_dynamic_color">배경화면 색상</string>
-    <string name="next_dynamic_color_hint">시스템 동적 색상 사용</string>
     <string name="next_experiment">Android 실험용 클라이언트</string>
     <string name="next_independent_profile">이 버전의 기기 ID, 신뢰 설정 및 채팅 기록은 별도로 저장됩니다.</string>
     <string name="next_measurement_pending">속도 및 남은 시간: 측정 대기 중</string>
@@ -9,4 +8,43 @@
     <string name="next_recognized">승인됨</string>
     <string name="next_not_recognized">승인되지 않음</string>
     <string name="next_qr_saved">QR 코드가 저장되었습니다</string>
+    <string name="next_accent">강조 색상</string>
+    <string name="next_accent_purple">보라색</string>
+    <string name="next_accent_blue">파란색</string>
+    <string name="next_accent_teal">청록색</string>
+    <string name="next_accent_orange">주황색</string>
+    <string name="next_emoji_default">기본</string>
+    <string name="next_private_request">개인 채팅 요청</string>
+    <string name="next_private_request_hint">첫 연결은 직접 승인합니다. 기억한 기기는 자동으로 연결되며 안전 코드는 별도로 확인할 수 있습니다.</string>
+    <string name="next_private_accept_remember">수락하고 기억</string>
+    <string name="next_private_reception">개인 채팅 자동 수신</string>
+    <string name="next_private_enable_auto">자동 연결 켜기</string>
+    <string name="next_private_reception_hint">켜면 앱을 열 때 이 방식의 수신이 복구됩니다. 알림에서도 중지할 수 있습니다.</string>
+    <string name="next_private_reception_known">기억한 기기는 자동으로 연결되며 새 기기는 승인이 필요합니다.</string>
+    <string name="next_private_reception_active">개인 채팅 자동 수신 켜짐</string>
+    <string name="next_private_reception_starting">개인 채팅 수신 시작 중…</string>
+    <string name="next_private_reception_waiting">자동 수신 복구 대기 중</string>
+    <string name="next_private_restore_failed">개인 채팅 수신을 복구할 수 없습니다.</string>
+    <string name="next_private_pick_device">요청이 연결되면 상대 기기를 기억합니다.</string>
+    <string name="next_private_start_request">개인 채팅 요청</string>
+    <string name="next_private_queued_draft">연결 후 보내기 · 초안은 이 기기에 저장</string>
+    <string name="next_private_draft_kept">보내기를 중지했습니다. 내용은 초안에 남아 있습니다.</string>
+    <string name="next_private_busy">다른 채팅에서 요청, 파일 또는 메시지를 처리 중입니다. 끝나면 연결합니다.</string>
+    <string name="next_private_finding">기기에 연결할 수 있을 때까지 대기 중…</string>
+    <string name="next_private_request_busy">현재 채팅에서 처리 중인 작업이 있습니다. 이번 요청은 아직 보내지 않았습니다.</string>
+    <string name="next_message_actions">메시지 작업</string>
+    <string name="next_copy_message">메시지 복사</string>
+    <string name="next_select_message_text">텍스트 선택</string>
+    <string name="next_copy_filename">파일 이름 복사</string>
+    <string name="next_private_notifications">비공개 채팅 알림</string>
+    <string name="next_nearby_notifications">주변 메시지 알림</string>
+    <string name="next_notification_settings_hint">시스템 설정에서 소리 및 표시 설정</string>
+    <string name="next_private_notification_body">새 비공개 채팅 메시지</string>
+    <string name="next_nearby_notification_body">주변에 새 메시지가 있습니다</string>
+    <string name="next_safety_code">안전 코드</string>
+    <string name="next_notification_file">파일 · %1$s</string>
+    <string name="next_notification_mark_read">읽음으로 표시</string>
+    <string name="next_notification_reply">답장</string>
+    <string name="next_notification_reply_failed">전송되지 않음 · %1$s</string>
+    <string name="next_notification_reply_unavailable">연결이 변경되었습니다. 채팅을 열고 다시 답장하세요.</string>
 </resources>

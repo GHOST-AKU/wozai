@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="next_dynamic_color">Wallpaper colors</string>
-    <string name="next_dynamic_color_hint">Use the system dynamic color palette</string>
     <string name="next_experiment">Experimental Android client</string>
     <string name="next_independent_profile">This version stores its own device identity, trust and chat history.</string>
     <string name="next_measurement_pending">Speed and remaining time: awaiting measurement</string>
@@ -9,4 +8,43 @@
     <string name="next_recognized">Recognized</string>
     <string name="next_not_recognized">Not recognized</string>
     <string name="next_qr_saved">QR code saved</string>
+    <string name="next_accent">Accent color</string>
+    <string name="next_accent_purple">Purple</string>
+    <string name="next_accent_blue">Blue</string>
+    <string name="next_accent_teal">Teal</string>
+    <string name="next_accent_orange">Orange</string>
+    <string name="next_emoji_default">Default</string>
+    <string name="next_private_request">Private chat request</string>
+    <string name="next_private_request_hint">You decide on first contact. Remembered devices can connect automatically. You can still verify the safety code separately.</string>
+    <string name="next_private_accept_remember">Accept and remember</string>
+    <string name="next_private_reception">Receive private chats automatically</string>
+    <string name="next_private_enable_auto">Enable auto-connect</string>
+    <string name="next_private_reception_hint">When enabled, opening the app restores reception on this transport. You can also stop from the notification.</string>
+    <string name="next_private_reception_known">Remembered devices can connect automatically. New devices still need your approval.</string>
+    <string name="next_private_reception_active">Automatic private reception is on</string>
+    <string name="next_private_reception_starting">Starting private reception…</string>
+    <string name="next_private_reception_waiting">Waiting to restore automatic reception</string>
+    <string name="next_private_restore_failed">Could not restore private reception.</string>
+    <string name="next_private_pick_device">Your device remembers the peer once this request connects.</string>
+    <string name="next_private_start_request">Request chat</string>
+    <string name="next_private_queued_draft">Will send when connected · Draft stays on this device</string>
+    <string name="next_private_draft_kept">Sending stopped. The text remains in your draft.</string>
+    <string name="next_private_busy">Another chat is handling a request, file, or message. Connect when it is idle.</string>
+    <string name="next_private_finding">Waiting for this device to be reachable…</string>
+    <string name="next_private_request_busy">The current chat has work in progress. This request has not been sent.</string>
+    <string name="next_message_actions">Message actions</string>
+    <string name="next_copy_message">Copy message</string>
+    <string name="next_select_message_text">Select text</string>
+    <string name="next_copy_filename">Copy filename</string>
+    <string name="next_private_notifications">Private chat notifications</string>
+    <string name="next_nearby_notifications">Nearby message notifications</string>
+    <string name="next_notification_settings_hint">Manage sound and display in system settings</string>
+    <string name="next_private_notification_body">New private chat message</string>
+    <string name="next_nearby_notification_body">New message in Nearby</string>
+    <string name="next_safety_code">Safety code</string>
+    <string name="next_notification_file">File · %1$s</string>
+    <string name="next_notification_mark_read">Mark as read</string>
+    <string name="next_notification_reply">Reply</string>
+    <string name="next_notification_reply_failed">Unsent · %1$s</string>
+    <string name="next_notification_reply_unavailable">The conversation changed. Open the chat to reply.</string>
 </resources>

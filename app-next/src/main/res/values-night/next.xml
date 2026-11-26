@@ -5,7 +5,7 @@
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowActionModeOverlay">true</item>
         <item name="android:colorAccent">#D0BCFF</item>
-        <item name="android:windowBackground">#1C1B1F</item>
+        <item name="android:windowBackground">#000000</item>
         <item name="android:windowSoftInputMode">adjustResize</item>
     </style>
 </resources>

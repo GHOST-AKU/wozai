@@ -7,15 +7,18 @@ import android.content.SharedPreferences;
 import android.content.pm.ServiceInfo;
 import android.content.res.Configuration;
 import android.os.*;
+import android.net.Uri;
 import java.util.Objects;
 
 public final class ChatService extends Service {
     public static final String START = "dev.ghost.nearbyim.START", STOP = "dev.ghost.nearbyim.STOP";
     private static final String PAUSE="dev.ghost.nearbyim.PAUSE_TRANSFERS",CANCEL="dev.ghost.nearbyim.CANCEL_TRANSFERS";
     private static final String CHANNEL = "nearby-connection";
+    private static final String DECLINE_PRIVATE = "dev.ghost.nearbyim.DECLINE_PRIVATE";
     private final LocalBinder binder = new LocalBinder();
     public ChatController controller;
-    private boolean foreground;
+    private java.util.function.Consumer<ChatController.IncomingMessage> incomingMessages;
+    private boolean foreground, actionableRequests;
     private final Handler notificationHandler=new Handler(Looper.getMainLooper());
     private final Runnable notificationRefresh=this::syncNotification;
     private NotificationState lastNotificationState;
@@ -30,7 +33,12 @@ public final class ChatService extends Service {
         super.onCreate(); updateChannel();
         preferences = getSharedPreferences(AppLanguage.PREFERENCES, MODE_PRIVATE);
         preferences.registerOnSharedPreferenceChangeListener(languageChanged);
-        controller = new ChatController(this, this::syncNotification);
+        controller = new ChatController(this, new ChatController.Hooks() {
+            public void onChanged() { syncNotification(); }
+            public void onIncomingMessage(ChatController.IncomingMessage message) {
+                if (incomingMessages != null) incomingMessages.accept(message);
+            }
+        });
     }
     private void updateChannel() {
         NotificationChannel channel = new NotificationChannel(CHANNEL, AndroidText.get(this, "notificationChannel"), NotificationManager.IMPORTANCE_LOW);
@@ -40,8 +48,18 @@ public final class ChatService extends Service {
     public void refreshLanguage() { updateChannel(); syncNotification(); }
     public void onConfigurationChanged(Configuration configuration) { super.onConfigurationChanged(configuration); refreshLanguage(); }
     public IBinder onBind(Intent intent) { return binder; }
+    public void usePrivateRequestActions() { actionableRequests = true; syncNotification(); }
+    public void onIncomingMessages(java.util.function.Consumer<ChatController.IncomingMessage> listener) { incomingMessages = listener; }
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent != null && STOP.equals(intent.getAction())) { controller.stopAll(); clearNotification(); stopSelf(); }
+        if (intent != null && STOP.equals(intent.getAction())) {
+            if (actionableRequests) PrivateReception.pauseAll(this);
+            controller.stopAll(); clearNotification(); stopSelf();
+        } else if (intent != null && DECLINE_PRIVATE.equals(intent.getAction())) {
+            if (actionableRequests && intent.getData() != null)
+                controller.reject(intent.getData().getSchemeSpecificPart());
+            syncNotification();
+            if (!foreground) stopSelf(startId);
+        }
         else if(intent!=null&&(PAUSE.equals(intent.getAction())||CANCEL.equals(intent.getAction()))){if(PAUSE.equals(intent.getAction()))controller.pauseAttachments();else controller.cancelAttachments();syncNotification();}
         else {
             NotificationState state=notificationState();
@@ -55,17 +73,27 @@ public final class ChatService extends Service {
         return START_NOT_STICKY;
     }
     private static final class NotificationState {
-        final String title,text,stop,pause,cancel;
+        final String title,text,stop,pause,cancel,request,reject;
         final boolean active;
-        NotificationState(String title,String text,String stop,String pause,String cancel,boolean active){this.title=title;this.text=text;this.stop=stop;this.pause=pause;this.cancel=cancel;this.active=active;}
-        boolean same(NotificationState other){return other!=null&&active==other.active&&Objects.equals(title,other.title)&&Objects.equals(text,other.text)&&Objects.equals(stop,other.stop)&&Objects.equals(pause,other.pause)&&Objects.equals(cancel,other.cancel);}
+        NotificationState(String title, String text, String stop, String pause, String cancel, boolean active,
+                          String request, String reject) {
+            this.title=title; this.text=text; this.stop=stop; this.pause=pause; this.cancel=cancel;
+            this.active=active; this.request=request; this.reject=reject;
+        }
+        boolean same(NotificationState other) {
+            return other!=null && active==other.active && Objects.equals(title,other.title) &&
+                    Objects.equals(text,other.text) && Objects.equals(stop,other.stop) &&
+                    Objects.equals(pause,other.pause) && Objects.equals(cancel,other.cancel) &&
+                    Objects.equals(request,other.request) && Objects.equals(reject,other.reject);
+        }
     }
     private NotificationState notificationState() {
         String text=controller!=null&&controller.approvalName!=null?AndroidText.get(this,"notificationRequest",controller.approvalName)
                 :controller!=null&&controller.connected?AndroidText.get(this,controller.status):AndroidText.get(this,"notificationReceiving");
         boolean active=controller!=null&&controller.hasActiveAttachments();
         return new NotificationState(AndroidText.get(this,"notificationTitle"),text,AndroidText.get(this,"stopAll"),
-                active?AndroidText.get(this,"attachmentPause"):"",active?AndroidText.get(this,"cancel"):"",active);
+                active?AndroidText.get(this,"attachmentPause"):"",active?AndroidText.get(this,"cancel"):"",active,
+                actionableRequests && controller!=null ? controller.approvalId : null, AndroidText.get(this,"reject"));
     }
     private Notification notification(NotificationState state) {
         PendingIntent open = PendingIntent.getActivity(this, 0, new Intent(this, MainActivity.class), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
@@ -76,6 +104,12 @@ public final class ChatService extends Service {
             PendingIntent pause=PendingIntent.getService(this,2,new Intent(this,ChatService.class).setAction(PAUSE),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
             PendingIntent cancel=PendingIntent.getService(this,3,new Intent(this,ChatService.class).setAction(CANCEL),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
             builder.addAction(new Notification.Action.Builder(null,state.pause,pause).build()).addAction(new Notification.Action.Builder(null,state.cancel,cancel).build());
+        }
+        if (state.request != null) {
+            Intent decline = new Intent(this, ChatService.class).setAction(DECLINE_PRIVATE)
+                    .setData(Uri.fromParts("wozai-private-request", state.request, null));
+            PendingIntent reject = PendingIntent.getService(this, 4, decline, PendingIntent.FLAG_IMMUTABLE);
+            builder.addAction(new Notification.Action.Builder(null, state.reject, reject).build());
         }
         return builder.addAction(new Notification.Action.Builder(null,state.stop,stop).build()).build();
     }

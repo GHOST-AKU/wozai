@@ -23,6 +23,17 @@ import dev.ghost.nearbyim.AvatarView
 fun t(key: String, vararg args: Any): String = AndroidText.get(LocalContext.current, key, *args)
 
 @Composable
+internal fun MainPageTitle(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text = text,
+        modifier = modifier.padding(24.dp),
+        style = MaterialTheme.typography.headlineLarge,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onSurface,
+    )
+}
+
+@Composable
 fun AppIcon(@DrawableRes icon: Int, description: String? = null, modifier: Modifier = Modifier) {
     Icon(painterResource(icon), description, modifier.size(24.dp))
 }

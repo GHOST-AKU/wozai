@@ -37,4 +37,30 @@ class NextFeaturePolicyTest {
         assertTrue(observerNeedsImmediateRefresh(visible, "alice", "alice", true, true, false, false))
     }
 
+    @Test fun serviceLossClearsLiveStateAndKeepsTheSelectedDraft() {
+        val state = NextState(
+            ready = true,
+            selectedId = "alice",
+            selectedName = "Alice",
+            connectedId = "alice",
+            connected = true,
+            encrypted = true,
+            lanListening = true,
+            bluetoothSearching = true,
+            approvalId = "pending-request",
+            canAttach = true,
+            draft = "Keep this draft",
+            lanAutoReception = true,
+        ).withoutService()
+
+        assertFalse(state.ready)
+        assertNull(state.connectedId)
+        assertFalse(state.connected || state.encrypted || state.canAttach)
+        assertFalse(state.lanListening || state.bluetoothSearching)
+        assertNull(state.approvalId)
+        assertEquals("alice", state.selectedId)
+        assertEquals("Alice", state.selectedName)
+        assertEquals("Keep this draft", state.draft)
+        assertTrue(state.lanAutoReception)
+    }
 }

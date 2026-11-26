@@ -2,6 +2,8 @@
 
 ## 中文
 
+Android Next 0.4.0-preview.16 在原有协商中加入图片已读。对方完成接收后，图片缩略图也须满足前台、可见面积和停留时间要求。传输完成和图片已读有各自的确认。旧客户端仍可完成图片传输，图片已读取决于双方客户端是否支持。
+
 0.3.3-preview.3 开发中的原生客户端通过独立协商交换文字消息的真实已读回执。默认开启，可在设置中关闭。双方都开启且本次加密连接协商成功才交换；旧版或未支持的终端继续只有已发送／已送达，不断开连接、不改变长消息协商、Noise 握手或能力位。
 
 已读表示应用已在前台、有焦点的聊天中稳定显示对应文字，不保证对方理解了内容。进入可见区域至少一半（超长消息以半个视口为阈值）并稳定停留至少250毫秒才计入。后台收到、通知预览、锁屏、其他会话、屏外内容和快速滚动不会产生已读。它不是下载完成或文件已打开的证明；本轮文字回执不改变附件完成状态。
@@ -31,6 +33,8 @@ response = 0x5253 || SHA256(UTF8("wozai-read-receipt-v1\0response\0" + generatio
 策略epoch随本机开关变化而增加；READ/ACK必须同时匹配双方当前epoch和开关。队列在实际写出前再次检查。每个方向最多一批未确认阅读，重复待处理READ/ACK不重复排队到存储层，策略通知合并，防止控制记录造成无界待写任务。先读存储再确认，不以收到网络包冒充持久化成功。
 
 ## English
+
+Android Next 0.4.0-preview.16 also records read receipts for photos using the existing negotiation. A received photo thumbnail must meet the same foreground visibility and dwell rules. Transfer completion and viewing have separate acknowledgments. Older clients can still transfer photos. Photo read receipts depend on support at both endpoints.
 
 The native preview.3 implementation negotiates real **text-message** read receipts, enabled by default with an optional setting. Both peers must enable them on the current authenticated NIM4 chat connection. Unsupported/older peers retain sent/delivered states without changing the handshake, capability bits, text capacity, or connection mode. Dedicated FILE lanes reject the extension.
 

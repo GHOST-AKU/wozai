@@ -60,15 +60,16 @@ public final class ChatStore extends SQLiteOpenHelper {
         db.execSQL(StoreSchema.TOUCH_INSERT, new Object[]{peerId, name});
         db.execSQL(StoreSchema.TOUCH_UPDATE, new Object[]{name, peerId});
     }
-    public void save(String peerId, String name, Frame frame, boolean outgoing) {
+    public boolean save(String peerId, String name, Frame frame, boolean outgoing) {
         SQLiteDatabase db = getWritableDatabase(); db.beginTransaction();
+        boolean inserted = false;
         try {
             touch(peerId, name);
             ContentValues values = new ContentValues(); values.put("peer_id", peerId); values.put("id", frame.id); values.put("body", frame.body);
             values.put("outgoing", outgoing ? 1 : 0); values.put("state", outgoing ? PENDING : "");
             values.put("time", outgoing ? frame.timestamp : System.currentTimeMillis()); values.put("received", System.currentTimeMillis());
             // Constraint duplicates are benign; all other database failures propagate, preventing an ACK.
-            try { db.insertOrThrow("messages", null, values); }
+            try { db.insertOrThrow("messages", null, values); inserted = true; }
             catch (SQLiteConstraintException duplicate) {
                 try (Cursor existing = db.query("messages", new String[]{"body","attachment"}, "peer_id=? AND id=? AND outgoing=?",
                         new String[]{peerId, frame.id, outgoing ? "1" : "0"}, null, null, null)) {
@@ -77,6 +78,7 @@ public final class ChatStore extends SQLiteOpenHelper {
             }
             db.setTransactionSuccessful();
         } finally { db.endTransaction(); }
+        return inserted;
     }
     public void sent(String peerId,String messageId) {
         ContentValues values=new ContentValues();values.put("state","sent");
@@ -87,19 +89,44 @@ public final class ChatStore extends SQLiteOpenHelper {
         getWritableDatabase().update("messages", values, "peer_id=? AND id=? AND outgoing=1 AND state<>'read'", new String[]{peerId, messageId});
     }
     public void observed(String peer,List<String> ids){
-        SQLiteDatabase db=getWritableDatabase();db.beginTransaction();try{
-            for(String id:ids)db.execSQL("UPDATE messages SET state='read_pending' WHERE peer_id=? AND id=? COLLATE NOCASE AND outgoing=0 AND attachment IS NULL AND state NOT IN ('read_pending','read_notified')",new Object[]{peer,id});
-            db.setTransactionSuccessful();
-        }finally{db.endTransaction();}
+        markRead(peer, ids, false);
     }
     public List<String> pendingReads(String peer){
-        List<String> ids=new ArrayList<>();try(Cursor rows=getReadableDatabase().query("messages",new String[]{"lower(id) AS id"},"peer_id=? AND outgoing=0 AND attachment IS NULL AND state='read_pending'",new String[]{peer},"lower(id)",null,"MIN(rowid)", "32")){while(rows.moveToNext())ids.add(rows.getString(0));}return ids;
+        List<String> ids=new ArrayList<>();try(Cursor rows=getReadableDatabase().query("messages",new String[]{"lower(id) AS id"},"peer_id=? AND outgoing=0 AND state='read_pending'",new String[]{peer},"lower(id)",null,"MIN(rowid)", "32")){while(rows.moveToNext())ids.add(rows.getString(0));}return ids;
     }
     public void read(String peer,List<String> ids){
-        SQLiteDatabase db=getWritableDatabase();db.beginTransaction();try{
-            for(String id:ids)db.execSQL("UPDATE messages SET state='read' WHERE peer_id=? AND id=? COLLATE NOCASE AND outgoing=1 AND attachment IS NULL",new Object[]{peer,id});
+        markRead(peer, ids, true);
+    }
+    private void markRead(String peer, List<String> ids, boolean outgoing) {
+        SQLiteDatabase db = getWritableDatabase();
+        ContentValues read = new ContentValues();
+        read.put("state", outgoing ? "read" : "read_pending");
+        db.beginTransaction();
+        try {
+            for (String id : ids) {
+                String where = "peer_id=? AND id=? COLLATE NOCASE AND outgoing=? AND state NOT IN ('read','read_pending','read_notified')";
+                try (Cursor rows = db.query("messages", new String[]{"rowid","attachment"}, where,
+                        new String[]{peer,id,outgoing ? "1" : "0"}, null,null,null)) {
+                    List<String> matched = new ArrayList<>();
+                    while (rows.moveToNext()) {
+                        AttachmentRecord file = decodeAttachment(rows.getString(1));
+                        // The private chat receipt can arrive before COMPLETE on the separate file lane.
+                        if (file == null || photoCanBeRead(file))
+                            matched.add(rows.getString(0));
+                    }
+                    for (String row : matched) db.update("messages", read, "rowid=?", new String[]{row});
+                }
+            }
             db.setTransactionSuccessful();
-        }finally{db.endTransaction();}
+        } finally { db.endTransaction(); }
+    }
+    private static boolean photoCanBeRead(AttachmentRecord file) {
+        if (!file.info.isPreviewablePhoto()) return false;
+        if (!file.outgoing) return file.state.equals("received");
+        return switch (file.state) {
+            case "awaitingReceipt", "delivered", "checking", "paused" -> true;
+            default -> false;
+        };
     }
     public void readAcknowledged(String peer,List<String> ids){
         SQLiteDatabase db=getWritableDatabase();db.beginTransaction();try{
@@ -147,10 +174,11 @@ public final class ChatStore extends SQLiteOpenHelper {
             AttachmentRecord record=decodeAttachment(cursor.getString(0));AttachmentExportStore.requireComplete(record);return record;
         }
     }
-    public void attachment(String peer,String name,AttachmentRecord record){
+    public boolean attachment(String peer,String name,AttachmentRecord record){
+        boolean newlyReceived = !record.outgoing && record.state.equals("received");
         SQLiteDatabase db=getWritableDatabase();db.beginTransaction();try{
             touch(peer,name);ContentValues values=new ContentValues();values.put("attachment",encodeAttachment(record));values.put("state",record.outgoing?(record.state.equals("delivered")?DELIVERED:record.active()?PENDING:UNKNOWN):"");
-            try(Cursor cursor=db.query("messages",new String[]{"attachment"},"peer_id=? AND id=? AND outgoing=?",new String[]{peer,record.info.id,record.outgoing?"1":"0"},null,null,null)){
+            try(Cursor cursor=db.query("messages",new String[]{"attachment","state"},"peer_id=? AND id=? AND outgoing=?",new String[]{peer,record.info.id,record.outgoing?"1":"0"},null,null,null)){
                 if(cursor.moveToFirst()){
                     AttachmentRecord previous=decodeAttachment(cursor.getString(0));
                     if(previous!=null)try{
@@ -162,6 +190,8 @@ public final class ChatStore extends SQLiteOpenHelper {
                         values.put("attachment",encodeAttachment(record));
                     }catch(IOException invalid){throw new SQLiteException("Invalid attachment route");}
                     if(previous==null||!previous.mayReplace(record))throw new SQLiteException("Conflicting attachment ID");
+                    if (Set.of("read","read_pending","read_notified").contains(cursor.getString(1))) values.remove("state");
+                    newlyReceived &= !previous.state.equals("received");
                     db.update("messages",values,"peer_id=? AND id=? AND outgoing=?",new String[]{peer,record.info.id,record.outgoing?"1":"0"});
                 }else{
                     values.put("peer_id",peer);values.put("id",record.info.id);values.put("body",record.info.name);values.put("outgoing",record.outgoing?1:0);values.put("time",System.currentTimeMillis());values.put("received",System.currentTimeMillis());db.insertOrThrow("messages",null,values);
@@ -169,6 +199,7 @@ public final class ChatStore extends SQLiteOpenHelper {
             }
             db.setTransactionSuccessful();
         }finally{db.endTransaction();}
+        return newlyReceived;
     }
     public List<Message> messages(String peerId) {
         List<Message> list = new ArrayList<>();

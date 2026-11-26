@@ -36,6 +36,14 @@ val meshNotices by tasks.registering(Sync::class) {
     from(rootProject.file("LICENSE"))
     into(layout.buildDirectory.dir("generated/meshAssets/mesh-notices"))
 }
+val androidNotices by tasks.registering(Sync::class) {
+    from(rootProject.file("licenses")) {
+        include("noise-java-MIT.txt", "zxing-Apache-2.0.txt")
+    }
+    from(rootProject.file("docs/licenses/material-icons-LICENSE.txt"))
+    from(rootProject.file("licenses/Gradle-Apache-2.0.txt")) { rename { "Apache-2.0.txt" } }
+    into(layout.buildDirectory.dir("generated/androidNoticeAssets/open-source"))
+}
 
 android {
     namespace = "dev.ghost.nearbyim"
@@ -47,6 +55,10 @@ android {
         versionCode = (versions["buildNumber"] as Number).toInt()
         versionName = versions["appVersion"] as String
         ndk { abiFilters += "arm64-v8a" }
+    }
+    // Match the app language picker, including both Chinese script resources.
+    androidResources.localeFilters += (versions["languages"] as List<*>).map {
+        (it as Map<*, *>)["androidQualifier"] as String
     }
     buildFeatures { compose = true }
     compileOptions {
@@ -76,6 +88,7 @@ android {
         java.srcDir(layout.buildDirectory.dir("generated/meshJava"))
         jniLibs.srcDir(layout.buildDirectory.dir("generated/meshNative"))
         assets.srcDir(layout.buildDirectory.dir("generated/meshAssets"))
+        assets.srcDir(layout.buildDirectory.dir("generated/androidNoticeAssets"))
     }
     packaging { jniLibs {
         useLegacyPackaging = true
@@ -85,7 +98,8 @@ android {
     bundle { language { enableSplit = false } }
     testOptions {
         unitTests.isIncludeAndroidResources = true
-        unitTests.all { it.systemProperty("robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2") }
+        // The mirror serves the same Maven Central artifacts without the shared runner's direct Central rate limit.
+        unitTests.all { it.systemProperty("robolectric.dependency.repo.url", "https://maven-central.storage-download.googleapis.com/maven2") }
     }
 }
 kotlin { jvmToolchain(17) }
@@ -112,5 +126,5 @@ dependencies {
 }
 
 tasks.named("preBuild").configure {
-    dependsOn(meshJava, meshNative, meshNotices, ":app:checkI18n", ":app:checkAppIcons", ":app:checkQrArtifact")
+    dependsOn(meshJava, meshNative, meshNotices, androidNotices, ":app:checkI18n", ":app:checkAppIcons", ":app:checkQrArtifact")
 }

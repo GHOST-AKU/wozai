@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="next_licenses">开源许可证</string>
+    <string name="next_mesh_licenses">Mesh 依赖与许可证</string>
+    <string name="next_license_unavailable">无法读取此许可证</string>
+</resources>

@@ -13,6 +13,41 @@ class MeshPolicyTest {
         assertFalse(MeshText.valid(" \n "))
     }
 
+    @Test fun relayedMessageKeepsTheOriginalNicknameAndBody() {
+        val history = MeshHistory()
+        val body = "第一行\n[WoZai Mesh] 留在正文"
+        val signedBody = MeshText.withNickname(body, "小林 🐈")
+        history.receive("id", signedBody, listOf("origin", "relay", "local"), 12)
+        val received = history.messages.single()
+        assertEquals("小林 🐈", received.nickname)
+        assertEquals(body, received.body)
+        assertEquals("origin", received.origin)
+        assertEquals(2, received.hops)
+        history.queue("own", signedBody, "local", 13, "s1")
+        assertEquals(body, history.messages.last().body)
+        assertEquals("s1", history.messages.last().sendRequest)
+    }
+
+    @Test fun bareOrMalformedHeadersRemainVisibleAndUseTheOriginFallback() {
+        val history = MeshHistory()
+        for ((index, body) in listOf("regular message", "[WoZai Mesh] \nhello",
+                "[WoZai Mesh] bad\u202Ename\nhello", "[WoZai Mesh] name\n").withIndex()) {
+            history.receive(index.toString(), body, listOf("origin", "local"), 12)
+            assertNull(history.messages.last().nickname)
+            assertEquals(body, history.messages.last().body)
+        }
+        assertEquals("hello", MeshText.withNickname("hello", "invalid\nname"))
+    }
+
+    @Test fun multibyteNicknameIsIncludedInTheExistingWireBudget() {
+        val nickname = "中文😀"
+        val budget = MeshText.bodyLimit(nickname)
+        assertTrue(budget < MeshText.MAX_BODY)
+        assertTrue(MeshText.valid(MeshText.withNickname("a".repeat(budget), nickname)))
+        assertFalse(MeshText.valid(MeshText.withNickname("a".repeat(budget + 1), nickname)))
+        assertEquals(MeshText.MAX_BODY, MeshText.bodyLimit(""))
+    }
+
     @Test fun historyDeduplicatesFullIdsAndPreservesActualPath() {
         val history = MeshHistory()
         val first = "a".repeat(63) + "0"
@@ -42,6 +77,18 @@ class MeshPolicyTest {
         history.stop()
         assertEquals("stopped_unconfirmed", history.messages.first().state)
         assertEquals("expired", history.messages.last().state)
+    }
+
+    @Test fun stopAndRecreatedRuntimeRetainTimelineButFreshProcessStartsEmpty() {
+        val history = MeshHistory()
+        history.queue("own", "pending", "local", 1)
+        history.receive("incoming", "hello", listOf("sender", "local"), 2)
+        history.stop()
+        val recreated = MeshHistory(history.messages)
+        assertEquals(listOf("pending", "hello"), recreated.messages.map { it.body })
+        assertEquals("stopped_unconfirmed", recreated.messages.first().state)
+        assertEquals("received", recreated.messages.last().state)
+        assertTrue(MeshHistory().messages.isEmpty())
     }
 
     @Test fun staleGenerationCannotPublishAfterStopOrNewStart() {
