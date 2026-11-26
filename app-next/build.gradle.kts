@@ -98,7 +98,8 @@ android {
     bundle { language { enableSplit = false } }
     testOptions {
         unitTests.isIncludeAndroidResources = true
-        unitTests.all { it.systemProperty("robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2") }
+        // The mirror serves the same Maven Central artifacts without the shared runner's direct Central rate limit.
+        unitTests.all { it.systemProperty("robolectric.dependency.repo.url", "https://maven-central.storage-download.googleapis.com/maven2") }
     }
 }
 kotlin { jvmToolchain(17) }
