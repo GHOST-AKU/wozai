@@ -22,7 +22,6 @@ internal class MeshRuntime(
     initial: MeshSnapshot,
     private val update: (MeshSnapshot) -> Unit,
     private val terminal: () -> Unit,
-    private val received: () -> Unit = {},
 ) : AutoCloseable {
     private val generation = MeshGeneration()
     private val control = ThreadPoolExecutor(1, 1, 0, TimeUnit.MILLISECONDS,
@@ -40,6 +39,7 @@ internal class MeshRuntime(
     private var startedNanos = 0L
     private var publication = update
     private var termination = terminal
+    private var received: (MeshMessage) -> Unit = {}
 
     init {
         clock.scheduleWithFixedDelay({
@@ -62,12 +62,14 @@ internal class MeshRuntime(
     private var activeGeneration = 0L
 
     @Synchronized fun start(mode: String, relay: Boolean,
-        publication: (MeshSnapshot) -> Unit = update, termination: () -> Unit = terminal) {
+        publication: (MeshSnapshot) -> Unit = update, termination: () -> Unit = terminal,
+        received: (MeshMessage) -> Unit = {}) {
         if (closed) return
         val token = generation.next()
         // Invalidate old callbacks before replacing the service command's publication owner.
         this.publication = publication
         this.termination = termination
+        this.received = received
         activeGeneration = token
         tickPending.set(false)
         publish(token, snapshot.copy(running = false, starting = true, mode = mode, relay = relay,
@@ -202,7 +204,8 @@ internal class MeshRuntime(
             }
             is MeshEvent.Message -> {
                 if (event.path.last() != snapshot.localKey) { end("mesh_protocol_error", token, true); return }
-                if (history.receive(event.id, event.body, event.path, System.currentTimeMillis())) received()
+                val message = history.receive(event.id, event.body, event.path, System.currentTimeMillis())
+                if (message != null) generation.ifCurrent(token) { received(message) }
                 next = next.copy(messages = history.messages)
             }
             is MeshEvent.State -> {

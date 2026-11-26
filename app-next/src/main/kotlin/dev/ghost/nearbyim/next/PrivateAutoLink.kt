@@ -12,11 +12,15 @@ internal class PrivateAutoLink {
         private set
     val exhausted: Boolean get() = attempts >= 4
     private var ready = false
+    private var routes: Set<Int> = emptySet()
+    private var lanEndpoint = false
 
     fun select(peer: String?, local: String, now: Long) {
         if (this.peer == peer) return
         this.peer = peer
         ready = false
+        routes = emptySet()
+        lanEndpoint = false
         reset(now + if (peer != null && local > peer) 1_200 else 150)
     }
 
@@ -30,6 +34,20 @@ internal class PrivateAutoLink {
 
     fun resume(now: Long) {
         if (exhausted && !paused) reset(now + 750)
+    }
+
+    fun requestNow(now: Long) {
+        if (paused || exhausted) reset(now)
+        else nextAttempt = minOf(nextAttempt, now)
+    }
+
+    fun observeRoutes(available: Set<Int>, discoveredLan: Boolean, now: Long) {
+        if (!paused && available.isNotEmpty()) {
+            if (exhausted && (routes != available || discoveredLan && !lanEndpoint)) reset(now + 150)
+            else if (routes.isEmpty() && attempts > 0 || discoveredLan && !lanEndpoint) nextAttempt = minOf(nextAttempt, now + 150)
+        }
+        routes = available
+        lanEndpoint = discoveredLan
     }
 
     fun observeReady(connected: Boolean, now: Long) {

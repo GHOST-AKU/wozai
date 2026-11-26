@@ -13,22 +13,31 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import dev.ghost.nearbyim.AppLanguage
-import dev.ghost.nearbyim.MainActivity
 import dev.ghost.nearbyim.R
 import dev.ghost.nearbyim.next.MessageNotifications
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 /** Public reception can be restored by the opted-in foreground Activity; relay is separate. */
 class MeshService : Service() {
     private var runtime: MeshRuntime? = null
     private var ownerToken = -1L
     private val main = Handler(Looper.getMainLooper())
-    private val alertQueued = AtomicBoolean()
-    private fun received() {
-        if (alertQueued.compareAndSet(false, true)) main.postDelayed({
-            alertQueued.set(false)
-            if (MeshClient.isCurrent(ownerToken)) MessageNotifications.post(this, MessageNotifications.NEARBY)
-        }, 500)
+    private val pendingAlerts = ArrayDeque<Pair<Long, MeshMessage>>()
+    private fun received(token: Long, message: MeshMessage) {
+        synchronized(pendingAlerts) {
+            val scheduled = pendingAlerts.isNotEmpty()
+            if (pendingAlerts.size == 6) pendingAlerts.removeFirst()
+            pendingAlerts.addLast(token to message)
+            if (!scheduled) main.postDelayed(::flushAlerts, 500)
+        }
+    }
+    private fun flushAlerts() {
+        val batch = synchronized(pendingAlerts) { pendingAlerts.toList().also { pendingAlerts.clear() } }
+            .filter { (token, _) -> ownerToken == token && MeshClient.isCurrent(token) }
+        batch.forEachIndexed { index, (token, message) ->
+            MessageNotifications.post(this, MessageNotifications.NEARBY, message.nickname ?: message.origin.take(12),
+                message.body, message.id, meshToken = token, authorId = message.origin, alert = index == batch.lastIndex)
+        }
     }
 
     override fun attachBaseContext(base: Context) = super.attachBaseContext(AppLanguage.wrap(base))
@@ -50,16 +59,26 @@ class MeshService : Service() {
                 }
                 ownerToken = token
                 val active = runtime ?: MeshRuntime(MeshAndroidPlatform(this), MeshClient.state.value,
-                    {}, {}, ::received).also { runtime = it }
+                    {}, {}).also { runtime = it }
+                val lastCount = AtomicInteger(-2)
                 // Reuse one actor so teardown completes before another core opens mesh-v1.
-                active.start(mode, relay, { next -> MeshClient.publish(token, next) }, {
+                active.start(mode, relay, { next ->
+                    MeshClient.publish(token, next)
+                    val count = next.directDeviceCount ?: -1
+                    if (lastCount.getAndSet(count) != count) main.post {
+                        if (ownerToken == token && MeshClient.isCurrent(token)) {
+                            try { getSystemService(NotificationManager::class.java).notify(NOTIFICATION, notification(count)) }
+                            catch (_: SecurityException) { /* Reception can run without notification permission. */ }
+                        }
+                    }
+                }, {
                         main.post {
                             if (ownerToken == token && MeshClient.isCurrent(token)) {
                                 stopForeground(STOP_FOREGROUND_REMOVE)
                                 stopSelf()
                             }
                         }
-                    })
+                    }, received = { received(token, it) })
             }
             STOP -> {
                 MeshClient.stop(this)
@@ -84,17 +103,20 @@ class MeshService : Service() {
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(NotificationChannel(CHANNEL,
             getString(R.string.mesh_notification_channel), NotificationManager.IMPORTANCE_LOW))
-        val open = PendingIntent.getActivity(this, 41, Intent(this, MainActivity::class.java),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val stop = PendingIntent.getService(this, 42, Intent(this, MeshService::class.java).setAction(STOP),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val notification = Notification.Builder(this, CHANNEL).setSmallIcon(R.drawable.ic_app)
-            .setContentTitle(getString(R.string.mesh_notification_title))
-            .setContentText(getString(R.string.mesh_notification_text))
-            .setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true)
-            .addAction(Notification.Action.Builder(null, getString(R.string.mesh_stop), stop).build()).build()
+        val notification = notification(-1)
         if (Build.VERSION.SDK_INT >= 29) startForeground(NOTIFICATION, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
         else startForeground(NOTIFICATION, notification)
+    }
+
+    private fun notification(count: Int): Notification {
+        val open = MessageNotifications.open(this, MessageNotifications.NEARBY)
+        val stop = PendingIntent.getService(this, 42, Intent(this, MeshService::class.java).setAction(STOP),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        return Notification.Builder(this, CHANNEL).setSmallIcon(R.drawable.ic_app)
+            .setContentTitle(getString(R.string.mesh_notification_title))
+            .setContentText(if (count < 0) getString(R.string.mesh_starting) else getString(R.string.mesh_connected, count))
+            .setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true)
+            .addAction(Notification.Action.Builder(null, getString(R.string.mesh_stop), stop).build()).build()
     }
 
     override fun onDestroy() {

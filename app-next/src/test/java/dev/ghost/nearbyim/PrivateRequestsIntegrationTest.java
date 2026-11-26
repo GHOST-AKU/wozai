@@ -125,6 +125,18 @@ public class PrivateRequestsIntegrationTest {
             assertFalse("An unconfirmed message must hold the current link", controller.canYieldPrivateSession());
             remote.wire.acknowledge(received.id);
             await(controller::canYieldPrivateSession);
+            String generation = controller.privateProof(REMOTE).generation();
+            controller.selectConversation(new ChatStore.Conversation(OTHER, "Other contact", 0));
+            assertFalse(controller.replyFromNotification(OTHER, generation, "Wrong peer"));
+            assertFalse(controller.replyFromNotification(REMOTE, "old-session", "Stale notification"));
+            assertTrue(controller.replyFromNotification(REMOTE, generation, "Notification reply"));
+            await(() -> !remote.text.isEmpty());
+            Frame reply = remote.text.remove();
+            assertEquals("Notification reply", reply.body);
+            assertEquals(received.id, controller.savedMessageId);
+            assertEquals(OTHER, controller.selectedId);
+            remote.wire.acknowledge(reply.id);
+            await(controller::canYieldPrivateSession);
             controller.disconnectPrivately();
             await(() -> "peerEnded".equals(remote.closed.get()));
         }

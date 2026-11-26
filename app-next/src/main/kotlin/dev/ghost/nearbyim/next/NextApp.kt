@@ -38,6 +38,9 @@ fun NextApp(state: NextState, host: MainActivity, contentWindowInsets: WindowIns
     val preferences = remember(host) { host.getSharedPreferences("ui", 0) }
     var split by remember { mutableFloatStateOf(preferences.getFloat("nextPaneSplit", Float.NaN)) }
     val density = LocalDensity.current
+    val ime = WindowInsets.ime
+    val keyboardVisible by remember(ime, density) { derivedStateOf { ime.getBottom(density) > 0 } }
+    val nearbyTyping = page == 1 && keyboardVisible
     val direction = LocalLayoutDirection.current
     val snackbar = remember { SnackbarHostState() }
     val showVerification = verificationPeer != null && verificationPeer == state.selectedId
@@ -93,7 +96,7 @@ fun NextApp(state: NextState, host: MainActivity, contentWindowInsets: WindowIns
             Scaffold(
                 snackbarHost = { SnackbarHost(snackbar) },
                 bottomBar = {
-                    if (!wide && !showChat && !showPrivateDevices && !showVerification) NavigationBar(
+                    if (!wide && !showChat && !showPrivateDevices && !showVerification && !nearbyTyping) NavigationBar(
                         modifier = Modifier.testTag("main-navigation"),
                         containerColor = MaterialTheme.colorScheme.surfaceContainer,
                         windowInsets = WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom),

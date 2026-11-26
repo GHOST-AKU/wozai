@@ -88,6 +88,31 @@ class NextUiTest {
 
     @Test fun phoneComposerTracksIme() = assertImeGeometry()
 
+    @Test fun nearbyComposerTracksImeInsteadOfTheBottomNavigation() {
+        val ime = mutableIntStateOf(0)
+        compose.activity.setContent {
+            NextTheme { NextApp(NextState(), compose.activity,
+                contentWindowInsets = WindowInsets(top = 24.dp, bottom = maxOf(24, ime.intValue).dp)) }
+        }
+        compose.onNodeWithText("附近").performClick()
+        fun input() = compose.onNode(hasSetTextAction()).fetchSemanticsNode().boundsInRoot
+        val before = input()
+        val density = compose.activity.resources.displayMetrics.density
+        fun setKeyboard(height: Int) = compose.runOnIdle {
+            ime.intValue = height
+            ViewCompat.dispatchApplyWindowInsets(compose.activity.window.decorView, WindowInsetsCompat.Builder()
+                .setInsets(WindowInsetsCompat.Type.ime(), Insets.of(0, 0, 0, (height * density).toInt()))
+                .setVisible(WindowInsetsCompat.Type.ime(), height > 0).build())
+        }
+        setKeyboard(300)
+        compose.waitForIdle()
+        val after = input()
+        assertTrue("Keyboard must lift the Nearby composer", before.bottom - after.bottom >= 190 * density)
+        compose.onNodeWithTag("main-navigation").assertDoesNotExist()
+        setKeyboard(0)
+        compose.onNodeWithTag("main-navigation").assertIsDisplayed()
+    }
+
     @Test
     @Config(qualifiers = "zh-rCN-w1280dp-h700dp")
     fun tabletComposerTracksImeWithoutChangingPane() = assertImeGeometry()

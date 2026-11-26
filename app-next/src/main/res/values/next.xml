@@ -51,4 +51,9 @@
     <string name="next_private_notification_body">收到一条私聊消息</string>
     <string name="next_nearby_notification_body">附近有新消息</string>
     <string name="next_safety_code">安全码</string>
+    <string name="next_notification_file">文件 · %1$s</string>
+    <string name="next_notification_mark_read">标为已读</string>
+    <string name="next_notification_reply">回复</string>
+    <string name="next_notification_reply_failed">未发送 · %1$s</string>
+    <string name="next_notification_reply_unavailable">会话已变化，请打开聊天后重试。</string>
 </resources>

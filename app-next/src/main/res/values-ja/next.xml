@@ -42,4 +42,9 @@
     <string name="next_private_notification_body">プライベートチャットに新着メッセージ</string>
     <string name="next_nearby_notification_body">近くに新着メッセージ</string>
     <string name="next_safety_code">安全コード</string>
+    <string name="next_notification_file">ファイル · %1$s</string>
+    <string name="next_notification_mark_read">既読にする</string>
+    <string name="next_notification_reply">返信</string>
+    <string name="next_notification_reply_failed">未送信 · %1$s</string>
+    <string name="next_notification_reply_unavailable">接続が変わりました。チャットを開いて返信してください。</string>
 </resources>

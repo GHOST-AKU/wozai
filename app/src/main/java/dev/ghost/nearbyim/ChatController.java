@@ -19,7 +19,7 @@ import java.util.concurrent.*;
 public final class ChatController implements TransportListener {
     public interface Hooks {
         void onChanged();
-        default void onIncomingMessage(String peer, String name) {}
+        default void onIncomingMessage(IncomingMessage message) {}
     }
     public final String localId;
     public String nickname;
@@ -34,6 +34,7 @@ public final class ChatController implements TransportListener {
     public String openedPrivateChat;
     private String openedPrivateGeneration;
     public record PrivateProof(String root, String generation) {}
+    public record IncomingMessage(String peer, String name, String id, String body, boolean attachment, String generation) {}
 
     public String savedMessageId, savedMessagePeer, savedMessageBody;
     public boolean savingMessage;
@@ -144,8 +145,14 @@ public final class ChatController implements TransportListener {
         },()->{readReceiptsEnabled=false;if(active!=null)active.setReadReceiptsEnabled(false);});changed();
     }
     public void observedMessages(String peer,List<String> ids){
-        if(!readReceiptsEnabled||peer==null||!Objects.equals(selectedId,peer)||ids.isEmpty())return;
-        FramedSession wire=active;if(wire!=null&&Objects.equals(connectedPeerId,peer)&&!wire.readReceiptsActive())return;
+        if (!Objects.equals(selectedId, peer)) return;
+        queueObserved(peer, ids);
+    }
+    public void observedNotification(String peer, String generation, List<String> ids) {
+        if (matchesNotificationSession(peer, generation)) queueObserved(peer, ids);
+    }
+    private void queueObserved(String peer, List<String> ids) {
+        if (peer == null || ids.isEmpty() || !canObserveMessages(peer)) return;
         long revision=readPolicyRevision;List<String> batch=new ArrayList<>(ids.subList(0,Math.min(32,ids.size())));
         db(()->{if(readReceiptsEnabled&&readPolicyRevision==revision)store.observed(peer,batch);},this::flushReadReceipts);
     }
@@ -296,7 +303,8 @@ public final class ChatController implements TransportListener {
             cancelOutgoing();
             if (!automatic) stopSearch(mode);
             status = UiText.of("connectionUnavailable");
-            fail(UiText.of("rememberedPeerNotFound"));
+            if (automatic) changed();
+            else fail(UiText.of("rememberedPeerNotFound"));
         };
         main.postDelayed(reconnectTimeout, 12000);
         if (!automatic || !lan.discovering()) {
@@ -483,10 +491,11 @@ public final class ChatController implements TransportListener {
             public void onText(Frame frame) { main.post(() -> {
                 if (active != reference[0] || remoteHello == null || !reference[0].isReady()) return;
                 String id = remoteHello.id, name = remoteHello.body;
+                String generation = reference[0].connectionGeneration();
                 boolean[] inserted = new boolean[1];
                 db(() -> inserted[0] = store.save(id, name, frame, false), () -> {
                     reference[0].acknowledge(frame.id);
-                    if (inserted[0]) hooks.onIncomingMessage(id, name);
+                    if (inserted[0]) hooks.onIncomingMessage(new IncomingMessage(id, name, frame.id, frame.body, false, generation));
                     refresh();
                 });
             }); }
@@ -626,7 +635,8 @@ public final class ChatController implements TransportListener {
                             if(!record.outgoing&&record.state.equals("received"))try{AttachmentLocations.get(applicationContext).saveReceived(hello.id,record,false);}catch(IOException exportFailure){main.post(()->{if(!destroyed)fail(UiText.of("receiveFolderFailed"));});}
                             main.post(()->{
                                 if(destroyed)return;
-                                if(newlyReceived)hooks.onIncomingMessage(hello.id,hello.body);
+                                if(newlyReceived)hooks.onIncomingMessage(new IncomingMessage(hello.id, hello.body, record.info.id,
+                                        record.info.name, true, wire.connectionGeneration()));
                                 refresh();
                             });
                         }
@@ -933,12 +943,24 @@ public final class ChatController implements TransportListener {
     }
     public boolean send(String body) {
         if (!canSend()) { fail(UiText.of("notConnected")); return false; }
+        return sendOnCurrentSession(body, true);
+    }
+    private boolean matchesNotificationSession(String peer, String generation) {
+        return generation != null && connected && Objects.equals(peer, connectedPeerId) && active != null &&
+                active.isReady() && generation.equals(active.connectionGeneration());
+    }
+    public boolean replyFromNotification(String peer, String generation, String body) {
+        return !savingMessage && matchesNotificationSession(peer, generation) &&
+                TextLimits.canSend(body, textLimit()) && sendOnCurrentSession(body, false);
+    }
+    private boolean sendOnCurrentSession(String body, boolean fromDraft) {
         Frame frame = new Frame(Frame.TEXT, UUID.randomUUID().toString(), body, System.currentTimeMillis());
         try { ProtocolV4.encode(frame,textLimit()); } catch (IOException e) { fail(UiText.of("invalidMessage")); return false; }
         FramedSession session = active; String peerId = remoteHello.id, name = remoteHello.body;
         savingMessage = true; changed();
         db(() -> store.save(peerId, name, frame, true), () -> {
-            savingMessage = false; savedMessageId = frame.id; savedMessagePeer = peerId; savedMessageBody = frame.body;
+            savingMessage = false;
+            if (fromDraft) { savedMessageId = frame.id; savedMessagePeer = peerId; savedMessageBody = frame.body; }
             if (!session.send(frame)) db(() -> store.uncertain(peerId), this::refresh);
             changed(); refresh();
         }, () -> savingMessage = false); return true;

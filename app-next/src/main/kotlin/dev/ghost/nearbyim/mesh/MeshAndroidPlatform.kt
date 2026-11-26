@@ -132,6 +132,7 @@ internal class MeshAndroidPlatform(context: Context) : MeshPlatform {
                 override fun onReceive(context: Context, intent: Intent) { trySend(Unit) }
             }
             val filter = IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED).apply {
+                addAction(android.net.wifi.WifiManager.WIFI_STATE_CHANGED_ACTION)
                 addAction(WifiAwareManager.ACTION_WIFI_AWARE_STATE_CHANGED)
                 addAction(LocationManager.MODE_CHANGED_ACTION)
             }

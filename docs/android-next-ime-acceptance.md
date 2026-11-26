@@ -1,5 +1,7 @@
 # Android Next IME regression (#94)
 
+Preview.17 adds coverage for the Nearby chat. Its compact navigation bar is hidden while the IME is visible so the Scaffold can apply the bottom keyboard inset to the composer. The navigation bar returns when the keyboard closes.
+
 ## Inset ownership
 
 `MainActivity` enables edge to edge; the manifest uses `adjustResize`.

@@ -112,7 +112,11 @@ class MainActivity : ComponentActivity() {
         override fun onServiceConnected(name: ComponentName, binder: IBinder) {
             val service = (binder as ChatService.LocalBinder).service()
             service.usePrivateRequestActions()
-            service.onIncomingMessages { peer, name -> MessageNotifications.post(service, peer, name) }
+            service.onIncomingMessages { message ->
+                val author = message.name().ifBlank { AndroidText.get(service, "unnamedDevice") }
+                val preview = if (message.attachment()) service.getString(R.string.next_notification_file, message.body()) else message.body()
+                MessageNotifications.post(service, message.peer(), author, preview, message.id(), generation = message.generation())
+            }
             controller = service.controller
             val peer = restoredPeer
             if (controller?.selectedId == null && peer != null)
@@ -279,7 +283,13 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.RESUMED) {
                 val radios = MeshAndroidPlatform.radioChanges(this@MainActivity).shareIn(this, SharingStarted.Eagerly, replay = 1)
-                launch { radios.collect { restorePrivateReception() } }
+                launch {
+                    radios.collect {
+                        autoLink.resume(SystemClock.uptimeMillis())
+                        restorePrivateReception()
+                        refresh()
+                    }
+                }
                 MeshClient.restoreReception(this@MainActivity, radios)
             }
         }
@@ -474,7 +484,7 @@ class MainActivity : ComponentActivity() {
         val root = savedRoot ?: proof?.root() ?: return
         val now = SystemClock.uptimeMillis()
         queuedText = ConnectAndSend(peer, root, proof?.generation().takeIf { savedRoot == null }, draft, now + 60_000)
-        if (!c.connecting && (autoLink.paused || autoLink.exhausted)) autoLink.reset(now)
+        if (!c.connecting) autoLink.requestNow(now)
         refresh()
     }
 
@@ -496,11 +506,15 @@ class MainActivity : ComponentActivity() {
 
     private fun automaticModes(c: ChatController, peer: String): List<Int> {
         val preferred = c.preferredMode(peer)
-        return listOf(preferred, if (preferred == Peer.LAN) Peer.BLUETOOTH else Peer.LAN).filter { mode ->
+        val first = if (hasLiveLanEndpoint(c, peer)) Peer.LAN else preferred
+        return listOf(first, if (first == Peer.LAN) Peer.BLUETOOTH else Peer.LAN).filter { mode ->
             PrivateReception.enabled(this, mode) && c.listening(mode) &&
                 (mode == Peer.LAN || c.trustedDevices.any { it.id == peer && it.bluetoothAddress != null })
         }
     }
+
+    private fun hasLiveLanEndpoint(c: ChatController, peer: String): Boolean =
+        c.searching(Peer.LAN) && c.peers.values.any { it.mode == Peer.LAN && it.peerId == peer }
 
     private fun stillPending(c: ChatController, request: ConnectAndSend, now: Long): Boolean =
         request.stillPending(autoLink.peer.takeIf { it == c.selectedId && it == draftPeer && !draftLoading },
@@ -511,6 +525,8 @@ class MainActivity : ComponentActivity() {
         val peer = autoLink.peer ?: return
         if (!resumed || c.selectedId != peer) return
         val now = SystemClock.uptimeMillis()
+        val modes = automaticModes(c, peer)
+        autoLink.observeRoutes(modes.toSet(), hasLiveLanEndpoint(c, peer), now)
         val here = c.connectionPeer() == peer
         val ready = here && c.connected
         autoLink.observeReady(ready, now)
@@ -530,7 +546,7 @@ class MainActivity : ComponentActivity() {
             if (!stillPending(c, it, now) || autoLink.paused || c.canSend()) now else it.expiresAt
         } ?: Long.MAX_VALUE
         if (!ready && !autoLink.paused && !autoLink.exhausted && pending == null &&
-            automaticModes(c, peer).any { c.canReconnectAutomatically(peer, it) }) {
+            modes.any { c.canReconnectAutomatically(peer, it) }) {
             whenToRun = minOf(whenToRun, maxOf(now, autoLink.nextAttempt))
         }
         if (whenToRun != Long.MAX_VALUE) main.postAtTime(privateWork, whenToRun)

@@ -42,4 +42,9 @@
     <string name="next_private_notification_body">New private chat message</string>
     <string name="next_nearby_notification_body">New message in Nearby</string>
     <string name="next_safety_code">Safety code</string>
+    <string name="next_notification_file">File · %1$s</string>
+    <string name="next_notification_mark_read">Mark as read</string>
+    <string name="next_notification_reply">Reply</string>
+    <string name="next_notification_reply_failed">Unsent · %1$s</string>
+    <string name="next_notification_reply_unavailable">The conversation changed. Open the chat to reply.</string>
 </resources>

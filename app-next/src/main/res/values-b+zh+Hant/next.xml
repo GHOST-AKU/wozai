@@ -42,4 +42,9 @@
     <string name="next_private_notification_body">收到一則私人聊天訊息</string>
     <string name="next_nearby_notification_body">附近有新訊息</string>
     <string name="next_safety_code">安全碼</string>
+    <string name="next_notification_file">檔案 · %1$s</string>
+    <string name="next_notification_mark_read">標為已讀</string>
+    <string name="next_notification_reply">回覆</string>
+    <string name="next_notification_reply_failed">未傳送 · %1$s</string>
+    <string name="next_notification_reply_unavailable">對話已變更，請開啟聊天後重試。</string>
 </resources>

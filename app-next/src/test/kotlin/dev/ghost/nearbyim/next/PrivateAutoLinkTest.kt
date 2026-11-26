@@ -4,6 +4,21 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class PrivateAutoLinkTest {
+    @Test fun newRouteCanWakeAnExhaustedLinkWithoutUndoingAnExplicitPause() {
+        val link = PrivateAutoLink()
+        link.select("peer", "local", 0)
+        link.observeRoutes(setOf(1), false, 0)
+        repeat(4) { link.attempted(500L + it * 100, 0) }
+        assertTrue(link.exhausted)
+        link.observeRoutes(setOf(1), true, 1000)
+        assertFalse(link.exhausted)
+        assertEquals(1150L, link.nextAttempt)
+        link.requestNow(1050)
+        assertEquals(1050L, link.nextAttempt)
+        link.pause()
+        link.observeRoutes(setOf(1, 2), true, 1100)
+        assertTrue(link.paused)
+    }
     @Test fun simultaneousOpenStaggersCallsAndBoundsRetries() {
         val lower = PrivateAutoLink()
         val higher = PrivateAutoLink()

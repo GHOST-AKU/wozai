@@ -42,4 +42,9 @@
     <string name="next_private_notification_body">새 비공개 채팅 메시지</string>
     <string name="next_nearby_notification_body">주변에 새 메시지가 있습니다</string>
     <string name="next_safety_code">안전 코드</string>
+    <string name="next_notification_file">파일 · %1$s</string>
+    <string name="next_notification_mark_read">읽음으로 표시</string>
+    <string name="next_notification_reply">답장</string>
+    <string name="next_notification_reply_failed">전송되지 않음 · %1$s</string>
+    <string name="next_notification_reply_unavailable">연결이 변경되었습니다. 채팅을 열고 다시 답장하세요.</string>
 </resources>

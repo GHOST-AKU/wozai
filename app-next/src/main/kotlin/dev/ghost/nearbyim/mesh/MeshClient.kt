@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -76,14 +77,26 @@ object MeshClient {
         context.stopService(Intent(context, MeshService::class.java))
     }
 
-    fun send(context: Context, text: String, nickname: String): String? {
+    fun send(context: Context, text: String, nickname: String): String? = send(context, text, nickname, null)
+
+    internal suspend fun reply(context: Context, text: String, nickname: String, token: Long?): Boolean {
+        if (token == null || !isCurrent(token)) return false
+        val request = send(context, text, nickname, token) ?: return false
+        return kotlinx.coroutines.withTimeoutOrNull(5_000) {
+            val result = state.first { snapshot -> !isCurrent(token) || !snapshot.running ||
+                snapshot.rejectedRequest == request || snapshot.messages.any { it.sendRequest == request } }
+            result.messages.any { it.sendRequest == request }
+        } ?: false
+    }
+
+    private fun send(context: Context, text: String, nickname: String, expected: Long?): String? {
         val body = MeshText.withNickname(text, nickname)
         if (text.isBlank() || !MeshText.validBody(body)) {
             synchronized(gate) { mutableState.value = mutableState.value.copy(error = "mesh_send_invalid") }
             return null
         }
         val sendRequest = synchronized(gate) { "s${++sendSequence}" }
-        return if (command(context, MeshService.SEND) {
+        return if (command(context, MeshService.SEND, expected) {
             putExtra(MeshService.TEXT, body)
             putExtra(MeshService.SEND_REQUEST, sendRequest)
         }) sendRequest else null
@@ -93,9 +106,9 @@ object MeshClient {
         command(context, MeshService.SET_RELAY) { putExtra(MeshService.RELAY, enabled) }
     }
 
-    private fun command(context: Context, action: String, extras: Intent.() -> Unit): Boolean {
+    private fun command(context: Context, action: String, expected: Long? = null, extras: Intent.() -> Unit): Boolean {
         val token = synchronized(gate) {
-            if (!mutableState.value.running) return false
+            if (!mutableState.value.running || expected != null && request != expected) return false
             request
         }
         val started = try {
